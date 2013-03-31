@@ -350,6 +350,7 @@ public class Benchmark {
                                                                                 TimeUnit.MILLISECONDS)
                                                           .setRequestFormatType(RequestFormatType.VOLDEMORT_V3)
                                                           .setBootstrapUrls(socketUrl);
+            // .enableDefaultClient(true);
 
             if(clientZoneId >= 0) {
                 clientConfig.setClientZoneId(clientZoneId);
@@ -372,7 +373,8 @@ public class Benchmark {
             StorageConfiguration conf = (StorageConfiguration) ReflectUtils.callConstructor(ReflectUtils.loadClass(storageEngineClass),
                                                                                             new Object[] { ServerTestUtils.getVoldemortConfig() });
 
-            StorageEngine<ByteArray, byte[], byte[]> engine = conf.getStore(TestUtils.makeStoreDefinition(DUMMY_DB));
+            StorageEngine<ByteArray, byte[], byte[]> engine = conf.getStore(TestUtils.makeStoreDefinition(DUMMY_DB),
+                                                                            TestUtils.makeSingleNodeRoutingStrategy());
             if(conf.getType().compareTo(ViewStorageConfiguration.TYPE_NAME) == 0) {
                 engine = new ViewStorageEngine(STORE_NAME,
                                                engine,

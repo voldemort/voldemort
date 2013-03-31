@@ -1,3 +1,18 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.client.rebalance;
 
 import java.io.StringReader;
@@ -6,8 +21,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
@@ -165,7 +180,8 @@ public class RebalancePartitionsInfo {
                                 replicaToAddPartition.get(replicaNum));
                 } else {
                     builder.put(unbalancedStore + "replicaToAddPartitionList"
-                                + Integer.toString(replicaNum), Lists.newArrayList());
+                                        + Integer.toString(replicaNum),
+                                Lists.newArrayList());
                 }
 
                 if(replicaToDeletePartition != null
@@ -175,7 +191,8 @@ public class RebalancePartitionsInfo {
                                 replicaToDeletePartition.get(replicaNum));
                 } else {
                     builder.put(unbalancedStore + "replicaToDeletePartitionList"
-                                + Integer.toString(replicaNum), Lists.newArrayList());
+                                        + Integer.toString(replicaNum),
+                                Lists.newArrayList());
                 }
             }
         }
@@ -261,7 +278,9 @@ public class RebalancePartitionsInfo {
     @Override
     public String toString() {
         StringBuffer sb = new StringBuffer();
-        sb.append("\nRebalancePartitionsInfo(" + getStealerId() + " <--- " + getDonorId() + " ");
+        sb.append("\nRebalancePartitionsInfo(" + getStealerId() + " ["
+                  + initialCluster.getNodeById(getStealerId()).getHost() + "] <--- " + getDonorId()
+                  + " [" + initialCluster.getNodeById(getDonorId()).getHost() + "] ");
 
         for(String unbalancedStore: storeToReplicaToAddPartitionList.keySet()) {
 

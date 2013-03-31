@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2012 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -39,6 +39,7 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
@@ -653,12 +654,12 @@ public class ServerTestUtils {
     public static AdminClient getAdminClient(Cluster cluster) {
 
         AdminClientConfig config = new AdminClientConfig();
-        return new AdminClient(cluster, config);
+        return new AdminClient(cluster, config, new ClientConfig());
     }
 
     public static AdminClient getAdminClient(String bootstrapURL) {
         AdminClientConfig config = new AdminClientConfig();
-        return new AdminClient(bootstrapURL, config);
+        return new AdminClient(bootstrapURL, config, new ClientConfig());
     }
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {
@@ -673,9 +674,25 @@ public class ServerTestUtils {
         }
     }
 
+    /**
+     * Starts a Voldemort server for testing purposes.
+     * 
+     * Unless the ports passed in via cluster are guaranteed to be available,
+     * this method is susceptible to BindExceptions in VoldemortServer.start().
+     * (And, there is no good way of guaranteeing that ports will be available,
+     * so...)
+     * 
+     * The method {@link ServerTestUtils#startVoldemortCluster} should be used
+     * in preference to this method.}
+     * 
+     * @param socketStoreFactory
+     * @param config
+     * @param cluster
+     * @return
+     */
     public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
                                                        VoldemortConfig config,
-                                                       Cluster cluster) {
+                                                       Cluster cluster) throws BindException {
 
         // TODO: Some tests that use this method fail intermittently with the
         // following output:
@@ -689,10 +706,19 @@ public class ServerTestUtils {
         // config, Cluster cluster) to understand how this error is possible,
         // and why it only happens intermittently.
         VoldemortServer server = new VoldemortServer(config, cluster);
-        server.start();
+        try {
+            server.start();
+        } catch(VoldemortException ve) {
+            if(ve.getCause() instanceof BindException) {
+                ve.printStackTrace();
+                throw new BindException(ve.getMessage());
+            } else {
+                throw ve;
+            }
+        }
 
         ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
-        // wait till server start or throw exception
+        // wait till server starts or throw exception
         return server;
     }
 
@@ -760,11 +786,13 @@ public class ServerTestUtils {
     }
 
     /**
-     * This method wraps up work that is done in many different tests to set up
-     * some number of Voldemort servers in a cluster. This method masks an
-     * intermittent TOCTOU problem with the ports identified by
+     * This method wraps up all of the work that is done in many different tests
+     * to set up some number of Voldemort servers in a cluster. This method
+     * masks an intermittent TOCTOU problem with the ports identified by
      * {@link #findFreePorts(int)} not actually being free when a server needs
-     * to bind to them.
+     * to bind to them. If this method returns, it will return a non-null
+     * cluster. This method is not guaranteed to return, but will likely
+     * eventually do so...
      * 
      * @param numServers
      * @param voldemortServers
@@ -778,6 +806,8 @@ public class ServerTestUtils {
      *         servers.
      * @throws IOException
      */
+    // TODO: numServers is likely not needed. If this method is refactored in
+    // the future, then try and drop the numServers argument.
     public static Cluster startVoldemortCluster(int numServers,
                                                 VoldemortServer[] voldemortServers,
                                                 int[][] partitionMap,

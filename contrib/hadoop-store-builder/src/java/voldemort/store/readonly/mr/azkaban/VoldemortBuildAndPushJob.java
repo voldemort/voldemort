@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -40,6 +40,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.log4j.Logger;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -98,10 +99,18 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private static final String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
 
+    // new properties for the push job
+
+    private final String hdfsFetcherPort;
+    private final String hdfsFetcherProtocol;
+
     /* Informed stuff */
     private final String informedURL = "http://informed.corp.linkedin.com/_post";
     private final List<Future> informedResults;
     private ExecutorService informedExecutor;
+
+    private String jsonKeyField;
+    private String jsonValueField;
 
     public VoldemortBuildAndPushJob(String name, Props props) {
         super(name);
@@ -134,6 +143,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         this.informedResults = Lists.newArrayList();
         this.informedExecutor = Executors.newFixedThreadPool(2);
 
+        this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
+        this.hdfsFetcherPort = props.getString("voldemort.fetcher.port", "50070");
+
+        log.info("voldemort.fetcher.protocol is set to : " + hdfsFetcherProtocol);
+        log.info("voldemort.fetcher.port is set to : " + hdfsFetcherPort);
+
         isAvroJob = props.getBoolean("build.type.avro", false);
 
         // Set default to false
@@ -161,6 +176,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         boolean build = props.getBoolean("build", true);
         boolean push = props.getBoolean("push", true);
 
+        jsonKeyField = props.getString("key.selection", null);
+        jsonValueField = props.getString("value.selection", null);
         if(build && push && dataDirs.size() != 1) {
             // Should have only one data directory ( which acts like the parent
             // directory to all
@@ -254,8 +271,15 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         String owners = props.getString("push.store.owners", "");
         String keySchema = "\n\t\t<type>json</type>\n\t\t<schema-info version=\"0\">"
                            + schema.getKeyType() + "</schema-info>\n\t";
+        if(jsonKeyField != null && jsonKeyField.length() > 0)
+            keySchema = "\n\t\t<type>json</type>\n\t\t<schema-info version=\"0\">"
+                        + schema.getKeyType().subtype(jsonKeyField) + "</schema-info>\n\t";
         String valSchema = "\n\t\t<type>json</type>\n\t\t<schema-info version=\"0\">"
                            + schema.getValueType() + "</schema-info>\n\t";
+
+        if(jsonValueField != null && jsonValueField.length() > 0)
+            valSchema = "\n\t\t<type>json</type>\n\t\t<schema-info version=\"0\">"
+                        + schema.getValueType().subtype(jsonValueField) + "</schema-info>\n\t";
 
         boolean hasCompression = false;
         if(props.containsKey("build.compress.value"))
@@ -295,10 +319,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // get store def from cluster
         log.info("Getting store definition from: " + url + " (node id " + this.nodeId + ")");
 
-        AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
+        AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
         try {
-            List<StoreDefinition> remoteStoreDefs = adminClient.getRemoteStoreDefList(this.nodeId)
-                                                               .getValue();
+            List<StoreDefinition> remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(this.nodeId)
+                                                                               .getValue();
             boolean foundStore = false;
 
             // go over all store defs and see if one has the same name as the
@@ -412,7 +436,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
                 log.info("Could not find store " + storeName
                          + " on Voldemort. Adding it to all nodes ");
-                adminClient.addStore(newStoreDef);
+                adminClient.storeMgmtOps.addStore(newStoreDef);
             }
 
             // don't use newStoreDef because we want to ALWAYS use the JSON
@@ -434,7 +458,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                                   valSchema)));
             cluster = adminClient.getAdminClientCluster();
         } finally {
-            adminClient.stop();
+            adminClient.close();
         }
     }
 
@@ -446,8 +470,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         URI uri = new URI(url);
         Path outputDir = new Path(props.getString("build.output.dir"), uri.getHost());
         Path inputPath = getInputPath();
-        String keySelection = props.getString("build.key.selection", null);
-        String valSelection = props.getString("build.value.selection", null);
+        String keySelection = props.getString("key.selection", null);
+        String valSelection = props.getString("value.selection", null);
         CheckSumType checkSumType = CheckSum.fromString(props.getString("checksum.type",
                                                                         CheckSum.toString(CheckSumType.MD5)));
         boolean saveKeys = props.getBoolean("save.keys", true);
@@ -632,10 +656,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // get store def from cluster
         log.info("Getting store definition from: " + url + " (node id " + this.nodeId + ")");
 
-        AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
+        AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
         try {
-            List<StoreDefinition> remoteStoreDefs = adminClient.getRemoteStoreDefList(this.nodeId)
-                                                               .getValue();
+            List<StoreDefinition> remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(this.nodeId)
+                                                                               .getValue();
             boolean foundStore = false;
 
             // go over all store defs and see if one has the same name as the
@@ -791,7 +815,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
                 log.info("Could not find store " + storeName
                          + " on Voldemort. Adding it to all nodes ");
-                adminClient.addStore(newStoreDef);
+                adminClient.storeMgmtOps.addStore(newStoreDef);
             }
 
             storeDefs = ImmutableList.of(VoldemortUtils.getStoreDef(VoldemortUtils.getStoreDefXml(storeName,
@@ -806,7 +830,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                                   valSchema)));
             cluster = adminClient.getAdminClientCluster();
         } finally {
-            adminClient.stop();
+            adminClient.close();
         }
     }
 

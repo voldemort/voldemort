@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc., 2009-2010 LinkedIn, Inc.
+ * Copyright 2009 Mustard Grain, Inc., 2009-2012 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -117,12 +117,12 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
                     if(logger.isDebugEnabled())
                         logger.debug("Verified previously unavailable node " + node.getId()
-                                     + ", will mark as available...");
+                                     + "is now available.");
 
                     nodeRecovered(node);
                 } catch(UnreachableStoreException e) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn("Node " + node.getId() + " still unavailable", e);
+                    if(logger.isDebugEnabled())
+                        logger.debug("Node " + node.getId() + " still unavailable.");
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.ERROR))
                         logger.error("Node " + node.getId() + " unavailable due to error", e);

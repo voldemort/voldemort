@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 LinkedIn, Inc
+ * Copyright 2010-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -29,6 +29,7 @@ import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Response;
 import voldemort.utils.Utils;
+import voldemort.versioning.ObsoleteVersionException;
 
 public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implements Action {
 
@@ -58,13 +59,18 @@ public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implem
                                           long requestTime,
                                           Pipeline pipeline,
                                           FailureDetector failureDetector) {
-        if(logger.isEnabledFor(Level.WARN)) {
-            if(e instanceof StoreTimeoutException)
+        if(e instanceof StoreTimeoutException || e instanceof ObsoleteVersionException
+           || e instanceof UnreachableStoreException) {
+            // Quietly mask all errors that are "expected" regularly.
+            if(logger.isEnabledFor(Level.DEBUG)) {
+                logger.debug("Error in " + pipeline.getOperation().getSimpleName() + " on node "
+                             + node.getId() + " (" + node.getHost() + ") : " + e.getMessage());
+            }
+        } else {
+            if(logger.isEnabledFor(Level.WARN)) {
                 logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
-                            + node.getId() + "(" + node.getHost() + ") : " + e.getMessage());
-            else
-                logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
-                            + node.getId() + "(" + node.getHost() + ")", e);
+                            + node.getId() + " (" + node.getHost() + ")", e);
+            }
         }
 
         if(e instanceof UnreachableStoreException) {

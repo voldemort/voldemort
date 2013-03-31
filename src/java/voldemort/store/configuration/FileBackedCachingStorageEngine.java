@@ -35,7 +35,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.store.StorageEngine;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
@@ -59,7 +59,8 @@ import voldemort.versioning.Versioned;
  * @author csoman
  * 
  */
-public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
+public class FileBackedCachingStorageEngine extends
+        AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
     private final static Logger logger = Logger.getLogger(FileBackedCachingStorageEngine.class);
     private static final CharSequence NEW_PROPERTY_SEPARATOR = "[name=";
@@ -67,12 +68,11 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
 
     private final String inputPath;
     private final String inputDirectory;
-    private final String name;
     private Map<String, String> metadataMap;
     private VectorClock cachedVersion = null;
 
     public FileBackedCachingStorageEngine(String name, String inputDirectory) {
-        this.name = name;
+        super(name);
         this.inputDirectory = inputDirectory;
         File directory = new File(this.inputDirectory);
         if(!directory.exists() && directory.canRead()) {
@@ -89,7 +89,7 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
     }
 
     private File getVersionFile() {
-        return new File(this.inputDirectory, this.name + ".version");
+        return new File(this.inputDirectory, getName() + ".version");
     }
 
     // Read the Vector clock stored in '${name}.version' file
@@ -106,7 +106,7 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
             }
             return this.cachedVersion;
         } catch(Exception e) {
-            throw new VoldemortException("Failed to read Version for file :" + this.name, e);
+            throw new VoldemortException("Failed to read Version for file :" + getName(), e);
         }
     }
 
@@ -121,7 +121,7 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
             }
         } catch(Exception e) {
             throw new VoldemortException("Failed to write Version for the current file :"
-                                         + this.name, e);
+                                         + getName(), e);
         }
     }
 
@@ -190,33 +190,28 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
         }
     }
 
-    public String getName() {
-        return this.name;
-    }
-
-    public void close() throws VoldemortException {}
-
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         throw new VoldemortException("No extra capability.");
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         return new FileBackedStorageIterator(this.metadataMap, this);
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys() {
         return StoreUtils.keys(entries());
     }
 
+    @Override
     public void truncate() {
         throw new VoldemortException("Truncate not supported in FileBackedCachingStorageEngine");
     }
 
-    public boolean isPartitionAware() {
-        return false;
-    }
-
     // Assigning new Vector clock here: TODO: Decide what vector clock to use ?
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         String keyString = new String(key.get());
@@ -230,6 +225,7 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
         return found;
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -243,6 +239,7 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
         return result;
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         List<Versioned<byte[]>> values = get(key, null);
         List<Version> versions = new ArrayList<Version>(values.size());
@@ -252,6 +249,7 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
         return versions;
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
@@ -262,7 +260,7 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
             if(value.getVersion().compare(clock) == Occurred.BEFORE) {
                 throw new ObsoleteVersionException("A successor version " + clock + "  to this "
                                                    + value.getVersion()
-                                                   + " exists for the current file : " + this.name);
+                                                   + " exists for the current file : " + getName());
             } else if(value.getVersion().compare(clock) == Occurred.CONCURRENTLY) {
                 throw new ObsoleteVersionException("Concurrent Operation not allowed on Metadata.");
             }
@@ -278,6 +276,7 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
         writeVersion((VectorClock) value.getVersion());
     }
 
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         boolean deleteSuccessful = false;
         StoreUtils.assertValidKey(key);
@@ -307,10 +306,12 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
             storageEngineRef = storageEngine;
         }
 
+        @Override
         public boolean hasNext() {
             return iterator.hasNext();
         }
 
+        @Override
         public Pair<ByteArray, Versioned<byte[]>> next() {
             Entry<String, String> entry = iterator.next();
             Pair<ByteArray, Versioned<byte[]>> nextValue = null;
@@ -325,12 +326,23 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
             return nextValue;
         }
 
+        @Override
         public void remove() {
             throw new UnsupportedOperationException("No removal y'all.");
         }
 
+        @Override
         public void close() {}
 
     }
 
+    @Override
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    @Override
+    public ClosableIterator<ByteArray> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based keys scan not supported for this storage type");
+    }
 }

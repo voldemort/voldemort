@@ -30,7 +30,9 @@ import org.apache.commons.io.IOUtils;
 
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Zone;
+import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.cluster.failuredetector.ThresholdFailureDetector;
 import voldemort.common.VoldemortOpCode;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
@@ -47,36 +49,43 @@ import voldemort.utils.Utils;
 public class ClientConfig {
 
     private volatile int maxConnectionsPerNode = 50;
-    private volatile int maxTotalConnections = 500;
-    private volatile int maxThreads = 5;
-    private volatile int maxQueuedRequests = 50;
-    private volatile long threadIdleMs = 100000;
     private volatile long connectionTimeoutMs = 500;
     private volatile long socketTimeoutMs = 5000;
     private volatile boolean socketKeepAlive = false;
     private volatile int selectors = 8;
-    private volatile long routingTimeoutMs = 15000;
+    private volatile long routingTimeoutMs = 5000;
     private volatile TimeoutConfig timeoutConfig = new TimeoutConfig(routingTimeoutMs, false);
     private volatile int socketBufferSize = 64 * 1024;
     private volatile SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private volatile List<String> bootstrapUrls = null;
     private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
-    private volatile boolean enableJmx = true;
     private volatile boolean enableLazy = true;
 
     private volatile boolean enablePipelineRoutedStore = true;
     private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
 
-    // Flag to control which store client to use. Default = Enhanced
-    private volatile boolean useDefaultClient = false;
+    /*
+     * The following are only used with a non pipe line routed, i.e non NIO
+     * based client
+     */
+    @Deprecated
+    private volatile int maxTotalConnections = 500;
+    @Deprecated
+    private volatile int maxThreads = 5;
+    @Deprecated
+    private volatile int maxQueuedRequests = 50;
+    @Deprecated
+    private volatile long threadIdleMs = 100000;
+
+    private volatile boolean useDefaultClient = true;
 
     private volatile String failureDetectorImplementation = FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME;
     private volatile long failureDetectorBannagePeriod = FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD;
     private volatile int failureDetectorThreshold = FailureDetectorConfig.DEFAULT_THRESHOLD;
     private volatile int failureDetectorThresholdCountMinimum = FailureDetectorConfig.DEFAULT_THRESHOLD_COUNT_MINIMUM;
-    private volatile long failureDetectorThresholdInterval = FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL;
-    private volatile long failureDetectorAsyncRecoveryInterval = FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL;
+    private volatile long failureDetectorThresholdIntervalMs = FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL;
+    private volatile long failureDetectorAsyncRecoveryIntervalMs = FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL;
     private volatile List<String> failureDetectorCatastrophicErrorTypes = FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES;
     private long failureDetectorRequestLengthThreshold = socketTimeoutMs;
 
@@ -91,11 +100,17 @@ public class ClientConfig {
 
     /* SystemStore client config */
     private volatile int sysMaxConnectionsPerNode = 2;
-    private volatile int sysRoutingTimeout = 5000;
-    private volatile int sysSocketTimeout = 5000;
-    private volatile int sysConnectionTimeout = 1500;
+    private volatile int sysRoutingTimeoutMs = 5000;
+    private volatile int sysSocketTimeoutMs = 5000;
+    private volatile int sysConnectionTimeoutMs = 1500;
     private volatile boolean sysEnableJmx = false;
     private volatile boolean sysEnablePipelineRoutedStore = true;
+
+    /* Voldemort client component config */
+    private volatile boolean enableJmx = true;
+    private volatile boolean enableCompressionLayer = true;
+    private volatile boolean enableSerializationLayer = true;
+    private volatile boolean enableInconsistencyResolvingLayer = true;
 
     public ClientConfig() {}
 
@@ -147,6 +162,9 @@ public class ClientConfig {
     public static final String SYS_SOCKET_TIMEOUT_MS = "sys_socket_timeout_ms";
     public static final String SYS_ENABLE_JMX = "sys_enable_jmx";
     public static final String SYS_ENABLE_PIPELINE_ROUTED_STORE = "sys_enable_pipeline_routed_store";
+    public static final String ENABLE_COMPRESSION_LAYER = "enable_compression_layer";
+    public static final String ENABLE_SERIALIZATION_LAYER = "enable_serialization_layer";
+    public static final String ENABLE_INCONSISTENCY_RESOLVING_LAYER = "enable_inconsistency_resolving_layer";
 
     /**
      * Instantiate the client config using a properties file
@@ -350,8 +368,27 @@ public class ClientConfig {
             this.setSysEnablePipelineRoutedStore(props.getBoolean(SYS_ENABLE_PIPELINE_ROUTED_STORE));
         }
 
+        if(props.containsKey(ENABLE_COMPRESSION_LAYER)) {
+            this.setEnableCompressionLayer(props.getBoolean(ENABLE_COMPRESSION_LAYER));
+        }
+
+        if(props.containsKey(ENABLE_SERIALIZATION_LAYER)) {
+            this.setEnableSerializationLayer(props.getBoolean(ENABLE_SERIALIZATION_LAYER));
+        }
+
+        if(props.containsKey(ENABLE_INCONSISTENCY_RESOLVING_LAYER)) {
+            this.setEnableInconsistencyResolvingLayer(props.getBoolean(ENABLE_INCONSISTENCY_RESOLVING_LAYER));
+        }
+
     }
 
+    /**
+     * Sets the maximum number of connections a system store client will create
+     * to a voldemort server
+     * 
+     * @param maxConnectionsPerNode
+     * @return
+     */
     private ClientConfig setSysMaxConnectionsPerNode(int maxConnectionsPerNode) {
         if(maxConnectionsPerNode <= 0)
             throw new IllegalArgumentException("Value must be greater than zero.");
@@ -363,45 +400,82 @@ public class ClientConfig {
         return this.sysMaxConnectionsPerNode;
     }
 
-    private ClientConfig setSysRoutingTimeout(int sysRoutingTimeout) {
-        if(sysRoutingTimeout <= 0)
+    /**
+     * Sets the routing layer timeout for the system store client.
+     * 
+     * @param sysRoutingTimeout
+     * @return
+     */
+    private ClientConfig setSysRoutingTimeout(int sysRoutingTimeoutMs) {
+        if(sysRoutingTimeoutMs <= 0)
             throw new IllegalArgumentException("Value must be greater than zero.");
-        this.sysRoutingTimeout = sysRoutingTimeout;
+        this.sysRoutingTimeoutMs = sysRoutingTimeoutMs;
         return this;
     }
 
     public int getSysRoutingTimeout() {
-        return this.sysRoutingTimeout;
+        return this.sysRoutingTimeoutMs;
     }
 
-    private ClientConfig setSysSocketTimeout(int sysSocketTimeout) {
-        if(sysSocketTimeout <= 0)
+    /**
+     * Sets the socket timeout (at the java.net layer) for the system store
+     * client
+     * 
+     * @param sysSocketTimeout
+     * @return
+     */
+    private ClientConfig setSysSocketTimeout(int sysSocketTimeoutMs) {
+        if(sysSocketTimeoutMs <= 0)
             throw new IllegalArgumentException("Value must be greater than zero.");
-        this.sysSocketTimeout = sysSocketTimeout;
+        this.sysSocketTimeoutMs = sysSocketTimeoutMs;
         return this;
     }
 
     public int getSysSocketTimeout() {
-        return this.sysSocketTimeout;
+        return this.sysSocketTimeoutMs;
     }
 
-    private ClientConfig setSysConnectionTimeout(int sysConnectionTimeout) {
-        if(sysConnectionTimeout <= 0)
+    /**
+     * Amount of time in ms spent trying to establish a connection to voldemort
+     * servers, from the system store client
+     * 
+     * @param sysConnectionTimeoutMs
+     * @return
+     */
+    private ClientConfig setSysConnectionTimeout(int sysConnectionTimeoutMs) {
+        if(sysConnectionTimeoutMs <= 0)
             throw new IllegalArgumentException("Value must be greater than zero.");
-        this.sysConnectionTimeout = sysConnectionTimeout;
+        this.sysConnectionTimeoutMs = sysConnectionTimeoutMs;
         return this;
     }
 
     public int getSysConnectionTimeout() {
-        return this.sysConnectionTimeout;
+        return this.sysConnectionTimeoutMs;
+    }
+
+    /**
+     * Whether or not JMX monitoring is enabled for the system store
+     * 
+     * @param sysEnableJmx
+     * @return
+     */
+    public ClientConfig setSysEnableJmx(boolean sysEnableJmx) {
+        this.sysEnableJmx = sysEnableJmx;
+        return this;
     }
 
     public boolean getSysEnableJmx() {
         return this.sysEnableJmx;
     }
 
-    public ClientConfig setSysEnableJmx(boolean sysEnableJmx) {
-        this.sysEnableJmx = sysEnableJmx;
+    /**
+     * Should pipleline store be used by the system store client?
+     * 
+     * @param sysEnablePipelineRoutedStore
+     * @return
+     */
+    public ClientConfig setSysEnablePipelineRoutedStore(boolean sysEnablePipelineRoutedStore) {
+        this.sysEnablePipelineRoutedStore = sysEnablePipelineRoutedStore;
         return this;
     }
 
@@ -409,17 +483,15 @@ public class ClientConfig {
         return this.sysEnablePipelineRoutedStore;
     }
 
-    public ClientConfig setSysEnablePipelineRoutedStore(boolean sysEnablePipelineRoutedStore) {
-        this.sysEnablePipelineRoutedStore = sysEnablePipelineRoutedStore;
-        return this;
-    }
-
     public int getMaxConnectionsPerNode() {
         return maxConnectionsPerNode;
     }
 
     /**
-     * Set the maximum number of connection allowed to each voldemort node
+     * Set the maximum number of connections allowed to each voldemort node.
+     * Play with this value to determine how many connections are enough for
+     * your workload. Without high enough connections, you may not be able to
+     * throw enough traffic at the servers
      * 
      * @param maxConnectionsPerNode The maximum number of connections
      */
@@ -427,22 +499,6 @@ public class ClientConfig {
         if(maxConnectionsPerNode <= 0)
             throw new IllegalArgumentException("Value must be greater than zero.");
         this.maxConnectionsPerNode = maxConnectionsPerNode;
-        return this;
-    }
-
-    public int getMaxTotalConnections() {
-        return maxTotalConnections;
-    }
-
-    /**
-     * Set the maximum number of connections allowed to all voldemort nodes
-     * 
-     * @param maxTotalConnections The maximum total number of connections
-     */
-    public ClientConfig setMaxTotalConnections(int maxTotalConnections) {
-        if(maxTotalConnections <= 0)
-            throw new IllegalArgumentException("Value must be greater than zero.");
-        this.maxTotalConnections = maxTotalConnections;
         return this;
     }
 
@@ -467,6 +523,13 @@ public class ClientConfig {
         return socketKeepAlive;
     }
 
+    /**
+     * Enabled/disable SO_KEEPALIVE on the connection created with the voldemort
+     * servers
+     * 
+     * @param socketKeepAlive
+     * @return
+     */
     public ClientConfig setSocketKeepAlive(boolean socketKeepAlive) {
         this.socketKeepAlive = socketKeepAlive;
         return this;
@@ -476,6 +539,14 @@ public class ClientConfig {
         return selectors;
     }
 
+    /**
+     * Number of NIO selector threads to use, to handle communication with the
+     * server.Typically, this is same as the number of cores in the client
+     * machine
+     * 
+     * @param selectors
+     * @return
+     */
     public ClientConfig setSelectors(int selectors) {
         this.selectors = selectors;
         return this;
@@ -489,6 +560,12 @@ public class ClientConfig {
      * Set the timeout for all blocking operations to complete on all nodes. The
      * number of blocking operations can be configured using the preferred-reads
      * and preferred-writes configuration for the store.
+     * 
+     * See {@link #GETALL_ROUTING_TIMEOUT_MS_PROPERTY},
+     * {@link #GET_ROUTING_TIMEOUT_MS_PROPERTY},
+     * {@link #PUT_ROUTING_TIMEOUT_MS_PROPERTY},
+     * {@link #DELETE_ROUTING_TIMEOUT_MS_PROPERTY} to override timeouts for
+     * specific operations
      * 
      * @param routingTimeout The timeout for all operations to complete.
      * @param unit The time unit of the timeout value
@@ -553,35 +630,6 @@ public class ClientConfig {
      */
     public ClientConfig setConnectionTimeout(int connectionTimeout, TimeUnit unit) {
         this.connectionTimeoutMs = unit.toMillis(connectionTimeout);
-        return this;
-    }
-
-    public int getThreadIdleTime(TimeUnit unit) {
-        return toInt(unit.convert(threadIdleMs, TimeUnit.MILLISECONDS));
-    }
-
-    /**
-     * The amount of time to keep an idle client thread alive
-     * 
-     * @param threadIdleTime
-     */
-    public ClientConfig setThreadIdleTime(long threadIdleTime, TimeUnit unit) {
-        this.threadIdleMs = unit.toMillis(threadIdleTime);
-        return this;
-    }
-
-    public int getMaxQueuedRequests() {
-        return maxQueuedRequests;
-    }
-
-    /**
-     * Set the maximum number of queued node operations before client actions
-     * will be blocked
-     * 
-     * @param maxQueuedRequests The maximum number of queued requests
-     */
-    public ClientConfig setMaxQueuedRequests(int maxQueuedRequests) {
-        this.maxQueuedRequests = maxQueuedRequests;
         return this;
     }
 
@@ -663,8 +711,10 @@ public class ClientConfig {
 
     /**
      * Set the tier at which routing occurs. Client-side routing occurs on the
-     * client, and server-side routing on the server. This is not yet used, as
-     * the java client only supports client-side routing.
+     * client, and server-side routing on the server.
+     * 
+     * NOTE : Server side routing is not used, as yet. The java client only
+     * supports client-side routing.
      * 
      * @param routingTier The routing tier to use for routing requests
      */
@@ -684,6 +734,56 @@ public class ClientConfig {
      */
     public ClientConfig setMaxThreads(int maxThreads) {
         this.maxThreads = maxThreads;
+        return this;
+    }
+
+    @Deprecated
+    public int getMaxTotalConnections() {
+        return maxTotalConnections;
+    }
+
+    @Deprecated
+    public int getThreadIdleTime(TimeUnit unit) {
+        return toInt(unit.convert(threadIdleMs, TimeUnit.MILLISECONDS));
+    }
+
+    /**
+     * The amount of time to keep an idle client thread alive
+     * 
+     * @param threadIdleTime
+     */
+    @Deprecated
+    public ClientConfig setThreadIdleTime(long threadIdleTime, TimeUnit unit) {
+        this.threadIdleMs = unit.toMillis(threadIdleTime);
+        return this;
+    }
+
+    public int getMaxQueuedRequests() {
+        return maxQueuedRequests;
+    }
+
+    /**
+     * Set the maximum number of queued node operations before client actions
+     * will be blocked
+     * 
+     * @param maxQueuedRequests The maximum number of queued requests
+     */
+    public ClientConfig setMaxQueuedRequests(int maxQueuedRequests) {
+        this.maxQueuedRequests = maxQueuedRequests;
+        return this;
+    }
+
+    /**
+     * Set the maximum number of connections allowed to all voldemort nodes.
+     * Note: This has no effect when using NIO based pipeline routing
+     * 
+     * @param maxTotalConnections The maximum total number of connections
+     */
+    @Deprecated
+    public ClientConfig setMaxTotalConnections(int maxTotalConnections) {
+        if(maxTotalConnections <= 0)
+            throw new IllegalArgumentException("Value must be greater than zero.");
+        this.maxTotalConnections = maxTotalConnections;
         return this;
     }
 
@@ -719,6 +819,16 @@ public class ClientConfig {
         return this;
     }
 
+    /**
+     * Sets the zone the client belongs to. This is very important in zoned
+     * configurations since the client always has an "affinity" towards the
+     * servers in its zone.
+     * 
+     * Default : zone 0
+     * 
+     * @param clientZoneId
+     * @return
+     */
     public ClientConfig setClientZoneId(int clientZoneId) {
         this.clientZoneId = clientZoneId;
         return this;
@@ -728,6 +838,15 @@ public class ClientConfig {
         return this.clientZoneId;
     }
 
+    /**
+     * Whether or not a {@link ZenStoreClient} is created as opposed to a
+     * {@link DefaultStoreClient}
+     * 
+     * true = DefaultStoreClient and false = ZenStoreClient
+     * 
+     * @param enableDefault
+     * @return
+     */
     public ClientConfig enableDefaultClient(boolean enableDefault) {
         this.useDefaultClient = enableDefault;
         return this;
@@ -741,6 +860,13 @@ public class ClientConfig {
         return enablePipelineRoutedStore;
     }
 
+    /**
+     * Whether or not to use the Pipeline routing which is much more resource
+     * efficient by employing Java NIO to handle communication with the server
+     * 
+     * @param enablePipelineRoutedStore
+     * @return
+     */
     public ClientConfig setEnablePipelineRoutedStore(boolean enablePipelineRoutedStore) {
         this.enablePipelineRoutedStore = enablePipelineRoutedStore;
         return this;
@@ -750,6 +876,14 @@ public class ClientConfig {
         return failureDetectorImplementation;
     }
 
+    /**
+     * FailureDetector to use. Its highly recommended to use
+     * {@link ThresholdFailureDetector} as opposed to using
+     * {@link BannagePeriodFailureDetector}
+     * 
+     * @param failureDetectorImplementation
+     * @return
+     */
     public ClientConfig setFailureDetectorImplementation(String failureDetectorImplementation) {
         this.failureDetectorImplementation = failureDetectorImplementation;
         return this;
@@ -768,6 +902,14 @@ public class ClientConfig {
         return failureDetectorThreshold;
     }
 
+    /**
+     * Set the percentage of exceptions that tolerated in a given failure
+     * detector window. If the client experiences more exceptions than this
+     * threshold, it will mark the erring server down
+     * 
+     * @param failureDetectorThreshold
+     * @return
+     */
     public ClientConfig setFailureDetectorThreshold(int failureDetectorThreshold) {
         this.failureDetectorThreshold = failureDetectorThreshold;
         return this;
@@ -777,26 +919,49 @@ public class ClientConfig {
         return failureDetectorThresholdCountMinimum;
     }
 
+    /**
+     * Sets the minimum number of failures (exceptions/slow responses) in a
+     * given failure detector window, for a server to be marked down. Guards
+     * against a very small number of exceptions tripping the Failure detector
+     * due to low activity
+     * 
+     * @param failureDetectorThresholdCountMinimum
+     * @return
+     */
     public ClientConfig setFailureDetectorThresholdCountMinimum(int failureDetectorThresholdCountMinimum) {
         this.failureDetectorThresholdCountMinimum = failureDetectorThresholdCountMinimum;
         return this;
     }
 
     public long getFailureDetectorThresholdInterval() {
-        return failureDetectorThresholdInterval;
+        return failureDetectorThresholdIntervalMs;
     }
 
-    public ClientConfig setFailureDetectorThresholdInterval(long failureDetectorThresholdInterval) {
-        this.failureDetectorThresholdInterval = failureDetectorThresholdInterval;
+    /**
+     * Time window in ms, over which the failure detector accounts the failures
+     * and successes
+     * 
+     * @param failureDetectorThresholdIntervalMs
+     * @return
+     */
+    public ClientConfig setFailureDetectorThresholdInterval(long failureDetectorThresholdIntervalMs) {
+        this.failureDetectorThresholdIntervalMs = failureDetectorThresholdIntervalMs;
         return this;
     }
 
     public long getFailureDetectorAsyncRecoveryInterval() {
-        return failureDetectorAsyncRecoveryInterval;
+        return failureDetectorAsyncRecoveryIntervalMs;
     }
 
+    /**
+     * Number of milliseconds, to try to check if a marked down server has come
+     * back up again
+     * 
+     * @param failureDetectorAsyncRecoveryInterval
+     * @return
+     */
     public ClientConfig setFailureDetectorAsyncRecoveryInterval(long failureDetectorAsyncRecoveryInterval) {
-        this.failureDetectorAsyncRecoveryInterval = failureDetectorAsyncRecoveryInterval;
+        this.failureDetectorAsyncRecoveryIntervalMs = failureDetectorAsyncRecoveryInterval;
         return this;
     }
 
@@ -804,6 +969,15 @@ public class ClientConfig {
         return failureDetectorCatastrophicErrorTypes;
     }
 
+    /**
+     * Sets the exception types that should be treated as catastrophic,by the
+     * failure detector, resulting in the server being immediately considered
+     * down. Input string list should be populated by something like
+     * ConnectException.class.getName()
+     * 
+     * @param failureDetectorCatastrophicErrorTypes
+     * @return
+     */
     public ClientConfig setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
         this.failureDetectorCatastrophicErrorTypes = failureDetectorCatastrophicErrorTypes;
         return this;
@@ -813,6 +987,14 @@ public class ClientConfig {
         return failureDetectorRequestLengthThreshold;
     }
 
+    /**
+     * Sets the maximum amount of time a request is allowed to take, to be not
+     * considered as a "slow" request and count against the server, in terms of
+     * failure detection
+     * 
+     * @param failureDetectorRequestLengthThreshold
+     * @return
+     */
     public ClientConfig setFailureDetectorRequestLengthThreshold(long failureDetectorRequestLengthThreshold) {
         this.failureDetectorRequestLengthThreshold = failureDetectorRequestLengthThreshold;
         return this;
@@ -858,11 +1040,11 @@ public class ClientConfig {
     /**
      * Set the interval on which client checks for metadata change on servers
      * 
-     * @param asyncCheckMetadataInterval The metadata change interval
+     * @param asyncCheckMetadataIntervalMs The metadata change interval
      */
-    public ClientConfig setAsyncMetadataRefreshInMs(long asyncCheckMetadataInterval) {
+    public ClientConfig setAsyncMetadataRefreshInMs(long asyncCheckMetadataIntervalMs) {
 
-        this.asyncCheckMetadataIntervalInMs = asyncCheckMetadataInterval;
+        this.asyncCheckMetadataIntervalInMs = asyncCheckMetadataIntervalMs;
         return this;
     }
 
@@ -877,8 +1059,8 @@ public class ClientConfig {
      * @param clientRegistryRefreshIntervalInSecs The refresh interval in
      *        seconds
      */
-    public ClientConfig setClientRegistryUpdateIntervalInSecs(int clientRegistryRefrshInterval) {
-        this.clientRegistryRefreshIntervalInSecs = clientRegistryRefrshInterval;
+    public ClientConfig setClientRegistryUpdateIntervalInSecs(int clientRegistryRefrshIntervalInSecs) {
+        this.clientRegistryRefreshIntervalInSecs = clientRegistryRefrshIntervalInSecs;
         return this;
     }
 
@@ -894,5 +1076,41 @@ public class ClientConfig {
     public ClientConfig setAsyncJobThreadPoolSize(int asyncJobThreadPoolSize) {
         this.asyncJobThreadPoolSize = asyncJobThreadPoolSize;
         return this;
+    }
+
+    public boolean isEnableCompressionLayer() {
+        return enableCompressionLayer;
+    }
+
+    public ClientConfig setEnableCompressionLayer(boolean enableCompressionLayer) {
+        this.enableCompressionLayer = enableCompressionLayer;
+        return this;
+    }
+
+    public boolean isEnableSerializationLayer() {
+        return enableSerializationLayer;
+    }
+
+    public ClientConfig setEnableSerializationLayer(boolean enableSerializationLayer) {
+        this.enableSerializationLayer = enableSerializationLayer;
+        return this;
+    }
+
+    public boolean isEnableInconsistencyResolvingLayer() {
+        return enableInconsistencyResolvingLayer;
+    }
+
+    public ClientConfig setEnableInconsistencyResolvingLayer(boolean enableInconsistencyResolvingLayer) {
+        this.enableInconsistencyResolvingLayer = enableInconsistencyResolvingLayer;
+        return this;
+    }
+
+    public String toString() {
+        StringBuilder clientConfigInfo = new StringBuilder();
+        clientConfigInfo.append("Max connections per node: " + this.maxConnectionsPerNode + "\n");
+        clientConfigInfo.append("Connection timeout : " + this.connectionTimeoutMs + "\n");
+        clientConfigInfo.append("Socket timeout : " + this.socketTimeoutMs + "\n");
+        clientConfigInfo.append("Routing timeout : " + this.routingTimeoutMs + "\n");
+        return clientConfigInfo.toString();
     }
 }

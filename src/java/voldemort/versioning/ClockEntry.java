@@ -32,8 +32,16 @@ public final class ClockEntry implements Cloneable, Serializable {
 
     private static final long serialVersionUID = 1;
 
-    private final short nodeId;
-    private final long version;
+    private short nodeId;
+    private long version;
+
+    /**
+     * Default constructor
+     */
+    public ClockEntry() {
+        this.nodeId = -1;
+        this.version = -1;
+    }
 
     /**
      * Create a new Version from constituate parts
@@ -97,6 +105,14 @@ public final class ClockEntry implements Cloneable, Serializable {
     @Override
     public String toString() {
         return nodeId + ":" + version;
+    }
+
+    public void setNodeId(short nodeId) {
+        this.nodeId = nodeId;
+    }
+
+    public void setVersion(long version) {
+        this.version = version;
     }
 
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-#   Copyright 2008-2009 LinkedIn, Inc
+#   Copyright 2008-2013 LinkedIn, Inc
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -21,7 +21,10 @@ if [ $# -lt 1 ]; then
 	exit 1
 fi
 
-base_dir=$(dirname $0)/..
+script_path=$(readlink -f "$0")
+script_dir=`dirname "$script_path"`
+
+base_dir=`dirname "$script_dir"`
 
 for file in $base_dir/lib/*.jar;
 do
@@ -43,5 +46,8 @@ if [ -z "$VOLD_OPTS" ]; then
   VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote "
 fi
 
+# add '-Dlog4j.debug ' to debug log4j issues.
+LOG4JPROPERTIES="-Dlog4j.configuration=file:///${base_dir}/src/java/log4j.properties"
+
 export CLASSPATH
-java -Dlog4j.configuration=$base_dir/src/java/log4j.properties $VOLD_OPTS -cp $CLASSPATH $@
+java $LOG4JPROPERTIES $VOLD_OPTS -cp $CLASSPATH $@

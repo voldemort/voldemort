@@ -34,6 +34,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.Counters;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -69,6 +70,7 @@ public class HadoopStoreBuilder {
     public static final long MIN_CHUNK_SIZE = 1L;
     public static final long MAX_CHUNK_SIZE = (long) (1.9 * 1024 * 1024 * 1024);
     public static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
+    public static final short HADOOP_FILE_PERMISSION = 493;
 
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilder.class);
 
@@ -470,6 +472,8 @@ public class HadoopStoreBuilder {
                     logger.info("No data generated for node " + node.getId()
                                 + ". Generating empty folder");
                     outputFs.mkdirs(nodePath); // Create empty folder
+                    outputFs.setPermission(nodePath, new FsPermission(HADOOP_FILE_PERMISSION));
+                    logger.info("Setting permission to 755 for " + nodePath);
                 }
 
                 if(checkSumType != CheckSumType.NONE) {
@@ -518,7 +522,10 @@ public class HadoopStoreBuilder {
                 }
 
                 // Write metadata
-                FSDataOutputStream metadataStream = outputFs.create(new Path(nodePath, ".metadata"));
+                Path metadataPath = new Path(nodePath, ".metadata");
+                FSDataOutputStream metadataStream = outputFs.create(metadataPath);
+                outputFs.setPermission(metadataPath, new FsPermission(HADOOP_FILE_PERMISSION));
+                logger.info("Setting permission to 755 for " + metadataPath);
                 metadataStream.write(metadata.toJsonString().getBytes());
                 metadataStream.flush();
                 metadataStream.close();

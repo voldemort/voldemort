@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 LinkedIn, Inc
+ * Copyright 2012-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -72,6 +72,7 @@ import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.NodeUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
@@ -329,7 +330,7 @@ public class AdminRebalanceTest {
 
     public void shutDown() throws IOException {
         if(adminClient != null)
-            adminClient.stop();
+            adminClient.close();
         for(VoldemortServer server: servers) {
             if(server != null)
                 ServerTestUtils.stopVoldemortServer(server);
@@ -389,7 +390,7 @@ public class AdminRebalanceTest {
             }
 
             try {
-                adminClient.rebalanceNode(plans.get(0));
+                adminClient.rebalanceOps.rebalanceNode(plans.get(0));
                 fail("Should have thrown an exception since not in rebalancing state");
             } catch(VoldemortException e) {}
 
@@ -401,7 +402,7 @@ public class AdminRebalanceTest {
             }
 
             try {
-                adminClient.rebalanceNode(plans.get(0));
+                adminClient.rebalanceOps.rebalanceNode(plans.get(0));
                 fail("Should have thrown an exception since no steal info");
             } catch(VoldemortException e) {
 
@@ -409,9 +410,10 @@ public class AdminRebalanceTest {
 
             // Put a plan different from the plan that we actually want to
             // execute
+            int incorrectStealerId = (plans.get(0).getStealerId() + 1) % 3;
             getServer(plans.get(0).getStealerId()).getMetadataStore()
                                                   .put(MetadataStore.REBALANCING_STEAL_INFO,
-                                                       new RebalancerState(Lists.newArrayList(new RebalancePartitionsInfo(100,
+                                                       new RebalancerState(Lists.newArrayList(new RebalancePartitionsInfo(incorrectStealerId,
                                                                                                                           plans.get(0)
                                                                                                                                .getDonorId(),
                                                                                                                           plans.get(0)
@@ -423,7 +425,7 @@ public class AdminRebalanceTest {
                                                                                                                           0))));
 
             try {
-                adminClient.rebalanceNode(plans.get(0));
+                adminClient.rebalanceOps.rebalanceNode(plans.get(0));
                 fail("Should have thrown an exception since the two plans eventhough have the same donor are different");
             } catch(VoldemortException e) {
 
@@ -444,20 +446,20 @@ public class AdminRebalanceTest {
             // Actually run it
             try {
                 for(RebalancePartitionsInfo currentPlan: plans) {
-                    int asyncId = adminClient.rebalanceNode(currentPlan);
+                    int asyncId = adminClient.rebalanceOps.rebalanceNode(currentPlan);
 
                     // Try submitting the same job again, should throw
                     // AlreadyRebalancingException
                     try {
-                        adminClient.rebalanceNode(currentPlan);
+                        adminClient.rebalanceOps.rebalanceNode(currentPlan);
                         fail("Should have thrown an exception since it is already rebalancing");
                     } catch(AlreadyRebalancingException e) {}
 
                     assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
-                    getAdminClient().waitForCompletion(currentPlan.getStealerId(),
-                                                       asyncId,
-                                                       300,
-                                                       TimeUnit.SECONDS);
+                    getAdminClient().rpcOps.waitForCompletion(currentPlan.getStealerId(),
+                                                              asyncId,
+                                                              300,
+                                                              TimeUnit.SECONDS);
 
                     // Test that plan has been removed from the list
                     assertFalse(getServer(currentPlan.getStealerId()).getMetadataStore()
@@ -579,12 +581,12 @@ public class AdminRebalanceTest {
             // Actually run it
             try {
                 for(RebalancePartitionsInfo currentPlan: plans) {
-                    int asyncId = adminClient.rebalanceNode(currentPlan);
+                    int asyncId = adminClient.rebalanceOps.rebalanceNode(currentPlan);
                     assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
-                    getAdminClient().waitForCompletion(currentPlan.getStealerId(),
-                                                       asyncId,
-                                                       300,
-                                                       TimeUnit.SECONDS);
+                    getAdminClient().rpcOps.waitForCompletion(currentPlan.getStealerId(),
+                                                              asyncId,
+                                                              300,
+                                                              TimeUnit.SECONDS);
 
                     // Test that plan has been removed from the list
                     assertFalse(getServer(currentPlan.getStealerId()).getMetadataStore()
@@ -748,12 +750,12 @@ public class AdminRebalanceTest {
             // Actually run it
             try {
                 for(RebalancePartitionsInfo currentPlan: plans) {
-                    int asyncId = adminClient.rebalanceNode(currentPlan);
+                    int asyncId = adminClient.rebalanceOps.rebalanceNode(currentPlan);
                     assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
-                    getAdminClient().waitForCompletion(currentPlan.getStealerId(),
-                                                       asyncId,
-                                                       300,
-                                                       TimeUnit.SECONDS);
+                    getAdminClient().rpcOps.waitForCompletion(currentPlan.getStealerId(),
+                                                              asyncId,
+                                                              300,
+                                                              TimeUnit.SECONDS);
 
                     // Test that plan has been removed from the list
                     assertFalse(getServer(currentPlan.getStealerId()).getMetadataStore()
@@ -823,14 +825,14 @@ public class AdminRebalanceTest {
                                                                           .build()));
 
             try {
-                adminClient.rebalanceStateChange(cluster,
-                                                 targetCluster,
-                                                 plans,
-                                                 true,
-                                                 true,
-                                                 false,
-                                                 true,
-                                                 true);
+                adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                              targetCluster,
+                                                              plans,
+                                                              true,
+                                                              true,
+                                                              false,
+                                                              true,
+                                                              true);
                 fail("Should have thrown an exception since one node doesn't have the store");
             } catch(VoldemortException e) {}
 
@@ -842,14 +844,14 @@ public class AdminRebalanceTest {
             checkRO(cluster);
 
             // Test 2) All passes scenario
-            adminClient.rebalanceStateChange(cluster,
-                                             targetCluster,
-                                             plans,
-                                             true,
-                                             true,
-                                             false,
-                                             true,
-                                             true);
+            adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                          targetCluster,
+                                                          plans,
+                                                          true,
+                                                          true,
+                                                          false,
+                                                          true,
+                                                          true);
 
             checkRO(targetCluster);
 
@@ -866,11 +868,11 @@ public class AdminRebalanceTest {
 
             // Actually run it
             try {
-                int asyncId = adminClient.rebalanceNode(plans.get(0));
-                getAdminClient().waitForCompletion(plans.get(0).getStealerId(),
-                                                   asyncId,
-                                                   300,
-                                                   TimeUnit.SECONDS);
+                int asyncId = adminClient.rebalanceOps.rebalanceNode(plans.get(0));
+                getAdminClient().rpcOps.waitForCompletion(plans.get(0).getStealerId(),
+                                                          asyncId,
+                                                          300,
+                                                          TimeUnit.SECONDS);
                 fail("Should throw an exception");
             } catch(Exception e) {}
         } finally {
@@ -902,12 +904,12 @@ public class AdminRebalanceTest {
             // Actually run it
             try {
                 for(RebalancePartitionsInfo currentPlan: plans) {
-                    int asyncId = adminClient.rebalanceNode(currentPlan);
+                    int asyncId = adminClient.rebalanceOps.rebalanceNode(currentPlan);
                     assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
-                    getAdminClient().waitForCompletion(currentPlan.getStealerId(),
-                                                       asyncId,
-                                                       300,
-                                                       TimeUnit.SECONDS);
+                    getAdminClient().rpcOps.waitForCompletion(currentPlan.getStealerId(),
+                                                              asyncId,
+                                                              300,
+                                                              TimeUnit.SECONDS);
 
                     // Test that plan has been removed from the list
                     assertFalse(getServer(currentPlan.getStealerId()).getMetadataStore()
@@ -934,14 +936,14 @@ public class AdminRebalanceTest {
                                                           0));
 
             try {
-                adminClient.rebalanceStateChange(cluster,
-                                                 targetCluster,
-                                                 plans,
-                                                 true,
-                                                 true,
-                                                 true,
-                                                 true,
-                                                 true);
+                adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                              targetCluster,
+                                                              plans,
+                                                              true,
+                                                              true,
+                                                              true,
+                                                              true,
+                                                              true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -982,14 +984,14 @@ public class AdminRebalanceTest {
                                                                           .build()));
 
             try {
-                adminClient.rebalanceStateChange(cluster,
-                                                 targetCluster,
-                                                 plans,
-                                                 true,
-                                                 true,
-                                                 true,
-                                                 true,
-                                                 true);
+                adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                              targetCluster,
+                                                              plans,
+                                                              true,
+                                                              true,
+                                                              true,
+                                                              true,
+                                                              true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -1015,14 +1017,14 @@ public class AdminRebalanceTest {
                                                                  storeDef4));
 
             // Test 3) Everything should work
-            adminClient.rebalanceStateChange(cluster,
-                                             targetCluster,
-                                             plans,
-                                             true,
-                                             true,
-                                             true,
-                                             true,
-                                             true);
+            adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                          targetCluster,
+                                                          plans,
+                                                          true,
+                                                          true,
+                                                          true,
+                                                          true,
+                                                          true);
 
             List<Integer> nodesChecked = Lists.newArrayList();
             for(RebalancePartitionsInfo plan: plans) {
@@ -1035,7 +1037,7 @@ public class AdminRebalanceTest {
                              targetCluster);
             }
 
-            List<Integer> allNodes = Lists.newArrayList(RebalanceUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
@@ -1086,14 +1088,14 @@ public class AdminRebalanceTest {
             startFourNodeRW();
 
             // Test 1) Normal case where-in all are up
-            adminClient.rebalanceStateChange(cluster,
-                                             targetCluster,
-                                             plans,
-                                             false,
-                                             false,
-                                             true,
-                                             true,
-                                             true);
+            adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                          targetCluster,
+                                                          plans,
+                                                          false,
+                                                          false,
+                                                          true,
+                                                          true,
+                                                          true);
 
             List<Integer> nodesChecked = Lists.newArrayList();
             for(RebalancePartitionsInfo plan: plans) {
@@ -1102,7 +1104,7 @@ public class AdminRebalanceTest {
                              new RebalancerState(Lists.newArrayList(plan)));
             }
 
-            List<Integer> allNodes = Lists.newArrayList(RebalanceUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
@@ -1126,14 +1128,14 @@ public class AdminRebalanceTest {
                                                           0));
 
             try {
-                adminClient.rebalanceStateChange(cluster,
-                                                 targetCluster,
-                                                 plans,
-                                                 false,
-                                                 false,
-                                                 true,
-                                                 true,
-                                                 true);
+                adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                              targetCluster,
+                                                              plans,
+                                                              false,
+                                                              false,
+                                                              true,
+                                                              true,
+                                                              true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -1154,14 +1156,14 @@ public class AdminRebalanceTest {
             servers[3] = null;
 
             try {
-                adminClient.rebalanceStateChange(cluster,
-                                                 targetCluster,
-                                                 plans,
-                                                 false,
-                                                 false,
-                                                 true,
-                                                 true,
-                                                 true);
+                adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                              targetCluster,
+                                                              plans,
+                                                              false,
+                                                              false,
+                                                              true,
+                                                              true,
+                                                              true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -1185,14 +1187,14 @@ public class AdminRebalanceTest {
             startFourNodeRW();
 
             // Test 1) Normal case where-in all are up
-            adminClient.rebalanceStateChange(cluster,
-                                             targetCluster,
-                                             plans,
-                                             false,
-                                             true,
-                                             true,
-                                             true,
-                                             true);
+            adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                          targetCluster,
+                                                          plans,
+                                                          false,
+                                                          true,
+                                                          true,
+                                                          true,
+                                                          true);
 
             List<Integer> nodesChecked = Lists.newArrayList();
             for(RebalancePartitionsInfo plan: plans) {
@@ -1203,7 +1205,7 @@ public class AdminRebalanceTest {
                              targetCluster);
             }
 
-            List<Integer> allNodes = Lists.newArrayList(RebalanceUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
@@ -1228,14 +1230,14 @@ public class AdminRebalanceTest {
                                                           0));
 
             try {
-                adminClient.rebalanceStateChange(cluster,
-                                                 targetCluster,
-                                                 plans,
-                                                 false,
-                                                 true,
-                                                 true,
-                                                 true,
-                                                 true);
+                adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                              targetCluster,
+                                                              plans,
+                                                              false,
+                                                              true,
+                                                              true,
+                                                              true,
+                                                              true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -1257,14 +1259,14 @@ public class AdminRebalanceTest {
             servers[3] = null;
 
             try {
-                adminClient.rebalanceStateChange(cluster,
-                                                 targetCluster,
-                                                 plans,
-                                                 false,
-                                                 true,
-                                                 true,
-                                                 true,
-                                                 true);
+                adminClient.rebalanceOps.rebalanceStateChange(cluster,
+                                                              targetCluster,
+                                                              plans,
+                                                              false,
+                                                              true,
+                                                              true,
+                                                              true,
+                                                              true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -1309,7 +1311,9 @@ public class AdminRebalanceTest {
             generateROFiles(numChunks, 1200, 1000, tuples, tempDir);
 
             // Build for store one
-            adminClient.swapStore(entry.getKey(), storeDef.getName(), tempDir.getAbsolutePath());
+            adminClient.readonlyOps.swapStore(entry.getKey(),
+                                              storeDef.getName(),
+                                              tempDir.getAbsolutePath());
         }
     }
 

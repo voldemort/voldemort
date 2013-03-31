@@ -93,9 +93,12 @@ public class StreamingSlopPusherTest {
         }
     }
 
-    // This method may be susceptible to BindException issues due to TOCTOU
-    // problem with getLocalCluster.
-    private void startServers(int... nodeIds) {
+    // This method is susceptible to BindException issues due to TOCTOU
+    // problem with getLocalCluster. It is not obvious how to change this set of
+    // unit tests to better protect against BindException risk since subsets of
+    // servers are started and stopped. And, since there are multiple
+    // invocations of startServers within one test in some cases.
+    private void startServers(int... nodeIds) throws IOException {
         for(int nodeId: nodeIds) {
             if(nodeId < NUM_SERVERS) {
                 servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,

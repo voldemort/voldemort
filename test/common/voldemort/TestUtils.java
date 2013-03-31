@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,11 +17,14 @@
 package voldemort;
 
 import java.io.File;
+import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Random;
 import java.util.SortedSet;
@@ -30,12 +33,15 @@ import java.util.TreeSet;
 import junit.framework.AssertionFailedError;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * Helper utilities for tests
@@ -62,6 +68,16 @@ public class TestUtils {
         VectorClock clock = new VectorClock();
         increment(clock, nodes);
         return clock;
+    }
+
+    /**
+     * Helper method to construct Versioned byte value.
+     * 
+     * @param nodes See getClock method for explanation of this argument
+     * @return
+     */
+    public static Versioned<byte[]> getVersioned(byte[] value, int... nodes) {
+        return new Versioned<byte[]>(value, getClock(nodes));
     }
 
     /**
@@ -404,5 +420,37 @@ public class TestUtils {
                                    null,
                                    null,
                                    memFootprintMB);
+    }
+
+    /**
+     * Provides a routing strategy for local tests to work with
+     * 
+     * @return
+     */
+    public static RoutingStrategy makeSingleNodeRoutingStrategy() {
+        Cluster cluster = VoldemortTestConstants.getOneNodeCluster();
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getSingleStoreDefinitionsXml()));
+        return new RoutingStrategyFactory().updateRoutingStrategy(storeDefs.get(0), cluster);
+    }
+
+    /**
+     * Constructs a calendar object representing the given time
+     */
+    public static GregorianCalendar getCalendar(int year,
+                                                int month,
+                                                int day,
+                                                int hour,
+                                                int mins,
+                                                int secs) {
+        GregorianCalendar cal = new GregorianCalendar();
+        cal.set(Calendar.YEAR, year);
+        cal.set(Calendar.MONTH, month);
+        cal.set(Calendar.DATE, day);
+        cal.set(Calendar.HOUR_OF_DAY, hour);
+        cal.set(Calendar.MINUTE, mins);
+        cal.set(Calendar.SECOND, secs);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal;
     }
 }

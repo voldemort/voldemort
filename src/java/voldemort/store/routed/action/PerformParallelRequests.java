@@ -167,6 +167,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                     return;
             } else {
                 pipelineData.incrementSuccesses();
+
                 Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
                 pipelineData.getResponses().add(rCast);
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
@@ -232,5 +233,4 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
             }
         }
     }
-
 }

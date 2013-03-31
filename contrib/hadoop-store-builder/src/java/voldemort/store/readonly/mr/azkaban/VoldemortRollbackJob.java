@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -75,7 +76,9 @@ public class VoldemortRollbackJob extends AbstractJob {
             ExecutorService service = null;
             try {
                 service = Executors.newCachedThreadPool();
-                adminClient = new AdminClient(clusterUrl, new AdminClientConfig());
+                adminClient = new AdminClient(clusterUrl,
+                                              new AdminClientConfig(),
+                                              new ClientConfig());
                 Cluster cluster = adminClient.getAdminClientCluster();
                 AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
                                                                   service,
@@ -88,8 +91,8 @@ public class VoldemortRollbackJob extends AbstractJob {
                 // Get the current version for all stores on all nodes
                 Map<Integer, Map<String, Long>> previousVersions = Maps.newHashMap();
                 for(Node node: cluster.getNodes()) {
-                    Map<String, Long> currentVersion = adminClient.getROCurrentVersion(node.getId(),
-                                                                                       storeNames);
+                    Map<String, Long> currentVersion = adminClient.readonlyOps.getROCurrentVersion(node.getId(),
+                                                                                                   storeNames);
 
                     log.info("Retrieving current version information on node " + node.getId());
                     Map<String, Long> previousVersion = Maps.newHashMap();
@@ -123,7 +126,7 @@ public class VoldemortRollbackJob extends AbstractJob {
                     service = null;
                 }
                 if(adminClient != null) {
-                    adminClient.stop();
+                    adminClient.close();
                     adminClient = null;
                 }
             }

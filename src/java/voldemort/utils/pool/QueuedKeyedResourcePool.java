@@ -103,24 +103,17 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
 
         Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
         if(requestQueue.isEmpty()) {
-            // Optimistically attempt non-blocking checkout iff requestQueue is
-            // empty.
+            // Attempt non-blocking checkout iff requestQueue is empty.
+
             Pool<V> resourcePool = getResourcePoolForKey(key);
-            try {
-                attemptGrow(key, resourcePool);
-            } catch(Exception e) {
-                resourceRequest.handleException(e);
-                return;
-            }
-
             V resource = null;
-
             try {
-                resource = attemptCheckout(resourcePool);
+                resource = attemptNonBlockingCheckout(key, resourcePool);
             } catch(Exception e) {
                 destroyResource(key, resourcePool, resource);
                 resource = null;
                 resourceRequest.handleException(e);
+                return;
             }
             if(resource != null) {
                 resourceRequest.useResource(resource);
@@ -173,9 +166,9 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         V resource = null;
 
         try {
-            // Always attempt to grow to deal with destroyed resources.
-            attemptGrow(key, resourcePool);
-            resource = attemptCheckout(resourcePool);
+            // Must attempt non-blocking checkout to ensure resources are
+            // created for the pool.
+            resource = attemptNonBlockingCheckout(key, resourcePool);
         } catch(Exception e) {
             destroyResource(key, resourcePool, resource);
             resource = null;
@@ -250,11 +243,13 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * @param requestQueue The queue for which all resource requests are to be
      *        destroyed.
      */
-    private synchronized void destroyRequestQueue(Queue<AsyncResourceRequest<V>> requestQueue) {
-        AsyncResourceRequest<V> resourceRequest = requestQueue.poll();
-        while(resourceRequest != null) {
-            destroyRequest(resourceRequest);
-            resourceRequest = requestQueue.poll();
+    private void destroyRequestQueue(Queue<AsyncResourceRequest<V>> requestQueue) {
+        if(requestQueue != null) {
+            AsyncResourceRequest<V> resourceRequest = requestQueue.poll();
+            while(resourceRequest != null) {
+                destroyRequest(resourceRequest);
+                resourceRequest = requestQueue.poll();
+            }
         }
     }
 
@@ -278,25 +273,6 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     @Override
     public void close() {
         internalClose();
-    }
-
-    /**
-     * Reset a specific resource pool and resource request queue. First,
-     * "destroy" all registered resource requests. Second, destroy all resources
-     * in the pool.
-     * 
-     * @param key The key for the pool to reset.
-     */
-    @Override
-    public void reset(K key) {
-        // First, destroy enqueued resource requests (if any exist).
-        Queue<AsyncResourceRequest<V>> requestQueue = requestQueueMap.get(key);
-        if(requestQueue != null) {
-            destroyRequestQueue(requestQueue);
-        }
-
-        // Second, destroy resources in the pool.
-        super.reset(key);
     }
 
     /*
@@ -340,7 +316,9 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
                 // FYI: .size() is not constant time in the next call. ;)
                 return requestQueue.size();
             } catch(IllegalArgumentException iae) {
-                logger.debug("getRegisteredResourceRequestCount called on invalid key: ", iae);
+                if(logger.isDebugEnabled()) {
+                    logger.debug("getRegisteredResourceRequestCount called on invalid key: ", iae);
+                }
             }
         }
         return 0;

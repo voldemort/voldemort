@@ -26,6 +26,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -37,6 +38,7 @@ import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 
 import com.google.common.collect.Maps;
+import com.sleepycat.je.CacheMode;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseException;
@@ -107,11 +109,25 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Integer.toString(config.getBdbLogFaultReadSize()));
         environmentConfig.setConfigParam(EnvironmentConfig.LOG_ITERATOR_READ_SIZE,
                                          Integer.toString(config.getBdbLogIteratorReadSize()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_LAZY_MIGRATION,
+                                         Boolean.toString(config.getBdbCleanerLazyMigration()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_BACKGROUND_PROACTIVE_MIGRATION,
+                                         Boolean.toString(config.getBdbProactiveBackgroundMigration()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_BYTES_INTERVAL,
+                                         Long.toString(config.getBdbCleanerBytesInterval()));
 
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
+        if(config.getBdbCacheModeEvictLN()) {
+            environmentConfig.setCacheMode(CacheMode.EVICT_LN);
+        }
+        if(config.isBdbLevelBasedEviction()) {
+            environmentConfig.setConfigParam(EnvironmentConfig.EVICTOR_LRU_ONLY,
+                                             Boolean.toString(false));
+        }
+
         databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
-        databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
+        databaseConfig.setSortedDuplicates(false);
         databaseConfig.setNodeMaxEntries(config.getBdbBtreeFanout());
         databaseConfig.setTransactional(true);
         bdbMasterDir = config.getBdbDataDirectory();
@@ -119,17 +135,24 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         unreservedStores = new HashSet<Environment>();
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
         synchronized(lock) {
             try {
                 String storeName = storeDef.getName();
                 Environment environment = getEnvironment(storeDef);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
                 BdbRuntimeConfig runtimeConfig = new BdbRuntimeConfig(voldemortConfig);
-                BdbStorageEngine engine = new BdbStorageEngine(storeName,
-                                                               environment,
-                                                               db,
-                                                               runtimeConfig);
+                BdbStorageEngine engine = null;
+                if(voldemortConfig.getBdbPrefixKeysWithPartitionId()) {
+                    engine = new PartitionPrefixedBdbStorageEngine(storeName,
+                                                                   environment,
+                                                                   db,
+                                                                   runtimeConfig,
+                                                                   strategy);
+                } else {
+                    engine = new BdbStorageEngine(storeName, environment, db, runtimeConfig);
+                }
                 if(voldemortConfig.isJmxEnabled()) {
                     // register the environment stats mbean
                     JmxUtils.registerMbean(storeName, engine.getBdbEnvironmentStats());
@@ -292,22 +315,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 throw new VoldemortException(e);
             }
         }
-    }
-
-    @JmxOperation(description = "Obtain the number of k-v entries in the store")
-    public long getEntryCount(String storeName) throws Exception {
-        Environment storeEnv = environments.get(storeName);
-        if(storeEnv != null) {
-            Database storeDb = null;
-            try {
-                storeDb = storeEnv.openDatabase(null, storeName, databaseConfig);
-                return storeDb.count();
-            } finally {
-                if(storeDb != null)
-                    storeDb.close();
-            }
-        }
-        return 0;
     }
 
     public void close() {

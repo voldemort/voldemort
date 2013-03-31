@@ -33,6 +33,7 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreRequest;
 import voldemort.store.StoreUtils;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
@@ -212,7 +213,14 @@ public class PipelineRoutedStore extends RoutedStore {
 
     }
 
+    @Override
     public List<Versioned<byte[]>> get(final ByteArray key, final byte[] transforms) {
+        return get(key, transforms, timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_OP_CODE));
+    }
+
+    public List<Versioned<byte[]>> get(final ByteArray key,
+                                       final byte[] transforms,
+                                       final long getOpTimeout) {
         StoreUtils.assertValidKey(key);
 
         long startTimeMs = -1;
@@ -230,13 +238,12 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(null);
         pipelineData.setStats(stats);
 
-        final Pipeline pipeline = new Pipeline(Operation.GET,
-                                               timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_OP_CODE),
-                                               TimeUnit.MILLISECONDS);
+        final Pipeline pipeline = new Pipeline(Operation.GET, getOpTimeout, TimeUnit.MILLISECONDS);
         boolean allowReadRepair = repairReads && transforms == null;
 
         StoreRequest<List<Versioned<byte[]>>> blockingStoreRequest = new StoreRequest<List<Versioned<byte[]>>>() {
 
+            @Override
             public List<Versioned<byte[]>> request(Store<ByteArray, byte[], byte[]> store) {
                 return store.get(key, transforms);
             }
@@ -259,7 +266,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                                  failureDetector,
                                                                                                                                  storeDef.getPreferredReads(),
                                                                                                                                  storeDef.getRequiredReads(),
-                                                                                                                                 timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_OP_CODE),
+                                                                                                                                 getOpTimeout,
                                                                                                                                  nonblockingStores,
                                                                                                                                  Event.INSUFFICIENT_SUCCESSES,
                                                                                                                                  Event.INSUFFICIENT_ZONES));
@@ -280,7 +287,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                     new ReadRepair<BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                Event.COMPLETED,
                                                                                                storeDef.getPreferredReads(),
-                                                                                               timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_OP_CODE),
+                                                                                               getOpTimeout,
                                                                                                nonblockingStores,
                                                                                                readRepairer));
 
@@ -344,8 +351,18 @@ public class PipelineRoutedStore extends RoutedStore {
         return builder.toString();
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
+            throws VoldemortException {
+        return getAll(keys,
+                      transforms,
+                      timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE));
+    }
+
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms,
+                                                          long getAllOpTimeoutInMs)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
 
@@ -367,7 +384,7 @@ public class PipelineRoutedStore extends RoutedStore {
         pipelineData.setStats(stats);
 
         Pipeline pipeline = new Pipeline(Operation.GET_ALL,
-                                         timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE),
+                                         getAllOpTimeoutInMs,
                                          TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED,
                                 new GetAllConfigureNodes(pipelineData,
@@ -383,7 +400,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                 new PerformParallelGetAllRequests(pipelineData,
                                                                   Event.INSUFFICIENT_SUCCESSES,
                                                                   failureDetector,
-                                                                  timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE),
+                                                                  getAllOpTimeoutInMs,
                                                                   nonblockingStores));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialGetAllRequests(pipelineData,
@@ -401,7 +418,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                     new GetAllReadRepair(pipelineData,
                                                          Event.COMPLETED,
                                                          storeDef.getPreferredReads(),
-                                                         timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE),
+                                                         getAllOpTimeoutInMs,
                                                          nonblockingStores,
                                                          readRepairer));
 
@@ -451,6 +468,7 @@ public class PipelineRoutedStore extends RoutedStore {
         return builder.toString();
     }
 
+    @Override
     public List<Version> getVersions(final ByteArray key) {
         StoreUtils.assertValidKey(key);
 
@@ -474,6 +492,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
         StoreRequest<List<Version>> blockingStoreRequest = new StoreRequest<List<Version>>() {
 
+            @Override
             public List<Version> request(Store<ByteArray, byte[], byte[]> store) {
                 return store.getVersions(key);
             }
@@ -566,7 +585,15 @@ public class PipelineRoutedStore extends RoutedStore {
         return builder.toString();
     }
 
+    @Override
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
+        return delete(key,
+                      version,
+                      timeoutConfig.getOperationTimeout(VoldemortOpCode.DELETE_OP_CODE));
+    }
+
+    protected boolean delete(final ByteArray key, final Version version, long deleteOpTimeout)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
         long startTimeMs = -1;
@@ -582,12 +609,10 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(storeDef.getZoneCountWrites());
         else
             pipelineData.setZonesRequired(null);
-        pipelineData.setStoreName(name);
+        pipelineData.setStoreName(getName());
         pipelineData.setStats(stats);
 
-        Pipeline pipeline = new Pipeline(Operation.DELETE,
-                                         timeoutConfig.getOperationTimeout(VoldemortOpCode.DELETE_OP_CODE),
-                                         TimeUnit.MILLISECONDS);
+        Pipeline pipeline = new Pipeline(Operation.DELETE, deleteOpTimeout, TimeUnit.MILLISECONDS);
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
         HintedHandoff hintedHandoff = null;
@@ -598,7 +623,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                               nonblockingSlopStores,
                                               handoffStrategy,
                                               pipelineData.getFailedNodes(),
-                                              timeoutConfig.getOperationTimeout(VoldemortOpCode.DELETE_OP_CODE));
+                                              deleteOpTimeout);
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<Boolean, BasicPipelineData<Boolean>>(pipelineData,
@@ -616,7 +641,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                        failureDetector,
                                                                                                        storeDef.getPreferredWrites(),
                                                                                                        storeDef.getRequiredWrites(),
-                                                                                                       timeoutConfig.getOperationTimeout(VoldemortOpCode.DELETE_OP_CODE),
+                                                                                                       deleteOpTimeout,
                                                                                                        nonblockingStores,
                                                                                                        hintedHandoff,
                                                                                                        version));
@@ -709,8 +734,19 @@ public class PipelineRoutedStore extends RoutedStore {
 
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
             throws VoldemortException {
+        put(key,
+            versioned,
+            transforms,
+            timeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE));
+    }
+
+    public void put(ByteArray key,
+                    Versioned<byte[]> versioned,
+                    byte[] transforms,
+                    long putOpTimeoutInMs) throws VoldemortException {
 
         long startTimeMs = -1;
         long startTimeNs = -1;
@@ -727,12 +763,10 @@ public class PipelineRoutedStore extends RoutedStore {
         else
             pipelineData.setZonesRequired(null);
         pipelineData.setStartTimeNs(System.nanoTime());
-        pipelineData.setStoreName(name);
+        pipelineData.setStoreName(getName());
         pipelineData.setStats(stats);
 
-        Pipeline pipeline = new Pipeline(Operation.PUT,
-                                         timeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE),
-                                         TimeUnit.MILLISECONDS);
+        Pipeline pipeline = new Pipeline(Operation.PUT, putOpTimeoutInMs, TimeUnit.MILLISECONDS);
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
         HintedHandoff hintedHandoff = null;
@@ -748,7 +782,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                               nonblockingSlopStores,
                                               handoffStrategy,
                                               pipelineData.getFailedNodes(),
-                                              timeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE));
+                                              putOpTimeoutInMs);
 
         pipeline.addEventAction(Event.STARTED, configureNodes);
 
@@ -772,7 +806,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                failureDetector,
                                                                storeDef.getPreferredWrites(),
                                                                storeDef.getRequiredWrites(),
-                                                               timeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE),
+                                                               putOpTimeoutInMs,
                                                                nonblockingStores,
                                                                hintedHandoff));
         if(isHintedHandoffEnabled()) {
@@ -846,5 +880,28 @@ public class PipelineRoutedStore extends RoutedStore {
             throw exception;
 
         super.close();
+    }
+
+    @Override
+    public List<Versioned<byte[]>> get(CompositeVoldemortRequest<ByteArray, byte[]> request)
+            throws VoldemortException {
+        return get(request.getKey(), null, request.getRoutingTimeoutInMs());
+    }
+
+    @Override
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(CompositeVoldemortRequest<ByteArray, byte[]> request)
+            throws VoldemortException {
+        return getAll(request.getIterableKeys(), null, request.getRoutingTimeoutInMs());
+    }
+
+    @Override
+    public void put(CompositeVoldemortRequest<ByteArray, byte[]> request) throws VoldemortException {
+        put(request.getKey(), request.getValue(), null, request.getRoutingTimeoutInMs());
+    }
+
+    @Override
+    public boolean delete(CompositeVoldemortRequest<ByteArray, byte[]> request)
+            throws VoldemortException {
+        return delete(request.getKey(), request.getVersion(), request.getRoutingTimeoutInMs());
     }
 }

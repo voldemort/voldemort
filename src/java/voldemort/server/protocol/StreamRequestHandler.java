@@ -15,6 +15,8 @@ import voldemort.VoldemortException;
 
 public interface StreamRequestHandler {
 
+    public final static int STAT_RECORDS_INTERVAL = 100000;
+
     /**
      * Handles a "segment" of a streaming request.
      * 

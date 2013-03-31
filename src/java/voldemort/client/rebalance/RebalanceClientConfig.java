@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -24,13 +24,13 @@ import voldemort.utils.Props;
 public class RebalanceClientConfig extends AdminClientConfig {
 
     public final static int MAX_PARALLEL_REBALANCING = 1;
-    public final static int MAX_TRIES = 2;
+    public final static int MAX_TRIES_REBALANCING = 2;
     public final static long REBALANCING_CLIENT_TIMEOUT_SEC = 30 * 24 * 60 * 60;
     public final static int PRIMARY_PARTITION_BATCH_SIZE = 1;
     public final static boolean STEALER_BASED_REBALANCING = true;
 
     private int maxParallelRebalancing = MAX_PARALLEL_REBALANCING;
-    private int maxTriesRebalancing = MAX_TRIES;
+    private int maxTriesRebalancing = MAX_TRIES_REBALANCING;
     private long rebalancingClientTimeoutSeconds = REBALANCING_CLIENT_TIMEOUT_SEC;
     private int primaryPartitionBatchSize = PRIMARY_PARTITION_BATCH_SIZE;
     private boolean stealerBasedRebalancing = STEALER_BASED_REBALANCING;

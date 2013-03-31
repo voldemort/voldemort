@@ -66,6 +66,30 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
     public ClosableIterator<K> keys();
 
     /**
+     * Get an iterator over pairs of entries in a store's partition. The key is
+     * the first element in the pair and the versioned value is the second
+     * element.
+     * 
+     * Note that the iterator need not be threadsafe, and that it must be
+     * manually closed after use.
+     * 
+     * @param partition partition whose entries are to be fetched
+     * @return An iterator over the entries in this StorageEngine.
+     */
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition);
+
+    /**
+     * Get an iterator over keys in the store's partition
+     * 
+     * Note that the iterator need not be threadsafe, and that it must be
+     * manually closed after use.
+     * 
+     * @param partition partition whose keys are to be fetched
+     * @return An iterator over the keys in this StorageEngine.
+     */
+    public ClosableIterator<K> keys(int partition);
+
+    /**
      * Truncate all entries in the store
      */
     public void truncate();
@@ -78,4 +102,27 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
      */
     public boolean isPartitionAware();
 
+    /**
+     * Does the storage engine support efficient scanning of a single partition
+     * 
+     * @return true if the storage engine implements the capability. false
+     *         otherwise
+     */
+    public boolean isPartitionScanSupported();
+
+    /**
+     * A lot of storage engines support efficient methods for performing large
+     * number of writes (puts/deletes) against the data source. This method puts
+     * the storage engine in this batch write mode
+     * 
+     * @return true if the storage engine took successful action to switch to
+     *         'batch-write' mode
+     */
+    public boolean beginBatchModifications();
+
+    /**
+     * 
+     * @return true if the storage engine successfully returned to normal mode
+     */
+    public boolean endBatchModifications();
 }

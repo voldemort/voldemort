@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 import voldemort.VoldemortException;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.NoSuchCapabilityException;
-import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
@@ -39,9 +39,8 @@ import voldemort.versioning.Versioned;
  * knowledge of the serializer being used
  * 
  */
-public class NoopStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
+public class NoopStorageEngine extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
-    protected String name;
     protected boolean dataReflect;
     protected ByteArray key;
     protected Versioned<byte[]> value;
@@ -49,36 +48,38 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
     protected Map<ByteArray, List<Versioned<byte[]>>> dataMap = new MyMap();
 
     public NoopStorageEngine(String name, boolean reflect) {
-        this.name = name;
+        super(name);
         this.dataReflect = reflect;
     }
 
-    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
-        return null;
+    @Override
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
     }
 
-    public ClosableIterator<ByteArray> keys() {
-        return null;
+    @Override
+    public ClosableIterator<ByteArray> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
     }
 
-    public void truncate() {
-
-    }
-
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         return dataList;
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         return dataMap;
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         return StoreUtils.getVersions(get(key, null));
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
 
@@ -88,16 +89,12 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         }
     }
 
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         return true;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public void close() throws VoldemortException {}
-
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         throw new NoSuchCapabilityException(capability, getName());
     }
@@ -125,9 +122,5 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         public int size() {
             return value == null ? 0 : 1;
         }
-    }
-
-    public boolean isPartitionAware() {
-        return false;
     }
 }

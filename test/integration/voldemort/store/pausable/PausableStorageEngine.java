@@ -7,7 +7,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
-import voldemort.store.StorageEngine;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ClosableIterator;
@@ -25,7 +25,7 @@ import voldemort.versioning.Versioned;
  * @param <V> The type of the value
  * @param <T> The type of the transforms
  */
-public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
+public class PausableStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, T> {
 
     private static final Logger logger = Logger.getLogger(PausableStorageEngine.class);
 
@@ -34,14 +34,16 @@ public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
     private volatile boolean paused;
 
     public PausableStorageEngine(InMemoryStorageEngine<K, V, T> inner) {
-        super();
+        super(inner.getName());
         this.inner = inner;
     }
 
+    @Override
     public void close() throws VoldemortException {
         inner.close();
     }
 
+    @Override
     public boolean delete(K key, Version version) {
         blockIfNecessary();
         return inner.delete(key);
@@ -59,47 +61,63 @@ public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         }
     }
 
+    @Override
     public List<Versioned<V>> get(K key, T transforms) {
         blockIfNecessary();
         return inner.get(key, transforms);
     }
 
+    @Override
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms) {
         blockIfNecessary();
         return inner.getAll(keys, transforms);
     }
 
+    @Override
     public void put(K key, Versioned<V> value, T transforms) {
         blockIfNecessary();
         inner.put(key, value, transforms);
     }
 
+    @Override
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         blockIfNecessary();
         return inner.entries();
     }
 
+    @Override
     public ClosableIterator<K> keys() {
         blockIfNecessary();
         return inner.keys();
     }
 
+    @Override
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition) {
+        blockIfNecessary();
+        return inner.entries(partition);
+    }
+
+    @Override
+    public ClosableIterator<K> keys(int partition) {
+        blockIfNecessary();
+        return inner.keys(partition);
+    }
+
+    @Override
     public void truncate() {
         blockIfNecessary();
         inner.deleteAll();
     }
 
+    @Override
     public List<Version> getVersions(K key) {
         blockIfNecessary();
         return inner.getVersions(key);
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         return inner.getCapability(capability);
-    }
-
-    public String getName() {
-        return inner.getName();
     }
 
     @JmxOperation(description = "Pause all operations on the storage engine.")
@@ -117,7 +135,13 @@ public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         }
     }
 
+    @Override
     public boolean isPartitionAware() {
         return inner.isPartitionAware();
+    }
+
+    @Override
+    public boolean isPartitionScanSupported() {
+        return inner.isPartitionScanSupported();
     }
 }

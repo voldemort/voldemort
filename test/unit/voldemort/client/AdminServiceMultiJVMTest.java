@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -22,8 +22,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
@@ -43,8 +43,8 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.ServerJVMTestUtils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -97,7 +97,7 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
                                                                             storesXmlfile,
                                                                             cluster);
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
-        storeDef = RebalanceUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
+        storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
 
         pid = ServerJVMTestUtils.startServerJVM(socketStoreFactory,
                                                 cluster.getNodeById(0),
@@ -108,7 +108,7 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     @Override
     @After
     public void tearDown() throws IOException {
-        adminClient.stop();
+        adminClient.close();
         ServerJVMTestUtils.StopServerJVM(pid);
         FileUtils.deleteDirectory(new File(voldemortHome));
         socketStoreFactory.close();

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -43,6 +43,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -253,7 +254,8 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                                                              // verification of
                                                              // schema + pushing
                                                              adminClient = new AdminClient(url,
-                                                                                           new AdminClientConfig());
+                                                                                           new AdminClientConfig(),
+                                                                                           new ClientConfig());
 
                                                              // Verify the store
                                                              // exists ( If not,
@@ -309,7 +311,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                                                                           + url
                                                                           + "'");
 
-                                                                 Map<String, Long> pushVersions = adminClient.getROMaxVersion(Lists.newArrayList(storeName));
+                                                                 Map<String, Long> pushVersions = adminClient.readonlyOps.getROMaxVersion(Lists.newArrayList(storeName));
 
                                                                  if(pushVersions == null
                                                                     || !pushVersions.containsKey(storeName)) {
@@ -388,7 +390,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                                                                                                    TimeUnit.SECONDS);
                                                              }
                                                              if(adminClient != null) {
-                                                                 adminClient.stop();
+                                                                 adminClient.close();
                                                              }
                                                          }
                                                      }
@@ -431,7 +433,9 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
 
                 AdminClient adminClient = null;
                 try {
-                    adminClient = new AdminClient(cluster, new AdminClientConfig());
+                    adminClient = new AdminClient(cluster,
+                                                  new AdminClientConfig(),
+                                                  new ClientConfig());
                     for(final String storeName: storeNames) {
                         // Check if the [ cluster , store name ] succeeded. We
                         // need to roll it back
@@ -448,7 +452,9 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                                     log.info("Deleting data ( " + nodeDir
                                              + " ) for successful pushes to '" + clusterUrl
                                              + "' and store '" + storeName + "' and node " + nodeId);
-                                    adminClient.failedFetchStore(nodeId, storeName, nodeDir);
+                                    adminClient.readonlyOps.failedFetchStore(nodeId,
+                                                                             storeName,
+                                                                             nodeDir);
                                     log.info("Successfully deleted data for successful pushes to '"
                                              + clusterUrl + "' and store '" + storeName
                                              + "' and node " + nodeId);
@@ -464,7 +470,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                     }
                 } finally {
                     if(adminClient != null) {
-                        adminClient.stop();
+                        adminClient.close();
                     }
                 }
             }
@@ -500,7 +506,9 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                 String url = clusterUrls.get(index);
                 Cluster cluster = urlToCluster.get(url);
 
-                AdminClient adminClient = new AdminClient(cluster, new AdminClientConfig());
+                AdminClient adminClient = new AdminClient(cluster,
+                                                          new AdminClientConfig(),
+                                                          new ClientConfig());
 
                 log.info("Swapping all stores on cluster " + url);
                 try {
@@ -520,10 +528,10 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
 
                             previousNodeDirPerClusterStore.put(key,
                                                                Pair.create(node.getId(),
-                                                                           adminClient.swapStore(node.getId(),
-                                                                                                 storeName,
-                                                                                                 nodeDirPerClusterStore.get(key)
-                                                                                                                       .get(node.getId()))));
+                                                                           adminClient.readonlyOps.swapStore(node.getId(),
+                                                                                                             storeName,
+                                                                                                             nodeDirPerClusterStore.get(key)
+                                                                                                                                   .get(node.getId()))));
                             log.info("Successfully swapped '" + storeName + "' store on cluster "
                                      + url + " and node " + node.getId());
 
@@ -532,7 +540,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                     }
                 } finally {
                     if(adminClient != null) {
-                        adminClient.stop();
+                        adminClient.close();
                     }
                 }
             }
@@ -548,16 +556,18 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                 log.info("Rolling back for cluster " + url + " and store  "
                          + clusterStoreTuple.getSecond());
 
-                AdminClient adminClient = new AdminClient(cluster, new AdminClientConfig());
+                AdminClient adminClient = new AdminClient(cluster,
+                                                          new AdminClientConfig(),
+                                                          new ClientConfig());
                 try {
                     for(Pair<Integer, String> nodeToPreviousDir: nodeToPreviousDirs) {
                         log.info("Rolling back for cluster " + url + " and store "
                                  + clusterStoreTuple.getSecond() + " and node "
                                  + nodeToPreviousDir.getFirst() + " to dir "
                                  + nodeToPreviousDir.getSecond());
-                        adminClient.rollbackStore(nodeToPreviousDir.getFirst(),
-                                                  nodeToPreviousDir.getSecond(),
-                                                  ReadOnlyUtils.getVersionId(new File(nodeToPreviousDir.getSecond())));
+                        adminClient.readonlyOps.rollbackStore(nodeToPreviousDir.getFirst(),
+                                                              nodeToPreviousDir.getSecond(),
+                                                              ReadOnlyUtils.getVersionId(new File(nodeToPreviousDir.getSecond())));
                         log.info("Successfully rolled back for cluster " + url + " and store "
                                  + clusterStoreTuple.getSecond() + " and node "
                                  + nodeToPreviousDir.getFirst() + " to dir "
@@ -566,7 +576,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                     }
                 } finally {
                     if(adminClient != null) {
-                        adminClient.stop();
+                        adminClient.close();
                     }
                 }
             }
@@ -667,8 +677,8 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
         // get store def from cluster
         log.info("Getting store definition from: " + url + " ( node id " + this.nodeId + " )");
 
-        List<StoreDefinition> remoteStoreDefs = adminClient.getRemoteStoreDefList(this.nodeId)
-                                                           .getValue();
+        List<StoreDefinition> remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(this.nodeId)
+                                                                           .getValue();
         boolean foundStore = false;
 
         // go over all store defs and see if one has the same name as the store
@@ -771,7 +781,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
 
             log.info("Could not find store " + storeName
                      + " on Voldemort. Adding it to all nodes for cluster " + url);
-            adminClient.addStore(newStoreDef);
+            adminClient.storeMgmtOps.addStore(newStoreDef);
         }
 
         // don't use newStoreDef because we want to ALWAYS use the JSON

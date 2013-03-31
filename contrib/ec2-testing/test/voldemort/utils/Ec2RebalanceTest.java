@@ -1,3 +1,18 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.utils;
 
 import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
@@ -25,6 +40,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -40,6 +56,8 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 /**
  */
 public class Ec2RebalanceTest extends AbstractRebalanceTest {
+
+    private static int NUM_KEYS;
 
     private static final Logger logger = Logger.getLogger(Ec2RebalanceTest.class);
     private static Ec2RebalanceTestConfig ec2RebalanceTestConfig;
@@ -69,12 +87,19 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
     }
 
     @Override
+    protected int getNumKeys() {
+        return NUM_KEYS;
+    }
+
+    @Override
     protected Cluster getCurrentCluster(int nodeId) {
         String hostName = nodeIdsInv.get(nodeId);
         if(hostName == null) {
             throw new VoldemortException("Node id " + nodeId + " does not exist");
         } else {
-            AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
+            AdminClient adminClient = new AdminClient(hostName,
+                                                      new AdminClientConfig(),
+                                                      new ClientConfig());
             return adminClient.getAdminClientCluster();
         }
     }
@@ -85,8 +110,10 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         if(hostName == null) {
             throw new VoldemortException("Node id " + nodeId + " does not exist");
         } else {
-            AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
-            return adminClient.getRemoteServerState(nodeId).getValue();
+            AdminClient adminClient = new AdminClient(hostName,
+                                                      new AdminClientConfig(),
+                                                      new ClientConfig());
+            return adminClient.rebalanceOps.getRemoteServerState(nodeId).getValue();
         }
     }
 

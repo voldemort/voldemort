@@ -22,8 +22,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.GregorianCalendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -542,4 +544,46 @@ public class Utils {
         }
     }
 
+    /**
+     * Given a start time, computes the next time when the wallclock will reach
+     * a certain hour of the day, on a certain day of the week Eg: From today,
+     * when is the next Saturday, 12PM ?
+     * 
+     * @param startTime start time
+     * @param targetDay day of the week to choose
+     * @param targetHour hour of the day to choose
+     * @return calendar object representing the target time
+     */
+    public static GregorianCalendar getCalendarForNextRun(GregorianCalendar startTime,
+                                                          int targetDay,
+                                                          int targetHour) {
+        long startTimeMs = startTime.getTimeInMillis();
+        GregorianCalendar cal = new GregorianCalendar();
+        cal.setTimeInMillis(startTimeMs);
+
+        // adjust time to targetHour on startDay
+        cal.set(Calendar.HOUR_OF_DAY, targetHour);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+
+        // check if we are past the targetHour for the current day
+        if(cal.get(Calendar.DAY_OF_WEEK) != targetDay || cal.getTimeInMillis() < startTimeMs) {
+            do {
+                cal.add(Calendar.DAY_OF_YEAR, 1);
+            } while(cal.get(Calendar.DAY_OF_WEEK) != targetDay);
+        }
+        return cal;
+    }
+
+    /**
+     * Returns the day of week, 'nDays' from today
+     * 
+     * @return Calendar constant representing the day of the week
+     */
+    public static int getDayOfTheWeekFromNow(int nDays) {
+        GregorianCalendar cal = new GregorianCalendar();
+        cal.add(Calendar.DAY_OF_YEAR, nDays);
+        return cal.get(Calendar.DAY_OF_WEEK);
+    }
 }

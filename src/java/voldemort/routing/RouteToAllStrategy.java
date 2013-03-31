@@ -57,6 +57,16 @@ public class RouteToAllStrategy implements RoutingStrategy {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
+    /**
+     * Obtain the master partition for a given key
+     * 
+     * @param key
+     * @return
+     */
+    public Integer getMasterPartition(byte[] key) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
     public String getType() {
         return RoutingStrategyType.TO_ALL_STRATEGY;
     }

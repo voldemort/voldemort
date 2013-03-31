@@ -124,14 +124,12 @@ public class KeyedResourcePool<K, V> {
 
         long startNs = System.nanoTime();
         Pool<V> resourcePool = getResourcePoolForKey(key);
-        // Always attempt to grow. This protects against running out of
-        // resources because they were destroyed.
-        attemptGrow(key, resourcePool);
-
         V resource = null;
         try {
             checkNotClosed();
-            resource = attemptCheckout(resourcePool);
+            // Must attempt a non blocking checkout before blockingGet to ensure
+            // resources are created for the pool.
+            resource = attemptNonBlockingCheckout(key, resourcePool);
 
             if(resource == null) {
                 long timeRemainingNs = resourcePoolConfig.getTimeout(TimeUnit.NANOSECONDS)
@@ -155,23 +153,25 @@ public class KeyedResourcePool<K, V> {
     }
 
     /**
-     * Get a free resource if one exists. This method does not block. It either
-     * returns null or a resource.
+     * Get a free resource if one exists. If there are no free resources,
+     * attempt to create a new resource (up to the max allowed for the pool).
+     * This method does not block per se. However, creating a resource may be
+     * (relatively) expensive. This method either returns null or a resource.
+     * 
+     * This method is the only way in which new resources are created for the
+     * pool. So, non blocking checkouts must be attempted to populate the
+     * resource pool.
      */
-    protected V attemptCheckout(Pool<V> pool) throws Exception {
+    protected V attemptNonBlockingCheckout(K key, Pool<V> pool) throws Exception {
         V resource = pool.nonBlockingGet();
+        if(resource == null) {
+            while(pool.attemptGrow(key, this.objectFactory)) {
+                resource = pool.nonBlockingGet();
+                if(resource != null)
+                    break;
+            }
+        }
         return resource;
-    }
-
-    /**
-     * Attempt to create a new object and add it to the pool--this only happens
-     * if there is room for the new object. This method does not block. This
-     * method returns true if it adds a resource to the pool. (Returning true
-     * does not guarantee subsequent checkout will succeed because concurrent
-     * checkouts may occur.)
-     */
-    protected boolean attemptGrow(K key, Pool<V> pool) throws Exception {
-        return pool.attemptGrow(key, this.objectFactory);
     }
 
     /**
@@ -239,8 +239,6 @@ public class KeyedResourcePool<K, V> {
         }
     }
 
-    // This method may be made protected in the future for the benefit of
-    // classes which extend from KeyedResourcePool.
     protected boolean isOpenAndValid(K key, V resource) throws Exception {
         if(isOpen.get() && objectFactory.validate(key, resource)) {
             return true;
@@ -276,13 +274,13 @@ public class KeyedResourcePool<K, V> {
     }
 
     /**
-     * Reset a specific resource pool. Destroys all the resources in the pool.
-     * This method does not affect whether the pool is "open" in the sense of
-     * permitting new resources to be added to it.
+     * Reset a specific resource pool. Destroys all of the idle resources in the
+     * pool. This method does not affect whether the pool is "open" in the sense
+     * of permitting new resources to be added to it.
      * 
      * @param key The key for the pool to reset.
      */
-    public synchronized void reset(K key) {
+    public void reset(K key) {
         Pool<V> resourcePool = getResourcePoolForExistingKey(key);
         List<V> list = resourcePool.close();
         for(V value: list)
@@ -302,7 +300,9 @@ public class KeyedResourcePool<K, V> {
                 Pool<V> resourcePool = getResourcePoolForExistingKey(key);
                 return resourcePool.size.get();
             } catch(IllegalArgumentException iae) {
-                logger.debug("getTotalResourceCount called on invalid key: ", iae);
+                if(logger.isDebugEnabled()) {
+                    logger.debug("getTotalResourceCount called on invalid key: ", iae);
+                }
             }
         }
         return 0;
@@ -335,7 +335,9 @@ public class KeyedResourcePool<K, V> {
                 Pool<V> resourcePool = getResourcePoolForExistingKey(key);
                 return resourcePool.queue.size();
             } catch(IllegalArgumentException iae) {
-                logger.debug("getCheckedInResourceCount called on invalid key: ", iae);
+                if(logger.isDebugEnabled()) {
+                    logger.debug("getCheckedInResourceCount called on invalid key: ", iae);
+                }
             }
         }
         return 0;
@@ -368,7 +370,9 @@ public class KeyedResourcePool<K, V> {
                 Pool<V> resourcePool = getResourcePoolForExistingKey(key);
                 return resourcePool.blockingGets.get();
             } catch(IllegalArgumentException iae) {
-                logger.debug("getBlockingGetsCount called on invalid key: ", iae);
+                if(logger.isDebugEnabled()) {
+                    logger.debug("getBlockingGetsCount called on invalid key: ", iae);
+                }
             }
         }
         return 0;
@@ -442,10 +446,24 @@ public class KeyedResourcePool<K, V> {
                         if(!nonBlockingPut(resource)) {
                             this.size.decrementAndGet();
                             objectFactory.destroy(key, resource);
+                            if(logger.isInfoEnabled()) {
+                                logger.info("attemptGrow established new connection for key "
+                                            + key.toString()
+                                            + " and immediately destroyed the new connection "
+                                            + "because there were too many connections already established.");
+                            }
                             return false;
+                        }
+                        if(logger.isDebugEnabled()) {
+                            logger.debug("attemptGrow established new connection for key "
+                                         + key.toString() + ". "
+                                         + " After checking in to KeyedResourcePool, there are "
+                                         + queue.size() + " destinations checked in.");
                         }
                     }
                 } catch(Exception e) {
+                    // If nonBlockingPut throws an exception, then we could leak
+                    // the resource created by objectFactory.create().
                     this.size.decrementAndGet();
                     throw e;
                 }

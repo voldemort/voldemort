@@ -26,9 +26,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.NotThreadsafe;
-import voldemort.store.NoSuchCapabilityException;
-import voldemort.store.StorageEngine;
-import voldemort.store.StoreCapabilityType;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -43,22 +41,19 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
+public class InMemoryStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, T> {
 
     private final ConcurrentMap<K, List<Versioned<V>>> map;
-    private final String name;
 
     public InMemoryStorageEngine(String name) {
-        this.name = Utils.notNull(name);
+        super(name);
         this.map = new ConcurrentHashMap<K, List<Versioned<V>>>();
     }
 
     public InMemoryStorageEngine(String name, ConcurrentMap<K, List<Versioned<V>>> map) {
-        this.name = Utils.notNull(name);
+        super(name);
         this.map = Utils.notNull(map);
     }
-
-    public void close() {}
 
     public void deleteAll() {
         this.map.clear();
@@ -68,6 +63,7 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         return delete(key, null);
     }
 
+    @Override
     public boolean delete(K key, Version version) {
         StoreUtils.assertValidKey(key);
 
@@ -99,10 +95,12 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         }
     }
 
+    @Override
     public List<Version> getVersions(K key) {
         return StoreUtils.getVersions(get(key, null));
     }
 
+    @Override
     public List<Versioned<V>> get(K key, T transform) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         List<Versioned<V>> results = map.get(key);
@@ -114,12 +112,14 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         }
     }
 
+    @Override
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         return StoreUtils.getAll(this, keys, transforms);
     }
 
+    @Override
     public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
@@ -159,25 +159,30 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         }
     }
 
-    public Object getCapability(StoreCapabilityType capability) {
-        throw new NoSuchCapabilityException(capability, getName());
-    }
-
+    @Override
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         return new InMemoryIterator<K, V>(map);
     }
 
+    @Override
     public ClosableIterator<K> keys() {
         // TODO Implement more efficient version.
         return StoreUtils.keys(entries());
     }
 
-    public void truncate() {
-        map.clear();
+    @Override
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
     }
 
-    public String getName() {
-        return name;
+    @Override
+    public ClosableIterator<K> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
+    @Override
+    public void truncate() {
+        map.clear();
     }
 
     @Override
@@ -214,6 +219,7 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
             this.iterator = map.entrySet().iterator();
         }
 
+        @Override
         public boolean hasNext() {
             return hasNextInCurrentValues() || iterator.hasNext();
         }
@@ -227,6 +233,7 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
             return Pair.create(currentKey, item);
         }
 
+        @Override
         public Pair<K, Versioned<V>> next() {
             if(hasNextInCurrentValues()) {
                 return nextInCurrentValues();
@@ -253,17 +260,15 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
             }
         }
 
+        @Override
         public void remove() {
             throw new UnsupportedOperationException("No removal y'all.");
         }
 
+        @Override
         public void close() {
-        // nothing to do here
+            // nothing to do here
         }
 
-    }
-
-    public boolean isPartitionAware() {
-        return false;
     }
 }

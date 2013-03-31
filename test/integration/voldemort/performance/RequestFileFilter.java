@@ -1,12 +1,12 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
- *
+ * Copyright 2008-2013 LinkedIn, Inc
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,10 +16,19 @@
 
 package voldemort.performance;
 
-import com.google.common.base.Joiner;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.List;
+import java.util.Set;
+
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -33,14 +42,13 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Utils;
 
-import java.io.*;
-import java.util.List;
-import java.util.Set;
+import com.google.common.base.Joiner;
 
 /**
  * Filter a request file for keys that are mastered by a specified node.
  */
 public class RequestFileFilter {
+
     private final StoreDefinition storeDefinition;
     private final RoutingStrategy routingStrategy;
     private final String inputFile;
@@ -62,7 +70,6 @@ public class RequestFileFilter {
         this.stringKeys = stringKeys;
     }
 
-
     // TODO: support keys other than integer or string, general cleanup
     public void filter() throws IOException {
         SerializerFactory factory = new DefaultSerializerFactory();
@@ -73,7 +80,7 @@ public class RequestFileFilter {
         BufferedWriter out = new BufferedWriter(new FileWriter(outputFile));
         try {
             String line = null;
-            while ((line = in.readLine()) != null) {
+            while((line = in.readLine()) != null) {
                 String keyStr = line.replaceAll("\\s+$", "");
                 Object key = null;
                 if(stringKeys) {
@@ -83,7 +90,7 @@ public class RequestFileFilter {
                 }
                 byte[] keyBytes = keySerializer.toBytes(key);
                 List<Node> nodes = routingStrategy.routeRequest(keyBytes);
-                if (nodes.contains(node)) {
+                if(nodes.contains(node)) {
                     out.write(key + "\n");
                 }
             }
@@ -97,13 +104,13 @@ public class RequestFileFilter {
     }
 
     /**
-     * Filter requests specified in a file, generating a new file containing only
-     * requests destined for a specific node.
-     *
+     * Filter requests specified in a file, generating a new file containing
+     * only requests destined for a specific node.
+     * 
      * @param args See usage for more information
      * @throws Exception In case of I/O or Voldemort-specific errors
      */
-    public static void main (String [] args) throws Exception {
+    public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print usage information");
         parser.accepts("node", "[REQUIRED] node id")
@@ -126,7 +133,7 @@ public class RequestFileFilter {
 
         OptionSet options = parser.parse(args);
 
-        if (options.has("help")) {
+        if(options.has("help")) {
             parser.printHelpOn(System.out);
             System.exit(0);
         }
@@ -137,7 +144,7 @@ public class RequestFileFilter {
                                                "url",
                                                "input",
                                                "output");
-        if (missing.size() > 0) {
+        if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
             System.exit(1);
@@ -150,29 +157,33 @@ public class RequestFileFilter {
         String outputFile = (String) options.valueOf("output");
         boolean stringKeys = options.has("string-keys");
 
-        AdminClient adminClient = new AdminClient(bootstrapURL, new AdminClientConfig());
-        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
+        AdminClient adminClient = new AdminClient(bootstrapURL,
+                                                  new AdminClientConfig(),
+                                                  new ClientConfig());
+        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
+                                                                               .getValue();
 
         StoreDefinition storeDefinition = null;
-        for (StoreDefinition def: storeDefinitionList) {
-            if (storeName.equals(def.getName())) {
+        for(StoreDefinition def: storeDefinitionList) {
+            if(storeName.equals(def.getName())) {
                 storeDefinition = def;
             }
         }
 
-        if (storeDefinition == null)  {
+        if(storeDefinition == null) {
             Utils.croak("No store found with name\"" + storeName + "\"");
         }
 
-        Cluster cluster = adminClient.getRemoteCluster(nodeId).getValue();
+        Cluster cluster = adminClient.metadataMgmtOps.getRemoteCluster(nodeId).getValue();
         Node node = null;
         try {
             node = cluster.getNodeById(nodeId);
-        } catch (VoldemortException e) {
+        } catch(VoldemortException e) {
             Utils.croak("Can't find a node with id " + nodeId);
         }
 
-        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster);
+        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
+                                                                                             cluster);
         try {
             new RequestFileFilter(storeDefinition,
                                   routingStrategy,
@@ -180,7 +191,7 @@ public class RequestFileFilter {
                                   outputFile,
                                   node,
                                   stringKeys).filter();
-        } catch (FileNotFoundException e) {
+        } catch(FileNotFoundException e) {
             Utils.croak(e.getMessage());
         }
     }

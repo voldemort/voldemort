@@ -1,3 +1,18 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.utils;
 
 import static org.junit.Assert.assertEquals;
@@ -31,6 +46,7 @@ import org.junit.Test;
 
 import voldemort.Attempt;
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -154,20 +170,23 @@ public class Ec2GossipTest {
             for(String hostname: newHostnames) {
                 int nodeId = nodeIds.get(hostname);
                 AdminClient adminClient = new AdminClient("tcp://" + hostname + ":6666",
-                                                          new AdminClientConfig());
+                                                          new AdminClientConfig(),
+                                                          new ClientConfig());
 
-                Versioned<String> versioned = adminClient.getRemoteMetadata(nodeId,
-                                                                            MetadataStore.CLUSTER_KEY);
+                Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                            MetadataStore.CLUSTER_KEY);
                 Version version = versioned.getVersion();
 
                 VectorClock vectorClock = (VectorClock) version;
                 vectorClock.incrementVersion(nodeId, System.currentTimeMillis());
 
                 try {
-                    adminClient.updateRemoteMetadata(peerNodeId,
-                                                     MetadataStore.CLUSTER_KEY,
-                                                     versioned);
-                    adminClient.updateRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY, versioned);
+                    adminClient.metadataMgmtOps.updateRemoteMetadata(peerNodeId,
+                                                                     MetadataStore.CLUSTER_KEY,
+                                                                     versioned);
+                    adminClient.metadataMgmtOps.updateRemoteMetadata(nodeId,
+                                                                     MetadataStore.CLUSTER_KEY,
+                                                                     versioned);
                 } catch(VoldemortException e) {
                     logger.error(e);
                 }
@@ -181,7 +200,8 @@ public class Ec2GossipTest {
                 private int count = 1;
                 private AdminClient adminClient = new AdminClient("tcp://" + hostNames.get(0)
                                                                           + ":6666",
-                                                                  new AdminClientConfig());
+                                                                  new AdminClientConfig(),
+                                                                  new ClientConfig());
 
                 public void checkCondition() throws Exception, AssertionError {
                     logger.info("Attempt " + count++);
@@ -189,7 +209,8 @@ public class Ec2GossipTest {
                     for(int testNodeId: oldNodeIdSet) {
                         logger.info("Testing node " + testNodeId);
                         try {
-                            Cluster cluster = adminClient.getRemoteCluster(testNodeId).getValue();
+                            Cluster cluster = adminClient.metadataMgmtOps.getRemoteCluster(testNodeId)
+                                                                         .getValue();
                             Set<Integer> allNodeIds = new HashSet<Integer>();
                             for(Node node: cluster.getNodes()) {
                                 allNodeIds.add(node.getId());

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -22,9 +22,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.Map.Entry;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
@@ -43,7 +43,7 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -89,7 +89,7 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
         config.setEnableNetworkClassLoader(true);
 
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
-        storeDef = RebalanceUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
+        storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
 
         server = new VoldemortServer(config, cluster);
         server.start();
@@ -100,7 +100,7 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
     @Override
     @After
     public void tearDown() throws IOException, InterruptedException {
-        adminClient.stop();
+        adminClient.close();
         server.stop();
         FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
     }

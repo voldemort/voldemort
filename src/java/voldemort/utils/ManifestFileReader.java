@@ -16,9 +16,11 @@
 
 package voldemort.utils;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Properties;
+import java.net.URL;
+import java.util.Enumeration;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 
 import org.apache.log4j.Logger;
 
@@ -31,17 +33,32 @@ public class ManifestFileReader {
     protected static final Logger logger = Logger.getLogger(ManifestFileReader.class);
 
     private static String MANIFEST_FILE = "META-INF/MANIFEST.MF";
-    private static String RELEASE_VERSION_KEY = "Implementation-Version";
+
+    private static String RELEASE_VERSION_KEY = "Voldemort-Implementation-Version";
 
     public static String getReleaseVersion() {
-        String version = null;
-        Properties properties = new Properties();
+
         try {
-            properties.load(new FileInputStream(MANIFEST_FILE));
-            version = properties.getProperty(RELEASE_VERSION_KEY);
-        } catch(IOException e) {
-            logger.warn("Unable to load voldemort release version due to the following error:", e);
+            Enumeration<URL> resources = ManifestFileReader.class.getClassLoader()
+                                                                 .getResources(MANIFEST_FILE);
+            while(resources.hasMoreElements()) {
+
+                Manifest manifest = new Manifest(resources.nextElement().openStream());
+
+                Attributes mainAttribs = manifest.getMainAttributes();
+                String version = mainAttribs.getValue(RELEASE_VERSION_KEY);
+
+                if(version != null) {
+                    logger.debug("Voldemort Release version is:" + version);
+                    return version;
+                }
+
+            }
+        } catch(IOException IoE) {
+            logger.warn("Unable to load voldemort release version, could not find a manifest file");
         }
-        return version;
+
+        return null;
+
     }
 }

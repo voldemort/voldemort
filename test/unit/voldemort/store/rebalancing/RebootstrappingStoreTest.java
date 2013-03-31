@@ -107,15 +107,15 @@ public class RebootstrappingStoreTest {
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(config, cluster, 4);
         HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
         replicaToPartitionList.put(0, ImmutableList.of(0, 1));
-        int req = adminClient.migratePartitions(0,
-                                                1,
-                                                STORE_NAME,
-                                                replicaToPartitionList,
-                                                null,
-                                                null,
-                                                false);
-        adminClient.waitForCompletion(1, req, 5, TimeUnit.SECONDS);
-        Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(0);
+        int req = adminClient.storeMntOps.migratePartitions(0,
+                                                            1,
+                                                            STORE_NAME,
+                                                            replicaToPartitionList,
+                                                            null,
+                                                            null,
+                                                            false);
+        adminClient.rpcOps.waitForCompletion(1, req, 5, TimeUnit.SECONDS);
+        Versioned<Cluster> versionedCluster = adminClient.metadataMgmtOps.getRemoteCluster(0);
         Node node0 = versionedCluster.getValue().getNodeById(0);
         Node node1 = versionedCluster.getValue().getNodeById(1);
         Node newNode0 = new Node(node0.getId(),
@@ -130,7 +130,10 @@ public class RebootstrappingStoreTest {
                                  node1.getSocketPort(),
                                  node1.getAdminPort(),
                                  ImmutableList.of(0, 1));
-        long deleted = adminClient.deletePartitions(0, STORE_NAME, ImmutableList.of(0, 1), null);
+        long deleted = adminClient.storeMntOps.deletePartitions(0,
+                                                                STORE_NAME,
+                                                                ImmutableList.of(0, 1),
+                                                                null);
         assert deleted > 0;
         Cluster newCluster = new Cluster(cluster.getName(),
                                          ImmutableList.of(newNode0, newNode1),
@@ -139,7 +142,7 @@ public class RebootstrappingStoreTest {
             VectorClock clock = (VectorClock) versionedCluster.getVersion();
             clock.incrementVersion(node.getId(), System.currentTimeMillis());
 
-            adminClient.updateRemoteCluster(node.getId(), newCluster, clock);
+            adminClient.metadataMgmtOps.updateRemoteCluster(node.getId(), newCluster, clock);
         }
     }
 

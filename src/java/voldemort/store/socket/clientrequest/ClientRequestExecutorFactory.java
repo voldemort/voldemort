@@ -36,10 +36,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.common.nio.SelectorManager;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.stats.ClientSocketStats;
 import voldemort.utils.DaemonThreadFactory;
-import voldemort.utils.SelectorManager;
 import voldemort.utils.Time;
 import voldemort.utils.pool.ResourceFactory;
 
@@ -120,104 +120,107 @@ public class ClientRequestExecutorFactory implements
                          + dest.getPort() + " using protocol "
                          + dest.getRequestFormatType().getCode());
 
-        SocketChannel socketChannel = SocketChannel.open();
-        socketChannel.socket().setReceiveBufferSize(this.socketBufferSize);
-        socketChannel.socket().setSendBufferSize(this.socketBufferSize);
-        socketChannel.socket().setTcpNoDelay(true);
-        socketChannel.socket().setSoTimeout(soTimeoutMs);
-        socketChannel.socket().setKeepAlive(this.socketKeepAlive);
-        socketChannel.configureBlocking(false);
-        socketChannel.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
+        SocketChannel socketChannel = null;
+        ClientRequestExecutor clientRequestExecutor = null;
 
-        long startTime = System.currentTimeMillis();
-        long duration = 0;
-        long currWaitTime = 1;
-        long prevWaitTime = 1;
+        try {
+            socketChannel = SocketChannel.open();
+            socketChannel.socket().setReceiveBufferSize(this.socketBufferSize);
+            socketChannel.socket().setSendBufferSize(this.socketBufferSize);
+            socketChannel.socket().setTcpNoDelay(true);
+            socketChannel.socket().setSoTimeout(soTimeoutMs);
+            socketChannel.socket().setKeepAlive(this.socketKeepAlive);
+            socketChannel.configureBlocking(false);
+            socketChannel.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
 
-        // Since we're non-blocking and it takes a non-zero amount of time
-        // to connect, invoke finishConnect and loop.
-        while(!socketChannel.finishConnect()) {
-            duration = System.currentTimeMillis() - startTime;
-            long remaining = this.connectTimeoutMs - duration;
+            long startTimeMs = System.currentTimeMillis();
+            long durationMs = 0;
+            long currWaitTimeMs = 1;
+            long prevWaitTimeMS = 1;
 
-            if(remaining < 0) {
-                // Don't forget to close the socket before we throw our
-                // exception or they'll leak :(
+            // Since we're non-blocking and it takes a non-zero amount of time
+            // to connect, invoke finishConnect and loop.
+            while(!socketChannel.finishConnect()) {
+                durationMs = System.currentTimeMillis() - startTimeMs;
+                long remaining = this.connectTimeoutMs - durationMs;
+
+                if(remaining < 0) {
+                    throw new ConnectException("Cannot connect socket " + numCreated + " for "
+                                               + dest.getHost() + ":" + dest.getPort() + " after "
+                                               + durationMs + " ms");
+                }
+
+                if(logger.isTraceEnabled())
+                    logger.trace("Still creating socket " + numCreated + " for " + dest.getHost()
+                                 + ":" + dest.getPort() + ", " + remaining
+                                 + " ms. remaining to connect");
+
                 try {
-                    socketChannel.close();
-                } catch(Exception e) {
+                    // Break up the connection timeout into smaller units,
+                    // employing a Fibonacci-style back-off (1, 2, 3, 5, 8, ...)
+                    Thread.sleep(Math.min(remaining, currWaitTimeMs));
+                    currWaitTimeMs = Math.min(currWaitTimeMs + prevWaitTimeMS, 50);
+                    prevWaitTimeMS = currWaitTimeMs - prevWaitTimeMS;
+                } catch(InterruptedException e) {
                     if(logger.isEnabledFor(Level.WARN))
                         logger.warn(e, e);
                 }
-
-                throw new ConnectException("Cannot connect socket " + numCreated + " for "
-                                           + dest.getHost() + ":" + dest.getPort() + " after "
-                                           + duration + " ms");
             }
+            durationMs = System.currentTimeMillis() - startTimeMs;
 
-            if(logger.isTraceEnabled())
-                logger.trace("Still creating socket " + numCreated + " for " + dest.getHost() + ":"
-                             + dest.getPort() + ", " + remaining + " ms. remaining to connect");
+            if(logger.isDebugEnabled())
+                logger.debug("Created socket " + numCreated + " for " + dest.getHost() + ":"
+                             + dest.getPort() + " using protocol "
+                             + dest.getRequestFormatType().getCode() + " after " + durationMs
+                             + " ms.");
 
-            try {
-                // Break up the connection timeout into smaller units,
-                // employing a Fibonacci-style back-off (1, 2, 3, 5, 8, ...)
-                Thread.sleep(Math.min(remaining, currWaitTime));
-                currWaitTime = Math.min(currWaitTime + prevWaitTime, 50);
-                prevWaitTime = currWaitTime - prevWaitTime;
-            } catch(InterruptedException e) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn(e, e);
-            }
-        }
+            // check buffer sizes--you often don't get out what you put in!
+            if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize)
+                logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
+                             + " bytes but actual size is "
+                             + socketChannel.socket().getReceiveBufferSize() + " bytes.");
 
-        if(logger.isDebugEnabled())
-            logger.debug("Created socket " + numCreated + " for " + dest.getHost() + ":"
-                         + dest.getPort() + " using protocol "
-                         + dest.getRequestFormatType().getCode() + " after " + duration + " ms.");
+            if(socketChannel.socket().getSendBufferSize() != this.socketBufferSize)
+                logger.debug("Requested socket send buffer size was " + this.socketBufferSize
+                             + " bytes but actual size is "
+                             + socketChannel.socket().getSendBufferSize() + " bytes.");
 
-        // check buffer sizes--you often don't get out what you put in!
-        if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize)
-            logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
-                         + " bytes but actual size is "
-                         + socketChannel.socket().getReceiveBufferSize() + " bytes.");
+            ClientRequestSelectorManager selectorManager = selectorManagers[counter.getAndIncrement()
+                                                                            % selectorManagers.length];
 
-        if(socketChannel.socket().getSendBufferSize() != this.socketBufferSize)
-            logger.debug("Requested socket send buffer size was " + this.socketBufferSize
-                         + " bytes but actual size is "
-                         + socketChannel.socket().getSendBufferSize() + " bytes.");
+            Selector selector = selectorManager.getSelector();
+            clientRequestExecutor = new ClientRequestExecutor(selector,
+                                                              socketChannel,
+                                                              socketBufferSize);
+            BlockingClientRequest<String> clientRequest = new BlockingClientRequest<String>(new ProtocolNegotiatorClientRequest(dest.getRequestFormatType()),
+                                                                                            this.getTimeout());
+            clientRequestExecutor.addClientRequest(clientRequest);
 
-        ClientRequestSelectorManager selectorManager = selectorManagers[counter.getAndIncrement()
-                                                                        % selectorManagers.length];
+            selectorManager.registrationQueue.add(clientRequestExecutor);
+            selector.wakeup();
 
-        Selector selector = selectorManager.getSelector();
-        ClientRequestExecutor clientRequestExecutor = new ClientRequestExecutor(selector,
-                                                                                socketChannel,
-                                                                                socketBufferSize);
-        BlockingClientRequest<String> clientRequest = new BlockingClientRequest<String>(new ProtocolNegotiatorClientRequest(dest.getRequestFormatType()),
-                                                                                        this.getTimeout());
-        clientRequestExecutor.addClientRequest(clientRequest);
+            // Block while we wait for protocol negotiation to complete. May
+            // throw interrupted exception
+            clientRequest.await();
 
-        selectorManager.registrationQueue.add(clientRequestExecutor);
-        selector.wakeup();
-
-        // Block while we wait for the protocol negotiation to complete.
-        clientRequest.await();
-
-        try {
-            // This will throw an error if the result of the protocol
-            // negotiation failed, otherwise it returns an uninteresting token
-            // we can safely ignore.
+            // Either returns uninteresting token, or throws exception if
+            // protocol negotiation failed.
             clientRequest.getResult();
         } catch(Exception e) {
-            // Don't forget to close the socket before we throw our exception or
-            // they'll leak :(
-            try {
-                socketChannel.close();
-            } catch(Exception ex) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn(ex, ex);
+            // Make sure not to leak socketChannels
+            if(socketChannel != null) {
+                try {
+                    socketChannel.close();
+                } catch(Exception ex) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(ex, ex);
+                }
             }
+            // If clientRequestExector is not null, some additional clean up may
+            // be warranted. However, clientRequestExecutor.close(), the
+            // "obvious" clean up, is not safe to call here. This is because
+            // .close() checks in a resource to the KeyedResourcePool that was
+            // never checked out.
 
             throw e;
         }

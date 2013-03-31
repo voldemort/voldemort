@@ -1,6 +1,24 @@
+/*
+ * Copyright 2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.stats;
 
 import java.util.concurrent.atomic.AtomicReference;
+
+import org.apache.log4j.Logger;
 
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
@@ -14,41 +32,43 @@ import voldemort.utils.Time;
 public class RequestCounter {
 
     private final AtomicReference<Accumulator> values;
-    private final int durationMS;
+    private final long durationMs;
     private final Time time;
     private final Histogram histogram;
-    private volatile int q95LatencyMs;
-    private volatile int q99LatencyMs;
+    private volatile long q95LatencyMs;
+    private volatile long q99LatencyMs;
     private boolean useHistogram;
 
+    private static final Logger logger = Logger.getLogger(RequestCounter.class.getName());
+
     /**
-     * @param durationMS specifies for how long you want to maintain this
+     * @param durationMs specifies for how long you want to maintain this
      *        counter (in milliseconds).
      */
-    public RequestCounter(int durationMS) {
-        this(durationMS, SystemTime.INSTANCE, false);
+    public RequestCounter(long durationMs) {
+        this(durationMs, SystemTime.INSTANCE, false);
     }
 
     /**
-     * @param durationMS specifies for how long you want to maintain this
+     * @param durationMs specifies for how long you want to maintain this
      *        counter (in milliseconds). useHistogram indicates that this
      *        counter should also use a histogram.
      */
-    public RequestCounter(int durationMS, boolean useHistogram) {
-        this(durationMS, SystemTime.INSTANCE, useHistogram);
+    public RequestCounter(long durationMs, boolean useHistogram) {
+        this(durationMs, SystemTime.INSTANCE, useHistogram);
     }
 
     /**
      * For testing request expiration via an injected time provider
      */
-    RequestCounter(int durationMS, Time time) {
-        this(durationMS, time, false);
+    RequestCounter(long durationMs, Time time) {
+        this(durationMs, time, false);
     }
 
-    RequestCounter(int durationMS, Time time, boolean useHistogram) {
+    RequestCounter(long durationMs, Time time, boolean useHistogram) {
         this.time = time;
         this.values = new AtomicReference<Accumulator>(new Accumulator());
-        this.durationMS = durationMS;
+        this.durationMs = durationMs;
         this.q95LatencyMs = 0;
         this.q99LatencyMs = 0;
         this.useHistogram = useHistogram;
@@ -98,8 +118,8 @@ public class RequestCounter {
         return String.format("%.4f", getAverageTimeInMs());
     }
 
-    public int getDuration() {
-        return durationMS;
+    public long getDuration() {
+        return durationMs;
     }
 
     public long getMaxLatencyInMs() {
@@ -111,11 +131,24 @@ public class RequestCounter {
             return;
         Accumulator accum = values.get();
         long now = time.getMilliseconds();
-        if(now - accum.startTimeMS > durationMS) {
+        if(now - accum.startTimeMS > durationMs) {
+            // timing instrumentation (debug only)
+            long startTimeNs = 0;
+            if(logger.isDebugEnabled()) {
+                startTimeNs = System.nanoTime();
+            }
+
             // Reset the histogram
             q95LatencyMs = histogram.getQuantile(0.95);
             q99LatencyMs = histogram.getQuantile(0.99);
             histogram.reset();
+
+            // timing instrumentation (debug only)
+            if(logger.isDebugEnabled()) {
+                logger.debug("Histogram (" + System.identityHashCode(histogram)
+                             + ") : reset, Q95, & Q99 took " + (System.nanoTime() - startTimeNs)
+                             + " ns.");
+            }
         }
     }
 
@@ -127,7 +160,7 @@ public class RequestCounter {
         /*
          * if still in the window, just return it
          */
-        if(now - accum.startTimeMS <= durationMS) {
+        if(now - accum.startTimeMS <= durationMs) {
             return accum;
         }
 
@@ -171,6 +204,12 @@ public class RequestCounter {
                            long numEmptyResponses,
                            long bytes,
                            long getAllAggregatedCount) {
+        // timing instrumentation (trace only)
+        long startTimeNs = 0;
+        if(logger.isTraceEnabled()) {
+            startTimeNs = System.nanoTime();
+        }
+
         long timeMs = timeNS / Time.NS_PER_MS;
         if(this.useHistogram) {
             histogram.insert(timeMs);
@@ -189,8 +228,22 @@ public class RequestCounter {
                                                oldv.getAllAggregatedCount + getAllAggregatedCount,
                                                getAllAggregatedCount > oldv.getAllMaxCount ? getAllAggregatedCount
                                                                                           : oldv.getAllMaxCount);
-            if(values.compareAndSet(oldv, newv))
+            if(values.compareAndSet(oldv, newv)) {
+                // timing instrumentation (trace only)
+                if(logger.isTraceEnabled()) {
+                    logger.trace("addRequest (histogram.insert and accumulator update) took "
+                                 + (System.nanoTime() - startTimeNs) + " ns.");
+                }
+                // Return since data has been accumulated
                 return;
+            }
+        }
+        logger.info("addRequest lost timing instrumentation data because three retries was insufficient to update the accumulator.");
+
+        // timing instrumentation (trace only)
+        if(logger.isTraceEnabled()) {
+            logger.trace("addRequest (histogram.insert and accumulator update) took "
+                         + (System.nanoTime() - startTimeNs) + " ns.");
         }
     }
 
@@ -233,11 +286,11 @@ public class RequestCounter {
         return getValidAccumulator().getAllMaxCount;
     }
 
-    public int getQ95LatencyMs() {
+    public long getQ95LatencyMs() {
         return q95LatencyMs;
     }
 
-    public int getQ99LatencyMs() {
+    public long getQ99LatencyMs() {
         return q99LatencyMs;
     }
 
@@ -262,6 +315,11 @@ public class RequestCounter {
             this(RequestCounter.this.time.getMilliseconds(), 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
+        /**
+         * This method resets startTimeMS.
+         * 
+         * @return
+         */
         public Accumulator newWithTotal() {
             return new Accumulator(RequestCounter.this.time.getMilliseconds(),
                                    0,

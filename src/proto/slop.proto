@@ -1,3 +1,8 @@
+// Please use protoc version 2.3.0 to recompile:
+//   https://code.google.com/p/protobuf/downloads/detail?name=protobuf-2.3.0.tar.gz&can=2&q=
+// Use commmand like the below to recompile:
+// $ protoc -I=src/proto --java_out=src/java src/proto/slop.proto
+
 package voldemort;
 
 option java_package = "voldemort.serialization";

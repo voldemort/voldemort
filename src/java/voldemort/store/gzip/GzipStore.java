@@ -34,8 +34,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class GzipStore<K> extends DelegatingStore<K, byte[], byte[]> implements
-        Store<K, byte[], byte[]> {
+public class GzipStore<K> extends DelegatingStore<K, byte[], byte[]> {
 
     public GzipStore(Store<K, byte[], byte[]> innerStore) {
         super(innerStore);

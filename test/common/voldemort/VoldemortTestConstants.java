@@ -90,6 +90,10 @@ public class VoldemortTestConstants {
         return readString("config/single-store-with-zones.xml");
     }
 
+    public static String getTwoStoresWithZonesXml() {
+        return readString("config/two-stores-with-zones.xml");
+    }
+
     public static Cluster getTenNodeCluster() {
         return new ClusterMapper().readCluster(new StringReader(getTenNodeClusterXml()));
     }

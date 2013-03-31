@@ -55,6 +55,7 @@ import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.server.RequestRoutingType;
@@ -78,6 +79,7 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
+import voldemort.store.retention.RetentionEnforcingStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.slop.SlopStorageEngine;
@@ -101,6 +103,7 @@ import voldemort.utils.Pair;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -172,7 +175,7 @@ public class StorageService extends AbstractService {
          */
         if(this.voldemortConfig.getStorageConfigurations()
                                .contains(ReadOnlyStorageConfiguration.class.getName())) {
-            long rate = this.voldemortConfig.getMaxBytesPerSecond();
+            long rate = this.voldemortConfig.getReadOnlyFetcherMaxBytesPerSecond();
             this.dynThrottleLimit = new DynamicThrottleLimit(rate);
         } else
             this.dynThrottleLimit = null;
@@ -236,7 +239,7 @@ public class StorageService extends AbstractService {
 
     @Override
     protected void startInner() {
-        registerEngine(metadata, false, "metadata");
+        registerInternalEngine(metadata, false, "metadata");
 
         /* Initialize storage configurations */
         for(String configClassName: voldemortConfig.getStorageConfigurations())
@@ -270,7 +273,7 @@ public class StorageService extends AbstractService {
                                                                       null,
                                                                       null,
                                                                       null,
-                                                                      null,
+                                                                      RoutingStrategyType.CONSISTENT_STRATEGY,
                                                                       0,
                                                                       null,
                                                                       0,
@@ -289,9 +292,11 @@ public class StorageService extends AbstractService {
                                                                       null,
                                                                       null,
                                                                       0);
-            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(slopStoreDefinition),
+            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(slopStoreDefinition,
+                                                                                 new RoutingStrategyFactory().updateRoutingStrategy(slopStoreDefinition,
+                                                                                                                                    metadata.getCluster())),
                                                                  metadata.getCluster());
-            registerEngine(slopEngine, false, "slop");
+            registerInternalEngine(slopEngine, false, "slop");
             storeRepository.setSlopStore(slopEngine);
 
             if(voldemortConfig.isSlopPusherJobEnabled()) {
@@ -440,7 +445,7 @@ public class StorageService extends AbstractService {
                                              + " but " + storeDef.getType()
                                              + " storage engine has not been enabled.");
 
-        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef);
+        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef, null);
 
         // Noted that there is no read-only processing as for user stores.
 
@@ -584,13 +589,11 @@ public class StorageService extends AbstractService {
                                              + " storage engine has not been enabled.");
 
         boolean isReadOnly = storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
-        if(isReadOnly) {
-            final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                       metadata.getCluster());
-            ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(routingStrategy);
-        }
+        final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                   metadata.getCluster());
 
-        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef);
+        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef,
+                                                                                routingStrategy);
         // Update the routing strategy + add listener to metadata
         if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
             metadata.addMetadataStoreListener(storeDef.getName(), new MetadataStoreListener() {
@@ -598,12 +601,16 @@ public class StorageService extends AbstractService {
                 public void updateRoutingStrategy(RoutingStrategy updatedRoutingStrategy) {
                     ((ReadOnlyStorageEngine) engine).setRoutingStrategy(updatedRoutingStrategy);
                 }
+
+                public void updateStoreDefinition(StoreDefinition storeDef) {
+                    return;
+                }
             });
         }
 
         // openStore() should have atomic semantics
         try {
-            registerEngine(engine, isReadOnly, storeDef.getType());
+            registerEngine(engine, isReadOnly, storeDef.getType(), storeDef);
 
             if(voldemortConfig.isServerRoutingEnabled())
                 registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
@@ -611,21 +618,25 @@ public class StorageService extends AbstractService {
             if(storeDef.hasRetentionPeriod())
                 scheduleCleanupJob(storeDef, engine);
         } catch(Exception e) {
-            unregisterEngine(engine, isReadOnly, storeDef.getType());
+            removeEngine(engine, isReadOnly, storeDef.getType(), false);
             throw new VoldemortException(e);
         }
     }
 
     /**
-     * Unregister and remove the engine from the storage repository
+     * Unregister and remove the engine from the storage repository. This is
+     * called during deletion of stores and if there are exceptions
+     * adding/opening stores
      * 
      * @param engine The actual engine to remove
      * @param isReadOnly Is this read-only?
      * @param storeType The storage type of the store
+     * @param truncate Should the store be truncated?
      */
-    public void unregisterEngine(StorageEngine<ByteArray, byte[], byte[]> engine,
-                                 boolean isReadOnly,
-                                 String storeType) {
+    public void removeEngine(StorageEngine<ByteArray, byte[], byte[]> engine,
+                             boolean isReadOnly,
+                             String storeType,
+                             boolean truncate) {
         String storeName = engine.getName();
         Store<ByteArray, byte[], byte[]> store = storeRepository.removeLocalStore(storeName);
 
@@ -683,9 +694,23 @@ public class StorageService extends AbstractService {
         }
 
         storeRepository.removeStorageEngine(storeName);
-        if(!isView)
+        if(truncate)
             engine.truncate();
         engine.close();
+    }
+
+    /**
+     * Register the given internal engine (slop and metadata) with the storage
+     * repository
+     * 
+     * @param engine Register the storage engine
+     * @param isReadOnly Boolean indicating if this store is read-only
+     * @param storeType The type of the store
+     */
+    public void registerInternalEngine(StorageEngine<ByteArray, byte[], byte[]> engine,
+                                       boolean isReadOnly,
+                                       String storeType) {
+        registerEngine(engine, isReadOnly, storeType, null);
     }
 
     /**
@@ -694,10 +719,12 @@ public class StorageService extends AbstractService {
      * @param engine Register the storage engine
      * @param isReadOnly Boolean indicating if this store is read-only
      * @param storeType The type of the store
+     * @param storeDef store definition for the store to be registered
      */
     public void registerEngine(StorageEngine<ByteArray, byte[], byte[]> engine,
                                boolean isReadOnly,
-                               String storeType) {
+                               String storeType,
+                               StoreDefinition storeDef) {
         Cluster cluster = this.metadata.getCluster();
         storeRepository.addStorageEngine(engine);
 
@@ -713,31 +740,45 @@ public class StorageService extends AbstractService {
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
         if(!isSlop) {
-            if(voldemortConfig.isEnableRebalanceService() && !isReadOnly && !isMetadata && !isView) {
-                store = new RedirectingStore(store,
-                                             metadata,
-                                             storeRepository,
-                                             failureDetector,
-                                             storeFactory);
-                if(voldemortConfig.isJmxEnabled()) {
-                    MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-                    ObjectName name = null;
-                    if(this.voldemortConfig.isEnableJmxClusterName())
-                        name = JmxUtils.createObjectName(cluster.getName()
-                                                                 + "."
-                                                                 + JmxUtils.getPackageName(RedirectingStore.class),
-                                                         store.getName());
-                    else
-                        name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
-                                                         store.getName());
+            if(!isReadOnly && !isMetadata && !isView) {
+                // wrap store to enforce retention policy
+                if(voldemortConfig.isEnforceRetentionPolicyOnRead() && storeDef != null) {
+                    RetentionEnforcingStore retentionEnforcingStore = new RetentionEnforcingStore(store,
+                                                                                                  storeDef,
+                                                                                                  voldemortConfig.isDeleteExpiredValuesOnRead(),
+                                                                                                  SystemTime.INSTANCE);
+                    metadata.addMetadataStoreListener(store.getName(), retentionEnforcingStore);
+                    store = retentionEnforcingStore;
+                }
 
-                    synchronized(mbeanServer) {
-                        if(mbeanServer.isRegistered(name))
-                            JmxUtils.unregisterMbean(mbeanServer, name);
+                if(voldemortConfig.isEnableRebalanceService()) {
+                    store = new RedirectingStore(store,
+                                                 metadata,
+                                                 storeRepository,
+                                                 failureDetector,
+                                                 storeFactory);
+                    if(voldemortConfig.isJmxEnabled()) {
+                        MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+                        ObjectName name = null;
+                        if(this.voldemortConfig.isEnableJmxClusterName())
+                            name = JmxUtils.createObjectName(cluster.getName()
+                                                                     + "."
+                                                                     + JmxUtils.getPackageName(RedirectingStore.class),
+                                                             store.getName());
+                        else
+                            name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
+                                                             store.getName());
 
-                        JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(store), name);
+                        synchronized(mbeanServer) {
+                            if(mbeanServer.isRegistered(name))
+                                JmxUtils.unregisterMbean(mbeanServer, name);
+
+                            JmxUtils.registerMbean(mbeanServer,
+                                                   JmxUtils.createModelMBean(store),
+                                                   name);
+                        }
+
                     }
-
                 }
             }
 
@@ -856,13 +897,10 @@ public class StorageService extends AbstractService {
      */
     private void scheduleCleanupJob(StoreDefinition storeDef,
                                     StorageEngine<ByteArray, byte[], byte[]> engine) {
-        // Schedule data retention cleanup job starting next day.
-        GregorianCalendar cal = new GregorianCalendar();
-        cal.add(Calendar.DAY_OF_YEAR, 1);
-        cal.set(Calendar.HOUR_OF_DAY, voldemortConfig.getRetentionCleanupFirstStartTimeInHour());
-        cal.set(Calendar.MINUTE, 0);
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
+        // Compute the start time of the job, based on current time
+        GregorianCalendar cal = Utils.getCalendarForNextRun(new GregorianCalendar(),
+                                                            voldemortConfig.getRetentionCleanupFirstStartDayOfWeek(),
+                                                            voldemortConfig.getRetentionCleanupFirstStartTimeInHour());
 
         // allow only one cleanup job at a time
         Date startTime = cal.getTime();
@@ -892,7 +930,8 @@ public class StorageService extends AbstractService {
         this.scheduler.schedule("cleanup-" + storeDef.getName(),
                                 cleanupJob,
                                 startTime,
-                                retentionFreqHours * Time.MS_PER_HOUR);
+                                retentionFreqHours * Time.MS_PER_HOUR,
+                                voldemortConfig.getRetentionCleanupPinStartTime());
     }
 
     @Override

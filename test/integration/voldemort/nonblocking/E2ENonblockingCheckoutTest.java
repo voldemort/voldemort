@@ -154,7 +154,7 @@ public class E2ENonblockingCheckoutTest {
                                 + InMemoryStorageConfiguration.class.getName() + ","
                                 + SlowStorageConfiguration.class.getName();
         p.setProperty("storage.configs", storageConfigs);
-        p.setProperty("slow.queueing.put.ms", Long.toString(SLOW_PUT_MS));
+        p.setProperty("testing.slow.queueing.put.ms", Long.toString(SLOW_PUT_MS));
 
         p.setProperty("client.connection.timeout.ms", Integer.toString(CONNECTION_TIMEOUT_MS));
         p.setProperty("client.routing.timeout.ms", Integer.toString(ROUTING_TIMEOUT_MS));

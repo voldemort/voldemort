@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import voldemort.VoldemortException;
 import voldemort.common.OpTimeMap;
 import voldemort.common.VoldemortOpCode;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.utils.ClosableIterator;
@@ -47,7 +48,7 @@ import voldemort.versioning.Versioned;
  * does not affect concurrentDelays.
  * 
  */
-public class SlowStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
+public class SlowStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, T> {
 
     private final StorageEngine<K, V, T> innerStorageEngine;
     private final OpTimeMap queueingDelays;
@@ -60,6 +61,7 @@ public class SlowStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
     public SlowStorageEngine(StorageEngine<K, V, T> innerStorageEngine,
                              OpTimeMap queueingDelays,
                              OpTimeMap concurrentDelays) {
+        super(innerStorageEngine.getName());
         this.innerStorageEngine = innerStorageEngine;
         this.queueingDelays = queueingDelays;
         this.concurrentDelays = concurrentDelays;
@@ -92,58 +94,79 @@ public class SlowStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         return delete(key, null);
     }
 
+    @Override
     public boolean delete(K key, Version version) {
         delayByOp(VoldemortOpCode.DELETE_OP_CODE);
         return innerStorageEngine.delete(key, version);
     }
 
+    @Override
     public List<Version> getVersions(K key) {
         delayByOp(VoldemortOpCode.GET_VERSION_OP_CODE);
         return innerStorageEngine.getVersions(key);
     }
 
+    @Override
     public List<Versioned<V>> get(K key, T transform) throws VoldemortException {
         delayByOp(VoldemortOpCode.GET_OP_CODE);
         return innerStorageEngine.get(key, transform);
     }
 
+    @Override
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
             throws VoldemortException {
         delayByOp(VoldemortOpCode.GET_ALL_OP_CODE);
         return innerStorageEngine.getAll(keys, transforms);
     }
 
+    @Override
     public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
         delayByOp(VoldemortOpCode.PUT_OP_CODE);
         innerStorageEngine.put(key, value, transforms);
     }
 
+    @Override
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         return innerStorageEngine.entries();
     }
 
+    @Override
     public ClosableIterator<K> keys() {
         return innerStorageEngine.keys();
     }
 
+    @Override
     public void truncate() {
         innerStorageEngine.truncate();
     }
 
+    @Override
     public boolean isPartitionAware() {
         return innerStorageEngine.isPartitionAware();
     }
 
-    public String getName() {
-        return innerStorageEngine.getName();
-    }
-
+    @Override
     public void close() {
         innerStorageEngine.close();
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         return innerStorageEngine.getCapability(capability);
     }
 
+    @Override
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition) {
+        return innerStorageEngine.entries(partition);
+    }
+
+    @Override
+    public ClosableIterator<K> keys(int partition) {
+        return innerStorageEngine.keys(partition);
+    }
+
+    @Override
+    public boolean isPartitionScanSupported() {
+        return innerStorageEngine.isPartitionScanSupported();
+    }
 }

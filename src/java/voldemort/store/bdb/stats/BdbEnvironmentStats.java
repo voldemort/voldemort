@@ -1,26 +1,46 @@
 package voldemort.store.bdb.stats;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicLong;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.Experimental;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.utils.CachedCallable;
 
+import com.sleepycat.je.Database;
+import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.DatabaseStats;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.EnvironmentFailureException;
 import com.sleepycat.je.EnvironmentStats;
+import com.sleepycat.je.LockTimeoutException;
 import com.sleepycat.je.StatsConfig;
 
 public class BdbEnvironmentStats {
 
+    // Don't fetch entry count/btree stats more than twice a day
+    private final static long INVASIVE_STATS_TTL_MS = 12 * 3600 * 1000;
+
     private final Environment environment;
+    private final Database database;
     private final CachedCallable<EnvironmentStats> fastStats;
     private final CachedCallable<SpaceUtilizationStats> fastSpaceStats;
+    private final CachedCallable<Long> entryCount;
+    private final CachedCallable<DatabaseStats> btreeStats;
     private final boolean exposeSpaceStats;
 
-    public BdbEnvironmentStats(Environment environment, long ttlMs, boolean exposeSpaceUtil) {
+    private final AtomicLong numExceptions;
+    private final AtomicLong numLockTimeoutExceptions;
+    private final AtomicLong numEnvironmentFailureExceptions;
+
+    public BdbEnvironmentStats(Environment environment,
+                               Database database,
+                               long ttlMs,
+                               boolean exposeSpaceUtil) {
         this.environment = environment;
+        this.database = database;
         this.exposeSpaceStats = exposeSpaceUtil;
         Callable<EnvironmentStats> fastStatsCallable = new Callable<EnvironmentStats>() {
 
@@ -37,6 +57,26 @@ public class BdbEnvironmentStats {
             }
         };
         fastSpaceStats = new CachedCallable<SpaceUtilizationStats>(fastDbStatsCallable, ttlMs);
+
+        Callable<Long> entryCountCallable = new Callable<Long>() {
+
+            public Long call() throws Exception {
+                return getEntryCountUncached();
+            }
+        };
+        entryCount = new CachedCallable<Long>(entryCountCallable, INVASIVE_STATS_TTL_MS);
+
+        Callable<DatabaseStats> btreeStatsCallable = new Callable<DatabaseStats>() {
+
+            public DatabaseStats call() throws Exception {
+                return getBtreeStatsUncached();
+            }
+        };
+        btreeStats = new CachedCallable<DatabaseStats>(btreeStatsCallable, INVASIVE_STATS_TTL_MS);
+
+        numExceptions = new AtomicLong(0);
+        numLockTimeoutExceptions = new AtomicLong(0);
+        numEnvironmentFailureExceptions = new AtomicLong(0);
     }
 
     private EnvironmentStats getEnvironmentStats(boolean fast) {
@@ -62,6 +102,25 @@ public class BdbEnvironmentStats {
             return fastStats.call();
         } catch(Exception e) {
             throw new VoldemortException(e);
+        }
+    }
+
+    private Long getEntryCountUncached() {
+        return database.count();
+    }
+
+    public DatabaseStats getBtreeStatsUncached() throws Exception {
+        // fast stats does not provide detailed Btree structure.
+        // This is invasive and will affect performance.
+        return database.getStats(new StatsConfig().setFast(false));
+    }
+
+    public void reportException(DatabaseException de) {
+        numExceptions.incrementAndGet();
+        if(de instanceof LockTimeoutException) {
+            numLockTimeoutExceptions.incrementAndGet();
+        } else if(de instanceof EnvironmentFailureException) {
+            numEnvironmentFailureExceptions.incrementAndGet();
         }
     }
 
@@ -95,6 +154,60 @@ public class BdbEnvironmentStats {
     @JmxGetter(name = "EvictionPasses")
     public long getEvictedLNs() {
         return getFastStats().getNEvictPasses();
+    }
+
+    @JmxGetter(name = "BINFetches")
+    public long getBINFetches() {
+        return getFastStats().getNBINsFetch();
+    }
+
+    @JmxGetter(name = "BINFetchMisses")
+    public long getBINFetchMisses() {
+        return getFastStats().getNBINsFetchMiss();
+    }
+
+    @JmxGetter(name = "INFetches")
+    public long getINFetches() {
+        return getFastStats().getNUpperINsFetch();
+    }
+
+    @JmxGetter(name = "INFetchMisses")
+    public long getINFetchMisses() {
+        return getFastStats().getNUpperINsFetchMiss();
+    }
+
+    @JmxGetter(name = "LNFetches")
+    public long getLNFetches() {
+        return getFastStats().getNLNsFetch();
+    }
+
+    @JmxGetter(name = "LNFetchMisses")
+    public long getLNFetchMisses() {
+        return getFastStats().getNLNsFetchMiss();
+    }
+
+    @JmxGetter(name = "CachedBINs")
+    public long getCachedBINs() {
+        return getFastStats().getNCachedBINs();
+    }
+
+    @JmxGetter(name = "CachedINs")
+    public long getCachedUpperINs() {
+        return getFastStats().getNCachedUpperINs();
+    }
+
+    @JmxGetter(name = "EvictedBINs")
+    public long getEvictedBINs() {
+        EnvironmentStats stats = getFastStats();
+        return stats.getNBINsEvictedCacheMode() + stats.getNBINsEvictedCritical()
+               + stats.getNBINsEvictedDaemon() + stats.getNBINsEvictedManual();
+    }
+
+    @JmxGetter(name = "EvictedINs")
+    public long getEvictedINs() {
+        EnvironmentStats stats = getFastStats();
+        return stats.getNUpperINsEvictedCacheMode() + stats.getNUpperINsEvictedCritical()
+               + stats.getNUpperINsEvictedDaemon() + stats.getNUpperINsEvictedManual();
     }
 
     // 2. IO
@@ -221,6 +334,32 @@ public class BdbEnvironmentStats {
         return getFastStats().getNAcquiresNoWaiters();
     }
 
+    // 5. Exceptions & general statistics
+    @JmxGetter(name = "numExceptions")
+    public long getNumExceptions() {
+        return numExceptions.longValue();
+    }
+
+    @JmxGetter(name = "numLockTimeoutExceptions")
+    public long getNumLockTimeoutExceptions() {
+        return numLockTimeoutExceptions.longValue();
+    }
+
+    @JmxGetter(name = "numEnvironmentFailureExceptions")
+    public long getNumEnvironmentFailureExceptions() {
+        return numEnvironmentFailureExceptions.longValue();
+    }
+
+    @JmxGetter(name = "getEntryCount", description = "Obtain the number of k-v entries in the store")
+    public long getEntryCount() throws Exception {
+        return entryCount.call();
+    }
+
+    @JmxGetter(name = "getBtreeStats", description = "Obtain statistics about the BTree Index for a store")
+    public String getBtreeStats() throws Exception {
+        return btreeStats.call().toString();
+    }
+
     // Compound statistics derived from raw statistics
 
     @JmxGetter(name = "NumWritesTotal")
@@ -297,6 +436,21 @@ public class BdbEnvironmentStats {
     @JmxGetter(name = "PercentageUtilization")
     public double getPercentageUtilization() {
         return safeGetPercentage(getTotalSpaceUtilized(), getTotalSpace());
+    }
+
+    @JmxGetter(name = "PercentageBINMiss")
+    public double getPercentageBINMiss() {
+        return safeGetPercentage(getBINFetchMisses(), getBINFetches());
+    }
+
+    @JmxGetter(name = "PercentageINMiss")
+    public double getPercentageINMiss() {
+        return safeGetPercentage(getINFetchMisses(), getINFetches());
+    }
+
+    @JmxGetter(name = "PercentageLNMiss")
+    public double getPercentageLNMiss() {
+        return safeGetPercentage(getLNFetchMisses(), getLNFetches());
     }
 
     public static double safeGetPercentage(long rawNum, long total) {

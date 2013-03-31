@@ -24,7 +24,6 @@ import static voldemort.VoldemortTestConstants.getTenNodeCluster;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 
-import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
 
@@ -62,13 +61,6 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
     @Test
     public void testCatastrophicErrors() throws Exception {
         Node node = Iterables.get(cluster.getNodes(), 8);
-
-        failureDetector.recordException(node,
-                                        0,
-                                        new UnreachableStoreException("intentionalerror",
-                                                                      new ConnectException("intentionalerror")));
-        assertEquals(false, failureDetector.isAvailable(node));
-        failureDetector.waitForAvailability(node);
 
         failureDetector.recordException(node,
                                         0,
@@ -177,7 +169,7 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
         failureDetector.recordException(node,
                                         0,
                                         new UnreachableStoreException("intentionalerror",
-                                                                      new ConnectException("intentionalerror")));
+                                                                      new UnknownHostException("intentionalerror")));
 
         /**
          * Update the failure detector state with the new cluster

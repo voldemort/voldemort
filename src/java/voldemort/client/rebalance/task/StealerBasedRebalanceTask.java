@@ -49,7 +49,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
                 RebalanceUtils.printLog(taskId, logger, "Starting on node " + stealerNodeId
                                                         + " rebalancing task " + stealInfos.get(0));
 
-                int asyncOperationId = adminClient.rebalanceNode(stealInfos.get(0));
+                int asyncOperationId = adminClient.rebalanceOps.rebalanceNode(stealInfos.get(0));
                 return asyncOperationId;
 
             } catch(AlreadyRebalancingException e) {
@@ -58,11 +58,11 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
                                         "Node "
                                                 + stealerNodeId
                                                 + " is currently rebalancing. Waiting till completion");
-                adminClient.waitForCompletion(stealerNodeId,
-                                              MetadataStore.SERVER_STATE_KEY,
-                                              VoldemortState.NORMAL_SERVER.toString(),
-                                              config.getRebalancingClientTimeoutSeconds(),
-                                              TimeUnit.SECONDS);
+                adminClient.rpcOps.waitForCompletion(stealerNodeId,
+                                                     MetadataStore.SERVER_STATE_KEY,
+                                                     VoldemortState.NORMAL_SERVER.toString(),
+                                                     config.getRebalancingClientTimeoutSeconds(),
+                                                     TimeUnit.SECONDS);
                 rebalanceException = e;
             }
         }
@@ -83,10 +83,10 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
             rebalanceAsyncId = startNodeRebalancing();
 
             // Wait for the task to get over
-            adminClient.waitForCompletion(stealerNodeId,
-                                          rebalanceAsyncId,
-                                          config.getRebalancingClientTimeoutSeconds(),
-                                          TimeUnit.SECONDS);
+            adminClient.rpcOps.waitForCompletion(stealerNodeId,
+                                                 rebalanceAsyncId,
+                                                 config.getRebalancingClientTimeoutSeconds(),
+                                                 TimeUnit.SECONDS);
             RebalanceUtils.printLog(taskId,
                                     logger,
                                     "Succesfully finished rebalance for async operation id "
@@ -95,8 +95,9 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
         } catch(UnreachableStoreException e) {
             exception = e;
             logger.error("Stealer node " + stealerNodeId
-                         + " is unreachable, please make sure it is up and running : "
-                         + e.getMessage(), e);
+                                 + " is unreachable, please make sure it is up and running : "
+                                 + e.getMessage(),
+                         e);
         } catch(Exception e) {
             exception = e;
             logger.error("Rebalance failed : " + e.getMessage(), e);

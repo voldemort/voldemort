@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2012 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -75,8 +75,10 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.KeyLocationValidation;
+import voldemort.utils.NodeUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreInstance;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -89,7 +91,6 @@ public abstract class AbstractRebalanceTest {
 
     private static final Logger logger = Logger.getLogger(AbstractRebalanceTest.class.getName());
 
-    protected static int NUM_KEYS = 20;
     protected static int NUM_RO_CHUNKS_PER_BUCKET = 10;
     protected static String testStoreNameRW = "test";
     protected static String testStoreNameRW2 = "test2";
@@ -221,6 +222,7 @@ public abstract class AbstractRebalanceTest {
         socketStoreFactory = null;
     }
 
+    // TODO: Any way to not throw exception from here?
     protected abstract Cluster startServers(Cluster cluster,
                                             String StoreDefXmlFile,
                                             List<Integer> nodeToStart,
@@ -263,9 +265,12 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    protected int getNumKeys() {
-        return NUM_KEYS;
-    }
+    /**
+     * This method determines the "size" of the test to run...
+     * 
+     * @return
+     */
+    protected abstract int getNumKeys();
 
     @Test(timeout = 600000)
     public void testRORWRebalance() throws Exception {
@@ -504,11 +509,11 @@ public abstract class AbstractRebalanceTest {
             movedPartitions.add(3);
             AdminClient admin = rebalanceClient.getAdminClient();
             Iterator<ByteArray> keys = null;
-            keys = admin.fetchKeys(1,
-                                   rwStoreDefWithReplication.getName(),
-                                   movedPartitions,
-                                   null,
-                                   false);
+            keys = admin.bulkFetchOps.fetchKeys(1,
+                                                rwStoreDefWithReplication.getName(),
+                                                movedPartitions,
+                                                null,
+                                                false);
             int keyIndex = 0;
             while(keys.hasNext() && keyIndex < 20) {
                 checkKeysNegative[keyIndex++] = keys.next();
@@ -517,11 +522,11 @@ public abstract class AbstractRebalanceTest {
             List<Integer> stablePartitions = new ArrayList<Integer>();
             stablePartitions.add(1);
             Iterator<ByteArray> keys2 = null;
-            keys2 = admin.fetchKeys(1,
-                                    rwStoreDefWithReplication.getName(),
-                                    stablePartitions,
-                                    null,
-                                    false);
+            keys2 = admin.bulkFetchOps.fetchKeys(1,
+                                                 rwStoreDefWithReplication.getName(),
+                                                 stablePartitions,
+                                                 null,
+                                                 false);
             int keyIndex2 = 0;
             while(keys2.hasNext() && keyIndex2 < 20) {
                 checkKeysPositive[keyIndex2++] = keys2.next();
@@ -537,7 +542,7 @@ public abstract class AbstractRebalanceTest {
             // Do the cleanup operation
 
             for(int i = 0; i < 3; i++) {
-                admin.repairJob(i);
+                admin.storeMntOps.repairJob(i);
             }
 
             boolean cleanNode = true;
@@ -606,11 +611,11 @@ public abstract class AbstractRebalanceTest {
             movedPartitions.add(3);
             AdminClient admin = rebalanceClient.getAdminClient();
             Iterator<ByteArray> keys = null;
-            keys = admin.fetchKeys(1,
-                                   rwStoreDefWithReplication.getName(),
-                                   movedPartitions,
-                                   null,
-                                   false);
+            keys = admin.bulkFetchOps.fetchKeys(1,
+                                                rwStoreDefWithReplication.getName(),
+                                                movedPartitions,
+                                                null,
+                                                false);
             int keyIndex = 0;
             while(keys.hasNext() && keyIndex < 20) {
                 checkKeysNegative[keyIndex++] = keys.next();
@@ -620,11 +625,11 @@ public abstract class AbstractRebalanceTest {
             List<Integer> stablePartitions = new ArrayList<Integer>();
             stablePartitions.add(3);
             Iterator<ByteArray> keys2 = null;
-            keys2 = admin.fetchKeys(0,
-                                    rwStoreDefWithReplication.getName(),
-                                    stablePartitions,
-                                    null,
-                                    false);
+            keys2 = admin.bulkFetchOps.fetchKeys(0,
+                                                 rwStoreDefWithReplication.getName(),
+                                                 stablePartitions,
+                                                 null,
+                                                 false);
             int keyIndex2 = 0;
             while(keys2.hasNext() && keyIndex2 < 20) {
                 checkKeysPositive[keyIndex2++] = keys2.next();
@@ -640,7 +645,7 @@ public abstract class AbstractRebalanceTest {
             // Do the cleanup operation
 
             for(int i = 0; i < 3; i++) {
-                admin.repairJob(i);
+                admin.storeMntOps.repairJob(i);
             }
 
             boolean cleanNode = true;
@@ -1103,7 +1108,7 @@ public abstract class AbstractRebalanceTest {
                                                                                          cluster);
             for(Entry<String, String> entry: testEntries.entrySet()) {
                 ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
-                List<Integer> preferenceNodes = RebalanceUtils.getNodeIds(routing.routeRequest(keyBytes.get()));
+                List<Integer> preferenceNodes = NodeUtils.getNodeIds(routing.routeRequest(keyBytes.get()));
 
                 // Go over every node
                 for(int nodeId: preferenceNodes) {
@@ -1210,7 +1215,7 @@ public abstract class AbstractRebalanceTest {
 
             List<Integer> partitions = routing.getPartitionList(keyBytes.get());
 
-            if(RebalanceUtils.checkKeyBelongsToPartition(partitions,
+            if(StoreInstance.checkKeyBelongsToPartition(partitions,
                                                          node.getPartitionIds(),
                                                          flattenedPresentTuples)) {
                 List<Versioned<byte[]>> values = store.get(keyBytes, null);

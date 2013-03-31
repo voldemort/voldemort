@@ -26,7 +26,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.client.AbstractStoreClientFactory;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
@@ -61,27 +60,20 @@ public class SystemStoreTest {
 
     @Before
     public void setUp() throws Exception {
+        final int numServers = 2;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
+
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
         servers = new VoldemortServer[2];
-
-        servers[0] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                          ServerTestUtils.createServerConfig(true,
-                                                                                             0,
-                                                                                             TestUtils.createTempDir()
-                                                                                                      .getAbsolutePath(),
-                                                                                             null,
-                                                                                             storesXmlfile,
-                                                                                             new Properties()),
-                                                          cluster);
-        servers[1] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                          ServerTestUtils.createServerConfig(true,
-                                                                                             1,
-                                                                                             TestUtils.createTempDir()
-                                                                                                      .getAbsolutePath(),
-                                                                                             null,
-                                                                                             storesXmlfile,
-                                                                                             new Properties()),
-                                                          cluster);
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        true, // useNio
+                                                        null,
+                                                        storesXmlfile,
+                                                        new Properties());
 
         socketUrl = servers[0].getIdentityNode().getSocketUrl().toString();
 
@@ -93,13 +85,13 @@ public class SystemStoreTest {
         bootStrapUrls = new String[1];
         bootStrapUrls[0] = socketUrl;
         clusterXml = ((AbstractStoreClientFactory) socketFactory).bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-
     }
 
     @After
     public void tearDown() throws Exception {
-        servers[0].stop();
-        servers[1].stop();
+        for(VoldemortServer server: servers) {
+            ServerTestUtils.stopVoldemortServer(server);
+        }
     }
 
     @Test

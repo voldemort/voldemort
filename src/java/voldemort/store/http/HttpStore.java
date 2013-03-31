@@ -33,9 +33,7 @@ import org.apache.http.entity.ByteArrayEntity;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
 import voldemort.server.RequestRoutingType;
-import voldemort.store.NoSuchCapabilityException;
-import voldemort.store.Store;
-import voldemort.store.StoreCapabilityType;
+import voldemort.store.AbstractStore;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
@@ -49,9 +47,8 @@ import voldemort.versioning.Versioned;
  * the VoldemortHttpServer.
  * 
  */
-public class HttpStore implements Store<ByteArray, byte[], byte[]> {
+public class HttpStore extends AbstractStore<ByteArray, byte[], byte[]> {
 
-    private final String storeName;
     private final HttpClient httpClient;
     private final RequestFormat requestFormat;
     private final RequestRoutingType reroute;
@@ -63,13 +60,14 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
                      HttpClient client,
                      RequestFormat format,
                      boolean reroute) {
-        this.storeName = storeName;
+        super(storeName);
         this.httpClient = client;
         this.requestFormat = format;
         this.reroute = RequestRoutingType.getRequestRoutingType(reroute, false);
         this.storeUrl = "http://" + host + ":" + port + "/stores";
     }
 
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         DataInputStream input = null;
@@ -77,7 +75,7 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             HttpPost method = new HttpPost(this.storeUrl);
             ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
             requestFormat.writeDeleteRequest(new DataOutputStream(outputBytes),
-                                             storeName,
+                                             getName(),
                                              key,
                                              (VectorClock) version,
                                              reroute);
@@ -85,12 +83,13 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             return requestFormat.readDeleteResponse(input);
         } catch(IOException e) {
             throw new UnreachableStoreException("Could not connect to " + storeUrl + " for "
-                                                + storeName, e);
+                                                + getName(), e);
         } finally {
             IOUtils.closeQuietly(input);
         }
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         DataInputStream input = null;
@@ -98,7 +97,7 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             HttpPost method = new HttpPost(this.storeUrl);
             ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
             requestFormat.writeGetRequest(new DataOutputStream(outputBytes),
-                                          storeName,
+                                          getName(),
                                           key,
                                           transforms,
                                           reroute);
@@ -106,12 +105,13 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             return requestFormat.readGetResponse(input);
         } catch(IOException e) {
             throw new UnreachableStoreException("Could not connect to " + storeUrl + " for "
-                                                + storeName, e);
+                                                + getName(), e);
         } finally {
             IOUtils.closeQuietly(input);
         }
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -121,7 +121,7 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             HttpPost method = new HttpPost(this.storeUrl);
             ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
             requestFormat.writeGetAllRequest(new DataOutputStream(outputBytes),
-                                             storeName,
+                                             getName(),
                                              keys,
                                              transforms,
                                              reroute);
@@ -129,12 +129,13 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             return requestFormat.readGetAllResponse(input);
         } catch(IOException e) {
             throw new UnreachableStoreException("Could not connect to " + storeUrl + " for "
-                                                + storeName, e);
+                                                + getName(), e);
         } finally {
             IOUtils.closeQuietly(input);
         }
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
@@ -143,7 +144,7 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             HttpPost method = new HttpPost(this.storeUrl);
             ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
             requestFormat.writePutRequest(new DataOutputStream(outputBytes),
-                                          storeName,
+                                          getName(),
                                           key,
                                           versioned.getValue(),
                                           transforms,
@@ -153,7 +154,7 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             requestFormat.readPutResponse(input);
         } catch(IOException e) {
             throw new UnreachableStoreException("Could not connect to " + storeUrl + " for "
-                                                + storeName, e);
+                                                + getName(), e);
         } finally {
             IOUtils.closeQuietly(input);
         }
@@ -168,7 +169,7 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             if(statusCode != HttpURLConnection.HTTP_OK) {
                 String message = response.getStatusLine().getReasonPhrase();
                 VoldemortIOUtils.closeQuietly(response);
-                throw new UnreachableStoreException("HTTP request to store " + storeName
+                throw new UnreachableStoreException("HTTP request to store " + getName()
                                                     + " returned status code " + statusCode + " "
                                                     + message);
             }
@@ -176,20 +177,11 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
         } catch(IOException e) {
             VoldemortIOUtils.closeQuietly(response);
             throw new UnreachableStoreException("Could not connect to " + storeUrl + " for "
-                                                + storeName, e);
+                                                + getName(), e);
         }
     }
 
-    public void close() {}
-
-    public String getName() {
-        return storeName;
-    }
-
-    public Object getCapability(StoreCapabilityType capability) {
-        throw new NoSuchCapabilityException(capability, getName());
-    }
-
+    @Override
     public List<Version> getVersions(ByteArray key) {
         StoreUtils.assertValidKey(key);
         DataInputStream input = null;
@@ -197,14 +189,14 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             HttpPost method = new HttpPost(this.storeUrl);
             ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
             requestFormat.writeGetVersionRequest(new DataOutputStream(outputBytes),
-                                                 storeName,
+                                                 getName(),
                                                  key,
                                                  reroute);
             input = executeRequest(method, outputBytes);
             return requestFormat.readGetVersionResponse(input);
         } catch(IOException e) {
             throw new UnreachableStoreException("Could not connect to " + storeUrl + " for "
-                                                + storeName, e);
+                                                + getName(), e);
         } finally {
             IOUtils.closeQuietly(input);
         }

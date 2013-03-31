@@ -1,3 +1,8 @@
+// Please use protoc version 2.3.0 to recompile:
+//   https://code.google.com/p/protobuf/downloads/detail?name=protobuf-2.3.0.tar.gz&can=2&q=
+// Use commmand like the below to recompile:
+// $ protoc -I=src/proto --java_out=src/java src/proto/voldemort-admin.proto
+
 package voldemort;
 
 option java_package = "voldemort.client.protocol.pb";
@@ -71,8 +76,10 @@ message FetchPartitionEntriesRequest {
   required string store = 2;
   optional VoldemortFilter filter = 3;
   optional bool fetch_values = 4;
-  optional int64 skip_records = 5;
+  optional int64 OBSOLETE__DO_NOT_USE__skip_records = 5;
   optional string initial_cluster = 6;
+  optional bool fetch_orphaned = 7;
+  optional int64 records_per_partition = 8;
 }
 
 message FetchPartitionEntriesResponse {

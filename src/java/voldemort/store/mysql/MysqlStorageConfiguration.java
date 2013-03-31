@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import org.apache.commons.dbcp.BasicDataSource;
 
 import voldemort.VoldemortException;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -43,7 +44,8 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         this.dataSource = ds;
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
         return new MysqlStorageEngine(storeDef.getName(), dataSource);
     }
 

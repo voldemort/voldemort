@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -32,9 +32,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
-import java.util.Map.Entry;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -56,9 +56,9 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ClusterUtils;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -516,8 +516,9 @@ public class JsonStoreBuilder {
 
                         valueStream.flush();
 
-                        previousElements.put(key, Pair.create(previousElement.getFirst(),
-                                                              stream.toByteArray()));
+                        previousElements.put(key,
+                                             Pair.create(previousElement.getFirst(),
+                                                         stream.toByteArray()));
                     } else {
 
                         // ...else, flush the previous element to disk
@@ -588,7 +589,7 @@ public class JsonStoreBuilder {
         // Start moving files over to their correct node
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
                                                                                       cluster);
-        Map<Integer, Integer> replicaMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
+        Map<Integer, Integer> replicaMapping = ClusterUtils.getCurrentPartitionMapping(cluster);
         for(File file: tempDirectory.listFiles()) {
             String fileName = file.getName();
             if(fileName.matches("^[\\d]+_[\\d]+_[\\d]+\\.(data|index)")) {

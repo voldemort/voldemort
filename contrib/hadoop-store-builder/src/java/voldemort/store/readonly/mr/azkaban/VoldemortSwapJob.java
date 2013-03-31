@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -43,16 +44,23 @@ public class VoldemortSwapJob extends AbstractJob {
 
     private final Props _props;
     private VoldemortSwapConf swapConf;
+    private String hdfsFetcherProtocol;
+    private String hdfsFetcherPort;
 
     public VoldemortSwapJob(String id, Props props) throws IOException {
         super(id);
         _props = props;
+
+        this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
+        this.hdfsFetcherPort = props.getString("voldemort.fetcher.port", "50070");
         swapConf = new VoldemortSwapConf(_props);
     }
 
     public VoldemortSwapJob(String id, Props props, VoldemortSwapConf conf) throws IOException {
         super(id);
         _props = props;
+        this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
+        this.hdfsFetcherPort = props.getString("voldemort.fetcher.port", "50070");
         swapConf = conf;
     }
 
@@ -150,17 +158,6 @@ public class VoldemortSwapJob extends AbstractJob {
         dataDir = dataPath.makeQualified(FileSystem.get(conf)).toString();
 
         /*
-         * Set the protocol according to config: webhdfs if its enabled
-         * Otherwise use hftp.
-         */
-        Configuration hadoopConfig = new Configuration();
-        String protocolName = hadoopConfig.get("dfs.webhdfs.enabled");
-        String protocolPort = "";
-        if(hadoopConfig.get("dfs.http.address").split(":").length >= 2)
-            protocolPort = hadoopConfig.get("dfs.http.address").split(":")[1];
-        protocolName = (protocolName == null) ? "hftp" : "webhdfs";
-
-        /*
          * Replace the default protocol and port with the one derived as above
          */
         String existingProtocol = "";
@@ -171,25 +168,24 @@ public class VoldemortSwapJob extends AbstractJob {
             existingPort = pathComponents[2].split("/")[0];
         }
         info("Existing protocol = " + existingProtocol + " and port = " + existingPort);
-        if(protocolName.length() > 0 && protocolPort.length() > 0) {
-            dataDir = dataDir.replaceFirst(existingProtocol, protocolName);
-            dataDir = dataDir.replaceFirst(existingPort, protocolPort);
+        if(hdfsFetcherProtocol.length() > 0 && hdfsFetcherPort.length() > 0) {
+            dataDir = dataDir.replaceFirst(existingProtocol, this.hdfsFetcherProtocol);
+            dataDir = dataDir.replaceFirst(existingPort, this.hdfsFetcherPort);
         }
-        info("dfs.webhdfs.enabled = " + hadoopConfig.get("dfs.webhdfs.enabled")
-             + " and new protocol = " + protocolName + " and port = " + protocolPort);
 
         // Create admin client
         AdminClient client = new AdminClient(cluster,
                                              new AdminClientConfig().setMaxConnectionsPerNode(cluster.getNumberOfNodes())
                                                                     .setAdminConnectionTimeoutSec(httpTimeoutMs / 1000)
-                                                                    .setMaxBackoffDelayMs(swapConf.getMaxBackoffDelayMs()));
+                                                                    .setMaxBackoffDelayMs(swapConf.getMaxBackoffDelayMs()),
+                                             new ClientConfig());
 
         if(pushVersion == -1L) {
 
             // Need to retrieve max version
             ArrayList<String> stores = new ArrayList<String>();
             stores.add(storeName);
-            Map<String, Long> pushVersions = client.getROMaxVersion(stores);
+            Map<String, Long> pushVersions = client.readonlyOps.getROMaxVersion(stores);
 
             if(pushVersions == null || !pushVersions.containsKey(storeName)) {
                 throw new RuntimeException("Push version could not be determined for store "

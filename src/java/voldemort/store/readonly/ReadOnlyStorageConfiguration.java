@@ -46,15 +46,17 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
     private final int nodeId;
     private RoutingStrategy routingStrategy = null;
     private final int deleteBackupMs;
+    private boolean enforceMlock = false;
 
     public ReadOnlyStorageConfiguration(VoldemortConfig config) {
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
-        this.numBackups = config.getReadOnlyBackups();
+        this.numBackups = config.getNumReadOnlyVersions();
         this.registeredBeans = Collections.synchronizedSet(new HashSet<ObjectName>());
         this.searcher = (SearchStrategy) ReflectUtils.callConstructor(ReflectUtils.loadClass(config.getReadOnlySearchStrategy()
                                                                                                    .trim()));
         this.nodeId = config.getNodeId();
         this.deleteBackupMs = config.getReadOnlyDeleteBackupMs();
+        this.enforceMlock = config.isUseMlock();
     }
 
     public void close() {
@@ -67,7 +69,9 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
         this.routingStrategy = routingStrategy;
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
+        this.setRoutingStrategy(strategy);
         ReadOnlyStorageEngine store = new ReadOnlyStorageEngine(storeDef.getName(),
                                                                 this.searcher,
                                                                 this.routingStrategy,
@@ -75,7 +79,8 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
                                                                 new File(storageDir,
                                                                          storeDef.getName()),
                                                                 numBackups,
-                                                                deleteBackupMs);
+                                                                deleteBackupMs,
+                                                                enforceMlock);
         ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
                                                        storeDef.getName() + nodeId);
         JmxUtils.registerMbean(ManagementFactory.getPlatformMBeanServer(),

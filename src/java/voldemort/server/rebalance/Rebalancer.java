@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -298,8 +298,8 @@ public class Rebalancer implements Runnable {
                                                                                                         System.currentTimeMillis());
                 logger.info("Switching metadata from " + metadataStore.getCluster() + " to "
                             + cluster + " [ " + updatedVectorClock + " ]");
-                metadataStore.put(MetadataStore.CLUSTER_KEY, Versioned.value((Object) cluster,
-                                                                             updatedVectorClock));
+                metadataStore.put(MetadataStore.CLUSTER_KEY,
+                                  Versioned.value((Object) cluster, updatedVectorClock));
             } finally {
                 metadataStore.writeLock.unlock();
             }
@@ -332,16 +332,18 @@ public class Rebalancer implements Runnable {
                 int stealerNodeId = info.getStealerId();
 
                 // Check if stealer node is in rebalancing state
-                if(!adminClient.getRemoteServerState(stealerNodeId)
-                               .getValue()
-                               .equals(VoldemortState.REBALANCING_MASTER_SERVER)) {
+                if(!adminClient.rebalanceOps.getRemoteServerState(stealerNodeId)
+                                            .getValue()
+                                            .equals(VoldemortState.REBALANCING_MASTER_SERVER)) {
                     throw new VoldemortException("Stealer node " + stealerNodeId + " not in "
                                                  + VoldemortState.REBALANCING_MASTER_SERVER
                                                  + " state ");
                 }
 
                 // Also check if it has this plan
-                if(adminClient.getRemoteRebalancerState(stealerNodeId).getValue().find(donorNodeId) == null) {
+                if(adminClient.rebalanceOps.getRemoteRebalancerState(stealerNodeId)
+                                           .getValue()
+                                           .find(donorNodeId) == null) {
                     throw new VoldemortException("Stealer node " + stealerNodeId
                                                  + " does not have any plan for donor "
                                                  + donorNodeId + ". Excepted to have " + info);
@@ -368,7 +370,7 @@ public class Rebalancer implements Runnable {
 
         } finally {
             if(adminClient != null) {
-                adminClient.stop();
+                adminClient.close();
             }
         }
 
@@ -383,7 +385,8 @@ public class Rebalancer implements Runnable {
                                                                            voldemortConfig,
                                                                            metadataStore,
                                                                            requestId,
-                                                                           stealInfos));
+                                                                           stealInfos,
+                                                                           voldemortConfig.usePartitionScanForRebalance()));
 
         return requestId;
     }

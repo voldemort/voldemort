@@ -59,6 +59,10 @@ public abstract class AbstractHadoopJob extends AbstractJob {
     private final Props _props;
     private RunningJob _runningJob;
 
+    private final static String voldemortLibPath = "voldemort.distributedcache";
+
+    private final static String hadoopLibPath = "hdfs.default.classpath.dir";
+
     public AbstractHadoopJob(String name, Props props) {
         super(name);
         this._props = props;
@@ -216,28 +220,13 @@ public abstract class AbstractHadoopJob extends AbstractJob {
             }
         }
 
-        String hadoopCacheJarDir = _props.getString("hdfs.default.classpath.dir", null);
-        if(hadoopCacheJarDir != null) {
-            FileSystem fs = FileSystem.get(conf);
-            if(fs != null) {
-                FileStatus[] status = fs.listStatus(new Path(hadoopCacheJarDir));
+        // this property can be set by azkaban to manage voldemort lib path on
+        // hdfs
+        addToDistributedCache(voldemortLibPath, conf);
 
-                if(status != null) {
-                    for(int i = 0; i < status.length; ++i) {
-                        if(!status[i].isDir()) {
-                            Path path = new Path(hadoopCacheJarDir, status[i].getPath().getName());
-                            info("Adding Jar to Distributed Cache Archive File:" + path);
-
-                            DistributedCache.addFileToClassPath(path, conf);
-                        }
-                    }
-                } else {
-                    info("hdfs.default.classpath.dir " + hadoopCacheJarDir + " is empty.");
-                }
-            } else {
-                info("hdfs.default.classpath.dir " + hadoopCacheJarDir
-                     + " filesystem doesn't exist");
-            }
+        boolean isAddFiles = _props.getBoolean("hdfs.default.classpath.dir.enable", false);
+        if(isAddFiles) {
+            addToDistributedCache(hadoopLibPath, conf);
         }
 
         // May want to add this to HadoopUtils, but will await refactoring
@@ -250,7 +239,48 @@ public abstract class AbstractHadoopJob extends AbstractJob {
         }
 
         HadoopUtils.setPropsInJob(conf, getProps());
+
+        // http://hadoop.apache.org/docs/r1.1.1/mapred_tutorial.html#Job+Credentials
+
+        // The MapReduce tokens are provided so that tasks can spawn jobs if
+        // they wish to.
+        // The tasks authenticate to the JobTracker via the MapReduce delegation
+        // tokens.
+        if(System.getenv("HADOOP_TOKEN_FILE_LOCATION") != null) {
+            conf.set("mapreduce.job.credentials.binary",
+                     System.getenv("HADOOP_TOKEN_FILE_LOCATION"));
+        }
         return conf;
+    }
+
+    /*
+     * Loads jar files into distributed cache This way the mappers and reducers
+     * have the jars they need at run time
+     */
+    private void addToDistributedCache(String propertyName, JobConf conf) throws IOException {
+        String jarDir = _props.getString(propertyName, null);
+        if(jarDir != null) {
+            FileSystem fs = FileSystem.get(conf);
+            if(fs != null) {
+                FileStatus[] status = fs.listStatus(new Path(jarDir));
+
+                if(status != null) {
+                    for(int i = 0; i < status.length; ++i) {
+                        if(!status[i].isDir()) {
+                            Path path = new Path(jarDir, status[i].getPath().getName());
+                            info("Adding Jar to Distributed Cache Archive File:" + path);
+
+                            DistributedCache.addFileToClassPath(path, conf);
+                        }
+                    }
+                } else {
+                    info(propertyName + jarDir + " is empty.");
+                }
+            } else {
+                info(propertyName + jarDir + " filesystem doesn't exist");
+            }
+        }
+
     }
 
     public Props getProps() {

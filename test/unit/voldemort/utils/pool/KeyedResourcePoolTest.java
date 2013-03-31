@@ -22,26 +22,18 @@ import static org.junit.Assert.fail;
 
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.Random;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.utils.Time;
 
-public class KeyedResourcePoolTest {
+public class KeyedResourcePoolTest extends KeyedResourcePoolTestBase {
 
     protected static int POOL_SIZE = 5;
     protected static long TIMEOUT_MS = 500;
-
-    protected TestResourceFactory factory;
-    protected KeyedResourcePool<String, TestResource> pool;
-    protected ResourcePoolConfig config;
 
     @Before
     public void setUp() {
@@ -101,9 +93,9 @@ public class KeyedResourcePoolTest {
             assertEquals(1, this.pool.getCheckedInResourceCount());
 
             this.pool.checkout("a");
-            assertEquals(2, this.factory.getCreated());
-            assertEquals(2, this.pool.getTotalResourceCount());
-            assertEquals(1, this.pool.getCheckedInResourceCount());
+            assertEquals(1, this.factory.getCreated());
+            assertEquals(1, this.pool.getTotalResourceCount());
+            assertEquals(0, this.pool.getCheckedInResourceCount());
 
             for(int i = 0; i < POOL_SIZE - 1; i++) {
                 checkedOut = this.pool.checkout("a");
@@ -264,191 +256,6 @@ public class KeyedResourcePoolTest {
         } catch(ExcessiveInvalidResourcesException e) {
             // this is expected
         }
-    }
-
-    // This method was helpful when developing contendForResources
-    public void printStats(String key) {
-        System.err.println("");
-        System.err.println("getCreated: " + this.factory.getCreated());
-        System.err.println("getDestroyed: " + this.factory.getDestroyed());
-        System.err.println("getTotalResourceCount(key): " + this.pool.getTotalResourceCount(key));
-        System.err.println("getTotalResourceCount(): " + this.pool.getTotalResourceCount());
-        System.err.println("getCheckedInResourcesCount(key): "
-                           + this.pool.getCheckedInResourcesCount(key));
-        System.err.println("getCheckedInResourceCount(): " + this.pool.getCheckedInResourceCount());
-    }
-
-    @Test
-    public void contendForResources() throws Exception {
-        int numCheckers = POOL_SIZE * 2;
-        int numChecks = 10 * 1000;
-        String key = "Key";
-        float invalidationRate = (float) 0.25;
-        CountDownLatch waitForThreads = new CountDownLatch(numCheckers);
-        CountDownLatch waitForCheckers = new CountDownLatch(numCheckers);
-        for(int i = 0; i < numCheckers; ++i) {
-            new Thread(new Checkers(waitForThreads,
-                                    waitForCheckers,
-                                    key,
-                                    numChecks,
-                                    invalidationRate)).start();
-        }
-
-        try {
-            waitForCheckers.await();
-            assertEquals(POOL_SIZE, this.pool.getTotalResourceCount());
-            assertEquals(POOL_SIZE, this.pool.getCheckedInResourceCount());
-        } catch(InterruptedException e) {
-            e.printStackTrace();
-        }
-
-    }
-
-    public class Checkers implements Runnable {
-
-        private final CountDownLatch startSignal;
-        private final CountDownLatch doneSignal;
-
-        private final String key;
-        private final int checks;
-
-        private Random random;
-        private float invalidationRate;
-
-        Checkers(CountDownLatch startSignal,
-                 CountDownLatch doneSignal,
-                 String key,
-                 int checks,
-                 float invalidationRate) {
-            this.startSignal = startSignal;
-            this.doneSignal = doneSignal;
-
-            this.key = key;
-            this.checks = checks;
-
-            this.random = new Random();
-            this.invalidationRate = invalidationRate;
-        }
-
-        public void run() {
-            startSignal.countDown();
-            try {
-                startSignal.await();
-            } catch(InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            try {
-                TestResource tr = null;
-                for(int i = 0; i < checks; ++i) {
-                    tr = pool.checkout(key);
-                    assertTrue(tr.isValid());
-
-                    // Invalid some resources (except on last checkin)
-                    float f = random.nextFloat();
-                    if(f < invalidationRate && i != checks - 1) {
-                        tr.invalidate();
-                    }
-                    Thread.yield();
-
-                    pool.checkin(key, tr);
-                    Thread.yield();
-
-                    // if(i % 1000 == 0) { printStats(key); }
-                }
-            } catch(Exception e) {
-                System.err.println(e.toString());
-                fail(e.toString());
-            }
-            doneSignal.countDown();
-        }
-    }
-
-    protected static class TestResource {
-
-        private String value;
-        private AtomicBoolean isValid;
-        private AtomicBoolean isDestroyed;
-
-        public TestResource(String value) {
-            this.value = value;
-            this.isValid = new AtomicBoolean(true);
-            this.isDestroyed = new AtomicBoolean(false);
-        }
-
-        public boolean isValid() {
-            return isValid.get();
-        }
-
-        public void invalidate() {
-            this.isValid.set(false);
-        }
-
-        public boolean isDestroyed() {
-            return isDestroyed.get();
-        }
-
-        public void destroy() {
-            this.isDestroyed.set(true);
-        }
-
-        @Override
-        public String toString() {
-            return "TestResource(" + value + ")";
-        }
-
-    }
-
-    protected static class TestResourceFactory implements ResourceFactory<String, TestResource> {
-
-        private final AtomicInteger created = new AtomicInteger(0);
-        private final AtomicInteger destroyed = new AtomicInteger(0);
-        private Exception createException;
-        private Exception destroyException;
-        private boolean isCreatedValid = true;
-
-        public TestResource create(String key) throws Exception {
-            if(createException != null)
-                throw createException;
-            TestResource r = new TestResource(Integer.toString(created.getAndIncrement()));
-            if(!isCreatedValid)
-                r.invalidate();
-            return r;
-        }
-
-        public void destroy(String key, TestResource obj) throws Exception {
-            if(destroyException != null)
-                throw destroyException;
-            destroyed.incrementAndGet();
-            obj.destroy();
-        }
-
-        public boolean validate(String key, TestResource value) {
-            return value.isValid();
-        }
-
-        public int getCreated() {
-            return this.created.get();
-        }
-
-        public int getDestroyed() {
-            return this.destroyed.get();
-        }
-
-        public void setDestroyException(Exception e) {
-            this.destroyException = e;
-        }
-
-        public void setCreateException(Exception e) {
-            this.createException = e;
-        }
-
-        public void setCreatedValid(boolean isValid) {
-            this.isCreatedValid = isValid;
-        }
-
-        public void close() {}
-
     }
 
 }

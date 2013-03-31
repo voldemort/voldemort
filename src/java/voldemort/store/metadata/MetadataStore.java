@@ -42,7 +42,7 @@ import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.rebalance.RebalancerState;
-import voldemort.store.StorageEngine;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
@@ -68,7 +68,7 @@ import com.google.common.collect.Lists;
  * Metadata is persisted as strings in inner store for ease of readability.<br>
  * Metadata Store keeps an in memory write-through-cache for performance.
  */
-public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
+public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
     public static final String METADATA_STORE_NAME = "metadata";
 
@@ -114,14 +114,15 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     public final Lock readLock = lock.readLock();
     public final Lock writeLock = lock.writeLock();
 
-    private final ConcurrentHashMap<String, MetadataStoreListener> storeNameTolisteners;
+    private final ConcurrentHashMap<String, List<MetadataStoreListener>> storeNameTolisteners;
 
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
     public MetadataStore(Store<String, String, String> innerStore, int nodeId) {
+        super(innerStore.getName());
         this.innerStore = innerStore;
         this.metadataCache = new HashMap<String, Versioned<Object>>();
-        this.storeNameTolisteners = new ConcurrentHashMap<String, MetadataStoreListener>();
+        this.storeNameTolisteners = new ConcurrentHashMap<String, List<MetadataStoreListener>>();
 
         init(nodeId);
     }
@@ -130,10 +131,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         if(this.storeNameTolisteners == null)
             throw new VoldemortException("MetadataStoreListener must be non-null");
 
-        this.storeNameTolisteners.put(storeName, listener);
+        if(!this.storeNameTolisteners.containsKey(storeName))
+            this.storeNameTolisteners.put(storeName, new ArrayList<MetadataStoreListener>(2));
+        this.storeNameTolisteners.get(storeName).add(listener);
     }
 
-    public void remoteMetadataStoreListener(String storeName) {
+    public void removeMetadataStoreListener(String storeName) {
         if(this.storeNameTolisteners == null)
             throw new VoldemortException("MetadataStoreListener must be non-null");
 
@@ -152,6 +155,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         return new MetadataStore(innerStore, nodeId);
     }
 
+    @Override
     public String getName() {
         return METADATA_STORE_NAME;
     }
@@ -211,6 +215,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
      *        definitions
      * @throws VoldemortException
      */
+    @Override
     public synchronized void put(ByteArray keyBytes, Versioned<byte[]> valueBytes, byte[] transforms)
             throws VoldemortException {
         String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
@@ -223,10 +228,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         this.put(key, valueObject);
     }
 
+    @Override
     public void close() throws VoldemortException {
         innerStore.close();
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         return innerStore.getCapability(capability);
     }
@@ -237,6 +244,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
      *         bytes for cluster xml definitions
      * @throws VoldemortException
      */
+    @Override
     public synchronized List<Versioned<byte[]>> get(ByteArray keyBytes, byte[] transforms)
             throws VoldemortException {
         try {
@@ -284,6 +292,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         init(getNodeId());
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         List<Versioned<byte[]>> values = get(key, null);
         List<Version> versions = new ArrayList<Version>(values.size());
@@ -352,6 +361,19 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     /**
+     * Returns the list of store defs as a map
+     * 
+     * @param storeDefs
+     * @return
+     */
+    private HashMap<String, StoreDefinition> makeStoreDefinitionMap(List<StoreDefinition> storeDefs) {
+        HashMap<String, StoreDefinition> storeDefMap = new HashMap<String, StoreDefinition>();
+        for(StoreDefinition storeDef: storeDefs)
+            storeDefMap.put(storeDef.getName(), storeDef);
+        return storeDefMap;
+    }
+
+    /**
      * Changes to cluster OR store definition metadata results in routing
      * strategies changing. These changes need to be propagated to all the
      * listeners.
@@ -365,8 +387,9 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
             clock = (VectorClock) metadataCache.get(ROUTING_STRATEGY_KEY).getVersion();
 
         logger.info("Updating routing strategy for all stores");
+        HashMap<String, StoreDefinition> storeDefMap = makeStoreDefinitionMap(storeDefs);
         HashMap<String, RoutingStrategy> routingStrategyMap = createRoutingStrategyMap(cluster,
-                                                                                       storeDefs);
+                                                                                       storeDefMap);
         this.metadataCache.put(ROUTING_STRATEGY_KEY,
                                new Versioned<Object>(routingStrategyMap,
                                                      clock.incremented(getNodeId(),
@@ -376,8 +399,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
             RoutingStrategy updatedRoutingStrategy = routingStrategyMap.get(storeName);
             if(updatedRoutingStrategy != null) {
                 try {
-                    storeNameTolisteners.get(storeName)
-                                        .updateRoutingStrategy(updatedRoutingStrategy);
+                    for(MetadataStoreListener listener: storeNameTolisteners.get(storeName)) {
+                        listener.updateRoutingStrategy(updatedRoutingStrategy);
+                        listener.updateStoreDefinition(storeDefMap.get(storeName));
+                    }
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.WARN))
                         logger.warn(e, e);
@@ -393,7 +418,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
      */
     private void initSystemRoutingStrategies(Cluster cluster) {
         HashMap<String, RoutingStrategy> routingStrategyMap = createRoutingStrategyMap(cluster,
-                                                                                       getSystemStoreDefList());
+                                                                                       makeStoreDefinitionMap(getSystemStoreDefList()));
         this.metadataCache.put(SYSTEM_ROUTING_STRATEGY_KEY,
                                new Versioned<Object>(routingStrategyMap));
     }
@@ -455,22 +480,37 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         }
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         throw new VoldemortException("You cannot iterate over all entries in Metadata");
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys() {
         throw new VoldemortException("You cannot iterate over all keys in Metadata");
     }
 
+    @Override
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    @Override
+    public ClosableIterator<ByteArray> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
+    @Override
     public void truncate() {
         throw new VoldemortException("You cannot truncate entries in Metadata");
     }
 
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         throw new VoldemortException("You cannot delete your metadata fool !!");
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -529,10 +569,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     private HashMap<String, RoutingStrategy> createRoutingStrategyMap(Cluster cluster,
-                                                                      List<StoreDefinition> storeDefs) {
+                                                                      HashMap<String, StoreDefinition> storeDefs) {
         HashMap<String, RoutingStrategy> map = new HashMap<String, RoutingStrategy>();
 
-        for(StoreDefinition store: storeDefs) {
+        for(StoreDefinition store: storeDefs.values()) {
             map.put(store.getName(), routingFactory.updateRoutingStrategy(store, cluster));
         }
 
@@ -623,9 +663,5 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
             return values.get(0);
 
         throw new VoldemortException("No metadata found for required key:" + key);
-    }
-
-    public boolean isPartitionAware() {
-        return false;
     }
 }

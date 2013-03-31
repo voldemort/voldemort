@@ -18,6 +18,7 @@ package voldemort.store;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -198,5 +199,20 @@ public class StoreUtils {
             if(def.getName().equals(name))
                 return def;
         return null;
+    }
+
+    /**
+     * Get the list of store names from a list of store definitions
+     * 
+     * @param list
+     * @param ignoreViews
+     * @return list of store names
+     */
+    public static List<String> getStoreNames(List<StoreDefinition> list, boolean ignoreViews) {
+        List<String> storeNameSet = new ArrayList<String>();
+        for(StoreDefinition def: list)
+            if(!def.isView() || !ignoreViews)
+                storeNameSet.add(def.getName());
+        return storeNameSet;
     }
 }

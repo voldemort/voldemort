@@ -27,6 +27,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.store.AbstractStore;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
@@ -40,9 +41,8 @@ import voldemort.utils.Utils;
  * 
  * 
  */
-public abstract class RoutedStore implements Store<ByteArray, byte[], byte[]> {
+public abstract class RoutedStore extends AbstractStore<ByteArray, byte[], byte[]> {
 
-    protected final String name;
     protected final Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores;
     protected final boolean repairReads;
     protected final ReadRepairer<ByteArray, byte[]> readRepairer;
@@ -61,6 +61,7 @@ public abstract class RoutedStore implements Store<ByteArray, byte[], byte[]> {
                           TimeoutConfig timeoutConfig,
                           FailureDetector failureDetector,
                           Time time) {
+        super(name);
         if(storeDef.getRequiredReads() < 1)
             throw new IllegalArgumentException("Cannot have a storeDef.getRequiredReads() number less than 1.");
         if(storeDef.getRequiredWrites() < 1)
@@ -74,7 +75,6 @@ public abstract class RoutedStore implements Store<ByteArray, byte[], byte[]> {
         if(storeDef.getPreferredWrites() > innerStores.size())
             throw new IllegalArgumentException("storeDef.getPreferredWrites() is larger than the total number of nodes!");
 
-        this.name = name;
         this.innerStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[], byte[]>>(innerStores);
         this.repairReads = repairReads;
         this.readRepairer = new ReadRepairer<ByteArray, byte[]>();
@@ -90,10 +90,7 @@ public abstract class RoutedStore implements Store<ByteArray, byte[], byte[]> {
         this.routingStrategy = routingStrategy;
     }
 
-    public String getName() {
-        return this.name;
-    }
-
+    @Override
     public void close() {
         VoldemortException exception = null;
 
@@ -113,6 +110,7 @@ public abstract class RoutedStore implements Store<ByteArray, byte[], byte[]> {
         return this.innerStores;
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         switch(capability) {
             case ROUTING_STRATEGY:

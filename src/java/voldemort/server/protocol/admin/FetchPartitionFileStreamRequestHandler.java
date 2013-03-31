@@ -27,7 +27,8 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
-import voldemort.store.stats.StreamStats;
+import voldemort.store.stats.StreamingStats;
+import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
@@ -44,9 +45,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private final long blockSize;
 
-    private final StreamStats stats;
-
-    private final StreamStats.Handle handle;
+    private final StreamingStats streamStats;
 
     private final Iterator<Pair<Integer, Integer>> partitionIterator;
 
@@ -79,8 +78,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
     protected FetchPartitionFileStreamRequestHandler(VAdminProto.FetchPartitionFilesRequest request,
                                                      MetadataStore metadataStore,
                                                      VoldemortConfig voldemortConfig,
-                                                     StoreRepository storeRepository,
-                                                     StreamStats stats) {
+                                                     StoreRepository storeRepository) {
         this.request = request;
         StoreDefinition storeDef = metadataStore.getStoreDef(request.getStore());
         boolean isReadOnly = storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
@@ -100,8 +98,11 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                                                  voldemortConfig.getAdminSocketBufferSize());
         this.storeDir = new File(storageEngine.getCurrentDirPath());
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
-        this.stats = stats;
-        this.handle = stats.makeHandle(StreamStats.Operation.FETCH_FILE, replicaToPartitionList);
+        if(voldemortConfig.isJmxEnabled()) {
+            this.streamStats = storeRepository.getStreamingStats(storageEngine.getName());
+        } else {
+            this.streamStats = null;
+        }
         this.partitionIterator = Collections.unmodifiableSet(replicaToPartitionTuples).iterator();
         this.fetchStatus = FetchStatus.NEXT_PARTITION;
         this.currentChunkId = 0;
@@ -158,7 +159,8 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             this.chunkedFileWriter.close();
             currentChunkId++;
             dataFile = indexFile = null;
-            handle.incrementEntriesScanned();
+            if(streamStats != null)
+                streamStats.reportStreamingFetch(Operation.FETCH_FILE);
             if(currentChunkId >= numChunks) {
                 fetchStatus = FetchStatus.NEXT_PARTITION;
             } else {
@@ -237,9 +239,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             // partition list
             logger.info("Finished streaming files for partitions tuples "
                         + replicaToPartitionTuples);
-            stats.closeHandle(handle);
             handlerState = StreamRequestHandlerState.COMPLETE;
-
         }
 
         return handlerState;

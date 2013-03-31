@@ -1,3 +1,18 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.server.scheduler.slop;
 
 import java.util.Date;
@@ -18,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -114,7 +130,8 @@ public class StreamingSlopPusherJob implements Runnable {
 
         if(adminClient == null) {
             adminClient = new AdminClient(cluster,
-                                          new AdminClientConfig().setMaxConnectionsPerNode(1));
+                                          new AdminClientConfig().setMaxConnectionsPerNode(1),
+                                          new ClientConfig());
         }
 
         if(voldemortConfig.getSlopZonesDownToTerminate() > 0) {
@@ -280,7 +297,7 @@ public class StreamingSlopPusherJob implements Runnable {
 
     private void stopAdminClient() {
         if(adminClient != null) {
-            adminClient.stop();
+            adminClient.close();
             adminClient = null;
         }
     }
@@ -356,7 +373,8 @@ public class StreamingSlopPusherJob implements Runnable {
 
                         writeThrottler.maybeThrottle(writtenLast);
                         writtenLast = slopSize(head);
-                        deleteBatch.add(Pair.create(head.getValue().makeKey(), head.getVersion()));
+                        deleteBatch.add(Pair.create(head.getValue().makeKey(),
+                                                    (Version) head.getVersion()));
                         return head;
                     }
                 }
@@ -421,7 +439,7 @@ public class StreamingSlopPusherJob implements Runnable {
                     }
                     this.startTime = System.currentTimeMillis();
                     iterator = new SlopIterator(slopQueue, current);
-                    adminClient.updateSlopEntries(nodeId, iterator);
+                    adminClient.streamingOps.updateSlopEntries(nodeId, iterator);
                 } while(!iterator.isComplete());
 
                 // Clear up both previous and current

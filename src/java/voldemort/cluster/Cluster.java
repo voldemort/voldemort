@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -23,6 +23,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
@@ -47,6 +49,8 @@ public class Cluster implements Serializable {
     private final int numberOfTags;
     private final Map<Integer, Node> nodesById;
     private final Map<Integer, Zone> zonesById;
+    private final Map<Zone, List<Integer>> nodesPerZone;
+    private final Map<Zone, List<Integer>> partitionsPerZone;
 
     public Cluster(String name, List<Node> nodes) {
         this(name, nodes, new ArrayList<Zone>());
@@ -54,6 +58,9 @@ public class Cluster implements Serializable {
 
     public Cluster(String name, List<Node> nodes, List<Zone> zones) {
         this.name = Utils.notNull(name);
+        this.partitionsPerZone = new LinkedHashMap<Zone, List<Integer>>();
+        this.nodesPerZone = new LinkedHashMap<Zone, List<Integer>>();
+
         if(zones.size() != 0) {
             zonesById = new LinkedHashMap<Integer, Zone>(zones.size());
             for(Zone zone: zones) {
@@ -61,11 +68,16 @@ public class Cluster implements Serializable {
                     throw new IllegalArgumentException("Zone id " + zone.getId()
                                                        + " appears twice in the zone list.");
                 zonesById.put(zone.getId(), zone);
+                nodesPerZone.put(zone, new ArrayList<Integer>());
+                partitionsPerZone.put(zone, new ArrayList<Integer>());
             }
         } else {
             // Add default zone
             zonesById = new LinkedHashMap<Integer, Zone>(1);
-            zonesById.put(Zone.DEFAULT_ZONE_ID, new Zone());
+            Zone defaultZone = new Zone();
+            zonesById.put(defaultZone.getId(), defaultZone);
+            nodesPerZone.put(defaultZone, new ArrayList<Integer>());
+            partitionsPerZone.put(defaultZone, new ArrayList<Integer>());
         }
 
         this.nodesById = new LinkedHashMap<Integer, Node>(nodes.size());
@@ -74,14 +86,19 @@ public class Cluster implements Serializable {
                 throw new IllegalArgumentException("Node id " + node.getId()
                                                    + " appears twice in the node list.");
             nodesById.put(node.getId(), node);
+
+            Zone nodesZone = zonesById.get(node.getZoneId());
+            nodesPerZone.get(nodesZone).add(node.getId());
+            partitionsPerZone.get(nodesZone).addAll(node.getPartitionIds());
         }
         this.numberOfTags = getNumberOfTags(nodes);
     }
 
     private int getNumberOfTags(List<Node> nodes) {
         List<Integer> tags = new ArrayList<Integer>();
-        for(Node node: nodes)
+        for(Node node: nodes) {
             tags.addAll(node.getPartitionIds());
+        }
         Collections.sort(tags);
         for(int i = 0; i < numberOfTags; i++) {
             if(tags.get(i).intValue() != i)
@@ -97,6 +114,23 @@ public class Cluster implements Serializable {
 
     public Collection<Node> getNodes() {
         return nodesById.values();
+    }
+
+    /**
+     * @return Sorted set of node Ids
+     */
+    public Set<Integer> getNodeIds() {
+        Set<Integer> nodeIds = nodesById.keySet();
+        return new TreeSet<Integer>(nodeIds);
+    }
+
+    /**
+     * 
+     * @return Sorted set of Zone Ids
+     */
+    public Set<Integer> getZoneIds() {
+        Set<Integer> zoneIds = zonesById.keySet();
+        return new TreeSet<Integer>(zoneIds);
     }
 
     public Collection<Zone> getZones() {
@@ -131,6 +165,28 @@ public class Cluster implements Serializable {
 
     public int getNumberOfZones() {
         return zonesById.size();
+    }
+
+    public int getNumberOfPartitionsInZone(Integer zoneId) {
+        return partitionsPerZone.get(getZoneById(zoneId)).size();
+    }
+
+    public int getNumberOfNodesInZone(Integer zoneId) {
+        return nodesPerZone.get(getZoneById(zoneId)).size();
+    }
+
+    /**
+     * @return Sorted set of node Ids for given zone
+     */
+    public Set<Integer> getNodeIdsInZone(Integer zoneId) {
+        return new TreeSet<Integer>(nodesPerZone.get(getZoneById(zoneId)));
+    }
+
+    /**
+     * @return Sorted set of partition Ids for given zone
+     */
+    public Set<Integer> getPartitionIdsInZone(Integer zoneId) {
+        return new TreeSet<Integer>(partitionsPerZone.get(getZoneById(zoneId)));
     }
 
     public Node getNodeById(int id) {

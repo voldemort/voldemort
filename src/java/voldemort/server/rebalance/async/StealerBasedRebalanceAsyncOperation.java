@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 LinkedIn, Inc
+ * Copyright 2011-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -135,7 +135,7 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
                         + stealInfo.getDonorId());
 
             rebalancer.releaseRebalancingPermit(stealInfo.getDonorId());
-            adminClient.stop();
+            adminClient.close();
             adminClient = null;
         }
     }
@@ -145,7 +145,7 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
         updateStatus(getHeader(stealInfo) + "Stop called on rebalance operation");
         if(null != adminClient) {
             for(int asyncID: rebalanceStatusList) {
-                adminClient.stopAsyncRequest(metadataStore.getNodeId(), asyncID);
+                adminClient.rpcOps.stopAsyncRequest(metadataStore.getNodeId(), asyncID);
             }
         }
 
@@ -175,24 +175,24 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
             logger.info(getHeader(stealInfo) + "Starting partitions migration for store "
                         + storeName + " from donor node " + stealInfo.getDonorId());
 
-            int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
-                                                        metadataStore.getNodeId(),
-                                                        storeName,
-                                                        stealInfo.getReplicaToAddPartitionList(storeName),
-                                                        null,
-                                                        stealInfo.getInitialCluster(),
-                                                        true);
+            int asyncId = adminClient.storeMntOps.migratePartitions(stealInfo.getDonorId(),
+                                                                    metadataStore.getNodeId(),
+                                                                    storeName,
+                                                                    stealInfo.getReplicaToAddPartitionList(storeName),
+                                                                    null,
+                                                                    stealInfo.getInitialCluster(),
+                                                                    true);
             rebalanceStatusList.add(asyncId);
 
             if(logger.isDebugEnabled()) {
                 logger.debug(getHeader(stealInfo) + "Waiting for completion for " + storeName
                              + " with async id " + asyncId);
             }
-            adminClient.waitForCompletion(metadataStore.getNodeId(),
-                                          asyncId,
-                                          voldemortConfig.getRebalancingTimeoutSec(),
-                                          TimeUnit.SECONDS,
-                                          getStatus());
+            adminClient.rpcOps.waitForCompletion(metadataStore.getNodeId(),
+                                                 asyncId,
+                                                 voldemortConfig.getRebalancingTimeoutSec(),
+                                                 TimeUnit.SECONDS,
+                                                 getStatus());
 
             rebalanceStatusList.remove((Object) asyncId);
 
@@ -207,11 +207,11 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
             logger.info(getHeader(stealInfo) + "Deleting partitions for store " + storeName
                         + " on donor node " + stealInfo.getDonorId());
 
-            adminClient.deletePartitions(stealInfo.getDonorId(),
-                                         storeName,
-                                         stealInfo.getReplicaToDeletePartitionList(storeName),
-                                         stealInfo.getInitialCluster(),
-                                         null);
+            adminClient.storeMntOps.deletePartitions(stealInfo.getDonorId(),
+                                                     storeName,
+                                                     stealInfo.getReplicaToDeletePartitionList(storeName),
+                                                     stealInfo.getInitialCluster(),
+                                                     null);
             logger.info(getHeader(stealInfo) + "Deleted partitions for store " + storeName
                         + " on donor node " + stealInfo.getDonorId());
 

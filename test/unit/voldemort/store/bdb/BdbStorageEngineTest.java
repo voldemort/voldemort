@@ -18,6 +18,7 @@ package voldemort.store.bdb;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
@@ -28,6 +29,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.io.FileDeleteStrategy;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.TestUtils;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
@@ -47,6 +54,12 @@ import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
 
+/**
+ * Tests the BDB storage engine. Note that this class uses junit4 style test
+ * methods, though the base class extends TestCase junit 3 style
+ * 
+ */
+@RunWith(Parameterized.class)
 public class BdbStorageEngineTest extends AbstractStorageEngineTest {
 
     private static final LockMode LOCK_MODE = LockMode.DEFAULT;
@@ -58,9 +71,21 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
     private BdbStorageEngine store;
     private DatabaseConfig databaseConfig;
     private BdbRuntimeConfig runtimeConfig;
+    private boolean prefixPartitionId;
+
+    public BdbStorageEngineTest(boolean prefixPartitionId) {
+        this.prefixPartitionId = prefixPartitionId;
+    }
+
+    @Parameters
+    public static Collection<Object[]> modes() {
+        Object[][] data = new Object[][] { { true }, { false } };
+        return Arrays.asList(data);
+    }
 
     @Override
-    protected void setUp() throws Exception {
+    @Before
+    public void setUp() throws Exception {
         super.setUp();
         this.envConfig = new EnvironmentConfig();
         this.envConfig.setDurability(Durability.COMMIT_NO_SYNC);
@@ -71,15 +96,36 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         this.databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setTransactional(true);
-        databaseConfig.setSortedDuplicates(true);
+        databaseConfig.setSortedDuplicates(false);
         this.database = environment.openDatabase(null, "test", databaseConfig);
         this.runtimeConfig = new BdbRuntimeConfig();
         runtimeConfig.setLockMode(LOCK_MODE);
-        this.store = new BdbStorageEngine("test", this.environment, this.database, runtimeConfig);
+        this.store = makeBdbStorageEngine("test",
+                                          this.environment,
+                                          this.database,
+                                          runtimeConfig,
+                                          this.prefixPartitionId);
+    }
+
+    protected static BdbStorageEngine makeBdbStorageEngine(String name,
+                                                           Environment environment,
+                                                           Database database,
+                                                           BdbRuntimeConfig config,
+                                                           boolean prefixPartitionId) {
+        if(prefixPartitionId) {
+            return new PartitionPrefixedBdbStorageEngine(name,
+                                                         environment,
+                                                         database,
+                                                         config,
+                                                         TestUtils.makeSingleNodeRoutingStrategy());
+        } else {
+            return new BdbStorageEngine(name, environment, database, config);
+        }
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         super.tearDown();
         try {
             store.close();
@@ -94,6 +140,7 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         return store;
     }
 
+    @Test
     public void testPersistence() throws Exception {
         this.store.put(new ByteArray("abc".getBytes()),
                        new Versioned<byte[]>("cdef".getBytes()),
@@ -102,39 +149,54 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         this.environment.close();
         this.environment = new Environment(this.tempDir, envConfig);
         this.database = environment.openDatabase(null, "test", databaseConfig);
-        this.store = new BdbStorageEngine("test", this.environment, this.database, runtimeConfig);
+        this.store = makeBdbStorageEngine("test",
+                                          this.environment,
+                                          this.database,
+                                          runtimeConfig,
+                                          this.prefixPartitionId);
         List<Versioned<byte[]>> vals = store.get(new ByteArray("abc".getBytes()), null);
         assertEquals(1, vals.size());
         TestUtils.bytesEqual("cdef".getBytes(), vals.get(0).getValue());
     }
 
+    @Test
     public void testEquals() {
         String name = "someName";
-        assertEquals(new BdbStorageEngine(name, environment, database, runtimeConfig),
-                     new BdbStorageEngine(name, environment, database, runtimeConfig));
+        assertEquals(makeBdbStorageEngine(name,
+                                          environment,
+                                          database,
+                                          runtimeConfig,
+                                          this.prefixPartitionId),
+                     makeBdbStorageEngine(name,
+                                          environment,
+                                          database,
+                                          runtimeConfig,
+                                          this.prefixPartitionId));
     }
 
+    @Test
     public void testNullConstructorParameters() {
         try {
-            new BdbStorageEngine(null, environment, database, runtimeConfig);
+            makeBdbStorageEngine(null, environment, database, runtimeConfig, this.prefixPartitionId);
         } catch(IllegalArgumentException e) {
             return;
         }
         fail("No exception thrown for null name.");
         try {
-            new BdbStorageEngine("name", null, database, runtimeConfig);
+            makeBdbStorageEngine("name", null, database, runtimeConfig, this.prefixPartitionId);
         } catch(IllegalArgumentException e) {
             return;
         }
         fail("No exception thrown for null environment.");
         try {
-            new BdbStorageEngine("name", environment, null, runtimeConfig);
+            makeBdbStorageEngine("name", environment, null, runtimeConfig, this.prefixPartitionId);
         } catch(IllegalArgumentException e) {
             return;
         }
         fail("No exception thrown for null database.");
     }
 
+    @Test
     public void testConcurrentReadAndPut() throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(10);
         final CountDownLatch latch = new CountDownLatch(10);
@@ -174,6 +236,7 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         assertFalse("Should not have seen any empty results", returnedEmpty.get());
     }
 
+    @Test
     public void testSimultaneousIterationAndModification() throws Exception {
         // start a thread to do modifications
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -215,6 +278,7 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
     }
 
+    @Test
     public void testNativeBackup() throws Exception {
         File backupToDir = File.createTempFile("bdb-storage", "bkp");
         backupToDir.delete();
@@ -235,7 +299,6 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         } finally {
             deleteDir(backupToDir);
         }
-
     }
 
     private static void assertArrayEquals(Object[] expected, Object[] actual) {

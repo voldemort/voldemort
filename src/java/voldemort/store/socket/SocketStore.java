@@ -26,8 +26,8 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.server.RequestRoutingType;
+import voldemort.store.AbstractStore;
 import voldemort.store.NoSuchCapabilityException;
-import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
@@ -59,11 +59,11 @@ import voldemort.versioning.Versioned;
  * {@link ClientRequestExecutorPool pool} and adds an appropriate
  * {@link ClientRequest request} to be processed by the NIO thread.
  */
-public class SocketStore implements Store<ByteArray, byte[], byte[]>, NonblockingStore {
+public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implements
+        NonblockingStore {
 
     private final RequestFormatFactory requestFormatFactory = new RequestFormatFactory();
 
-    private final String storeName;
     private final long timeoutMs;
     private final ClientRequestExecutorPool pool;
     private final SocketDestination destination;
@@ -76,7 +76,7 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
                        SocketDestination dest,
                        ClientRequestExecutorPool pool,
                        RequestRoutingType requestRoutingType) {
-        this.storeName = Utils.notNull(storeName);
+        super(storeName);
         this.timeoutMs = timeoutMs;
         this.pool = Utils.notNull(pool);
         this.destination = dest;
@@ -84,12 +84,13 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         this.requestRoutingType = requestRoutingType;
     }
 
+    @Override
     public void submitDeleteRequest(ByteArray key,
                                     Version version,
                                     NonblockingStoreCallback callback,
                                     long timeoutMs) {
         StoreUtils.assertValidKey(key);
-        DeleteClientRequest clientRequest = new DeleteClientRequest(storeName,
+        DeleteClientRequest clientRequest = new DeleteClientRequest(getName(),
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     key,
@@ -100,12 +101,13 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         requestAsync(clientRequest, callback, timeoutMs, "delete");
     }
 
+    @Override
     public void submitGetRequest(ByteArray key,
                                  byte[] transforms,
                                  NonblockingStoreCallback callback,
                                  long timeoutMs) {
         StoreUtils.assertValidKey(key);
-        GetClientRequest clientRequest = new GetClientRequest(storeName,
+        GetClientRequest clientRequest = new GetClientRequest(getName(),
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
@@ -116,12 +118,13 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         requestAsync(clientRequest, callback, timeoutMs, "get");
     }
 
+    @Override
     public void submitGetAllRequest(Iterable<ByteArray> keys,
                                     Map<ByteArray, byte[]> transforms,
                                     NonblockingStoreCallback callback,
                                     long timeoutMs) {
         StoreUtils.assertValidKeys(keys);
-        GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
+        GetAllClientRequest clientRequest = new GetAllClientRequest(getName(),
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     keys,
@@ -132,11 +135,12 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         requestAsync(clientRequest, callback, timeoutMs, "get all");
     }
 
+    @Override
     public void submitGetVersionsRequest(ByteArray key,
                                          NonblockingStoreCallback callback,
                                          long timeoutMs) {
         StoreUtils.assertValidKey(key);
-        GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(storeName,
+        GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(getName(),
                                                                               requestFormat,
                                                                               requestRoutingType,
                                                                               key);
@@ -146,13 +150,14 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         requestAsync(clientRequest, callback, timeoutMs, "get versions");
     }
 
+    @Override
     public void submitPutRequest(ByteArray key,
                                  Versioned<byte[]> value,
                                  byte[] transforms,
                                  NonblockingStoreCallback callback,
                                  long timeoutMs) {
         StoreUtils.assertValidKey(key);
-        PutClientRequest clientRequest = new PutClientRequest(storeName,
+        PutClientRequest clientRequest = new PutClientRequest(getName(),
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
@@ -164,9 +169,10 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         requestAsync(clientRequest, callback, timeoutMs, "put");
     }
 
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        DeleteClientRequest clientRequest = new DeleteClientRequest(storeName,
+        DeleteClientRequest clientRequest = new DeleteClientRequest(getName(),
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     key,
@@ -177,9 +183,10 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         return request(clientRequest, "delete");
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        GetClientRequest clientRequest = new GetClientRequest(storeName,
+        GetClientRequest clientRequest = new GetClientRequest(getName(),
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
@@ -190,11 +197,12 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         return request(clientRequest, "get");
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
-        GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
+        GetAllClientRequest clientRequest = new GetAllClientRequest(getName(),
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     keys,
@@ -205,9 +213,10 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         return request(clientRequest, "getAll");
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         StoreUtils.assertValidKey(key);
-        GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(storeName,
+        GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(getName(),
                                                                               requestFormat,
                                                                               requestRoutingType,
                                                                               key);
@@ -217,10 +226,11 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         return request(clientRequest, "getVersions");
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        PutClientRequest clientRequest = new PutClientRequest(storeName,
+        PutClientRequest clientRequest = new PutClientRequest(getName(),
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
@@ -232,19 +242,12 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         request(clientRequest, "put");
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         if(StoreCapabilityType.SOCKET_POOL.equals(capability))
             return this.pool;
         else
             throw new NoSuchCapabilityException(capability, getName());
-    }
-
-    public String getName() {
-        return storeName;
-    }
-
-    public void close() throws VoldemortException {
-        // don't close the socket pool, it is shared
     }
 
     /**
@@ -355,5 +358,4 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
                                   String operationName) {
         pool.submitAsync(this.destination, delegate, callback, timeoutMs, operationName);
     }
-
 }

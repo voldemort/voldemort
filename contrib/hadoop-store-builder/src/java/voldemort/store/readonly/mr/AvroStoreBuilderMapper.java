@@ -35,6 +35,7 @@ import org.apache.hadoop.mapred.Reporter;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
@@ -46,7 +47,6 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
-import voldemort.store.readonly.mr.utils.MapperKeyValueWriter;
 import voldemort.utils.ByteUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -92,24 +92,93 @@ public class AvroStoreBuilderMapper extends
         byte[] keyBytes = keySerializer.toBytes(record.get(keyField));
         byte[] valBytes = valueSerializer.toBytes(record.get(valField));
 
-        MapperKeyValueWriter mapWriter = new MapperKeyValueWriter();
+        // Compress key and values if required
+        if(keySerializerDefinition.hasCompression()) {
+            keyBytes = keyCompressor.deflate(keyBytes);
+        }
 
-        List mapperList = mapWriter.map(routingStrategy,
-                                        keySerializer,
-                                        valueSerializer,
-                                        valueCompressor,
-                                        keyCompressor,
-                                        keySerializerDefinition,
-                                        valueSerializerDefinition,
-                                        keyBytes,
-                                        valBytes,
-                                        getSaveKeys(),
-                                        md5er);
+        if(valueSerializerDefinition.hasCompression()) {
+            valBytes = valueCompressor.deflate(valBytes);
+        }
 
-        for(int i = 0; i < mapperList.size(); i++) {
-            voldemort.utils.Pair<BytesWritable, BytesWritable> pair = (voldemort.utils.Pair<BytesWritable, BytesWritable>) mapperList.get(i);
-            BytesWritable outputKey = pair.getFirst();
-            BytesWritable outputVal = pair.getSecond();
+        // Get the output byte arrays ready to populate
+        byte[] outputValue;
+        BytesWritable outputKey;
+
+        // Leave initial offset for (a) node id (b) partition id
+        // since they are written later
+        int offsetTillNow = 2 * ByteUtils.SIZE_OF_INT;
+
+        if(getSaveKeys()) {
+
+            // In order - 4 ( for node id ) + 4 ( partition id ) + 1 (
+            // replica
+            // type - primary | secondary | tertiary... ] + 4 ( key size )
+            // size ) + 4 ( value size ) + key + value
+            outputValue = new byte[valBytes.length + keyBytes.length + ByteUtils.SIZE_OF_BYTE + 4
+                                   * ByteUtils.SIZE_OF_INT];
+
+            // Write key length - leave byte for replica type
+            offsetTillNow += ByteUtils.SIZE_OF_BYTE;
+            ByteUtils.writeInt(outputValue, keyBytes.length, offsetTillNow);
+
+            // Write value length
+            offsetTillNow += ByteUtils.SIZE_OF_INT;
+            ByteUtils.writeInt(outputValue, valBytes.length, offsetTillNow);
+
+            // Write key
+            offsetTillNow += ByteUtils.SIZE_OF_INT;
+            System.arraycopy(keyBytes, 0, outputValue, offsetTillNow, keyBytes.length);
+
+            // Write value
+            offsetTillNow += keyBytes.length;
+            System.arraycopy(valBytes, 0, outputValue, offsetTillNow, valBytes.length);
+
+            // Generate MR key - upper 8 bytes of 16 byte md5
+            outputKey = new BytesWritable(ByteUtils.copy(md5er.digest(keyBytes),
+                                                         0,
+                                                         2 * ByteUtils.SIZE_OF_INT));
+
+        } else {
+
+            // In order - 4 ( for node id ) + 4 ( partition id ) + value
+            outputValue = new byte[valBytes.length + 2 * ByteUtils.SIZE_OF_INT];
+
+            // Write value
+            System.arraycopy(valBytes, 0, outputValue, offsetTillNow, valBytes.length);
+
+            // Generate MR key - 16 byte md5
+            outputKey = new BytesWritable(md5er.digest(keyBytes));
+
+        }
+
+        // Generate partition and node list this key is destined for
+        List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
+        Node[] partitionToNode = routingStrategy.getPartitionToNode();
+
+        for(int replicaType = 0; replicaType < partitionList.size(); replicaType++) {
+
+            // Node id
+            ByteUtils.writeInt(outputValue,
+                               partitionToNode[partitionList.get(replicaType)].getId(),
+                               0);
+
+            if(getSaveKeys()) {
+                // Primary partition id
+                ByteUtils.writeInt(outputValue, partitionList.get(0), ByteUtils.SIZE_OF_INT);
+
+                // Replica type
+                ByteUtils.writeBytes(outputValue,
+                                     replicaType,
+                                     2 * ByteUtils.SIZE_OF_INT,
+                                     ByteUtils.SIZE_OF_BYTE);
+            } else {
+                // Partition id
+                ByteUtils.writeInt(outputValue,
+                                   partitionList.get(replicaType),
+                                   ByteUtils.SIZE_OF_INT);
+            }
+            BytesWritable outputVal = new BytesWritable(outputValue);
 
             ByteBuffer keyBuffer = null, valueBuffer = null;
 
@@ -118,7 +187,6 @@ public class AvroStoreBuilderMapper extends
             keyBuffer.put(md5KeyBytes);
             keyBuffer.rewind();
 
-            byte[] outputValue = outputVal.getBytes();
             valueBuffer = ByteBuffer.allocate(outputValue.length);
             valueBuffer.put(outputValue);
             valueBuffer.rewind();
@@ -128,7 +196,6 @@ public class AvroStoreBuilderMapper extends
 
             collector.collect(p);
         }
-
         md5er.reset();
     }
 

@@ -16,6 +16,11 @@
 
 package voldemort.client;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -23,14 +28,11 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import junit.framework.TestCase;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.serialization.DefaultSerializerFactory;
@@ -47,7 +49,7 @@ import voldemort.versioning.Versioned;
 import com.google.common.collect.Lists;
 
 @SuppressWarnings({ "unchecked" })
-public class ClientRegistryTest extends TestCase {
+public class ClientRegistryTest {
 
     public static final String SERVER_LOCAL_URL = "tcp://localhost:";
     public static final String TEST_STORE_NAME = "test-store-eventual-1";
@@ -64,8 +66,7 @@ public class ClientRegistryTest extends TestCase {
                                                                                   32 * 1024);
     private static VoldemortServer[] servers = null;
     private static int[] serverPorts = null;
-    private Cluster cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 },
-            { 4, 5, 6, 7 } });
+    private Cluster cluster = null;
     private static AdminClient adminClient;
 
     private SerializerFactory serializerFactory = new DefaultSerializerFactory();
@@ -76,22 +77,24 @@ public class ClientRegistryTest extends TestCase {
     @Before
     public void setUp() throws Exception {
 
-        if(null == servers) {
+        if(cluster == null) {
             servers = new VoldemortServer[TOTAL_SERVERS];
-            serverPorts = new int[TOTAL_SERVERS];
 
+            int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
+            cluster = ServerTestUtils.startVoldemortCluster(TOTAL_SERVERS,
+                                                            servers,
+                                                            partitionMap,
+                                                            socketStoreFactory,
+                                                            true, // useNio
+                                                            null,
+                                                            STORES_XML_FILE,
+                                                            new Properties());
+
+            serverPorts = new int[TOTAL_SERVERS];
             for(int i = 0; i < TOTAL_SERVERS; i++) {
-                servers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                  ServerTestUtils.createServerConfig(true,
-                                                                                                     i,
-                                                                                                     TestUtils.createTempDir()
-                                                                                                              .getAbsolutePath(),
-                                                                                                     null,
-                                                                                                     STORES_XML_FILE,
-                                                                                                     new Properties()),
-                                                                  cluster);
                 serverPorts[i] = servers[i].getIdentityNode().getSocketPort();
             }
+
             adminClient = ServerTestUtils.getAdminClient(cluster);
         }
 
@@ -101,6 +104,9 @@ public class ClientRegistryTest extends TestCase {
     @After
     public void tearDown() throws Exception {
         this.clearRegistryContent();
+        for(VoldemortServer server: servers) {
+            ServerTestUtils.stopVoldemortServer(server);
+        }
     }
 
     /*
@@ -116,16 +122,17 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
         StoreClient<String, String> client1 = socketFactory.getStoreClient(TEST_STORE_NAME);
         client1.put("k", "v");
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.fetchEntries(0,
-                                                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                   emptyPartitionList,
-                                                                                   null,
-                                                                                   false);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(0,
+                                                                                                SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                                                                emptyPartitionList,
+                                                                                                null,
+                                                                                                false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
         assertEquals(TEST_STORE_NAME, infoList.get(0).getStoreName());
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
@@ -136,11 +143,11 @@ public class ClientRegistryTest extends TestCase {
         assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
         assertEquals(1, infoList.size());
 
-        it = adminClient.fetchEntries(1,
-                                      SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                      emptyPartitionList,
-                                      null,
-                                      false);
+        it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                   emptyPartitionList,
+                                                   null,
+                                                   false);
         infoList = getClientRegistryContent(it);
         assertEquals(TEST_STORE_NAME, infoList.get(0).getStoreName());
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
@@ -155,11 +162,11 @@ public class ClientRegistryTest extends TestCase {
         } catch(InterruptedException e) {}
         // now the periodical update has gone through, it shall be higher than
         // the bootstrap time
-        it = adminClient.fetchEntries(1,
-                                      SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                      emptyPartitionList,
-                                      null,
-                                      false);
+        it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                   emptyPartitionList,
+                                                   null,
+                                                   false);
         infoList = getClientRegistryContent(it);
         assertTrue("Client registry not updated.",
                    infoList.get(0).getBootstrapTime() < infoList.get(0).getUpdateTime());
@@ -182,6 +189,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
@@ -191,11 +199,11 @@ public class ClientRegistryTest extends TestCase {
         client1.put("k1", "v1");
         client2.put("k2", "v2");
 
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.fetchEntries(0,
-                                                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                   emptyPartitionList,
-                                                                                   null,
-                                                                                   false);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(0,
+                                                                                                SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                                                                emptyPartitionList,
+                                                                                                null,
+                                                                                                false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
         assertEquals(TEST_STORE_NAME, infoList.get(0).getStoreName());
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
@@ -214,11 +222,11 @@ public class ClientRegistryTest extends TestCase {
         assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
         assertEquals(infoList.size(), 2);
 
-        it = adminClient.fetchEntries(1,
-                                      SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                      emptyPartitionList,
-                                      null,
-                                      false);
+        it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                   emptyPartitionList,
+                                                   null,
+                                                   false);
         infoList = getClientRegistryContent(it);
         assertEquals(TEST_STORE_NAME, infoList.get(0).getStoreName());
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
@@ -243,11 +251,11 @@ public class ClientRegistryTest extends TestCase {
         } catch(InterruptedException e) {}
         // now the periodical update has gone through, it shall be higher than
         // the bootstrap time
-        it = adminClient.fetchEntries(1,
-                                      SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                      emptyPartitionList,
-                                      null,
-                                      false);
+        it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                   emptyPartitionList,
+                                                   null,
+                                                   false);
         infoList = getClientRegistryContent(it);
         assertTrue("Client registry not updated.",
                    infoList.get(0).getBootstrapTime() < infoList.get(0).getUpdateTime());
@@ -270,6 +278,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
@@ -279,11 +288,11 @@ public class ClientRegistryTest extends TestCase {
         client1.put("k1", "v1");
         client2.put("k2", "v2");
 
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.fetchEntries(0,
-                                                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                   emptyPartitionList,
-                                                                                   null,
-                                                                                   false);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(0,
+                                                                                                SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                                                                emptyPartitionList,
+                                                                                                null,
+                                                                                                false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
 
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
@@ -311,11 +320,11 @@ public class ClientRegistryTest extends TestCase {
                        infoList.get(0).getBootstrapTime() >= infoList.get(1).getBootstrapTime());
         }
 
-        it = adminClient.fetchEntries(1,
-                                      SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                      emptyPartitionList,
-                                      null,
-                                      false);
+        it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                   emptyPartitionList,
+                                                   null,
+                                                   false);
         infoList = getClientRegistryContent(it);
 
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
@@ -348,11 +357,11 @@ public class ClientRegistryTest extends TestCase {
         } catch(InterruptedException e) {}
         // now the periodical update has gone through, it shall be higher than
         // the bootstrap time
-        it = adminClient.fetchEntries(1,
-                                      SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                      emptyPartitionList,
-                                      null,
-                                      false);
+        it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                   emptyPartitionList,
+                                                   null,
+                                                   false);
         infoList = getClientRegistryContent(it);
         assertTrue("Client registry not updated.",
                    infoList.get(0).getBootstrapTime() < infoList.get(0).getUpdateTime());
@@ -375,6 +384,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
@@ -385,6 +395,7 @@ public class ClientRegistryTest extends TestCase {
                                                        .setBootstrapUrls(SERVER_LOCAL_URL
                                                                          + serverPorts[0])
                                                        .setClientContextName(CLIENT_CONTEXT_NAME2)
+                                                       .enableDefaultClient(false)
                                                        .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                        .setEnableLazy(false);
         SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
@@ -395,11 +406,11 @@ public class ClientRegistryTest extends TestCase {
         client1.put("k1", "v1");
         client2.put("k2", "v2");
 
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.fetchEntries(0,
-                                                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                   emptyPartitionList,
-                                                                                   null,
-                                                                                   false);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(0,
+                                                                                                SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                                                                emptyPartitionList,
+                                                                                                null,
+                                                                                                false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
 
         assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
@@ -437,11 +448,11 @@ public class ClientRegistryTest extends TestCase {
                        infoList.get(0).getBootstrapTime() >= infoList.get(1).getBootstrapTime());
         }
 
-        it = adminClient.fetchEntries(1,
-                                      SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                      emptyPartitionList,
-                                      null,
-                                      false);
+        it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                   emptyPartitionList,
+                                                   null,
+                                                   false);
         infoList = getClientRegistryContent(it);
 
         assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
@@ -484,11 +495,11 @@ public class ClientRegistryTest extends TestCase {
         } catch(InterruptedException e) {}
         // now the periodical update has gone through, it shall be higher than
         // the bootstrap time
-        it = adminClient.fetchEntries(1,
-                                      SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                      emptyPartitionList,
-                                      null,
-                                      false);
+        it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                   emptyPartitionList,
+                                                   null,
+                                                   false);
         infoList = getClientRegistryContent(it);
         assertTrue("Client registry not updated.",
                    infoList.get(0).getBootstrapTime() < infoList.get(0).getUpdateTime());
@@ -514,6 +525,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[1])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
@@ -524,6 +536,7 @@ public class ClientRegistryTest extends TestCase {
                                                        .setBootstrapUrls(SERVER_LOCAL_URL
                                                                          + serverPorts[1])
                                                        .setClientContextName(CLIENT_CONTEXT_NAME2)
+                                                       .enableDefaultClient(false)
                                                        .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                        .setEnableLazy(false);
         SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
@@ -534,11 +547,11 @@ public class ClientRegistryTest extends TestCase {
         client1.put("k1", "v1");
         client2.put("k2", "v2");
 
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.fetchEntries(1,
-                                                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                   emptyPartitionList,
-                                                                                   null,
-                                                                                   false);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                                                                SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                                                                emptyPartitionList,
+                                                                                                null,
+                                                                                                false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
 
         assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
@@ -581,11 +594,11 @@ public class ClientRegistryTest extends TestCase {
         } catch(InterruptedException e) {}
         // now the periodical update has gone through, it shall be higher than
         // the bootstrap time
-        it = adminClient.fetchEntries(1,
-                                      SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                      emptyPartitionList,
-                                      null,
-                                      false);
+        it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                   emptyPartitionList,
+                                                   null,
+                                                   false);
         infoList = getClientRegistryContent(it);
         assertTrue("Client registry not updated.",
                    infoList.get(0).getBootstrapTime() < infoList.get(0).getUpdateTime());
@@ -609,6 +622,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[1])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
@@ -619,6 +633,7 @@ public class ClientRegistryTest extends TestCase {
                                                        .setBootstrapUrls(SERVER_LOCAL_URL
                                                                          + serverPorts[1])
                                                        .setClientContextName(CLIENT_CONTEXT_NAME2)
+                                                       .enableDefaultClient(false)
                                                        .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                        .setEnableLazy(false);
         SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
@@ -633,11 +648,11 @@ public class ClientRegistryTest extends TestCase {
 
         }
 
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.fetchEntries(1,
-                                                                                   SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                   emptyPartitionList,
-                                                                                   null,
-                                                                                   false);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                                                                SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                                                                emptyPartitionList,
+                                                                                                null,
+                                                                                                false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
         assertEquals("Incrrect # of entries created in client registry", 6, infoList.size());
 
@@ -662,6 +677,7 @@ public class ClientRegistryTest extends TestCase {
                                                           .setBootstrapUrls(SERVER_LOCAL_URL
                                                                             + serverPorts[1])
                                                           .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                          .enableDefaultClient(false)
                                                           .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                           .setEnableLazy(false);
             SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
@@ -672,6 +688,7 @@ public class ClientRegistryTest extends TestCase {
                                                            .setBootstrapUrls(SERVER_LOCAL_URL
                                                                              + serverPorts[1])
                                                            .setClientContextName(CLIENT_CONTEXT_NAME2)
+                                                           .enableDefaultClient(false)
                                                            .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                            .setEnableLazy(false);
             SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
@@ -682,11 +699,11 @@ public class ClientRegistryTest extends TestCase {
             client1.put("k1", "v1");
             client2.put("k2", "v2");
 
-            Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.fetchEntries(1,
-                                                                                       SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                       emptyPartitionList,
-                                                                                       null,
-                                                                                       false);
+            Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                                                                    SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                                                                    emptyPartitionList,
+                                                                                                    null,
+                                                                                                    false);
             ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
 
             assertEquals("Incrrect # of entries created in client registry", 2, infoList.size());
@@ -732,11 +749,11 @@ public class ClientRegistryTest extends TestCase {
             // now the periodical update has gone through, it shall be higher
             // than
             // the bootstrap time
-            it = adminClient.fetchEntries(1,
-                                          SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                          emptyPartitionList,
-                                          null,
-                                          false);
+            it = adminClient.bulkFetchOps.fetchEntries(1,
+                                                       SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                       emptyPartitionList,
+                                                       null,
+                                                       false);
             infoList = getClientRegistryContent(it);
 
             assertTrue("Client registry not updated.",

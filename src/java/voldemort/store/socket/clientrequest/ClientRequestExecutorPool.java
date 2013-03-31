@@ -55,7 +55,6 @@ import voldemort.utils.pool.ResourcePoolConfig;
  * Upon successful construction of this object, a new Thread is started. It is
  * terminated upon calling {@link #close()}.
  */
-
 public class ClientRequestExecutorPool implements SocketStoreFactory {
 
     private final QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> queuedPool;
@@ -156,18 +155,29 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      */
 
     public ClientRequestExecutor checkout(SocketDestination destination) {
-        // time checkout
-        long start = System.nanoTime();
+        // timing instrumentation (stats only)
+        long startTimeNs = 0;
+        if(stats != null) {
+            startTimeNs = System.nanoTime();
+        }
+
         ClientRequestExecutor clientRequestExecutor;
         try {
             clientRequestExecutor = queuedPool.checkout(destination);
         } catch(Exception e) {
+            // If this exception caught here is from the nonBlockingPut call
+            // within KeyedResourcePool.attemptGrow(), then there is the chance
+            // a ClientRequestExector resource will be leaked. Cannot safely
+            // deal with this here since clientRequestExecutor is not assigned
+            // in this catch. Even if it was, clientRequestExecutore.close()
+            // checks in the SocketDestination resource and so is not safe to
+            // call.
             throw new UnreachableStoreException("Failure while checking out socket for "
                                                 + destination + ": ", e);
         } finally {
-            long end = System.nanoTime();
             if(stats != null) {
-                stats.recordCheckoutTimeUs(destination, (end - start) / Time.NS_PER_US);
+                stats.recordCheckoutTimeUs(destination, (System.nanoTime() - startTimeNs)
+                                                        / Time.NS_PER_US);
                 stats.recordCheckoutQueueLength(destination,
                                                 queuedPool.getBlockingGetsCount(destination));
             }
@@ -190,6 +200,12 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         }
     }
 
+    /**
+     * Reset the pool of resources for a specific destination. Idle resources
+     * will be destroyed. Checked out resources that are subsequently checked in
+     * will be destroyed. Newly created resources can be checked in to
+     * reestablish resources for the specific destination.
+     */
     @Override
     public void close(SocketDestination destination) {
         factory.setLastClosedTimestamp(destination);
@@ -197,7 +213,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     }
 
     /**
-     * Close the socket pool
+     * Permanently close the ClientRequestExecutor pool. Resources subsequently
+     * checked in will be destroyed.
      */
     @Override
     public void close() {

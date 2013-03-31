@@ -9,17 +9,20 @@
 	<classpathentry kind="src" path="test/unit"/>
 	<classpathentry kind="src" path="test/integration"/>
 	<classpathentry kind="src" path="test/common"/>
+	<classpathentry kind="src" path="test/long"/>
 	<classpathentry kind="src" path="example/java"/>
 	<classpathentry kind="src" path="contrib/krati/src/java"/>
 	<classpathentry kind="src" path="contrib/krati/test"/>
 	<classpathentry kind="src" path="contrib/collections/src/java"/>
 	<classpathentry kind="src" path="contrib/collections/test"/>
+	<classpathentry kind="src" path="contrib/restclient/src/java"/>
 	<classpathentry kind="lib" path="lib/catalina-ant.jar"/>
-	<classpathentry kind="lib" path="lib/commons-codec-1.3.jar"/>
+	<classpathentry kind="lib" path="lib/commons-codec-1.4.jar"/>
 	<classpathentry kind="lib" path="lib/commons-dbcp-1.2.2.jar"/>
 	<classpathentry kind="lib" path="lib/colt-1.2.0.jar"/>
 	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/commons-cli-2.0-SNAPSHOT.jar"/>
-	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/hadoop-0.20.2-core.jar"/>
+	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/commons-configuration-1.6.jar"/>
+	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/hadoop-core-1.0.4-p2.jar"/>
 	<classpathentry kind="lib" path="lib/junit-4.6.jar"/>
 	<classpathentry kind="lib" path="lib/log4j-1.2.15.jar"/>
 	<classpathentry kind="lib" path="lib/jetty-6.1.18.jar"/>
@@ -40,7 +43,7 @@
 	<classpathentry kind="lib" path="lib/protobuf-java-2.3.0.jar"/>
 	<classpathentry kind="lib" path="contrib/ec2-testing/lib/typica.jar"/>
 	<classpathentry kind="lib" path="lib/google-collect-1.0.jar"/>
-	<classpathentry kind="lib" path="lib/je-4.0.92.jar"/>
+	<classpathentry kind="lib" path="lib/je-4.1.17.jar"/>
 	<classpathentry kind="lib" path="lib/paranamer-2.1.jar"/>
 	<classpathentry kind="lib" path="lib/jackson-mapper-asl-1.4.0.jar"/>
 	<classpathentry kind="lib" path="lib/jackson-core-asl-1.4.0.jar"/>
@@ -53,9 +56,13 @@
 	<classpathentry kind="lib" path="lib/snappy-0.2.jar"/>
 	<classpathentry kind="lib" path="lib/httpclient-4.1.2.jar"/>
 	<classpathentry kind="lib" path="lib/httpcore-4.1.2.jar"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
+	<classpathentry kind="lib" path="lib/netty-3.5.8.Final.jar"/>
 	<classpathentry kind="lib" path="lib/joda-time-1.6.jar"/>
 	<classpathentry kind="lib" path="lib/mail-1.4.1.jar"/>
 	<classpathentry kind="lib" path="lib/azkaban-common-0.05.jar"/>
+	<classpathentry kind="lib" path="contrib/restclient/lib/data-1.5.10.jar"/>
+	<classpathentry kind="lib" path="contrib/restclient/lib/pegasus-common-1.5.10.jar"/>
+	<classpathentry kind="lib" path="contrib/restclient/lib/r2-1.5.10.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

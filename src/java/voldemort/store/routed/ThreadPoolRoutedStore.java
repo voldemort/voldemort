@@ -68,6 +68,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
 
     private final static StoreOp<Versioned<byte[]>> VERSIONED_OP = new StoreOp<Versioned<byte[]>>() {
 
+        @Override
         public List<Versioned<byte[]>> execute(Store<ByteArray, byte[], byte[]> store,
                                                ByteArray key,
                                                byte[] transforms) {
@@ -77,6 +78,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
 
     private final static StoreOp<Version> VERSION_OP = new StoreOp<Version>() {
 
+        @Override
         public List<Version> execute(Store<ByteArray, byte[], byte[]> store,
                                      ByteArray key,
                                      byte[] transforms) {
@@ -150,6 +152,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         this.executor = threadPool;
     }
 
+    @Override
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         final List<Node> nodes = availableNodes(routingStrategy.routeRequest(key.get()));
@@ -178,6 +181,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         for(final Node node: nodes) {
             this.executor.execute(new Runnable() {
 
+                @Override
                 public void run() {
                     long startNs = System.nanoTime();
                     try {
@@ -238,6 +242,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             return deletedSomething.get();
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -414,9 +419,11 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         return result;
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, final byte[] transforms) {
         Function<List<GetResult<Versioned<byte[]>>>, Void> readRepairFunction = new Function<List<GetResult<Versioned<byte[]>>>, Void>() {
 
+            @Override
             public Void apply(List<GetResult<Versioned<byte[]>>> nodeResults) {
                 List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayListWithExpectedSize(nodeResults.size());
                 for(GetResult<Versioned<byte[]>> getResult: nodeResults)
@@ -581,6 +588,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
 
         this.executor.execute(new Runnable() {
 
+            @Override
             public void run() {
                 for(NodeValue<ByteArray, byte[]> v: toReadRepair) {
                     try {
@@ -631,6 +639,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         return builder.toString();
     }
 
+    @Override
     public void put(final ByteArray key, final Versioned<byte[]> versioned, final byte[] transforms)
             throws VoldemortException {
         long startNs = System.nanoTime();
@@ -697,6 +706,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             final Node node = nodes.get(currentNode);
             this.executor.execute(new Runnable() {
 
+                @Override
                 public void run() {
                     long startNsLocal = System.nanoTime();
                     try {
@@ -806,6 +816,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         return available;
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         return get(key, null, VERSION_OP, null);
     }
@@ -832,6 +843,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             this.fetcher = fetcher;
         }
 
+        @Override
         public GetResult<R> call() throws Exception {
             List<R> fetched = Collections.emptyList();
             Throwable exception = null;
@@ -885,6 +897,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             this.transforms = transforms;
         }
 
+        @Override
         public GetAllResult call() {
             Map<ByteArray, List<Versioned<byte[]>>> retrieved = Collections.emptyMap();
             Throwable exception = null;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -26,7 +26,7 @@ import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreInstance;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -103,9 +103,9 @@ public class RebalancerState {
 
                 // If yes, check if the key belongs to one of the partitions
                 // being moved
-                if(RebalanceUtils.checkKeyBelongsToPartition(keyPartitions,
-                                                             nodePartitions,
-                                                             info.getReplicaToAddPartitionList(storeName))) {
+                if(StoreInstance.checkKeyBelongsToPartition(keyPartitions,
+                                                            nodePartitions,
+                                                            info.getReplicaToAddPartitionList(storeName))) {
                     return info;
                 }
             }

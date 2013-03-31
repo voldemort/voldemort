@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2012 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -83,7 +83,7 @@ public class VoldemortServer extends AbstractService {
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
-        this.storeRepository = new StoreRepository();
+        this.storeRepository = new StoreRepository(config.isJmxEnabled());
         this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
                                                         voldemortConfig.getNodeId());
         this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
@@ -97,7 +97,7 @@ public class VoldemortServer extends AbstractService {
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
 
         this.checkHostName();
-        this.storeRepository = new StoreRepository();
+        this.storeRepository = new StoreRepository(config.isJmxEnabled());
         // update cluster details in metaDataStore
         ConfigurationStorageEngine metadataInnerEngine = new ConfigurationStorageEngine("metadata-config-store",
                                                                                         voldemortConfig.getMetadataDirectory());
@@ -358,9 +358,10 @@ public class VoldemortServer extends AbstractService {
                                                                        metadata.getCluster(),
                                                                        numberOfParallelTransfers * 2);
         try {
-            adminClient.restoreDataFromReplications(metadata.getNodeId(), numberOfParallelTransfers);
+            adminClient.restoreOps.restoreDataFromReplications(metadata.getNodeId(),
+                                                               numberOfParallelTransfers);
         } finally {
-            adminClient.stop();
+            adminClient.close();
         }
     }
 

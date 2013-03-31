@@ -46,13 +46,16 @@ import voldemort.store.metadata.MetadataStore.VoldemortState;
 @RunWith(Parameterized.class)
 public class RebalanceTest extends AbstractRebalanceTest {
 
-    Map<Integer, VoldemortServer> serverMap = new HashMap<Integer, VoldemortServer>();
+    private final int NUM_KEYS = 20;
+
+    Map<Integer, VoldemortServer> serverMap;
     private final boolean useNio;
     private final boolean useDonorBased;
 
     public RebalanceTest(boolean useNio, boolean useDonorBased) {
         this.useNio = useNio;
         this.useDonorBased = useDonorBased;
+        this.serverMap = new HashMap<Integer, VoldemortServer>();
     }
 
     @Parameters
@@ -81,8 +84,16 @@ public class RebalanceTest extends AbstractRebalanceTest {
         }
     }
 
-    // This method may be susceptible to BindException issues due to TOCTOU
-    // problem with getLocalCluster.
+    @Override
+    protected int getNumKeys() {
+        return NUM_KEYS;
+    }
+
+    // This method is susceptible to BindException issues due to TOCTOU
+    // problem with getLocalCluster (which is used to construct cluster that is
+    // passed in).
+    // TODO: Refactor AbstractRebalanceTest to take advantage of
+    // ServerTestUtils.startVoldemortCluster.
     @Override
     protected Cluster startServers(Cluster cluster,
                                    String storeXmlFile,

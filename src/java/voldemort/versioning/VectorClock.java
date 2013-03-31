@@ -114,24 +114,27 @@ public class VectorClock implements Version, Serializable {
 
     public byte[] toBytes() {
         byte[] serialized = new byte[sizeInBytes()];
+        toBytes(serialized, 0);
+        return serialized;
+    }
+
+    public int toBytes(byte[] buf, int offset) {
         // write the number of versions
-        ByteUtils.writeShort(serialized, (short) versions.size(), 0);
+        ByteUtils.writeShort(buf, (short) versions.size(), offset);
+        offset += ByteUtils.SIZE_OF_SHORT;
         // write the size of each version in bytes
         byte versionSize = ByteUtils.numberOfBytesRequired(getMaxVersion());
-        serialized[2] = versionSize;
+        buf[offset] = versionSize;
+        offset++;
 
         int clockEntrySize = ByteUtils.SIZE_OF_SHORT + versionSize;
-        int start = 3;
         for(ClockEntry v: versions) {
-            ByteUtils.writeShort(serialized, v.getNodeId(), start);
-            ByteUtils.writeBytes(serialized,
-                                 v.getVersion(),
-                                 start + ByteUtils.SIZE_OF_SHORT,
-                                 versionSize);
-            start += clockEntrySize;
+            ByteUtils.writeShort(buf, v.getNodeId(), offset);
+            ByteUtils.writeBytes(buf, v.getVersion(), offset + ByteUtils.SIZE_OF_SHORT, versionSize);
+            offset += clockEntrySize;
         }
-        ByteUtils.writeLong(serialized, this.timestamp, start);
-        return serialized;
+        ByteUtils.writeLong(buf, this.timestamp, offset);
+        return sizeInBytes();
     }
 
     public int sizeInBytes() {
@@ -225,6 +228,7 @@ public class VectorClock implements Version, Serializable {
             builder.append(this.versions.get(this.versions.size() - 1));
         }
         builder.append(")");
+        builder.append(" ts:" + timestamp);
         return builder.toString();
     }
 

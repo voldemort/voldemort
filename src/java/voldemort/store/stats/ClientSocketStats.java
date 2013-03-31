@@ -22,6 +22,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.log4j.Logger;
+
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.utils.JmxUtils;
@@ -57,7 +59,9 @@ public class ClientSocketStats {
     private QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
 
     // monitoringInterval <= connectionCheckouts + resourceRequests
-    private final AtomicInteger monitoringInterval = new AtomicInteger(10000);
+    // 1 qps => monitoring interval of just over a day (~27 hours)
+    // 1000 qps => monitoring interval of 1 minute and 40 seconds
+    private final AtomicInteger monitoringInterval = new AtomicInteger(100000);
     // Connection lifecycle
     private final AtomicInteger connectionsCreated = new AtomicInteger(0);
     private final AtomicInteger connectionsDestroyed = new AtomicInteger(0);
@@ -73,6 +77,7 @@ public class ClientSocketStats {
     private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
 
     private final int jmxId;
+    private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
 
     /**
      * To construct a per node stats object
@@ -91,6 +96,12 @@ public class ClientSocketStats {
         this.destination = destination;
         this.pool = pool;
         this.jmxId = jmxId;
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("Constructed ClientSocketStatsStats object ("
+                         + System.identityHashCode(this) + ") with parent object("
+                         + System.identityHashCode(parent) + ")");
+        }
     }
 
     /**
@@ -104,6 +115,12 @@ public class ClientSocketStats {
         this.destination = null;
         this.pool = null;
         this.jmxId = jmxId;
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("Constructed ClientSocketStatsStats object ("
+                         + System.identityHashCode(this) + ") with parent object("
+                         + System.identityHashCode(parent) + ")");
+        }
     }
 
     /* get per node stats, create one if not exist */
@@ -315,6 +332,12 @@ public class ClientSocketStats {
         if(parent == null && statsMap != null) {
             int monitoringInterval = this.monitoringInterval.get();
             if(monitoringCount % (monitoringInterval + 1) == monitoringInterval) {
+                // timing instrumentation (debug only)
+                long startTimeNs = 0;
+                if(logger.isDebugEnabled()) {
+                    startTimeNs = System.nanoTime();
+                }
+
                 // reset all children
                 Iterator<SocketDestination> it = statsMap.keySet().iterator();
                 while(it.hasNext()) {
@@ -323,6 +346,13 @@ public class ClientSocketStats {
                 }
                 // reset itself
                 resetForInterval();
+
+                // timing instrumentation (debug only)
+                if(logger.isDebugEnabled()) {
+                    logger.debug("ClientSocketStats(" + System.identityHashCode(this)
+                                 + ")::checkMonitoringInterval: reset self and all children in "
+                                 + (System.nanoTime() - startTimeNs) + " ns.");
+                }
             }
         }
     }

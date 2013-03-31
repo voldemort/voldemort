@@ -17,6 +17,7 @@ package voldemort.store.slow;
 
 import voldemort.VoldemortException;
 import voldemort.common.OpTimeMap;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -39,7 +40,8 @@ public class SlowStorageConfiguration implements StorageConfiguration {
         this.voldemortConfig = config;
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
         if(voldemortConfig != null) {
             return new SlowStorageEngine<ByteArray, byte[], byte[]>(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(storeDef.getName()),
                                                                     this.voldemortConfig.testingGetSlowQueueingDelays(),

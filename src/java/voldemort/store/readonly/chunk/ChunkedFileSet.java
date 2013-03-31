@@ -22,6 +22,7 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.store.readonly.io.MappedFileReader;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
@@ -45,6 +46,8 @@ public class ChunkedFileSet {
     private final List<Integer> indexFileSizes;
     private final List<Integer> dataFileSizes;
     private final List<MappedByteBuffer> indexFiles;
+
+    private List<MappedFileReader> mappedIndexFileReader;
     private final List<FileChannel> dataFiles;
     private final HashMap<Object, Integer> chunkIdToChunkStart;
     private final HashMap<Object, Integer> chunkIdToNumChunks;
@@ -52,7 +55,14 @@ public class ChunkedFileSet {
     private RoutingStrategy routingStrategy;
     private ReadOnlyStorageFormat storageFormat;
 
-    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId) {
+    private boolean enforceMlock = false;
+
+    public ChunkedFileSet(File directory,
+                          RoutingStrategy routingStrategy,
+                          int nodeId,
+                          boolean enforceMlock) {
+
+        this.enforceMlock = enforceMlock;
         this.baseDir = directory;
         if(!Utils.isReadableDir(directory))
             throw new VoldemortException(directory.getAbsolutePath()
@@ -76,6 +86,8 @@ public class ChunkedFileSet {
         this.indexFileSizes = new ArrayList<Integer>();
         this.dataFileSizes = new ArrayList<Integer>();
         this.indexFiles = new ArrayList<MappedByteBuffer>();
+        this.mappedIndexFileReader = new ArrayList<MappedFileReader>();
+
         this.dataFiles = new ArrayList<FileChannel>();
         this.chunkIdToChunkStart = new HashMap<Object, Integer>();
         this.chunkIdToNumChunks = new HashMap<Object, Integer>();
@@ -99,6 +111,11 @@ public class ChunkedFileSet {
         this.numChunks = indexFileSizes.size();
         logger.trace("Opened chunked file set for " + baseDir + " with " + indexFileSizes.size()
                      + " chunks and format  " + storageFormat);
+    }
+
+    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId) {
+        this(directory, routingStrategy, nodeId, false);
+
     }
 
     public DataFileChunkSet toDataFileChunkSet() {
@@ -148,7 +165,18 @@ public class ChunkedFileSet {
 
             /* Add the file channel for data */
             dataFiles.add(openChannel(data));
-            indexFiles.add(mapFile(index));
+
+            MappedFileReader idxFileReader = null;
+            try {
+                idxFileReader = new MappedFileReader(index);
+                mappedIndexFileReader.add(idxFileReader);
+                indexFiles.add(idxFileReader.map(enforceMlock));
+            } catch(IOException e) {
+
+                logger.error("Error in mlock", e);
+            }
+
+            // indexFiles.add(mapFile(index));
             chunkId++;
         }
         if(chunkId == 0)
@@ -200,7 +228,17 @@ public class ChunkedFileSet {
 
                     /* Add the file channel for data */
                     dataFiles.add(openChannel(data));
-                    indexFiles.add(mapFile(index));
+
+                    MappedFileReader idxFileReader = null;
+                    try {
+                        idxFileReader = new MappedFileReader(index);
+                        mappedIndexFileReader.add(idxFileReader);
+                        indexFiles.add(idxFileReader.map(enforceMlock));
+                    } catch(IOException e) {
+                        logger.error("Error in mlock", e);
+                    }
+
+                    // indexFiles.add(mapFile(index));
                     chunkId++;
                     globalChunkId++;
                 }
@@ -282,7 +320,17 @@ public class ChunkedFileSet {
 
                                     /* Add the file channel for data */
                                     dataFiles.add(openChannel(data));
-                                    indexFiles.add(mapFile(index));
+
+                                    MappedFileReader idxFileReader = null;
+                                    try {
+                                        idxFileReader = new MappedFileReader(index);
+                                        mappedIndexFileReader.add(idxFileReader);
+                                        indexFiles.add(idxFileReader.map(enforceMlock));
+                                    } catch(IOException e) {
+                                        logger.error("Error in mlock", e);
+                                    }
+
+                                    // indexFiles.add(mapFile(index));
                                     chunkId++;
                                     globalChunkId++;
                                 }
@@ -346,6 +394,14 @@ public class ChunkedFileSet {
             try {
                 channel.close();
             } catch(IOException e) {
+                logger.error("Error while closing file.", e);
+            }
+
+            MappedFileReader idxFileReader = mappedIndexFileReader.get(chunk);
+            try {
+                idxFileReader.close();
+            } catch(IOException e) {
+
                 logger.error("Error while closing file.", e);
             }
         }

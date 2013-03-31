@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -30,7 +30,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.VoldemortAdminTool;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
@@ -73,26 +72,17 @@ public class EndToEndRebootstrapTest {
 
     @Before
     public void setUp() throws Exception {
-        cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
-        servers = new VoldemortServer[2];
-        servers[0] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                          ServerTestUtils.createServerConfig(true,
-                                                                                             0,
-                                                                                             TestUtils.createTempDir()
-                                                                                                      .getAbsolutePath(),
-                                                                                             null,
-                                                                                             storesXmlfile,
-                                                                                             new Properties()),
-                                                          cluster);
-        servers[1] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                          ServerTestUtils.createServerConfig(true,
-                                                                                             1,
-                                                                                             TestUtils.createTempDir()
-                                                                                                      .getAbsolutePath(),
-                                                                                             null,
-                                                                                             storesXmlfile,
-                                                                                             new Properties()),
-                                                          cluster);
+        final int numServers = 2;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        true, // useNio
+                                                        null,
+                                                        storesXmlfile,
+                                                        new Properties());
 
         socketUrl = servers[0].getIdentityNode().getSocketUrl().toString();
         bootStrapUrls = new String[1];
@@ -128,8 +118,9 @@ public class EndToEndRebootstrapTest {
 
     @After
     public void tearDown() throws Exception {
-        servers[0].stop();
-        servers[1].stop();
+        for(VoldemortServer server: servers) {
+            ServerTestUtils.stopVoldemortServer(server);
+        }
     }
 
     /*
@@ -152,6 +143,7 @@ public class EndToEndRebootstrapTest {
             String newBootstrapTime = "";
             AdminClient adminClient = new AdminClient(bootStrapUrls[0],
                                                       new AdminClientConfig(),
+                                                      new ClientConfig(),
                                                       CLIENT_ZONE_ID);
 
             try {

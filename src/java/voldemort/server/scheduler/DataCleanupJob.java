@@ -63,6 +63,7 @@ public class DataCleanupJob<K, V, T> implements Runnable {
 
     public void run() {
         acquireCleanupPermit(progressThisRun);
+        store.beginBatchModifications();
 
         ClosableIterator<Pair<K, Versioned<V>>> iterator = null;
         try {
@@ -105,6 +106,7 @@ public class DataCleanupJob<K, V, T> implements Runnable {
                 totalEntriesScanned += progressThisRun.get();
                 progressThisRun.set(0);
             }
+            store.endBatchModifications();
         }
     }
 

@@ -1,8 +1,223 @@
+Release 1.3.1 on 03/25/2013 
+* HDFSFetcher
+  - Fixed the bug in calculating checksums when we entere a retry loop
+  - refactored per file checksums
+  - added junit test case to simulate intermittent IO exceptions 
+* voldemort.client.protocol.admin.AdminClient
+  - Added AdminStoreClient so that AdminClient can do store operations
+    against specific store on a specific node.
+  - Added helper methods for diong put & get for specific node/store
+  - Added voldemort.client.protocol.admin.QueryKeyResult type to
+    simplify QueryKey interface
+* Improved FetchStreamRequestHandler and sub-classes
+  - Renamed all sub-classes: 'FullScan' and 'PartitionScan' prefixes
+    for pertinent stream request handler implementations.
+  - Removed unused skipRecords parameter.
+  - Added recordsPerPartition parameter to fetch limited portion of
+    each partition.
+  - All logic about how many keys to fetch (return to invoker) is
+    server side now.
+* RebalanceCLI
+  - Added many options to help improve the balance of (zoned) clusters.
+  - Analysis of the balance of a cluster is significantly more detailed.
+  - Fixed a bug that reduced the balance of a cluster each time it was
+    expanded.
+  - Many different algorithms for improving cluster balance are
+    implemented in voldemort.utils.RebalanceClusterUtils
+* ConsistencyCheck & ConsistencyFixCLI
+  - New tools for ensuring data durability. These tools are necessary
+    because slop creation can fail during put operations.
+  - ConsistencyCheck determines which keys, if any, lack
+    "consistency". I.e., are present on only a subset of the expected
+    partitions.
+  - ConsistencyFix takes a list of bad (inconsistent) keys and makes
+    sure they are present on all expected partitions.
+  - ConsistencyFix also has an interface for repairing "orphaned" keys
+    that could result from an aborted rebalance.
+* KeySamplerCLI & KeyVersionFetcherCLI
+  - KeySamplerCLI is a new tool that reads some number of keys for
+    specified partitions/stores.
+  - KeyVersionFetcherCLI is a new tool that, given a key and a store,
+    fetches the version from all nodes that host a partition that
+    ought to store a replica of the key's value.
+  - Together, KeySamplerCLI and KeyVersionFetcherCLI correctly
+    implement the intended functionality of the Entropy tool (for
+    servers that implement either FullScan and PartitionScan fetches).
+  - Entropy tool had been used in the past to verify a sample of keys
+    before and after a rebalance. Entropy tool does not work as
+    intended/expected. This is exacerbated by the partition aware
+    layouts. Instead of trying to fix the Entropy tool, these two new
+    tools were developed. Entropy is deprecated and will eventually be
+    removed from the code base.
+* Substantial refactoring of helper & util methods:
+  - voldemort.cluster.Cluster : added helper methods
+  - voldemort.utils.ClusterInstance : wraps up one Cluster &
+    List<StoreDefinition>
+  - voldemort.utils.Cluster : utils for single Cluster object.
+  - voldemort.utils.NodeUtils : utils for Node object.
+  - voldemort.utils.RebalanceUtils : Many methods moved to more
+    appropriate helper classes
+  - voldemort.utils.StoreDefinitionUtils : utils for StoreDefinition
+    object.
+  - voldemort.utils.StoreInstance : wraps up one Cluster & one
+    StoreDefinition
+* Et cetera
+  - ByteUtils toHexString & from HexString now rely on standard
+    libraries
+  - voldemort.client.AdminFetchTest now tests FullScan and
+    PartitionScan fetches
+  - voldemort.store.routed.ReadRepairerTest annotated all tests with
+    @Test
+
+
+Release 1.3.0 on 03/08/2013
+
+NOTE: This is an open source release! This release can be downloaded here:
+      http://github.com/voldemort/voldemort/downloads.
+
+Changes made since 1.2.3
+* VoldemortConfig and ClientConfig now contain detailed documentation
+* BDB-JE defaults set to ones in prod@linkedin
+* Bug fixes on kerberos support for Hadoop
+
+
+Release 1.2.3 on 02/20/2013
+
+Changes made since 1.2.2
+* Added a retry loop and synchronized block while getting Hadoop FS
+* Code cleanup in HdfsFetcher to make it more readable.
+* Throwing explicit exceptions in HdfsFetcher instead of 
+  returning null to be more precise in the Azkaban logs.
+
+
+Release 1.2.2 on 02/19/2013
+
+Changes made since 1.2.1
+* Synchronized the streaming API
+* Fixed some of the streaming API tests.
+
+
+Release 1.2.1 on 0/30/2013
+
+Changes made since 1.2.0
+* Added a Streaming API and related tests.
+* Refactoring of the admin client apis into functional inner classes
+
+
+Release 1.2.0 on 01/21/2013
+
+Changes made since 1.1.9
+* Added an Admin API to fetch orphaned key / entries
+* Improved some tests related to streaming API.
+* Correcting commons-codec version in ivy file (1.4)
+
+
+Release 1.1.9 on 01/15/2013
+
+Changes made since 1.1.8
+* Asynchronous socket checkout improvements
+  * Changed checkout behavior of KeyedResourcePool to only create new
+    connections when there are no resources available (rather than
+    creating new connections until the pool is full)
+  * Changed QueuedKeyedResourcePool.reset behavior to better match
+    KeyedResourcePool (i.e., to not cancel queued asynchronous
+    requests unnecessarily)
+  * Removed (unnecessary) synchronization primitives from keyed resource pool
+  * Reduce granularity of failure detector locking within ThresholdFailureDetector
+* Minor features/improvements
+  * Less verbose logging in the face of expected exceptions and errors
+  * Refactored (Queued)KeyedResourcePoolTest
+* Bug fixes
+  * Fixed possible race condition for resource creation in KeyedResourcePool
+  * More efficient (time & space) and simpler Histogram implementation
+    with improved tests
+
+
+Release 1.1.8 on 01/14/2013
+
+Changes made since release 1.1.7
+* Enhanced Server Monitoring 
+   -- Server NIO layer
+   -- Streaming operations to the server
+   -- BDB storage exception counts
+* Ability to turn off BDB Checkpointing during batch modifications
+* Added ability to delete old checksum files in Build and Push reducer
+* Upgrade Hadoop jar to 1.0.4-p2
+
+
+Release 1.1.7 on 01/03/2013
+
+NOTE: This release is based off of release 1.1.4
+
+Changes made since release 1.1.4
+* Upgrading Hadoop jar to 1.0.2
+* Added support for Kerberos authentication in HdfsFetcher
+* Extra config parameters for Kerberos config and keytab file
+
+
+NOTE: Release 1.1.5 and 1.1.6 are special client side releases
+not based off of master. 1.1.5 was rolled back to to a weird bug.
+1.1.6 is a special client side release including Auto-
+bootstrapper and Versioned Avro support.
+
+
+Release 1.1.4 on 11/29/2012
+
+Changes made since release 1.1.3
+* Added BDB parameters to control LRU behavior in cache & proactive cleaner migration
+* Added a mlock fix for pinning the indexes of RO stores in memory
+
+
+Release 1.1.3 on 11/28/2012
+
+Changes made since release 1.1.2
+* Fixed a bug in the build and push job, specifically the Mapper
+  that caused collisions
+* Added retry mechanism with the HDFS fetcher for hftp
+
+
+Release 1.1.2 on 10/31/2012
+
+Changes made since release 1.1.1
+* Reverted a change to voldemort.versioning.Versioned.getVersion() so
+  that a Version is returned as our clients expect.
+
+
+Release 1.1.1 on 10/30/2012
+
+Changes made since release 1.1.0
+* Fixed connection leak in ClientRequestExecutorFactory
+* Changed client to default to DefaultStoreClient
+
+
+Release 1.1.0 on 10/19/2012
+
+Changes made since release 1.0.0
+
+IMPORTANT NOTE : This release has significant changes to the BDB storage layer.
+Users are required to read the bin/PREUPGRADE_FOR_1_1_X_README file
+thoroughly before attempting to upgrade to 1.1.0. The necessary data 
+conversion will be done through bin/voldemort-convert-bdb.sh
+
+* Upgrading to JE 4.1.17
+* New data format that handles conflicting updates in Voldemort more
+  efficiently
+* Move data off heap and only use it for Index
+* When scanning, evict whatever you bring in right away.
+* Partition based scan api to dramatically speed up rebalancing & restore
+  using Partition aware scans (you exactly scan whatever you want to fetch)
+* Flexible knobs to control scheduling of DataCleanupJob
+
+
 Release 1.0.0 on 10/17/2012
 
-NOTE: This is not a major release. This is a minor release. The large
-version number jump from 0.96 is to standardize on a version number of
-the sort MAJOR.MINOR.PATCH.
+NOTE: The large version number jump from 0.96 to 1.0.0 is to
+standardize on a version number of the sort MAJOR.MINOR.PATCH.  This
+change is part of our effort to treat internal and open source
+releases in a much more similar manner. Along these lines, release
+notes for internal releases (like this one) are committed on the
+master branch. We hope this improves transparency as we work towards
+the next open source release.
 
 Changes made since release 0.96
 

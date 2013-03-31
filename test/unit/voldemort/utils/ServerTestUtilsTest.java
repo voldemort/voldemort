@@ -41,38 +41,47 @@ public class ServerTestUtilsTest {
                                                                                   100000,
                                                                                   32 * 1024);
 
+    @Test
     public void testStartVoldemortCluster() throws IOException {
         int numServers = 8;
         VoldemortServer[] servers = new VoldemortServer[numServers];
         int partitionMap[][] = { { 0 }, { 1 }, { 2 }, { 3 }, { 4 }, { 5 }, { 6 }, { 7 } };
-        ServerTestUtils.startVoldemortCluster(numServers,
-                                              servers,
-                                              partitionMap,
-                                              socketStoreFactory,
-                                              true,
-                                              null,
-                                              storesXmlfile,
-                                              new Properties());
+        Cluster cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                                servers,
+                                                                partitionMap,
+                                                                socketStoreFactory,
+                                                                true,
+                                                                null,
+                                                                storesXmlfile,
+                                                                new Properties());
+        assertTrue(cluster != null);
     }
 
-    @Test
-    public void startMultipleVoldemortClusters() throws IOException {
+    // **********************************************************************
+    // * START : "commented out" tests
+    // These tests helped to find the root case of BindException problem when
+    // clusters were started. These tests were used in debugging and stress
+    // testing and should not be part of our general junit tests. The @Test
+    // parameter is therefore commented out. The debugging methods themselves
+    // are not commented out so that they can be kept up to date with other code
+    // changes.
+
+    // @Test
+    public void stressTestStartVoldemortCluster() throws IOException {
         for(int i = 0; i < 10; i++) {
             testStartVoldemortCluster();
         }
     }
 
-    // **********************************************************************
-    // * START : TESTS THAT HELPED FIND ROOT CAUSE OF BindException PROBLEM *
-
     // @Test
     public void startMultipleVoldemortServers() throws IOException {
-        Cluster cluster = ServerTestUtils.getLocalCluster(8, new int[][] { { 0 }, { 1 }, { 2 },
-                { 3 }, { 4 }, { 5 }, { 6 }, { 7 } });
+        Cluster cluster = ServerTestUtils.getLocalCluster(16, new int[][] { { 0 }, { 1 }, { 2 },
+                { 3 }, { 4 }, { 5 }, { 6 }, { 7 }, { 8 }, { 9 }, { 10 }, { 11 }, { 12 }, { 13 },
+                { 14 }, { 15 } });
 
-        VoldemortServer[] servers = new VoldemortServer[8];
+        VoldemortServer[] servers = new VoldemortServer[16];
 
-        for(int i = 0; i < 8; i++) {
+        for(int i = 0; i < 16; i++) {
             servers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
                                                               ServerTestUtils.createServerConfig(true,
                                                                                                  i,
@@ -82,6 +91,14 @@ public class ServerTestUtilsTest {
                                                                                                  storesXmlfile,
                                                                                                  new Properties()),
                                                               cluster);
+        }
+        assertTrue(true);
+    }
+
+    // @Test
+    public void startMultipleVoldemortServersUnsafe5() throws IOException {
+        for(int i = 0; i < 5; i++) {
+            startMultipleVoldemortServers();
         }
         assertTrue(true);
     }
@@ -180,6 +197,6 @@ public class ServerTestUtilsTest {
         }
     }
 
-    // ** END : TESTS THAT HELPED FIND ROOT CAUSE OF BindException PROBLEM **
+    // * END : "commented out" tests
     // **********************************************************************
 }

@@ -26,6 +26,7 @@ import java.util.List;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -38,6 +39,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.mr.HadoopStoreBuilder;
 import voldemort.utils.ByteUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -117,7 +119,14 @@ public class HadoopStoreWriterPerBucket implements KeyValueWriter<BytesWritable,
                     this.fs = this.taskIndexFileName[chunkId].getFileSystem(job);
 
                 this.indexFileStream[chunkId] = fs.create(this.taskIndexFileName[chunkId]);
+                fs.setPermission(this.taskIndexFileName[chunkId],
+                                 new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+                logger.info("Setting permission to 755 for " + this.taskIndexFileName[chunkId]);
+
                 this.valueFileStream[chunkId] = fs.create(this.taskValueFileName[chunkId]);
+                fs.setPermission(this.taskValueFileName[chunkId],
+                                 new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+                logger.info("Setting permission to 755 for " + this.taskValueFileName[chunkId]);
 
                 logger.info("Opening " + this.taskIndexFileName[chunkId] + " and "
                             + this.taskValueFileName[chunkId] + " for writing.");
@@ -278,6 +287,8 @@ public class HadoopStoreWriterPerBucket implements KeyValueWriter<BytesWritable,
         // Create output directory, if it doesn't exist
         FileSystem outputFs = nodeDir.getFileSystem(this.conf);
         outputFs.mkdirs(nodeDir);
+        outputFs.setPermission(nodeDir, new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+        logger.info("Setting permission to 755 for " + nodeDir);
 
         // Write the checksum and output files
         for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
@@ -290,11 +301,21 @@ public class HadoopStoreWriterPerBucket implements KeyValueWriter<BytesWritable,
                     Path checkSumIndexFile = new Path(nodeDir, chunkFileName + ".index.checksum");
                     Path checkSumValueFile = new Path(nodeDir, chunkFileName + ".data.checksum");
 
+                    if(outputFs.exists(checkSumIndexFile)) {
+                        outputFs.delete(checkSumIndexFile);
+                    }
                     FSDataOutputStream output = outputFs.create(checkSumIndexFile);
+                    outputFs.setPermission(checkSumIndexFile,
+                                           new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
                     output.write(this.checkSumDigestIndex[chunkId].getCheckSum());
                     output.close();
 
+                    if(outputFs.exists(checkSumValueFile)) {
+                        outputFs.delete(checkSumValueFile);
+                    }
                     output = outputFs.create(checkSumValueFile);
+                    outputFs.setPermission(checkSumValueFile,
+                                           new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
                     output.write(this.checkSumDigestValue[chunkId].getCheckSum());
                     output.close();
                 } else {
@@ -309,8 +330,15 @@ public class HadoopStoreWriterPerBucket implements KeyValueWriter<BytesWritable,
             Path valueFile = new Path(nodeDir, chunkFileName + ".data");
 
             logger.info("Moving " + this.taskIndexFileName[chunkId] + " to " + indexFile);
+            if(outputFs.exists(indexFile)) {
+                outputFs.delete(indexFile);
+            }
             fs.rename(taskIndexFileName[chunkId], indexFile);
+
             logger.info("Moving " + this.taskValueFileName[chunkId] + " to " + valueFile);
+            if(outputFs.exists(valueFile)) {
+                outputFs.delete(valueFile);
+            }
             fs.rename(this.taskValueFileName[chunkId], valueFile);
 
         }

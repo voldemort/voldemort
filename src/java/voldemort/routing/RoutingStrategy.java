@@ -55,6 +55,14 @@ public interface RoutingStrategy {
     public List<Integer> getPartitionList(byte[] key);
 
     /**
+     * Obtain the master partition for a given key
+     * 
+     * @param key The key being operated on
+     * @return The partition that owns the key
+     */
+    public Integer getMasterPartition(byte[] key);
+
+    /**
      * Get the replication partitions list for the given partition.
      * 
      * @param partitionId
