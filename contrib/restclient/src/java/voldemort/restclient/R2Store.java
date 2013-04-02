@@ -41,6 +41,7 @@ import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import voldemort.VoldemortException;
+import voldemort.coordinator.CoordinatorUtils;
 import voldemort.coordinator.VectorClockWrapper;
 import voldemort.store.AbstractStore;
 import voldemort.utils.ByteArray;
@@ -70,10 +71,12 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     private static final String POST = "POST";
     private static final String DELETE = "DELETE";
     private static final String ETAG = "ETag";
+    public static final String X_VOLD_VECTOR_CLOCK = "X-VOLD-Vector-Clock";
     public static final String X_VOLD_REQUEST_TIMEOUT_MS = "X-VOLD-Request-Timeout-ms";
     public static final String X_VOLD_INCONSISTENCY_RESOLVER = "X-VOLD-Inconsistency-Resolver";
     public static final String CUSTOM_RESOLVING_STRATEGY = "custom";
     public static final String DEFAULT_RESOLVING_STRATEGY = "timestamp";
+
     private static final String LAST_MODIFIED = "Last-Modified";
     private static final String MULTIPART_CONTENT_TYPE = "multipart/binary";
     private final Logger logger = Logger.getLogger(R2Store.class);
@@ -202,6 +205,9 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName()
                                                                    + "/" + base64Key));
 
+            // Serialize the Vector clock
+            String serializedVC = CoordinatorUtils.getSerializedVectorClock((VectorClock) value.getVersion());
+
             // Create a HTTP POST request
             // TODO: Create a proper request based on client config
             rb.setMethod(POST);
@@ -209,13 +215,14 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             rb.setHeader("Content-Type", "application/json");
             rb.setHeader("Content-Length", "" + payload.length);
             rb.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, "1000");
-            rb.setHeader(X_VOLD_INCONSISTENCY_RESOLVER, "custom");
+            rb.setHeader(X_VOLD_VECTOR_CLOCK, serializedVC);
 
             RestRequest request = rb.build();
             Future<RestResponse> f = client.restRequest(request);
 
             // This will block
             RestResponse response = f.get();
+            String eTag = response.getHeader(ETAG);
             final ByteString entity = response.getEntity();
             if(entity == null) {
                 logger.error("Empty response !");

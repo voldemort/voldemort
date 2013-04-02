@@ -27,12 +27,7 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.REQUEST_TIMEOUT;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
-import java.io.IOException;
-
 import org.apache.log4j.Logger;
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.MessageEvent;
@@ -110,18 +105,7 @@ public class HttpGetRequestExecutor implements Runnable {
         this.responseContent.writeBytes(value);
 
         VectorClock vc = (VectorClock) responseVersioned.getVersion();
-        VectorClockWrapper vcWrapper = new VectorClockWrapper(vc);
-        ObjectMapper mapper = new ObjectMapper();
-        String eTag = "";
-        try {
-            eTag = mapper.writeValueAsString(vcWrapper);
-        } catch(JsonGenerationException e) {
-            e.printStackTrace();
-        } catch(JsonMappingException e) {
-            e.printStackTrace();
-        } catch(IOException e) {
-            e.printStackTrace();
-        }
+        String eTag = CoordinatorUtils.getSerializedVectorClock(vc);
 
         if(logger.isDebugEnabled()) {
             logger.debug("ETAG : " + eTag);

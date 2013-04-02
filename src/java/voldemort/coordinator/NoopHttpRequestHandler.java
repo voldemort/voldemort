@@ -22,6 +22,7 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 
 import voldemort.common.VoldemortOpCode;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 /**
@@ -50,7 +51,7 @@ public class NoopHttpRequestHandler extends VoldemortHttpRequestHandler {
                 break;
             case VoldemortOpCode.PUT_OP_CODE:
                 HttpPutRequestExecutor putRequestExecutor = new HttpPutRequestExecutor(e);
-                putRequestExecutor.writeResponse();
+                putRequestExecutor.writeResponse(new VectorClock());
                 break;
             default:
                 System.err.println("Illegal operation.");

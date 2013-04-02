@@ -42,9 +42,11 @@ import voldemort.store.CompositeDeleteVoldemortRequest;
 import voldemort.store.CompositeGetAllVoldemortRequest;
 import voldemort.store.CompositeGetVoldemortRequest;
 import voldemort.store.CompositePutVoldemortRequest;
+import voldemort.store.CompositeVersionedPutVoldemortRequest;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 /**
  * A class to handle the HTTP request and execute the same on behalf of the thin
@@ -153,15 +155,23 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
                     return null;
                 }
                 byte[] putValue = readValue(content);
-                requestWrapper = new CompositePutVoldemortRequest<ByteArray, byte[]>(putKey,
-                                                                                     putValue,
-                                                                                     operationTimeoutInMs);
+                VectorClock putOpVectorClock = getVectorClock(this.request.getHeader(X_VOLD_VECTOR_CLOCK));
+                if(putOpVectorClock != null && putOpVectorClock.getEntries().size() > 0) {
+                    requestWrapper = new CompositeVersionedPutVoldemortRequest<ByteArray, byte[]>(putKey,
+                                                                                                  new Versioned<byte[]>(putValue,
+                                                                                                                        putOpVectorClock),
+                                                                                                  operationTimeoutInMs);
+                } else {
+                    requestWrapper = new CompositePutVoldemortRequest<ByteArray, byte[]>(putKey,
+                                                                                         putValue,
+                                                                                         operationTimeoutInMs);
+                }
 
                 break;
             case VoldemortOpCode.DELETE_OP_CODE:
-                VectorClock vc = getVectorClock(this.request.getHeader(X_VOLD_VECTOR_CLOCK));
+                VectorClock deleteOpVectorClock = getVectorClock(this.request.getHeader(X_VOLD_VECTOR_CLOCK));
                 requestWrapper = new CompositeDeleteVoldemortRequest<ByteArray, byte[]>(keyList.get(0),
-                                                                                        vc,
+                                                                                        deleteOpVectorClock,
                                                                                         operationTimeoutInMs);
 
                 break;
@@ -262,6 +272,11 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
      */
     private VectorClock getVectorClock(String vectorClockHeader) {
         VectorClock vc = null;
+
+        if(vectorClockHeader == null) {
+            return null;
+        }
+
         ObjectMapper mapper = new ObjectMapper();
         if(logger.isDebugEnabled()) {
             logger.debug("Received vector clock : " + vectorClockHeader);

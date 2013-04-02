@@ -33,15 +33,14 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.versioning.VectorClock;
 
 public class CoordinatorRestAPITest {
 
     private VoldemortServer[] servers;
-    private Cluster cluster;
     public static String socketUrl = "";
     private static final String STORE_NAME = "test";
     private static final String STORES_XML = "test/common/voldemort/config/single-store.xml";
@@ -53,6 +52,33 @@ public class CoordinatorRestAPITest {
     private CoordinatorService coordinator = null;
     private final String coordinatorURL = "http://localhost:8080";
 
+    private class TestVersionedValue {
+
+        private String value;
+        private VectorClock vc;
+
+        public TestVersionedValue(String val, VectorClock vc) {
+            this.setValue(val);
+            this.setVc(vc);
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
+        }
+
+        public VectorClock getVc() {
+            return vc;
+        }
+
+        public void setVc(VectorClock vc) {
+            this.vc = vc;
+        }
+    }
+
     @Before
     public void setUp() throws Exception {
         int numServers = 1;
@@ -62,14 +88,14 @@ public class CoordinatorRestAPITest {
         props.setProperty("storage.configs",
                           "voldemort.store.bdb.BdbStorageConfiguration,voldemort.store.slow.SlowStorageConfiguration");
 
-        cluster = ServerTestUtils.startVoldemortCluster(numServers,
-                                                        servers,
-                                                        partitionMap,
-                                                        socketStoreFactory,
-                                                        true, // useNio
-                                                        null,
-                                                        STORES_XML,
-                                                        props);
+        ServerTestUtils.startVoldemortCluster(numServers,
+                                              servers,
+                                              partitionMap,
+                                              socketStoreFactory,
+                                              true, // useNio
+                                              null,
+                                              STORES_XML,
+                                              props);
 
         CoordinatorConfig config = new CoordinatorConfig();
         List<String> bootstrapUrls = new ArrayList<String>();
@@ -98,7 +124,8 @@ public class CoordinatorRestAPITest {
         }
     }
 
-    private void doPut(String key, String payload) {
+    private VectorClock doPut(String key, String payload, VectorClock vc) {
+        VectorClock successfulPutVC = null;
         try {
             // Create the right URL and Http connection
             HttpURLConnection conn = null;
@@ -114,6 +141,11 @@ public class CoordinatorRestAPITest {
             conn.setRequestProperty("Content-Length", "" + payload.length());
             conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS, "1000");
 
+            if(vc != null) {
+                String eTag = CoordinatorUtils.getSerializedVectorClock(vc);
+                conn.setRequestProperty("ETag", eTag);
+            }
+
             // Write the payload
             OutputStream out = conn.getOutputStream();
             out.write(payload.getBytes());
@@ -125,10 +157,13 @@ public class CoordinatorRestAPITest {
                 fail("Incorrect response received for a HTTP put request :"
                      + conn.getResponseCode());
             }
+
         } catch(Exception e) {
             e.printStackTrace();
             fail("Error in sending the REST request");
         }
+
+        return successfulPutVC;
     }
 
     private boolean doDelete(String key) {
@@ -162,8 +197,9 @@ public class CoordinatorRestAPITest {
         return false;
     }
 
-    private String doGet(String key) {
+    private TestVersionedValue doGet(String key) {
         String response = null;
+        TestVersionedValue responseObj = null;
         try {
 
             // Create the right URL and Http connection
@@ -196,34 +232,39 @@ public class CoordinatorRestAPITest {
                 sb.append(line);
             }
             rd.close();
+
             conn.disconnect();
 
             response = sb.toString();
+            VectorClock vc = CoordinatorUtils.deserializeVectorClock(conn.getHeaderField("ETag"));
+            responseObj = new TestVersionedValue(response, vc);
 
         } catch(Exception e) {
             e.printStackTrace();
             fail("Error in sending the REST request");
         }
 
-        return response;
+        return responseObj;
     }
 
     @Test
-    public void testRESTReadAfterWrite() {
+    public void testReadAfterWrite() {
         String key = "Which_Imperial_IPA_do_I_want_to_drink";
         String payload = "Pliny the Younger";
 
         // 1. Do a put
-        doPut(key, payload);
+        doPut(key, payload, null);
 
         // 2. Do a get on the same key
-        String response = doGet(key);
+        TestVersionedValue response = doGet(key);
         if(response == null) {
             fail("key does not exist after a put. ");
         }
-        System.out.println("Received value: " + response);
-        if(!response.equals(payload)) {
-            fail("Received value is incorrect ! Expected : " + payload + " but got : " + response);
+
+        System.out.println("Received value: " + response.getValue());
+        if(!response.getValue().equals(payload)) {
+            fail("Received value is incorrect ! Expected : " + payload + " but got : "
+                 + response.getValue());
         }
     }
 
@@ -233,16 +274,17 @@ public class CoordinatorRestAPITest {
         String payload = "Duchesse De Bourgogne";
 
         // 1. Do a put
-        doPut(key, payload);
+        doPut(key, payload, null);
 
         // 2. Do a get on the same key
-        String response = doGet(key);
+        TestVersionedValue response = doGet(key);
         if(response == null) {
             fail("key does not exist after a put. ");
         }
-        System.out.println("Received value: " + response);
-        if(!response.equals(payload)) {
-            fail("Received value is incorrect ! Expected : " + payload + " but got : " + response);
+        System.out.println("Received value: " + response.getValue());
+        if(!response.getValue().equals(payload)) {
+            fail("Received value is incorrect ! Expected : " + payload + " but got : "
+                 + response.getValue());
         }
 
         // 3. Do a delete
@@ -258,4 +300,35 @@ public class CoordinatorRestAPITest {
         }
     }
 
+    @Test
+    public void testVersionedPut() {
+        String key = "Which_Porter_do_I_want_to_drink";
+        String payload = "Founders Porter";
+        String newPayload = "Samuel Smith Taddy Porter";
+
+        // 1. Do a put
+        doPut(key, payload, null);
+
+        // 2. Do a get on the same key
+        TestVersionedValue response = doGet(key);
+        if(response == null) {
+            fail("key does not exist after a put. ");
+        }
+        System.out.println("Received value: " + response.getValue());
+
+        // 3. Do a versioned put based on the version received previously
+        doPut(key, newPayload, response.getVc());
+
+        // 4. Do a get again on the same key
+        TestVersionedValue newResponse = doGet(key);
+        if(newResponse == null) {
+            fail("key does not exist after the versioned put. ");
+        }
+
+        System.out.println("Received value after the Versioned put: " + newResponse.getValue());
+        if(!newResponse.getValue().equals(newPayload)) {
+            fail("Received value is incorrect ! Expected : " + newPayload + " but got : "
+                 + newResponse.getValue());
+        }
+    }
 }

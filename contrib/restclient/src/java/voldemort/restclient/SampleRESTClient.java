@@ -19,6 +19,8 @@ package voldemort.restclient;
 import java.util.ArrayList;
 import java.util.List;
 
+import voldemort.versioning.Versioned;
+
 public class SampleRESTClient {
 
     public static void main(String[] args) {
@@ -31,8 +33,18 @@ public class SampleRESTClient {
         clientStore.put("a", "Howdy!!!!");
         clientStore.put("b", "Partner!!!!");
 
-        // Do a sample operation:
-        System.out.println("Received response : " + clientStore.get("a"));
+        // Do a sample get operation:
+        Versioned<String> versionedValue = clientStore.get("a");
+        System.out.println("Received response : " + versionedValue);
+
+        // Do a versioned put operation:
+        versionedValue.setObject("New Value !!!");
+        clientStore.put("a", versionedValue);
+
+        // Do a get again on the last versioned put operation:
+        versionedValue = clientStore.get("a");
+        System.out.println("Received response on the versioned put: " + versionedValue);
+
         List<String> keyList = new ArrayList<String>();
         keyList.add("a");
         keyList.add("b");

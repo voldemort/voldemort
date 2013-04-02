@@ -17,6 +17,7 @@
 package voldemort.coordinator;
 
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
+import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.ETAG;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.CREATED;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
@@ -36,6 +37,7 @@ import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
+import voldemort.versioning.VectorClock;
 
 /**
  * A Runnable class that uses the specified Fat client to perform a Voldemort
@@ -88,11 +90,18 @@ public class HttpPutRequestExecutor implements Runnable {
         this.coordinatorPerfStats = coordinatorPerfStats;
     }
 
-    public void writeResponse() {
+    public void writeResponse(VectorClock successfulPutVC) {
         // 1. Create the Response object
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, CREATED);
 
+        String eTag = CoordinatorUtils.getSerializedVectorClock(successfulPutVC);
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("ETAG : " + eTag);
+        }
+
         // 2. Set the right headers
+        response.setHeader(ETAG, eTag);
         response.setHeader(CONTENT_LENGTH, 0);
 
         // TODO: return the Version back to the client
@@ -111,11 +120,16 @@ public class HttpPutRequestExecutor implements Runnable {
     public void run() {
 
         try {
-            this.storeClient.putWithCustomTimeout(putRequestObject);
+            VectorClock successfulPutVC = null;
+            if(putRequestObject.getValue() != null) {
+                successfulPutVC = (VectorClock) this.storeClient.putVersionedWithCustomTimeout(putRequestObject);
+            } else {
+                successfulPutVC = (VectorClock) this.storeClient.putWithCustomTimeout(putRequestObject);
+            }
             if(logger.isDebugEnabled()) {
                 logger.debug("PUT successful !");
             }
-            writeResponse();
+            writeResponse(successfulPutVC);
 
         } catch(IllegalArgumentException illegalArgsException) {
             String errorDescription = "PUT Failed !!! Illegal Arguments : "
