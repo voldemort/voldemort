@@ -21,8 +21,14 @@ if [ $# -lt 1 ]; then
 	exit 1
 fi
 
-script_path=$(readlink -f "$0")
-script_dir=`dirname "$script_path"`
+if [ $(uname) == 'Darwin' ]; then
+    pushd `dirname $0` > /dev/null
+    script_dir=$(pwd)
+    popd > /dev/null
+else
+    script_path=$(readlink -f "$0")
+    script_dir=`dirname "$script_path"`
+fi
 
 base_dir=`dirname "$script_dir"`
 
