@@ -29,11 +29,11 @@ import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.common.VoldemortOpCode;
 import voldemort.routing.RoutingStrategyType;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreRequest;
 import voldemort.store.StoreUtils;
-import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
@@ -75,10 +75,10 @@ import voldemort.versioning.Versioned;
  */
 public class PipelineRoutedStore extends RoutedStore {
 
-    private final Map<Integer, NonblockingStore> nonblockingStores;
-    private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores;
-    private final Map<Integer, NonblockingStore> nonblockingSlopStores;
-    private final HintedHandoffStrategy handoffStrategy;
+    protected final Map<Integer, NonblockingStore> nonblockingStores;
+    protected final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores;
+    protected final Map<Integer, NonblockingStore> nonblockingSlopStores;
+    protected final HintedHandoffStrategy handoffStrategy;
     private Zone clientZone;
     private boolean zoneRoutingEnabled;
     private PipelineRoutedStats stats;
