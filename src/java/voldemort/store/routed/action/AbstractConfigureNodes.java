@@ -25,6 +25,7 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PipelineData;
+import voldemort.store.routed.PutPipelineData;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 
@@ -61,6 +62,9 @@ public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>
             if(failureDetector.isAvailable(node))
                 nodes.add(node);
             else {
+                if(pipelineData instanceof PutPipelineData) {
+                    ((PutPipelineData) pipelineData).addSlopOwnerNode(node);
+                }
                 pipelineData.addFailedNode(node);
                 if(logger.isDebugEnabled()) {
                     logger.debug("Key " + ByteUtils.toHexString(key.get()) + " Node "

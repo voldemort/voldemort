@@ -53,8 +53,8 @@ public class PerformPutHintedHandoff extends AbstractHintedHandoffAction<Void, P
     @Override
     public void execute(Pipeline pipeline) {
         Versioned<byte[]> versionedCopy = pipelineData.getVersionedCopy();
-        for(Node failedNode: failedNodes) {
-            int failedNodeId = failedNode.getId();
+        for(Node slopOwnerNode: pipelineData.getSlopOwnerNodes()) {
+            int failedNodeId = slopOwnerNode.getId();
             if(versionedCopy == null) {
                 VectorClock clock = (VectorClock) versioned.getVersion();
                 versionedCopy = new Versioned<byte[]>(versioned.getValue(),
@@ -64,8 +64,9 @@ public class PerformPutHintedHandoff extends AbstractHintedHandoffAction<Void, P
 
             Version version = versionedCopy.getVersion();
             if(logger.isTraceEnabled())
-                logger.trace("Performing hinted handoff for node " + failedNode + ", store "
-                             + pipelineData.getStoreName() + " key " + key + ", version " + version);
+                logger.trace("Performing parallel hinted handoff for node " + slopOwnerNode
+                             + ", store " + pipelineData.getStoreName() + " key " + key
+                             + ", version " + version);
 
             Slop slop = new Slop(pipelineData.getStoreName(),
                                  Slop.Operation.PUT,
@@ -74,7 +75,7 @@ public class PerformPutHintedHandoff extends AbstractHintedHandoffAction<Void, P
                                  transforms,
                                  failedNodeId,
                                  new Date());
-            hintedHandoff.sendHintParallel(failedNode, version, slop);
+            hintedHandoff.sendHintParallel(slopOwnerNode, version, slop);
         }
         pipeline.addEvent(completeEvent);
     }

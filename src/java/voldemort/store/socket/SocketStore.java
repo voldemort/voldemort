@@ -284,7 +284,12 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
             clientRequestExecutor.addClientRequest(blockingClientRequest,
                                                    timeoutMs,
                                                    System.nanoTime() - startTimeNs);
-            blockingClientRequest.await();
+
+            boolean awaitResult = blockingClientRequest.await();
+
+            if(awaitResult == false) {
+                blockingClientRequest.timeOut();
+            }
 
             if(logger.isDebugEnabled())
                 debugMsgStr += "success";

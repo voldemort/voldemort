@@ -216,9 +216,13 @@ public class HintedHandoff {
                 } catch(UnreachableStoreException e) {
                     failureDetector.recordException(node, (System.nanoTime() - startNs)
                                                           / Time.NS_PER_MS, e);
-                    logger.warn("Error during hinted handoff", e);
+                    logger.warn("Error during hinted handoff. Will try another node", e);
+                } catch(IllegalStateException e) {
+                    logger.warn("Error during hinted handoff. Will try another node", e);
                 } catch(ObsoleteVersionException e) {
                     logger.debug(e, e);
+                } catch(Exception e) {
+                    logger.error("Unknown exception. Will try another node" + e);
                 }
 
                 if(logger.isDebugEnabled())

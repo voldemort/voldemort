@@ -16,6 +16,9 @@
 
 package voldemort.store.routed;
 
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 import voldemort.cluster.Node;
 import voldemort.store.routed.action.PerformSerialPutRequests;
 import voldemort.versioning.Versioned;
@@ -32,6 +35,8 @@ public class PutPipelineData extends BasicPipelineData<Void> {
     private Versioned<byte[]> versionedCopy;
 
     private long startTimeNs;
+
+    final private List<Node> slopOwnerNodes = new CopyOnWriteArrayList<Node>();
 
     /**
      * Returns the previously determined "master" node. This is the first node
@@ -93,6 +98,25 @@ public class PutPipelineData extends BasicPipelineData<Void> {
      */
     public long getStartTimeNs() {
         return this.startTimeNs;
+    }
+
+    /**
+     * Add a node to the slop owner list for registering slops in hintedHandoff
+     * stage
+     * 
+     * @param node
+     */
+    public void addSlopOwnerNode(Node node) {
+        slopOwnerNodes.add(node);
+    }
+
+    /**
+     * Get list of nodes to register slop for
+     * 
+     * @return list of nodes to register slop for
+     */
+    public List<Node> getSlopOwnerNodes() {
+        return slopOwnerNodes;
     }
 
 }
