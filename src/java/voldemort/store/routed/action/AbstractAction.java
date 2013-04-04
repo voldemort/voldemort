@@ -74,6 +74,9 @@ public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implem
         }
 
         if(e instanceof UnreachableStoreException) {
+            if(logger.isTraceEnabled()) {
+                logger.trace("Adding node [" + node + "] to failed nodes list");
+            }
             pipelineData.addFailedNode(node);
             pipelineData.recordFailure(e);
             failureDetector.recordException(node, requestTime, (UnreachableStoreException) e);

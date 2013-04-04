@@ -114,6 +114,7 @@ public class PerformSerialPutRequests extends
                 pipelineData.setMaster(node);
                 pipelineData.setVersionedCopy(versionedCopy);
                 pipelineData.getZoneResponses().add(node.getZoneId());
+                currentNode++;
                 break;
             } catch(Exception e) {
                 long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
@@ -129,6 +130,11 @@ public class PerformSerialPutRequests extends
             }
         }
 
+        if(logger.isTraceEnabled()) {
+            logger.trace("PUT {key:" + key + "} currentNode=" + currentNode + " nodes.size()="
+                         + nodes.size());
+        }
+
         if(pipelineData.getSuccesses() < 1) {
             List<Exception> failures = pipelineData.getFailures();
             pipelineData.setFatalError(new InsufficientOperationalNodesException("No master node succeeded!",
@@ -137,8 +143,6 @@ public class PerformSerialPutRequests extends
             pipeline.abort();
             return;
         }
-
-        currentNode++;
 
         // There aren't any more requests to make...
         if(currentNode == nodes.size()) {

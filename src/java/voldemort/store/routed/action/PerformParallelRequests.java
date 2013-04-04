@@ -90,7 +90,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
         if(logger.isTraceEnabled())
             logger.trace("Attempting " + attempts + " " + pipeline.getOperation().getSimpleName()
-                         + " operations in parallel");
+                         + " operations in parallel for key " + key);
 
         for(int i = 0; i < attempts; i++) {
             final Node node = nodes.get(i);
@@ -104,7 +104,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                     if(logger.isTraceEnabled())
                         logger.trace(pipeline.getOperation().getSimpleName()
                                      + " response received (" + requestTime + " ms.) from node "
-                                     + node.getId());
+                                     + node.getId() + "for key " + key);
 
                     Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
                                                                                            key,
@@ -129,7 +129,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                             logger.warn("Received invalid metadata problem after a successful "
                                         + pipeline.getOperation().getSimpleName()
                                         + " call on node " + node.getId() + ", store '"
-                                        + pipelineData.getStoreName() + "'");
+                                        + pipelineData.getStoreName() + "' for key " + key);
                         } else {
                             handleResponseError(response, pipeline, failureDetector);
                         }
@@ -140,7 +140,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
             if(logger.isTraceEnabled())
                 logger.trace("Submitting " + pipeline.getOperation().getSimpleName()
-                             + " request on node " + node.getId());
+                             + " request on node " + node.getId() + " for key " + key);
 
             NonblockingStore store = nonblockingStores.get(node.getId());
 
@@ -212,7 +212,8 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                         logger.debug("Operation " + pipeline.getOperation().getSimpleName()
                                      + "failed due to insufficent zone responses, required "
                                      + pipelineData.getZonesRequired() + " obtained "
-                                     + zonesSatisfied + " " + pipelineData.getZoneResponses());
+                                     + zonesSatisfied + " " + pipelineData.getZoneResponses()
+                                     + " for key " + key);
                     }
                     if(this.insufficientZonesEvent != null) {
                         pipeline.addEvent(this.insufficientZonesEvent);

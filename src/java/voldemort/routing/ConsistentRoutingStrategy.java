@@ -113,12 +113,12 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
             preferenceList.add(partitionToNode[partition]);
         }
         if(logger.isDebugEnabled()) {
-            StringBuilder nodeList = new StringBuilder();
+            List<Integer> nodeIdList = new ArrayList<Integer>();
             for(int partition: partitionList) {
-                nodeList.append(partitionToNode[partition].getId() + ",");
+                nodeIdList.add(partitionToNode[partition].getId());
             }
-            logger.debug("Key " + ByteUtils.toHexString(key) + " mapped to Nodes [" + nodeList
-                         + "] Partitions [" + partitionList + "]");
+            logger.debug("Key " + ByteUtils.toHexString(key) + " mapped to Nodes " + nodeIdList
+                         + " Partitions " + partitionList);
         }
         return preferenceList;
     }

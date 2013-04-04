@@ -121,6 +121,7 @@ public class HintedHandoff {
                 NonblockingStoreCallback callback = new NonblockingStoreCallback() {
 
                     public void requestComplete(Object result, long requestTime) {
+                        logger.debug("Got response for async hint request");
                         Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
                                                                                                slopKey,
                                                                                                result,
@@ -189,7 +190,7 @@ public class HintedHandoff {
         for(Node node: handoffStrategy.routeHint(failedNode)) {
             int nodeId = node.getId();
             if(logger.isDebugEnabled())
-                logger.debug("Trying to send hint to " + nodeId);
+                logger.debug("Trying to send hint to " + nodeId + " for key " + slop.getKey());
 
             if(!failedNodes.contains(node) && failureDetector.isAvailable(node)) {
                 Store<ByteArray, Slop, byte[]> slopStore = slopStores.get(nodeId);
@@ -223,8 +224,8 @@ public class HintedHandoff {
                 if(logger.isDebugEnabled())
                     logger.debug("Slop write of key " + slop.getKey() + " (keyRef: "
                                  + System.identityHashCode(slop.getKey()) + ") for " + failedNode
-                                 + " to node " + node + " succeeded in "
-                                 + (System.nanoTime() - startNs) + " ns");
+                                 + " to node " + node + (persisted ? " succeeded" : " failed")
+                                 + " in " + (System.nanoTime() - startNs) + " ns");
             }
         }
 
