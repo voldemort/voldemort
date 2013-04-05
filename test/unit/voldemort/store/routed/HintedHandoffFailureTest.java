@@ -17,7 +17,7 @@
 package voldemort.store.routed;
 
 import static org.junit.Assert.fail;
-import static voldemort.VoldemortTestConstants.getTwoNodeCluster;
+import static voldemort.VoldemortTestConstants.getThreeNodeCluster;
 
 import java.util.Date;
 import java.util.List;
@@ -29,8 +29,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.log4j.Logger;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
@@ -46,13 +46,15 @@ import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.cluster.failuredetector.MutableStoreVerifier;
 import voldemort.cluster.failuredetector.ThresholdFailureDetector;
+import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.StoreRepository;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.server.storage.ScanPermitWrapper;
-import voldemort.store.SleepyForceFailStore;
+import voldemort.store.ForceFailStore;
+import voldemort.store.SleepyStore;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -90,23 +92,24 @@ import com.google.common.collect.Sets;
  */
 public class HintedHandoffFailureTest {
 
-    private final static String STORE_NAME = "test";
     private final static String SLOP_STORE_NAME = "slop";
-    private final static int REPLICATION_FACTOR = 2;
-    private final static int P_READS = 1;
-    private final static int R_READS = 1;
-    private final static int P_WRITES = 2;
-    private final static int R_WRITES = 1;
+    private static int REPLICATION_FACTOR = 2;
+    private static int P_READS = 1;
+    private static int R_READS = 1;
+    private static int P_WRITES = 1;
+    private static int R_WRITES = 1;
     private static final int NUM_THREADS = 3;
-    private static final int NUM_NODES_TOTAL = 2;
-    private static final int FAILED_NODE_ID = 0;
+    private static final int NUM_NODES_TOTAL = 3;
+    private static int FAILED_NODE_ID = 0;
 
+    private final String STORE_NAME = "test";
     private Cluster cluster;
     private FailureDetector failureDetector;
     private StoreDefinition storeDef;
     private ExecutorService routedStoreThreadPool;
     private RoutedStoreFactory routedStoreFactory;
     private RoutedStore store;
+    private RoutingStrategy strategy;
 
     private final static long routingTimeoutInMs = 1000;
     private final static long sleepBeforeFailingInMs = 2000;
@@ -115,6 +118,8 @@ public class HintedHandoffFailureTest {
     private final Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[], byte[]>>();
     private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores = new ConcurrentHashMap<Integer, Store<ByteArray, Slop, byte[]>>();
     private final List<StreamingSlopPusherJob> slopPusherJobs = Lists.newLinkedList();
+
+    private final Logger logger = Logger.getLogger(getClass());
 
     private StoreDefinition getStoreDef(String storeName,
                                         int replicationFactor,
@@ -154,24 +159,23 @@ public class HintedHandoffFailureTest {
     }
 
     /**
-     * Setup a cluster with 2 nodes, with the following characteristics:
+     * Setup a cluster with 3 nodes, with the following characteristics:
      * 
-     * - Node 0: Sleepy force failing store (will throw an exception after a
-     * delay)
+     * - 1st replica node: Sleepy force failing store (will throw an exception
+     * after a delay)
      * 
-     * - Node 1: Standard In-memory store (wrapped by Logging store)
+     * - Pseudo master and other replicas: Standard In-memory store (wrapped by
+     * Logging store)
      * 
      * - In memory slop stores
      * 
-     * - A custom Put pipeline with a delay between parallel puts and doing the
-     * handoff
+     * @param key The ByteArray representation of the key
      * 
      * @throws Exception
      */
-    @Before
-    public void setUp() throws Exception {
+    public void customSetup(ByteArray key) throws Exception {
 
-        cluster = getTwoNodeCluster();
+        cluster = getThreeNodeCluster();
         storeDef = getStoreDef(STORE_NAME,
                                REPLICATION_FACTOR,
                                P_READS,
@@ -180,28 +184,37 @@ public class HintedHandoffFailureTest {
                                R_WRITES,
                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
-        VoldemortException e = new UnreachableStoreException("Node down");
+        strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
 
         InMemoryStorageEngine<ByteArray, byte[], byte[]> inMemoryStorageEngine = new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME);
         LoggingStore<ByteArray, byte[], byte[]> loggingStore = new LoggingStore<ByteArray, byte[], byte[]>(inMemoryStorageEngine);
 
-        // Set node 1 as a regular store
-        subStores.put(1, loggingStore);
-
-        // Set node 0 as the force failing store
-        SleepyForceFailStore<ByteArray, byte[], byte[]> failureStore = new SleepyForceFailStore<ByteArray, byte[], byte[]>(loggingStore,
-                                                                                                                           e,
-                                                                                                                           sleepBeforeFailingInMs);
+        VoldemortException e = new UnreachableStoreException("Node down");
+        ForceFailStore<ByteArray, byte[], byte[]> failureStore = new ForceFailStore<ByteArray, byte[], byte[]>(loggingStore,
+                                                                                                               e);
+        SleepyStore<ByteArray, byte[], byte[]> sleepyFailureStore = new SleepyStore<ByteArray, byte[], byte[]>(sleepBeforeFailingInMs,
+                                                                                                               failureStore);
         failureStore.setFail(true);
-        subStores.put(0, failureStore);
 
+        // Get the first replica node for the given key
+        // This will act as the sleepy failing node
+        Node failingNode = strategy.routeRequest(key.get()).get(1);
+        FAILED_NODE_ID = failingNode.getId();
+
+        subStores.clear();
+        for(int i = 0; i < NUM_NODES_TOTAL; i++) {
+            if(i == FAILED_NODE_ID) {
+                subStores.put(i, sleepyFailureStore);
+            } else {
+                subStores.put(i, loggingStore);
+            }
+        }
         setFailureDetector(subStores);
 
         routedStoreThreadPool = Executors.newFixedThreadPool(NUM_THREADS);
         routedStoreFactory = new RoutedStoreFactory(true,
                                                     routedStoreThreadPool,
                                                     new TimeoutConfig(routingTimeoutInMs, false));
-        new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
 
         Map<Integer, NonblockingStore> nonblockingSlopStores = Maps.newHashMap();
         for(Node node: cluster.getNodes()) {
@@ -209,8 +222,9 @@ public class HintedHandoffFailureTest {
             StoreRepository storeRepo = new StoreRepository();
             storeRepo.addLocalStore(subStores.get(nodeId));
 
-            for(int i = 0; i < NUM_NODES_TOTAL; i++)
+            for(int i = 0; i < NUM_NODES_TOTAL; i++) {
                 storeRepo.addNodeStore(i, subStores.get(i));
+            }
 
             SlopStorageEngine slopStorageEngine = new SlopStorageEngine(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(SLOP_STORE_NAME),
                                                                         cluster);
@@ -274,12 +288,12 @@ public class HintedHandoffFailureTest {
         for(ByteArray failedKey: failedKeys) {
             byte[] opCode = new byte[] { Slop.Operation.PUT.getOpCode() };
             byte[] spacer = new byte[] { (byte) 0 };
-            byte[] storeName = ByteUtils.getBytes(STORE_NAME, "UTF-8");
+            byte[] storeNameBytes = ByteUtils.getBytes(STORE_NAME, "UTF-8");
             byte[] nodeIdBytes = new byte[ByteUtils.SIZE_OF_INT];
             ByteUtils.writeInt(nodeIdBytes, FAILED_NODE_ID, 0);
             ByteArray slopKey = new ByteArray(ByteUtils.cat(opCode,
                                                             spacer,
-                                                            storeName,
+                                                            storeNameBytes,
                                                             spacer,
                                                             nodeIdBytes,
                                                             spacer,
@@ -294,16 +308,30 @@ public class HintedHandoffFailureTest {
      * after PerformParallelPut has finished processing the responses and before
      * the hinted handoff actually begins, a slop is still registered for the
      * same.
+     * 
+     * This is for the 2-1-1 configuration.
      */
     @Test
-    public void testSlopOnDelayedFailingAsyncPut() {
+    public void testSlopOnDelayedFailingAsyncPut_2_1_1() {
 
-        // The following key will be routed to node 1 (pseudo master). We've set
-        // node 0 to be the sleepy failing node
         String key = "a";
         String val = "xyz";
         Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         ByteArray keyByteArray = new ByteArray(key.getBytes());
+
+        // Set the correct replication config
+        REPLICATION_FACTOR = 2;
+        P_READS = 1;
+        R_READS = 1;
+        P_WRITES = 1;
+        R_WRITES = 1;
+
+        try {
+            customSetup(keyByteArray);
+        } catch(Exception e) {
+            fail("Error in setup.");
+        }
+
         this.store.put(keyByteArray, versionedVal, null);
 
         // Check the slop stores
@@ -317,12 +345,67 @@ public class HintedHandoffFailureTest {
             for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
                 Slop slop = entry.getValue().get(0).getValue();
                 registeredSlops.add(slop);
-                System.out.println(slop);
+                logger.info(slop);
             }
         }
 
         if(registeredSlops.size() == 0) {
             fail("Should have seen some slops. But could not find any.");
+        } else if(registeredSlops.size() != 1) {
+            fail("Number of slops registered != 1");
+        }
+    }
+
+    /**
+     * Test to ensure that when an asynchronous put completes (with a failure)
+     * after PerformParallelPut has finished processing the responses and before
+     * the hinted handoff actually begins, a slop is still registered for the
+     * same.
+     * 
+     * This is for the 3-2-2 configuration.
+     */
+    @Test
+    public void testSlopOnDelayedFailingAsyncPut_3_2_2() {
+
+        String key = "a";
+        String val = "xyz";
+        Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
+        ByteArray keyByteArray = new ByteArray(key.getBytes());
+
+        // Set the correct replication config
+        REPLICATION_FACTOR = 3;
+        P_READS = 2;
+        R_READS = 2;
+        P_WRITES = 2;
+        R_WRITES = 2;
+
+        try {
+            customSetup(keyByteArray);
+        } catch(Exception e) {
+            fail("Error in setup.");
+        }
+
+        this.store.put(keyByteArray, versionedVal, null);
+
+        // Check the slop stores
+        Set<ByteArray> failedKeys = Sets.newHashSet();
+        failedKeys.add(keyByteArray);
+        Set<ByteArray> slopKeys = makeSlopKeys(failedKeys);
+
+        Set<Slop> registeredSlops = Sets.newHashSet();
+        for(Store<ByteArray, Slop, byte[]> slopStore: slopStores.values()) {
+            Map<ByteArray, List<Versioned<Slop>>> res = slopStore.getAll(slopKeys, null);
+            for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
+                Slop slop = entry.getValue().get(0).getValue();
+                registeredSlops.add(slop);
+                logger.info(slop);
+            }
+        }
+
+        if(registeredSlops.size() == 0) {
+            fail("Should have seen some slops. But could not find any.");
+        } else if(registeredSlops.size() != 1) {
+            fail("Number of slops registered != 1");
         }
     }
 
@@ -330,16 +413,29 @@ public class HintedHandoffFailureTest {
      * Test to ensure that when an asynchronous put completes (with a failure)
      * after the pipeline completes, a slop is still registered (via a serial
      * hint).
+     * 
+     * This is for the 2-1-1 configuration
      */
     @Test
-    public void testSlopViaSerialHint() {
+    public void testSlopViaSerialHint_2_1_1() {
 
-        // The following key will be routed to node 1 (pseudo master). We've set
-        // node 0 to be the sleepy failing node
         String key = "a";
         String val = "xyz";
         Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         ByteArray keyByteArray = new ByteArray(key.getBytes());
+
+        // Set the correct replication config
+        REPLICATION_FACTOR = 2;
+        P_READS = 1;
+        R_READS = 1;
+        P_WRITES = 1;
+        R_WRITES = 1;
+
+        try {
+            customSetup(keyByteArray);
+        } catch(Exception e) {
+            fail("Error in setup.");
+        }
 
         // We remove the delay in the pipeline so that the pipeline will finish
         // before the failing async put returns. At this point it should do a
@@ -350,7 +446,7 @@ public class HintedHandoffFailureTest {
 
         // Give enough time for the serial hint to work.
         try {
-            System.out.println("Sleeping for 5 seconds to wait for the serial hint to finish");
+            logger.info("Sleeping for 5 seconds to wait for the serial hint to finish");
             Thread.sleep(5000);
         } catch(Exception e) {}
 
@@ -365,12 +461,77 @@ public class HintedHandoffFailureTest {
             for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
                 Slop slop = entry.getValue().get(0).getValue();
                 registeredSlops.add(slop);
-                System.out.println(slop);
+                logger.info(slop);
             }
         }
 
         if(registeredSlops.size() == 0) {
             fail("Should have seen some slops. But could not find any.");
+        } else if(registeredSlops.size() != 1) {
+            fail("Number of slops registered != 1");
+        }
+    }
+
+    /**
+     * Test to ensure that when an asynchronous put completes (with a failure)
+     * after the pipeline completes, a slop is still registered (via a serial
+     * hint).
+     * 
+     * This is for the 3-2-2 configuration
+     */
+    @Test
+    public void testSlopViaSerialHint_3_2_2() {
+
+        String key = "a";
+        String val = "xyz";
+        Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
+        ByteArray keyByteArray = new ByteArray(key.getBytes());
+
+        // Set the correct replication config
+        REPLICATION_FACTOR = 3;
+        P_READS = 2;
+        R_READS = 2;
+        P_WRITES = 2;
+        R_WRITES = 2;
+
+        try {
+            customSetup(keyByteArray);
+        } catch(Exception e) {
+            fail("Error in setup.");
+        }
+
+        // We remove the delay in the pipeline so that the pipeline will finish
+        // before the failing async put returns. At this point it should do a
+        // serial hint.
+        delayBeforeHintedHandoff = 0;
+
+        this.store.put(keyByteArray, versionedVal, null);
+
+        // Give enough time for the serial hint to work.
+        try {
+            logger.info("Sleeping for 5 seconds to wait for the serial hint to finish");
+            Thread.sleep(5000);
+        } catch(Exception e) {}
+
+        // Check the slop stores
+        Set<ByteArray> failedKeys = Sets.newHashSet();
+        failedKeys.add(keyByteArray);
+        Set<ByteArray> slopKeys = makeSlopKeys(failedKeys);
+
+        Set<Slop> registeredSlops = Sets.newHashSet();
+        for(Store<ByteArray, Slop, byte[]> slopStore: slopStores.values()) {
+            Map<ByteArray, List<Versioned<Slop>>> res = slopStore.getAll(slopKeys, null);
+            for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
+                Slop slop = entry.getValue().get(0).getValue();
+                registeredSlops.add(slop);
+                logger.info(slop);
+            }
+        }
+
+        if(registeredSlops.size() == 0) {
+            fail("Should have seen some slops. But could not find any.");
+        } else if(registeredSlops.size() != 1) {
+            fail("Number of slops registered != 1");
         }
     }
 
@@ -390,10 +551,10 @@ public class HintedHandoffFailureTest {
         @Override
         public void execute(Pipeline pipeline) {
             try {
-                System.out.println("Delayed pipeline action now sleeping for : " + sleepTimeInMs);
+                logger.info("Delayed pipeline action now sleeping for : " + sleepTimeInMs);
                 Thread.sleep(sleepTimeInMs);
-                System.out.println("Now moving on to doing actual hinted handoff. Current time = "
-                                   + new Date(System.currentTimeMillis()));
+                logger.info("Now moving on to doing actual hinted handoff. Current time = "
+                            + new Date(System.currentTimeMillis()));
             } catch(Exception e) {}
             pipeline.addEvent(completeEvent);
         }
