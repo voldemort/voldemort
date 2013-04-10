@@ -105,8 +105,8 @@ public class StreamingClient {
 
     protected EventThrottler throttler;
 
-    AdminClient adminClient;
-    AdminClientConfig adminClientConfig;
+    private AdminClient adminClient;
+    private AdminClientConfig adminClientConfig;
 
     String bootstrapURL;
 
@@ -135,7 +135,12 @@ public class StreamingClient {
         this.bootstrapURL = config.getBootstrapURL();
         CHECKPOINT_COMMIT_SIZE = config.getBatchSize();
         THROTTLE_QPS = config.getThrottleQPS();
+        adminClientConfig = new AdminClientConfig();
+        adminClient = new AdminClient(bootstrapURL, adminClientConfig, new ClientConfig());
+    }
 
+    public AdminClient getAdminClient() {
+        return adminClient;
     }
 
     public synchronized void updateThrottleLimit(int throttleQPS) {
@@ -297,8 +302,6 @@ public class StreamingClient {
                                                    List<Integer> blackListedNodes) {
 
         logger.info("Initializing a streaming session");
-        adminClientConfig = new AdminClientConfig();
-        adminClient = new AdminClient(bootstrapURL, adminClientConfig, new ClientConfig());
         this.checkpointCallback = checkpointCallback;
         this.recoveryCallback = recoveryCallback;
         this.allowMerge = allowMerge;
