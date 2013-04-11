@@ -63,7 +63,7 @@ public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>
                 nodes.add(node);
             else {
                 if(pipelineData instanceof PutPipelineData) {
-                    ((PutPipelineData) pipelineData).addSlopOwnerNode(node);
+                    ((PutPipelineData) pipelineData).getSynchronizer().tryDelegateSlop(node);
                 }
                 pipelineData.addFailedNode(node);
                 if(logger.isDebugEnabled()) {

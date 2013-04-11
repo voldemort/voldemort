@@ -127,7 +127,7 @@ public class PerformSerialPutRequests extends
                                  + System.identityHashCode(key) + ")");
 
                 if(e instanceof UnreachableStoreException) {
-                    pipelineData.addSlopOwnerNode(node);
+                    pipelineData.getSynchronizer().tryDelegateSlop(node);
                 }
                 if(handleResponseError(e, node, requestTime, pipeline, failureDetector))
                     return;
