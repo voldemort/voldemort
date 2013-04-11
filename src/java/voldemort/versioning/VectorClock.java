@@ -325,7 +325,11 @@ public class VectorClock implements Version, Serializable {
         else if(p2 < v2.versions.size())
             v2Bigger = true;
 
-        /* This is the case where they are equal, return BEFORE arbitrarily */
+        /*
+         * This is the case where they are equal. Consciously return BEFORE, so
+         * that the we would throw back an ObsoleteVersionException for online
+         * writes with the same clock.
+         */
         if(!v1Bigger && !v2Bigger)
             return Occurred.BEFORE;
         /* This is the case where v1 is a successor clock to v2 */
