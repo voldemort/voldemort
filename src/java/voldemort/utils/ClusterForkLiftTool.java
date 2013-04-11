@@ -81,6 +81,29 @@ import com.google.common.collect.Lists;
  * forklift window. Of course, after the forklift window, the destination
  * cluster resumes normal operation.
  * 
+ * 3) For now, we will fallback to fetching the key from the primary replica,
+ * fetch the values out manually, resolve and write it back. PitFalls : primary
+ * somehow does not have the key.
+ * 
+ * Two scenarios.
+ * 
+ * 1) Key active after double writes: the situation is the result of slop not
+ * propagating to the primary. But double writes would write the key back to
+ * destination cluster anyway. We are good.
+ * 
+ * 2) Key inactive after double writes: This indicates a problem elsewhere. This
+ * is a base guarantee voldemort should offer.
+ * 
+ * 4) Zoned <-> Non Zoned forklift implications.
+ * 
+ * When forklifting data from a non-zoned to zoned cluster, both destination
+ * zones will be populated with data, by simply running the tool once with the
+ * respective bootstrap urls. If you need to forklift data from zoned to
+ * non-zoned clusters (i.e your replication between datacenters is not handled
+ * by Voldemort), then you need to run the tool twice for each destination
+ * non-zoned cluster. Zoned -> Zoned and Non-Zoned -> Non-Zoned forklifts are
+ * trivial.
+ * 
  */
 public class ClusterForkLiftTool implements Runnable {
 
@@ -113,10 +136,10 @@ public class ClusterForkLiftTool implements Runnable {
                                               new ClientConfig());
 
         // set up streaming client to the destination cluster
-        Props property = new Props();
-        property.put("streaming.platform.bootstrapURL", dstBootstrapUrl);
-        property.put("streaming.platform.throttle.qps", maxPutsPerSecond);
-        StreamingClientConfig config = new StreamingClientConfig(property);
+        Props props = new Props();
+        props.put("streaming.platform.bootstrapURL", dstBootstrapUrl);
+        props.put("streaming.platform.throttle.qps", maxPutsPerSecond);
+        StreamingClientConfig config = new StreamingClientConfig(props);
         this.dstStreamingClient = new StreamingClient(config);
 
         // determine and verify final list of stores to be forklifted over
@@ -173,6 +196,12 @@ public class ClusterForkLiftTool implements Runnable {
         return srcStoreDefMap;
     }
 
+    /**
+     * TODO this base class can potentially provide some framework of execution
+     * for the subclasses, to yield a better objected oriented design (progress
+     * tracking etc)
+     * 
+     */
     abstract class SinglePartitionForkLiftTask {
 
         protected int partitionId;
@@ -209,21 +238,6 @@ public class ClusterForkLiftTool implements Runnable {
             super(storeInstance, partitionId, latch);
         }
 
-        /**
-         * For now, we will fallback to fetching the key from the primary
-         * replica, fetch the values out manually, resolve and write it back.
-         * PitFalls : primary somehow does not have the key.
-         * 
-         * Two scenarios.
-         * 
-         * 1) Key active after double writes: the situation is the result of
-         * slop not propagating to the primary. But double writes would write
-         * the key back to destination cluster anyway. We are good.
-         * 
-         * 2) Key inactive after double writes: This indicates a problem
-         * elsewhere. This is a base guarantee voldemort should offer.
-         * 
-         */
         public void run() {
             String storeName = this.storeInstance.getStoreDefinition().getName();
             long entriesForkLifted = 0;
@@ -455,8 +469,6 @@ public class ClusterForkLiftTool implements Runnable {
             }
             srcAdminClient.close();
             dstStreamingClient.getAdminClient().close();
-            // TODO cleanly shut down the threadpool
-            System.exit(0);
         }
     }
 
@@ -570,5 +582,7 @@ public class ClusterForkLiftTool implements Runnable {
                                                                    partitions,
                                                                    options.has("global-resolution"));
         forkLiftTool.run();
+        // TODO cleanly shut down the hanging threadpool
+        System.exit(0);
     }
 }

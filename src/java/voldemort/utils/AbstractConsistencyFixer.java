@@ -35,6 +35,16 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 
+/**
+ * Base class that contains logic to read the state of a key on a cluster and
+ * resolve it using read repair
+ * 
+ * NOTE : For now, there is only one subclass extending this class, to perform
+ * Consistency fixing by writing the resolved versions back to the cluster. Any
+ * future tool that needs similar functionality can extend this class and
+ * implement logic to do whatever it wants to do with the resolved versions.
+ * 
+ */
 abstract class AbstractConsistencyFixer {
 
     private static final Logger logger = Logger.getLogger(AbstractConsistencyFixer.class);
