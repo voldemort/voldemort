@@ -100,7 +100,6 @@ public class HintedHandoffFailureTest {
     private static int R_WRITES = 1;
     private static final int NUM_THREADS = 3;
     private static final int NUM_NODES_TOTAL = 3;
-    private static int FAILED_NODE_ID = 0;
 
     private final String STORE_NAME = "test";
     private Cluster cluster;
@@ -111,8 +110,8 @@ public class HintedHandoffFailureTest {
     private RoutedStore store;
     private RoutingStrategy strategy;
 
-    private final static long routingTimeoutInMs = 1000;
-    private final static long sleepBeforeFailingInMs = 2000;
+    private static long routingTimeoutInMs = 1000;
+    private static long sleepBeforeFailingInMs = 2000;
     private static long delayBeforeHintedHandoff = 3000;
 
     private final Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[], byte[]>>();
@@ -120,6 +119,11 @@ public class HintedHandoffFailureTest {
     private final List<StreamingSlopPusherJob> slopPusherJobs = Lists.newLinkedList();
 
     private final Logger logger = Logger.getLogger(getClass());
+
+    private enum FAILURE_MODE {
+        FAIL_FIRST_REPLICA_NODE,
+        FAIL_ALL_REPLICAS
+    }
 
     private StoreDefinition getStoreDef(String storeName,
                                         int replicationFactor,
@@ -159,21 +163,36 @@ public class HintedHandoffFailureTest {
     }
 
     /**
-     * Setup a cluster with 3 nodes, with the following characteristics:
-     * 
-     * - 1st replica node: Sleepy force failing store (will throw an exception
-     * after a delay)
-     * 
-     * - Pseudo master and other replicas: Standard In-memory store (wrapped by
-     * Logging store)
-     * 
-     * - In memory slop stores
+     * A wrapper for the actual customSetup method with the default failure mode
+     * as FAIL_FIRST_REPLICA_NODE
      * 
      * @param key The ByteArray representation of the key
      * 
      * @throws Exception
      */
-    public void customSetup(ByteArray key) throws Exception {
+    public List<Integer> customSetup(ByteArray key) throws Exception {
+        return customSetup(key, FAILURE_MODE.FAIL_FIRST_REPLICA_NODE);
+    }
+
+    /**
+     * Setup a cluster with 3 nodes, with the following characteristics:
+     * 
+     * If FAILURE_MODE is FAIL_FIRST_REPLICA_NODE set the first replica store to
+     * a sleepy force failing store
+     * 
+     * If FAILURE_MODE is FAIL_ALL_REPLICAS: set all replicas to sleepy force
+     * failing store
+     * 
+     * Pseudo master : Standard In-memory store (wrapped by Logging store)
+     * 
+     * In memory slop stores
+     * 
+     * @param key The ByteArray representation of the key
+     * @param failureMode The Failure mode for the replicas
+     * 
+     * @throws Exception
+     */
+    public List<Integer> customSetup(ByteArray key, FAILURE_MODE failureMode) throws Exception {
 
         cluster = getThreeNodeCluster();
         storeDef = getStoreDef(STORE_NAME,
@@ -196,14 +215,24 @@ public class HintedHandoffFailureTest {
                                                                                                                failureStore);
         failureStore.setFail(true);
 
-        // Get the first replica node for the given key
-        // This will act as the sleepy failing node
-        Node failingNode = strategy.routeRequest(key.get()).get(1);
-        FAILED_NODE_ID = failingNode.getId();
+        List<Integer> failingNodeIdList = Lists.newArrayList();
+        List<Node> replicaList = strategy.routeRequest(key.get());
+
+        switch(failureMode) {
+            case FAIL_FIRST_REPLICA_NODE:
+                failingNodeIdList.add(replicaList.get(1).getId());
+                break;
+
+            case FAIL_ALL_REPLICAS:
+                for(int nodeId = 1; nodeId < replicaList.size(); nodeId++) {
+                    failingNodeIdList.add(nodeId);
+                }
+                break;
+        }
 
         subStores.clear();
         for(int i = 0; i < NUM_NODES_TOTAL; i++) {
-            if(i == FAILED_NODE_ID) {
+            if(failingNodeIdList.contains(i)) {
                 subStores.put(i, sleepyFailureStore);
             } else {
                 subStores.put(i, loggingStore);
@@ -262,6 +291,7 @@ public class HintedHandoffFailureTest {
                                                   cluster,
                                                   storeDef,
                                                   failureDetector);
+        return failingNodeIdList;
     }
 
     @After
@@ -282,15 +312,15 @@ public class HintedHandoffFailureTest {
      * @param failedKeys Set of keys that the put should've failed for
      * @return Set of slop keys based on the failed keys and the FAILED_NODE_ID
      */
-    private Set<ByteArray> makeSlopKeys(Set<ByteArray> failedKeys) {
+    private Set<ByteArray> makeSlopKeys(ByteArray failedKey, List<Integer> failingNodeIdList) {
         Set<ByteArray> slopKeys = Sets.newHashSet();
 
-        for(ByteArray failedKey: failedKeys) {
+        for(int failingNodeId: failingNodeIdList) {
             byte[] opCode = new byte[] { Slop.Operation.PUT.getOpCode() };
             byte[] spacer = new byte[] { (byte) 0 };
             byte[] storeNameBytes = ByteUtils.getBytes(STORE_NAME, "UTF-8");
             byte[] nodeIdBytes = new byte[ByteUtils.SIZE_OF_INT];
-            ByteUtils.writeInt(nodeIdBytes, FAILED_NODE_ID, 0);
+            ByteUtils.writeInt(nodeIdBytes, failingNodeId, 0);
             ByteArray slopKey = new ByteArray(ByteUtils.cat(opCode,
                                                             spacer,
                                                             storeNameBytes,
@@ -301,6 +331,25 @@ public class HintedHandoffFailureTest {
             slopKeys.add(slopKey);
         }
         return slopKeys;
+    }
+
+    /**
+     * A function to fetch all the registered slops
+     * 
+     * @param slopKeys Keys for the registered slops in the slop store
+     * @return Set of all the registered Slops
+     */
+    public Set<Slop> getAllSlops(Iterable<ByteArray> slopKeys) {
+        Set<Slop> registeredSlops = Sets.newHashSet();
+        for(Store<ByteArray, Slop, byte[]> slopStore: slopStores.values()) {
+            Map<ByteArray, List<Versioned<Slop>>> res = slopStore.getAll(slopKeys, null);
+            for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
+                Slop slop = entry.getValue().get(0).getValue();
+                registeredSlops.add(slop);
+                logger.info(slop);
+            }
+        }
+        return registeredSlops;
     }
 
     /**
@@ -318,6 +367,7 @@ public class HintedHandoffFailureTest {
         String val = "xyz";
         Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         ByteArray keyByteArray = new ByteArray(key.getBytes());
+        List<Integer> failingNodeIdList = null;
 
         // Set the correct replication config
         REPLICATION_FACTOR = 2;
@@ -327,8 +377,9 @@ public class HintedHandoffFailureTest {
         R_WRITES = 1;
 
         try {
-            customSetup(keyByteArray);
+            failingNodeIdList = customSetup(keyByteArray);
         } catch(Exception e) {
+            logger.info(e.getMessage());
             fail("Error in setup.");
         }
 
@@ -337,17 +388,8 @@ public class HintedHandoffFailureTest {
         // Check the slop stores
         Set<ByteArray> failedKeys = Sets.newHashSet();
         failedKeys.add(keyByteArray);
-        Set<ByteArray> slopKeys = makeSlopKeys(failedKeys);
-
-        Set<Slop> registeredSlops = Sets.newHashSet();
-        for(Store<ByteArray, Slop, byte[]> slopStore: slopStores.values()) {
-            Map<ByteArray, List<Versioned<Slop>>> res = slopStore.getAll(slopKeys, null);
-            for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
-                Slop slop = entry.getValue().get(0).getValue();
-                registeredSlops.add(slop);
-                logger.info(slop);
-            }
-        }
+        Set<ByteArray> slopKeys = makeSlopKeys(keyByteArray, failingNodeIdList);
+        Set<Slop> registeredSlops = getAllSlops(slopKeys);
 
         if(registeredSlops.size() == 0) {
             fail("Should have seen some slops. But could not find any.");
@@ -371,6 +413,7 @@ public class HintedHandoffFailureTest {
         String val = "xyz";
         Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         ByteArray keyByteArray = new ByteArray(key.getBytes());
+        List<Integer> failingNodeIdList = null;
 
         // Set the correct replication config
         REPLICATION_FACTOR = 3;
@@ -380,8 +423,9 @@ public class HintedHandoffFailureTest {
         R_WRITES = 2;
 
         try {
-            customSetup(keyByteArray);
+            failingNodeIdList = customSetup(keyByteArray);
         } catch(Exception e) {
+            logger.info(e.getMessage());
             fail("Error in setup.");
         }
 
@@ -390,17 +434,8 @@ public class HintedHandoffFailureTest {
         // Check the slop stores
         Set<ByteArray> failedKeys = Sets.newHashSet();
         failedKeys.add(keyByteArray);
-        Set<ByteArray> slopKeys = makeSlopKeys(failedKeys);
-
-        Set<Slop> registeredSlops = Sets.newHashSet();
-        for(Store<ByteArray, Slop, byte[]> slopStore: slopStores.values()) {
-            Map<ByteArray, List<Versioned<Slop>>> res = slopStore.getAll(slopKeys, null);
-            for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
-                Slop slop = entry.getValue().get(0).getValue();
-                registeredSlops.add(slop);
-                logger.info(slop);
-            }
-        }
+        Set<ByteArray> slopKeys = makeSlopKeys(keyByteArray, failingNodeIdList);
+        Set<Slop> registeredSlops = getAllSlops(slopKeys);
 
         if(registeredSlops.size() == 0) {
             fail("Should have seen some slops. But could not find any.");
@@ -423,6 +458,7 @@ public class HintedHandoffFailureTest {
         String val = "xyz";
         Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         ByteArray keyByteArray = new ByteArray(key.getBytes());
+        List<Integer> failingNodeIdList = null;
 
         // Set the correct replication config
         REPLICATION_FACTOR = 2;
@@ -432,8 +468,9 @@ public class HintedHandoffFailureTest {
         R_WRITES = 1;
 
         try {
-            customSetup(keyByteArray);
+            failingNodeIdList = customSetup(keyByteArray);
         } catch(Exception e) {
+            logger.info(e.getMessage());
             fail("Error in setup.");
         }
 
@@ -453,17 +490,8 @@ public class HintedHandoffFailureTest {
         // Check the slop stores
         Set<ByteArray> failedKeys = Sets.newHashSet();
         failedKeys.add(keyByteArray);
-        Set<ByteArray> slopKeys = makeSlopKeys(failedKeys);
-
-        Set<Slop> registeredSlops = Sets.newHashSet();
-        for(Store<ByteArray, Slop, byte[]> slopStore: slopStores.values()) {
-            Map<ByteArray, List<Versioned<Slop>>> res = slopStore.getAll(slopKeys, null);
-            for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
-                Slop slop = entry.getValue().get(0).getValue();
-                registeredSlops.add(slop);
-                logger.info(slop);
-            }
-        }
+        Set<ByteArray> slopKeys = makeSlopKeys(keyByteArray, failingNodeIdList);
+        Set<Slop> registeredSlops = getAllSlops(slopKeys);
 
         if(registeredSlops.size() == 0) {
             fail("Should have seen some slops. But could not find any.");
@@ -486,6 +514,7 @@ public class HintedHandoffFailureTest {
         String val = "xyz";
         Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
         ByteArray keyByteArray = new ByteArray(key.getBytes());
+        List<Integer> failingNodeIdList = null;
 
         // Set the correct replication config
         REPLICATION_FACTOR = 3;
@@ -495,8 +524,9 @@ public class HintedHandoffFailureTest {
         R_WRITES = 2;
 
         try {
-            customSetup(keyByteArray);
+            failingNodeIdList = customSetup(keyByteArray);
         } catch(Exception e) {
+            logger.info(e.getMessage());
             fail("Error in setup.");
         }
 
@@ -516,22 +546,114 @@ public class HintedHandoffFailureTest {
         // Check the slop stores
         Set<ByteArray> failedKeys = Sets.newHashSet();
         failedKeys.add(keyByteArray);
-        Set<ByteArray> slopKeys = makeSlopKeys(failedKeys);
-
-        Set<Slop> registeredSlops = Sets.newHashSet();
-        for(Store<ByteArray, Slop, byte[]> slopStore: slopStores.values()) {
-            Map<ByteArray, List<Versioned<Slop>>> res = slopStore.getAll(slopKeys, null);
-            for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
-                Slop slop = entry.getValue().get(0).getValue();
-                registeredSlops.add(slop);
-                logger.info(slop);
-            }
-        }
+        Set<ByteArray> slopKeys = makeSlopKeys(keyByteArray, failingNodeIdList);
+        Set<Slop> registeredSlops = getAllSlops(slopKeys);
 
         if(registeredSlops.size() == 0) {
             fail("Should have seen some slops. But could not find any.");
         } else if(registeredSlops.size() != 1) {
             fail("Number of slops registered != 1");
+        }
+    }
+
+    /**
+     * Test to do a put with a 3-2-2 config such that both the replica nodes do
+     * not respond at all. This test is to make sure that the main thread
+     * returns with an error and that no slops are registered.
+     */
+    @Test
+    public void testNoSlopsOnAllReplicaFailures() {
+
+        String key = "a";
+        String val = "xyz";
+        final Versioned<byte[]> versionedVal = new Versioned<byte[]>(val.getBytes());
+        final ByteArray keyByteArray = new ByteArray(key.getBytes());
+        List<Integer> failingNodeIdList = null;
+
+        // Set the correct replication config
+        REPLICATION_FACTOR = 3;
+        R_READS = 2;
+        R_WRITES = 2;
+
+        // Large sleep time for the replica nodes
+        sleepBeforeFailingInMs = 10000;
+
+        // 0 artificial delay for the put pipeline
+        delayBeforeHintedHandoff = 0;
+
+        try {
+            failingNodeIdList = customSetup(keyByteArray, FAILURE_MODE.FAIL_ALL_REPLICAS);
+        } catch(Exception e) {
+            logger.info(e.getMessage());
+            fail("Error in setup.");
+        }
+
+        PerformAsyncPut asyncPutThread = new PerformAsyncPut(this.store, keyByteArray, versionedVal);
+        Executors.newFixedThreadPool(1).submit(asyncPutThread);
+
+        // Sleep for the routing timeout with some headroom
+        try {
+            logger.info("Sleeping for " + (routingTimeoutInMs + 2000) / 1000
+                        + " seconds to wait for the put to finish");
+            Thread.sleep(routingTimeoutInMs + 2000);
+
+            if(!asyncPutThread.isDone) {
+                fail("The main thread for put did not finish.");
+            }
+        } catch(Exception e) {
+            fail("Unknown error while doing a put: " + e);
+        }
+
+        // Check the slop stores
+        Set<ByteArray> failedKeys = Sets.newHashSet();
+        failedKeys.add(keyByteArray);
+        Set<ByteArray> slopKeys = makeSlopKeys(keyByteArray, failingNodeIdList);
+        Set<Slop> registeredSlops = getAllSlops(slopKeys);
+
+        if(registeredSlops.size() != 0) {
+            fail("Should not have seen any slops.");
+        }
+    }
+
+    /**
+     * A runnable class to do a Voldemort Put operation. This becomes important
+     * in the scenario that the put operation might hang / deadlock.
+     * 
+     */
+    private class PerformAsyncPut implements Runnable {
+
+        private Versioned<byte[]> versionedVal = null;
+        private ByteArray keyByteArray = null;
+        private RoutedStore asyncPutStore = null;
+        private boolean isDone = false;
+
+        public PerformAsyncPut(RoutedStore asyncPutStore,
+                               ByteArray keyByteArray,
+                               Versioned<byte[]> versionedVal) {
+            this.asyncPutStore = asyncPutStore;
+            this.keyByteArray = keyByteArray;
+            this.versionedVal = versionedVal;
+        }
+
+        @Override
+        public void run() {
+            try {
+                asyncPutStore.put(keyByteArray, versionedVal, null);
+                fail("A put with required writes 2 should've failed for this setup");
+            } catch(Exception ve) {
+                // This is expected. Nothing to do.
+                logger.info("Error occured as expected : " + ve.getMessage());
+            }
+            markAsDone(true);
+        }
+
+        @SuppressWarnings("unused")
+        public boolean isDone() {
+            return isDone;
+        }
+
+        public void markAsDone(boolean isDone) {
+            this.isDone = isDone;
         }
     }
 
