@@ -1,6 +1,7 @@
 package voldemort.utils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -160,6 +161,9 @@ public class ClusterForkLiftTool implements Runnable {
                                                                       .getNumberOfPartitions());
             for(Node node: srcAdminClient.getAdminClientCluster().getNodes())
                 this.partitionList.addAll(node.getPartitionIds());
+            // shuffle the partition list so the fetching will equally spread
+            // across the source cluster
+            Collections.shuffle(this.partitionList);
             if(this.partitionList.size() > srcAdminClient.getAdminClientCluster()
                                                          .getNumberOfPartitions()) {
                 throw new VoldemortException("Incorrect partition mapping in source cluster");
@@ -557,7 +561,7 @@ public class ClusterForkLiftTool implements Runnable {
             maxPutsPerSecond = (Integer) options.valueOf("max-puts-per-second");
         List<String> storesList = null;
         if(options.has("stores")) {
-            storesList = (List<String>) options.valuesOf("stores");
+            storesList = new ArrayList<String>((List<String>) options.valuesOf("stores"));
         }
         List<Integer> partitions = null;
         if(options.has("partitions")) {
