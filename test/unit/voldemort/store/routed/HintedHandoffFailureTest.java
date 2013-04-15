@@ -593,9 +593,8 @@ public class HintedHandoffFailureTest {
 
         // Sleep for the routing timeout with some headroom
         try {
-            logger.info("Sleeping for " + (routingTimeoutInMs + 2000) / 1000
-                        + " seconds to wait for the put to finish");
-            Thread.sleep(routingTimeoutInMs + 2000);
+            logger.info("Sleeping for 5 seconds to wait for the put to finish");
+            Thread.sleep(5000);
 
             if(!asyncPutThread.isDone) {
                 fail("The main thread for put did not finish.");
@@ -640,9 +639,11 @@ public class HintedHandoffFailureTest {
             try {
                 asyncPutStore.put(keyByteArray, versionedVal, null);
                 fail("A put with required writes 2 should've failed for this setup");
-            } catch(Exception ve) {
+            } catch(VoldemortException ve) {
                 // This is expected. Nothing to do.
                 logger.info("Error occured as expected : " + ve.getMessage());
+            } catch(Exception e) {
+                fail("Should've got a Voldemort exception. But got this: " + e);
             }
             markAsDone(true);
         }
