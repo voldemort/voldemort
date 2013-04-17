@@ -215,4 +215,14 @@ public class StoreUtils {
                 storeNameSet.add(def.getName());
         return storeNameSet;
     }
+
+    public static HashMap<String, StoreDefinition> getStoreDefsAsMap(List<StoreDefinition> storeDefs) {
+        if(storeDefs == null)
+            return null;
+
+        HashMap<String, StoreDefinition> storeDefMap = new HashMap<String, StoreDefinition>();
+        for(StoreDefinition def: storeDefs)
+            storeDefMap.put(def.getName(), def);
+        return storeDefMap;
+    }
 }

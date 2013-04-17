@@ -117,7 +117,9 @@ public class ReadOnlyStorageEngineTest {
 
     @After
     public void tearDown() {
-        Utils.rm(dir);
+        if(dir != null) {
+            Utils.rm(dir);
+        }
     }
 
     /**
@@ -613,10 +615,12 @@ public class ReadOnlyStorageEngineTest {
             case READONLY_V1: {
                 for(Integer partitionId: node.getPartitionIds()) {
                     for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                        File index = createFile(dir, Integer.toString(partitionId) + "_"
-                                                     + Integer.toString(chunkId) + ".index");
-                        File data = createFile(dir, Integer.toString(partitionId) + "_"
-                                                    + Integer.toString(chunkId) + ".data");
+                        File index = createFile(dir,
+                                                Integer.toString(partitionId) + "_"
+                                                        + Integer.toString(chunkId) + ".index");
+                        File data = createFile(dir,
+                                               Integer.toString(partitionId) + "_"
+                                                       + Integer.toString(chunkId) + ".data");
                         // write some random crap for index and data
                         FileOutputStream dataOs = new FileOutputStream(data);
                         for(int i = 0; i < dataBytes; i++)
@@ -637,8 +641,9 @@ public class ReadOnlyStorageEngineTest {
                     for(int chunkId = 0; chunkId < numChunks; chunkId++) {
                         File index = createFile(dir, Integer.toString(partitionId) + "_0_"
                                                      + Integer.toString(chunkId) + ".index");
-                        File data = createFile(dir, Integer.toString(partitionId) + "_0_"
-                                                    + Integer.toString(chunkId) + ".data");
+                        File data = createFile(dir,
+                                               Integer.toString(partitionId) + "_0_"
+                                                       + Integer.toString(chunkId) + ".data");
                         // write some random crap for index and data
                         FileOutputStream dataOs = new FileOutputStream(data);
                         for(int i = 0; i < dataBytes; i++)
