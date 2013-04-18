@@ -30,6 +30,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.task.DonorBasedRebalanceTask;
 import voldemort.client.rebalance.task.RebalanceTask;
@@ -58,7 +59,9 @@ public class RebalanceController {
     private final RebalanceClientConfig rebalanceConfig;
 
     public RebalanceController(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
-        this.adminClient = new AdminClient(bootstrapUrl, rebalanceConfig, new ClientConfig());
+        this.adminClient = new AdminClient(bootstrapUrl,
+                                           rebalanceConfig,
+                                           new ClientConfig().setRequestFormatType(RequestFormatType.PROTOCOL_BUFFERS));
         this.rebalanceConfig = rebalanceConfig;
     }
 

@@ -1960,12 +1960,12 @@ public class AdminClient {
 
                 SocketStore newSocketStore = null;
                 try {
-                    // request format is always protobuf since IGNORE_CHECKS
-                    // does not work otherwise
+                    // Unless request format is protobuf, IGNORE_CHECKS
+                    // will not work otherwise
                     newSocketStore = clientPool.create(storeName,
                                                        node.getHost(),
                                                        node.getSocketPort(),
-                                                       RequestFormatType.PROTOCOL_BUFFERS,
+                                                       clientConfig.getRequestFormatType(),
                                                        RequestRoutingType.IGNORE_CHECKS);
                 } catch(Exception e) {
                     clientPool.close();

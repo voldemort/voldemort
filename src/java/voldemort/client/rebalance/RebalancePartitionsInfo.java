@@ -131,13 +131,17 @@ public class RebalancePartitionsInfo {
                 List<Integer> partitionList = Utils.uncheckedCast(map.get(unbalancedStore
                                                                           + "replicaToAddPartitionList"
                                                                           + Integer.toString(replicaNo)));
-                if(partitionList != null && partitionList.size() > 0)
+                // TODO there is a potential NPE hiding here that might fail
+                // rebalancing tests
+                if(partitionList.size() > 0)
                     replicaToAddPartition.put(replicaNo, partitionList);
 
                 List<Integer> deletePartitionList = Utils.uncheckedCast(map.get(unbalancedStore
                                                                                 + "replicaToDeletePartitionList"
                                                                                 + Integer.toString(replicaNo)));
-                if(deletePartitionList != null && deletePartitionList.size() > 0)
+                // TODO there is a potential NPE hiding here that might fail
+                // rebalancing tests
+                if(deletePartitionList.size() > 0)
                     replicaToDeletePartitionList.put(replicaNo, deletePartitionList);
             }
 
