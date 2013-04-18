@@ -756,7 +756,8 @@ public class StorageService extends AbstractService {
                                                  metadata,
                                                  storeRepository,
                                                  failureDetector,
-                                                 storeFactory);
+                                                 storeFactory,
+                                                 voldemortConfig.getProxyPutsDuringRebalance());
                     if(voldemortConfig.isJmxEnabled()) {
                         MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
                         ObjectName name = null;

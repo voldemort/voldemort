@@ -87,6 +87,8 @@ public abstract class AbstractRebalanceTest {
                     properties.put(property.getKey(), property.getValue());
                 }
             }
+            // turn proxy puts on
+            properties.put("proxy.puts.during.rebalance", "true");
 
             VoldemortConfig config = ServerTestUtils.createServerConfig(useNio,
                                                                         node,
@@ -335,14 +337,14 @@ public abstract class AbstractRebalanceTest {
                                             HashMap<String, String> baselineTuples,
                                             HashMap<String, VectorClock> baselineVersions) {
         // do the positive tests
-        Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> positiveTestResultsItr = admin.storeOps.queryKeys(serverId,
-                                                                                                                              store,
-                                                                                                                              keyList.iterator());
+        Iterator<QueryKeyResult> positiveTestResultsItr = admin.streamingOps.queryKeys(serverId,
+                                                                                       store,
+                                                                                       keyList.iterator());
         while(positiveTestResultsItr.hasNext()) {
-            Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> item = positiveTestResultsItr.next();
-            ByteArray key = item.getFirst();
-            List<Versioned<byte[]>> vals = item.getSecond().getFirst();
-            Exception e = item.getSecond().getSecond();
+            QueryKeyResult item = positiveTestResultsItr.next();
+            ByteArray key = item.getKey();
+            List<Versioned<byte[]>> vals = item.getValues();
+            Exception e = item.getException();
 
             assertEquals("Error fetching key " + key, null, e);
             assertEquals("Value not found for key " + key, true, vals != null & vals.size() != 0);

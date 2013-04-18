@@ -131,13 +131,13 @@ public class RebalancePartitionsInfo {
                 List<Integer> partitionList = Utils.uncheckedCast(map.get(unbalancedStore
                                                                           + "replicaToAddPartitionList"
                                                                           + Integer.toString(replicaNo)));
-                if(partitionList.size() > 0)
+                if(partitionList != null && partitionList.size() > 0)
                     replicaToAddPartition.put(replicaNo, partitionList);
 
                 List<Integer> deletePartitionList = Utils.uncheckedCast(map.get(unbalancedStore
                                                                                 + "replicaToDeletePartitionList"
                                                                                 + Integer.toString(replicaNo)));
-                if(deletePartitionList.size() > 0)
+                if(deletePartitionList != null && deletePartitionList.size() > 0)
                     replicaToDeletePartitionList.put(replicaNo, deletePartitionList);
             }
 

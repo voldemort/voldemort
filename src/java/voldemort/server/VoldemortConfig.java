@@ -223,6 +223,7 @@ public class VoldemortConfig implements Serializable {
     private int maxParallelStoresRebalancing;
     private boolean rebalancingOptimization;
     private boolean usePartitionScanForRebalance;
+    private boolean proxyPutsDuringRebalance;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -462,6 +463,7 @@ public class VoldemortConfig implements Serializable {
         this.rebalancingOptimization = props.getBoolean("rebalancing.optimization", true);
         this.usePartitionScanForRebalance = props.getBoolean("use.partition.scan.for.rebalance",
                                                              true);
+        this.proxyPutsDuringRebalance = props.getBoolean("proxy.puts.during.rebalance", false);
 
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
                                                              FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
@@ -2662,6 +2664,24 @@ public class VoldemortConfig implements Serializable {
 
     public boolean usePartitionScanForRebalance() {
         return usePartitionScanForRebalance;
+    }
+
+    /**
+     * If set to true, the puts to the new replicas will be relayed back to the
+     * original donor nodes, such that they exist if rebalance were to abort in
+     * the middle for some reason.
+     * 
+     * <ul>
+     * <li>Property :"proxy.puts.during.rebalance"</li>
+     * <li>Default :false</li>
+     * </ul>
+     */
+    public void setProxyPutsDuringRebalance(boolean proxyPutsDuringRebalance) {
+        this.proxyPutsDuringRebalance = proxyPutsDuringRebalance;
+    }
+
+    public boolean getProxyPutsDuringRebalance() {
+        return this.proxyPutsDuringRebalance;
     }
 
     /**

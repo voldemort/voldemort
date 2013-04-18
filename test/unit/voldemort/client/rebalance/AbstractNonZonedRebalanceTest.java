@@ -18,6 +18,7 @@ package voldemort.client.rebalance;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -58,6 +59,7 @@ import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
 import voldemort.server.VoldemortServer;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
@@ -73,6 +75,7 @@ import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreInstance;
 import voldemort.versioning.ClockEntry;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -217,953 +220,1046 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
     @Test(timeout = 600000)
     public void testRORWRebalance() throws Exception {
         logger.info("Starting testRORWRebalance");
-        Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
-
-        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    1,
-                                                                    Lists.newArrayList(2, 3));
-
-        // start servers 0 , 1 only
-        List<Integer> serverList = Arrays.asList(0, 1);
-        Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("admin.max.threads", "50");
-        currentCluster = startServers(currentCluster,
-                                      storeDefFileWithoutReplication,
-                                      serverList,
-                                      configProps);
-        // Update the cluster information based on the node information
-        targetCluster = updateCluster(targetCluster);
-
-        RebalanceClientConfig config = new RebalanceClientConfig();
-        config.setDeleteAfterRebalancingEnabled(true);
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
-                                                                                      0),
-                                                                      config);
         try {
+            Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+                    { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
-            // Populate the two stores
-            populateData(currentCluster,
-                         roStoreDefWithoutReplication,
-                         rebalanceClient.getAdminClient(),
-                         true);
+            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                        1,
+                                                                        Lists.newArrayList(2, 3));
 
-            populateData(currentCluster,
-                         rwStoreDefWithoutReplication,
-                         rebalanceClient.getAdminClient(),
-                         false);
+            // start servers 0 , 1 only
+            List<Integer> serverList = Arrays.asList(0, 1);
+            Map<String, String> configProps = new HashMap<String, String>();
+            configProps.put("admin.max.threads", "50");
+            currentCluster = startServers(currentCluster,
+                                          storeDefFileWithoutReplication,
+                                          serverList,
+                                          configProps);
+            // Update the cluster information based on the node information
+            targetCluster = updateCluster(targetCluster);
 
-            rebalanceAndCheck(currentCluster,
-                              targetCluster,
-                              storeDefWithoutReplication,
-                              rebalanceClient,
-                              Arrays.asList(1));
+            RebalanceClientConfig config = new RebalanceClientConfig();
+            config.setDeleteAfterRebalancingEnabled(true);
+            RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                          0),
+                                                                          config);
+            try {
 
-            checkConsistentMetadata(targetCluster, serverList);
-        } finally {
-            // stop servers
-            stopServer(serverList);
+                // Populate the two stores
+                populateData(currentCluster,
+                             roStoreDefWithoutReplication,
+                             rebalanceClient.getAdminClient(),
+                             true);
+
+                populateData(currentCluster,
+                             rwStoreDefWithoutReplication,
+                             rebalanceClient.getAdminClient(),
+                             false);
+
+                rebalanceAndCheck(currentCluster,
+                                  targetCluster,
+                                  storeDefWithoutReplication,
+                                  rebalanceClient,
+                                  Arrays.asList(1));
+
+                checkConsistentMetadata(targetCluster, serverList);
+            } finally {
+                // stop servers
+                stopServer(serverList);
+            }
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testRORWRebalance ", ae);
+            throw ae;
         }
     }
 
     @Test(timeout = 600000)
     public void testRORWRebalanceWithReplication() throws Exception {
         logger.info("Starting testRORWRebalanceWithReplication");
-        Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
-
-        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    1,
-                                                                    Lists.newArrayList(2, 3));
-
-        // start servers 0 , 1 only
-        List<Integer> serverList = Arrays.asList(0, 1);
-        Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("admin.max.threads", "5");
-
-        currentCluster = startServers(currentCluster,
-                                      storeDefFileWithReplication,
-                                      serverList,
-                                      configProps);
-        // Update the cluster information based on the node information
-        targetCluster = updateCluster(targetCluster);
-
-        RebalanceClientConfig config = new RebalanceClientConfig();
-        config.setDeleteAfterRebalancingEnabled(true);
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
-                                                                                      0),
-                                                                      config);
         try {
-            // Populate the two stores
-            populateData(currentCluster,
-                         roStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
-                         true);
+            Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+                    { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
-            populateData(currentCluster,
-                         rwStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
-                         false);
+            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                        1,
+                                                                        Lists.newArrayList(2, 3));
 
-            rebalanceAndCheck(currentCluster,
-                              targetCluster,
-                              storeDefWithReplication,
-                              rebalanceClient,
-                              Arrays.asList(0, 1));
-            checkConsistentMetadata(targetCluster, serverList);
-        } finally {
-            // stop servers
-            stopServer(serverList);
+            // start servers 0 , 1 only
+            List<Integer> serverList = Arrays.asList(0, 1);
+            Map<String, String> configProps = new HashMap<String, String>();
+            configProps.put("admin.max.threads", "5");
+
+            currentCluster = startServers(currentCluster,
+                                          storeDefFileWithReplication,
+                                          serverList,
+                                          configProps);
+            // Update the cluster information based on the node information
+            targetCluster = updateCluster(targetCluster);
+
+            RebalanceClientConfig config = new RebalanceClientConfig();
+            config.setDeleteAfterRebalancingEnabled(true);
+            RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                          0),
+                                                                          config);
+            try {
+                // Populate the two stores
+                populateData(currentCluster,
+                             roStoreDefWithReplication,
+                             rebalanceClient.getAdminClient(),
+                             true);
+
+                populateData(currentCluster,
+                             rwStoreDefWithReplication,
+                             rebalanceClient.getAdminClient(),
+                             false);
+
+                rebalanceAndCheck(currentCluster,
+                                  targetCluster,
+                                  storeDefWithReplication,
+                                  rebalanceClient,
+                                  Arrays.asList(0, 1));
+                checkConsistentMetadata(targetCluster, serverList);
+            } finally {
+                // stop servers
+                stopServer(serverList);
+            }
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testRORWRebalanceWithReplication ", ae);
+            throw ae;
         }
     }
 
     @Test(timeout = 600000)
     public void testRORebalanceWithReplication() throws Exception {
         logger.info("Starting testRORebalanceWithReplication");
-        Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
-
-        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    1,
-                                                                    Lists.newArrayList(2, 3));
-
-        // start servers 0 , 1 only
-        List<Integer> serverList = Arrays.asList(0, 1);
-
-        // If this test fails, consider increasing the number of admin threads.
-        // In particular, if this test fails by RejectedExecutionHandler in
-        // SocketServer.java fires with an error message like the following:
-        // "[18:46:32,994 voldemort.server.socket.SocketServer[admin-server]]
-        // ERROR Too many open connections, 20 of 20 threads in use, denying
-        // connection from /127.0.0.1:43756 [Thread-552]". Note, this issues
-        // seems to only affect ThreadPoolBasedNonblockingStoreImpl tests rather
-        // than Nio-based tests.
-        Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("admin.max.threads", "5");
-        currentCluster = startServers(currentCluster,
-                                      roStoreDefFileWithReplication,
-                                      serverList,
-                                      configProps);
-        // Update the cluster information based on the node information
-        targetCluster = updateCluster(targetCluster);
-
-        RebalanceClientConfig config = new RebalanceClientConfig();
-        config.setDeleteAfterRebalancingEnabled(true);
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
-                                                                                      0),
-                                                                      config);
         try {
-            populateData(currentCluster,
-                         roStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
-                         true);
+            Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+                    { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
-            rebalanceAndCheck(currentCluster,
-                              targetCluster,
-                              Lists.newArrayList(roStoreDefWithReplication),
-                              rebalanceClient,
-                              Arrays.asList(0, 1));
-            checkConsistentMetadata(targetCluster, serverList);
-        } finally {
-            // stop servers
-            stopServer(serverList);
+            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                        1,
+                                                                        Lists.newArrayList(2, 3));
+
+            // start servers 0 , 1 only
+            List<Integer> serverList = Arrays.asList(0, 1);
+
+            // If this test fails, consider increasing the number of admin
+            // threads.
+            // In particular, if this test fails by RejectedExecutionHandler in
+            // SocketServer.java fires with an error message like the following:
+            // "[18:46:32,994
+            // voldemort.server.socket.SocketServer[admin-server]]
+            // ERROR Too many open connections, 20 of 20 threads in use, denying
+            // connection from /127.0.0.1:43756 [Thread-552]". Note, this issues
+            // seems to only affect ThreadPoolBasedNonblockingStoreImpl tests
+            // rather
+            // than Nio-based tests.
+            Map<String, String> configProps = new HashMap<String, String>();
+            configProps.put("admin.max.threads", "5");
+            currentCluster = startServers(currentCluster,
+                                          roStoreDefFileWithReplication,
+                                          serverList,
+                                          configProps);
+            // Update the cluster information based on the node information
+            targetCluster = updateCluster(targetCluster);
+
+            RebalanceClientConfig config = new RebalanceClientConfig();
+            config.setDeleteAfterRebalancingEnabled(true);
+            RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                          0),
+                                                                          config);
+            try {
+                populateData(currentCluster,
+                             roStoreDefWithReplication,
+                             rebalanceClient.getAdminClient(),
+                             true);
+
+                rebalanceAndCheck(currentCluster,
+                                  targetCluster,
+                                  Lists.newArrayList(roStoreDefWithReplication),
+                                  rebalanceClient,
+                                  Arrays.asList(0, 1));
+                checkConsistentMetadata(targetCluster, serverList);
+            } finally {
+                // stop servers
+                stopServer(serverList);
+            }
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testRORebalanceWithReplication ", ae);
+            throw ae;
         }
     }
 
     @Test(timeout = 600000)
     public void testRWRebalanceWithReplication() throws Exception {
         logger.info("Starting testRWRebalanceWithReplication");
-        Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
-
-        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    1,
-                                                                    Lists.newArrayList(2, 3));
-
-        // start servers 0 , 1 only
-        List<Integer> serverList = Arrays.asList(0, 1);
-        currentCluster = startServers(currentCluster,
-                                      rwStoreDefFileWithReplication,
-                                      serverList,
-                                      null);
-        // Update the cluster information based on the node information
-        targetCluster = updateCluster(targetCluster);
-
-        RebalanceClientConfig config = new RebalanceClientConfig();
-        config.setDeleteAfterRebalancingEnabled(true);
-        config.setStealerBasedRebalancing(!useDonorBased);
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
-                                                                                      0),
-                                                                      config);
         try {
-            populateData(currentCluster,
-                         rwStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
-                         false);
+            Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+                    { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
-            rebalanceAndCheck(currentCluster,
-                              targetCluster,
-                              Lists.newArrayList(rwStoreDefWithReplication),
-                              rebalanceClient,
-                              Arrays.asList(0, 1));
-            checkConsistentMetadata(targetCluster, serverList);
-        } finally {
-            // stop servers
-            stopServer(serverList);
+            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                        1,
+                                                                        Lists.newArrayList(2, 3));
+
+            // start servers 0 , 1 only
+            List<Integer> serverList = Arrays.asList(0, 1);
+            currentCluster = startServers(currentCluster,
+                                          rwStoreDefFileWithReplication,
+                                          serverList,
+                                          null);
+            // Update the cluster information based on the node information
+            targetCluster = updateCluster(targetCluster);
+
+            RebalanceClientConfig config = new RebalanceClientConfig();
+            config.setDeleteAfterRebalancingEnabled(true);
+            config.setStealerBasedRebalancing(!useDonorBased);
+            RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                          0),
+                                                                          config);
+            try {
+                populateData(currentCluster,
+                             rwStoreDefWithReplication,
+                             rebalanceClient.getAdminClient(),
+                             false);
+
+                rebalanceAndCheck(currentCluster,
+                                  targetCluster,
+                                  Lists.newArrayList(rwStoreDefWithReplication),
+                                  rebalanceClient,
+                                  Arrays.asList(0, 1));
+                checkConsistentMetadata(targetCluster, serverList);
+            } finally {
+                // stop servers
+                stopServer(serverList);
+            }
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testRWRebalanceWithReplication ", ae);
+            throw ae;
         }
     }
 
     @Test(timeout = 600000)
     public void testRebalanceCleanPrimary() throws Exception {
         logger.info("Starting testRebalanceCleanPrimary");
-        Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1, 3 },
-                { 2 } });
-
-        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    2,
-                                                                    Lists.newArrayList(3));
-
-        // start servers 0 , 1, 2
-        Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("enable.repair", "true");
-        List<Integer> serverList = Arrays.asList(0, 1, 2);
-        currentCluster = startServers(currentCluster,
-                                      rwStoreDefFileWithReplication,
-                                      serverList,
-                                      configProps);
-        // Update the cluster information based on the node information
-        targetCluster = updateCluster(targetCluster);
-
-        RebalanceClientConfig config = new RebalanceClientConfig();
-        config.setDeleteAfterRebalancingEnabled(false);
-        config.setStealerBasedRebalancing(!useDonorBased);
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
-                                                                                      0),
-                                                                      config);
         try {
-            populateData(currentCluster,
-                         rwStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
-                         false);
+            Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 },
+                    { 1, 3 }, { 2 } });
 
-            AdminClient admin = rebalanceClient.getAdminClient();
-            // Figure out the positive and negative keys to check
-            List<ByteArray> negativeTestKeyList = sampleKeysFromPartition(admin,
-                                                                          1,
-                                                                          rwStoreDefWithReplication.getName(),
-                                                                          Arrays.asList(3),
-                                                                          20);
-            List<ByteArray> positiveTestKeyList = sampleKeysFromPartition(admin,
-                                                                          1,
-                                                                          rwStoreDefWithReplication.getName(),
-                                                                          Arrays.asList(1),
-                                                                          20);
+            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                        2,
+                                                                        Lists.newArrayList(3));
 
-            rebalanceAndCheck(currentCluster,
-                              targetCluster,
-                              Lists.newArrayList(rwStoreDefWithReplication),
-                              rebalanceClient,
-                              Arrays.asList(0, 1, 2));
-            checkConsistentMetadata(targetCluster, serverList);
+            // start servers 0 , 1, 2
+            Map<String, String> configProps = new HashMap<String, String>();
+            configProps.put("enable.repair", "true");
+            List<Integer> serverList = Arrays.asList(0, 1, 2);
+            currentCluster = startServers(currentCluster,
+                                          rwStoreDefFileWithReplication,
+                                          serverList,
+                                          configProps);
+            // Update the cluster information based on the node information
+            targetCluster = updateCluster(targetCluster);
 
-            // Do the cleanup operation
-            for(int i = 0; i < 3; i++) {
-                admin.storeMntOps.repairJob(i);
+            RebalanceClientConfig config = new RebalanceClientConfig();
+            config.setDeleteAfterRebalancingEnabled(false);
+            config.setStealerBasedRebalancing(!useDonorBased);
+            RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                          0),
+                                                                          config);
+            try {
+                populateData(currentCluster,
+                             rwStoreDefWithReplication,
+                             rebalanceClient.getAdminClient(),
+                             false);
+
+                AdminClient admin = rebalanceClient.getAdminClient();
+                // Figure out the positive and negative keys to check
+                List<ByteArray> negativeTestKeyList = sampleKeysFromPartition(admin,
+                                                                              1,
+                                                                              rwStoreDefWithReplication.getName(),
+                                                                              Arrays.asList(3),
+                                                                              20);
+                List<ByteArray> positiveTestKeyList = sampleKeysFromPartition(admin,
+                                                                              1,
+                                                                              rwStoreDefWithReplication.getName(),
+                                                                              Arrays.asList(1),
+                                                                              20);
+
+                rebalanceAndCheck(currentCluster,
+                                  targetCluster,
+                                  Lists.newArrayList(rwStoreDefWithReplication),
+                                  rebalanceClient,
+                                  Arrays.asList(0, 1, 2));
+                checkConsistentMetadata(targetCluster, serverList);
+
+                // Do the cleanup operation
+                for(int i = 0; i < 3; i++) {
+                    admin.storeMntOps.repairJob(i);
+                }
+                // wait for the repairs to complete
+                for(int i = 0; i < 3; i++) {
+                    ServerTestUtils.waitForAsyncOperationOnServer(serverMap.get(i), "Repair", 5000);
+                }
+
+                // do the positive tests
+                checkForKeyExistence(admin,
+                                     1,
+                                     rwStoreDefWithReplication.getName(),
+                                     positiveTestKeyList);
+                // do the negative tests
+                checkForKeyNonExistence(admin,
+                                        1,
+                                        rwStoreDefWithReplication.getName(),
+                                        negativeTestKeyList);
+
+                logger.info("[Primary] Successful clean after Rebalancing");
+            } finally {
+                // stop servers
+                stopServer(serverList);
             }
-            // wait for the repairs to complete
-            for(int i = 0; i < 3; i++) {
-                ServerTestUtils.waitForAsyncOperationOnServer(serverMap.get(i), "Repair", 5000);
-            }
-
-            // do the positive tests
-            checkForKeyExistence(admin, 1, rwStoreDefWithReplication.getName(), positiveTestKeyList);
-            // do the negative tests
-            checkForKeyNonExistence(admin,
-                                    1,
-                                    rwStoreDefWithReplication.getName(),
-                                    negativeTestKeyList);
-
-            System.out.println("[Primary] Successful clean after Rebalancing");
-        } finally {
-            // stop servers
-            stopServer(serverList);
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testRebalanceCleanPrimary ", ae);
+            throw ae;
         }
     }
 
     @Test(timeout = 600000)
     public void testRebalanceCleanSecondary() throws Exception {
         logger.info("Starting testRebalanceCleanSecondary");
-        Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 3 }, { 1 },
-                { 2 } });
-
-        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    2,
-                                                                    Lists.newArrayList(3));
-
-        // start servers 0 , 1, 2
-        Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("enable.repair", "true");
-        List<Integer> serverList = Arrays.asList(0, 1, 2);
-        currentCluster = startServers(currentCluster,
-                                      rwStoreDefFileWithReplication,
-                                      serverList,
-                                      configProps);
-        // Update the cluster information based on the node information
-        targetCluster = updateCluster(targetCluster);
-
-        RebalanceClientConfig config = new RebalanceClientConfig();
-        config.setDeleteAfterRebalancingEnabled(false);
-        config.setStealerBasedRebalancing(!useDonorBased);
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
-                                                                                      0),
-                                                                      config);
         try {
-            populateData(currentCluster,
-                         rwStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
-                         false);
+            Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 3 },
+                    { 1 }, { 2 } });
 
-            AdminClient admin = rebalanceClient.getAdminClient();
-            // Figure out the positive and negative keys to check
-            List<ByteArray> negativeTestKeyList = sampleKeysFromPartition(admin,
-                                                                          1,
-                                                                          rwStoreDefWithReplication.getName(),
-                                                                          Arrays.asList(3),
-                                                                          20);
-            List<ByteArray> positiveTestKeyList = sampleKeysFromPartition(admin,
-                                                                          0,
-                                                                          rwStoreDefWithReplication.getName(),
-                                                                          Arrays.asList(3),
-                                                                          20);
+            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                        2,
+                                                                        Lists.newArrayList(3));
 
-            rebalanceAndCheck(currentCluster,
-                              targetCluster,
-                              Lists.newArrayList(rwStoreDefWithReplication),
-                              rebalanceClient,
-                              Arrays.asList(0, 1, 2));
-            checkConsistentMetadata(targetCluster, serverList);
+            // start servers 0 , 1, 2
+            Map<String, String> configProps = new HashMap<String, String>();
+            configProps.put("enable.repair", "true");
+            List<Integer> serverList = Arrays.asList(0, 1, 2);
+            currentCluster = startServers(currentCluster,
+                                          rwStoreDefFileWithReplication,
+                                          serverList,
+                                          configProps);
+            // Update the cluster information based on the node information
+            targetCluster = updateCluster(targetCluster);
 
-            // Do the cleanup operation
-            for(int i = 0; i < 3; i++) {
-                admin.storeMntOps.repairJob(i);
+            RebalanceClientConfig config = new RebalanceClientConfig();
+            config.setDeleteAfterRebalancingEnabled(false);
+            config.setStealerBasedRebalancing(!useDonorBased);
+            RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                          0),
+                                                                          config);
+            try {
+                populateData(currentCluster,
+                             rwStoreDefWithReplication,
+                             rebalanceClient.getAdminClient(),
+                             false);
+
+                AdminClient admin = rebalanceClient.getAdminClient();
+                // Figure out the positive and negative keys to check
+                List<ByteArray> negativeTestKeyList = sampleKeysFromPartition(admin,
+                                                                              1,
+                                                                              rwStoreDefWithReplication.getName(),
+                                                                              Arrays.asList(3),
+                                                                              20);
+                List<ByteArray> positiveTestKeyList = sampleKeysFromPartition(admin,
+                                                                              0,
+                                                                              rwStoreDefWithReplication.getName(),
+                                                                              Arrays.asList(3),
+                                                                              20);
+
+                rebalanceAndCheck(currentCluster,
+                                  targetCluster,
+                                  Lists.newArrayList(rwStoreDefWithReplication),
+                                  rebalanceClient,
+                                  Arrays.asList(0, 1, 2));
+                checkConsistentMetadata(targetCluster, serverList);
+
+                // Do the cleanup operation
+                for(int i = 0; i < 3; i++) {
+                    admin.storeMntOps.repairJob(i);
+                }
+                // wait for the repairs to complete
+                for(int i = 0; i < 3; i++) {
+                    ServerTestUtils.waitForAsyncOperationOnServer(serverMap.get(i), "Repair", 5000);
+                }
+
+                // do the positive tests
+                checkForKeyExistence(admin,
+                                     0,
+                                     rwStoreDefWithReplication.getName(),
+                                     positiveTestKeyList);
+                // do the negative tests
+                checkForKeyNonExistence(admin,
+                                        1,
+                                        rwStoreDefWithReplication.getName(),
+                                        negativeTestKeyList);
+
+                logger.info("[Secondary] Successful clean after Rebalancing");
+            } finally {
+                // stop servers
+                stopServer(serverList);
             }
-            // wait for the repairs to complete
-            for(int i = 0; i < 3; i++) {
-                ServerTestUtils.waitForAsyncOperationOnServer(serverMap.get(i), "Repair", 5000);
-            }
-
-            // do the positive tests
-            checkForKeyExistence(admin, 0, rwStoreDefWithReplication.getName(), positiveTestKeyList);
-            // do the negative tests
-            checkForKeyNonExistence(admin,
-                                    1,
-                                    rwStoreDefWithReplication.getName(),
-                                    negativeTestKeyList);
-
-            System.out.println("[Secondary] Successful clean after Rebalancing");
-        } finally {
-            // stop servers
-            stopServer(serverList);
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testRWRebalanceCleanSecondary ", ae);
+            throw ae;
         }
     }
 
     @Test(timeout = 600000)
     public void testRWRebalanceFourNodes() throws Exception {
         logger.info("Starting testRWRebalanceFourNodes");
-        Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
-                { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
-
-        ArrayList<Node> nodes = Lists.newArrayList(currentCluster.getNodes());
-        int totalPortNum = nodes.size() * 3;
-        int[] ports = new int[totalPortNum];
-        for(int i = 0; i < nodes.size(); i++) {
-            ports[i * 3] = nodes.get(i).getHttpPort();
-            ports[i * 3 + 1] = nodes.get(i).getSocketPort();
-            ports[i * 3 + 2] = nodes.get(i).getAdminPort();
-        }
-
-        Cluster targetCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
-                { 0, 4, 7 }, { 2, 8 }, { 1, 6 }, { 3, 5, 9 } });
-
-        // start servers
-        List<Integer> serverList = Arrays.asList(0, 1, 2, 3);
-        currentCluster = startServers(currentCluster,
-                                      rwTwoStoreDefFileWithReplication,
-                                      serverList,
-                                      null);
-        // Update the cluster information based on the node information
-        targetCluster = updateCluster(targetCluster);
-
-        RebalanceClientConfig config = new RebalanceClientConfig();
-        config.setDeleteAfterRebalancingEnabled(true);
-        config.setStealerBasedRebalancing(!useDonorBased);
-        config.setPrimaryPartitionBatchSize(100);
-        config.setMaxParallelRebalancing(5);
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
-                                                                                      0),
-                                                                      config);
         try {
-            populateData(currentCluster,
-                         rwStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
-                         false);
+            Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
+                    { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
 
-            populateData(currentCluster,
-                         rwStoreDefWithReplication2,
-                         rebalanceClient.getAdminClient(),
-                         false);
+            ArrayList<Node> nodes = Lists.newArrayList(currentCluster.getNodes());
+            int totalPortNum = nodes.size() * 3;
+            int[] ports = new int[totalPortNum];
+            for(int i = 0; i < nodes.size(); i++) {
+                ports[i * 3] = nodes.get(i).getHttpPort();
+                ports[i * 3 + 1] = nodes.get(i).getSocketPort();
+                ports[i * 3 + 2] = nodes.get(i).getAdminPort();
+            }
 
-            rebalanceAndCheck(currentCluster,
-                              targetCluster,
-                              Lists.newArrayList(rwStoreDefWithReplication,
-                                                 rwStoreDefWithReplication2),
-                              rebalanceClient,
-                              serverList);
-            checkConsistentMetadata(targetCluster, serverList);
-        } catch(Exception e) {
-            fail(e.getMessage());
-        } finally {
-            // stop servers
-            stopServer(serverList);
+            Cluster targetCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
+                    { 0, 4, 7 }, { 2, 8 }, { 1, 6 }, { 3, 5, 9 } });
+
+            // start servers
+            List<Integer> serverList = Arrays.asList(0, 1, 2, 3);
+            currentCluster = startServers(currentCluster,
+                                          rwTwoStoreDefFileWithReplication,
+                                          serverList,
+                                          null);
+            // Update the cluster information based on the node information
+            targetCluster = updateCluster(targetCluster);
+
+            RebalanceClientConfig config = new RebalanceClientConfig();
+            config.setDeleteAfterRebalancingEnabled(true);
+            config.setStealerBasedRebalancing(!useDonorBased);
+            config.setPrimaryPartitionBatchSize(100);
+            config.setMaxParallelRebalancing(5);
+            RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                          0),
+                                                                          config);
+            try {
+                populateData(currentCluster,
+                             rwStoreDefWithReplication,
+                             rebalanceClient.getAdminClient(),
+                             false);
+
+                populateData(currentCluster,
+                             rwStoreDefWithReplication2,
+                             rebalanceClient.getAdminClient(),
+                             false);
+
+                rebalanceAndCheck(currentCluster,
+                                  targetCluster,
+                                  Lists.newArrayList(rwStoreDefWithReplication,
+                                                     rwStoreDefWithReplication2),
+                                  rebalanceClient,
+                                  serverList);
+                checkConsistentMetadata(targetCluster, serverList);
+            } catch(Exception e) {
+                fail(e.getMessage());
+            } finally {
+                // stop servers
+                stopServer(serverList);
+            }
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testRWRebalanceFourNodes ", ae);
+            throw ae;
         }
     }
 
     @Test(timeout = 600000)
     public void testRWRebalanceSerial() throws Exception {
         logger.info("Starting testRWRebalanceSerial");
-        Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
-                { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
-
-        ArrayList<Node> nodes = Lists.newArrayList(currentCluster.getNodes());
-        int totalPortNum = nodes.size() * 3;
-        int[] ports = new int[totalPortNum];
-        for(int i = 0; i < nodes.size(); i++) {
-            ports[i * 3] = nodes.get(i).getHttpPort();
-            ports[i * 3 + 1] = nodes.get(i).getSocketPort();
-            ports[i * 3 + 2] = nodes.get(i).getAdminPort();
-        }
-
-        Cluster targetCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
-                { 0, 4, 7 }, { 2, 8 }, { 1, 6 }, { 3, 5, 9 } });
-
-        // start servers
-        Map<String, String> serverProps = new HashMap<String, String>();
-        serverProps.put("max.parallel.stores.rebalancing", String.valueOf(1));
-        List<Integer> serverList = Arrays.asList(0, 1, 2, 3);
-        currentCluster = startServers(currentCluster,
-                                      rwTwoStoreDefFileWithReplication,
-                                      serverList,
-                                      serverProps);
-        // Update the cluster information based on the node information
-        targetCluster = updateCluster(targetCluster);
-
-        RebalanceClientConfig config = new RebalanceClientConfig();
-        config.setDeleteAfterRebalancingEnabled(true);
-        config.setStealerBasedRebalancing(!useDonorBased);
-        config.setPrimaryPartitionBatchSize(100);
-        config.setMaxParallelRebalancing(5);
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
-                                                                                      0),
-                                                                      config);
         try {
-            populateData(currentCluster,
-                         rwStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
-                         false);
+            Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
+                    { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
 
-            populateData(currentCluster,
-                         rwStoreDefWithReplication2,
-                         rebalanceClient.getAdminClient(),
-                         false);
+            ArrayList<Node> nodes = Lists.newArrayList(currentCluster.getNodes());
+            int totalPortNum = nodes.size() * 3;
+            int[] ports = new int[totalPortNum];
+            for(int i = 0; i < nodes.size(); i++) {
+                ports[i * 3] = nodes.get(i).getHttpPort();
+                ports[i * 3 + 1] = nodes.get(i).getSocketPort();
+                ports[i * 3 + 2] = nodes.get(i).getAdminPort();
+            }
 
-            rebalanceAndCheck(currentCluster,
-                              targetCluster,
-                              Lists.newArrayList(rwStoreDefWithReplication,
-                                                 rwStoreDefWithReplication2),
-                              rebalanceClient,
-                              serverList);
-            checkConsistentMetadata(targetCluster, serverList);
-        } catch(Exception e) {
-            fail(e.getMessage());
-        } finally {
-            // stop servers
-            stopServer(serverList);
+            Cluster targetCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
+                    { 0, 4, 7 }, { 2, 8 }, { 1, 6 }, { 3, 5, 9 } });
+
+            // start servers
+            Map<String, String> serverProps = new HashMap<String, String>();
+            serverProps.put("max.parallel.stores.rebalancing", String.valueOf(1));
+            List<Integer> serverList = Arrays.asList(0, 1, 2, 3);
+            currentCluster = startServers(currentCluster,
+                                          rwTwoStoreDefFileWithReplication,
+                                          serverList,
+                                          serverProps);
+            // Update the cluster information based on the node information
+            targetCluster = updateCluster(targetCluster);
+
+            RebalanceClientConfig config = new RebalanceClientConfig();
+            config.setDeleteAfterRebalancingEnabled(true);
+            config.setStealerBasedRebalancing(!useDonorBased);
+            config.setPrimaryPartitionBatchSize(100);
+            config.setMaxParallelRebalancing(5);
+            RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                          0),
+                                                                          config);
+            try {
+                populateData(currentCluster,
+                             rwStoreDefWithReplication,
+                             rebalanceClient.getAdminClient(),
+                             false);
+
+                populateData(currentCluster,
+                             rwStoreDefWithReplication2,
+                             rebalanceClient.getAdminClient(),
+                             false);
+
+                rebalanceAndCheck(currentCluster,
+                                  targetCluster,
+                                  Lists.newArrayList(rwStoreDefWithReplication,
+                                                     rwStoreDefWithReplication2),
+                                  rebalanceClient,
+                                  serverList);
+                checkConsistentMetadata(targetCluster, serverList);
+            } catch(Exception e) {
+                fail(e.getMessage());
+            } finally {
+                // stop servers
+                stopServer(serverList);
+            }
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testRWRebalanceSerial ", ae);
+            throw ae;
         }
     }
 
     @Test(timeout = 600000)
     public void testProxyGetDuringRebalancing() throws Exception {
         logger.info("Starting testProxyGetDuringRebalancing");
-        final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
+        try {
+            final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+                    { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
-        final Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                          1,
-                                                                          Lists.newArrayList(2, 3));
-        // start servers 0 , 1 only
-        final List<Integer> serverList = Arrays.asList(0, 1);
-        Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("admin.max.threads", "5");
-        final Cluster updatedCurrentCluster = startServers(currentCluster,
-                                                           storeDefFileWithReplication,
-                                                           serverList,
-                                                           configProps);
-        final Cluster updatedTargetCluster = updateCluster(targetCluster);
+            final Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                              1,
+                                                                              Lists.newArrayList(2,
+                                                                                                 3));
+            // start servers 0 , 1 only
+            final List<Integer> serverList = Arrays.asList(0, 1);
+            Map<String, String> configProps = new HashMap<String, String>();
+            configProps.put("admin.max.threads", "5");
+            final Cluster updatedCurrentCluster = startServers(currentCluster,
+                                                               storeDefFileWithReplication,
+                                                               serverList,
+                                                               configProps);
+            final Cluster updatedTargetCluster = updateCluster(targetCluster);
 
-        ExecutorService executors = Executors.newFixedThreadPool(2);
-        final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
-        final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
+            ExecutorService executors = Executors.newFixedThreadPool(2);
+            final AtomicBoolean rebalancingComplete = new AtomicBoolean(false);
+            final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
-        RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
-        rebalanceClientConfig.setMaxParallelRebalancing(2);
-        rebalanceClientConfig.setStealerBasedRebalancing(!useDonorBased);
+            RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
+            rebalanceClientConfig.setMaxParallelRebalancing(2);
+            // We are forced to use stealer based since RO does not support
+            // donor
+            // based rebalancing yet
+            rebalanceClientConfig.setStealerBasedRebalancing(true);
 
-        final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,
-                                                                                            0),
-                                                                            rebalanceClientConfig);
+            final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,
+                                                                                                0),
+                                                                                rebalanceClientConfig);
 
-        // Populate the two stores
-        populateData(updatedCurrentCluster,
-                     roStoreDefWithReplication,
-                     rebalanceClient.getAdminClient(),
-                     true);
+            // Populate the two stores
+            populateData(updatedCurrentCluster,
+                         roStoreDefWithReplication,
+                         rebalanceClient.getAdminClient(),
+                         true);
 
-        populateData(updatedCurrentCluster,
-                     rwStoreDefWithReplication,
-                     rebalanceClient.getAdminClient(),
-                     false);
+            populateData(updatedCurrentCluster,
+                         rwStoreDefWithReplication,
+                         rebalanceClient.getAdminClient(),
+                         false);
 
-        final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCurrentCluster,
-                                                                                                                                  0))
-                                                                                                .setEnableLazy(false)
-                                                                                                .setSocketTimeout(120,
-                                                                                                                  TimeUnit.SECONDS));
+            final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCurrentCluster,
+                                                                                                                                      0))
+                                                                                                    .setEnableLazy(false)
+                                                                                                    .setSocketTimeout(120,
+                                                                                                                      TimeUnit.SECONDS));
 
-        final StoreClient<String, String> storeClientRW = new DefaultStoreClient<String, String>(testStoreNameRW,
-                                                                                                 null,
-                                                                                                 factory,
-                                                                                                 3);
+            final StoreClient<String, String> storeClientRW = new DefaultStoreClient<String, String>(testStoreNameRW,
+                                                                                                     null,
+                                                                                                     factory,
+                                                                                                     3);
 
-        final StoreClient<String, String> storeClientRO = new DefaultStoreClient<String, String>(testStoreNameRO,
-                                                                                                 null,
-                                                                                                 factory,
-                                                                                                 3);
+            final StoreClient<String, String> storeClientRO = new DefaultStoreClient<String, String>(testStoreNameRO,
+                                                                                                     null,
+                                                                                                     factory,
+                                                                                                     3);
 
-        // start get operation.
-        executors.execute(new Runnable() {
+            final CountDownLatch latch = new CountDownLatch(2);
+            // start get operation.
+            executors.execute(new Runnable() {
 
-            public void run() {
-                try {
-                    List<String> keys = new ArrayList<String>(testEntries.keySet());
-
-                    while(!rebalancingToken.get()) {
-                        // should always able to get values.
-                        int index = (int) (Math.random() * keys.size());
-
-                        // should get a valid value
-                        try {
-                            Versioned<String> value = storeClientRW.get(keys.get(index));
-                            assertNotSame("StoreClient get() should not return null.", null, value);
-                            assertEquals("Value returned should be good",
-                                         new Versioned<String>(testEntries.get(keys.get(index))),
-                                         value);
-
-                            value = storeClientRO.get(keys.get(index));
-                            assertNotSame("StoreClient get() should not return null.", null, value);
-                            assertEquals("Value returned should be good",
-                                         new Versioned<String>(testEntries.get(keys.get(index))),
-                                         value);
-
-                        } catch(Exception e) {
-                            e.printStackTrace();
-                            exceptions.add(e);
-                        }
-                    }
-
-                } catch(Exception e) {
-                    exceptions.add(e);
-                } finally {
-                    factory.close();
-                }
-            }
-
-        });
-
-        executors.execute(new Runnable() {
-
-            @Override
-            public void run() {
-                try {
-
-                    Thread.sleep(500);
-                    rebalanceAndCheck(updatedCurrentCluster,
-                                      updatedTargetCluster,
-                                      storeDefWithReplication,
-                                      rebalanceClient,
-                                      Arrays.asList(0, 1));
-                    Thread.sleep(500);
-                    rebalancingToken.set(true);
-                    checkConsistentMetadata(updatedTargetCluster, serverList);
-                } catch(Exception e) {
-                    exceptions.add(e);
-                } finally {
-                    // stop servers
+                @Override
+                public void run() {
                     try {
-                        stopServer(serverList);
+                        List<String> keys = new ArrayList<String>(testEntries.keySet());
+
+                        while(!rebalancingComplete.get()) {
+                            // should always able to get values.
+                            int index = (int) (Math.random() * keys.size());
+
+                            // should get a valid value
+                            try {
+                                Versioned<String> value = storeClientRW.get(keys.get(index));
+                                assertNotSame("StoreClient get() should not return null.",
+                                              null,
+                                              value);
+                                assertEquals("Value returned should be good",
+                                             new Versioned<String>(testEntries.get(keys.get(index))),
+                                             value);
+
+                                value = storeClientRO.get(keys.get(index));
+                                assertNotSame("StoreClient get() should not return null.",
+                                              null,
+                                              value);
+                                assertEquals("Value returned should be good",
+                                             new Versioned<String>(testEntries.get(keys.get(index))),
+                                             value);
+
+                            } catch(Exception e) {
+                                logger.error("Exception in online thread", e);
+                                exceptions.add(e);
+                            } finally {
+                                latch.countDown();
+                            }
+                        }
                     } catch(Exception e) {
-                        throw new RuntimeException(e);
+                        logger.error("Exception in proxy get thread", e);
+                        exceptions.add(e);
+                    } finally {
+                        factory.close();
                     }
                 }
-            }
-        });
 
-        executors.shutdown();
-        executors.awaitTermination(300, TimeUnit.SECONDS);
+            });
 
-        // check No Exception
-        if(exceptions.size() > 0) {
-            for(Exception e: exceptions) {
-                e.printStackTrace();
+            executors.execute(new Runnable() {
+
+                @Override
+                public void run() {
+                    try {
+
+                        Thread.sleep(500);
+                        rebalanceAndCheck(updatedCurrentCluster,
+                                          updatedTargetCluster,
+                                          storeDefWithReplication,
+                                          rebalanceClient,
+                                          Arrays.asList(0, 1));
+                        Thread.sleep(500);
+                        rebalancingComplete.set(true);
+                        checkConsistentMetadata(updatedTargetCluster, serverList);
+                    } catch(Exception e) {
+                        exceptions.add(e);
+                        logger.error("Exception in rebalancing thread", e);
+                    } finally {
+                        // stop servers
+                        try {
+                            stopServer(serverList);
+                        } catch(Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                        latch.countDown();
+                    }
+                }
+            });
+
+            latch.await();
+            executors.shutdown();
+            executors.awaitTermination(300, TimeUnit.SECONDS);
+
+            // check No Exception
+            if(exceptions.size() > 0) {
+                for(Exception e: exceptions) {
+                    e.printStackTrace();
+                }
+                fail("Should not see any exceptions.");
             }
-            fail("Should not see any exceptions.");
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testProxyGetDuringRebalancing ", ae);
+            throw ae;
         }
     }
 
-    @Test(timeout = 600000)
     public void testProxyPutDuringRebalancing() throws Exception {
         logger.info("Starting testProxyPutDuringRebalancing");
-        Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1, 3 },
-                { 2 } });
+        try {
+            Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 },
+                    { 1, 3 }, { 2 } });
 
-        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    2,
-                                                                    Lists.newArrayList(3));
+            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                        2,
+                                                                        Lists.newArrayList(3));
 
-        // start servers 0,1,2 only
-        final List<Integer> serverList = Arrays.asList(0, 1, 2);
-        Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("admin.max.threads", "5");
-        final Cluster updatedCurrentCluster = startServers(currentCluster,
-                                                           rwStoreDefFileWithReplication,
-                                                           serverList,
-                                                           configProps);
-        final Cluster updatedTargetCluster = updateCluster(targetCluster);
+            // start servers 0,1,2 only
+            final List<Integer> serverList = Arrays.asList(0, 1, 2);
+            Map<String, String> configProps = new HashMap<String, String>();
+            configProps.put("admin.max.threads", "5");
+            final Cluster updatedCurrentCluster = startServers(currentCluster,
+                                                               rwStoreDefFileWithReplication,
+                                                               serverList,
+                                                               configProps);
+            final Cluster updatedTargetCluster = updateCluster(targetCluster);
 
-        ExecutorService executors = Executors.newFixedThreadPool(2);
-        final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
-        final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
+            ExecutorService executors = Executors.newFixedThreadPool(2);
+            final AtomicBoolean rebalancingComplete = new AtomicBoolean(false);
+            final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
-        RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
-        rebalanceClientConfig.setMaxParallelRebalancing(2);
-        rebalanceClientConfig.setStealerBasedRebalancing(!useDonorBased);
+            RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
+            rebalanceClientConfig.setMaxParallelRebalancing(2);
+            rebalanceClientConfig.setStealerBasedRebalancing(!useDonorBased);
 
-        final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,
-                                                                                            0),
-                                                                            rebalanceClientConfig);
+            final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,
+                                                                                                0),
+                                                                                rebalanceClientConfig);
 
-        populateData(updatedCurrentCluster,
-                     rwStoreDefWithReplication,
-                     rebalanceClient.getAdminClient(),
-                     false);
+            populateData(updatedCurrentCluster,
+                         rwStoreDefWithReplication,
+                         rebalanceClient.getAdminClient(),
+                         false);
 
-        final AdminClient adminClient = rebalanceClient.getAdminClient();
-        // the plan would cause these partitions to move
-        // Partition : Donor -> Stealer
-        // p2 (SEC) : 1 -> 0
-        // p3 (PRI) : 1 -> 2
-        final List<ByteArray> movingKeysList = sampleKeysFromPartition(adminClient,
-                                                                       1,
-                                                                       rwStoreDefWithReplication.getName(),
-                                                                       Arrays.asList(2, 3),
-                                                                       20);
-        final AtomicBoolean rebalancingStarted = new AtomicBoolean(false);
-        final AtomicBoolean proxyWritesDone = new AtomicBoolean(false);
-        final HashMap<String, String> baselineTuples = new HashMap<String, String>(testEntries);
-        final HashMap<String, VectorClock> baselineVersions = new HashMap<String, VectorClock>();
+            final AdminClient adminClient = rebalanceClient.getAdminClient();
+            // the plan would cause these partitions to move
+            // Partition : Donor -> Stealer
+            // p2 (SEC) : 1 -> 0
+            // p3 (PRI) : 1 -> 2
+            final List<ByteArray> movingKeysList = sampleKeysFromPartition(adminClient,
+                                                                           1,
+                                                                           rwStoreDefWithReplication.getName(),
+                                                                           Arrays.asList(2, 3),
+                                                                           20);
+            assertTrue("Empty list of moving keys...", movingKeysList.size() > 0);
+            final AtomicBoolean rebalancingStarted = new AtomicBoolean(false);
+            final AtomicBoolean proxyWritesDone = new AtomicBoolean(false);
+            final HashMap<String, String> baselineTuples = new HashMap<String, String>(testEntries);
+            final HashMap<String, VectorClock> baselineVersions = new HashMap<String, VectorClock>();
 
-        for(String key: baselineTuples.keySet()) {
-            baselineVersions.put(key, new VectorClock());
-        }
+            for(String key: baselineTuples.keySet()) {
+                baselineVersions.put(key, new VectorClock());
+            }
 
-        // start get operation.
-        executors.execute(new Runnable() {
+            // start get operation.
+            executors.execute(new Runnable() {
 
-            @Override
-            public void run() {
-                SocketStoreClientFactory factory = null;
-                try {
-                    // wait for the rebalancing to begin
-                    // TODO also need to somehow test how live writes handle the
-                    // metadata transition.
-                    List<VoldemortServer> serverList = Lists.newArrayList(serverMap.get(0),
-                                                                          serverMap.get(2));
-                    while(!rebalancingToken.get()) {
-                        Iterator<VoldemortServer> serverIterator = serverList.iterator();
-                        while(serverIterator.hasNext()) {
-                            VoldemortServer server = serverIterator.next();
-                            if(ByteUtils.getString(server.getMetadataStore()
-                                                         .get(MetadataStore.SERVER_STATE_KEY, null)
-                                                         .get(0)
-                                                         .getValue(),
-                                                   "UTF-8")
-                                        .compareTo(VoldemortState.REBALANCING_MASTER_SERVER.toString()) == 0) {
-                                serverIterator.remove();
+                @Override
+                public void run() {
+                    SocketStoreClientFactory factory = null;
+                    try {
+                        // wait for the rebalancing to begin.
+                        List<VoldemortServer> serverList = Lists.newArrayList(serverMap.get(0),
+                                                                              serverMap.get(2));
+                        while(!rebalancingComplete.get()) {
+                            Iterator<VoldemortServer> serverIterator = serverList.iterator();
+                            while(serverIterator.hasNext()) {
+                                VoldemortServer server = serverIterator.next();
+                                if(ByteUtils.getString(server.getMetadataStore()
+                                                             .get(MetadataStore.SERVER_STATE_KEY,
+                                                                  null)
+                                                             .get(0)
+                                                             .getValue(),
+                                                       "UTF-8")
+                                            .compareTo(VoldemortState.REBALANCING_MASTER_SERVER.toString()) == 0) {
+                                    logger.info("Server " + server.getIdentityNode().getId()
+                                                + " transitioned into REBALANCING MODE");
+                                    serverIterator.remove();
+                                }
                             }
-                        }
-                        if(serverList.size() == 0) {
-                            rebalancingStarted.set(true);
-                            break;
-                        }
-                    }
-                    factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCurrentCluster,
-                                                                                                               0))
-                                                                             .setEnableLazy(false)
-                                                                             .setSocketTimeout(120,
-                                                                                               TimeUnit.SECONDS));
-
-                    final StoreClient<String, String> storeClientRW = new DefaultStoreClient<String, String>(testStoreNameRW,
-                                                                                                             null,
-                                                                                                             factory,
-                                                                                                             3);
-
-                    // Now perform some writes and determine the end state of
-                    // the changed keys. Intially, all data now with zero vector
-                    // clock
-                    if(!rebalancingToken.get()) {
-                        for(ByteArray movingKey: movingKeysList) {
-                            String keyStr = ByteUtils.getString(movingKey.get(), "UTF-8");
-                            String valStr = "proxy_write";
-                            storeClientRW.put(keyStr, valStr);
-                            baselineTuples.put(keyStr, valStr);
-                            // all these keys will have [2:1] vector clock is
-                            // node 2 is the pseudo master in both moves
-                            baselineVersions.get(keyStr)
-                                            .incrementVersion(2, System.currentTimeMillis());
-                            proxyWritesDone.set(true);
-                            if(rebalancingToken.get()) {
+                            if(serverList.size() == 0) {
+                                rebalancingStarted.set(true);
                                 break;
                             }
                         }
+
+                        if(!rebalancingComplete.get()) {
+                            factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCurrentCluster,
+                                                                                                                       0))
+                                                                                     .setEnableLazy(false)
+                                                                                     .setSocketTimeout(120,
+                                                                                                       TimeUnit.SECONDS));
+
+                            final StoreClient<String, String> storeClientRW = new DefaultStoreClient<String, String>(testStoreNameRW,
+                                                                                                                     null,
+                                                                                                                     factory,
+                                                                                                                     3);
+                            // Now perform some writes and determine the end
+                            // state
+                            // of the changed keys. Initially, all data now with
+                            // zero vector clock
+                            for(ByteArray movingKey: movingKeysList) {
+                                try {
+                                    if(rebalancingComplete.get()) {
+                                        break;
+                                    }
+                                    String keyStr = ByteUtils.getString(movingKey.get(), "UTF-8");
+                                    String valStr = "proxy_write";
+                                    storeClientRW.put(keyStr, valStr);
+                                    baselineTuples.put(keyStr, valStr);
+                                    // all these keys will have [2:1] vector
+                                    // clock
+                                    // is node 2 is the pseudo master in both
+                                    // moves
+                                    baselineVersions.get(keyStr)
+                                                    .incrementVersion(2, System.currentTimeMillis());
+                                    proxyWritesDone.set(true);
+                                } catch(InvalidMetadataException e) {
+                                    // let this go
+                                    logger.error("Encountered an invalid metadata exception.. ", e);
+                                }
+                            }
+                        }
+                    } catch(Exception e) {
+                        logger.error("Exception in proxy put thread", e);
+                        exceptions.add(e);
+                    } finally {
+                        if(factory != null)
+                            factory.close();
                     }
-                } catch(Exception e) {
-                    exceptions.add(e);
-                } finally {
-                    if(factory != null)
-                        factory.close();
                 }
-            }
 
-        });
+            });
 
-        executors.execute(new Runnable() {
+            executors.execute(new Runnable() {
 
-            @Override
-            public void run() {
-                try {
-                    rebalanceClient.rebalance(updatedTargetCluster);
-                    Thread.sleep(500);
-                } catch(Exception e) {
-                    logger.error("Error in rebalancing... ", e);
-                    exceptions.add(e);
-                } finally {
-                    rebalancingToken.set(true);
+                @Override
+                public void run() {
+                    try {
+                        rebalanceClient.rebalance(updatedTargetCluster);
+                    } catch(Exception e) {
+                        logger.error("Error in rebalancing... ", e);
+                        exceptions.add(e);
+                    } finally {
+                        rebalancingComplete.set(true);
+                    }
                 }
+            });
+
+            executors.shutdown();
+            executors.awaitTermination(300, TimeUnit.SECONDS);
+
+            assertEquals("Client did not see all server transition into rebalancing state",
+                         rebalancingStarted.get(),
+                         true);
+            assertEquals("Not enough time to begin proxy writing", proxyWritesDone.get(), true);
+            checkEntriesPostRebalance(updatedCurrentCluster,
+                                      updatedTargetCluster,
+                                      Lists.newArrayList(rwStoreDefWithReplication),
+                                      Arrays.asList(0, 1, 2),
+                                      baselineTuples,
+                                      baselineVersions);
+            checkConsistentMetadata(updatedTargetCluster, serverList);
+            // check No Exception
+            if(exceptions.size() > 0) {
+
+                for(Exception e: exceptions) {
+                    e.printStackTrace();
+                }
+                fail("Should not see any exceptions.");
             }
-        });
+            // check that the proxy writes were made to the original donor, node
+            // 1
+            List<ClockEntry> clockEntries = new ArrayList<ClockEntry>(serverList.size());
+            for(Integer nodeid: serverList)
+                clockEntries.add(new ClockEntry(nodeid.shortValue(), System.currentTimeMillis()));
+            VectorClock clusterXmlClock = new VectorClock(clockEntries, System.currentTimeMillis());
+            for(Integer nodeid: serverList)
+                adminClient.metadataMgmtOps.updateRemoteCluster(nodeid,
+                                                                currentCluster,
+                                                                clusterXmlClock);
 
-        executors.shutdown();
-        executors.awaitTermination(300, TimeUnit.SECONDS);
+            adminClient.setAdminClientCluster(currentCluster);
+            checkForTupleEquivalence(adminClient,
+                                     1,
+                                     testStoreNameRW,
+                                     movingKeysList,
+                                     baselineTuples,
+                                     baselineVersions);
 
-        assertEquals("Client did not see all server transition into rebalancing state",
-                     rebalancingStarted.get(),
-                     true);
-        assertEquals("Not enough time to begin proxy writing", proxyWritesDone.get(), true);
-        checkEntriesPostRebalance(updatedCurrentCluster,
-                                  updatedTargetCluster,
-                                  Lists.newArrayList(rwStoreDefWithReplication),
-                                  Arrays.asList(0, 1, 2),
-                                  baselineTuples,
-                                  baselineVersions);
-        checkConsistentMetadata(updatedTargetCluster, serverList);
-        // check No Exception
-        if(exceptions.size() > 0) {
-
-            for(Exception e: exceptions) {
-                e.printStackTrace();
+            // stop servers
+            try {
+                stopServer(serverList);
+            } catch(Exception e) {
+                throw new RuntimeException(e);
             }
-            fail("Should not see any exceptions.");
-        }
-        // check that the proxy writes were made to the original donor, node 1
-        List<ClockEntry> clockEntries = new ArrayList<ClockEntry>(serverList.size());
-        for(Integer nodeid: serverList)
-            clockEntries.add(new ClockEntry(nodeid.shortValue(), System.currentTimeMillis()));
-        VectorClock clusterXmlClock = new VectorClock(clockEntries, System.currentTimeMillis());
-        for(Integer nodeid: serverList)
-            adminClient.metadataMgmtOps.updateRemoteCluster(nodeid, currentCluster, clusterXmlClock);
-
-        adminClient.setAdminClientCluster(currentCluster);
-        checkForTupleEquivalence(adminClient,
-                                 1,
-                                 testStoreNameRW,
-                                 movingKeysList,
-                                 baselineTuples,
-                                 baselineVersions);
-
-        // stop servers
-        try {
-            stopServer(serverList);
-        } catch(Exception e) {
-            throw new RuntimeException(e);
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testProxyPutDuringRebalancing ", ae);
+            throw ae;
         }
     }
 
     @Test(timeout = 600000)
     public void testServerSideRouting() throws Exception {
         logger.info("Starting testServerSideRouting");
-        final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
+        try {
+            final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+                    { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
-        final Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                          1,
-                                                                          Lists.newArrayList(2, 3));
+            final Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                              1,
+                                                                              Lists.newArrayList(2,
+                                                                                                 3));
 
-        final List<Integer> serverList = Arrays.asList(0, 1);
-        Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("admin.max.threads", "50");
-        final Cluster updatedCurrentCluster = startServers(currentCluster,
-                                                           storeDefFileWithReplication,
-                                                           serverList,
-                                                           configProps);
-        final Cluster updatedTargetCluster = updateCluster(targetCluster);
+            final List<Integer> serverList = Arrays.asList(0, 1);
+            Map<String, String> configProps = new HashMap<String, String>();
+            configProps.put("admin.max.threads", "50");
+            final Cluster updatedCurrentCluster = startServers(currentCluster,
+                                                               storeDefFileWithReplication,
+                                                               serverList,
+                                                               configProps);
+            final Cluster updatedTargetCluster = updateCluster(targetCluster);
 
-        ExecutorService executors = Executors.newFixedThreadPool(2);
-        final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
-        final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
+            ExecutorService executors = Executors.newFixedThreadPool(2);
+            final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
+            final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
-        // populate data now.
-        RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
-        rebalanceClientConfig.setMaxParallelRebalancing(2);
+            // populate data now.
+            RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
+            rebalanceClientConfig.setMaxParallelRebalancing(2);
 
-        final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,
-                                                                                            0),
-                                                                            rebalanceClientConfig);
+            final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,
+                                                                                                0),
+                                                                                rebalanceClientConfig);
 
-        // Populate the two stores
-        populateData(updatedCurrentCluster,
-                     roStoreDefWithReplication,
-                     rebalanceClient.getAdminClient(),
-                     true);
+            // Populate the two stores
+            populateData(updatedCurrentCluster,
+                         roStoreDefWithReplication,
+                         rebalanceClient.getAdminClient(),
+                         true);
 
-        populateData(updatedCurrentCluster,
-                     rwStoreDefWithReplication,
-                     rebalanceClient.getAdminClient(),
-                     false);
+            populateData(updatedCurrentCluster,
+                         rwStoreDefWithReplication,
+                         rebalanceClient.getAdminClient(),
+                         false);
 
-        Node node = updatedCurrentCluster.getNodeById(1);
-        final Store<ByteArray, byte[], byte[]> serverSideRoutingStoreRW = getSocketStore(testStoreNameRW,
-                                                                                         node.getHost(),
-                                                                                         node.getSocketPort(),
-                                                                                         true);
-        final Store<ByteArray, byte[], byte[]> serverSideRoutingStoreRO = getSocketStore(testStoreNameRO,
-                                                                                         node.getHost(),
-                                                                                         node.getSocketPort(),
-                                                                                         true);
+            Node node = updatedCurrentCluster.getNodeById(1);
+            final Store<ByteArray, byte[], byte[]> serverSideRoutingStoreRW = getSocketStore(testStoreNameRW,
+                                                                                             node.getHost(),
+                                                                                             node.getSocketPort(),
+                                                                                             true);
+            final Store<ByteArray, byte[], byte[]> serverSideRoutingStoreRO = getSocketStore(testStoreNameRO,
+                                                                                             node.getHost(),
+                                                                                             node.getSocketPort(),
+                                                                                             true);
 
-        final CountDownLatch latch = new CountDownLatch(1);
+            final CountDownLatch latch = new CountDownLatch(1);
 
-        // start get operation.
-        executors.execute(new Runnable() {
+            // start get operation.
+            executors.execute(new Runnable() {
 
-            public void run() {
-                try {
-                    List<String> keys = new ArrayList<String>(testEntries.keySet());
+                public void run() {
+                    try {
+                        List<String> keys = new ArrayList<String>(testEntries.keySet());
 
-                    while(!rebalancingToken.get()) {
-                        // should always able to get values.
-                        int index = (int) (Math.random() * keys.size());
+                        while(!rebalancingToken.get()) {
+                            // should always able to get values.
+                            int index = (int) (Math.random() * keys.size());
 
-                        // should get a valid value
+                            // should get a valid value
+                            try {
+                                List<Versioned<byte[]>> values = serverSideRoutingStoreRW.get(new ByteArray(ByteUtils.getBytes(keys.get(index),
+                                                                                                                               "UTF-8")),
+                                                                                              null);
+
+                                assertEquals("serverSideRoutingStore should return value.",
+                                             1,
+                                             values.size());
+                                assertEquals("Value returned should be good",
+                                             new Versioned<String>(testEntries.get(keys.get(index))),
+                                             new Versioned<String>(ByteUtils.getString(values.get(0)
+                                                                                             .getValue(),
+                                                                                       "UTF-8"),
+                                                                   values.get(0).getVersion()));
+                                values = serverSideRoutingStoreRO.get(new ByteArray(ByteUtils.getBytes(keys.get(index),
+                                                                                                       "UTF-8")),
+                                                                      null);
+
+                                assertEquals("serverSideRoutingStore should return value.",
+                                             1,
+                                             values.size());
+                                assertEquals("Value returned should be good",
+                                             new Versioned<String>(testEntries.get(keys.get(index))),
+                                             new Versioned<String>(ByteUtils.getString(values.get(0)
+                                                                                             .getValue(),
+                                                                                       "UTF-8"),
+                                                                   values.get(0).getVersion()));
+
+                            } catch(UnreachableStoreException e) {
+                                // ignore
+                            } catch(Exception e) {
+                                exceptions.add(e);
+                            }
+                        }
+
+                        latch.countDown();
+                    } catch(Exception e) {
+                        exceptions.add(e);
+                    }
+                }
+
+            });
+
+            executors.execute(new Runnable() {
+
+                public void run() {
+                    try {
+                        Thread.sleep(500);
+                        rebalanceAndCheck(updatedCurrentCluster,
+                                          updatedTargetCluster,
+                                          storeDefWithReplication,
+                                          rebalanceClient,
+                                          Arrays.asList(0, 1));
+
+                        Thread.sleep(500);
+                        rebalancingToken.set(true);
+                        checkConsistentMetadata(targetCluster, serverList);
+                    } catch(Exception e) {
+                        exceptions.add(e);
+                    } finally {
+                        // stop servers as soon as the client thread has exited
+                        // its
+                        // loop.
                         try {
-                            List<Versioned<byte[]>> values = serverSideRoutingStoreRW.get(new ByteArray(ByteUtils.getBytes(keys.get(index),
-                                                                                                                           "UTF-8")),
-                                                                                          null);
-
-                            assertEquals("serverSideRoutingStore should return value.",
-                                         1,
-                                         values.size());
-                            assertEquals("Value returned should be good",
-                                         new Versioned<String>(testEntries.get(keys.get(index))),
-                                         new Versioned<String>(ByteUtils.getString(values.get(0)
-                                                                                         .getValue(),
-                                                                                   "UTF-8"),
-                                                               values.get(0).getVersion()));
-                            values = serverSideRoutingStoreRO.get(new ByteArray(ByteUtils.getBytes(keys.get(index),
-                                                                                                   "UTF-8")),
-                                                                  null);
-
-                            assertEquals("serverSideRoutingStore should return value.",
-                                         1,
-                                         values.size());
-                            assertEquals("Value returned should be good",
-                                         new Versioned<String>(testEntries.get(keys.get(index))),
-                                         new Versioned<String>(ByteUtils.getString(values.get(0)
-                                                                                         .getValue(),
-                                                                                   "UTF-8"),
-                                                               values.get(0).getVersion()));
-
-                        } catch(UnreachableStoreException e) {
-                            // ignore
+                            latch.await(300, TimeUnit.SECONDS);
+                            stopServer(serverList);
                         } catch(Exception e) {
-                            exceptions.add(e);
+                            throw new RuntimeException(e);
                         }
                     }
-
-                    latch.countDown();
-                } catch(Exception e) {
-                    exceptions.add(e);
                 }
-            }
+            });
 
-        });
+            executors.shutdown();
+            executors.awaitTermination(300, TimeUnit.SECONDS);
 
-        executors.execute(new Runnable() {
-
-            public void run() {
-                try {
-                    Thread.sleep(500);
-                    rebalanceAndCheck(updatedCurrentCluster,
-                                      updatedTargetCluster,
-                                      storeDefWithReplication,
-                                      rebalanceClient,
-                                      Arrays.asList(0, 1));
-
-                    Thread.sleep(500);
-                    rebalancingToken.set(true);
-                    checkConsistentMetadata(targetCluster, serverList);
-                } catch(Exception e) {
-                    exceptions.add(e);
-                } finally {
-                    // stop servers as soon as the client thread has exited its
-                    // loop.
-                    try {
-                        latch.await(300, TimeUnit.SECONDS);
-                        stopServer(serverList);
-                    } catch(Exception e) {
-                        throw new RuntimeException(e);
-                    }
+            // check No Exception
+            if(exceptions.size() > 0) {
+                for(Exception e: exceptions) {
+                    e.printStackTrace();
                 }
+                fail("Should not see any exceptions !!");
             }
-        });
-
-        executors.shutdown();
-        executors.awaitTermination(300, TimeUnit.SECONDS);
-
-        // check No Exception
-        if(exceptions.size() > 0) {
-            for(Exception e: exceptions) {
-                e.printStackTrace();
-            }
-            fail("Should not see any exceptions !!");
+        } catch(AssertionError ae) {
+            logger.error("Assertion broken in testServerSideRouting ", ae);
+            throw ae;
         }
     }
 
@@ -1184,11 +1280,10 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
             }
 
-            RoutingStrategy routing = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                         cluster);
+            StoreInstance storeInstance = new StoreInstance(cluster, storeDef);
             for(Entry<String, String> entry: testEntries.entrySet()) {
                 ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
-                List<Integer> preferenceNodes = RebalanceUtils.getNodeIds(routing.routeRequest(keyBytes.get()));
+                List<Integer> preferenceNodes = storeInstance.getReplicationNodeList(keyBytes.get());
 
                 // Go over every node
                 for(int nodeId: preferenceNodes) {
@@ -1199,7 +1294,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                               "UTF-8")),
                                      null);
                     } catch(ObsoleteVersionException e) {
-                        System.out.println("Why are we seeing this at all here ?? ");
+                        logger.info("Why are we seeing this at all here ?? ");
                         e.printStackTrace();
                     }
                 }

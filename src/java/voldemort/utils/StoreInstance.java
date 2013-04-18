@@ -85,6 +85,16 @@ public class StoreInstance {
     }
 
     /**
+     * Determines the list of nodes that the key replicates to
+     * 
+     * @param key
+     * @return
+     */
+    public List<Integer> getReplicationNodeList(final byte[] key) {
+        return getNodeIdListForPartitionIdList(getReplicationPartitionList(key));
+    }
+
+    /**
      * Determines master partition ID for the key.
      * 
      * @param key

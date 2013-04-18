@@ -127,6 +127,12 @@ public class Rebalancer implements Runnable {
      * In general we need to do [ cluster change -> swap -> rebalance state
      * change ]
      * 
+     * NOTE: The update of the cluster metadata and the rebalancer state is not
+     * "atomic". Ergo, there could theoretically be a race where a client picks
+     * up new cluster metadata sends a request based on that, but the proxy
+     * bridges have not been setup and we either miss a proxy put or return a
+     * null for get/getalls
+     * 
      * @param cluster Cluster metadata to change
      * @param rebalancePartitionsInfo List of rebalance partitions info
      * @param swapRO Boolean to indicate swapping of RO store
@@ -144,7 +150,7 @@ public class Rebalancer implements Runnable {
                                      boolean rollback) {
         Cluster currentCluster = metadataStore.getCluster();
 
-        logger.info("Doing rebalance state change with options [ cluster metadata change - "
+        logger.info("Server doing rebalance state change with options [ cluster metadata change - "
                     + changeClusterMetadata + " ], [ changing rebalancing state - "
                     + changeRebalanceState + " ], [ changing swapping RO - " + swapRO
                     + " ], [ rollback - " + rollback + " ]");

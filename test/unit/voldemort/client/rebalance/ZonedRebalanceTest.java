@@ -25,7 +25,7 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class ZonedRebalanceTest extends AbstractZonedRebalanceTest {
 
-    private final int NUM_KEYS = 20;
+    private final int NUM_KEYS = 100;
 
     public ZonedRebalanceTest(boolean useNio, boolean useDonorBased) {
         super(useNio, useDonorBased);

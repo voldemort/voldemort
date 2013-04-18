@@ -225,7 +225,8 @@ public class RedirectingStoreTest extends TestCase {
                                     metadata,
                                     servers[nodeId].getStoreRepository(),
                                     new NoopFailureDetector(),
-                                    storeFactory);
+                                    storeFactory,
+                                    false);
     }
 
     @Test
