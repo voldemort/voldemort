@@ -24,28 +24,4 @@ fi
 
 base_dir=$(dirname $0)/..
 
-for file in $base_dir/dist/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-
-for file in $base_dir/lib/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-
-for file in $base_dir/contrib/*/lib/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-
-CLASSPATH=$CLASSPATH:$base_dir/dist/resources
-
-if [ -z "$VOLD_OPTS" ]; then
-  VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
-fi
-
-# add '-Dlog4j.debug ' to debug log4j issues.
-LOG4JPROPERTIES="-Dlog4j.configuration=file:///${base_dir}/src/java/log4j.properties"
-
-java $LOG4JPROPERTIES $VOLD_OPTS -cp $CLASSPATH voldemort.server.VoldemortServer $@
+$base_dir/bin/run-class.sh voldemort.server.VoldemortServer $@
