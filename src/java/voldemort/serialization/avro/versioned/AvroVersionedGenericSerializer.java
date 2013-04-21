@@ -26,10 +26,10 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericContainer;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.Encoder;
+import org.apache.avro.io.EncoderFactory;
 
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.SerializationUtils;
@@ -73,7 +73,7 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
 
     public byte[] toBytes(Object object) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        Encoder encoder = new BinaryEncoder(output);
+        Encoder encoder = EncoderFactory.get().binaryEncoder(output, null);
         GenericDatumWriter<Object> datumWriter = null;
 
         output.write(newestVersion.byteValue());
@@ -112,7 +112,7 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
     private byte[] toBytes(Object object, Schema writer, Integer writerVersion) {
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        Encoder encoder = new BinaryEncoder(output);
+        Encoder encoder = EncoderFactory.get().binaryEncoder(output, null);
         GenericDatumWriter<Object> datumWriter = null;
 
         output.write(writerVersion.byteValue());
