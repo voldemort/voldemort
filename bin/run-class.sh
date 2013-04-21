@@ -52,7 +52,7 @@ if [ -z "$VOLD_OPTS" ]; then
   VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote "
 fi
 
-if [ -z ${var+VOLD_LOG4J} ]; then
+if [ -z "${VOLD_LOG4J+_}" ]; then
   # add '-Dlog4j.debug ' to debug log4j issues.
   VOLD_LOG4J="-Dlog4j.configuration=file:///${base_dir}/src/java/log4j.properties"
 fi
