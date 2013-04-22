@@ -33,7 +33,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.ClusterInstance;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Entropy;
-import voldemort.utils.Pair;
+import voldemort.utils.PartitionBalance;
 import voldemort.utils.RebalanceClusterUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -294,8 +294,9 @@ public class RebalanceCLI {
                 }
 
                 if(options.has("analyze")) {
-                    Pair<Double, String> analysis = new ClusterInstance(currentCluster, storeDefs).analyzeBalanceVerbose();
-                    System.out.println(analysis.getSecond());
+                    PartitionBalance partitionBalance = new ClusterInstance(currentCluster,
+                                                                            storeDefs).getPartitionBalance();
+                    System.out.println(partitionBalance);
                     return;
                 }
 

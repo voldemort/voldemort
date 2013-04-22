@@ -536,6 +536,15 @@ public class RebalanceUtils {
             nodeIdToReplicas.put(node.getId(), new HashSet<Pair<Integer, Integer>>());
         }
 
+        // Track how many zones actually have partitions (and so replica types)
+        // in them.
+        int zonesWithPartitions = 0;
+        for(Integer zoneId: cluster.getZoneIds()) {
+            if(cluster.getNumberOfPartitionsInZone(zoneId) > 0) {
+                zonesWithPartitions++;
+            }
+        }
+
         // Loops through all nodes
         for(Node node: cluster.getNodes()) {
 
@@ -545,11 +554,21 @@ public class RebalanceUtils {
                 // Gets the list of replicating partitions.
                 List<Integer> replicaPartitionList = routingStrategy.getReplicatingPartitionList(primary);
 
-                if(replicaPartitionList.size() != storeDef.getReplicationFactor())
+                if((replicaPartitionList.size() % zonesWithPartitions != 0)
+                   || ((replicaPartitionList.size() / zonesWithPartitions) != (storeDef.getReplicationFactor() / cluster.getNumberOfZones()))) {
+
                     throw new VoldemortException("Number of replicas returned ("
                                                  + replicaPartitionList.size()
-                                                 + ") is less than the required replication factor ("
-                                                 + storeDef.getReplicationFactor() + ")");
+                                                 + ") does not make sense given the replication factor ("
+                                                 + storeDef.getReplicationFactor()
+                                                 + ") and that there are "
+                                                 + cluster.getNumberOfZones()
+                                                 + " zones of which "
+                                                 + zonesWithPartitions
+                                                 + " have partitions (and of which "
+                                                 + (cluster.getNumberOfZones() - zonesWithPartitions)
+                                                 + " are empty).");
+                }
 
                 int replicaType = 0;
                 if(!includePrimary) {

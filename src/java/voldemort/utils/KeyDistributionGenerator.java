@@ -5,8 +5,8 @@ import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -222,6 +222,8 @@ public class KeyDistributionGenerator {
         return finalDistribution;
     }
 
+    // TODO: (refactor) this method should either be part of ClusterInstance or
+    // of PartitionBalance.
     /**
      * Given a list of store definitions, find out and return a map of similar
      * store definitions + count of them
@@ -313,8 +315,8 @@ public class KeyDistributionGenerator {
         HashMap<Integer, Double> offBy = Maps.newHashMap();
 
         for(Integer nodeId: distribution.keySet()) {
-            offBy.put(nodeId, new Double(expectedDistribution.get(nodeId)
-                                         - distribution.get(nodeId)));
+            offBy.put(nodeId,
+                      new Double(expectedDistribution.get(nodeId) - distribution.get(nodeId)));
         }
         double sum = 0, squareSum = 0;
         for(double num: offBy.values()) {

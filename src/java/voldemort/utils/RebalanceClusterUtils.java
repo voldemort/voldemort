@@ -88,10 +88,10 @@ public class RebalanceClusterUtils {
                                             final int greedySwapMaxPartitionsPerNode,
                                             final int greedySwapMaxPartitionsPerZone,
                                             final int maxContiguousPartitionsPerZone) {
-        Pair<Double, String> analysis = new ClusterInstance(currentCluster, storeDefs).analyzeBalanceVerbose();
+        PartitionBalance partitionBalance = new ClusterInstance(currentCluster, storeDefs).getPartitionBalance();
         dumpAnalysisToFile(outputDir,
                            RebalanceUtils.initialClusterFileName + ".analysis",
-                           analysis.getSecond());
+                           partitionBalance.toString());
 
         Cluster minCluster = targetCluster;
         double minMaxMinRatio = Double.MAX_VALUE;
@@ -134,8 +134,8 @@ public class RebalanceClusterUtils {
             }
 
             System.out.println("-------------------------\n");
-            analysis = new ClusterInstance(nextCluster, storeDefs).analyzeBalanceVerbose();
-            double currentMaxMinRatio = analysis.getFirst();
+            partitionBalance = new ClusterInstance(nextCluster, storeDefs).getPartitionBalance();
+            double currentMaxMinRatio = partitionBalance.getNaryMaxMin();
             System.out.println("Optimization number " + numTries + ": " + currentMaxMinRatio
                                + " max/min ratio");
 
@@ -147,20 +147,20 @@ public class RebalanceClusterUtils {
                                   RebalanceUtils.finalClusterFileName + numTries,
                                   minCluster);
                 dumpAnalysisToFile(outputDir, RebalanceUtils.finalClusterFileName + numTries
-                                              + ".analysis", analysis.getSecond());
+                                              + ".analysis", partitionBalance.toString());
             }
             System.out.println("-------------------------\n");
         }
 
         System.out.println("\n==========================");
         System.out.println("Final distribution");
-        analysis = new ClusterInstance(minCluster, storeDefs).analyzeBalanceVerbose();
-        System.out.println(analysis.getSecond());
+        partitionBalance = new ClusterInstance(minCluster, storeDefs).getPartitionBalance();
+        System.out.println(partitionBalance);
 
         dumpClusterToFile(outputDir, RebalanceUtils.finalClusterFileName, minCluster);
         dumpAnalysisToFile(outputDir,
                            RebalanceUtils.finalClusterFileName + ".analysis",
-                           analysis.getSecond());
+                           partitionBalance.toString());
         return;
     }
 
@@ -661,14 +661,16 @@ public class RebalanceClusterUtils {
         List<Integer> zoneIds = new ArrayList<Integer>(targetCluster.getZoneIds());
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
-        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).analyzeBalance();
+        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
+                                                                                 .getNaryMaxMin();
 
         int successes = 0;
         for(int i = 0; i < randomSwapAttempts; i++) {
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
             for(Integer zoneId: zoneIds) {
                 Cluster shuffleResults = swapRandomPartitionsWithinZone(returnCluster, zoneId);
-                double nextMaxMinRatio = new ClusterInstance(shuffleResults, storeDefs).analyzeBalance();
+                double nextMaxMinRatio = new ClusterInstance(shuffleResults, storeDefs).getPartitionBalance()
+                                                                                       .getNaryMaxMin();
                 if(nextMaxMinRatio < currentMaxMinRatio) {
                     System.out.println("Swap improved max-min ratio: " + currentMaxMinRatio
                                        + " -> " + nextMaxMinRatio + " (improvement " + successes
@@ -716,7 +718,8 @@ public class RebalanceClusterUtils {
         List<Integer> nodeIdsInZone = new ArrayList<Integer>(targetCluster.getNodeIdsInZone(zoneId));
 
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
-        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).analyzeBalance();
+        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
+                                                                                 .getNaryMaxMin();
         int nodeIdA = -1;
         int nodeIdB = -1;
         int partitionIdA = -1;
@@ -744,7 +747,8 @@ public class RebalanceClusterUtils {
                                                             partitionIdEh,
                                                             nodeIdBee,
                                                             partitionIdBee);
-                        double swapMaxMinRatio = new ClusterInstance(swapResult, storeDefs).analyzeBalance();
+                        double swapMaxMinRatio = new ClusterInstance(swapResult, storeDefs).getPartitionBalance()
+                                                                                           .getNaryMaxMin();
                         if(swapMaxMinRatio < currentMaxMinRatio) {
                             currentMaxMinRatio = swapMaxMinRatio;
                             System.out.println(" -> " + currentMaxMinRatio);
@@ -788,7 +792,8 @@ public class RebalanceClusterUtils {
         System.out.println("GreedyRandom : nodeIdsInZone:" + nodeIdsInZone);
 
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
-        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).analyzeBalance();
+        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
+                                                                                 .getNaryMaxMin();
         int nodeIdA = -1;
         int nodeIdB = -1;
         int partitionIdA = -1;
@@ -825,7 +830,8 @@ public class RebalanceClusterUtils {
                                                         partitionIdEh,
                                                         nodeIdBee,
                                                         partitionIdBee);
-                    double swapMaxMinRatio = new ClusterInstance(swapResult, storeDefs).analyzeBalance();
+                    double swapMaxMinRatio = new ClusterInstance(swapResult, storeDefs).getPartitionBalance()
+                                                                                       .getNaryMaxMin();
                     if(swapMaxMinRatio < currentMaxMinRatio) {
                         currentMaxMinRatio = swapMaxMinRatio;
                         System.out.println(" -> " + currentMaxMinRatio);
@@ -871,7 +877,8 @@ public class RebalanceClusterUtils {
         List<Integer> zoneIds = new ArrayList<Integer>(targetCluster.getZoneIds());
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
-        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).analyzeBalance();
+        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
+                                                                                 .getNaryMaxMin();
 
         for(int i = 0; i < greedyAttempts; i++) {
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
@@ -883,7 +890,8 @@ public class RebalanceClusterUtils {
                                                                               greedySwapMaxPartitionsPerNode,
                                                                               greedySwapMaxPartitionsPerZone,
                                                                               storeDefs);
-                double nextMaxMinRatio = new ClusterInstance(shuffleResults, storeDefs).analyzeBalance();
+                double nextMaxMinRatio = new ClusterInstance(shuffleResults, storeDefs).getPartitionBalance()
+                                                                                       .getNaryMaxMin();
 
                 if(nextMaxMinRatio == currentMaxMinRatio) {
                     System.out.println("Not improving for zone: " + zoneId);
