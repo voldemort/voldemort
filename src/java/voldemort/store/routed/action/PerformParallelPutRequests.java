@@ -174,6 +174,18 @@ public class PerformParallelPutRequests extends
                                                      + ")");
                                 }
                             }
+                        } else {
+                            if(logger.isDebugEnabled()) {
+                                if(result instanceof Exception) {
+                                    logger.debug("PUT {key:"
+                                                 + key
+                                                 + "} will not send hint. Response is ignorable exception: "
+                                                 + result.getClass().toString());
+                                } else {
+                                    logger.debug("PUT {key:" + key
+                                                 + "} will not send hint. Response is normal");
+                                }
+                            }
                         }
 
                         if(result instanceof Exception

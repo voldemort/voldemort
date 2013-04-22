@@ -145,7 +145,8 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
                         streamStats.reportStorageTime(Operation.SLOP_UPDATE, System.nanoTime()
                                                                              - startNs);
                     if(logger.isTraceEnabled())
-                        logger.trace("updateSlopEntries (Streaming put) successful");
+                        logger.trace("updateSlopEntries (Streaming put) successful on key:" + key
+                                     + " of store: " + request.getStore());
                 } catch(ObsoleteVersionException e) {
                     // log and ignore
                     if(logger.isDebugEnabled())

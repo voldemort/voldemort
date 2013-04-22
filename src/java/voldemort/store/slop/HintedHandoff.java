@@ -16,6 +16,7 @@
 
 package voldemort.store.slop;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -99,17 +100,24 @@ public class HintedHandoff {
      *      voldemort.versioning.Version, Slop)
      */
     public void sendHintParallel(final Node failedNode, final Version version, final Slop slop) {
+        boolean slopAsyncSent = false;
         final ByteArray slopKey = slop.makeKey();
         Versioned<byte[]> slopVersioned = new Versioned<byte[]>(slopSerializer.toBytes(slop),
                                                                 version);
-
-        for(final Node node: handoffStrategy.routeHint(failedNode)) {
+        List<Node> nodes = handoffStrategy.routeHint(failedNode);
+        if(logger.isTraceEnabled()) {
+            List<Integer> nodeIds = new ArrayList<Integer>();
+            for(Node node: nodes) {
+                nodeIds.add(node.getId());
+            }
+            logger.debug("Hint preference list: " + nodeIds.toString());
+        }
+        for(final Node node: nodes) {
             int nodeId = node.getId();
 
-            if(logger.isDebugEnabled())
-                logger.debug("Sending an async hint to " + nodeId);
-
             if(!failedNodes.contains(node) && failureDetector.isAvailable(node)) {
+                if(logger.isDebugEnabled())
+                    logger.debug("Sending an async hint to " + nodeId);
                 NonblockingStore nonblockingStore = nonblockingSlopStores.get(nodeId);
                 Utils.notNull(nonblockingStore);
                 final long startNs = System.nanoTime();
@@ -170,8 +178,16 @@ public class HintedHandoff {
                 };
 
                 nonblockingStore.submitPutRequest(slopKey, slopVersioned, null, callback, timeoutMs);
+                slopAsyncSent = true;
                 break;
+            } else {
+                if(logger.isDebugEnabled()) {
+                    logger.debug("Skipping node " + nodeId);
+                }
             }
+        }
+        if(logger.isDebugEnabled() && !slopAsyncSent) {
+            logger.warn("Skipped all nodes. Did not send hint for key: " + slop.getKey());
         }
     }
 
@@ -189,10 +205,10 @@ public class HintedHandoff {
         boolean persisted = false;
         for(Node node: handoffStrategy.routeHint(failedNode)) {
             int nodeId = node.getId();
-            if(logger.isDebugEnabled())
-                logger.debug("Trying to send hint to " + nodeId + " for key " + slop.getKey());
 
             if(!failedNodes.contains(node) && failureDetector.isAvailable(node)) {
+                if(logger.isDebugEnabled())
+                    logger.debug("Trying to send hint to " + nodeId + " for key " + slop.getKey());
                 Store<ByteArray, Slop, byte[]> slopStore = slopStores.get(nodeId);
                 Utils.notNull(slopStore);
                 long startNs = System.nanoTime();
@@ -230,6 +246,10 @@ public class HintedHandoff {
                                  + System.identityHashCode(slop.getKey()) + ") for " + failedNode
                                  + " to node " + node + (persisted ? " succeeded" : " failed")
                                  + " in " + (System.nanoTime() - startNs) + " ns");
+            } else {
+                if(logger.isDebugEnabled()) {
+                    logger.debug("Skipping node " + nodeId);
+                }
             }
         }
 

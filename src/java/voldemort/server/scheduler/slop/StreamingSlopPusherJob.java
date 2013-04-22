@@ -196,7 +196,8 @@ public class StreamingSlopPusherJob implements Runnable {
 
                     if(logger.isTraceEnabled())
                         logger.trace("Pushing slop for " + versioned.getValue().getNodeId()
-                                     + " and store  " + versioned.getValue().getStoreName());
+                                     + " and store  " + versioned.getValue().getStoreName()
+                                     + " of key: " + versioned.getValue().getKey());
 
                     if(failureDetector.isAvailable(node)) {
                         SynchronousQueue<Versioned<Slop>> slopQueue = slopQueues.get(nodeId);
