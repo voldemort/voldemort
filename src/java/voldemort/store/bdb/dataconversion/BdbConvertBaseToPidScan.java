@@ -42,7 +42,7 @@ public class BdbConvertBaseToPidScan extends AbstractBdbConversion {
         while(cursor.getNext(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS) {
             scanCount++;
             if(scanCount % 1000000 == 0)
-                logger.info("Converted " + scanCount + "entries in "
+                logger.info("Converted " + scanCount + " entries in "
                             + (System.currentTimeMillis() - startTime) / 1000 + " secs");
 
             // read the value as a versioned Object
@@ -90,7 +90,7 @@ public class BdbConvertBaseToPidScan extends AbstractBdbConversion {
             }
             keyCount++;
         }
-        logger.info("Completed " + scanCount + "entries and " + keyCount + " keys in "
+        logger.info("Completed " + scanCount + " entries and " + keyCount + " keys in "
                     + (System.currentTimeMillis() - startTime) / 1000 + " secs");
     }
 

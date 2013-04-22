@@ -223,6 +223,8 @@ public class VoldemortConfig implements Serializable {
     private int maxParallelStoresRebalancing;
     private boolean rebalancingOptimization;
     private boolean usePartitionScanForRebalance;
+    @Deprecated
+    // Should be removed once the proxy put implementation is stable.
     private boolean proxyPutsDuringRebalance;
 
     public VoldemortConfig(Properties props) {
