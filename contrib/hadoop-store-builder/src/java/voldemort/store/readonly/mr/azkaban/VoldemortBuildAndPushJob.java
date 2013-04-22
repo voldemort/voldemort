@@ -411,6 +411,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                            + "\nBut expected: "
                                                            + remoteStoreDef);
                             }
+                        } else {
+                            throw new RuntimeException("Your store definition does not match the store definition that is already in the cluster. Have: "
+                                                       + newStoreDef
+                                                       + "\nBut expected: "
+                                                       + remoteStoreDef);
                         }
                     }
 
@@ -788,6 +793,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                            + "\nBut expected: "
                                                            + remoteStoreDef);
                             }
+                        } else {
+                            throw new RuntimeException("Your store definition does not match the store definition that is already in the cluster. Have: "
+                                                       + newStoreDef
+                                                       + "\nBut expected: "
+                                                       + remoteStoreDef);
                         }
                     }
 
