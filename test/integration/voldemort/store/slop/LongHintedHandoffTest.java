@@ -28,7 +28,7 @@ import voldemort.utils.ByteArray;
 public class LongHintedHandoffTest {
 
     private final Logger logger = Logger.getLogger(LongHintedHandoffTest.class);
-    private static final Long MAX_TOTAL_TIME_MS = 1000L * 1 * 10;
+    private static final Long MAX_TOTAL_TIME_MS = 1000L * 60 * 10;
     private static final Integer KEY_LENGTH = 16;
     private static final Integer VALUE_LENGTH = 32;
     private HintedHandoffTestEnvironment testEnv;

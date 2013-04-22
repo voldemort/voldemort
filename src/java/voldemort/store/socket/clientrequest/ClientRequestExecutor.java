@@ -108,13 +108,14 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(timeoutMs == -1) {
             this.expiration = -1;
         } else {
+            long nowNs = System.nanoTime();
             if(elapsedNs > (Time.NS_PER_MS * timeoutMs)) {
-                this.expiration = System.nanoTime();
+                this.expiration = nowNs;
             } else {
-                this.expiration = System.nanoTime() + (Time.NS_PER_MS * timeoutMs) - elapsedNs;
+                this.expiration = nowNs + (Time.NS_PER_MS * timeoutMs) - elapsedNs;
             }
 
-            if(this.expiration < System.nanoTime())
+            if(this.expiration < nowNs)
                 throw new IllegalArgumentException("timeout " + timeoutMs + " not valid");
         }
 

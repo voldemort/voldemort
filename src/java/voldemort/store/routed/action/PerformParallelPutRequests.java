@@ -31,6 +31,7 @@ import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.InvalidMetadataException;
+import voldemort.store.PersistenceFailureException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
@@ -138,7 +139,7 @@ public class PerformParallelPutRequests extends
                     }
 
                     if(!responseHandledByMaster) {
-                        if(result instanceof UnreachableStoreException) {
+                        if(isSlopableFailure(response.getValue())) {
                             if(logger.isDebugEnabled())
                                 logger.debug("PUT {key:" + key + "} failed on node={id:"
                                              + node.getId() + ",host:" + node.getHost() + "}");
@@ -364,7 +365,7 @@ public class PerformParallelPutRequests extends
 
                     return;
                 }
-                if(response.getValue() instanceof UnreachableStoreException) {
+                if(isSlopableFailure(response.getValue())) {
                     pipelineData.getSynchronizer().tryDelegateSlop(response.getNode());
                 }
 
@@ -378,5 +379,10 @@ public class PerformParallelPutRequests extends
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
             }
         }
+    }
+
+    private boolean isSlopableFailure(Object object) {
+        return object instanceof UnreachableStoreException
+               || object instanceof PersistenceFailureException;
     }
 }
