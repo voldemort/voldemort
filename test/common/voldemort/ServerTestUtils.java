@@ -801,7 +801,7 @@ public class ServerTestUtils {
         boolean success = false;
         int retries = 10;
         Store<ByteArray, ?, ?> store = null;
-        while(retries-- > 0) {
+        while(retries-- > 0 && !success) {
             store = ServerTestUtils.getSocketStore(socketStoreFactory,
                                                    MetadataStore.METADATA_STORE_NAME,
                                                    node.getSocketPort());

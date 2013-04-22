@@ -24,6 +24,8 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.NotThreadsafe;
 import voldemort.store.AbstractStorageEngine;
@@ -44,6 +46,7 @@ import voldemort.versioning.Versioned;
  */
 public class InMemoryStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, T> {
 
+    private static final Logger logger = Logger.getLogger(InMemoryStorageEngine.class);
     private final ConcurrentMap<K, List<Versioned<V>>> map;
 
     public InMemoryStorageEngine(String name) {
@@ -62,6 +65,10 @@ public class InMemoryStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, 
 
     public boolean delete(K key) {
         return delete(key, null);
+    }
+
+    public ConcurrentMap<K, List<Versioned<V>>> getInnerMap() {
+        return map;
     }
 
     @Override
