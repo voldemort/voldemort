@@ -331,7 +331,7 @@ public class ClusterForkLiftToolTest {
 
         for(Node node: dstAdminClient.getAdminClientCluster().getNodes()) {
 
-            Iterator<Pair<ByteArray, Versioned<byte[]>>> entryItr = srcAdminClient.bulkFetchOps.fetchEntries(node.getId(),
+            Iterator<Pair<ByteArray, Versioned<byte[]>>> entryItr = dstAdminClient.bulkFetchOps.fetchEntries(node.getId(),
                                                                                                              MULTIPLE_VERSIONS_STORE_NAME,
                                                                                                              node.getPartitionIds(),
                                                                                                              null,

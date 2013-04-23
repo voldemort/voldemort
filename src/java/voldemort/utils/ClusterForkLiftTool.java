@@ -108,6 +108,18 @@ import com.google.common.collect.Lists;
  */
 public class ClusterForkLiftTool implements Runnable {
 
+    /*
+     * different modes available with the forklift tool
+     */
+    enum ForkLiftTaskMode {
+        global_resolution, /* Fetch data from all partitions and do resolution */
+        primary_resolution, /*
+                             * Fetch data from primary partition and do
+                             * resolution
+                             */
+        no_resolution /* fetch data from primary parition and do no resolution */
+    }
+
     private static Logger logger = Logger.getLogger(ClusterForkLiftTool.class);
     private static final int DEFAULT_MAX_PUTS_PER_SEC = 500;
     private static final int DEFAULT_PROGRESS_PERIOD_OPS = 100000;
@@ -199,12 +211,6 @@ public class ClusterForkLiftTool implements Runnable {
         logger.warn("List of stores that will be skipped :" + storesToSkip);
         storesList.removeAll(storesToSkip);
         return srcStoreDefMap;
-    }
-
-    enum ForkLiftTaskMode {
-        global_resolution,
-        primary_resolution,
-        no_resolution
     }
 
     /**
@@ -421,7 +427,7 @@ public class ClusterForkLiftTool implements Runnable {
 
     /**
      * Simply fetches the data for the partition from the primary replica and
-     * writes it into the destination cluster without resolving any of he
+     * writes it into the destination cluster without resolving any of the
      * conflicting values
      * 
      */
@@ -587,10 +593,10 @@ public class ClusterForkLiftTool implements Runnable {
               .withRequiredArg()
               .describedAs("partitionParallelism")
               .ofType(Integer.class);
-        parser.accepts("global-resolution",
-                       "Determines if a thorough global resolution needs to be done, by comparing all replicas. [Default: Fetch from primary alone ]");
-        parser.accepts("bypass-resolution",
-                       "Does no resolution writes all the versioned values. [Default: Fetch from primary alone ]");
+        parser.accepts("mode",
+                       "Determines if a thorough global resolution needs to be done, by comparing all replicas. [Default: "
+                               + ForkLiftTaskMode.primary_resolution.toString()
+                               + " Fetch from primary alone ]");
         return parser;
     }
 
@@ -645,11 +651,13 @@ public class ClusterForkLiftTool implements Runnable {
         }
 
         ForkLiftTaskMode mode;
-        mode = options.has("global-resolution") ? ForkLiftTaskMode.global_resolution
-                                               : ForkLiftTaskMode.primary_resolution;
+        mode = ForkLiftTaskMode.primary_resolution;
+        if(options.has("mode")) {
+            mode = Utils.getEnumFromString(ForkLiftTaskMode.class, (String) options.valueOf("mode"));
+            if(mode == null)
+                mode = ForkLiftTaskMode.primary_resolution;
 
-        mode = options.has("bypass-resolution") ? ForkLiftTaskMode.no_resolution
-                                               : ForkLiftTaskMode.primary_resolution;
+        }
 
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootstrapUrl,
                                                                    dstBootstrapUrl,
@@ -663,4 +671,5 @@ public class ClusterForkLiftTool implements Runnable {
         // TODO cleanly shut down the hanging threadpool
         System.exit(0);
     }
+
 }
