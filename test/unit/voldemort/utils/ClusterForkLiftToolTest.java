@@ -6,6 +6,7 @@ import static org.junit.Assert.fail;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -41,6 +42,7 @@ public class ClusterForkLiftToolTest {
     final static String STORES_XML = "test/common/voldemort/config/two-stores-replicated.xml";
     final static String PRIMARY_RESOLVING_STORE_NAME = "test";
     final static String GLOBALLY_RESOLVING_STORE_NAME = "best";
+    final static String MULTIPLE_VERSIONS_STORE_NAME = "no-res";
 
     private String srcBootStrapUrl;
     private String dstBootStrapUrl;
@@ -51,6 +53,7 @@ public class ClusterForkLiftToolTest {
 
     private StoreDefinition primaryResolvingStoreDef;
     private StoreDefinition globallyResolvingStoreDef;
+    private StoreDefinition nonResolvingStoreDef;
 
     private HashMap<String, String> kvPairs;
     private String firstKey;
@@ -123,6 +126,8 @@ public class ClusterForkLiftToolTest {
                                                               PRIMARY_RESOLVING_STORE_NAME);
             globallyResolvingStoreDef = StoreUtils.getStoreDef(storeDefs,
                                                                GLOBALLY_RESOLVING_STORE_NAME);
+
+            nonResolvingStoreDef = StoreUtils.getStoreDef(storeDefs, MULTIPLE_VERSIONS_STORE_NAME);
 
             srcfactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(srcBootStrapUrl)
                                                                         .setSelectors(1)
@@ -284,6 +289,65 @@ public class ClusterForkLiftToolTest {
                              entry.getValue());
             }
         }
+    }
+
+    @Test
+    public void testNoresolutionForkLift() throws Exception {
+
+        int versions = 0;
+
+        StoreInstance srcStoreInstance = new StoreInstance(srcCluster, nonResolvingStoreDef);
+
+        // generate a conflict on the master partition
+        int masterNode = srcStoreInstance.getNodeIdForPartitionId(srcStoreInstance.getMasterPartitionId(conflictKey.getBytes("UTF-8")));
+        VectorClock losingClock = new VectorClock(Lists.newArrayList(new ClockEntry((short) 0, 5)),
+                                                  System.currentTimeMillis());
+        VectorClock winningClock = new VectorClock(Lists.newArrayList(new ClockEntry((short) 1, 5)),
+                                                   losingClock.getTimestamp() + 1);
+        srcAdminClient.storeOps.putNodeKeyValue(MULTIPLE_VERSIONS_STORE_NAME,
+                                                new NodeValue<ByteArray, byte[]>(masterNode,
+                                                                                 new ByteArray(conflictKey.getBytes("UTF-8")),
+                                                                                 new Versioned<byte[]>("losing value".getBytes("UTF-8"),
+                                                                                                       losingClock)));
+        srcAdminClient.storeOps.putNodeKeyValue(MULTIPLE_VERSIONS_STORE_NAME,
+                                                new NodeValue<ByteArray, byte[]>(masterNode,
+                                                                                 new ByteArray(conflictKey.getBytes("UTF-8")),
+                                                                                 new Versioned<byte[]>("winning value".getBytes("UTF-8"),
+                                                                                                       winningClock)));
+        // perform the forklifting..
+        ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
+                                                                   dstBootStrapUrl,
+                                                                   10000,
+                                                                   1,
+                                                                   1000,
+                                                                   Lists.newArrayList(MULTIPLE_VERSIONS_STORE_NAME),
+                                                                   null,
+                                                                   ClusterForkLiftTool.ForkLiftTaskMode.no_resolution);
+        forkLiftTool.run();
+
+        AdminClient dstAdminClient = new AdminClient(dstBootStrapUrl,
+                                                     new AdminClientConfig(),
+                                                     new ClientConfig());
+
+        for(Node node: dstAdminClient.getAdminClientCluster().getNodes()) {
+
+            Iterator<Pair<ByteArray, Versioned<byte[]>>> entryItr = srcAdminClient.bulkFetchOps.fetchEntries(node.getId(),
+                                                                                                             MULTIPLE_VERSIONS_STORE_NAME,
+                                                                                                             node.getPartitionIds(),
+                                                                                                             null,
+                                                                                                             true);
+
+            while(entryItr.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> record = entryItr.next();
+                ByteArray key = record.getFirst();
+                Versioned<byte[]> versioned = record.getSecond();
+                versions++;
+
+            }
+
+        }
+        assertEquals("Both conflicting versions present", versions, 2);
+
     }
 
     @After
