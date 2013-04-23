@@ -165,12 +165,12 @@ public class PerformParallelPutRequests extends
                                                      + "} Start registering Slop(node:"
                                                      + node.getId() + ",host:" + node.getHost()
                                                      + ")");
-                                    hintedHandoff.sendHintSerial(node,
-                                                                 versionedCopy.getVersion(),
-                                                                 slop);
+                                    hintedHandoff.sendHintParallel(node,
+                                                                   versionedCopy.getVersion(),
+                                                                   slop);
                                     if(logger.isDebugEnabled())
                                         logger.debug("PUT {key:" + key
-                                                     + "} Finished registering Slop(node:"
+                                                     + "} Sent out request to register Slop(node: "
                                                      + node.getId() + ",host:" + node.getHost()
                                                      + ")");
                                 }

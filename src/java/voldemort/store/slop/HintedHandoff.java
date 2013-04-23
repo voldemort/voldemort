@@ -17,6 +17,7 @@
 package voldemort.store.slop;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -99,12 +100,9 @@ public class HintedHandoff {
      * @see #sendHintSerial(voldemort.cluster.Node,
      *      voldemort.versioning.Version, Slop)
      */
-    public void sendHintParallel(final Node failedNode, final Version version, final Slop slop) {
-        boolean slopAsyncSent = false;
-        final ByteArray slopKey = slop.makeKey();
-        Versioned<byte[]> slopVersioned = new Versioned<byte[]>(slopSerializer.toBytes(slop),
-                                                                version);
-        List<Node> nodes = handoffStrategy.routeHint(failedNode);
+    public void sendHintParallel(Node failedNode, Version version, Slop slop) {
+        List<Node> nodes = new LinkedList<Node>();
+        nodes.addAll(handoffStrategy.routeHint(failedNode));
         if(logger.isTraceEnabled()) {
             List<Integer> nodeIds = new ArrayList<Integer>();
             for(Node node: nodes) {
@@ -112,83 +110,75 @@ public class HintedHandoff {
             }
             logger.debug("Hint preference list: " + nodeIds.toString());
         }
-        for(final Node node: nodes) {
-            int nodeId = node.getId();
+        sendOneAsyncHint(slop.makeKey(), new Versioned<byte[]>(slopSerializer.toBytes(slop),
+                                                               version), nodes);
+    }
 
-            if(!failedNodes.contains(node) && failureDetector.isAvailable(node)) {
-                if(logger.isDebugEnabled())
-                    logger.debug("Sending an async hint to " + nodeId);
-                NonblockingStore nonblockingStore = nonblockingSlopStores.get(nodeId);
-                Utils.notNull(nonblockingStore);
-                final long startNs = System.nanoTime();
-
-                if(logger.isDebugEnabled())
-                    logger.debug("Slop attempt to write " + slop.getKey() + " for " + failedNode
-                                 + " to node " + node);
-
-                NonblockingStoreCallback callback = new NonblockingStoreCallback() {
-
-                    public void requestComplete(Object result, long requestTime) {
-                        logger.debug("Got response for async hint request");
-                        Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
-                                                                                               slopKey,
-                                                                                               result,
-                                                                                               requestTime);
-                        if(response.getValue() instanceof Exception) {
-                            if(response.getValue() instanceof ObsoleteVersionException) {
-                                // Ignore
-
-                                // TODO: Treating ObsoleteVersionException as
-                                // "success", but there is no logger.debug to
-                                // note that the slop was written, nor is there
-                                // a failureDetector.recordSuccess invocation.
-                            } else {
-                                // Use the blocking approach
-                                if(!failedNodes.contains(node))
-                                    failedNodes.add(node);
-                                if(response.getValue() instanceof UnreachableStoreException) {
-                                    UnreachableStoreException use = (UnreachableStoreException) response.getValue();
-
-                                    if(logger.isDebugEnabled()) {
-                                        logger.debug("Write of key " + slop.getKey() + " for "
-                                                     + failedNode + " to node " + node
-                                                     + " failed due to unreachable: "
-                                                     + use.getMessage());
-                                    }
-
-                                    failureDetector.recordException(node,
-                                                                    (System.nanoTime() - startNs)
-                                                                            / Time.NS_PER_MS,
-                                                                    use);
-                                }
-                                sendHintSerial(failedNode, version, slop);
-                            }
-                            return;
-                        }
-
-                        if(logger.isDebugEnabled())
-                            logger.debug("Slop write of key " + slop.getKey() + " for "
-                                         + failedNode + " to node " + node + " succeeded in "
-                                         + (System.nanoTime() - startNs) + " ns");
-
-                        failureDetector.recordSuccess(node, (System.nanoTime() - startNs)
-                                                            / Time.NS_PER_MS);
-
-                    }
-                };
-
-                nonblockingStore.submitPutRequest(slopKey, slopVersioned, null, callback, timeoutMs);
-                slopAsyncSent = true;
+    private void sendOneAsyncHint(final ByteArray slopKey,
+                                  final Versioned<byte[]> slopVersioned,
+                                  final List<Node> routeNodes) {
+        Node nodeToHostHint = null;
+        while(routeNodes.size() > 0) {
+            nodeToHostHint = routeNodes.remove(0);
+            if(!failedNodes.contains(nodeToHostHint) && failureDetector.isAvailable(nodeToHostHint)) {
                 break;
             } else {
-                if(logger.isDebugEnabled()) {
-                    logger.debug("Skipping node " + nodeId);
-                }
+                nodeToHostHint = null;
             }
         }
-        if(logger.isDebugEnabled() && !slopAsyncSent) {
-            logger.warn("Skipped all nodes. Did not send hint for key: " + slop.getKey());
+        if(nodeToHostHint == null) {
+            logger.error("trying to send an async hint but used up all nodes");
+            return;
         }
+        final Node node = nodeToHostHint;
+        int nodeId = node.getId();
+
+        NonblockingStore nonblockingStore = nonblockingSlopStores.get(nodeId);
+        Utils.notNull(nonblockingStore);
+
+        final Long startNs = System.nanoTime();
+        NonblockingStoreCallback callback = new NonblockingStoreCallback() {
+
+            @Override
+            public void requestComplete(Object result, long requestTime) {
+                Slop slop = null;
+                boolean loggerDebugEnabled = logger.isDebugEnabled();
+                if(loggerDebugEnabled) {
+                    slop = slopSerializer.toObject(slopVersioned.getValue());
+                }
+                Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
+                                                                                       slopKey,
+                                                                                       result,
+                                                                                       requestTime);
+                if(response.getValue() instanceof Exception
+                   && !(response.getValue() instanceof ObsoleteVersionException)) {
+                    if(!failedNodes.contains(node))
+                        failedNodes.add(node);
+                    if(response.getValue() instanceof UnreachableStoreException) {
+                        UnreachableStoreException use = (UnreachableStoreException) response.getValue();
+
+                        if(loggerDebugEnabled) {
+                            logger.debug("Write of key " + slop.getKey() + " for "
+                                         + slop.getNodeId() + " to node " + node
+                                         + " failed due to unreachable: " + use.getMessage());
+                        }
+
+                        failureDetector.recordException(node, (System.nanoTime() - startNs)
+                                                              / Time.NS_PER_MS, use);
+                    }
+                    sendOneAsyncHint(slopKey, slopVersioned, routeNodes);
+                }
+
+                if(loggerDebugEnabled)
+                    logger.debug("Slop write of key " + slop.getKey() + " for node "
+                                 + slop.getNodeId() + " to node " + node + " succeeded in "
+                                 + (System.nanoTime() - startNs) + " ns");
+
+                failureDetector.recordSuccess(node, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+
+            }
+        };
+        nonblockingStore.submitPutRequest(slopKey, slopVersioned, null, callback, timeoutMs);
     }
 
     /**
@@ -201,6 +191,7 @@ public class HintedHandoff {
      * @param slop The hint
      * @return True if persisted on another node, false otherwise
      */
+    @Deprecated
     public boolean sendHintSerial(Node failedNode, Version version, Slop slop) {
         boolean persisted = false;
         for(Node node: handoffStrategy.routeHint(failedNode)) {
