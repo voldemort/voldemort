@@ -93,7 +93,7 @@ public class RebalancePartitionsInfo {
         this.initialCluster = Utils.notNull(initialCluster);
     }
 
-    private synchronized void findMaxReplicaType(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList) {
+    private void findMaxReplicaType(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList) {
         for(Entry<String, HashMap<Integer, List<Integer>>> entry: storeToReplicaToPartitionList.entrySet()) {
             for(Entry<Integer, List<Integer>> replicaToPartitionList: entry.getValue().entrySet()) {
                 if(replicaToPartitionList.getKey() > this.maxReplica) {
@@ -103,7 +103,7 @@ public class RebalancePartitionsInfo {
         }
     }
 
-    public synchronized static RebalancePartitionsInfo create(String line) {
+    public static RebalancePartitionsInfo create(String line) {
         try {
             JsonReader reader = new JsonReader(new StringReader(line));
             Map<String, ?> map = reader.readObject();
@@ -113,7 +113,7 @@ public class RebalancePartitionsInfo {
         }
     }
 
-    public synchronized static RebalancePartitionsInfo create(Map<?, ?> map) {
+    public static RebalancePartitionsInfo create(Map<?, ?> map) {
         int stealerId = (Integer) map.get("stealerId");
         int donorId = (Integer) map.get("donorId");
         List<String> unbalancedStoreList = Utils.uncheckedCast(map.get("unbalancedStores"));
@@ -321,7 +321,7 @@ public class RebalancePartitionsInfo {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public synchronized boolean equals(Object o) {
         if(this == o)
             return true;
         if(o == null || getClass() != o.getClass())
@@ -348,7 +348,7 @@ public class RebalancePartitionsInfo {
     }
 
     @Override
-    public int hashCode() {
+    public synchronized int hashCode() {
         int result = stealerId;
         result = 31 * result + donorId;
         result = 31 * result + initialCluster.hashCode();
