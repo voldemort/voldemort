@@ -192,7 +192,7 @@ public class ClusterForkLiftToolTest {
                                                                    1000,
                                                                    Lists.newArrayList(PRIMARY_RESOLVING_STORE_NAME),
                                                                    null,
-                                                                   false);
+                                                                   ClusterForkLiftTool.ForkLiftTaskMode.primary_resolution);
         forkLiftTool.run();
 
         // do a write to destination cluster
@@ -258,7 +258,7 @@ public class ClusterForkLiftToolTest {
                                                                    1000,
                                                                    Lists.newArrayList(GLOBALLY_RESOLVING_STORE_NAME),
                                                                    null,
-                                                                   true);
+                                                                   ClusterForkLiftTool.ForkLiftTaskMode.global_resolution);
         forkLiftTool.run();
 
         // do a write to destination cluster

@@ -121,7 +121,7 @@ public class ClusterForkLiftTool implements Runnable {
     private final int progressOps;
     private final HashMap<String, StoreDefinition> srcStoreDefMap;
     private final List<Integer> partitionList;
-    private final boolean globalResolution;
+    private final ForkLiftTaskMode mode;
 
     public ClusterForkLiftTool(String srcBootstrapUrl,
                                String dstBootstrapUrl,
@@ -130,7 +130,7 @@ public class ClusterForkLiftTool implements Runnable {
                                int progressOps,
                                List<String> storesList,
                                List<Integer> partitions,
-                               boolean globalResolution) {
+                               ForkLiftTaskMode mode) {
         // set up AdminClient on source cluster
         this.srcAdminClient = new AdminClient(srcBootstrapUrl,
                                               new AdminClientConfig(),
@@ -142,6 +142,7 @@ public class ClusterForkLiftTool implements Runnable {
         props.put("streaming.platform.throttle.qps", maxPutsPerSecond);
         StreamingClientConfig config = new StreamingClientConfig(props);
         this.dstStreamingClient = new StreamingClient(config);
+        this.mode = mode;
 
         // determine and verify final list of stores to be forklifted over
         if(storesList != null) {
@@ -173,7 +174,7 @@ public class ClusterForkLiftTool implements Runnable {
         // set up thread pool to parallely forklift partitions
         this.workerPool = Executors.newFixedThreadPool(partitionParallelism);
         this.progressOps = progressOps;
-        this.globalResolution = globalResolution;
+
     }
 
     private HashMap<String, StoreDefinition> checkStoresOnBothSides() {
@@ -198,6 +199,12 @@ public class ClusterForkLiftTool implements Runnable {
         logger.warn("List of stores that will be skipped :" + storesToSkip);
         storesList.removeAll(storesToSkip);
         return srcStoreDefMap;
+    }
+
+    enum ForkLiftTaskMode {
+        global_resolution,
+        primary_resolution,
+        no_resolution
     }
 
     /**
@@ -412,6 +419,58 @@ public class ClusterForkLiftTool implements Runnable {
         }
     }
 
+    /**
+     * Simply fetches the data for the partition from the primary replica and
+     * writes it into the destination cluster without resolving any of he
+     * conflicting values
+     * 
+     */
+    class SinglePartitionNoResolutionForkLiftTask extends SinglePartitionForkLiftTask implements
+            Runnable {
+
+        SinglePartitionNoResolutionForkLiftTask(StoreInstance storeInstance,
+                                                int partitionId,
+                                                CountDownLatch latch) {
+            super(storeInstance, partitionId, latch);
+        }
+
+        @Override
+        public void run() {
+            String storeName = this.storeInstance.getStoreDefinition().getName();
+            long entriesForkLifted = 0;
+            try {
+                logger.info(workName + "Starting processing");
+                Iterator<Pair<ByteArray, Versioned<byte[]>>> entryItr = srcAdminClient.bulkFetchOps.fetchEntries(storeInstance.getNodeIdForPartitionId(this.partitionId),
+                                                                                                                 storeName,
+                                                                                                                 Lists.newArrayList(this.partitionId),
+                                                                                                                 null,
+                                                                                                                 true);
+
+                while(entryItr.hasNext()) {
+                    Pair<ByteArray, Versioned<byte[]>> record = entryItr.next();
+                    ByteArray key = record.getFirst();
+                    Versioned<byte[]> versioned = record.getSecond();
+                    dstStreamingClient.streamingPut(key, versioned);
+                    entriesForkLifted++;
+                    if(entriesForkLifted % progressOps == 0) {
+                        logger.info(workName + " fork lifted " + entriesForkLifted
+                                    + " entries successfully");
+                    }
+
+                }
+                logger.info(workName + "Completed processing " + entriesForkLifted + " records");
+
+            } catch(Exception e) {
+                // if for some reason this partition fails, we will have retry
+                // again for those partitions alone.
+                logger.error(workName + "Error forklifting data ", e);
+            } finally {
+                latch.countDown();
+            }
+
+        }
+    }
+
     @Override
     public void run() {
         final Cluster srcCluster = srcAdminClient.getAdminClientCluster();
@@ -441,17 +500,23 @@ public class ClusterForkLiftTool implements Runnable {
 
                 // submit work on every partition that is to be forklifted
                 for(Integer partitionId: partitionList) {
-                    if(this.globalResolution) {
+                    if(this.mode == ForkLiftTaskMode.global_resolution) {
                         // do thorough global resolution across replicas
                         SinglePartitionGloballyResolvingForkLiftTask work = new SinglePartitionGloballyResolvingForkLiftTask(storeInstance,
                                                                                                                              partitionId,
                                                                                                                              latch);
                         workerPool.submit(work);
-                    } else {
+                    } else if(this.mode == ForkLiftTaskMode.primary_resolution) {
                         // do the less cleaner, but much faster route
                         SinglePartitionPrimaryResolvingForkLiftTask work = new SinglePartitionPrimaryResolvingForkLiftTask(storeInstance,
                                                                                                                            partitionId,
                                                                                                                            latch);
+                        workerPool.submit(work);
+                    } else if(this.mode == ForkLiftTaskMode.no_resolution) {
+                        // do the less cleaner, but much faster route
+                        SinglePartitionNoResolutionForkLiftTask work = new SinglePartitionNoResolutionForkLiftTask(storeInstance,
+                                                                                                                   partitionId,
+                                                                                                                   latch);
                         workerPool.submit(work);
                     }
                 }
@@ -524,6 +589,8 @@ public class ClusterForkLiftTool implements Runnable {
               .ofType(Integer.class);
         parser.accepts("global-resolution",
                        "Determines if a thorough global resolution needs to be done, by comparing all replicas. [Default: Fetch from primary alone ]");
+        parser.accepts("bypass-resolution",
+                       "Does no resolution writes all the versioned values. [Default: Fetch from primary alone ]");
         return parser;
     }
 
@@ -577,6 +644,13 @@ public class ClusterForkLiftTool implements Runnable {
             progressOps = (Integer) options.valueOf("progress-period-ops");
         }
 
+        ForkLiftTaskMode mode;
+        mode = options.has("global-resolution") ? ForkLiftTaskMode.global_resolution
+                                               : ForkLiftTaskMode.primary_resolution;
+
+        mode = options.has("bypass-resolution") ? ForkLiftTaskMode.no_resolution
+                                               : ForkLiftTaskMode.primary_resolution;
+
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootstrapUrl,
                                                                    dstBootstrapUrl,
                                                                    maxPutsPerSecond,
@@ -584,7 +658,7 @@ public class ClusterForkLiftTool implements Runnable {
                                                                    progressOps,
                                                                    storesList,
                                                                    partitions,
-                                                                   options.has("global-resolution"));
+                                                                   mode);
         forkLiftTool.run();
         // TODO cleanly shut down the hanging threadpool
         System.exit(0);
