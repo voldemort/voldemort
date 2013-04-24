@@ -37,16 +37,13 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
- * RebalanceClusterUtils provides functions that balance the distribution of
+ * RepartitionUtils provides functions that balance the distribution of
  * partitions across a cluster.
  * 
  */
-public class RebalanceClusterUtils {
+public class RepartitionUtils {
 
-    // TODO: (refactor) Rename to "RepartitionUtils" and rename
-    // balanceTargetCluster to "repartition".
-
-    private static Logger logger = Logger.getLogger(RebalanceClusterUtils.class);
+    private static Logger logger = Logger.getLogger(RepartitionUtils.class);
 
     /**
      * Outputs an optimized cluster based on the existing cluster and the new
@@ -70,22 +67,22 @@ public class RebalanceClusterUtils {
      * @param greedySwapMaxPartitionsPerZone See RebalanceCLI.
      * @param maxContiguousPartitionsPerZone See RebalanceCLI.
      */
-    public static void balanceTargetCluster(final Cluster currentCluster,
-                                            final List<StoreDefinition> currentStoreDefs,
-                                            final Cluster targetCluster,
-                                            final List<StoreDefinition> targetStoreDefs,
-                                            final String outputDir,
-                                            final int attempts,
-                                            final boolean disableNodeBalancing,
-                                            final boolean disableZoneBalancing,
-                                            final boolean enableRandomSwaps,
-                                            final int randomSwapAttempts,
-                                            final int randomSwapSuccesses,
-                                            final boolean enableGreedySwaps,
-                                            final int greedySwapAttempts,
-                                            final int greedySwapMaxPartitionsPerNode,
-                                            final int greedySwapMaxPartitionsPerZone,
-                                            final int maxContiguousPartitionsPerZone) {
+    public static void repartition(final Cluster currentCluster,
+                                   final List<StoreDefinition> currentStoreDefs,
+                                   final Cluster targetCluster,
+                                   final List<StoreDefinition> targetStoreDefs,
+                                   final String outputDir,
+                                   final int attempts,
+                                   final boolean disableNodeBalancing,
+                                   final boolean disableZoneBalancing,
+                                   final boolean enableRandomSwaps,
+                                   final int randomSwapAttempts,
+                                   final int randomSwapSuccesses,
+                                   final boolean enableGreedySwaps,
+                                   final int greedySwapAttempts,
+                                   final int greedySwapMaxPartitionsPerNode,
+                                   final int greedySwapMaxPartitionsPerZone,
+                                   final int maxContiguousPartitionsPerZone) {
         PartitionBalance partitionBalance = new ClusterInstance(currentCluster, currentStoreDefs).getPartitionBalance();
         dumpAnalysisToFile(outputDir,
                            RebalanceUtils.initialClusterFileName + ".analysis",
@@ -621,7 +618,7 @@ public class RebalanceClusterUtils {
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
         double currentUtility = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
-                                                                                 .getUtility();
+                                                                             .getUtility();
 
         int successes = 0;
         for(int i = 0; i < randomSwapAttempts; i++) {
@@ -629,10 +626,10 @@ public class RebalanceClusterUtils {
             for(Integer zoneId: zoneIds) {
                 Cluster shuffleResults = swapRandomPartitionsWithinZone(returnCluster, zoneId);
                 double nextUtility = new ClusterInstance(shuffleResults, storeDefs).getPartitionBalance()
-                                                                                       .getUtility();
+                                                                                   .getUtility();
                 if(nextUtility < currentUtility) {
-                    System.out.println("Swap improved max-min ratio: " + currentUtility
-                                       + " -> " + nextUtility + " (improvement " + successes
+                    System.out.println("Swap improved max-min ratio: " + currentUtility + " -> "
+                                       + nextUtility + " (improvement " + successes
                                        + " on swap attempt " + i + " in zone " + zoneId + ")");
                     successes++;
                     returnCluster = shuffleResults;

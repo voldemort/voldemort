@@ -62,6 +62,9 @@ import com.google.common.collect.Lists;
  */
 public class ClusterInstanceTest {
 
+    // TODO: Rename class/file to PartitionBalanceTest. Change tests to directly
+    // use PartitionBalance rather than go through ClusterInstance.
+
     public List<StoreDefinition> getZZ111StoreDefs() {
 
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();

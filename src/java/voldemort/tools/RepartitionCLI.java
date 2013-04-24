@@ -30,7 +30,7 @@ import org.apache.log4j.Logger;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.RebalanceClusterUtils;
+import voldemort.utils.RepartitionUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -250,22 +250,22 @@ public class RepartitionCLI {
             printUsageAndDie("Provided arguments for generate greedy swaps but did not enable the feature");
         }
 
-        RebalanceClusterUtils.balanceTargetCluster(currentCluster,
-                                                   currentStoreDefs,
-                                                   targetCluster,
-                                                   targetStoreDefs,
-                                                   outputDir,
-                                                   attempts,
-                                                   disableNodeBalancing,
-                                                   disableZoneBalancing,
-                                                   enableRandomSwaps,
-                                                   randomSwapAttempts,
-                                                   randomSwapSuccesses,
-                                                   enableGreedySwaps,
-                                                   greedySwapAttempts,
-                                                   greedyMaxPartitionsPerNode,
-                                                   greedyMaxPartitionsPerZone,
-                                                   maxContiguousPartitionsPerZone);
+        RepartitionUtils.repartition(currentCluster,
+                                              currentStoreDefs,
+                                              targetCluster,
+                                              targetStoreDefs,
+                                              outputDir,
+                                              attempts,
+                                              disableNodeBalancing,
+                                              disableZoneBalancing,
+                                              enableRandomSwaps,
+                                              randomSwapAttempts,
+                                              randomSwapSuccesses,
+                                              enableGreedySwaps,
+                                              greedySwapAttempts,
+                                              greedyMaxPartitionsPerNode,
+                                              greedyMaxPartitionsPerZone,
+                                              maxContiguousPartitionsPerZone);
 
     }
 }
