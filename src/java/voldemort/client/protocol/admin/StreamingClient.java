@@ -499,13 +499,11 @@ public class StreamingClient {
 
                 } catch(InterruptedException e1) {
                     MARKED_BAD = true;
-                    logger.error("Recovery Callback failed");
-                    e1.printStackTrace();
+                    logger.error("Recovery Callback failed", e1);
                     throw new VoldemortException("Recovery Callback failed");
                 } catch(ExecutionException e1) {
                     MARKED_BAD = true;
-                    logger.error("Recovery Callback failed");
-                    e1.printStackTrace();
+                    logger.error("Recovery Callback failed", e1);
                     throw new VoldemortException("Recovery Callback failed");
                 }
 
@@ -532,6 +530,45 @@ public class StreamingClient {
     public synchronized void commitToVoldemort() {
         entriesProcessed = 0;
         commitToVoldemort(storeNames);
+    }
+
+    /**
+     * Reset streaming session by unmarking it as bad
+     */
+    public void unmarkBad() {
+        MARKED_BAD = false;
+    }
+
+    /**
+     * mark a node as blacklisted
+     * 
+     * @param NodeId Integer node id of the node to be balcklisted
+     */
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    public void blacklistNode(int nodeId) {
+        Collection<Node> nodesInCluster = adminClient.getAdminClientCluster().getNodes();
+
+        if(blackListedNodes == null) {
+            blackListedNodes = new ArrayList();
+        }
+        blackListedNodes.add(nodeId);
+
+        for(Node node: nodesInCluster) {
+
+            if(node.getId() == nodeId) {
+                nodesToStream.remove(node);
+                break;
+            }
+
+        }
+
+        for(String store: storeNames) {
+            SocketAndStreams sands = nodeIdStoreToSocketAndStreams.get(new Pair(store, nodeId));
+            close(sands.getSocket());
+            SocketDestination destination = nodeIdStoreToSocketRequest.get(new Pair(store, nodeId));
+            streamingSocketPool.checkin(destination, sands);
+        }
     }
 
     /**
@@ -574,7 +611,7 @@ public class StreamingClient {
                     }
 
                 } catch(IOException e) {
-                    e.printStackTrace();
+                    logger.error("Exception during commit", e);
                     hasError = true;
                 }
             }
@@ -591,13 +628,11 @@ public class StreamingClient {
 
             } catch(InterruptedException e1) {
                 MARKED_BAD = true;
-                logger.error("Recovery Callback failed");
-                e1.printStackTrace();
+                logger.error("Recovery Callback failed", e1);
                 throw new VoldemortException("Recovery Callback failed");
             } catch(ExecutionException e1) {
                 MARKED_BAD = true;
-                logger.error("Recovery Callback failed");
-                e1.printStackTrace();
+                logger.error("Recovery Callback failed", e1);
                 throw new VoldemortException("Recovery Callback failed");
             }
         } else {
@@ -611,11 +646,11 @@ public class StreamingClient {
 
             } catch(InterruptedException e1) {
 
-                logger.warn("Checkpoint callback failed!");
-                e1.printStackTrace();
+                logger.warn("Checkpoint callback failed!", e1);
+
             } catch(ExecutionException e1) {
-                logger.warn("Checkpoint callback failed!");
-                e1.printStackTrace();
+                logger.warn("Checkpoint callback failed!", e1);
+
             }
         }
 
