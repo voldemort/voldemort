@@ -503,8 +503,8 @@ public class StreamingClient {
                     throw new VoldemortException("Recovery Callback failed");
                 } catch(ExecutionException e1) {
                     MARKED_BAD = true;
-                    logger.error("Recovery Callback failed", e1);
-                    throw new VoldemortException("Recovery Callback failed");
+                    logger.error("Recovery Callback failed during execution", e1);
+                    throw new VoldemortException("Recovery Callback failed during execution");
                 }
 
                 e.printStackTrace();
@@ -632,8 +632,8 @@ public class StreamingClient {
                 throw new VoldemortException("Recovery Callback failed");
             } catch(ExecutionException e1) {
                 MARKED_BAD = true;
-                logger.error("Recovery Callback failed", e1);
-                throw new VoldemortException("Recovery Callback failed");
+                logger.error("Recovery Callback failed during execution", e1);
+                throw new VoldemortException("Recovery Callback failed during execution");
             }
         } else {
             if(logger.isDebugEnabled()) {
@@ -645,12 +645,9 @@ public class StreamingClient {
                 future.get();
 
             } catch(InterruptedException e1) {
-
                 logger.warn("Checkpoint callback failed!", e1);
-
             } catch(ExecutionException e1) {
-                logger.warn("Checkpoint callback failed!", e1);
-
+                logger.warn("Checkpoint callback failed during execution!", e1);
             }
         }
 
@@ -674,7 +671,7 @@ public class StreamingClient {
         } catch(InterruptedException e1) {
             logger.warn("Reset check point interrupted" + e1);
         } catch(ExecutionException e1) {
-            logger.warn("Reset check point interrupted" + e1);
+            logger.warn("Reset check point interrupted during execution" + e1);
         }
     }
 
