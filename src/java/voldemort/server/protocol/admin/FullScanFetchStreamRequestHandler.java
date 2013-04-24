@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.ErrorCodeMapper;
@@ -31,7 +32,6 @@ import voldemort.store.stats.StreamingStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
-import voldemort.utils.StoreInstance;
 import voldemort.utils.Utils;
 
 /**
@@ -102,7 +102,7 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
      * @return true iff key is needed.
      */
     protected boolean isKeyNeeded(byte[] key) {
-        if(!StoreInstance.checkKeyBelongsToPartition(nodeId,
+        if(!StoreRoutingPlan.checkKeyBelongsToPartition(nodeId,
                                                      key,
                                                      replicaToPartitionList,
                                                      initialCluster,
@@ -134,7 +134,7 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
                 entryAccepted = true;
             }
         } else {
-            if(!StoreInstance.checkKeyBelongsToNode(key, nodeId, initialCluster, storeDef)) {
+            if(!StoreRoutingPlan.checkKeyBelongsToNode(key, nodeId, initialCluster, storeDef)) {
                 entryAccepted = true;
             }
         }

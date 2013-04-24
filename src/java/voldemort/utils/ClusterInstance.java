@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import voldemort.cluster.Cluster;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
 
 import com.google.common.collect.Maps;
@@ -146,7 +147,7 @@ public class ClusterInstance {
         }
 
         for(StoreDefinition storeDefinition: uniqueStores.keySet()) {
-            StoreInstance storeInstance = new StoreInstance(cluster, storeDefinition);
+            StoreRoutingPlan storeInstance = new StoreRoutingPlan(cluster, storeDefinition);
 
             builder.append("\n");
             builder.append("Store exemplar: " + storeDefinition.getName() + "\n");

@@ -24,6 +24,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
@@ -162,7 +163,8 @@ public class ClusterForkLiftToolTest {
     @Test
     public void testPrimaryResolvingForkLift() throws Exception {
 
-        StoreInstance srcStoreInstance = new StoreInstance(srcCluster, primaryResolvingStoreDef);
+        StoreRoutingPlan srcStoreInstance = new StoreRoutingPlan(srcCluster,
+                                                                 primaryResolvingStoreDef);
 
         // populate data on the source cluster..
         for(Map.Entry<String, String> entry: kvPairs.entrySet()) {
@@ -228,7 +230,8 @@ public class ClusterForkLiftToolTest {
     @Test
     public void testGloballyResolvingForkLift() throws Exception {
 
-        StoreInstance srcStoreInstance = new StoreInstance(srcCluster, globallyResolvingStoreDef);
+        StoreRoutingPlan srcStoreInstance = new StoreRoutingPlan(srcCluster,
+                                                                 globallyResolvingStoreDef);
 
         // populate data on the source cluster..
         for(Map.Entry<String, String> entry: kvPairs.entrySet()) {
@@ -296,7 +299,7 @@ public class ClusterForkLiftToolTest {
 
         int versions = 0;
 
-        StoreInstance srcStoreInstance = new StoreInstance(srcCluster, nonResolvingStoreDef);
+        StoreRoutingPlan srcStoreInstance = new StoreRoutingPlan(srcCluster, nonResolvingStoreDef);
 
         // generate a conflict on the master partition
         int masterNode = srcStoreInstance.getNodeIdForPartitionId(srcStoreInstance.getMasterPartitionId(conflictKey.getBytes("UTF-8")));

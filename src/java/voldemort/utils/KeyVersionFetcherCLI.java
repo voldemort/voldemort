@@ -45,6 +45,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
 import voldemort.versioning.Versioned;
 
@@ -149,10 +150,10 @@ public class KeyVersionFetcherCLI {
 
     public class KeyVersionFetcher implements Callable<String> {
 
-        private final StoreInstance storeInstance;
+        private final StoreRoutingPlan storeInstance;
         private final byte[] key;
 
-        KeyVersionFetcher(StoreInstance storeInstance, byte[] key) {
+        KeyVersionFetcher(StoreRoutingPlan storeInstance, byte[] key) {
             this.storeInstance = storeInstance;
             this.key = key;
         }
@@ -199,7 +200,7 @@ public class KeyVersionFetcherCLI {
             return true;
         }
 
-        StoreInstance storeInstance = new StoreInstance(cluster, storeDefinition);
+        StoreRoutingPlan storeInstance = new StoreRoutingPlan(cluster, storeDefinition);
         BufferedReader keyReader = null;
         BufferedWriter kvWriter = null;
         try {

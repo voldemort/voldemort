@@ -26,6 +26,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.QueryKeyResult;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.routed.ReadRepairer;
 import voldemort.utils.ConsistencyFix.BadKey;
@@ -51,7 +52,7 @@ abstract class AbstractConsistencyFixer {
     private static final int fakeNodeID = Integer.MIN_VALUE;
 
     protected final BadKey badKey;
-    protected final StoreInstance storeInstance;
+    protected final StoreRoutingPlan storeInstance;
     protected final AdminClient adminClient;
     protected final QueryKeyResult orphanedValues;
 
@@ -62,7 +63,7 @@ abstract class AbstractConsistencyFixer {
      * @param consistencyFix
      * @param badKeyQOut
      */
-    AbstractConsistencyFixer(BadKey badKey, StoreInstance storeInstance, AdminClient adminClient) {
+    AbstractConsistencyFixer(BadKey badKey, StoreRoutingPlan storeInstance, AdminClient adminClient) {
         this(badKey, storeInstance, adminClient, null);
     }
 
@@ -77,7 +78,7 @@ abstract class AbstractConsistencyFixer {
      * @param orphanedValues Set to null if no orphaned values to be included.
      */
     AbstractConsistencyFixer(BadKey badKey,
-                             StoreInstance storeInstance,
+                             StoreRoutingPlan storeInstance,
                              AdminClient adminClient,
                              QueryKeyResult orphanedValues) {
         this.badKey = badKey;

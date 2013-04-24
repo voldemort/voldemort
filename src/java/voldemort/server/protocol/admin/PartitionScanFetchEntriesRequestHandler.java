@@ -23,6 +23,7 @@ import java.io.IOException;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.ErrorCodeMapper;
@@ -32,7 +33,6 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
-import voldemort.utils.StoreInstance;
 import voldemort.versioning.Versioned;
 
 import com.google.protobuf.Message;
@@ -86,7 +86,7 @@ public class PartitionScanFetchEntriesRequestHandler extends PartitionScanFetchS
                 // Check the current node contains the partition as the
                 // requested replicatype
                 if(!fetchedPartitions.contains(currentPartition)
-                   && StoreInstance.checkPartitionBelongsToNode(currentPartition,
+                   && StoreRoutingPlan.checkPartitionBelongsToNode(currentPartition,
                                                                 currentReplicaType,
                                                                 nodeId,
                                                                 initialCluster,

@@ -41,6 +41,7 @@ import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.common.nio.ByteBufferBackedInputStream;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
@@ -68,7 +69,6 @@ import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.ReflectUtils;
-import voldemort.utils.StoreInstance;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -1088,7 +1088,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ByteArray key = entry.getFirst();
                 Versioned<byte[]> value = entry.getSecond();
                 throttler.maybeThrottle(key.length() + valueSize(value));
-                if(StoreInstance.checkKeyBelongsToPartition(metadataStore.getNodeId(),
+                if(StoreRoutingPlan.checkKeyBelongsToPartition(metadataStore.getNodeId(),
                                                             key.get(),
                                                             replicaToPartitionList,
                                                             request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))

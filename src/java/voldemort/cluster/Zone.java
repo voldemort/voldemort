@@ -18,7 +18,7 @@ public class Zone implements Serializable {
     }
 
     public Zone() {
-        this.zoneId = 0;
+        this.zoneId = DEFAULT_ZONE_ID;
         this.proximityList = new LinkedList<Integer>();
     }
 

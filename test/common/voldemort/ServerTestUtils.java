@@ -302,6 +302,17 @@ public class ServerTestUtils {
         return new Cluster("test-cluster", nodes);
     }
 
+    public static Cluster getLocalZonedCluster(int numberOfNodes,
+                                               int numberOfZones,
+                                               int[] nodeToZoneMapping,
+                                               int[][] partitionMapping) {
+        return getLocalZonedCluster(numberOfNodes,
+                                    numberOfZones,
+                                    nodeToZoneMapping,
+                                    partitionMapping,
+                                    findFreePorts(3 * numberOfNodes));
+    }
+
     /**
      * Returns a cluster with <b>numberOfNodes</b> nodes in <b>numberOfZones</b>
      * zones. It is important that <b>numberOfNodes</b> be divisible by
@@ -315,15 +326,14 @@ public class ServerTestUtils {
     public static Cluster getLocalZonedCluster(int numberOfNodes,
                                                int numberOfZones,
                                                int[] nodeToZoneMapping,
-                                               int[][] partitionMapping) {
+                                               int[][] partitionMapping,
+                                               int[] ports) {
 
         if(numberOfZones > 0 && numberOfNodes > 0 && numberOfNodes % numberOfZones != 0) {
             throw new VoldemortException("The number of nodes (" + numberOfNodes
                                          + ") is not divisible by number of zones ("
                                          + numberOfZones + ")");
         }
-
-        int[] ports = findFreePorts(3 * numberOfNodes);
 
         List<Node> nodes = new ArrayList<Node>();
         for(int i = 0; i < numberOfNodes; i++) {

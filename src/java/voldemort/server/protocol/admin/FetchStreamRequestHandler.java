@@ -30,6 +30,7 @@ import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.cluster.Cluster;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
@@ -42,7 +43,6 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
-import voldemort.utils.StoreInstance;
 import voldemort.utils.Time;
 import voldemort.xml.ClusterMapper;
 
@@ -90,7 +90,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected boolean fetchOrphaned;
 
-    protected final StoreInstance storeInstance;
+    protected final StoreRoutingPlan storeInstance;
 
     protected FetchStreamRequestHandler(VAdminProto.FetchPartitionEntriesRequest request,
                                         MetadataStore metadataStore,
@@ -119,7 +119,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         } else {
             this.initialCluster = metadataStore.getCluster();
         }
-        this.storeInstance = new StoreInstance(this.initialCluster, this.storeDef);
+        this.storeInstance = new StoreRoutingPlan(this.initialCluster, this.storeDef);
 
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         if(request.hasFilter()) {

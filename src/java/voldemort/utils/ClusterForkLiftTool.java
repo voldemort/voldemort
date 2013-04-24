@@ -28,6 +28,7 @@ import voldemort.client.protocol.admin.StreamingClient;
 import voldemort.client.protocol.admin.StreamingClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.versioning.ChainedResolver;
@@ -223,10 +224,10 @@ public class ClusterForkLiftTool implements Runnable {
 
         protected int partitionId;
         protected CountDownLatch latch;
-        protected StoreInstance storeInstance;
+        protected StoreRoutingPlan storeInstance;
         protected String workName;
 
-        SinglePartitionForkLiftTask(StoreInstance storeInstance,
+        SinglePartitionForkLiftTask(StoreRoutingPlan storeInstance,
                                     int partitionId,
                                     CountDownLatch latch) {
             this.partitionId = partitionId;
@@ -249,7 +250,7 @@ public class ClusterForkLiftTool implements Runnable {
     class SinglePartitionGloballyResolvingForkLiftTask extends SinglePartitionForkLiftTask
             implements Runnable {
 
-        SinglePartitionGloballyResolvingForkLiftTask(StoreInstance storeInstance,
+        SinglePartitionGloballyResolvingForkLiftTask(StoreRoutingPlan storeInstance,
                                                      int partitionId,
                                                      CountDownLatch latch) {
             super(storeInstance, partitionId, latch);
@@ -350,7 +351,7 @@ public class ClusterForkLiftTool implements Runnable {
     class SinglePartitionPrimaryResolvingForkLiftTask extends SinglePartitionForkLiftTask implements
             Runnable {
 
-        SinglePartitionPrimaryResolvingForkLiftTask(StoreInstance storeInstance,
+        SinglePartitionPrimaryResolvingForkLiftTask(StoreRoutingPlan storeInstance,
                                                     int partitionId,
                                                     CountDownLatch latch) {
             super(storeInstance, partitionId, latch);
@@ -434,7 +435,7 @@ public class ClusterForkLiftTool implements Runnable {
     class SinglePartitionNoResolutionForkLiftTask extends SinglePartitionForkLiftTask implements
             Runnable {
 
-        SinglePartitionNoResolutionForkLiftTask(StoreInstance storeInstance,
+        SinglePartitionNoResolutionForkLiftTask(StoreRoutingPlan storeInstance,
                                                 int partitionId,
                                                 CountDownLatch latch) {
             super(storeInstance, partitionId, latch);
@@ -501,8 +502,8 @@ public class ClusterForkLiftTool implements Runnable {
                 }, true);
 
                 final CountDownLatch latch = new CountDownLatch(srcCluster.getNumberOfPartitions());
-                StoreInstance storeInstance = new StoreInstance(srcCluster,
-                                                                srcStoreDefMap.get(store));
+                StoreRoutingPlan storeInstance = new StoreRoutingPlan(srcCluster,
+                                                                      srcStoreDefMap.get(store));
 
                 // submit work on every partition that is to be forklifted
                 for(Integer partitionId: partitionList) {

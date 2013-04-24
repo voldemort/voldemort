@@ -37,6 +37,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
@@ -49,7 +50,6 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
-import voldemort.utils.StoreInstance;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -240,7 +240,7 @@ public abstract class AbstractRebalanceTest {
 
             List<Integer> partitions = routing.getPartitionList(keyBytes.get());
 
-            if(StoreInstance.checkKeyBelongsToPartition(partitions,
+            if(StoreRoutingPlan.checkKeyBelongsToPartition(partitions,
                                                         node.getPartitionIds(),
                                                         flattenedPresentTuples)) {
                 List<Versioned<byte[]>> values = store.get(keyBytes, null);

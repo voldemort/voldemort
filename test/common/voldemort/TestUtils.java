@@ -25,8 +25,11 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -35,6 +38,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
@@ -308,6 +312,39 @@ public class TestUtils {
             }
         }
         return diffPartition;
+    }
+
+    /**
+     * Given a StoreRoutingPlan generates upto numKeysPerPartition keys per
+     * partition
+     * 
+     * @param numKeysPerPartition
+     * @return a hashmap of partition to list of keys generated
+     */
+    public static HashMap<Integer, List<byte[]>> createPartitionsKeys(StoreRoutingPlan routingPlan,
+                                                                      int numKeysPerPartition) {
+        HashMap<Integer, List<byte[]>> partitionToKeyList = new HashMap<Integer, List<byte[]>>();
+        Set<Integer> partitionsPending = new HashSet<Integer>(routingPlan.getCluster()
+                                                                         .getNumberOfPartitions());
+        for(int partition = 0; partition < routingPlan.getCluster().getNumberOfPartitions(); partition++) {
+            partitionsPending.add(partition);
+            partitionToKeyList.put(partition, new ArrayList<byte[]>(numKeysPerPartition));
+        }
+
+        for(int key = 0;; key++) {
+            byte[] keyBytes = ("key" + key).getBytes();
+            int partition = routingPlan.getMasterPartitionId(keyBytes);
+            if(partitionToKeyList.get(partition).size() < numKeysPerPartition) {
+                partitionToKeyList.get(partition).add(keyBytes);
+                if(partitionToKeyList.get(partition).size() == numKeysPerPartition) {
+                    partitionsPending.remove(partition);
+                }
+            }
+            if(partitionsPending.size() == 0) {
+                break;
+            }
+        }
+        return partitionToKeyList;
     }
 
     /**
