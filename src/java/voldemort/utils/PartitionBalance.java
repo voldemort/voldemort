@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 
 import com.google.common.collect.Maps;
@@ -197,51 +198,139 @@ public class PartitionBalance {
         return naryMaxMin;
     }
 
+    /**
+     * Return utility of current partition balance. The utility value ought to
+     * be minimized.
+     * 
+     * In the future, could offer different utility functions (and select
+     * between them via enumeration value passed into method or constant
+     * provided to constructor). The exact utility function is a combination of
+     * this method and of ZoneBalanceStats.getUtility.
+     * 
+     * The current utility function is biased towards balancing IOPS (zone
+     * primary balance) over capacity (Nary partition balance). Such bias
+     * affects repartitioning algorithms that consider multiple options before
+     * selecting "the best" option (e.g., greedy repartitioning algorithms for a
+     * repartitioning and deciding among multiple repartitioning attempts).
+     * 
+     * @return A measure of utility that ought to be minimized.
+     */
+    public double getUtility() {
+
+        return 2 * getZonePrimaryMaxMin() + getNaryMaxMin();
+    }
+
     @Override
     public String toString() {
         return verbose;
     }
 
+    private class ZoneBalanceStats {
+
+        int minVal;
+        int maxVal;
+        int partitionCount;
+        int nodeCount;
+
+        ZoneBalanceStats() {
+            minVal = Integer.MAX_VALUE;
+            maxVal = Integer.MIN_VALUE;
+            partitionCount = 0;
+            nodeCount = 0;
+        }
+
+        public void addPartitions(int partitions) {
+            if(partitions > maxVal)
+                maxVal = partitions;
+            if(partitions < minVal)
+                minVal = partitions;
+
+            partitionCount += partitions;
+            nodeCount++;
+        }
+
+        private double getAvg() {
+            if(nodeCount > 0) {
+                return partitionCount / nodeCount;
+            }
+            return 0;
+        }
+
+        private double getMaxAvgRatio() {
+            if(getAvg() == 0) {
+                return maxVal;
+            }
+            return maxVal * 1.0 / getAvg();
+        }
+
+        private double getMaxMinRatio() {
+            if(getAvg() == 0) {
+                return maxVal;
+            }
+            return maxVal * 1.0 / minVal;
+        }
+
+        /**
+         * Determins utility metric to be minimized.
+         * 
+         * @return utility metric that ought to be minimized.
+         */
+        public double getUtility() {
+            return getMaxMinRatio();
+        }
+
+        public String dumpStats() {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("\tMin: " + minVal + "\n");
+            builder.append("\tAvg: " + getAvg() + "\n");
+            builder.append("\tMax: " + maxVal + "\n");
+            builder.append("\t\tMax/Avg: " + getMaxAvgRatio() + "\n");
+            builder.append("\t\tMax/Min: " + getMaxMinRatio() + "\n");
+            return builder.toString();
+        }
+
+    }
+
     /**
+     * Summarizes balance for the given nodeId to PartitionCount.
      * 
      * @param nodeIdToPartitionCount
-     * @param title
-     * @return
+     * @param title for use in pretty string
+     * @return Pair: getFirst() is utility value to be minimized, getSecond() is
+     *         pretty summary string of balance
      */
     private Pair<Double, String> summarizeBalance(final Map<Integer, Integer> nodeIdToPartitionCount,
                                                   String title) {
         StringBuilder builder = new StringBuilder();
-        Set<Integer> nodeIds = cluster.getNodeIds();
-
         builder.append("\n" + title + "\n");
-        int minVal = Integer.MAX_VALUE;
-        int maxVal = Integer.MIN_VALUE;
-        int aggCount = 0;
-        for(Integer nodeId: nodeIds) {
-            int curCount = nodeIdToPartitionCount.get(nodeId);
-            builder.append("\tNode ID: " + nodeId + " : " + curCount + " ("
-                           + cluster.getNodeById(nodeId).getHost() + ")\n");
-            aggCount += curCount;
-            if(curCount > maxVal)
-                maxVal = curCount;
-            if(curCount < minVal)
-                minVal = curCount;
-        }
-        int avgVal = aggCount / nodeIdToPartitionCount.size();
-        double maxAvgRatio = maxVal * 1.0 / avgVal;
-        if(avgVal == 0) {
-            maxAvgRatio = maxVal;
-        }
-        double maxMinRatio = maxVal * 1.0 / minVal;
-        if(minVal == 0) {
-            maxMinRatio = maxVal;
-        }
-        builder.append("\tMin: " + minVal + "\n");
-        builder.append("\tAvg: " + avgVal + "\n");
-        builder.append("\tMax: " + maxVal + "\n");
-        builder.append("\t\tMax/Avg: " + maxAvgRatio + "\n");
-        builder.append("\t\tMax/Min: " + maxMinRatio + "\n");
 
-        return Pair.create(maxMinRatio, builder.toString());
+        Map<Integer, ZoneBalanceStats> zoneToBalanceStats = new HashMap<Integer, ZoneBalanceStats>();
+        for(Integer zoneId: cluster.getZoneIds()) {
+            zoneToBalanceStats.put(zoneId, new ZoneBalanceStats());
+        }
+
+        for(Node node: cluster.getNodes()) {
+            int curCount = nodeIdToPartitionCount.get(node.getId());
+            builder.append("\tNode ID: " + node.getId() + " : " + curCount + " (" + node.getHost()
+                           + ")\n");
+            zoneToBalanceStats.get(node.getZoneId()).addPartitions(curCount);
+        }
+
+        // double utilityToBeMinimized = Double.MIN_VALUE;
+        double utilityToBeMinimized = 0;
+        for(Integer zoneId: cluster.getZoneIds()) {
+            builder.append("Zone " + zoneId + "\n");
+            builder.append(zoneToBalanceStats.get(zoneId).dumpStats());
+            utilityToBeMinimized += zoneToBalanceStats.get(zoneId).getUtility();
+            /*- 
+             * Another utility function to consider 
+            if(zoneToBalanceStats.get(zoneId).getMaxMinRatio() > utilityToBeMinimized) {
+                utilityToBeMinimized = zoneToBalanceStats.get(zoneId).getUtility();
+            }
+             */
+        }
+
+        return Pair.create(utilityToBeMinimized, builder.toString());
     }
 }

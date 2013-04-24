@@ -21,12 +21,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
-import voldemort.client.rebalance.RebalanceClusterPlan;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
@@ -42,9 +43,8 @@ import com.google.common.collect.Maps;
  */
 public class RebalanceClusterUtils {
 
-    // TODO: (refactor) Improve upon the name "RebalanceClusterUtils". All of
-    // these util methods support moving partitions around a cluster to achieve
-    // better balance.
+    // TODO: (refactor) Rename to "RepartitionUtils" and rename
+    // balanceTargetCluster to "repartition".
 
     private static Logger logger = Logger.getLogger(RebalanceClusterUtils.class);
 
@@ -55,10 +55,10 @@ public class RebalanceClusterUtils {
      * @param currentCluster Current cluster metadata
      * @param targetCluster The target cluster metadata which contains the nodes
      *        of the current cluster + new nodes with empty partitions
-     * @param storeDefs List of store definitions
+     * @param currentStoreDefs List of store definitions
      * @param outputDir The output directory where we'll store the cluster
      *        metadata ( if not null )
-     * @param maxTriesRebalancing See RebalanceCLI.
+     * @param attempts See RebalanceCLI.
      * @param generateEnableXzonePrimary See RebalanceCLI.
      * @param generateEnableXzoneNary See RebalanceCLI.
      * @param enableRandomSwaps See RebalanceCLI.
@@ -71,15 +71,13 @@ public class RebalanceClusterUtils {
      * @param maxContiguousPartitionsPerZone See RebalanceCLI.
      */
     public static void balanceTargetCluster(final Cluster currentCluster,
+                                            final List<StoreDefinition> currentStoreDefs,
                                             final Cluster targetCluster,
-                                            final List<StoreDefinition> storeDefs,
+                                            final List<StoreDefinition> targetStoreDefs,
                                             final String outputDir,
-                                            final int maxTriesRebalancing,
-                                            final boolean generateDisablePrimaryBalancing,
-                                            final boolean generateEnableXzonePrimary,
-                                            final boolean generateEnableAnyXzoneNary,
-                                            final boolean generateEnableLastResortXzoneNary,
-                                            final boolean enableXzoneShuffle,
+                                            final int attempts,
+                                            final boolean disableNodeBalancing,
+                                            final boolean disableZoneBalancing,
                                             final boolean enableRandomSwaps,
                                             final int randomSwapAttempts,
                                             final int randomSwapSuccesses,
@@ -88,15 +86,16 @@ public class RebalanceClusterUtils {
                                             final int greedySwapMaxPartitionsPerNode,
                                             final int greedySwapMaxPartitionsPerZone,
                                             final int maxContiguousPartitionsPerZone) {
-        PartitionBalance partitionBalance = new ClusterInstance(currentCluster, storeDefs).getPartitionBalance();
+        PartitionBalance partitionBalance = new ClusterInstance(currentCluster, currentStoreDefs).getPartitionBalance();
         dumpAnalysisToFile(outputDir,
                            RebalanceUtils.initialClusterFileName + ".analysis",
                            partitionBalance.toString());
 
         Cluster minCluster = targetCluster;
-        double minMaxMinRatio = Double.MAX_VALUE;
 
-        for(int numTries = 0; numTries < maxTriesRebalancing; numTries++) {
+        double minUtility = Double.MAX_VALUE;
+
+        for(int attempt = 0; attempt < attempts; attempt++) {
             Cluster nextCluster = targetCluster;
 
             if(maxContiguousPartitionsPerZone > 0) {
@@ -104,28 +103,23 @@ public class RebalanceClusterUtils {
                                                                            maxContiguousPartitionsPerZone);
             }
 
-            if(!generateDisablePrimaryBalancing) {
-                nextCluster = balancePrimaryPartitionsPerNode(nextCluster,
-                                                              storeDefs,
-                                                              generateEnableXzonePrimary,
-                                                              generateEnableAnyXzoneNary,
-                                                              generateEnableLastResortXzoneNary);
+            if(!disableNodeBalancing) {
+                nextCluster = balancePrimaryPartitions(nextCluster, !disableZoneBalancing);
+
             }
 
             if(enableRandomSwaps) {
                 nextCluster = randomShufflePartitions(nextCluster,
-                                                      enableXzoneShuffle,
                                                       randomSwapAttempts,
                                                       randomSwapSuccesses,
-                                                      storeDefs);
+                                                      targetStoreDefs);
             }
             if(enableGreedySwaps) {
                 nextCluster = greedyShufflePartitions(nextCluster,
-                                                      enableXzoneShuffle,
                                                       greedySwapAttempts,
                                                       greedySwapMaxPartitionsPerNode,
                                                       greedySwapMaxPartitionsPerZone,
-                                                      storeDefs);
+                                                      targetStoreDefs);
             }
 
             if(!validateClusterUpdate(currentCluster, nextCluster)) {
@@ -134,19 +128,19 @@ public class RebalanceClusterUtils {
             }
 
             System.out.println("-------------------------\n");
-            partitionBalance = new ClusterInstance(nextCluster, storeDefs).getPartitionBalance();
-            double currentMaxMinRatio = partitionBalance.getNaryMaxMin();
-            System.out.println("Optimization number " + numTries + ": " + currentMaxMinRatio
+            partitionBalance = new ClusterInstance(nextCluster, targetStoreDefs).getPartitionBalance();
+            double currentUtility = partitionBalance.getUtility();
+            System.out.println("Optimization number " + attempt + ": " + currentUtility
                                + " max/min ratio");
 
-            if(currentMaxMinRatio <= minMaxMinRatio) {
-                minMaxMinRatio = currentMaxMinRatio;
+            if(currentUtility <= minUtility) {
+                minUtility = currentUtility;
                 minCluster = nextCluster;
 
                 dumpClusterToFile(outputDir,
-                                  RebalanceUtils.finalClusterFileName + numTries,
+                                  RebalanceUtils.finalClusterFileName + attempt,
                                   minCluster);
-                dumpAnalysisToFile(outputDir, RebalanceUtils.finalClusterFileName + numTries
+                dumpAnalysisToFile(outputDir, RebalanceUtils.finalClusterFileName + attempt
                                               + ".analysis", partitionBalance.toString());
             }
             System.out.println("-------------------------\n");
@@ -154,7 +148,7 @@ public class RebalanceClusterUtils {
 
         System.out.println("\n==========================");
         System.out.println("Final distribution");
-        partitionBalance = new ClusterInstance(minCluster, storeDefs).getPartitionBalance();
+        partitionBalance = new ClusterInstance(minCluster, targetStoreDefs).getPartitionBalance();
         System.out.println(partitionBalance);
 
         dumpClusterToFile(outputDir, RebalanceUtils.finalClusterFileName, minCluster);
@@ -170,28 +164,19 @@ public class RebalanceClusterUtils {
      * number of nodes in that zone.
      * 
      * @param targetCluster
+     * @param targetPartitionsPerZone
      * @return A map of zoneId to list of target number of partitions per node
      *         within zone.
      */
-    public static HashMap<Integer, List<Integer>> getBalancedNumberOfPrimaryPartitionsPerNodePerZone(final Cluster targetCluster) {
-        HashMap<Integer, List<Integer>> numPartitionsPerNodePerZone = Maps.newHashMap();
+    public static HashMap<Integer, List<Integer>> getBalancedNumberOfPrimaryPartitionsPerNode(final Cluster targetCluster,
+                                                                                              Map<Integer, Integer> targetPartitionsPerZone) {
+        HashMap<Integer, List<Integer>> numPartitionsPerNode = Maps.newHashMap();
         for(Integer zoneId: targetCluster.getZoneIds()) {
-            int numNodesInZone = targetCluster.getNumberOfNodesInZone(zoneId);
-            int numPartitionsInZone = targetCluster.getNumberOfPartitionsInZone(zoneId);
-            int floorPartitionsPerNodeInZone = numPartitionsInZone / numNodesInZone;
-            int numNodesInZoneWithCeil = numPartitionsInZone
-                                         - (numNodesInZone * floorPartitionsPerNodeInZone);
-
-            ArrayList<Integer> partitionsOnNode = new ArrayList<Integer>(numNodesInZone);
-            for(int i = 0; i < numNodesInZoneWithCeil; i++) {
-                partitionsOnNode.add(i, floorPartitionsPerNodeInZone + 1);
-            }
-            for(int i = numNodesInZoneWithCeil; i < numNodesInZone; i++) {
-                partitionsOnNode.add(i, floorPartitionsPerNodeInZone);
-            }
-            numPartitionsPerNodePerZone.put(zoneId, partitionsOnNode);
+            List<Integer> partitionsOnNode = peanutButterList(targetCluster.getNumberOfNodesInZone(zoneId),
+                                                              targetPartitionsPerZone.get(zoneId));
+            numPartitionsPerNode.put(zoneId, partitionsOnNode);
         }
-        return numPartitionsPerNodePerZone;
+        return numPartitionsPerNode;
     }
 
     /**
@@ -200,14 +185,14 @@ public class RebalanceClusterUtils {
      * node needs to donate or steal primary partitions.
      * 
      * @param targetCluster
+     * @param numPartitionsPerNodePerZone
      * @return a Pair. First element is donorNodes, second element is
      *         stealerNodes. Each element in the pair is a HashMap of Node to
      *         Integer where the integer value is the number of partitions to
      *         store.
      */
-    public static Pair<HashMap<Node, Integer>, HashMap<Node, Integer>> getDonorsAndStealersForBalancedPrimaries(final Cluster targetCluster) {
-        HashMap<Integer, List<Integer>> numPartitionsPerNodePerZone = getBalancedNumberOfPrimaryPartitionsPerNodePerZone(targetCluster);
-
+    public static Pair<HashMap<Node, Integer>, HashMap<Node, Integer>> getDonorsAndStealersForBalance(final Cluster targetCluster,
+                                                                                                      Map<Integer, List<Integer>> numPartitionsPerNodePerZone) {
         HashMap<Node, Integer> donorNodes = Maps.newHashMap();
         HashMap<Node, Integer> stealerNodes = Maps.newHashMap();
 
@@ -246,35 +231,44 @@ public class RebalanceClusterUtils {
     }
 
     /**
-     * Balance the number of primary partitions per node per zone. Balanced
-     * means that the number of primary partitions per node within a zone are
-     * all within one of one another. A common usage of this method is to assign
-     * partitions to newly added nodes that do not have any partitions yet.
      * 
-     * @param targetCluster Target cluster metadata ( which contains old nodes +
-     *        new nodes [ empty partitions ])
-     * @param storeDefs List of store definitions
-     * @param generateEnableXzonePrimary See RebalanceCLI.
-     * @param generateEnableAnyXzoneNary See RebalanceCLI.
-     * @param generateEnableLastResortXzoneNary See RebalanceCLI.
-     * @return Return new cluster metadata
+     * @param targetCluster
+     * @param balanceZones indicates whether or not number of primary partitions
+     *        per zone should be balanced.
+     * @return
      */
-    public static Cluster balancePrimaryPartitionsPerNode(final Cluster targetCluster,
-                                                          final List<StoreDefinition> storeDefs,
-                                                          final boolean generateEnableXzonePrimary,
-                                                          final boolean generateEnableAnyXzoneNary,
-                                                          final boolean generateEnableLastResortXzoneNary) {
-        System.out.println("Balance number of partitions per node within a zone.");
-        System.out.println("numPartitionsPerZone");
-        for(int zoneId: targetCluster.getZoneIds()) {
-            System.out.println(zoneId + " : " + targetCluster.getNumberOfPartitionsInZone(zoneId));
-        }
-        System.out.println("numNodesPerZone");
-        for(int zoneId: targetCluster.getZoneIds()) {
-            System.out.println(zoneId + " : " + targetCluster.getNumberOfNodesInZone(zoneId));
+    public static Cluster balancePrimaryPartitions(final Cluster targetCluster, boolean balanceZones) {
+        System.out.println("Balance number of partitions across all nodes and zones.");
+
+        Map<Integer, Integer> targetPartitionsPerZone;
+        if(balanceZones) {
+            targetPartitionsPerZone = peanutButterMap(targetCluster.getZoneIds(),
+                                                      targetCluster.getNumberOfPartitions());
+
+            System.out.println("numPartitionsPerZone");
+            for(int zoneId: targetCluster.getZoneIds()) {
+                System.out.println(zoneId + " : "
+                                   + targetCluster.getNumberOfPartitionsInZone(zoneId) + " -> "
+                                   + targetPartitionsPerZone.get(zoneId));
+            }
+            System.out.println("numNodesPerZone");
+            for(int zoneId: targetCluster.getZoneIds()) {
+                System.out.println(zoneId + " : " + targetCluster.getNumberOfNodesInZone(zoneId));
+            }
+        } else {
+            // Keep number of partitions per zone the same.
+            targetPartitionsPerZone = new HashMap<Integer, Integer>();
+            for(int zoneId: targetCluster.getZoneIds()) {
+                targetPartitionsPerZone.put(zoneId,
+                                            targetCluster.getNumberOfPartitionsInZone(zoneId));
+            }
         }
 
-        Pair<HashMap<Node, Integer>, HashMap<Node, Integer>> donorsAndStealers = getDonorsAndStealersForBalancedPrimaries(targetCluster);
+        HashMap<Integer, List<Integer>> numPartitionsPerNodeByZone = getBalancedNumberOfPrimaryPartitionsPerNode(targetCluster,
+                                                                                                                 targetPartitionsPerZone);
+
+        Pair<HashMap<Node, Integer>, HashMap<Node, Integer>> donorsAndStealers = getDonorsAndStealersForBalance(targetCluster,
+                                                                                                                numPartitionsPerNodeByZone);
         HashMap<Node, Integer> donorNodes = donorsAndStealers.getFirst();
         List<Node> donorNodeKeys = new ArrayList<Node>(donorNodes.keySet());
 
@@ -300,13 +294,10 @@ public class RebalanceClusterUtils {
                 for(Node donorNode: donorNodeKeys) {
                     Node currentDonorNode = returnCluster.getNodeById(donorNode.getId());
 
-                    if(!generateEnableXzonePrimary
-                       && (currentDonorNode.getZoneId() != stealerNode.getZoneId())) {
-                        // Only steal from donor nodes within same zone
-                        continue;
-                    }
                     // Only steal from donor nodes with extra partitions
-                    if(currentDonorNode.getNumberOfPartitions() == donorNodes.get(donorNode)) {
+                    int partitionsToDonate = currentDonorNode.getNumberOfPartitions()
+                                             - donorNodes.get(donorNode);
+                    if(partitionsToDonate <= 0) {
                         continue;
                     }
 
@@ -318,54 +309,16 @@ public class RebalanceClusterUtils {
                                                                                           stealerNode.getId(),
                                                                                           Lists.newArrayList(donorPartition));
 
-                        int crossZoneMoves = 0;
-                        if(!generateEnableAnyXzoneNary) {
-                            // getCrossZoneMoves can be a *slow* call. E.g., for
-                            // an 11 node cluster, the call takes ~230 ms,
-                            // whereas for a 39 node cluster the call takes ~10
-                            // s (40x longer).
-                            long startTimeNs = System.nanoTime();
-                            crossZoneMoves = RebalanceUtils.getCrossZoneMoves(intermediateCluster,
-                                                                              new RebalanceClusterPlan(returnCluster,
-                                                                                                       intermediateCluster,
-                                                                                                       storeDefs,
-                                                                                                       true));
-                            System.out.println("getCrossZoneMoves took "
-                                               + (System.nanoTime() - startTimeNs) + " ns.");
-                        }
-                        if(crossZoneMoves == 0) {
-                            returnCluster = intermediateCluster;
-                            partitionsToSteal--;
-                            System.out.println("Stealer node " + stealerNode.getId()
-                                               + ", donor node " + currentDonorNode.getId()
-                                               + ", partition stolen " + donorPartition);
+                        returnCluster = intermediateCluster;
+                        partitionsToSteal--;
+                        partitionsToDonate--;
+                        System.out.println("Stealer node " + stealerNode.getId() + ", donor node "
+                                           + currentDonorNode.getId() + ", partition stolen "
+                                           + donorPartition);
+
+                        if(partitionsToSteal == 0 || partitionsToDonate == 0)
                             break;
-                        } else {
-                            System.out.println("Stealer node " + stealerNode.getId()
-                                               + ", donor node " + currentDonorNode.getId()
-                                               + ", attempted to steal partition " + donorPartition
-                                               + " however,  getCrossZoneMoves did NOT return 0!");
-
-                            if(donorPartition == donorPartitions.get(donorPartitions.size() - 1)) {
-                                partitionsToSteal--;
-                                if(generateEnableLastResortXzoneNary) {
-                                    returnCluster = intermediateCluster;
-                                    System.out.println("Stealer node "
-                                                       + stealerNode.getId()
-                                                       + ", donor node "
-                                                       + currentDonorNode.getId()
-                                                       + ", is stealing partition "
-                                                       + donorPartition
-                                                       + " in spite of the fact that getCrossZoneMoves did NOT return 0!");
-                                } else {
-                                    System.out.println("Stealer node "
-                                                       + stealerNode.getId()
-                                                       + " is reducing number of partitions to steal because getCrossZoneMoves did not return 0 for all possible partitions.");
-                                }
-                            }
-                        }
                     }
-
                     if(partitionsToSteal == 0)
                         break;
                 }
@@ -375,8 +328,6 @@ public class RebalanceClusterUtils {
         return returnCluster;
     }
 
-    // TODO: Add a similar method that rebalances a cluster to ensure that no
-    // Node hosts contiguous partition IDs (rather than doing so at zone level).
     /**
      * Loops over cluster and repeatedly tries to break up contiguous runs of
      * partitions. After each phase of breaking up contiguous partitions, random
@@ -488,6 +439,8 @@ public class RebalanceClusterUtils {
         return returnCluster;
     }
 
+    // TODO: Deprecate. Replace with call to balancePrimaryPartitions (with
+    // boolean set to true).
     /**
      * Ensures that all zones have within 1 number of partitions.
      * 
@@ -606,10 +559,14 @@ public class RebalanceClusterUtils {
      */
     public static Cluster swapRandomPartitionsWithinZone(final Cluster targetCluster,
                                                          final int zoneId) {
-        List<Integer> nodeIdsInZone = new ArrayList<Integer>(targetCluster.getNodeIdsInZone(zoneId));
-
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
         Random r = new Random();
+
+        List<Integer> nodeIdsInZone = new ArrayList<Integer>(targetCluster.getNodeIdsInZone(zoneId));
+
+        if(nodeIdsInZone.size() == 0) {
+            return returnCluster;
+        }
 
         // Select random stealer node
         int stealerNodeOffset = r.nextInt(nodeIdsInZone.size());
@@ -618,6 +575,9 @@ public class RebalanceClusterUtils {
         // Select random stealer partition
         List<Integer> stealerPartitions = returnCluster.getNodeById(stealerNodeId)
                                                        .getPartitionIds();
+        if(stealerPartitions.size() == 0) {
+            return targetCluster;
+        }
         int stealerPartitionOffset = r.nextInt(stealerPartitions.size());
         int stealerPartitionId = stealerPartitions.get(stealerPartitionOffset);
 
@@ -654,42 +614,29 @@ public class RebalanceClusterUtils {
      * @return
      */
     public static Cluster randomShufflePartitions(final Cluster targetCluster,
-                                                  final boolean enableXzoneShuffle,
                                                   final int randomSwapAttempts,
                                                   final int randomSwapSuccesses,
                                                   List<StoreDefinition> storeDefs) {
         List<Integer> zoneIds = new ArrayList<Integer>(targetCluster.getZoneIds());
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
-        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
-                                                                                 .getNaryMaxMin();
+        double currentUtility = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
+                                                                                 .getUtility();
 
         int successes = 0;
         for(int i = 0; i < randomSwapAttempts; i++) {
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
             for(Integer zoneId: zoneIds) {
                 Cluster shuffleResults = swapRandomPartitionsWithinZone(returnCluster, zoneId);
-                double nextMaxMinRatio = new ClusterInstance(shuffleResults, storeDefs).getPartitionBalance()
-                                                                                       .getNaryMaxMin();
-                if(nextMaxMinRatio < currentMaxMinRatio) {
-                    System.out.println("Swap improved max-min ratio: " + currentMaxMinRatio
-                                       + " -> " + nextMaxMinRatio + " (improvement " + successes
+                double nextUtility = new ClusterInstance(shuffleResults, storeDefs).getPartitionBalance()
+                                                                                       .getUtility();
+                if(nextUtility < currentUtility) {
+                    System.out.println("Swap improved max-min ratio: " + currentUtility
+                                       + " -> " + nextUtility + " (improvement " + successes
                                        + " on swap attempt " + i + " in zone " + zoneId + ")");
-                    int xZoneMoves = 0;
-                    if(!enableXzoneShuffle) {
-                        xZoneMoves = RebalanceUtils.getCrossZoneMoves(shuffleResults,
-                                                                      new RebalanceClusterPlan(returnCluster,
-                                                                                               shuffleResults,
-                                                                                               storeDefs,
-                                                                                               true));
-                    }
-                    if(xZoneMoves == 0) {
-                        successes++;
-                        returnCluster = shuffleResults;
-                        currentMaxMinRatio = nextMaxMinRatio;
-                    } else {
-                        System.out.println("BUT, swap resulted in a cross zone move and so is ignored.");
-                    }
+                    successes++;
+                    returnCluster = shuffleResults;
+                    currentUtility = nextUtility;
                 }
             }
             if(successes >= randomSwapSuccesses) {
@@ -701,6 +648,8 @@ public class RebalanceClusterUtils {
         return returnCluster;
     }
 
+    // TODO: Switch greedy algorithms to do cross-zone moves. Or, at least offer
+    // the option of doing greedy swaps within zone or across all nodes.
     /**
      * Within a single zone, tries swapping every partition with every other
      * partition (ignoring those on the same node) and chooses the best swap.
@@ -718,8 +667,8 @@ public class RebalanceClusterUtils {
         List<Integer> nodeIdsInZone = new ArrayList<Integer>(targetCluster.getNodeIdsInZone(zoneId));
 
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
-        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
-                                                                                 .getNaryMaxMin();
+        double currentUtility = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
+                                                                             .getUtility();
         int nodeIdA = -1;
         int nodeIdB = -1;
         int partitionIdA = -1;
@@ -747,11 +696,11 @@ public class RebalanceClusterUtils {
                                                             partitionIdEh,
                                                             nodeIdBee,
                                                             partitionIdBee);
-                        double swapMaxMinRatio = new ClusterInstance(swapResult, storeDefs).getPartitionBalance()
-                                                                                           .getNaryMaxMin();
-                        if(swapMaxMinRatio < currentMaxMinRatio) {
-                            currentMaxMinRatio = swapMaxMinRatio;
-                            System.out.println(" -> " + currentMaxMinRatio);
+                        double swapUtility = new ClusterInstance(swapResult, storeDefs).getPartitionBalance()
+                                                                                       .getUtility();
+                        if(swapUtility < currentUtility) {
+                            currentUtility = swapUtility;
+                            System.out.println(" -> " + currentUtility);
                             nodeIdA = nodeIdEh;
                             partitionIdA = partitionIdEh;
                             nodeIdB = nodeIdBee;
@@ -792,8 +741,8 @@ public class RebalanceClusterUtils {
         System.out.println("GreedyRandom : nodeIdsInZone:" + nodeIdsInZone);
 
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
-        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
-                                                                                 .getNaryMaxMin();
+        double currentUtility = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
+                                                                             .getUtility();
         int nodeIdA = -1;
         int nodeIdB = -1;
         int partitionIdA = -1;
@@ -830,11 +779,11 @@ public class RebalanceClusterUtils {
                                                         partitionIdEh,
                                                         nodeIdBee,
                                                         partitionIdBee);
-                    double swapMaxMinRatio = new ClusterInstance(swapResult, storeDefs).getPartitionBalance()
-                                                                                       .getNaryMaxMin();
-                    if(swapMaxMinRatio < currentMaxMinRatio) {
-                        currentMaxMinRatio = swapMaxMinRatio;
-                        System.out.println(" -> " + currentMaxMinRatio);
+                    double swapUtility = new ClusterInstance(swapResult, storeDefs).getPartitionBalance()
+                                                                                   .getUtility();
+                    if(swapUtility < currentUtility) {
+                        currentUtility = swapUtility;
+                        System.out.println(" -> " + currentUtility);
                         nodeIdA = nodeIdEh;
                         partitionIdA = partitionIdEh;
                         nodeIdB = nodeIdBee;
@@ -869,7 +818,6 @@ public class RebalanceClusterUtils {
      * @return
      */
     public static Cluster greedyShufflePartitions(final Cluster targetCluster,
-                                                  final boolean enableXzoneShuffle,
                                                   final int greedyAttempts,
                                                   final int greedySwapMaxPartitionsPerNode,
                                                   final int greedySwapMaxPartitionsPerZone,
@@ -877,8 +825,8 @@ public class RebalanceClusterUtils {
         List<Integer> zoneIds = new ArrayList<Integer>(targetCluster.getZoneIds());
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
-        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
-                                                                                 .getNaryMaxMin();
+        double currentUtility = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
+                                                                             .getUtility();
 
         for(int i = 0; i < greedyAttempts; i++) {
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
@@ -890,30 +838,18 @@ public class RebalanceClusterUtils {
                                                                               greedySwapMaxPartitionsPerNode,
                                                                               greedySwapMaxPartitionsPerZone,
                                                                               storeDefs);
-                double nextMaxMinRatio = new ClusterInstance(shuffleResults, storeDefs).getPartitionBalance()
-                                                                                       .getNaryMaxMin();
+                double nextUtility = new ClusterInstance(shuffleResults, storeDefs).getPartitionBalance()
+                                                                                   .getUtility();
 
-                if(nextMaxMinRatio == currentMaxMinRatio) {
+                if(nextUtility == currentUtility) {
                     System.out.println("Not improving for zone: " + zoneId);
                 } else {
-                    System.out.println("Swap improved max-min ratio: " + currentMaxMinRatio
-                                       + " -> " + nextMaxMinRatio + " (swap attempt " + i
-                                       + " in zone " + zoneId + ")");
+                    System.out.println("Swap improved max-min ratio: " + currentUtility + " -> "
+                                       + nextUtility + " (swap attempt " + i + " in zone " + zoneId
+                                       + ")");
 
-                    int xZoneMoves = 0;
-                    if(!enableXzoneShuffle) {
-                        xZoneMoves = RebalanceUtils.getCrossZoneMoves(shuffleResults,
-                                                                      new RebalanceClusterPlan(returnCluster,
-                                                                                               shuffleResults,
-                                                                                               storeDefs,
-                                                                                               true));
-                    }
-                    if(xZoneMoves == 0) {
-                        returnCluster = shuffleResults;
-                        currentMaxMinRatio = nextMaxMinRatio;
-                    } else {
-                        System.out.println("BUT, swap resulted in a cross zone move and so is ignored.");
-                    }
+                    returnCluster = shuffleResults;
+                    currentUtility = nextUtility;
                 }
             }
         }
@@ -983,6 +919,61 @@ public class RebalanceClusterUtils {
             }
         }
         return itemsToRemove;
+    }
+
+    /**
+     * This method returns a list that "evenly" (within one) distributes some
+     * number of elements (peanut butter) over some number of buckets (bread
+     * slices).
+     * 
+     * @param breadSlices The number of buckets over which to evenly distribute
+     *        the elements.
+     * @param peanutButter The number of elements to distribute.
+     * @return A list of size breadSlices each integer entry of which indicates
+     *         the number of elements
+     */
+    public static List<Integer> peanutButterList(int breadSlices, int peanutButter) {
+        if(breadSlices < 1) {
+            throw new IllegalArgumentException("Argument breadSlices must be greater than 0 : "
+                                               + breadSlices);
+        }
+        if(peanutButter < 0) {
+            throw new IllegalArgumentException("Argument peanutButter must be zero or more : "
+                                               + peanutButter);
+        }
+        int floorPB = peanutButter / breadSlices;
+        int breadWithMorePB = peanutButter - (breadSlices * floorPB);
+
+        ArrayList<Integer> pbList = new ArrayList<Integer>(breadSlices);
+        for(int i = 0; i < breadWithMorePB; i++) {
+            pbList.add(i, floorPB + 1);
+        }
+        for(int i = breadWithMorePB; i < breadSlices; i++) {
+            pbList.add(i, floorPB);
+        }
+        return pbList;
+    }
+
+    /**
+     * This method returns a map that "evenly" (within one) distributes some
+     * number of elements (peanut butter) over some number of buckets (bread
+     * slices).
+     * 
+     * @param set The collection of objects over which which to evenly
+     *        distribute the elements.
+     * @param peanutButter The number of elements to distribute.
+     * @return A Map with keys specified by breadSlices each integer entry of
+     *         which indicates the number of elements
+     */
+    public static Map<Integer, Integer> peanutButterMap(Set<Integer> breadSlices, int peanutButter) {
+        Map<Integer, Integer> pbMap = new HashMap<Integer, Integer>();
+        List<Integer> pbList = peanutButterList(breadSlices.size(), peanutButter);
+        int offset = 0;
+        for(Integer breadSlice: breadSlices) {
+            pbMap.put(breadSlice, pbList.get(offset));
+            offset++;
+        }
+        return pbMap;
     }
 
     public static void dumpClusterToFile(String outputDir, String fileName, Cluster cluster) {

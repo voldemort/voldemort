@@ -79,6 +79,7 @@ public class RebalanceUtilsTest extends TestCase {
 
     }
 
+    // TODO: Move to a new class : RepartitionUtilsTest
     public void testRemoveItemsToSplitListEvenly() {
         // input of size 5
         List<Integer> input = new ArrayList<Integer>();
@@ -227,4 +228,55 @@ public class RebalanceUtilsTest extends TestCase {
         assertEquals(output.size(), 0);
         System.out.println("20 : " + output);
     }
+
+    // TODO: Move to a new class : RepartitionUtilsTest
+    public void testPeanutButterList() {
+
+        List<Integer> pbList;
+
+        pbList = RebalanceClusterUtils.peanutButterList(4, 4);
+        assertEquals(pbList.size(), 4);
+        assertEquals(pbList.get(0), new Integer(1));
+        assertEquals(pbList.get(1), new Integer(1));
+        assertEquals(pbList.get(2), new Integer(1));
+        assertEquals(pbList.get(3), new Integer(1));
+
+        pbList = RebalanceClusterUtils.peanutButterList(4, 6);
+        assertEquals(pbList.size(), 4);
+        assertEquals(pbList.get(0), new Integer(2));
+        assertEquals(pbList.get(1), new Integer(2));
+        assertEquals(pbList.get(2), new Integer(1));
+        assertEquals(pbList.get(3), new Integer(1));
+
+        pbList = RebalanceClusterUtils.peanutButterList(4, 3);
+        assertEquals(pbList.size(), 4);
+        assertEquals(pbList.get(0), new Integer(1));
+        assertEquals(pbList.get(1), new Integer(1));
+        assertEquals(pbList.get(2), new Integer(1));
+        assertEquals(pbList.get(3), new Integer(0));
+
+        pbList = RebalanceClusterUtils.peanutButterList(4, 0);
+        assertEquals(pbList.size(), 4);
+        assertEquals(pbList.get(0), new Integer(0));
+        assertEquals(pbList.get(1), new Integer(0));
+        assertEquals(pbList.get(2), new Integer(0));
+        assertEquals(pbList.get(3), new Integer(0));
+
+        boolean caught = false;
+        try {
+            pbList = RebalanceClusterUtils.peanutButterList(0, 10);
+        } catch(IllegalArgumentException iae) {
+            caught = true;
+        }
+        assertTrue(caught);
+
+        caught = false;
+        try {
+            pbList = RebalanceClusterUtils.peanutButterList(4, -5);
+        } catch(IllegalArgumentException iae) {
+            caught = true;
+        }
+        assertTrue(caught);
+    }
+
 }
