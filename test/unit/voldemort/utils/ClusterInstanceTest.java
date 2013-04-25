@@ -65,7 +65,9 @@ public class ClusterInstanceTest {
     // TODO: Rename class/file to PartitionBalanceTest. Change tests to directly
     // use PartitionBalance rather than go through ClusterInstance.
 
-    public List<StoreDefinition> getZZ111StoreDefs() {
+    // TODO: Move these storeDefs and cluster helper test methods into
+    // ClusterTestUtils.
+    public static List<StoreDefinition> getZZ111StoreDefs() {
 
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
         HashMap<Integer, Integer> zoneRep111 = new HashMap<Integer, Integer>();
@@ -88,7 +90,7 @@ public class ClusterInstanceTest {
         return storeDefs;
     }
 
-    public List<StoreDefinition> getZZ211StoreDefs() {
+    public static List<StoreDefinition> getZZ211StoreDefs() {
 
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
         HashMap<Integer, Integer> zoneRep211 = new HashMap<Integer, Integer>();
@@ -111,7 +113,7 @@ public class ClusterInstanceTest {
         return storeDefs;
     }
 
-    public List<StoreDefinition> getZZ322StoreDefs() {
+    public static List<StoreDefinition> getZZ322StoreDefs() {
 
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
         HashMap<Integer, Integer> zoneRep322 = new HashMap<Integer, Integer>();
@@ -138,7 +140,7 @@ public class ClusterInstanceTest {
      * Store defs for zoned clusters with 2 zones. Covers the three store
      * definitions of interest: 3/2/2, 2/1/1, and
      */
-    public List<StoreDefinition> getZZStoreDefs() {
+    public static List<StoreDefinition> getZZStoreDefs() {
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
         storeDefs.addAll(getZZ111StoreDefs());
         storeDefs.addAll(getZZ211StoreDefs());
@@ -146,7 +148,7 @@ public class ClusterInstanceTest {
         return storeDefs;
     }
 
-    public List<StoreDefinition> getZZZ111StoreDefs() {
+    public static List<StoreDefinition> getZZZ111StoreDefs() {
 
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
         HashMap<Integer, Integer> zoneRep111 = new HashMap<Integer, Integer>();
@@ -170,7 +172,7 @@ public class ClusterInstanceTest {
         return storeDefs;
     }
 
-    public List<StoreDefinition> getZZZ211StoreDefs() {
+    public static List<StoreDefinition> getZZZ211StoreDefs() {
 
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
         HashMap<Integer, Integer> zoneRep211 = new HashMap<Integer, Integer>();
@@ -194,7 +196,7 @@ public class ClusterInstanceTest {
         return storeDefs;
     }
 
-    public List<StoreDefinition> getZZZ322StoreDefs() {
+    public static List<StoreDefinition> getZZZ322StoreDefs() {
 
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
         HashMap<Integer, Integer> zoneRep322 = new HashMap<Integer, Integer>();
@@ -222,7 +224,7 @@ public class ClusterInstanceTest {
      * Store defs for zoned clusters with 2 zones. Covers the three store
      * definitions of interest: 3/2/2, 2/1/1, and
      */
-    public List<StoreDefinition> getZZZStoreDefs() {
+    public static List<StoreDefinition> getZZZStoreDefs() {
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
         storeDefs.addAll(getZZZ111StoreDefs());
         storeDefs.addAll(getZZZ211StoreDefs());
@@ -230,38 +232,44 @@ public class ClusterInstanceTest {
         return storeDefs;
     }
 
+    // NOTE: All clusters must have 18 partitions in them! This allows the
+    // clusters to be used in rebalancing tests. Skewed distributions of
+    // partitions is also intentional (i.e., some servers having more
+    // partitions, and some zones having contiguous runs of partitions).
+
     /**
      * The 'Z' and 'E' prefixes in these method names indicate zones with
      * partitions and zones without partitions.
      */
-    public Cluster getZZCluster() {
+    public static Cluster getZZCluster() {
         int numberOfZones = 2;
         int nodesPerZone[] = new int[] { 3, 3 };
-        int partitionMap[][] = new int[][] { { 0, 6 }, { 1, 7 }, { 2, 8 }, { 3, 9 }, { 4, 10 },
-                { 5, 11 } };
+        int partitionMap[][] = new int[][] { { 0, 6, 12, 16, 17 }, { 1, 7, 15 }, { 2, 8, 14 },
+                { 3, 9, 13 }, { 4, 10 }, { 5, 11 } };
         return ServerTestUtils.getLocalZonedCluster(numberOfZones, nodesPerZone, partitionMap);
     }
 
-    public Cluster getZZZCluster() {
+    public static Cluster getZZZCluster() {
         int numberOfZones = 3;
         int nodesPerZone[] = new int[] { 3, 3, 3 };
-        int partitionMap[][] = new int[][] { { 0, 9 }, { 1, 10 }, { 2, 11 }, { 3, 12 }, { 4, 13 },
-                { 5, 14 }, { 6, 15 }, { 7, 16 }, { 8, 17 } };
+        int partitionMap[][] = new int[][] { { 0, 9, 15, 16, 17 }, { 1, 10 }, { 2, 11 }, { 3, 12 },
+                { 4, 13 }, { 5, 14 }, { 6 }, { 7 }, { 8 } };
         return ServerTestUtils.getLocalZonedCluster(numberOfZones, nodesPerZone, partitionMap);
     }
 
-    public Cluster getZECluster() {
+    public static Cluster getZECluster() {
         int numberOfZones = 2;
         int nodesPerZone[] = new int[] { 3, 3 };
-        int partitionMap[][] = new int[][] { { 0, 1 }, { 2, 3 }, { 4, 5 }, {}, {}, {} };
+        int partitionMap[][] = new int[][] { { 0, 1, 6, 7, 12, 13, 16, 17 },
+                { 2, 3, 8, 9, 14, 15 }, { 4, 5, 10, 11 }, {}, {}, {} };
         return ServerTestUtils.getLocalZonedCluster(numberOfZones, nodesPerZone, partitionMap);
     }
 
-    public Cluster getZEZCluster() {
+    public static Cluster getZEZCluster() {
         int numberOfZones = 3;
         int nodesPerZone[] = new int[] { 3, 3, 3 };
-        int partitionMap[][] = new int[][] { { 0, 9, 6 }, { 1, 10, 15 }, { 2, 11, 7 }, {}, {}, {},
-                { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14, 17 } };
+        int partitionMap[][] = new int[][] { { 0, 9, 6, 17 }, { 1, 10, 15 }, { 2, 11, 7 }, {}, {},
+                {}, { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14 } };
         return ServerTestUtils.getLocalZonedCluster(numberOfZones, nodesPerZone, partitionMap);
     }
 
@@ -269,19 +277,35 @@ public class ClusterInstanceTest {
      * The 'N' and 'X' suffixes indicate whether there are nodes added in a zone
      * ('N') or not ('X'). By definition, an 'E' zone is labeled with 'N.
      */
-    public Cluster getZZClusterWithNN() {
+    public static Cluster getZZClusterWithNN() {
         int numberOfZones = 2;
         int nodesPerZone[] = new int[] { 4, 4 };
-        int partitionMap[][] = new int[][] { { 0, 6 }, { 1, 7 }, { 2, 8 }, {}, { 3, 9 }, { 4, 10 },
-                { 5, 11 }, {} };
+        int partitionMap[][] = new int[][] { { 0, 6, 12, 16, 17 }, { 1, 7, 13 }, { 2, 8, 14 }, {},
+                { 3, 9, 15 }, { 4, 10 }, { 5, 11 }, {} };
         return ServerTestUtils.getLocalZonedCluster(numberOfZones, nodesPerZone, partitionMap);
     }
 
-    public Cluster getZEZClusterWithXNN() {
+    public static Cluster getZZZClusterWithNNN() {
+        int numberOfZones = 3;
+        int nodesPerZone[] = new int[] { 4, 4, 4 };
+        int partitionMap[][] = new int[][] { { 0, 9, 15, 16, 17 }, { 1, 10 }, { 2, 11 }, {},
+                { 3, 12 }, { 4, 13 }, { 5, 14 }, {}, { 6 }, { 7 }, { 8 }, {} };
+        return ServerTestUtils.getLocalZonedCluster(numberOfZones, nodesPerZone, partitionMap);
+    }
+
+    public static Cluster getZEZClusterWithXNN() {
         int numberOfZones = 3;
         int nodesPerZone[] = new int[] { 3, 3, 4 };
-        int partitionMap[][] = new int[][] { { 0, 9, 6 }, { 1, 10, 15 }, { 2, 11, 7 }, {}, {}, {},
-                { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14, 17 }, {} };
+        int partitionMap[][] = new int[][] { { 0, 9, 6, 17 }, { 1, 10, 15 }, { 2, 11, 7 }, {}, {},
+                {}, { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14 }, {} };
+        return ServerTestUtils.getLocalZonedCluster(numberOfZones, nodesPerZone, partitionMap);
+    }
+
+    public static Cluster getZZECluster() {
+        int numberOfZones = 3;
+        int nodesPerZone[] = new int[] { 3, 3, 3 };
+        int partitionMap[][] = new int[][] { { 0, 6, 12, 16, 17 }, { 1, 7, 13 }, { 2, 8, 14 },
+                { 3, 9, 15 }, { 4, 10 }, { 5, 11 }, {}, {}, {} };
         return ServerTestUtils.getLocalZonedCluster(numberOfZones, nodesPerZone, partitionMap);
     }
 
@@ -289,19 +313,19 @@ public class ClusterInstanceTest {
      * This cluster is interesting because a single node cannot replicate
      * partitions to meet 3/2/2 or 2/1/1 store defs...
      */
-    public Cluster getZEZClusterWithOnlyOneNodeInNewZone() {
+    public static Cluster getZEZClusterWithOnlyOneNodeInNewZone() {
         int numberOfZones = 3;
         int nodesPerZone[] = new int[] { 3, 1, 3 };
-        int partitionMap[][] = new int[][] { { 0, 9, 6 }, { 1, 10, 15 }, { 2, 11, 7 }, {},
-                { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14, 17 } };
+        int partitionMap[][] = new int[][] { { 0, 9, 6, 17 }, { 1, 10, 15 }, { 2, 11, 7 }, {},
+                { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14 } };
         return ServerTestUtils.getLocalZonedCluster(numberOfZones, nodesPerZone, partitionMap);
     }
 
-    public Cluster getZZZClusterWithOnlyOneNodeInNewZone() {
+    public static Cluster getZZZClusterWithOnlyOneNodeInNewZone() {
         int numberOfZones = 3;
         int nodesPerZone[] = new int[] { 3, 1, 3 };
-        int partitionMap[][] = new int[][] { { 0, 9, 6 }, { 1, 10, 15 }, { 2, 11, 7 }, { 14 },
-                { 3, 12, 16 }, { 4, 13, 8 }, { 5, 17 } };
+        int partitionMap[][] = new int[][] { { 0, 9, 6, 17 }, { 1, 10, 15 }, { 2, 11, 7 }, { 14 },
+                { 3, 12, 16 }, { 4, 13, 8 }, { 5 } };
         return ServerTestUtils.getLocalZonedCluster(numberOfZones, nodesPerZone, partitionMap);
     }
 
@@ -310,7 +334,7 @@ public class ClusterInstanceTest {
      * remapped to be contiguous though. This partially emulates "shrinking"
      * zones...
      */
-    public Cluster getZZClusterWithNonContiguousZoneIDsButContiguousNodeIDs() {
+    public static Cluster getZZClusterWithNonContiguousZoneIDsButContiguousNodeIDs() {
 
         // Hand construct zones 0 and 2
         List<Zone> zones = Lists.newArrayList();
@@ -349,7 +373,7 @@ public class ClusterInstanceTest {
      * Construct 2 zones with zone IDs 0 and 2 respectively and with nodes that
      * are not contiguously numbered. This fully emulates "shrinking" zones...
      */
-    public Cluster getZZClusterWithNonContiguousZoneIDsAndNonContiguousNodeIDs() {
+    public static Cluster getZZClusterWithNonContiguousZoneIDsAndNonContiguousNodeIDs() {
 
         // Hand construct zones 0 and 2
         List<Zone> zones = Lists.newArrayList();

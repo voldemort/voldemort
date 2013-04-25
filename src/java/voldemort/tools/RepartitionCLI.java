@@ -249,23 +249,28 @@ public class RepartitionCLI {
            && !enableGreedySwaps) {
             printUsageAndDie("Provided arguments for generate greedy swaps but did not enable the feature");
         }
+        // TODO: If necessary, add options to choose each zone in cluster, all
+        // nodes across cluster, or a list of zone IDs. For now though, just
+        // offer the behavior of greedily swapping among all nodes in cluster.
+        List<Integer> greedyZoneIds = null;
 
         RepartitionUtils.repartition(currentCluster,
-                                              currentStoreDefs,
-                                              targetCluster,
-                                              targetStoreDefs,
-                                              outputDir,
-                                              attempts,
-                                              disableNodeBalancing,
-                                              disableZoneBalancing,
-                                              enableRandomSwaps,
-                                              randomSwapAttempts,
-                                              randomSwapSuccesses,
-                                              enableGreedySwaps,
-                                              greedySwapAttempts,
-                                              greedyMaxPartitionsPerNode,
-                                              greedyMaxPartitionsPerZone,
-                                              maxContiguousPartitionsPerZone);
+                                     currentStoreDefs,
+                                     targetCluster,
+                                     targetStoreDefs,
+                                     outputDir,
+                                     attempts,
+                                     disableNodeBalancing,
+                                     disableZoneBalancing,
+                                     enableRandomSwaps,
+                                     randomSwapAttempts,
+                                     randomSwapSuccesses,
+                                     enableGreedySwaps,
+                                     greedyZoneIds,
+                                     greedySwapAttempts,
+                                     greedyMaxPartitionsPerNode,
+                                     greedyMaxPartitionsPerZone,
+                                     maxContiguousPartitionsPerZone);
 
     }
 }

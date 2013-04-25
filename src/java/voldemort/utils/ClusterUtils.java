@@ -191,22 +191,23 @@ public class ClusterUtils {
     }
 
     /**
-     * Determines a histogram of contiguous runs of partitions within a zone.
-     * I.e., for each run length of contiguous partitions, how many such runs
-     * are there.
+     * Determines run length for each 'initial' partition ID
+     * 
+     * Does not correctly address "wrap around" of partition IDs (i.e., the fact
+     * that partition ID 0 is "next" to partition ID 'max')
      * 
      * @param cluster
      * @param zoneId
      * @return map of length of contiguous run of partitions to count of number
      *         of such runs.
      */
-    public static Map<Integer, Integer> getMapOfContiguousPartitionRunLengths(final Cluster cluster,
-                                                                              int zoneId) {
+    public static Map<Integer, Integer> getMapOfContiguousPartitions(final Cluster cluster,
+                                                                     int zoneId) {
         List<Integer> partitionIds = new ArrayList<Integer>(cluster.getPartitionIdsInZone(zoneId));
-        Map<Integer, Integer> runLengthToCount = Maps.newHashMap();
+        Map<Integer, Integer> partitionIdToRunLength = Maps.newHashMap();
 
         if(partitionIds.isEmpty()) {
-            return runLengthToCount;
+            return partitionIdToRunLength;
         }
 
         int lastPartitionId = partitionIds.get(0);
@@ -219,20 +220,55 @@ public class ClusterUtils {
                 continue;
             }
             int runLength = lastPartitionId - initPartitionId + 1;
-            if(!runLengthToCount.containsKey(runLength)) {
-                runLengthToCount.put(runLength, 0);
-            }
-            runLengthToCount.put(runLength, runLengthToCount.get(runLength) + 1);
+
+            partitionIdToRunLength.put(initPartitionId, runLength);
 
             initPartitionId = partitionId;
             lastPartitionId = initPartitionId;
         }
 
-        int runLength = lastPartitionId - initPartitionId;
-        if(!runLengthToCount.containsKey(runLength)) {
-            runLengthToCount.put(runLength, 0);
+        int runLength = lastPartitionId - initPartitionId + 1;
+        if(lastPartitionId == cluster.getNumberOfPartitions() - 1
+           && partitionIdToRunLength.containsKey(0)) {
+            // special case of contiguity that wraps around the ring.
+            partitionIdToRunLength.put(initPartitionId, runLength + partitionIdToRunLength.get(0));
+            partitionIdToRunLength.remove(0);
+        } else {
+            partitionIdToRunLength.put(initPartitionId, runLength);
         }
-        runLengthToCount.put(runLength, runLengthToCount.get(runLength) + 1);
+
+        return partitionIdToRunLength;
+    }
+
+    /**
+     * Determines a histogram of contiguous runs of partitions within a zone.
+     * I.e., for each run length of contiguous partitions, how many such runs
+     * are there.
+     * 
+     * Does not correctly address "wrap around" of partition IDs (i.e., the fact
+     * that partition ID 0 is "next" to partition ID 'max')
+     * 
+     * @param cluster
+     * @param zoneId
+     * @return map of length of contiguous run of partitions to count of number
+     *         of such runs.
+     */
+    public static Map<Integer, Integer> getMapOfContiguousPartitionRunLengths(final Cluster cluster,
+                                                                              int zoneId) {
+        Map<Integer, Integer> idToRunLength = ClusterUtils.getMapOfContiguousPartitions(cluster,
+                                                                                        zoneId);
+        Map<Integer, Integer> runLengthToCount = Maps.newHashMap();
+
+        if(idToRunLength.isEmpty()) {
+            return runLengthToCount;
+        }
+
+        for(int runLength: idToRunLength.values()) {
+            if(!runLengthToCount.containsKey(runLength)) {
+                runLengthToCount.put(runLength, 0);
+            }
+            runLengthToCount.put(runLength, runLengthToCount.get(runLength) + 1);
+        }
 
         return runLengthToCount;
     }

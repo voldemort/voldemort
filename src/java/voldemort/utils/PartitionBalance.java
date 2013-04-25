@@ -264,7 +264,7 @@ public class PartitionBalance {
         }
 
         private double getMaxMinRatio() {
-            if(getAvg() == 0) {
+            if(minVal == 0) {
                 return maxVal;
             }
             return maxVal * 1.0 / minVal;
