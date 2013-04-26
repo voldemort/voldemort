@@ -34,20 +34,16 @@ public class CoordinatorConfig {
 
     private volatile List<String> bootstrapURLs = null;
     private volatile String fatClientConfigPath = null;
-    private volatile int fatClientWrapperMaxPoolSize = 20;
-    private volatile int fatClientWrapperCorePoolSize = 20;
-    private volatile int fatClientWrapperKeepAliveInSecs = 60;
     private volatile int metadataCheckIntervalInMs = 5000;
     private volatile int nettyServerPort = 8080;
+    private volatile int nettyServerBacklog = 1000;
 
     /* Propery names for propery-based configuration */
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
     public static final String FAT_CLIENTS_CONFIG_FILE_PATH_PROPERTY = "fat_clients_config_file_path";
-    public static final String FAT_CLIENT_WRAPPER_MAX_POOL_SIZE_PROPERTY = "fat_client_wrapper_max_pool_size";
-    public static final String FAT_CLIENT_WRAPPER_CORE_POOL_SIZE_PROPERTY = "fat_client_wrapper_core_pool_size";
-    public static final String FAT_CLIENT_WRAPPER_POOL_KEEPALIVE_IN_SECS = "fat_client_wrapper_pool_keepalive_in_secs";
     public static final String METADATA_CHECK_INTERVAL_IN_MS = "metadata_check_interval_in_ms";
     public static final String NETTY_SERVER_PORT = "netty_server_port";
+    public static final String NETTY_SERVER_BACKLOG = "netty_server_backlog";
 
     /**
      * Instantiate the coordinator config using a properties file
@@ -100,21 +96,6 @@ public class CoordinatorConfig {
             setFatClientConfigPath(props.getString(FAT_CLIENTS_CONFIG_FILE_PATH_PROPERTY));
         }
 
-        if(props.containsKey(FAT_CLIENT_WRAPPER_CORE_POOL_SIZE_PROPERTY)) {
-            setFatClientWrapperCorePoolSize(props.getInt(FAT_CLIENT_WRAPPER_CORE_POOL_SIZE_PROPERTY,
-                                                         this.fatClientWrapperCorePoolSize));
-        }
-
-        if(props.containsKey(FAT_CLIENT_WRAPPER_MAX_POOL_SIZE_PROPERTY)) {
-            setFatClientWrapperMaxPoolSize(props.getInt(FAT_CLIENT_WRAPPER_MAX_POOL_SIZE_PROPERTY,
-                                                        this.fatClientWrapperMaxPoolSize));
-        }
-
-        if(props.containsKey(FAT_CLIENT_WRAPPER_POOL_KEEPALIVE_IN_SECS)) {
-            setFatClientWrapperKeepAliveInSecs(props.getInt(FAT_CLIENT_WRAPPER_POOL_KEEPALIVE_IN_SECS,
-                                                            this.fatClientWrapperKeepAliveInSecs));
-        }
-
         if(props.containsKey(METADATA_CHECK_INTERVAL_IN_MS)) {
             setMetadataCheckIntervalInMs(props.getInt(METADATA_CHECK_INTERVAL_IN_MS,
                                                       this.metadataCheckIntervalInMs));
@@ -122,6 +103,10 @@ public class CoordinatorConfig {
 
         if(props.containsKey(NETTY_SERVER_PORT)) {
             setMetadataCheckIntervalInMs(props.getInt(NETTY_SERVER_PORT, this.nettyServerPort));
+        }
+
+        if(props.containsKey(NETTY_SERVER_BACKLOG)) {
+            setMetadataCheckIntervalInMs(props.getInt(NETTY_SERVER_BACKLOG, this.nettyServerBacklog));
         }
     }
 
@@ -161,42 +146,6 @@ public class CoordinatorConfig {
         this.fatClientConfigPath = fatClientConfigPath;
     }
 
-    public int getFatClientWrapperMaxPoolSize() {
-        return fatClientWrapperMaxPoolSize;
-    }
-
-    /**
-     * @param fatClientWrapperMaxPoolSize Defines the Maximum pool size for the
-     *        thread pool used in the Fat client wrapper
-     */
-    public void setFatClientWrapperMaxPoolSize(int fatClientWrapperMaxPoolSize) {
-        this.fatClientWrapperMaxPoolSize = fatClientWrapperMaxPoolSize;
-    }
-
-    public int getFatClientWrapperCorePoolSize() {
-        return fatClientWrapperCorePoolSize;
-    }
-
-    /**
-     * @param fatClientWrapperMaxPoolSize Defines the Core pool size for the
-     *        thread pool used in the Fat client wrapper
-     */
-    public void setFatClientWrapperCorePoolSize(int fatClientWrapperCorePoolSize) {
-        this.fatClientWrapperCorePoolSize = fatClientWrapperCorePoolSize;
-    }
-
-    public int getFatClientWrapperKeepAliveInSecs() {
-        return fatClientWrapperKeepAliveInSecs;
-    }
-
-    /**
-     * @param fatClientWrapperKeepAliveInSecs Defines the Keep alive period in
-     *        seconds for the thread pool used in the Fat client wrapper
-     */
-    public void setFatClientWrapperKeepAliveInSecs(int fatClientWrapperKeepAliveInSecs) {
-        this.fatClientWrapperKeepAliveInSecs = fatClientWrapperKeepAliveInSecs;
-    }
-
     public int getMetadataCheckIntervalInMs() {
         return metadataCheckIntervalInMs;
     }
@@ -220,6 +169,18 @@ public class CoordinatorConfig {
      */
     public void setServerPort(int serverPort) {
         this.nettyServerPort = serverPort;
+    }
+
+    public int getNettyServerBacklog() {
+        return nettyServerBacklog;
+    }
+
+    /**
+     * @param nettyServerBacklog Defines the netty server backlog value
+     * 
+     */
+    public void setNettyServerBacklog(int nettyServerBacklog) {
+        this.nettyServerBacklog = nettyServerBacklog;
     }
 
 }

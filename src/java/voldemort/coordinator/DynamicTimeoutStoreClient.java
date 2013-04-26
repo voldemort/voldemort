@@ -43,6 +43,8 @@ import com.google.common.collect.Maps;
  * features: 1) Per call timeout facility 2) Ability to disable resolution per
  * call
  * 
+ * TODO: Merge this with DefaultStoreClient eventually.
+ * 
  * @param <K> Type of the Key
  * @param <V> Type of the Value
  */

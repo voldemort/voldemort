@@ -47,7 +47,7 @@ public class FatClientWrapper {
     private ThreadPoolExecutor fatClientExecutor;
     private SocketStoreClientFactory storeClientFactory;
     private DynamicTimeoutStoreClient<ByteArray, byte[]> dynamicTimeoutClient;
-    private final CoordinatorConfig config;
+    private final CoordinatorConfig coordinatorConfig;
     private final Logger logger = Logger.getLogger(FatClientWrapper.class);
     private final String storeName;
     private final CoordinatorErrorStats errorStats;
@@ -71,15 +71,15 @@ public class FatClientWrapper {
                             CoordinatorErrorStats errorStats,
                             StoreStats coordinatorPerfStats) {
 
-        this.config = config;
+        this.coordinatorConfig = config;
 
         // TODO: Import this from Config
-        this.fatClientExecutor = new ThreadPoolExecutor(this.config.getFatClientWrapperCorePoolSize(),
-                                                        this.config.getFatClientWrapperMaxPoolSize(),
-                                                        this.config.getFatClientWrapperKeepAliveInSecs(), // Keepalive
+        this.fatClientExecutor = new ThreadPoolExecutor(clientConfig.getFatClientWrapperCorePoolSize(),
+                                                        clientConfig.getFatClientWrapperMaxPoolSize(),
+                                                        clientConfig.getFatClientWrapperKeepAliveInSecs(), // Keepalive
                                                         TimeUnit.SECONDS, // Keepalive
                                                                           // Timeunit
-                                                        new ArrayBlockingQueue<Runnable>(this.config.getFatClientWrapperMaxPoolSize(),
+                                                        new ArrayBlockingQueue<Runnable>(clientConfig.getFatClientWrapperMaxPoolSize(),
                                                                                          true),
 
                                                         new ThreadFactory() {

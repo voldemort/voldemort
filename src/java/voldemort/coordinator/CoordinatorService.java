@@ -73,7 +73,7 @@ import com.google.common.base.Joiner;
 @JmxManaged(description = "A Coordinator Service for proxying Voldemort HTTP requests")
 public class CoordinatorService extends AbstractService {
 
-    private CoordinatorConfig config = null;
+    private CoordinatorConfig coordinatorConfig = null;
 
     private boolean noop = false;
     private SocketStoreClientFactory storeClientFactory = null;
@@ -92,7 +92,7 @@ public class CoordinatorService extends AbstractService {
 
     public CoordinatorService(CoordinatorConfig config) {
         super(ServiceType.COORDINATOR);
-        this.config = config;
+        this.coordinatorConfig = config;
         this.coordinatorPerfStats = new StoreStats();
         this.errorStats = new CoordinatorErrorStats();
         RESTErrorHandler.setErrorStatsHandler(errorStats);
@@ -113,8 +113,8 @@ public class CoordinatorService extends AbstractService {
 
         List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml),
                                                                        false);
-        Map<String, ClientConfig> fatClientConfigMap = readClientConfig(this.config.getFatClientConfigPath(),
-                                                                        this.config.getBootstrapURLs());
+        Map<String, ClientConfig> fatClientConfigMap = readClientConfig(this.coordinatorConfig.getFatClientConfigPath(),
+                                                                        this.coordinatorConfig.getBootstrapURLs());
         // For now Simply create the map of store definition to
         // FatClientWrappers
         // TODO: After the fat client improvements is done, modify this to
@@ -127,7 +127,7 @@ public class CoordinatorService extends AbstractService {
             logger.info("Creating a Fat client wrapper for store: " + storeName);
             logger.info("Using config: " + fatClientConfigMap.get(storeName));
             fatClientMap.put(storeName, new FatClientWrapper(storeName,
-                                                             this.config,
+                                                             this.coordinatorConfig,
                                                              fatClientConfigMap.get(storeName),
                                                              storesXml,
                                                              clusterXml,
@@ -141,7 +141,7 @@ public class CoordinatorService extends AbstractService {
 
         // Initialize the Voldemort Metadata
         ClientConfig clientConfig = new ClientConfig();
-        clientConfig.setBootstrapUrls(this.config.getBootstrapURLs());
+        clientConfig.setBootstrapUrls(this.coordinatorConfig.getBootstrapURLs());
         storeClientFactory = new SocketStoreClientFactory(clientConfig);
         initializeFatClients();
 
@@ -173,13 +173,13 @@ public class CoordinatorService extends AbstractService {
         schedulerService.schedule(asyncMetadataManager.getClass().getName(),
                                   asyncMetadataManager,
                                   new Date(),
-                                  this.config.getMetadataCheckIntervalInMs());
+                                  this.coordinatorConfig.getMetadataCheckIntervalInMs());
 
         // Configure the server.
         this.workerPool = (ThreadPoolExecutor) Executors.newCachedThreadPool();
         this.bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
                                                                                workerPool));
-        this.bootstrap.setOption("backlog", 1000);
+        this.bootstrap.setOption("backlog", this.coordinatorConfig.getNettyServerBacklog());
         this.bootstrap.setOption("child.tcpNoDelay", true);
         this.bootstrap.setOption("child.keepAlive", true);
         this.bootstrap.setOption("child.reuseAddress", true);
@@ -201,9 +201,9 @@ public class CoordinatorService extends AbstractService {
                                                          JmxUtils.getClassName(this.errorStats.getClass())));
 
         // Bind and start to accept incoming connections.
-        this.nettyServerChannel = this.bootstrap.bind(new InetSocketAddress(this.config.getServerPort()));
+        this.nettyServerChannel = this.bootstrap.bind(new InetSocketAddress(this.coordinatorConfig.getServerPort()));
 
-        logger.info("Coordinator service started on port " + this.config.getServerPort());
+        logger.info("Coordinator service started on port " + this.coordinatorConfig.getServerPort());
     }
 
     /**
@@ -244,14 +244,14 @@ public class CoordinatorService extends AbstractService {
                         throw new Exception("Illegal Store Name !!!");
                     }
 
-                    ClientConfig config = new ClientConfig(props);
-                    config.setBootstrapUrls(bootstrapURLs)
-                          .setEnableCompressionLayer(false)
-                          .setEnableSerializationLayer(false)
-                          .enableDefaultClient(true)
-                          .setEnableLazy(false);
+                    ClientConfig fatClientConfig = new ClientConfig(props);
+                    fatClientConfig.setBootstrapUrls(bootstrapURLs)
+                                   .setEnableCompressionLayer(false)
+                                   .setEnableSerializationLayer(false)
+                                   .enableDefaultClient(true)
+                                   .setEnableLazy(false);
 
-                    storeNameConfigMap.put(storeName, config);
+                    storeNameConfigMap.put(storeName, fatClientConfig);
 
                 }
             }
