@@ -225,7 +225,6 @@ public class RebalancePartitionsInfo {
         return builder.build();
     }
 
-<<<<<<< HEAD
     // TODO: Remove this.
     @Deprecated
     public synchronized void setAttempt(int attempt) {
@@ -275,7 +274,6 @@ public class RebalancePartitionsInfo {
 
         return count;
     }
-
 
     /**
      * Returns the stores which have their partitions being added ( The stores

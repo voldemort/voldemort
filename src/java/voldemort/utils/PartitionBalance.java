@@ -24,6 +24,7 @@ import java.util.Set;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
 
 import com.google.common.collect.Maps;
@@ -68,7 +69,7 @@ public class PartitionBalance {
         }
 
         for(StoreDefinition storeDefinition: uniqueStores.keySet()) {
-            StoreInstance storeInstance = new StoreInstance(cluster, storeDefinition);
+            StoreRoutingPlan storeRoutingPlan = new StoreRoutingPlan(cluster, storeDefinition);
 
             builder.append("\n");
             builder.append("Store exemplar: " + storeDefinition.getName() + "\n");
@@ -142,7 +143,7 @@ public class PartitionBalance {
             // determines the number of "zone primaries" each node hosts.
             for(int partitionId = 0; partitionId < cluster.getNumberOfPartitions(); partitionId++) {
                 for(int zoneId: zoneIds) {
-                    for(int nodeId: storeInstance.getReplicationNodeList(partitionId)) {
+                    for(int nodeId: storeRoutingPlan.getReplicationNodeList(partitionId)) {
                         if(cluster.getNodeById(nodeId).getZoneId() == zoneId) {
                             nodeIdToZonePrimaryCount.put(nodeId,
                                                          nodeIdToZonePrimaryCount.get(nodeId) + 1);
