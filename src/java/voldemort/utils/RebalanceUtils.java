@@ -177,6 +177,7 @@ public class RebalanceUtils {
         }
     }
 
+    // TODO: Deprecate in favor of RebalanceClusterPlan.getCrossZoneMoves()
     /**
      * Return the number of cross zone copying that is going to take place
      * 
@@ -184,6 +185,7 @@ public class RebalanceUtils {
      * @param plan The rebalance plan
      * @return Number of cross zone moves
      */
+    @Deprecated
     public static int getCrossZoneMoves(final Cluster targetCluster, final RebalanceClusterPlan plan) {
 
         int crossZoneMoves = 0;
@@ -202,12 +204,14 @@ public class RebalanceUtils {
         return crossZoneMoves;
     }
 
+    // TODO: Deprecate in favor of RebalanceClusterPlan.getTotalMoves()
     /**
      * Return the number of total moves
      * 
      * @param plan The rebalance plan
      * @return Number of moves
      */
+    @Deprecated
     public static int getTotalMoves(final RebalanceClusterPlan plan) {
 
         int totalMoves = 0;
@@ -265,6 +269,96 @@ public class RebalanceUtils {
                 }
             }
         }
+    }
+
+    /**
+     * A final cluster ought to be a super set of current cluster. I.e.,
+     * existing node IDs ought to map to same server, but partition layout can
+     * have changed and there may exist new nodes.
+     * 
+     * @param currentCluster
+     * @param finalCluster
+     */
+    public static void validateFinalCluster(final Cluster currentCluster, final Cluster finalCluster) {
+        for(Node currentNode: currentCluster.getNodes()) {
+            if(finalCluster.getNodeIds().contains(currentNode.getId())) {
+
+                Node finalNode = finalCluster.getNodeById(currentNode.getId());
+                if(!finalNode.isEqualState(currentNode)) {
+                    throw new VoldemortRebalancingException("Node "
+                                                            + currentNode.getId()
+                                                            + " does not have same state in final cluster + ("
+                                                            + finalNode.getStateString()
+                                                            + ") as in current cluster ("
+                                                            + currentNode.getStateString() + ").");
+                }
+            } else {
+                throw new VoldemortRebalancingException("Final cluster does not contain node "
+                                                        + currentNode.getId()
+                                                        + " from current cluster");
+            }
+        }
+        return;
+    }
+
+    /**
+     * Verify store definitions are congruent with cluster definition.
+     * 
+     * @param cluster
+     * @param stores
+     */
+    public static void validateClusterStores(final Cluster cluster,
+                                             final List<StoreDefinition> storeDefs) {
+        // This is a hack. But, constructing a PartitionBalance object has
+        // the (desirable in this case) side-effect of verifying that the store
+        // definition is congruent with the cluster definition. If there are
+        // issues, exceptions are thrown.
+        @SuppressWarnings("unused")
+        PartitionBalance pb = new PartitionBalance(cluster, storeDefs);
+        return;
+    }
+
+    /**
+     * A target cluster ought to be a super set of current cluster. I.e., it
+     * ought to either be the same as current cluster (every partition is mapped
+     * to the same node of current & target), or it ought to have more nodes
+     * (possibly in new zones) without partitions.
+     * 
+     * @param currentCluster
+     * @param targetCluster
+     */
+    public static void validateTargetCluster(final Cluster currentCluster,
+                                             final Cluster targetCluster) {
+        for(Node currentNode: currentCluster.getNodes()) {
+            if(targetCluster.getNodeIds().contains(currentNode.getId())) {
+                Node targetNode = targetCluster.getNodeById(currentNode.getId());
+                if(!currentNode.getPartitionIds().containsAll(targetNode.getPartitionIds())
+                   || targetNode.getPartitionIds().containsAll(currentNode.getPartitionIds())) {
+                    throw new VoldemortRebalancingException("For node "
+                                                            + currentNode.getId()
+                                                            + " partitions are not exactly the same on node in current cluster ("
+                                                            + currentNode.getPartitionIds()
+                                                            + ") and in target cluster ("
+                                                            + targetNode.getPartitionIds() + ").");
+                }
+            } else {
+                throw new VoldemortRebalancingException("Target cluster does not contain node "
+                                                        + currentNode.getId()
+                                                        + " from current cluster");
+            }
+        }
+        for(Node targetNode: targetCluster.getNodes()) {
+            if(!currentCluster.getNodeIds().contains(targetNode.getId())) {
+                if(!targetNode.getPartitionIds().isEmpty()) {
+                    throw new VoldemortRebalancingException("New node "
+                                                            + targetNode.getId()
+                                                            + " in target cluster already has partitions: "
+                                                            + targetNode.getPartitionIds());
+                }
+            }
+        }
+
+        return;
     }
 
     /**

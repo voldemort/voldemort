@@ -2,6 +2,8 @@ package voldemort.client.rebalance;
 
 import java.util.List;
 
+// TODO: (refactor) Rename this class. Maybe RebalanceNodeBatchPlan or some
+// such. This method wraps up all tasks from a single batch for a specific node.
 /**
  * This class acts as a container for the rebalancing plans for one particular
  * node ( either donor or stealer depending on flag ). Can be one of the
@@ -17,19 +19,19 @@ import java.util.List;
 public class RebalanceNodePlan {
 
     private final int nodeId;
-    private final boolean isNodeStealer;
+    private final boolean isStealer;
     private final List<RebalancePartitionsInfo> rebalanceTaskList;
 
     public RebalanceNodePlan(int nodeId,
                              List<RebalancePartitionsInfo> rebalanceTaskList,
-                             boolean isNodeStealer) {
+                             boolean isStealer) {
         this.nodeId = nodeId;
         this.rebalanceTaskList = rebalanceTaskList;
-        this.isNodeStealer = isNodeStealer;
+        this.isStealer = isStealer;
     }
 
-    public boolean isNodeStealer() {
-        return this.isNodeStealer;
+    public boolean isStealer() {
+        return this.isStealer;
     }
 
     public int getNodeId() {

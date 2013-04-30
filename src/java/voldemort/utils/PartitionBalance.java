@@ -37,7 +37,11 @@ public class PartitionBalance {
     private final double naryMaxMin;
     private final String verbose;
 
-    PartitionBalance(Cluster cluster, List<StoreDefinition> storeDefs) {
+    private final Map<Integer, Integer> primaryAggNodeIdToPartitionCount;
+    private final Map<Integer, Integer> aggNodeIdToZonePrimaryCount;
+    private final Map<Integer, Integer> allAggNodeIdToPartitionCount;
+
+    public PartitionBalance(Cluster cluster, List<StoreDefinition> storeDefs) {
         this.cluster = cluster;
 
         StringBuilder builder = new StringBuilder();
@@ -48,17 +52,17 @@ public class PartitionBalance {
         Set<Integer> zoneIds = cluster.getZoneIds();
 
         builder.append("PARTITION DUMP\n");
-        Map<Integer, Integer> primaryAggNodeIdToPartitionCount = Maps.newHashMap();
+        this.primaryAggNodeIdToPartitionCount = Maps.newHashMap();
         for(Integer nodeId: nodeIds) {
             primaryAggNodeIdToPartitionCount.put(nodeId, 0);
         }
 
-        Map<Integer, Integer> aggNodeIdToZonePrimaryCount = Maps.newHashMap();
+        this.aggNodeIdToZonePrimaryCount = Maps.newHashMap();
         for(Integer nodeId: nodeIds) {
             aggNodeIdToZonePrimaryCount.put(nodeId, 0);
         }
 
-        Map<Integer, Integer> allAggNodeIdToPartitionCount = Maps.newHashMap();
+        this.allAggNodeIdToPartitionCount = Maps.newHashMap();
         for(Integer nodeId: nodeIds) {
             allAggNodeIdToPartitionCount.put(nodeId, 0);
         }
@@ -190,12 +194,24 @@ public class PartitionBalance {
         return primaryMaxMin;
     }
 
+    public int getPrimaryPartitionCount(int nodeId) {
+        return primaryAggNodeIdToPartitionCount.get(nodeId);
+    }
+
     public double getZonePrimaryMaxMin() {
         return zonePrimaryMaxMin;
     }
 
+    public int getZonePrimaryPartitionCount(int nodeId) {
+        return aggNodeIdToZonePrimaryCount.get(nodeId);
+    }
+
     public double getNaryMaxMin() {
         return naryMaxMin;
+    }
+
+    public int getNaryPartitionCount(int nodeId) {
+        return allAggNodeIdToPartitionCount.get(nodeId);
     }
 
     /**

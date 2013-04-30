@@ -35,6 +35,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+// TODO: Rename to include PartitionStore in name since the basic unit of work
+// tracked within this class is at the level of partition-stores, not
+// partitions. Maybe "RebalancePartitionStoreTask" is a good name? Though, this
+// class covers all partition-stores that must move between this particular
+// donor/stealer.
 /**
  * Holds the list of partitions being moved / deleted for a stealer-donor node
  * tuple
@@ -44,10 +49,27 @@ public class RebalancePartitionsInfo {
 
     private final int stealerId;
     private final int donorId;
+    // TODO: (refactor) Remove attempt member. setAttempt is never invoked.
+    // Except for MetadataStoreTest which passes in a random value, the value
+    // passed to the constructor for this value is always 0.
     private int attempt;
+    // TODO: (refactor) Unclear what value the Hashmap provides. It maps
+    // "replica type" to lists of partition IDs. A list of partition IDs (per
+    // store) seems sufficient for all purposes. The replica type is a
+    // distraction.
     private HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitionList;
+    // TODO: Drop the delete stuff? We don't ever use it when we
+    // execute a plan.
     private HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToDeletePartitionList;
+    // TODO: (refactor) What value is maxReplica? Seems like it is used in loops
+    // internally. No idea why it is a member.
     private int maxReplica;
+    // TODO: (refactor) Does the initialCluster have to be a member? See if it
+    // can be removed. There is a getInitialCluster method that is called by
+    // others. Why do callers need the initial cluster from this particular
+    // class? At first glance, all usages of this method are awkward/unclean
+    // (i.e., seems like initialCluster could be found through other paths in
+    // all cases).
     private Cluster initialCluster;
 
     /**
@@ -203,16 +225,21 @@ public class RebalancePartitionsInfo {
         return builder.build();
     }
 
+<<<<<<< HEAD
+    // TODO: Remove this.
+    @Deprecated
     public synchronized void setAttempt(int attempt) {
         this.attempt = attempt;
     }
 
-    public synchronized int getDonorId() {
-        return donorId;
-    }
-
+    // TODO: Remove this.
+    @Deprecated
     public synchronized int getAttempt() {
         return attempt;
+    }
+
+    public synchronized int getDonorId() {
+        return donorId;
     }
 
     public synchronized int getStealerId() {
@@ -222,6 +249,33 @@ public class RebalancePartitionsInfo {
     public synchronized Cluster getInitialCluster() {
         return initialCluster;
     }
+
+    /**
+     * Total count of partition-stores moved or deleted in this task.
+     * 
+     * @return number of partition stores moved in this task.
+     */
+    public synchronized int getPartitionStoreMoves() {
+        int count = 0;
+
+        for(HashMap<Integer, List<Integer>> storeMoves: storeToReplicaToAddPartitionList.values()) {
+            for(List<Integer> partitionStoreMoves: storeMoves.values()) {
+                count += partitionStoreMoves.size();
+            }
+        }
+
+        /*-
+         * Do not count deletes. 
+        for(HashMap<Integer, List<Integer>> storeDeletes: storeToReplicaToDeletePartitionList.values()) {
+            for(List<Integer> partitionStoreDeletes: storeDeletes.values()) {
+                count += partitionStoreDeletes.size();
+            }
+        }
+         */
+
+        return count;
+    }
+
 
     /**
      * Returns the stores which have their partitions being added ( The stores

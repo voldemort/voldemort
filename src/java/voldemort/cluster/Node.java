@@ -134,6 +134,12 @@ public class Node implements Serializable, Comparable<Node> {
                + " partitionList:" + partitions;
     }
 
+    public String getStateString() {
+        return "Node " + getHost() + " Id:" + getId() + " in zone " + getZoneId()
+               + " with admin port " + getAdminPort() + ", socket port " + getSocketPort()
+               + ", and http port " + getHttpPort();
+    }
+
     @Override
     public boolean equals(Object o) {
         if(this == o)

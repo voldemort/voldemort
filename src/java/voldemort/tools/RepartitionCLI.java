@@ -180,6 +180,9 @@ public class RepartitionCLI {
         if(missing.size() > 0) {
             printUsageAndDie("Missing required arguments: " + Joiner.on(", ").join(missing));
         }
+        if(options.has("target-stores") && !options.has("target-cluster")) {
+            printUsageAndDie("target-stores specified, but target-cluster not specified.");
+        }
 
         return options;
     }
@@ -204,6 +207,9 @@ public class RepartitionCLI {
         List<StoreDefinition> currentStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(currentStoresXML));
         Cluster targetCluster = new ClusterMapper().readCluster(new File(targetClusterXML));
         List<StoreDefinition> targetStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(targetStoresXML));
+
+        // TODO: more verification of arguments:
+        // RebalanceUtils.validateTargetCluster(currentCluster,targetCluster);
 
         // Optional administrivia args
         int attempts = CmdUtils.valueOf(options, "attempts", DEFAULT_REPARTITION_ATTEMPTS);

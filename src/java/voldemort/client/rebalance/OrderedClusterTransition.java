@@ -13,6 +13,9 @@ import voldemort.utils.Utils;
 
 import com.google.common.collect.Lists;
 
+// TODO: (refactor) Ordering of rebalancing tasks ought to be solely the
+// province of RebalancePlan. Remove or deprecate this class whenever
+// RebalancePlan has wholly replaced current planning code.
 /**
  * Ordered representation of a cluster transition that guarantees that primary
  * partition movements will take place before replicas.
@@ -21,6 +24,9 @@ import com.google.common.collect.Lists;
  */
 public class OrderedClusterTransition {
 
+    // TODO: (refactor) What is the value of this idGen member? It is only used
+    // in print outs? If it has no value, then remove it. (Same with member
+    // 'id')
     private static final AtomicInteger idGen = new AtomicInteger(0);
     private final Cluster currentCluster;
     private final Cluster targetCluster;

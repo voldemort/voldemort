@@ -14,15 +14,26 @@ import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.MoveMap;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
+// TODO: (refactor) Rename RebalanceClusterPlan to RebalanceBatchPlan
+// TODO: (refactor) Rename targetCluster -> finalCluster
+// TODO: (refactor) Rename currentCluster -> targetCluster
+// TODO: (refactor) Fix cluster nomenclature in general: make sure there are
+// exactly three prefixes used to distinguish cluster xml: initial or current,
+// target or spec or expanded, and final. 'target' is overloaded to mean
+// spec/expanded or final depending on context.
+// TODO: Remove stealerBased boolean argument from constructor. If a
+// stealer-based or donor-based plan is needed, then either
+// RebalanceStealerBasedBatchPlan or RebalanceDonorBasedBatchPlan should be
+// constructed.
 /**
  * Compares the current cluster configuration with the target cluster
  * configuration and generates a plan to move the partitions. The plan can be
@@ -39,6 +50,12 @@ import com.google.common.collect.Sets;
  */
 public class RebalanceClusterPlan {
 
+    private final Cluster currentCluster;
+    private final Cluster targetCluster;
+
+    protected final List<RebalancePartitionsInfo> batchPlan;
+
+    @Deprecated
     private final Queue<RebalanceNodePlan> rebalanceTaskQueue;
 
     /**
@@ -86,7 +103,11 @@ public class RebalanceClusterPlan {
                                 final List<StoreDefinition> storeDefs,
                                 final boolean enabledDeletePartition,
                                 final boolean isStealerBased) {
-        this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
+        this.currentCluster = currentCluster;
+        this.targetCluster = targetCluster;
+
+        this.batchPlan = Lists.newArrayList();
+
         this.currentAllStoresNodeIdToAllPartitionTuples = Maps.newHashMap();
         this.targetAllStoresNodeIdToAllPartitionTuples = Maps.newHashMap();
 
@@ -104,32 +125,127 @@ public class RebalanceClusterPlan {
                                          + ") not equal to Target cluster ("
                                          + targetCluster.getNumberOfNodes() + ") ]");
 
-        HashMultimap<Integer, RebalancePartitionsInfo> rebalancePartitionList = HashMultimap.create();
         for(Node node: targetCluster.getNodes()) {
-            for(RebalancePartitionsInfo info: getRebalancePartitionsInfo(currentCluster,
-                                                                         targetCluster,
-                                                                         storeDefs,
-                                                                         node.getId(),
-                                                                         enabledDeletePartition)) {
-                if(isStealerBased) {
-                    rebalancePartitionList.put(info.getStealerId(), info);
-                } else {
-                    rebalancePartitionList.put(info.getDonorId(), info);
-                }
+            this.batchPlan.addAll(getRebalancePartitionsInfo(currentCluster,
+                                                             targetCluster,
+                                                             storeDefs,
+                                                             node.getId(),
+                                                             enabledDeletePartition));
+        }
+
+        prioritizeBatchPlan();
+
+        // TODO: (begin) Remove this redundant code once the
+        // getRebalancingTaskQueue method is actually removed from this class.
+        // This method must be retained until the rebalance controlelr is
+        // switched over to use RebalancePlan.
+        this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
+        HashMap<Integer, List<RebalancePartitionsInfo>> nodeToBatchPlan = new HashMap<Integer, List<RebalancePartitionsInfo>>();
+        for(RebalancePartitionsInfo info: batchPlan) {
+            int nodeId = info.getDonorId();
+            if(isStealerBased) {
+                nodeId = info.getStealerId();
+            }
+            if(!nodeToBatchPlan.containsKey(nodeId)) {
+                nodeToBatchPlan.put(nodeId, new ArrayList<RebalancePartitionsInfo>());
+            }
+            nodeToBatchPlan.get(nodeId).add(info);
+        }
+
+        for(int nodeId: nodeToBatchPlan.keySet()) {
+            this.rebalanceTaskQueue.offer(new RebalanceNodePlan(nodeId,
+                                                                Lists.newArrayList(nodeToBatchPlan.get(nodeId)),
+                                                                isStealerBased));
+        }
+        // TODO: (end) Remove ...
+    }
+
+    public Cluster getCurrentCluster() {
+        return currentCluster;
+    }
+
+    public Cluster getTargetCluster() {
+        return targetCluster;
+    }
+
+    @Deprecated
+    public Queue<RebalanceNodePlan> getRebalancingTaskQueue() {
+        return rebalanceTaskQueue;
+    }
+
+    public MoveMap getZoneMoveMap() {
+        MoveMap moveMap = new MoveMap(targetCluster.getZoneIds());
+
+        for(RebalancePartitionsInfo info: batchPlan) {
+            int fromZoneId = targetCluster.getNodeById(info.getDonorId()).getZoneId();
+            int toZoneId = targetCluster.getNodeById(info.getStealerId()).getZoneId();
+            moveMap.add(fromZoneId, toZoneId, info.getPartitionStoreMoves());
+        }
+
+        return moveMap;
+    }
+
+    public MoveMap getNodeMoveMap() {
+        MoveMap moveMap = new MoveMap(targetCluster.getNodeIds());
+
+        for(RebalancePartitionsInfo info: batchPlan) {
+            moveMap.add(info.getDonorId(), info.getStealerId(), info.getPartitionStoreMoves());
+        }
+
+        return moveMap;
+    }
+
+    public int getCrossZonePartitionStoreMoves() {
+        int xzonePartitionStoreMoves = 0;
+        for(RebalancePartitionsInfo info: batchPlan) {
+            Node donorNode = targetCluster.getNodeById(info.getDonorId());
+            Node stealerNode = targetCluster.getNodeById(info.getStealerId());
+
+            if(donorNode.getZoneId() != stealerNode.getZoneId()) {
+                xzonePartitionStoreMoves += info.getPartitionStoreMoves();
             }
         }
 
-        // Populate the rebalance task queue
-        for(int nodeId: rebalancePartitionList.keySet()) {
-            rebalanceTaskQueue.offer(new RebalanceNodePlan(nodeId,
-                                                           Lists.newArrayList(rebalancePartitionList.get(nodeId)),
-                                                           isStealerBased));
-        }
-
+        return xzonePartitionStoreMoves;
     }
 
-    public Queue<RebalanceNodePlan> getRebalancingTaskQueue() {
-        return rebalanceTaskQueue;
+    /**
+     * Return the total number of partition-store moves
+     * 
+     * @return Number of moves
+     */
+    public int getPartitionStoreMoves() {
+        int partitionStoreMoves = 0;
+
+        for(RebalancePartitionsInfo info: batchPlan) {
+            partitionStoreMoves += info.getPartitionStoreMoves();
+        }
+
+        return partitionStoreMoves;
+    }
+
+    /**
+     * Prioritize the batchPlan such that primary partitions are ordered ahead
+     * or other nary partitions in the list.
+     */
+    private void prioritizeBatchPlan() {
+        // TODO: Steal logic from "ORderedClusterTransition" and put it here.
+        // The RebalancePlan ought to specify the priority ordering and so place
+        // primary moves ahead of nary moves.
+
+        // TODO: Fix this to use zonePrimary rather than just primary. Need to
+        // rebase with master to pick up appropriate helper methods first
+        // though.
+
+        // NO-OP
+
+        /*-
+         * Start of code to implement the basics.
+        HashMap<Integer, List<RebalancePartitionsInfo>> naryToBatchPlan = new HashMap<Integer, List<RebalancePartitionsInfo>>();
+        for(RebalancePartitionsInfo info: batchPlan) {
+        }
+        List<RebalancePartitionsInfo> infos = Lists.newArrayList(batchPlan);
+         */
     }
 
     /**
@@ -342,23 +458,15 @@ public class RebalanceClusterPlan {
 
     @Override
     public String toString() {
-        if(rebalanceTaskQueue.isEmpty()) {
-            return "No rebalancing required since rebalance task is empty";
+        if(batchPlan == null || batchPlan.isEmpty()) {
+            return "No rebalancing required since batch plan is empty";
         }
 
         StringBuilder builder = new StringBuilder();
-        builder.append("Cluster Rebalancing Plan : ").append(Utils.NEWLINE);
+        builder.append("Rebalancing Batch Plan : ").append(Utils.NEWLINE);
 
-        if(rebalanceTaskQueue == null || rebalanceTaskQueue.isEmpty()) {
-            return "";
-        }
-
-        for(RebalanceNodePlan nodePlan: rebalanceTaskQueue) {
-            builder.append((nodePlan.isNodeStealer() ? "Stealer " : "Donor ") + "Node "
-                           + nodePlan.getNodeId());
-            for(RebalancePartitionsInfo rebalancePartitionsInfo: nodePlan.getRebalanceTaskList()) {
-                builder.append(rebalancePartitionsInfo).append(Utils.NEWLINE);
-            }
+        for(RebalancePartitionsInfo rebalancePartitionsInfo: batchPlan) {
+            builder.append(rebalancePartitionsInfo).append(Utils.NEWLINE);
         }
 
         return builder.toString();
