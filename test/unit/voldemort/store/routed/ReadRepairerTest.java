@@ -292,6 +292,16 @@ public class ReadRepairerTest {
                                      getValue(6, 1, new int[] { 3, 3 })));
     }
 
+    @Test
+    public void testConcurrentVersionsDoNotResultInRepairs() throws Exception {
+        List<NodeValue<String, Integer>> emptyExpectedList = new ArrayList<NodeValue<String, Integer>>();
+        assertVariationsEqual(emptyExpectedList,
+                              asList(getValue(1, 1, new int[] { 1, 1, 2, 2, 2, 2, 3, 3 }),
+                                     getValue(1, 1, new int[] { 1, 1, 1, 1, 2, 2, 3, 3 }),
+                                     getValue(2, 1, new int[] { 1, 1, 2, 2, 2, 2, 3, 3 }),
+                                     getValue(2, 1, new int[] { 1, 1, 1, 1, 2, 2, 3, 3 })));
+    }
+
     /**
      * Test the equality with a few variations on ordering
      * 
