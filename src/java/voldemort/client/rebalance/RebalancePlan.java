@@ -33,6 +33,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.MoveMap;
 import voldemort.utils.PartitionBalance;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Lists;
@@ -47,16 +48,23 @@ public class RebalancePlan {
 
     private final Cluster currentCluster;
     private final List<StoreDefinition> currentStores;
-    // TODO: (refactor) Better name than targetCluster? expandedCluster?
-    // specCluster?
-    private final Cluster targetCluster;
     private final Cluster finalCluster;
     private final List<StoreDefinition> finalStores;
     private final boolean stealerBased;
     private final int batchSize;
     private final String outputDir;
 
+    // TODO: (refactor) Better name than targetCluster? expandedCluster?
+    // specCluster?
+    private final Cluster targetCluster;
     private List<RebalanceClusterPlan> batchPlans;
+
+    // Aggregate stats
+    private int numPrimaryPartitionMoves;
+    private int numPartitionStoreMoves;
+    private int numXZonePartitionStoreMoves;
+    private final MoveMap nodeMoveMap;
+    private final MoveMap zoneMoveMap;
 
     public RebalancePlan(final Cluster currentCluster,
                          final List<StoreDefinition> currentStores,
@@ -73,13 +81,32 @@ public class RebalancePlan {
         this.batchSize = batchSize;
         this.outputDir = outputDir;
 
+        // Derive the targetCluster from current & final cluster xml
         RebalanceUtils.validateFinalCluster(this.currentCluster, this.finalCluster);
-        this.targetCluster = RebalanceUtils.getClusterWithNewNodes(this.currentCluster,
-                                                                   this.finalCluster);
+        this.targetCluster = RebalanceUtils.getTargetCluster(this.currentCluster, this.finalCluster);
 
+        // Verify each cluster/storedefs pair
         RebalanceUtils.validateClusterStores(this.currentCluster, this.currentStores);
         RebalanceUtils.validateClusterStores(this.finalCluster, this.finalStores);
         RebalanceUtils.validateClusterStores(this.targetCluster, this.finalStores);
+
+        // Log key arguments
+        logger.info("Current cluster : " + currentCluster);
+        logger.info("Target cluster : " + targetCluster);
+        logger.info("Final cluster : " + finalCluster);
+        logger.info("Batch size : " + batchSize);
+
+        // Initialize the plan
+        batchPlans = new ArrayList<RebalanceClusterPlan>();
+
+        // Initialize aggregate statistics
+        numPrimaryPartitionMoves = 0;
+        numPartitionStoreMoves = 0;
+        numXZonePartitionStoreMoves = 0;
+        nodeMoveMap = new MoveMap(targetCluster.getNodeIds());
+        zoneMoveMap = new MoveMap(targetCluster.getZoneIds());
+
+        plan();
     }
 
     public RebalancePlan(final Cluster currentCluster,
@@ -98,48 +125,17 @@ public class RebalancePlan {
     }
 
     /**
-     * Create a plan
+     * Create a plan. The plan consists of batches. Each batch involves the
+     * movement of nor more than batchSize primary partitions. The movement of a
+     * single primary partition may require migration of other n-ary replicas,
+     * and potentially deletions. Migrating a primary or n-ary partition
+     * requires migrating one partition-store for every store hosted at that
+     * partition.
+     * 
      */
-    public List<RebalanceClusterPlan> plan() {
-        logger.info("Current cluster : " + currentCluster);
-        logger.info("Target cluster : " + targetCluster);
-        logger.info("Final cluster : " + finalCluster);
-        logger.info("Batch size : " + batchSize);
-
-        batchPlans = new ArrayList<RebalanceClusterPlan>();
-        rebalancePerClusterTransition();
-        return batchPlans;
-    }
-
-    // TODO: (refactor) rename this method to something sane and/or flatten into
-    // plan() method. And/or break into helper mehtods.
-    /**
-     * Rebalance on a step-by-step transitions from cluster.xml to
-     * target-cluster.xml
-     * 
-     * <br>
-     * 
-     * Each transition represents the migration of one primary partition (
-     * {@link #rebalancePerPartitionTransition(int, OrderedClusterTransition)} )
-     * along with all its side effect ( i.e. migration of replicas + deletions
-     * ).
-     * 
-     * 
-     * @param currentCluster The normalized cluster. This cluster contains new
-     *        nodes with empty partitions as well
-     * @param finalCluster The desired cluster after rebalance
-     * @param storeDefs Stores to rebalance
-     */
-    private void rebalancePerClusterTransition() {
+    private void plan() {
         // Mapping of stealer node to list of primary partitions being moved
         final TreeMultimap<Integer, Integer> stealerToStolenPrimaryPartitions = TreeMultimap.create();
-
-        // Various counts for progress bar
-        int numPrimaryPartitionMoves = 0;
-        int numPartitionStoreMoves = 0;
-        int numXZonePartitionStoreMoves = 0;
-        MoveMap nodeMoveMap = new MoveMap(targetCluster.getNodeIds());
-        MoveMap zoneMoveMap = new MoveMap(targetCluster.getZoneIds());
 
         // Used for creating clones
         ClusterMapper mapper = new ClusterMapper();
@@ -212,17 +208,7 @@ public class RebalancePlan {
             batchTargetCluster = mapper.readCluster(new StringReader(mapper.writeCluster(batchFinalCluster)));
         }
 
-        logger.info("Total number of primary partition moves : " + numPrimaryPartitionMoves);
-        logger.info("Total number of partition-store moves : " + numPartitionStoreMoves);
-        logger.info("Total number of cross-zone partition-store moves :"
-                    + numXZonePartitionStoreMoves);
-        logger.info("Zone move map (partition-stores):\n"
-                    + "(zone id) -> (zone id) = # of partition-stores moving from the former zone to the latter\n"
-                    + zoneMoveMap);
-        logger.info("Node flow map (partition-stores):\n"
-                    + "# partitions-stores stealing into -> (node id) -> # of partition-stores donating out of\n"
-                    + nodeMoveMap.toFlowString());
-        logger.info(storageOverhead(nodeMoveMap.groupByTo()));
+        logger.info(this);
     }
 
     /**
@@ -236,7 +222,7 @@ public class RebalancePlan {
         double maxOverhead = Double.MIN_VALUE;
         PartitionBalance pb = new PartitionBalance(currentCluster, currentStores);
         StringBuilder sb = new StringBuilder();
-        sb.append("Per-node store-overhead:\n");
+        sb.append("Per-node store-overhead:").append(Utils.NEWLINE);
         DecimalFormat doubleDf = new DecimalFormat("####.##");
         for(int nodeId: finalCluster.getNodeIds()) {
             Node node = finalCluster.getNodeById(nodeId);
@@ -258,9 +244,52 @@ public class RebalancePlan {
                              + String.format("%6d", toLoad) + " -> "
                              + String.format("%6d", initialLoad + toLoad) + " ("
                              + doubleDf.format(overhead) + " X)";
-            sb.append(nodeTag + " : " + loadTag + "\n");
+            sb.append(nodeTag + " : " + loadTag).append(Utils.NEWLINE);
         }
-        sb.append("\n\tMax per-node storage overhead: " + doubleDf.format(maxOverhead) + " X.\n");
+        sb.append(Utils.NEWLINE)
+          .append("****  Max per-node storage overhead: " + doubleDf.format(maxOverhead) + " X.")
+          .append(Utils.NEWLINE);
         return (sb.toString());
+    }
+
+    /**
+     * 
+     * @return The plan!
+     */
+    public List<RebalanceClusterPlan> getPlan() {
+        return batchPlans;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        // Dump entire plan batch-by-batch, partition info-by-partition info...
+        for(RebalanceClusterPlan batchPlan: batchPlans) {
+            sb.append(batchPlan).append(Utils.NEWLINE);
+        }
+        // Dump aggregate stats of the plan
+        sb.append("Total number of primary partition moves : " + numPrimaryPartitionMoves)
+          .append(Utils.NEWLINE)
+          .append("Total number of partition-store moves : " + numPartitionStoreMoves)
+          .append(Utils.NEWLINE)
+          .append("Total number of cross-zone partition-store moves :"
+                  + numXZonePartitionStoreMoves)
+          .append(Utils.NEWLINE)
+          .append("Zone move map (partition-stores):")
+          .append(Utils.NEWLINE)
+          .append("(zone id) -> (zone id) = # of partition-stores moving from the former zone to the latter")
+          .append(Utils.NEWLINE)
+          .append(zoneMoveMap)
+          .append(Utils.NEWLINE)
+          .append("Node flow map (partition-stores):")
+          .append(Utils.NEWLINE)
+          .append("# partitions-stores stealing into -> (node id) -> # of partition-stores donating out of")
+          .append(Utils.NEWLINE)
+          .append(nodeMoveMap.toFlowString())
+          .append(Utils.NEWLINE)
+          .append(storageOverhead(nodeMoveMap.groupByTo()))
+          .append(Utils.NEWLINE);
+
+        return sb.toString();
     }
 }

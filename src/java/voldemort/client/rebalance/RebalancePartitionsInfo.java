@@ -53,7 +53,7 @@ public class RebalancePartitionsInfo {
     // Except for MetadataStoreTest which passes in a random value, the value
     // passed to the constructor for this value is always 0.
     private int attempt;
-    // TODO: (refactor) Unclear what value the Hashmap provides. It maps
+    // TODO: (refactor) Unclear what value of the inner Hashmap is. It maps
     // "replica type" to lists of partition IDs. A list of partition IDs (per
     // store) seems sufficient for all purposes. The replica type is a
     // distraction.
@@ -263,6 +263,7 @@ public class RebalancePartitionsInfo {
             }
         }
 
+        // TODO: Confirm not counting deletes is the correct action.
         /*-
          * Do not count deletes. 
         for(HashMap<Integer, List<Integer>> storeDeletes: storeToReplicaToDeletePartitionList.values()) {

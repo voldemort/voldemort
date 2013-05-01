@@ -173,14 +173,13 @@ public class RebalancePlanCLI {
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setPrimaryPartitionBatchSize(batchSize);
 
-        RebalancePlan rebalancePlanner = new RebalancePlan(currentCluster,
-                                                                 currentStoreDefs,
-                                                                 targetCluster,
-                                                                 targetStoreDefs,
-                                                                 stealerBased,
-                                                                 batchSize,
-                                                                 outputDir);
-        rebalancePlanner.plan();
+        new RebalancePlan(currentCluster,
+                          currentStoreDefs,
+                          targetCluster,
+                          targetStoreDefs,
+                          stealerBased,
+                          batchSize,
+                          outputDir);
     }
 
 }

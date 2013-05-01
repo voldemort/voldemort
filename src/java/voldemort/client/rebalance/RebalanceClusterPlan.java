@@ -25,7 +25,7 @@ import com.google.common.collect.Sets;
 
 // TODO: (refactor) Rename RebalanceClusterPlan to RebalanceBatchPlan
 // TODO: (refactor) Rename targetCluster -> finalCluster
-// TODO: (refactor) Rename currentCluster -> targetCluster
+// TODO: (refactor) Rename currentCluster -> targetCluster?
 // TODO: (refactor) Fix cluster nomenclature in general: make sure there are
 // exactly three prefixes used to distinguish cluster xml: initial or current,
 // target or spec or expanded, and final. 'target' is overloaded to mean
@@ -248,6 +248,9 @@ public class RebalanceClusterPlan {
          */
     }
 
+    // TODO: Revisit these "two principles". I am not sure about the second one.
+    // Either because I don't like delete being mixed with this code or because
+    // we probably want to copy from a to-be-deleted partitoin-store.
     /**
      * Generate the list of partition movement based on 2 principles:
      * 
@@ -304,9 +307,33 @@ public class RebalanceClusterPlan {
                 continue;
             }
 
+            /*-
+             * Outline of code to change this method...
+            StoreRoutingPlan currentStoreRoutingPlan = new StoreRoutingPlan(currentCluster,
+                                                                            storeDef);
+            StoreRoutingPlan targetStoreRoutingPlan = new StoreRoutingPlan(targetCluster, storeDef);
+            final Set<Pair<Integer, Integer>> trackStealPartitionsTuples = new HashSet<Pair<Integer, Integer>>();
+
             final Set<Pair<Integer, Integer>> haveToStealTuples = Sets.newHashSet(stealerNodeIdToStolenPartitionTuples.get(stealerNodeId));
+            for(Pair<Integer, Integer> replicaTypePartitionId: haveToStealTuples) {
+
+                // TODO: Do not steal something you already have!
+                // TODO: Steal from zone local n-ary if possible
+                // TODO: Steal appropriate n-ary from zone that currently hosts
+                // true
+                // primary.
+            }
+            if(trackStealPartitionsTuples.size() > 0) {
+                addPartitionsToPlan(trackStealPartitionsTuples,
+                                    donorNodeToStoreToStealPartition,
+                                    donorNode.getId(),
+                                    storeDef.getName());
+
+            }
+             */
 
             // Now we find out which donor can donate partitions to this stealer
+            final Set<Pair<Integer, Integer>> haveToStealTuples = Sets.newHashSet(stealerNodeIdToStolenPartitionTuples.get(stealerNodeId));
             for(Node donorNode: currentCluster.getNodes()) {
 
                 // The same node can't donate
@@ -320,6 +347,10 @@ public class RebalanceClusterPlan {
 
                 final Set<Pair<Integer, Integer>> trackStealPartitionsTuples = new HashSet<Pair<Integer, Integer>>();
                 final Set<Pair<Integer, Integer>> trackDeletePartitionsTuples = new HashSet<Pair<Integer, Integer>>();
+
+                // TODO: donatePartitionTuple ought to take all donor nodes
+                // as input and select "best" partition to donate. E.g., from
+                // within the zone!
 
                 // Checks if this donor node can donate any tuples
                 donatePartitionTuple(donorNode,
@@ -350,8 +381,8 @@ public class RebalanceClusterPlan {
                                         donorNode.getId(),
                                         storeDef.getName());
                 }
-
             }
+
         }
 
         // Now combine the plans generated individually into the actual
@@ -376,7 +407,7 @@ public class RebalanceClusterPlan {
     private void addPartitionsToPlan(Set<Pair<Integer, Integer>> trackPartitionsTuples,
                                      HashMap<Integer, HashMap<String, HashMap<Integer, List<Integer>>>> donorNodeToStoreToPartitionTuples,
                                      int donorNodeId,
-                                     String name) {
+                                     String storeName) {
         HashMap<String, HashMap<Integer, List<Integer>>> storeToStealPartitionTuples = null;
         if(donorNodeToStoreToPartitionTuples.containsKey(donorNodeId)) {
             storeToStealPartitionTuples = donorNodeToStoreToPartitionTuples.get(donorNodeId);
@@ -384,10 +415,15 @@ public class RebalanceClusterPlan {
             storeToStealPartitionTuples = Maps.newHashMap();
             donorNodeToStoreToPartitionTuples.put(donorNodeId, storeToStealPartitionTuples);
         }
-        storeToStealPartitionTuples.put(name,
+        storeToStealPartitionTuples.put(storeName,
                                         RebalanceUtils.flattenPartitionTuples(trackPartitionsTuples));
     }
 
+    // TODO: (refactor) trackStealPartitoinsTuples is updated in this method.
+    // I.e., the 'void' return code is misleading. AND, only specific
+    // partitionId:replicaType's are actually stolen. AND, 'haveToStealTuples'
+    // is also modified. Clean up this method!
+    // TODO: (refactor): At least remove commented out historic code...
     /**
      * Given a donor node and a set of tuples that need to be stolen, checks if
      * the donor can contribute any
@@ -398,6 +434,7 @@ public class RebalanceClusterPlan {
      * @param trackStealPartitionsTuples Set of partitions tuples already stolen
      * @param donorPartitionTuples All partition tuples on donor node
      */
+    /*-
     private void donatePartitionTuple(final Node donorNode,
                                       Set<Pair<Integer, Integer>> haveToStealTuples,
                                       Set<Pair<Integer, Integer>> trackStealPartitionsTuples,
@@ -413,6 +450,37 @@ public class RebalanceClusterPlan {
 
                 // This partition has been donated, remove it
                 iter.remove();
+            }
+        }
+    }
+     */
+    private void donatePartitionTuple(final Node donorNode,
+                                      Set<Pair<Integer, Integer>> haveToStealTuples,
+                                      Set<Pair<Integer, Integer>> trackStealPartitionsTuples,
+                                      Set<Pair<Integer, Integer>> donorPartitionTuples) {
+        final Iterator<Pair<Integer, Integer>> iter = haveToStealTuples.iterator();
+
+        // Iterate over the partition tuples to steal and check if this node can
+        // donate it
+        while(iter.hasNext()) {
+            Pair<Integer, Integer> partitionTupleToSteal = iter.next();
+
+            // TODO: HACK to steal from ANY node that has the desired partition.
+            // Totally ignoring the replicaType.
+            for(Pair<Integer, Integer> rt: donorPartitionTuples) {
+                if(rt.getSecond() == partitionTupleToSteal.getSecond()) {
+                    // TODO: passing in 'rt' instead of 'partitoinTupleToSteal'
+                    // is a one-line change that circumvents server-side checks
+                    // during execution that the "correct" replicaType is being
+                    // stolen from a donor. This change is fragile and should be
+                    // hardened by removing such replicaType checks from the
+                    // code path.
+                    trackStealPartitionsTuples.add(rt);
+                    // trackStealPartitionsTuples.add(partitionTupleToSteal);
+
+                    // This partition has been donated, remove it
+                    iter.remove();
+                }
             }
         }
     }

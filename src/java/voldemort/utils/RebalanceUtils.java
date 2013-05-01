@@ -362,6 +362,29 @@ public class RebalanceUtils {
     }
 
     /**
+     * Given the current cluster and final cluster, generates a target cluster
+     * with empty new nodes (and zones).
+     * 
+     * @param currentCluster Current cluster metadata
+     * @param finalCluster Final cluster metadata
+     * @return Returns a new target cluster which contains nodes and zones of
+     *         final cluster, but with empty partition lists if they were not
+     *         present in current cluster.
+     */
+    public static Cluster getTargetCluster(Cluster currentCluster, Cluster finalCluster) {
+        List<Node> newNodeList = new ArrayList<Node>(currentCluster.getNodes());
+        for(Node node: finalCluster.getNodes()) {
+            if(!ClusterUtils.containsNode(currentCluster, node.getId())) {
+                newNodeList.add(NodeUtils.updateNode(node, new ArrayList<Integer>()));
+            }
+        }
+        Collections.sort(newNodeList);
+        return new Cluster(currentCluster.getName(),
+                           newNodeList,
+                           Lists.newArrayList(finalCluster.getZones()));
+    }
+
+    /**
      * Given the current cluster and a target cluster, generates a cluster with
      * new nodes ( which in turn contain empty partition lists )
      * 
