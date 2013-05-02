@@ -10,9 +10,9 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.MoveMap;
 import voldemort.utils.Pair;
@@ -24,18 +24,17 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 // TODO: (refactor) Rename RebalanceClusterPlan to RebalanceBatchPlan
-// TODO: (refactor) Rename targetCluster -> finalCluster
-// TODO: (refactor) Rename currentCluster -> targetCluster?
 // TODO: (refactor) Fix cluster nomenclature in general: make sure there are
 // exactly three prefixes used to distinguish cluster xml: initial or current,
-// target or spec or expanded, and final. 'target' is overloaded to mean
-// spec/expanded or final depending on context.
+// target or spec or expanded, and final. 'target' has historically been
+// overloaded to mean spec/expanded or final depending on context.
 // TODO: Remove stealerBased boolean argument from constructor. If a
 // stealer-based or donor-based plan is needed, then either
 // RebalanceStealerBasedBatchPlan or RebalanceDonorBasedBatchPlan should be
 // constructed.
+// TODO: (refactor) Fix this header comment after all the refactoring...
 /**
- * Compares the current cluster configuration with the target cluster
+ * Compares the target cluster configuration with the final cluster
  * configuration and generates a plan to move the partitions. The plan can be
  * either generated from the perspective of the stealer or the donor. <br>
  * 
@@ -50,95 +49,90 @@ import com.google.common.collect.Sets;
  */
 public class RebalanceClusterPlan {
 
-    private final Cluster currentCluster;
     private final Cluster targetCluster;
+    private final Cluster finalCluster;
+    private final List<StoreDefinition> storeDefs;
 
     protected final List<RebalancePartitionsInfo> batchPlan;
 
     @Deprecated
     private final Queue<RebalanceNodePlan> rebalanceTaskQueue;
-
     /**
      * For the purposes of printing we collect the partition tuples for all
      * nodes for all stores
      */
+    @Deprecated
     private final Map<Integer, Set<Pair<Integer, Integer>>> currentAllStoresNodeIdToAllPartitionTuples;
+    @Deprecated
     private final Map<Integer, Set<Pair<Integer, Integer>>> targetAllStoresNodeIdToAllPartitionTuples;
 
     /**
-     * Compares the currentCluster configuration with the desired
-     * targetConfiguration and builds a map of Target node-id to map of source
-     * node-ids and partitions desired to be stolen/fetched.
+     * Compares the targetCluster configuration with the desired finalCluster
+     * and builds a map of Target node-id to map of source node-ids and
+     * partitions desired to be stolen/fetched.
      * 
-     * @param currentCluster The current cluster definition
-     * @param targetCluster The target cluster definition
+     * @param targetCluster The current cluster definition
+     * @param finalCluster The target cluster definition
      * @param storeDefs The list of store definitions to rebalance
      * @param enabledDeletePartition Delete the RW partition on the donor side
      *        after rebalance
      * @param isStealerBased Do we want to generate the final plan based on the
      *        stealer node or the donor node?
      */
-    public RebalanceClusterPlan(final Cluster currentCluster,
-                                final Cluster targetCluster,
+    public RebalanceClusterPlan(final Cluster targetCluster,
+                                final Cluster finalCluster,
                                 final List<StoreDefinition> storeDefs,
                                 final boolean enabledDeletePartition) {
-        this(currentCluster, targetCluster, storeDefs, enabledDeletePartition, true);
+        this(targetCluster, finalCluster, storeDefs, enabledDeletePartition, true);
     }
 
     /**
-     * Compares the currentCluster configuration with the desired
-     * targetConfiguration and builds a map of Target node-id to map of source
-     * node-ids and partitions desired to be stolen/fetched.
+     * Compares the targetCluster configuration with the desired finalClsuter
+     * and builds a map of Target node-id to map of source node-ids and
+     * partitions desired to be stolen/fetched.
      * 
-     * @param currentCluster The current cluster definition
-     * @param targetCluster The target cluster definition
+     * @param targetCluster The current cluster definition
+     * @param finalCluster The target cluster definition
      * @param storeDefList The list of store definitions to rebalance
      * @param enabledDeletePartition Delete the RW partition on the donor side
      *        after rebalance
      * @param isStealerBased Do we want to generate the final plan based on the
      *        stealer node or the donor node?
      */
-    public RebalanceClusterPlan(final Cluster currentCluster,
-                                final Cluster targetCluster,
+    public RebalanceClusterPlan(final Cluster targetCluster,
+                                final Cluster finalCluster,
                                 final List<StoreDefinition> storeDefs,
                                 final boolean enabledDeletePartition,
                                 final boolean isStealerBased) {
-        this.currentCluster = currentCluster;
         this.targetCluster = targetCluster;
-
-        this.batchPlan = Lists.newArrayList();
+        this.finalCluster = finalCluster;
+        this.storeDefs = storeDefs;
+        RebalanceUtils.validateTargetFinalCluster(targetCluster, finalCluster);
+        RebalanceUtils.validateClusterStores(targetCluster, storeDefs);
+        RebalanceUtils.validateClusterStores(finalCluster, storeDefs);
 
         this.currentAllStoresNodeIdToAllPartitionTuples = Maps.newHashMap();
         this.targetAllStoresNodeIdToAllPartitionTuples = Maps.newHashMap();
 
-        // Number of partitions to remain same
-        if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
-            throw new VoldemortException("Total number of partitions should be equal [ Current cluster ("
-                                         + currentCluster.getNumberOfPartitions()
-                                         + ") not equal to Target cluster ("
-                                         + targetCluster.getNumberOfPartitions() + ") ]");
-
-        // Similarly number of nodes to remain same
-        if(currentCluster.getNumberOfNodes() != targetCluster.getNumberOfNodes())
-            throw new VoldemortException("Total number of nodes should be equal [ Current cluster ("
-                                         + currentCluster.getNumberOfNodes()
-                                         + ") not equal to Target cluster ("
-                                         + targetCluster.getNumberOfNodes() + ") ]");
-
-        for(Node node: targetCluster.getNodes()) {
-            this.batchPlan.addAll(getRebalancePartitionsInfo(currentCluster,
-                                                             targetCluster,
-                                                             storeDefs,
-                                                             node.getId(),
-                                                             enabledDeletePartition));
+        this.batchPlan = batchPlan();
+        /*-
+        for(Node node: finalCluster.getNodes()) {
+            this.batchPlan.addAll(getRebalancePartitionsInfo(node.getId(), enabledDeletePartition));
         }
+         */
 
-        prioritizeBatchPlan();
+        // TODO: Add some priority ordering somewhere in this class.
+        // prioritizeBatchPlan();
+
+        // TODO: Once plan-level optimization is complete, remove server side
+        // "optimization" that does not bother to steal partition-stores it
+        // already hosts. That code will be unnecessary.
 
         // TODO: (begin) Remove this redundant code once the
         // getRebalancingTaskQueue method is actually removed from this class.
         // This method must be retained until the rebalance controlelr is
-        // switched over to use RebalancePlan.
+        // switched over to use RebalancePlan. (Why this list is constructed
+        // with a concurrent linked queue is an open question...)
         this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
         HashMap<Integer, List<RebalancePartitionsInfo>> nodeToBatchPlan = new HashMap<Integer, List<RebalancePartitionsInfo>>();
         for(RebalancePartitionsInfo info: batchPlan) {
@@ -160,12 +154,12 @@ public class RebalanceClusterPlan {
         // TODO: (end) Remove ...
     }
 
-    public Cluster getCurrentCluster() {
-        return currentCluster;
-    }
-
     public Cluster getTargetCluster() {
         return targetCluster;
+    }
+
+    public Cluster getFinalCluster() {
+        return finalCluster;
     }
 
     @Deprecated
@@ -174,11 +168,11 @@ public class RebalanceClusterPlan {
     }
 
     public MoveMap getZoneMoveMap() {
-        MoveMap moveMap = new MoveMap(targetCluster.getZoneIds());
+        MoveMap moveMap = new MoveMap(finalCluster.getZoneIds());
 
         for(RebalancePartitionsInfo info: batchPlan) {
-            int fromZoneId = targetCluster.getNodeById(info.getDonorId()).getZoneId();
-            int toZoneId = targetCluster.getNodeById(info.getStealerId()).getZoneId();
+            int fromZoneId = finalCluster.getNodeById(info.getDonorId()).getZoneId();
+            int toZoneId = finalCluster.getNodeById(info.getStealerId()).getZoneId();
             moveMap.add(fromZoneId, toZoneId, info.getPartitionStoreMoves());
         }
 
@@ -186,7 +180,7 @@ public class RebalanceClusterPlan {
     }
 
     public MoveMap getNodeMoveMap() {
-        MoveMap moveMap = new MoveMap(targetCluster.getNodeIds());
+        MoveMap moveMap = new MoveMap(finalCluster.getNodeIds());
 
         for(RebalancePartitionsInfo info: batchPlan) {
             moveMap.add(info.getDonorId(), info.getStealerId(), info.getPartitionStoreMoves());
@@ -198,8 +192,8 @@ public class RebalanceClusterPlan {
     public int getCrossZonePartitionStoreMoves() {
         int xzonePartitionStoreMoves = 0;
         for(RebalancePartitionsInfo info: batchPlan) {
-            Node donorNode = targetCluster.getNodeById(info.getDonorId());
-            Node stealerNode = targetCluster.getNodeById(info.getStealerId());
+            Node donorNode = finalCluster.getNodeById(info.getDonorId());
+            Node stealerNode = finalCluster.getNodeById(info.getStealerId());
 
             if(donorNode.getZoneId() != stealerNode.getZoneId()) {
                 xzonePartitionStoreMoves += info.getPartitionStoreMoves();
@@ -248,6 +242,126 @@ public class RebalanceClusterPlan {
          */
     }
 
+    // TODO: Simplify / kill this complicated struct once
+    // RebalancePartitionsInfo is rationalized.
+    private class UnnecessarilyComplicatedDataStructure {
+
+        final HashMap<Pair<Integer, Integer>, HashMap<String, HashMap<Integer, List<Integer>>>> stealerDonorToStoreToStealPartition;
+
+        UnnecessarilyComplicatedDataStructure() {
+            stealerDonorToStoreToStealPartition = Maps.newHashMap();
+        }
+
+        public void shovelCrapIn(int stealerNodeId,
+                                 int donorNodeId,
+                                 String storeName,
+                                 int donorReplicaType,
+                                 int partitionId) {
+            Pair<Integer, Integer> stealerDonor = new Pair<Integer, Integer>(stealerNodeId,
+                                                                             donorNodeId);
+            if(!stealerDonorToStoreToStealPartition.containsKey(stealerDonor)) {
+                stealerDonorToStoreToStealPartition.put(stealerDonor,
+                                                        new HashMap<String, HashMap<Integer, List<Integer>>>());
+            }
+
+            HashMap<String, HashMap<Integer, List<Integer>>> storeToStealPartition = stealerDonorToStoreToStealPartition.get(stealerDonor);
+            if(!storeToStealPartition.containsKey(storeName)) {
+                storeToStealPartition.put(storeName, new HashMap<Integer, List<Integer>>());
+            }
+
+            HashMap<Integer, List<Integer>> replicaTypeToPartitionIdList = storeToStealPartition.get(storeName);
+            if(!replicaTypeToPartitionIdList.containsKey(donorReplicaType)) {
+                replicaTypeToPartitionIdList.put(donorReplicaType, new ArrayList<Integer>());
+            }
+
+            List<Integer> partitionIdList = replicaTypeToPartitionIdList.get(donorReplicaType);
+            partitionIdList.add(partitionId);
+        }
+
+        public List<RebalancePartitionsInfo> shovelCrapOut() {
+            final List<RebalancePartitionsInfo> result = new ArrayList<RebalancePartitionsInfo>();
+
+            for(Pair<Integer, Integer> stealerDonor: stealerDonorToStoreToStealPartition.keySet()) {
+                result.add(new RebalancePartitionsInfo(stealerDonor.getFirst(),
+                                                       stealerDonor.getSecond(),
+                                                       stealerDonorToStoreToStealPartition.get(stealerDonor),
+                                                       new HashMap<String, HashMap<Integer, List<Integer>>>(),
+                                                       targetCluster,
+                                                       0));
+            }
+            return result;
+        }
+    }
+
+    /**
+     * Determine the batch plan!
+     * 
+     * @return
+     */
+    private List<RebalancePartitionsInfo> batchPlan() {
+        // Construct all store routing plans once.
+        HashMap<String, StoreRoutingPlan> targetStoreRoutingPlans = new HashMap<String, StoreRoutingPlan>();
+        HashMap<String, StoreRoutingPlan> finalStoreRoutingPlans = new HashMap<String, StoreRoutingPlan>();
+        for(StoreDefinition storeDef: storeDefs) {
+            targetStoreRoutingPlans.put(storeDef.getName(), new StoreRoutingPlan(targetCluster,
+                                                                                 storeDef));
+            finalStoreRoutingPlans.put(storeDef.getName(), new StoreRoutingPlan(finalCluster,
+                                                                                storeDef));
+        }
+
+        UnnecessarilyComplicatedDataStructure ucds = new UnnecessarilyComplicatedDataStructure();
+        // For every node in the final cluster ...
+        for(Node stealerNode: finalCluster.getNodes()) {
+            int stealerZoneId = stealerNode.getZoneId();
+            int stealerNodeId = stealerNode.getId();
+
+            // Consider all store definitions ...
+            for(StoreDefinition storeDef: storeDefs) {
+                StoreRoutingPlan targetSRP = targetStoreRoutingPlans.get(storeDef.getName());
+                StoreRoutingPlan finalSRP = finalStoreRoutingPlans.get(storeDef.getName());
+                for(int stealerPartitionId: finalSRP.getNaryPartitionIds(stealerNodeId)) {
+                    // ... and all nary partition-stores
+                    // steal what is needed!
+
+                    // Do not steal a partition-store you host
+                    if(targetSRP.getReplicationNodeList(stealerPartitionId).contains(stealerNodeId)) {
+                        continue;
+                    }
+
+                    int stealerZoneReplicaType = finalSRP.getZoneReplicaType(stealerZoneId,
+                                                                             stealerNodeId,
+                                                                             stealerPartitionId);
+
+                    int donorZoneId;
+                    if(targetSRP.hasZoneReplicaType(stealerZoneId, stealerPartitionId)) {
+                        // Steal from local n-ary (since one exists).
+                        donorZoneId = stealerZoneId;
+                    } else {
+                        // Steal from zone that hosts primary partition Id.
+                        // TODO: Add option to steal from specific
+                        // donorZoneId.
+                        int targetMasterNodeId = targetSRP.getNodeIdForPartitionId(stealerPartitionId);
+                        donorZoneId = targetCluster.getNodeById(targetMasterNodeId).getZoneId();
+                    }
+
+                    int donorNodeId = targetSRP.getZoneReplicaNodeId(donorZoneId,
+                                                                     stealerZoneReplicaType,
+                                                                     stealerPartitionId);
+                    int donorReplicaType = targetSRP.getReplicaType(donorNodeId, stealerPartitionId);
+
+                    ucds.shovelCrapIn(stealerNodeId,
+                                      donorNodeId,
+                                      storeDef.getName(),
+                                      donorReplicaType,
+                                      stealerPartitionId);
+                }
+            }
+        }
+
+        return ucds.shovelCrapOut();
+    }
+
+    // TODO: Get rid of this method
     // TODO: Revisit these "two principles". I am not sure about the second one.
     // Either because I don't like delete being mixed with this code or because
     // we probably want to copy from a to-be-deleted partitoin-store.
@@ -261,16 +375,14 @@ public class RebalanceClusterPlan {
      * used to copy from data from another stealer
      * </ol>
      * 
-     * @param currentCluster Current cluster configuration
-     * @param targetCluster Target cluster configuration
+     * @param targetCluster Current cluster configuration
+     * @param finalCluster Target cluster configuration
      * @param storeDefs List of store definitions
      * @param stealerNodeId Id of the stealer node
      * @param enableDeletePartition To delete or not to delete?
      */
-    private List<RebalancePartitionsInfo> getRebalancePartitionsInfo(final Cluster currentCluster,
-                                                                     final Cluster targetCluster,
-                                                                     final List<StoreDefinition> storeDefs,
-                                                                     final int stealerNodeId,
+    @Deprecated
+    private List<RebalancePartitionsInfo> getRebalancePartitionsInfo(final int stealerNodeId,
                                                                      final boolean enableDeletePartition) {
         final HashMap<Integer, HashMap<String, HashMap<Integer, List<Integer>>>> donorNodeToStoreToStealPartition = Maps.newHashMap();
         final HashMap<Integer, HashMap<String, HashMap<Integer, List<Integer>>>> donorNodeToStoreToDeletePartition = Maps.newHashMap();
@@ -281,7 +393,7 @@ public class RebalanceClusterPlan {
             // For the "current" cluster, creates a map of node-ids to
             // corresponding list of [replica,partition] tuples (primary &
             // replicas)
-            Map<Integer, Set<Pair<Integer, Integer>>> currentNodeIdToAllPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
+            Map<Integer, Set<Pair<Integer, Integer>>> currentNodeIdToAllPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(targetCluster,
                                                                                                                                   storeDef,
                                                                                                                                   true);
             RebalanceUtils.combinePartitionTuples(currentAllStoresNodeIdToAllPartitionTuples,
@@ -290,7 +402,7 @@ public class RebalanceClusterPlan {
             // For the "target" cluster, creates a map of node-ids to
             // corresponding list of [replica,partition] tuples (primary &
             // replicas)
-            Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToAllPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(targetCluster,
+            Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToAllPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(finalCluster,
                                                                                                                                  storeDef,
                                                                                                                                  true);
 
@@ -298,8 +410,8 @@ public class RebalanceClusterPlan {
                                                   targetNodeIdToAllPartitionTuples);
 
             // A map of all the stealer nodes to their corresponding stolen
-            Map<Integer, Set<Pair<Integer, Integer>>> stealerNodeIdToStolenPartitionTuples = RebalanceUtils.getStolenPartitionTuples(currentCluster,
-                                                                                                                                     targetCluster,
+            Map<Integer, Set<Pair<Integer, Integer>>> stealerNodeIdToStolenPartitionTuples = RebalanceUtils.getStolenPartitionTuples(targetCluster,
+                                                                                                                                     finalCluster,
                                                                                                                                      storeDef);
 
             // If null, done with this stealer node for this store
@@ -307,34 +419,9 @@ public class RebalanceClusterPlan {
                 continue;
             }
 
-            /*-
-             * Outline of code to change this method...
-            StoreRoutingPlan currentStoreRoutingPlan = new StoreRoutingPlan(currentCluster,
-                                                                            storeDef);
-            StoreRoutingPlan targetStoreRoutingPlan = new StoreRoutingPlan(targetCluster, storeDef);
-            final Set<Pair<Integer, Integer>> trackStealPartitionsTuples = new HashSet<Pair<Integer, Integer>>();
-
-            final Set<Pair<Integer, Integer>> haveToStealTuples = Sets.newHashSet(stealerNodeIdToStolenPartitionTuples.get(stealerNodeId));
-            for(Pair<Integer, Integer> replicaTypePartitionId: haveToStealTuples) {
-
-                // TODO: Do not steal something you already have!
-                // TODO: Steal from zone local n-ary if possible
-                // TODO: Steal appropriate n-ary from zone that currently hosts
-                // true
-                // primary.
-            }
-            if(trackStealPartitionsTuples.size() > 0) {
-                addPartitionsToPlan(trackStealPartitionsTuples,
-                                    donorNodeToStoreToStealPartition,
-                                    donorNode.getId(),
-                                    storeDef.getName());
-
-            }
-             */
-
             // Now we find out which donor can donate partitions to this stealer
             final Set<Pair<Integer, Integer>> haveToStealTuples = Sets.newHashSet(stealerNodeIdToStolenPartitionTuples.get(stealerNodeId));
-            for(Node donorNode: currentCluster.getNodes()) {
+            for(Node donorNode: targetCluster.getNodes()) {
 
                 // The same node can't donate
                 if(donorNode.getId() == stealerNodeId)
@@ -397,7 +484,7 @@ public class RebalanceClusterPlan {
                                                    donorNodeId,
                                                    storeToStealPartition,
                                                    storeToDeletePartition,
-                                                   currentCluster,
+                                                   targetCluster,
                                                    0));
         }
 
@@ -541,6 +628,8 @@ public class RebalanceClusterPlan {
 
     }
 
+    // TODO: deprecate this method
+    @Deprecated
     public String printPartitionDistribution() {
         StringBuilder sb = new StringBuilder();
         sb.append("Current Cluster: ")

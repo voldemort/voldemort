@@ -47,6 +47,7 @@ public class StoreRoutingPlan {
     private final Cluster cluster;
     private final StoreDefinition storeDefinition;
     private final Map<Integer, Integer> partitionIdToNodeIdMap;
+    private final Map<Integer, List<Integer>> nodeIdToNaryPartitionMap;
     private final RoutingStrategy routingStrategy;
 
     public StoreRoutingPlan(Cluster cluster, StoreDefinition storeDefinition) {
@@ -55,6 +56,17 @@ public class StoreRoutingPlan {
         this.partitionIdToNodeIdMap = ClusterUtils.getCurrentPartitionMapping(cluster);
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
                                                                                   cluster);
+        this.nodeIdToNaryPartitionMap = new HashMap<Integer, List<Integer>>();
+        for(int nodeId: cluster.getNodeIds()) {
+            this.nodeIdToNaryPartitionMap.put(nodeId, new ArrayList<Integer>());
+        }
+        for(int masterPartitionId = 0; masterPartitionId < cluster.getNumberOfPartitions(); ++masterPartitionId) {
+            List<Integer> naryPartitionIds = getReplicatingPartitionList(masterPartitionId);
+            for(int naryPartitionId: naryPartitionIds) {
+                int naryNodeId = getNodeIdForPartitionId(naryPartitionId);
+                nodeIdToNaryPartitionMap.get(naryNodeId).add(masterPartitionId);
+            }
+        }
     }
 
     public Cluster getCluster() {
@@ -73,6 +85,16 @@ public class StoreRoutingPlan {
      */
     public List<Integer> getReplicatingPartitionList(int masterPartitionId) {
         return this.routingStrategy.getReplicatingPartitionList(masterPartitionId);
+    }
+
+    // TODO: Add test of this method.
+    /**
+     * 
+     * @param nodeId
+     * @return all nary partition IDs hosted on the node.
+     */
+    public List<Integer> getNaryPartitionIds(int nodeId) {
+        return nodeIdToNaryPartitionMap.get(nodeId);
     }
 
     /**
@@ -188,6 +210,12 @@ public class StoreRoutingPlan {
      * @return
      */
     public int getZoneReplicaType(int zoneId, int nodeId, byte[] key) {
+        if(cluster.getNodeById(nodeId).getZoneId() != zoneId) {
+            throw new VoldemortException("Node " + nodeId + " is not in zone " + zoneId
+                                         + "! The node is in zone "
+                                         + cluster.getNodeById(nodeId).getZoneId());
+        }
+
         List<Node> replicatingNodes = this.routingStrategy.routeRequest(key);
         int zoneReplicaType = -1;
         for(Node node: replicatingNodes) {
@@ -207,6 +235,87 @@ public class StoreRoutingPlan {
         } else {
             throw new VoldemortException("Could not find any replicas for the key "
                                          + ByteUtils.toHexString(key) + " in given zone " + zoneId);
+        }
+    }
+
+    // TODO: After other rebalancing code is cleaned up, either document and add
+    // a test, or remove this method. (Unclear if this method is needed once we
+    // drop replicaType from some key code paths).
+    public boolean hasZoneReplicaType(int zoneId, int partitionId) {
+        List<Integer> replicatingNodeIds = getReplicationNodeList(partitionId);
+        for(int replicatingNodeId: replicatingNodeIds) {
+            Node replicatingNode = cluster.getNodeById(replicatingNodeId);
+            // bump up the replica number once you encounter a node in the given
+            // zone
+            if(replicatingNode.getZoneId() == zoneId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // TODO: After other rebalancing code is cleaned up, either document and add
+    // a test, or remove this method. (Unclear if this method is needed once we
+    // drop replicaType from some key code paths).
+    /**
+     * 
+     * @param zoneId
+     * @param nodeId
+     * @param partitionId
+     */
+    public int getZoneReplicaType(int zoneId, int nodeId, int partitionId) {
+        if(cluster.getNodeById(nodeId).getZoneId() != zoneId) {
+            throw new VoldemortException("Node " + nodeId + " is not in zone " + zoneId
+                                         + "! The node is in zone "
+                                         + cluster.getNodeById(nodeId).getZoneId());
+        }
+
+        List<Integer> replicatingNodeIds = getReplicationNodeList(partitionId);
+        int zoneReplicaType = -1;
+        for(int replicatingNodeId: replicatingNodeIds) {
+            Node replicatingNode = cluster.getNodeById(replicatingNodeId);
+            // bump up the replica number once you encounter a node in the given
+            // zone
+            if(replicatingNode.getZoneId() == zoneId) {
+                zoneReplicaType++;
+            }
+            if(replicatingNode.getId() == nodeId) {
+                return zoneReplicaType;
+            }
+        }
+        if(zoneReplicaType > 0) {
+            throw new VoldemortException("Node " + nodeId + " not a replica for partition "
+                                         + partitionId + " in given zone " + zoneId);
+        } else {
+            throw new VoldemortException("Could not find any replicas for partition Id "
+                                         + partitionId + " in given zone " + zoneId);
+        }
+    }
+
+    // TODO: After other rebalancing code is cleaned up, either document and add
+    // a test, or remove this method. (Unclear if this method is needed once we
+    // drop replicaType from some key code paths).
+    /**
+     * 
+     * @param nodeId
+     * @param partitionId
+     */
+    public int getReplicaType(int nodeId, int partitionId) {
+        List<Integer> replicatingNodeIds = getReplicationNodeList(partitionId);
+        int replicaType = -1;
+        for(int replicatingNodeId: replicatingNodeIds) {
+            Node replicatingNode = cluster.getNodeById(replicatingNodeId);
+            replicaType++;
+            if(replicatingNode.getId() == nodeId) {
+                return replicaType;
+            }
+        }
+        if(replicaType > 0) {
+            throw new VoldemortException("Node " + nodeId + " not a replica for partition "
+                                         + partitionId);
+        } else {
+            throw new VoldemortException("Could not find any replicas for partition Id "
+                                         + partitionId);
         }
     }
 
@@ -241,6 +350,36 @@ public class StoreRoutingPlan {
                                          + " replicas for the key " + ByteUtils.toHexString(key)
                                          + " in given zone " + zoneId + ". Only found "
                                          + (zoneReplicaTypeCounter + 1));
+        }
+    }
+
+    // TODO: After other rebalancing code is cleaned up, either document and add
+    // a test, or remove this method. (Unclear if this method is needed once we
+    // drop replicaType from some key code paths).
+    public int getZoneReplicaNodeId(int zoneId, int zoneReplicaType, int partitionId) {
+        List<Integer> replicatingNodeIds = getReplicationNodeList(partitionId);
+
+        int zoneReplicaTypeCounter = -1;
+        for(int replicatingNodeId: replicatingNodeIds) {
+            Node replicatingNode = cluster.getNodeById(replicatingNodeId);
+            // bump up the counter if we encounter a replica in the given zone
+            if(replicatingNode.getZoneId() == zoneId) {
+                zoneReplicaTypeCounter++;
+            }
+            // when the counter matches up with the replicaNumber we need, we
+            // are done.
+            if(zoneReplicaTypeCounter == zoneReplicaType) {
+                return replicatingNode.getId();
+            }
+        }
+        if(zoneReplicaTypeCounter == 0) {
+            throw new VoldemortException("Could not find any replicas for the partition "
+                                         + partitionId + " in given zone " + zoneId);
+        } else {
+            throw new VoldemortException("Could not find " + zoneReplicaType
+                                         + " replicas for the partition " + partitionId
+                                         + " in given zone " + zoneId + ". Only found "
+                                         + zoneReplicaTypeCounter);
         }
     }
 

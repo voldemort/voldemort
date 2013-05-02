@@ -42,6 +42,7 @@ import com.google.common.collect.TreeMultimap;
 // TODO: Add a header comment.
 // TODO: Remove stealerBased from the constructor once RebalanceController is
 // switched over to use RebalancePlan. (Or sooner)
+// TODO: Add (simple & basic) tests of RebalancePlan
 public class RebalancePlan {
 
     private static final Logger logger = Logger.getLogger(RebalancePlan.class);
@@ -82,7 +83,7 @@ public class RebalancePlan {
         this.outputDir = outputDir;
 
         // Derive the targetCluster from current & final cluster xml
-        RebalanceUtils.validateFinalCluster(this.currentCluster, this.finalCluster);
+        RebalanceUtils.validateCurrentFinalCluster(this.currentCluster, this.finalCluster);
         this.targetCluster = RebalanceUtils.getTargetCluster(this.currentCluster, this.finalCluster);
 
         // Verify each cluster/storedefs pair
