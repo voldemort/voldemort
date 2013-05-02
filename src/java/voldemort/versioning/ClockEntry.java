@@ -28,6 +28,7 @@ import voldemort.annotations.concurrency.NotThreadsafe;
  * 
  */
 @NotThreadsafe
+@Deprecated
 public final class ClockEntry implements Cloneable, Serializable {
 
     private static final long serialVersionUID = 1;
@@ -108,11 +109,27 @@ public final class ClockEntry implements Cloneable, Serializable {
     }
 
     public void setNodeId(short nodeId) {
+        if(nodeId < 0)
+            throw new IllegalArgumentException("Node id " + nodeId + " is not in the range (0, "
+                                               + Short.MAX_VALUE + ").");
         this.nodeId = nodeId;
     }
 
     public void setVersion(long version) {
+        if(version < 1)
+            throw new IllegalArgumentException("Version " + version + " is not in the range (1, "
+                                               + Short.MAX_VALUE + ").");
         this.version = version;
+    }
+
+    public void validate() {
+        if(nodeId < 0)
+            throw new InvalidClockEntryException("Node id " + nodeId + " is not in the range (0, "
+                                                 + Short.MAX_VALUE + ").");
+        if(version < 1)
+            throw new InvalidClockEntryException("Version " + version + " is not in the range (1, "
+                                                 + Short.MAX_VALUE + ").");
+
     }
 
 }

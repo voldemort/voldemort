@@ -16,8 +16,13 @@
 
 package voldemort.versioning;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static voldemort.TestUtils.getClock;
-import junit.framework.TestCase;
+
+import org.junit.Test;
+
 import voldemort.TestUtils;
 
 import com.google.common.collect.Lists;
@@ -27,8 +32,10 @@ import com.google.common.collect.Lists;
  * 
  * 
  */
-public class VectorClockTest extends TestCase {
+@SuppressWarnings("deprecation")
+public class VectorClockTest {
 
+    @Test
     public void testEqualsAndHashcode() {
         VectorClock one = getClock(1, 2);
         VectorClock other = getClock(1, 2);
@@ -36,6 +43,7 @@ public class VectorClockTest extends TestCase {
         assertEquals(one.hashCode(), other.hashCode());
     }
 
+    @Test
     public void testComparisons() {
         assertTrue("The empty clock should not happen before itself.",
                    getClock().compare(getClock()) != Occurred.CONCURRENTLY);
@@ -51,6 +59,7 @@ public class VectorClockTest extends TestCase {
                    && getClock(1, 2, 2, 3).compare(getClock(2, 2)) == Occurred.AFTER);
     }
 
+    @Test
     public void testMerge() {
         // merging two clocks should create a clock contain the element-wise
         // maximums
@@ -74,6 +83,7 @@ public class VectorClockTest extends TestCase {
      * See gihub issue #25: Incorrect coersion of version to short before
      * passing to ClockEntry constructor
      */
+    @Test
     public void testMergeWithLargeVersion() {
         VectorClock clock1 = getClock(1);
         VectorClock clock2 = new VectorClock(Lists.newArrayList(new ClockEntry((short) 1,
@@ -83,6 +93,7 @@ public class VectorClockTest extends TestCase {
         assertEquals(mergedClock.getMaxVersion(), Short.MAX_VALUE + 1);
     }
 
+    @Test
     public void testSerialization() {
         assertEquals("The empty clock serializes incorrectly.",
                      getClock(),
@@ -93,6 +104,7 @@ public class VectorClockTest extends TestCase {
                      new VectorClock(clock.toBytes()));
     }
 
+    @Test
     public void testSerializationWraps() {
         VectorClock clock = getClock(1, 1, 2, 3, 3, 6);
         for(int i = 0; i < 300; i++)
@@ -100,6 +112,7 @@ public class VectorClockTest extends TestCase {
         assertEquals("Clock does not serialize to itself.", clock, new VectorClock(clock.toBytes()));
     }
 
+    @Test
     public void testIncrementOrderDoesntMatter() {
         // Clocks should have the property that no matter what order the
         // increment operations are done in the resulting clocks are equal
@@ -119,6 +132,7 @@ public class VectorClockTest extends TestCase {
         }
     }
 
+    @Test
     public void testIncrementAndSerialize() {
         int node = 1;
         VectorClock vc = getClock(node);
@@ -132,4 +146,37 @@ public class VectorClockTest extends TestCase {
         assertEquals(increments + 1, vc.getMaxVersion());
     }
 
+    /**
+     * A test for comparing vector clocks that nodes of clock entries are not
+     * sorted In case people insert clock entries without using increment we
+     * need to test although it has been deprecated
+     */
+    @Test
+    public void testNodeClockEntryDeprecate() {
+        VectorClock vc1 = new VectorClock();
+        try {
+            vc1.getEntries().add(new ClockEntry((short) 2, 2));
+            fail("Did not throw UnsupportedOperationException");
+        } catch(UnsupportedOperationException e) {
+
+        }
+    }
+
+    @Test
+    public void testVersion0NotAcceptable() {
+        try {
+            ClockEntry clockEntry = new ClockEntry();
+            clockEntry.setVersion(0);
+            fail("Did not throw IllegalArgumentException");
+        } catch(IllegalArgumentException e) {}
+    }
+
+    @Test
+    public void testNodeLess0NotAcceptable() {
+        try {
+            ClockEntry clockEntry = new ClockEntry();
+            clockEntry.setNodeId((short) -1);
+            fail("Did not throw IllegalArgumentException");
+        } catch(IllegalArgumentException e) {}
+    }
 }
