@@ -305,7 +305,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     /**
      * Forceful cleanup the logs
      */
-    @JmxOperation(description = "Forceful invoke the log cleaning")
+    @JmxOperation(description = "Forcefully invoke the log cleaning")
     public void cleanLogs() {
         synchronized(lock) {
             try {
