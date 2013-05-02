@@ -901,6 +901,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
         }
     }
 
+    @Test(timeout = 600000)
     public void testProxyPutDuringRebalancing() throws Exception {
         logger.info("Starting testProxyPutDuringRebalancing");
         try {
@@ -958,6 +959,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                 baselineVersions.put(key, new VectorClock());
             }
 
+            final CountDownLatch latch = new CountDownLatch(2);
             // start get operation.
             executors.execute(new Runnable() {
 
@@ -1033,6 +1035,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                     } finally {
                         if(factory != null)
                             factory.close();
+                        latch.countDown();
                     }
                 }
 
@@ -1049,10 +1052,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                         exceptions.add(e);
                     } finally {
                         rebalancingComplete.set(true);
+                        latch.countDown();
                     }
                 }
             });
 
+            latch.await();
             executors.shutdown();
             executors.awaitTermination(300, TimeUnit.SECONDS);
 

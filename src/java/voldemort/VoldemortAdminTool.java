@@ -100,8 +100,6 @@ import com.google.common.collect.Sets;
 public class VoldemortAdminTool {
 
     private static final String ALL_METADATA = "all";
-    private static final String STORES_VERSION_KEY = "stores.xml";
-    private static final String CLUSTER_VERSION_KEY = "cluster.xml";
 
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
@@ -169,7 +167,8 @@ public class VoldemortAdminTool {
         parser.accepts("check-metadata",
                        "retreive metadata information from all nodes and checks if they are consistent across [ "
                                + MetadataStore.CLUSTER_KEY + " | " + MetadataStore.STORES_KEY
-                               + " | " + MetadataStore.SERVER_STATE_KEY + " ]")
+                               + " | " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + " | "
+                               + MetadataStore.SERVER_STATE_KEY + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
@@ -185,13 +184,15 @@ public class VoldemortAdminTool {
         parser.accepts("set-metadata",
                        "Forceful setting of metadata [ " + MetadataStore.CLUSTER_KEY + " | "
                                + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
-                               + " | " + MetadataStore.REBALANCING_STEAL_INFO + " ]")
+                               + " | " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + " | "
+                               + MetadataStore.REBALANCING_STEAL_INFO + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
         parser.accepts("set-metadata-value",
                        "The value for the set-metadata [ " + MetadataStore.CLUSTER_KEY + " | "
                                + MetadataStore.STORES_KEY + ", "
+                               + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
                                + MetadataStore.REBALANCING_STEAL_INFO
                                + " ] - xml file location, [ " + MetadataStore.SERVER_STATE_KEY
                                + " ] - " + MetadataStore.VoldemortState.NORMAL_SERVER + ","
@@ -491,14 +492,15 @@ public class VoldemortAdminTool {
                     throw new VoldemortException("Missing set-metadata-value");
                 } else {
                     String metadataValue = (String) options.valueOf("set-metadata-value");
-                    if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0) {
+                    if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0
+                       || metadataKey.compareTo(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML) == 0) {
                         if(!Utils.isReadableFile(metadataValue))
                             throw new VoldemortException("Cluster xml file path incorrect");
                         ClusterMapper mapper = new ClusterMapper();
                         Cluster newCluster = mapper.readCluster(new File(metadataValue));
                         executeSetMetadata(nodeId,
                                            adminClient,
-                                           MetadataStore.CLUSTER_KEY,
+                                           metadataKey,
                                            mapper.writeCluster(newCluster));
                     } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
                         VoldemortState newState = VoldemortState.valueOf(metadataValue);
@@ -763,21 +765,27 @@ public class VoldemortAdminTool {
         stream.println("\t5) Set metadata on all nodes");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata ["
                        + MetadataStore.CLUSTER_KEY + ", " + MetadataStore.SERVER_STATE_KEY + ", "
-                       + MetadataStore.STORES_KEY + ", " + MetadataStore.REBALANCING_STEAL_INFO
+                       + MetadataStore.STORES_KEY + ", "
+                       + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
+                       + MetadataStore.REBALANCING_STEAL_INFO
                        + "] --set-metadata-value [metadata-value] --url [url]");
         stream.println("\t6) Set metadata for a particular node");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata ["
                        + MetadataStore.CLUSTER_KEY + ", " + MetadataStore.SERVER_STATE_KEY + ", "
-                       + MetadataStore.STORES_KEY + ", " + MetadataStore.REBALANCING_STEAL_INFO
+                       + MetadataStore.STORES_KEY + ", "
+                       + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
+                       + MetadataStore.REBALANCING_STEAL_INFO
                        + "] --set-metadata-value [metadata-value] --url [url] --node [node-id]");
         stream.println("\t7) Check if metadata is same on all nodes");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --check-metadata ["
                        + MetadataStore.CLUSTER_KEY + ", " + MetadataStore.SERVER_STATE_KEY + ", "
                        + MetadataStore.STORES_KEY + "] --url [url]");
         stream.println("\t8) Clear rebalancing metadata [" + MetadataStore.SERVER_STATE_KEY + ", "
+                       + ", " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
                        + MetadataStore.REBALANCING_STEAL_INFO + "] on all node ");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url]");
         stream.println("\t9) Clear rebalancing metadata [" + MetadataStore.SERVER_STATE_KEY + ", "
+                       + ", " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
                        + MetadataStore.REBALANCING_STEAL_INFO + "] on a particular node ");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url] --node [node-id]");
         stream.println();
@@ -924,7 +932,9 @@ public class VoldemortAdminTool {
                            adminClient,
                            MetadataStore.REBALANCING_STEAL_INFO,
                            state.toJsonString());
-
+        System.out.println("Cleaning up " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML
+                           + " to empty string");
+        executeSetMetadata(nodeId, adminClient, MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, "");
     }
 
     private static void executeKeyDistribution(AdminClient adminClient) {
@@ -951,7 +961,8 @@ public class VoldemortAdminTool {
                                              + " was null");
             } else {
 
-                if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0) {
+                if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0
+                   || metadataKey.compareTo(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML) == 0) {
                     metadataValues.add(new ClusterMapper().readCluster(new StringReader(versioned.getValue())));
                 } else if(metadataKey.compareTo(MetadataStore.STORES_KEY) == 0) {
                     metadataValues.add(new StoreDefinitionsMapper().readStoreList(new StringReader(versioned.getValue())));

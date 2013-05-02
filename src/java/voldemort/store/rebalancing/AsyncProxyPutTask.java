@@ -1,0 +1,115 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
+package voldemort.store.rebalancing;
+
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+
+import voldemort.cluster.Node;
+import voldemort.store.Store;
+import voldemort.store.UnreachableStoreException;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
+import voldemort.versioning.ObsoleteVersionException;
+import voldemort.versioning.Versioned;
+
+/**
+ * Task that issues the proxy put against the old replica, based on the old
+ * cluster metadata. This is best effort async replication. Failures will be
+ * logged and the server log will be post processed in case the rebalancing
+ * fails and we move back to old topology
+ * 
+ * NOTE : There is no need for any special ordering of the proxy puts in the
+ * async thread pool (although the threadpool will have a queue of pending proxy
+ * puts internally), since a later version being proxy put before an earlier
+ * version would simply result in an OVE for the earlier proxy put. Online
+ * traffic will not be affected since the proxy node is not a replica and hence
+ * no client will be reading from it (if we are at all wondering about read
+ * consistency)
+ * 
+ */
+public class AsyncProxyPutTask implements Runnable {
+
+    private final static Logger logger = Logger.getLogger(AsyncProxyPutTask.class);
+
+    private final RedirectingStore redirectingStore;
+    private final ByteArray key;
+    private final Versioned<byte[]> value;
+    private final byte[] transforms;
+    private final int destinationNode;
+
+    AsyncProxyPutTask(RedirectingStore redirectingStore,
+                      ByteArray key,
+                      Versioned<byte[]> value,
+                      byte[] transforms,
+                      int destinationNode) {
+        this.key = key;
+        this.value = value;
+        this.transforms = transforms;
+        this.redirectingStore = redirectingStore;
+        this.destinationNode = destinationNode;
+        logger.setLevel(Level.TRACE);
+    }
+
+    @Override
+    public void run() {
+
+        MetadataStore metadata = redirectingStore.getMetadataStore();
+        Node donorNode = metadata.getCluster().getNodeById(destinationNode);
+        long startNs = System.nanoTime();
+        try {
+            // TODO there are no retries now if the node we want to write to is
+            // unavailable
+            redirectingStore.checkNodeAvailable(donorNode);
+            Store<ByteArray, byte[], byte[]> socketStore = redirectingStore.getRedirectingSocketStore(redirectingStore.getName(),
+                                                                                                      destinationNode);
+
+            socketStore.put(key, value, transforms);
+            redirectingStore.recordSuccess(donorNode, startNs);
+            if(logger.isTraceEnabled()) {
+                logger.trace("Proxy write for store " + redirectingStore.getName() + " key "
+                             + ByteUtils.toBinaryString(key.get()) + " to destinationNode:"
+                             + destinationNode);
+            }
+        } catch(UnreachableStoreException e) {
+            redirectingStore.recordException(donorNode, startNs, e);
+            logger.error("Failed to reach proxy node " + donorNode, e);
+            redirectingStore.reporteProxyPutFailure();
+        } catch(ObsoleteVersionException ove) {
+            // Proxy puts can get an OVE if somehow there are two stealers for
+            // the same donor and the other stealer's proxy put already got to
+            // the donor.. This will not result from online put winning, since
+            // we don't issue proxy puts if the donor is still a replica
+            if(logger.isTraceEnabled()) {
+                logger.trace("OVE in proxy put for destinationNode: " + destinationNode
+                                     + " from node:" + metadata.getNodeId() + " on key "
+                                     + ByteUtils.toHexString(key.get()) + " Version:"
+                                     + value.getVersion(),
+                             ove);
+            }
+            redirectingStore.reporteProxyPutFailure();
+        } catch(Exception e) {
+            // Just log the key.. Not sure having values in the log is a good
+            // idea.
+            logger.error("Unexpected exception in proxy put for destinationNode: "
+                         + destinationNode + " from node:" + metadata.getNodeId() + " on key "
+                         + ByteUtils.toHexString(key.get()) + " Version:" + value.getVersion(), e);
+            redirectingStore.reporteProxyPutFailure();
+        }
+    }
+}

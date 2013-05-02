@@ -582,6 +582,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         }
     }
 
+    @Test(timeout = 600000)
     public void testProxyPutDuringRebalancing() throws Exception {
         logger.info("Starting testProxyPutDuringRebalancing");
         try {

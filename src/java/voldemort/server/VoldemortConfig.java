@@ -223,6 +223,7 @@ public class VoldemortConfig implements Serializable {
     private int maxParallelStoresRebalancing;
     private boolean rebalancingOptimization;
     private boolean usePartitionScanForRebalance;
+    private int maxProxyPutThreads;
     @Deprecated
     // Should be removed once the proxy put implementation is stable.
     private boolean proxyPutsDuringRebalance;
@@ -465,6 +466,7 @@ public class VoldemortConfig implements Serializable {
         this.rebalancingOptimization = props.getBoolean("rebalancing.optimization", true);
         this.usePartitionScanForRebalance = props.getBoolean("use.partition.scan.for.rebalance",
                                                              true);
+        this.maxProxyPutThreads = props.getInt("max.proxy.put.threads", 1);
         this.proxyPutsDuringRebalance = props.getBoolean("proxy.puts.during.rebalance", false);
 
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
@@ -2666,6 +2668,22 @@ public class VoldemortConfig implements Serializable {
 
     public boolean usePartitionScanForRebalance() {
         return usePartitionScanForRebalance;
+    }
+
+    /**
+     * Total number of threads needed to issue proxy puts during rebalancing
+     * 
+     * <ul>
+     * <li>Property :"max.proxy.put.threads"</li>
+     * <li>Default : 1</li>
+     * </ul>
+     */
+    public void setMaxProxyPutThreads(int maxProxyPutThreads) {
+        this.maxProxyPutThreads = maxProxyPutThreads;
+    }
+
+    public int getMaxProxyPutThreads() {
+        return this.maxProxyPutThreads;
     }
 
     /**

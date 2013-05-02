@@ -399,6 +399,9 @@ public class AdminRebalanceTest {
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.SERVER_STATE_KEY,
                                                             MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+                getServer(partitionPlan.getStealerId()).getMetadataStore()
+                                                       .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                                            partitionPlan.getInitialCluster());
             }
 
             try {
@@ -571,6 +574,9 @@ public class AdminRebalanceTest {
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.REBALANCING_STEAL_INFO,
                                                             new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
+                getServer(partitionPlan.getStealerId()).getMetadataStore()
+                                                       .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                                            partitionPlan.getInitialCluster());
             }
 
             // Update the cluster metadata on all three nodes
@@ -745,6 +751,9 @@ public class AdminRebalanceTest {
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.REBALANCING_STEAL_INFO,
                                                             new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
+                getServer(partitionPlan.getStealerId()).getMetadataStore()
+                                                       .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                                            partitionPlan.getInitialCluster());
             }
 
             // Actually run it
@@ -899,6 +908,9 @@ public class AdminRebalanceTest {
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.REBALANCING_STEAL_INFO,
                                                             new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
+                getServer(partitionPlan.getStealerId()).getMetadataStore()
+                                                       .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                                            partitionPlan.getInitialCluster());
             }
 
             // Actually run it

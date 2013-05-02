@@ -159,11 +159,14 @@ public class Rebalancer implements Runnable {
         List<RebalancePartitionsInfo> completedRebalancePartitionsInfo = Lists.newArrayList();
         List<String> swappedStoreNames = Lists.newArrayList();
         boolean completedClusterChange = false;
+        boolean completedRebalanceSourceClusterChange = false;
+        Cluster previousRebalancingSourceCluster = null;
 
         try {
             // CHANGE CLUSTER METADATA
             if(changeClusterMetadata) {
-                changeCluster(cluster);
+                logger.info("Switching metadata from " + currentCluster + " to " + cluster);
+                changeCluster(MetadataStore.CLUSTER_KEY, cluster);
                 completedClusterChange = true;
             }
 
@@ -175,12 +178,21 @@ public class Rebalancer implements Runnable {
             // CHANGE REBALANCING STATE
             if(changeRebalanceState) {
                 try {
+                    previousRebalancingSourceCluster = metadataStore.getRebalancingSourceCluster();
                     if(!rollback) {
+                        // Save up the current cluster for Redirecting store
+                        changeCluster(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, currentCluster);
+                        completedRebalanceSourceClusterChange = true;
+
                         for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
                             metadataStore.addRebalancingState(info);
                             completedRebalancePartitionsInfo.add(info);
                         }
                     } else {
+                        // Reset the rebalancing source cluster back to null
+                        changeCluster(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, null);
+                        completedRebalanceSourceClusterChange = true;
+
                         for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
                             metadataStore.deleteRebalancingState(info);
                             completedRebalancePartitionsInfo.add(info);
@@ -197,7 +209,8 @@ public class Rebalancer implements Runnable {
             // ROLLBACK CLUSTER CHANGE
             if(completedClusterChange) {
                 try {
-                    changeCluster(currentCluster);
+                    logger.info("Rolling back cluster.xml to " + currentCluster);
+                    changeCluster(MetadataStore.CLUSTER_KEY, currentCluster);
                 } catch(Exception exception) {
                     logger.error("Error while rolling back cluster metadata to " + currentCluster,
                                  exception);
@@ -215,7 +228,6 @@ public class Rebalancer implements Runnable {
 
             // CHANGE BACK ALL REBALANCING STATES FOR COMPLETED ONES
             if(completedRebalancePartitionsInfo.size() > 0) {
-
                 if(!rollback) {
                     for(RebalancePartitionsInfo info: completedRebalancePartitionsInfo) {
                         try {
@@ -238,6 +250,14 @@ public class Rebalancer implements Runnable {
                     }
                 }
 
+            }
+
+            // Revert changes to REBALANCING_SOURCE_CLUSTER_XML
+            if(completedRebalanceSourceClusterChange) {
+                logger.info("Reverting the REBALANCING_SOURCE_CLUSTER_XML back to "
+                            + previousRebalancingSourceCluster);
+                changeCluster(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                              previousRebalancingSourceCluster);
             }
 
             throw e;
@@ -293,24 +313,21 @@ public class Rebalancer implements Runnable {
      * 
      * @param cluster The cluster metadata information
      */
-    private void changeCluster(final Cluster cluster) {
+    private void changeCluster(String clusterKey, final Cluster cluster) {
         try {
             metadataStore.writeLock.lock();
             try {
-                VectorClock updatedVectorClock = ((VectorClock) metadataStore.get(MetadataStore.CLUSTER_KEY,
-                                                                                  null)
+                // TODO why increment server 0 all the time?
+                VectorClock updatedVectorClock = ((VectorClock) metadataStore.get(clusterKey, null)
                                                                              .get(0)
                                                                              .getVersion()).incremented(0,
                                                                                                         System.currentTimeMillis());
-                logger.info("Switching metadata from " + metadataStore.getCluster() + " to "
-                            + cluster + " [ " + updatedVectorClock + " ]");
-                metadataStore.put(MetadataStore.CLUSTER_KEY,
-                                  Versioned.value((Object) cluster, updatedVectorClock));
+                metadataStore.put(clusterKey, Versioned.value((Object) cluster, updatedVectorClock));
             } finally {
                 metadataStore.writeLock.unlock();
             }
         } catch(Exception e) {
-            logger.info("Error while changing cluster to " + cluster);
+            logger.info("Error while changing cluster to " + cluster + "for key " + clusterKey);
             throw new VoldemortException(e);
         }
     }

@@ -18,6 +18,7 @@ package voldemort.store.rebalancing;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.Executors;
 
 import junit.framework.TestCase;
 
@@ -56,6 +58,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.InvalidMetadataException;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.memory.InMemoryStorageConfiguration;
@@ -63,6 +66,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.DaemonThreadFactory;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -82,6 +86,8 @@ public class RedirectingStoreTest extends TestCase {
     private List<Integer> secondaryPartitionsMoved;
     private HashMap<ByteArray, byte[]> primaryEntriesMoved;
     private HashMap<ByteArray, byte[]> secondaryEntriesMoved;
+    private HashMap<ByteArray, byte[]> proxyPutTestPrimaryEntries;
+    private HashMap<ByteArray, byte[]> proxyPutTestSecondaryEntries;
     private final boolean useNio;
     private StoreDefinition storeDef;
     private final SocketStoreFactory storeFactory = new ClientRequestExecutorPool(2,
@@ -142,6 +148,8 @@ public class RedirectingStoreTest extends TestCase {
 
         this.primaryEntriesMoved = Maps.newHashMap();
         this.secondaryEntriesMoved = Maps.newHashMap();
+        this.proxyPutTestPrimaryEntries = Maps.newHashMap();
+        this.proxyPutTestSecondaryEntries = Maps.newHashMap();
 
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                       currentCluster);
@@ -159,6 +167,32 @@ public class RedirectingStoreTest extends TestCase {
         // Hope the 'God of perfect timing' is on our side
         Thread.sleep(500);
 
+        // steal a few primary key-value pairs for testing proxy put logic
+        int cnt = 0;
+        for(Entry<ByteArray, byte[]> entry: primaryEntriesMoved.entrySet()) {
+            if(cnt > 3)
+                break;
+            this.proxyPutTestPrimaryEntries.put(entry.getKey(), entry.getValue());
+            cnt++;
+        }
+        for(ByteArray key: this.proxyPutTestPrimaryEntries.keySet()) {
+            this.primaryEntriesMoved.remove(key);
+        }
+        assertTrue("Not enough primary entries", primaryEntriesMoved.size() > 1);
+
+        // steal a few secondary key-value pairs for testing proxy put logic
+        cnt = 0;
+        for(Entry<ByteArray, byte[]> entry: secondaryEntriesMoved.entrySet()) {
+            if(cnt > 3)
+                break;
+            this.proxyPutTestSecondaryEntries.put(entry.getKey(), entry.getValue());
+            cnt++;
+        }
+        for(ByteArray key: this.proxyPutTestSecondaryEntries.keySet()) {
+            this.secondaryEntriesMoved.remove(key);
+        }
+        assertTrue("Not enough secondary entries", primaryEntriesMoved.size() > 1);
+
         RebalanceClusterPlan plan = new RebalanceClusterPlan(currentCluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef),
@@ -173,6 +207,9 @@ public class RedirectingStoreTest extends TestCase {
             servers[partitionPlan.getStealerId()].getMetadataStore()
                                                  .put(MetadataStore.REBALANCING_STEAL_INFO,
                                                       new RebalancerState(Lists.newArrayList(partitionPlan)));
+            servers[partitionPlan.getStealerId()].getMetadataStore()
+                                                 .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                                      currentCluster);
         }
 
         // Update the cluster metadata on all three nodes
@@ -226,7 +263,10 @@ public class RedirectingStoreTest extends TestCase {
                                     servers[nodeId].getStoreRepository(),
                                     new NoopFailureDetector(),
                                     storeFactory,
-                                    false);
+                                    true,
+                                    Executors.newFixedThreadPool(1,
+                                                                 new DaemonThreadFactory("voldemort-proxy-put-thread")),
+                                    new ProxyPutStats(null));
     }
 
     @Test
@@ -317,7 +357,7 @@ public class RedirectingStoreTest extends TestCase {
     }
 
     @Test
-    public void testProxyPut() {
+    public void testProxyGetDuringPut() {
 
         final RedirectingStore storeNode2 = getRedirectingStore(2,
                                                                 servers[2].getMetadataStore(),
@@ -355,7 +395,124 @@ public class RedirectingStoreTest extends TestCase {
             }
 
         }
-
     }
 
+    /**
+     * This exits out immediately if the node is not proxy putting.
+     * 
+     * @param store
+     */
+    private void waitForProxyPutsToDrain(RedirectingStore store) {
+        // wait for the proxy write to complete
+        while(store.getProxyPutStats().getNumPendingProxyPuts() > 0) {
+            try {
+                Thread.sleep(50);
+            } catch(InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Test
+    public void testProxyPuts() {
+
+        List<ByteArray> testPrimaryKeys = new ArrayList<ByteArray>(this.proxyPutTestPrimaryEntries.keySet());
+        List<ByteArray> testSecondaryKeys = new ArrayList<ByteArray>(this.proxyPutTestSecondaryEntries.keySet());
+
+        final RedirectingStore redirectingStoreNode2 = getRedirectingStore(2,
+                                                                           servers[2].getMetadataStore(),
+                                                                           "test");
+        final RedirectingStore redirectingStoreNode0 = getRedirectingStore(0,
+                                                                           servers[0].getMetadataStore(),
+                                                                           "test");
+        final Store<ByteArray, byte[], byte[]> socketStoreNode2 = redirectingStoreNode2.getRedirectingSocketStore("test",
+                                                                                                                  2);
+        final Store<ByteArray, byte[], byte[]> socketStoreNode0 = redirectingStoreNode0.getRedirectingSocketStore("test",
+                                                                                                                  0);
+
+        // 1. Make sure the vector clocks make sense.. Read through Node 2 and
+        // proxy getting from Node 0 and issue a write based off that,
+        // incrementing the clock for Node 2 and make sure there is no
+        // ObsoleteVersionException at both Node 0 and
+        // Node 2.
+        ByteArray key1 = testSecondaryKeys.get(0);
+        VectorClock clock1 = ((VectorClock) redirectingStoreNode2.getVersions(key1).get(0)).incremented(2,
+                                                                                                        System.currentTimeMillis());
+        try {
+            redirectingStoreNode2.put(key1,
+                                      Versioned.value("write-through".getBytes("UTF-8"), clock1),
+                                      null);
+        } catch(Exception e) {
+            fail("Unexpected error in testing write through proxy put");
+            e.printStackTrace();
+        }
+        waitForProxyPutsToDrain(redirectingStoreNode2);
+
+        assertTrue("Unexpected failures in proxy put",
+                   redirectingStoreNode2.getProxyPutStats().getNumProxyPutFailures() == 0);
+        assertEquals("Unexpected value in Node 2",
+                     "write-through",
+                     new String(socketStoreNode2.get(key1, null).get(0).getValue()));
+        assertTrue("Proxy write not seen on proxy node 0",
+                   "write-through".equals(new String(socketStoreNode0.get(key1, null)
+                                                                     .get(0)
+                                                                     .getValue())));
+
+        // Also test that if put fails locally, proxy put is not attempted.
+        try {
+            redirectingStoreNode2.put(key1,
+                                      Versioned.value("write-through-updated".getBytes("UTF-8"),
+                                                      clock1),
+                                      null);
+            fail("Should have thrown OVE");
+        } catch(ObsoleteVersionException ove) {
+            // Expected
+        } catch(Exception e) {
+            fail("Unexpected error in testing write through proxy put");
+            e.printStackTrace();
+        }
+        waitForProxyPutsToDrain(redirectingStoreNode2);
+        assertFalse("Proxy write not seen on proxy node 0",
+                    "write-through-updated".equals(new String(socketStoreNode0.get(key1, null)
+                                                                              .get(0)
+                                                                              .getValue())));
+
+        // 2. Make sure if the proxy node is still a replica, we don't issue
+        // proxy puts. Node 2 -> Node 0 on partition 0, for which Node 0 is
+        // still a replica
+        ByteArray key2 = testPrimaryKeys.get(0);
+        VectorClock clock2 = ((VectorClock) redirectingStoreNode2.getVersions(key2).get(0)).incremented(2,
+                                                                                                        System.currentTimeMillis());
+        try {
+            redirectingStoreNode2.put(key2,
+                                      Versioned.value("write-through".getBytes("UTF-8"), clock2),
+                                      null);
+        } catch(Exception e) {
+            fail("Unexpected error in testing write through proxy put");
+            e.printStackTrace();
+        }
+        waitForProxyPutsToDrain(redirectingStoreNode2);
+        assertEquals("Unexpected value in Node 2",
+                     "write-through",
+                     new String(socketStoreNode2.get(key2, null).get(0).getValue()));
+        assertFalse("Proxy write seen on proxy node which is a replica",
+                    "write-through".equals(new String(socketStoreNode0.get(key2, null)
+                                                                      .get(0)
+                                                                      .getValue())));
+
+        // 3. If the same entry reaches Node 2 again from Node 0, via partition
+        // fetch, it will
+        // generate OVE.
+        try {
+            redirectingStoreNode2.put(key2,
+                                      Versioned.value("write-through".getBytes("UTF-8"), clock2),
+                                      null);
+            fail("Should have thrown OVE");
+        } catch(ObsoleteVersionException ove) {
+            // Expected
+        } catch(Exception e) {
+            fail("Unexpected error in testing write through proxy put");
+            e.printStackTrace();
+        }
+    }
 }

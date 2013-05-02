@@ -78,6 +78,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
+    public static final String REBALANCING_SOURCE_CLUSTER_XML = "rebalancing.source.cluster.xml";
 
     public static final Set<String> GOSSIP_KEYS = ImmutableSet.of(CLUSTER_KEY, STORES_KEY);
 
@@ -85,7 +86,8 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
     public static final Set<String> OPTIONAL_KEYS = ImmutableSet.of(SERVER_STATE_KEY,
                                                                     NODE_ID_KEY,
-                                                                    REBALANCING_STEAL_INFO);
+                                                                    REBALANCING_STEAL_INFO,
+                                                                    REBALANCING_SOURCE_CLUSTER_XML);
 
     public static final Set<Object> METADATA_KEYS = ImmutableSet.builder()
                                                                 .addAll(REQUIRED_KEYS)
@@ -343,6 +345,10 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         }
     }
 
+    public Cluster getRebalancingSourceCluster() {
+        return (Cluster) metadataCache.get(REBALANCING_SOURCE_CLUSTER_XML).getValue();
+    }
+
     /*
      * First check in the map of regular stores. If not present, check in the
      * system stores map.
@@ -544,6 +550,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         initCache(REBALANCING_STEAL_INFO,
                   new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
+        initCache(REBALANCING_SOURCE_CLUSTER_XML, null);
 
         // set transient values
         updateRoutingStrategies(getCluster(), getStoreDefList());
@@ -594,7 +601,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      */
     @SuppressWarnings("unchecked")
     private Versioned<String> convertObjectToString(String key, Versioned<Object> value) {
-        String valueStr = value.getValue().toString();
+        String valueStr = "";
 
         if(CLUSTER_KEY.equals(key)) {
             valueStr = clusterMapper.writeCluster((Cluster) value.getValue());
@@ -605,6 +612,10 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             valueStr = rebalancerState.toJsonString();
         } else if(SERVER_STATE_KEY.equals(key) || NODE_ID_KEY.equals(key)) {
             valueStr = value.getValue().toString();
+        } else if(REBALANCING_SOURCE_CLUSTER_XML.equals(key)) {
+            if(value.getValue() != null) {
+                valueStr = clusterMapper.writeCluster((Cluster) value.getValue());
+            }
         } else {
             throw new VoldemortException("Unhandled key:'" + key
                                          + "' for Object to String serialization.");
@@ -640,6 +651,10 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 valueObject = RebalancerState.create(valueString);
             } else {
                 valueObject = new RebalancerState(Arrays.asList(RebalancePartitionsInfo.create(valueString)));
+            }
+        } else if(REBALANCING_SOURCE_CLUSTER_XML.equals(key)) {
+            if(value.getValue() != null && value.getValue().length() > 0) {
+                valueObject = clusterMapper.readCluster(new StringReader(value.getValue()));
             }
         } else {
             throw new VoldemortException("Unhandled key:'" + key

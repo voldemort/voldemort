@@ -201,7 +201,7 @@ public class StoreRoutingPlan {
                 return zoneReplicaType;
             }
         }
-        if(zoneReplicaType > 0) {
+        if(zoneReplicaType > -1) {
             throw new VoldemortException("Node " + nodeId + " not a replica for the key "
                                          + ByteUtils.toHexString(key) + " in given zone " + zoneId);
         } else {
@@ -233,14 +233,14 @@ public class StoreRoutingPlan {
                 return node.getId();
             }
         }
-        if(zoneReplicaTypeCounter == 0) {
+        if(zoneReplicaTypeCounter == -1) {
             throw new VoldemortException("Could not find any replicas for the key "
                                          + ByteUtils.toHexString(key) + " in given zone " + zoneId);
         } else {
-            throw new VoldemortException("Could not find " + zoneReplicaType
+            throw new VoldemortException("Could not find " + (zoneReplicaType + 1)
                                          + " replicas for the key " + ByteUtils.toHexString(key)
                                          + " in given zone " + zoneId + ". Only found "
-                                         + zoneReplicaTypeCounter);
+                                         + (zoneReplicaTypeCounter + 1));
         }
     }
 
