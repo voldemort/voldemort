@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
@@ -61,13 +62,14 @@ import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
-import voldemort.store.memory.InMemoryStorageConfiguration;
+import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.DaemonThreadFactory;
 import voldemort.utils.RebalanceUtils;
+import voldemort.versioning.ClockEntry;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -112,7 +114,7 @@ public class RedirectingStoreTest extends TestCase {
         this.primaryPartitionsMoved = Lists.newArrayList(0);
         this.secondaryPartitionsMoved = Lists.newArrayList(2, 3);
         this.storeDef = new StoreDefinitionBuilder().setName("test")
-                                                    .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                                    .setType(BdbStorageConfiguration.TYPE_NAME)
                                                     .setKeySerializer(new SerializerDefinition("string"))
                                                     .setValueSerializer(new SerializerDefinition("string"))
                                                     .setRoutingPolicy(RoutingTier.CLIENT)
@@ -435,11 +437,11 @@ public class RedirectingStoreTest extends TestCase {
         // incrementing the clock for Node 2 and make sure there is no
         // ObsoleteVersionException at both Node 0 and
         // Node 2.
-        ByteArray key1 = testSecondaryKeys.get(0);
-        VectorClock clock1 = ((VectorClock) redirectingStoreNode2.getVersions(key1).get(0)).incremented(2,
-                                                                                                        System.currentTimeMillis());
+        ByteArray secondaryKey = testSecondaryKeys.get(0);
+        VectorClock clock1 = ((VectorClock) redirectingStoreNode2.getVersions(secondaryKey).get(0)).incremented(2,
+                                                                                                                System.currentTimeMillis());
         try {
-            redirectingStoreNode2.put(key1,
+            redirectingStoreNode2.put(secondaryKey,
                                       Versioned.value("write-through".getBytes("UTF-8"), clock1),
                                       null);
         } catch(Exception e) {
@@ -452,15 +454,15 @@ public class RedirectingStoreTest extends TestCase {
                    redirectingStoreNode2.getProxyPutStats().getNumProxyPutFailures() == 0);
         assertEquals("Unexpected value in Node 2",
                      "write-through",
-                     new String(socketStoreNode2.get(key1, null).get(0).getValue()));
+                     new String(socketStoreNode2.get(secondaryKey, null).get(0).getValue()));
         assertTrue("Proxy write not seen on proxy node 0",
-                   "write-through".equals(new String(socketStoreNode0.get(key1, null)
+                   "write-through".equals(new String(socketStoreNode0.get(secondaryKey, null)
                                                                      .get(0)
                                                                      .getValue())));
 
         // Also test that if put fails locally, proxy put is not attempted.
         try {
-            redirectingStoreNode2.put(key1,
+            redirectingStoreNode2.put(secondaryKey,
                                       Versioned.value("write-through-updated".getBytes("UTF-8"),
                                                       clock1),
                                       null);
@@ -473,18 +475,19 @@ public class RedirectingStoreTest extends TestCase {
         }
         waitForProxyPutsToDrain(redirectingStoreNode2);
         assertFalse("Proxy write not seen on proxy node 0",
-                    "write-through-updated".equals(new String(socketStoreNode0.get(key1, null)
+                    "write-through-updated".equals(new String(socketStoreNode0.get(secondaryKey,
+                                                                                   null)
                                                                               .get(0)
                                                                               .getValue())));
 
         // 2. Make sure if the proxy node is still a replica, we don't issue
         // proxy puts. Node 2 -> Node 0 on partition 0, for which Node 0 is
         // still a replica
-        ByteArray key2 = testPrimaryKeys.get(0);
-        VectorClock clock2 = ((VectorClock) redirectingStoreNode2.getVersions(key2).get(0)).incremented(2,
-                                                                                                        System.currentTimeMillis());
+        ByteArray primaryKey = testPrimaryKeys.get(0);
+        VectorClock clock2 = ((VectorClock) redirectingStoreNode2.getVersions(primaryKey).get(0)).incremented(2,
+                                                                                                              System.currentTimeMillis());
         try {
-            redirectingStoreNode2.put(key2,
+            redirectingStoreNode2.put(primaryKey,
                                       Versioned.value("write-through".getBytes("UTF-8"), clock2),
                                       null);
         } catch(Exception e) {
@@ -494,9 +497,9 @@ public class RedirectingStoreTest extends TestCase {
         waitForProxyPutsToDrain(redirectingStoreNode2);
         assertEquals("Unexpected value in Node 2",
                      "write-through",
-                     new String(socketStoreNode2.get(key2, null).get(0).getValue()));
+                     new String(socketStoreNode2.get(primaryKey, null).get(0).getValue()));
         assertFalse("Proxy write seen on proxy node which is a replica",
-                    "write-through".equals(new String(socketStoreNode0.get(key2, null)
+                    "write-through".equals(new String(socketStoreNode0.get(primaryKey, null)
                                                                       .get(0)
                                                                       .getValue())));
 
@@ -504,7 +507,7 @@ public class RedirectingStoreTest extends TestCase {
         // fetch, it will
         // generate OVE.
         try {
-            redirectingStoreNode2.put(key2,
+            redirectingStoreNode2.put(primaryKey,
                                       Versioned.value("write-through".getBytes("UTF-8"), clock2),
                                       null);
             fail("Should have thrown OVE");
@@ -514,5 +517,152 @@ public class RedirectingStoreTest extends TestCase {
             fail("Unexpected error in testing write through proxy put");
             e.printStackTrace();
         }
+    }
+
+    private VectorClock makeSuperClock(long time) {
+        List<ClockEntry> clockEntries = new ArrayList<ClockEntry>();
+        clockEntries.add(new ClockEntry((short) 0, time));
+        clockEntries.add(new ClockEntry((short) 1, time));
+        clockEntries.add(new ClockEntry((short) 2, time));
+        return new VectorClock(clockEntries, time);
+    }
+
+    @Test
+    public void testProxyFetchOptimizations() {
+
+        List<ByteArray> testPrimaryKeys = new ArrayList<ByteArray>(this.proxyPutTestPrimaryEntries.keySet());
+        List<ByteArray> testSecondaryKeys = new ArrayList<ByteArray>(this.proxyPutTestSecondaryEntries.keySet());
+
+        final RedirectingStore redirectingStoreNode2 = getRedirectingStore(2,
+                                                                           servers[2].getMetadataStore(),
+                                                                           "test");
+        final RedirectingStore redirectingStoreNode0 = getRedirectingStore(0,
+                                                                           servers[0].getMetadataStore(),
+                                                                           "test");
+        final Store<ByteArray, byte[], byte[]> socketStoreNode2 = redirectingStoreNode2.getRedirectingSocketStore("test",
+                                                                                                                  2);
+        final Store<ByteArray, byte[], byte[]> socketStoreNode0 = redirectingStoreNode0.getRedirectingSocketStore("test",
+                                                                                                                  0);
+
+        long time = System.currentTimeMillis();
+        // 1. Test that once a key is fetched over, get() can serve it locally..
+        ByteArray primaryKey1 = testPrimaryKeys.get(1);
+        assertTrue("Originally key should not exist on Node 2",
+                   socketStoreNode2.get(primaryKey1, null).size() == 0);
+
+        assertTrue("get on Node 2 should return a valid value by proxy fetching from Node 0",
+                   redirectingStoreNode2.get(primaryKey1, null).size() > 0);
+
+        socketStoreNode0.delete(primaryKey1, makeSuperClock(time++));
+        assertTrue("Still should be able to serve it locally from Node 2",
+                   redirectingStoreNode2.get(primaryKey1, null).size() > 0);
+
+        // 2. Test that put is still issued on top of version on remote version.
+        // But once moved over, can be issued just on local version.
+        ByteArray secondaryKey1 = testSecondaryKeys.get(1);
+        VectorClock writeClock = makeSuperClock(time++);
+        socketStoreNode0.put(secondaryKey1, new Versioned<byte[]>("value-win".getBytes(),
+                                                                  writeClock), null);
+        try {
+            redirectingStoreNode2.put(secondaryKey1, new Versioned<byte[]>("value-ove".getBytes(),
+                                                                           writeClock), null);
+            fail("Missing OVE.. put should be based on remote version");
+        } catch(ObsoleteVersionException ove) {
+            // should have OVE if based on remote version due to equal clock
+        }
+        // But would have still move over value from Node 0
+        assertEquals("Value not moved over from Node 0",
+                     "value-win",
+                     new String(socketStoreNode2.get(secondaryKey1, null).get(0).getValue()));
+        socketStoreNode0.delete(secondaryKey1, makeSuperClock(time++));
+        redirectingStoreNode2.put(secondaryKey1,
+                                  new Versioned<byte[]>("value-final".getBytes(),
+                                                        makeSuperClock(time++)),
+                                  null);
+        assertEquals("Final value not found on node 2",
+                     "value-final",
+                     new String(socketStoreNode2.get(secondaryKey1, null).get(0).getValue()));
+        assertEquals("Final value not found on node 0",
+                     "value-final",
+                     new String(socketStoreNode0.get(secondaryKey1, null).get(0).getValue()));
+
+        // delete all the primary and secondary keys from Node 2 and Node 0, to
+        // begin getAll() tests
+        for(ByteArray key: testPrimaryKeys) {
+            socketStoreNode0.delete(key, makeSuperClock(time++));
+            socketStoreNode2.delete(key, makeSuperClock(time++));
+            socketStoreNode0.put(key, new Versioned<byte[]>("normal".getBytes(),
+                                                            makeSuperClock(time++)), null);
+        }
+        for(ByteArray key: testSecondaryKeys) {
+            socketStoreNode0.delete(key, makeSuperClock(time++));
+            socketStoreNode2.delete(key, makeSuperClock(time++));
+            socketStoreNode0.put(key, new Versioned<byte[]>("normal".getBytes(),
+                                                            makeSuperClock(time++)), null);
+        }
+
+        // 3. Test case where some keys are moved over and some are n't for
+        // getAlls.
+        List<ByteArray> keyList = new ArrayList<ByteArray>();
+        keyList.addAll(testPrimaryKeys);
+        keyList.addAll(testSecondaryKeys);
+        keyList.add(new ByteArray("non-existent-key".getBytes()));
+
+        // add the first primary & secondary key with bigger vector clock on
+        // Node 2 and lower clock on Node 0..
+        VectorClock smallerClock = makeSuperClock(time++);
+        VectorClock biggerClock = makeSuperClock(time++);
+        socketStoreNode0.put(testPrimaryKeys.get(0), new Versioned<byte[]>("loser".getBytes(),
+                                                                           smallerClock), null);
+        socketStoreNode2.put(testPrimaryKeys.get(0), new Versioned<byte[]>("winner".getBytes(),
+                                                                           biggerClock), null);
+        socketStoreNode0.put(testSecondaryKeys.get(0), new Versioned<byte[]>("loser".getBytes(),
+                                                                             smallerClock), null);
+        socketStoreNode2.put(testSecondaryKeys.get(0), new Versioned<byte[]>("winner".getBytes(),
+                                                                             biggerClock), null);
+
+        Map<ByteArray, List<Versioned<byte[]>>> vals = redirectingStoreNode2.getAll(keyList, null);
+        assertEquals("Should contain exactly as many keys as the primary + secondary keys",
+                     testPrimaryKeys.size() + testSecondaryKeys.size(),
+                     vals.size());
+        assertFalse("Should not contain non existent key",
+                    vals.containsKey(new ByteArray("non-existent-key".getBytes())));
+
+        for(Entry<ByteArray, List<Versioned<byte[]>>> entry: vals.entrySet()) {
+            String valueStr = new String(entry.getValue().get(0).getValue());
+            if(entry.getKey().equals(testPrimaryKeys.get(0))
+               || entry.getKey().equals(testSecondaryKeys.get(0))) {
+                assertEquals("Value should be 'winner'", "winner", valueStr);
+            } else {
+                assertEquals("Value should be 'normal'", "normal", valueStr);
+            }
+        }
+
+        // Now delete all keys on Node 0 and make sure it is still served out of
+        // Node 2
+        for(ByteArray key: testPrimaryKeys) {
+            socketStoreNode0.delete(key, makeSuperClock(time++));
+        }
+        for(ByteArray key: testSecondaryKeys) {
+            socketStoreNode0.delete(key, makeSuperClock(time++));
+        }
+
+        vals = redirectingStoreNode2.getAll(keyList, null);
+        assertEquals("Should contain exactly as many keys as the primary + secondary keys",
+                     testPrimaryKeys.size() + testSecondaryKeys.size(),
+                     vals.size());
+        assertFalse("Should not contain non existent key",
+                    vals.containsKey(new ByteArray("non-existent-key".getBytes())));
+
+        for(Entry<ByteArray, List<Versioned<byte[]>>> entry: vals.entrySet()) {
+            String valueStr = new String(entry.getValue().get(0).getValue());
+            if(entry.getKey().equals(testPrimaryKeys.get(0))
+               || entry.getKey().equals(testSecondaryKeys.get(0))) {
+                assertEquals("Value should be 'winner'", "winner", valueStr);
+            } else {
+                assertEquals("Value should be 'normal'", "normal", valueStr);
+            }
+        }
+
     }
 }
