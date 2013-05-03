@@ -496,32 +496,35 @@ public class ServerTestUtils {
      * a nodes in <b>numberOfZones</b> zones. It is important that
      * <b>numberOfNodes</b> be divisible by <b>numberOfZones</b>
      * 
+     * Does
+     * 
      * @param numberOfZones The number of zones in the cluster.
-     * @param nodesPerZone An array of size <b>numberOfZones<b> indicating the
-     *        number of nodes in each zone.
-     * @param partitionMap An array of size total number of nodes (derived from
+     * @param nodeIdsPerZone An array of size <b>numberOfZones<b> in which each
+     *        internal array is a node ID.
      * @param partitionMap An array of size total number of nodes (derived from
      *        <b>nodesPerZone<b> that indicates the specific partitions on each
      *        node.
      * @return
      */
+    // TODO: Method should eventually accept a list of ZoneIds so that
+    // non-contig zone Ids can be tested.
     public static Cluster getLocalZonedCluster(int numberOfZones,
-                                               int[] nodesPerZone,
+                                               int[][] nodeIdsPerZone,
                                                int[][] partitionMap) {
 
         if(numberOfZones < 1) {
             throw new VoldemortException("The number of zones must be positive (" + numberOfZones
                                          + ")");
         }
-        if(nodesPerZone.length != numberOfZones) {
+        if(nodeIdsPerZone.length != numberOfZones) {
             throw new VoldemortException("Mismatch between numberOfZones (" + numberOfZones
-                                         + ") and size of nodesPerZone array (" + nodesPerZone
-                                         + ").");
+                                         + ") and size of nodesPerZone array ("
+                                         + nodeIdsPerZone.length + ").");
         }
 
         int numNodes = 0;
-        for(Integer nodesInZone: nodesPerZone) {
-            numNodes += nodesInZone;
+        for(int nodeIdsInZone[]: nodeIdsPerZone) {
+            numNodes += nodeIdsInZone.length;
         }
         if(partitionMap.length != numNodes) {
             throw new VoldemortException("Mismatch between numNodes (" + numNodes
@@ -531,22 +534,21 @@ public class ServerTestUtils {
 
         // Generate nodes
         List<Node> nodes = new ArrayList<Node>();
-        int[] ports = findFreePorts(3 * numNodes);
-        int nodeId = 0;
+        int partitionMapOffset = 0;
         for(int zoneId = 0; zoneId < numberOfZones; zoneId++) {
-            for(int j = 0; j < nodesPerZone[zoneId]; j++) {
+            for(int nodeId: nodeIdsPerZone[zoneId]) {
                 List<Integer> partitions = new ArrayList<Integer>(partitionMap[nodeId].length);
-                for(int p: partitionMap[nodeId]) {
+                for(int p: partitionMap[partitionMapOffset]) {
                     partitions.add(p);
                 }
                 nodes.add(new Node(nodeId,
-                                   "localhost",
-                                   ports[3 * nodeId],
-                                   ports[3 * nodeId + 1],
-                                   ports[3 * nodeId + 2],
+                                   "node-" + nodeId,
+                                   64000,
+                                   64001,
+                                   64002,
                                    zoneId,
                                    partitions));
-                nodeId++;
+                partitionMapOffset++;
             }
         }
 

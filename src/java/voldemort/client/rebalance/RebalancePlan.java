@@ -261,6 +261,26 @@ public class RebalancePlan {
         return batchPlans;
     }
 
+    public int getPrimariesMoved() {
+        return numPrimaryPartitionMoves;
+    }
+
+    public int getPartitionStoresMoved() {
+        return numPartitionStoreMoves;
+    }
+
+    public int getPartitionStoresMovedXZone() {
+        return numXZonePartitionStoreMoves;
+    }
+
+    public MoveMap getNodeMoveMap() {
+        return nodeMoveMap;
+    }
+
+    public MoveMap getZoneMoveMap() {
+        return zoneMoveMap;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();

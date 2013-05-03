@@ -253,7 +253,8 @@ public class RebalanceUtils {
      * @param adminClient Admin client used to query
      * @throws VoldemortRebalancingException if any node is not in normal state
      */
-    public static void validateClusterState(final Cluster cluster, final AdminClient adminClient) {
+    public static void validateProdClusterStateIsNormal(final Cluster cluster,
+                                                        final AdminClient adminClient) {
         for(Node node: cluster.getNodes()) {
             Versioned<VoldemortState> versioned = adminClient.rebalanceOps.getRemoteServerState(node.getId());
 
@@ -271,7 +272,6 @@ public class RebalanceUtils {
         }
     }
 
-    // TODO: Add tests for all cluster/store validation methods.
     /**
      * Verify store definitions are congruent with cluster definition.
      * 
@@ -280,12 +280,11 @@ public class RebalanceUtils {
      */
     public static void validateClusterStores(final Cluster cluster,
                                              final List<StoreDefinition> storeDefs) {
-        // This is a hack. But, constructing a PartitionBalance object has
-        // the (desirable in this case) side-effect of verifying that the store
-        // definition is congruent with the cluster definition. If there are
-        // issues, exceptions are thrown.
-        @SuppressWarnings("unused")
-        PartitionBalance pb = new PartitionBalance(cluster, storeDefs);
+        // Constructing a PartitionBalance object has the (desirable in this
+        // case) side-effect of verifying that the store definition is congruent
+        // with the cluster definition. If there are issues, exceptions are
+        // thrown.
+        new PartitionBalance(cluster, storeDefs);
         return;
     }
 

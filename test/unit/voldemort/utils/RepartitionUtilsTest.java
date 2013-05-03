@@ -364,7 +364,7 @@ public class RepartitionUtilsTest {
     public void testRebalance() {
         // Two zone cluster
         Cluster currentCluster = ClusterInstanceTest.getZZCluster();
-        List<StoreDefinition> storeDefs = ClusterInstanceTest.getZZStoreDefs();
+        List<StoreDefinition> storeDefs = ClusterInstanceTest.getZZStoreDefsInMemory();
         verifyBalanceZoneAndNode(currentCluster, storeDefs, currentCluster, storeDefs);
         verifyBalanceNodesNotZones(currentCluster, storeDefs, currentCluster, storeDefs);
         verifyRepartitionNoop(currentCluster, storeDefs, currentCluster, storeDefs);
@@ -373,7 +373,7 @@ public class RepartitionUtilsTest {
 
         // Three zone cluster
         currentCluster = ClusterInstanceTest.getZZZCluster();
-        storeDefs = ClusterInstanceTest.getZZZStoreDefs();
+        storeDefs = ClusterInstanceTest.getZZZStoreDefsInMemory();
         verifyBalanceZoneAndNode(currentCluster, storeDefs, currentCluster, storeDefs);
         verifyBalanceNodesNotZones(currentCluster, storeDefs, currentCluster, storeDefs);
         verifyRepartitionNoop(currentCluster, storeDefs, currentCluster, storeDefs);
@@ -386,7 +386,7 @@ public class RepartitionUtilsTest {
         // Two zone cluster
         Cluster currentCluster = ClusterInstanceTest.getZZCluster();
         Cluster targetCluster = ClusterInstanceTest.getZZClusterWithNN();
-        List<StoreDefinition> storeDefs = ClusterInstanceTest.getZZStoreDefs();
+        List<StoreDefinition> storeDefs = ClusterInstanceTest.getZZStoreDefsInMemory();
         verifyBalanceZoneAndNode(currentCluster, storeDefs, targetCluster, storeDefs);
         verifyBalanceNodesNotZones(currentCluster, storeDefs, targetCluster, storeDefs);
         verifyRepartitionNoop(currentCluster, storeDefs, targetCluster, storeDefs);
@@ -394,7 +394,7 @@ public class RepartitionUtilsTest {
         // Three zone cluster
         currentCluster = ClusterInstanceTest.getZZZCluster();
         targetCluster = ClusterInstanceTest.getZZZClusterWithNNN();
-        storeDefs = ClusterInstanceTest.getZZZStoreDefs();
+        storeDefs = ClusterInstanceTest.getZZZStoreDefsInMemory();
         verifyBalanceZoneAndNode(currentCluster, storeDefs, targetCluster, storeDefs);
         verifyBalanceNodesNotZones(currentCluster, storeDefs, targetCluster, storeDefs);
         verifyRepartitionNoop(currentCluster, storeDefs, targetCluster, storeDefs);
@@ -403,10 +403,10 @@ public class RepartitionUtilsTest {
     @Test
     public void testZoneExpansion() {
         Cluster currentCluster = ClusterInstanceTest.getZZCluster();
-        List<StoreDefinition> currentStoreDefs = ClusterInstanceTest.getZZStoreDefs();
+        List<StoreDefinition> currentStoreDefs = ClusterInstanceTest.getZZStoreDefsInMemory();
 
         Cluster targetCluster = ClusterInstanceTest.getZZZClusterWithNNN();
-        List<StoreDefinition> targetStoreDefs = ClusterInstanceTest.getZZZStoreDefs();
+        List<StoreDefinition> targetStoreDefs = ClusterInstanceTest.getZZZStoreDefsInMemory();
 
         verifyBalanceZoneAndNode(currentCluster, currentStoreDefs, targetCluster, targetStoreDefs);
         // verifyBalanceNodesNotZones does not make sense for zone expansion.
@@ -479,21 +479,22 @@ public class RepartitionUtilsTest {
     public void testDeContig() {
         // Two zone cluster
         Cluster currentCluster = ClusterInstanceTest.getZZCluster();
-        List<StoreDefinition> storeDefs = ClusterInstanceTest.getZZStoreDefs();
+        List<StoreDefinition> storeDefs = ClusterInstanceTest.getZZStoreDefsInMemory();
         decontigRepartition(currentCluster, storeDefs);
 
         // Three zone cluster
         currentCluster = ClusterInstanceTest.getZZZCluster();
-        storeDefs = ClusterInstanceTest.getZZZStoreDefs();
+        storeDefs = ClusterInstanceTest.getZZZStoreDefsInMemory();
         decontigRepartition(currentCluster, storeDefs);
     }
 
+    // TODO: Switch from numberOfZones to a set of zoneIds
     // TODO: Create a ClusterTest or ClusterUtilsTest and add this test to that
     // class/file
     @Test
     public void testGetMapOfContiguousPartitionRunLengths() {
         int numberOfZones = 2;
-        int nodesPerZone[] = new int[] { 3, 3 };
+        int nodesPerZone[][] = new int[][] { { 0, 1, 2 }, { 3, 4, 5 } };
         int partitionMap[][] = new int[][] { { 0, 6, 12, 16, 17 }, { 1, 7, 15 }, { 2, 8, 14 },
                 { 3, 9, 13 }, { 4, 10 }, { 5, 11 } };
         Cluster cluster = ServerTestUtils.getLocalZonedCluster(numberOfZones,

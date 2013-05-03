@@ -87,7 +87,8 @@ public class StoreRoutingPlan {
         return this.routingStrategy.getReplicatingPartitionList(masterPartitionId);
     }
 
-    // TODO: Add test of this method.
+    // TODO: Add test for this method (if this method is still required after
+    // the RebalanceController is updated to use RebalancePlan).
     /**
      * 
      * @param nodeId

@@ -140,7 +140,7 @@ public class RebalanceController {
         // Do some verification
         if(!rebalanceConfig.isShowPlanEnabled()) {
             // Now validate that all the nodes ( new + old ) are in normal state
-            RebalanceUtils.validateClusterState(newCurrentCluster, adminClient);
+            RebalanceUtils.validateProdClusterStateIsNormal(newCurrentCluster, adminClient);
 
             // Verify all old RO stores exist at version 2
             RebalanceUtils.validateReadOnlyStores(newCurrentCluster, storeDefs, adminClient);

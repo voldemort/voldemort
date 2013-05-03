@@ -16,18 +16,25 @@
 
 package voldemort.utils;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+
 import voldemort.ServerTestUtils;
+import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 
 import com.google.common.collect.Lists;
 
-public class RebalanceUtilsTest extends TestCase {
+public class RebalanceUtilsTest {
 
+    @Test
     public void testUpdateCluster() {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
@@ -39,6 +46,7 @@ public class RebalanceUtilsTest extends TestCase {
         assertEquals("updated cluster should match targetCluster", updatedCluster, targetCluster);
     }
 
+    @Test
     public void testGetNodeIds() {
         List<Node> nodes = Lists.newArrayList();
 
@@ -51,6 +59,7 @@ public class RebalanceUtilsTest extends TestCase {
         assertEquals(NodeUtils.getNodeIds(nodes).get(0).intValue(), 0);
     }
 
+    @Test
     public void testGetClusterWithNewNodes() {
         Cluster cluster = ServerTestUtils.getLocalCluster(2, 10, 1);
 
@@ -76,7 +85,136 @@ public class RebalanceUtilsTest extends TestCase {
                                        cluster.getNodeById(1).getPartitionIds()), true);
         assertEquals(generatedCluster.getNodeById(2).getPartitionIds().size(), 0);
         assertEquals(generatedCluster.getNodeById(3).getPartitionIds().size(), 0);
-
     }
 
+    private void doClusterTransformationBase(Cluster currentC,
+                                             Cluster targetC,
+                                             Cluster finalC,
+                                             boolean verify) {
+        Cluster derivedTarget1 = RebalanceUtils.getClusterWithNewNodes(currentC, targetC);
+        if(verify)
+            assertEquals(targetC, derivedTarget1);
+
+        Cluster derivedTarget2 = RebalanceUtils.getTargetCluster(currentC, finalC);
+        if(verify)
+            assertEquals(targetC, derivedTarget2);
+
+        RebalanceUtils.validateCurrentFinalCluster(currentC, finalC);
+        RebalanceUtils.validateCurrentTargetCluster(currentC, targetC);
+        RebalanceUtils.validateTargetFinalCluster(targetC, finalC);
+    }
+
+    private void doClusterTransformation(Cluster currentC, Cluster targetC, Cluster finalC) {
+        doClusterTransformationBase(currentC, targetC, finalC, false);
+    }
+
+    public void doClusterTransformationAndVerification(Cluster currentC,
+                                                       Cluster targetC,
+                                                       Cluster finalC) {
+        doClusterTransformationBase(currentC, targetC, finalC, true);
+    }
+
+    @Test
+    public void testClusterTransformationAndVerification() {
+        // Two-zone cluster: no-op
+        doClusterTransformationAndVerification(ClusterInstanceTest.getZZCluster(),
+                                               ClusterInstanceTest.getZZCluster(),
+                                               ClusterInstanceTest.getZZCluster());
+
+        // Two-zone cluster: rebalance
+        doClusterTransformationAndVerification(ClusterInstanceTest.getZZCluster(),
+                                               ClusterInstanceTest.getZZCluster(),
+                                               ClusterInstanceTest.getZZClusterWithSwappedPartitions());
+
+        // Two-zone cluster: cluster expansion
+        doClusterTransformationAndVerification(ClusterInstanceTest.getZZCluster(),
+                                               ClusterInstanceTest.getZZClusterWithNN(),
+                                               ClusterInstanceTest.getZZClusterWithPP());
+
+        // Three-zone cluster: no-op
+        doClusterTransformationAndVerification(ClusterInstanceTest.getZZZCluster(),
+                                               ClusterInstanceTest.getZZZCluster(),
+                                               ClusterInstanceTest.getZZZCluster());
+
+        // Three-zone cluster: rebalance
+        doClusterTransformationAndVerification(ClusterInstanceTest.getZZZCluster(),
+                                               ClusterInstanceTest.getZZZCluster(),
+                                               ClusterInstanceTest.getZZZClusterWithSwappedPartitions());
+
+        // Three-zone cluster: cluster expansion
+        doClusterTransformationAndVerification(ClusterInstanceTest.getZZZCluster(),
+                                               ClusterInstanceTest.getZZZClusterWithNNN(),
+                                               ClusterInstanceTest.getZZZClusterWithPPP());
+
+        // TODO: Fix this test to pass. This test currently fails because the
+        // method RebalanceUtils.getClusterWithNewNodes cannot handle a new zone
+        // coming into existence between currentCluster & targetCluster.
+        // Two- to Three-zone clusters: zone expansion
+        /*-
+        doClusterTransformationAndVerification(ClusterInstanceTest.getZZCluster(),
+                                               ClusterInstanceTest.getZZECluster(),
+                                               ClusterInstanceTest.getZZEClusterXXP());
+         */
+    }
+
+    @Test
+    public void testClusterTransformationAndVerificationExceptions() {
+        boolean excepted;
+
+        // Two-zone cluster: rebalance with extra partitions in target
+        excepted = false;
+        try {
+            doClusterTransformation(ClusterInstanceTest.getZZCluster(),
+                                    ClusterInstanceTest.getZZClusterWithExtraPartitions(),
+                                    ClusterInstanceTest.getZZClusterWithSwappedPartitions());
+        } catch(VoldemortException ve) {
+            excepted = true;
+        }
+        assertTrue(excepted);
+
+        // Two-zone cluster: rebalance with extra partitions in final
+        excepted = false;
+        try {
+            doClusterTransformation(ClusterInstanceTest.getZZCluster(),
+                                    ClusterInstanceTest.getZZCluster(),
+                                    ClusterInstanceTest.getZZClusterWithExtraPartitions());
+        } catch(VoldemortException ve) {
+            excepted = true;
+        }
+        assertTrue(excepted);
+
+        // Two-zone cluster: node ids swapped in target
+        excepted = false;
+        try {
+            doClusterTransformation(ClusterInstanceTest.getZZCluster(),
+                                    ClusterInstanceTest.getZZClusterWithNNWithSwappedNodeIds(),
+                                    ClusterInstanceTest.getZZClusterWithPP());
+        } catch(VoldemortException ve) {
+            excepted = true;
+        }
+        assertTrue(excepted);
+
+        // Two-zone cluster: node ids swapped in final is OK because this is the
+        // same as partitions being migrated among nodes.
+        excepted = false;
+        try {
+            doClusterTransformation(ClusterInstanceTest.getZZCluster(),
+                                    ClusterInstanceTest.getZZClusterWithNN(),
+                                    ClusterInstanceTest.getZZClusterWithPPWithSwappedNodeIds());
+        } catch(VoldemortException ve) {
+            excepted = true;
+        }
+        assertFalse(excepted);
+
+        // Two-zone cluster: too many node ids in final
+        excepted = false;
+        try {
+            doClusterTransformation(ClusterInstanceTest.getZZCluster(),
+                                    ClusterInstanceTest.getZZClusterWithNN(),
+                                    ClusterInstanceTest.getZZClusterWithPPWithTooManyNodes());
+        } catch(VoldemortException ve) {
+            excepted = true;
+        }
+        assertTrue(excepted);
+    }
 }
