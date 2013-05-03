@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -81,7 +82,8 @@ public class DonorBasedRebalancePusherSlave implements Runnable {
                     // sleep for 5 minutes if exception occur while communicate
                     // with remote node
                     logger.info("waiting for 5 minutes for the remote node to recover");
-                    Thread.sleep(30000);
+                    // TODO: Is this sleep really needed? Why?
+                    Thread.sleep(TimeUnit.MINUTES.toMillis(5));
                     needWait = false;
                 } catch(InterruptedException e) {
                     // continue

@@ -92,6 +92,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     private HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> groupByStores(List<RebalancePartitionsInfo> stealInfos) {
 
+        // <StoreName,Pair<StealerNodeId,HashMap<ReplicaType,List<PartitionId>>>
         HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> returnMap = HashMultimap.create();
         for(RebalancePartitionsInfo info: stealInfos) {
             int stealerNodeId = info.getStealerId();
@@ -125,7 +126,6 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     @Override
     public void operate() throws Exception {
-
         adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                            metadataStore.getCluster(),
                                                            voldemortConfig.getMaxParallelStoresRebalancing());
@@ -257,7 +257,6 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
             // over
             throw new VoldemortException("Donor-based rebalancing for read-only store is currently not supported!");
         } else {
-
             // Create queue for every node that we need to dump data to
             HashMap<Integer, SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>>> nodeToQueue = Maps.newHashMap();
 
@@ -300,18 +299,19 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 logger.info("Started a thread for " + jobName);
             }
 
-            if(usePartitionScan && storageEngine.isPartitionScanSupported())
+            if(usePartitionScan && storageEngine.isPartitionScanSupported()) {
                 fetchEntriesForStealersPartitionScan(storageEngine,
                                                      optimizedStealerNodeToMappingTuples,
                                                      storeDef,
                                                      nodeToQueue,
                                                      storeName);
-            else
+            } else {
                 fetchEntriesForStealers(storageEngine,
                                         optimizedStealerNodeToMappingTuples,
                                         storeDef,
                                         nodeToQueue,
                                         storeName);
+            }
         }
     }
 
@@ -331,9 +331,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 ByteArray key = keys.next();
                 scanned++;
                 List<Integer> nodeIds = StoreRoutingPlan.checkKeyBelongsToPartition(key.get(),
-                                                                                 optimizedStealerNodeToMappingTuples,
-                                                                                 targetCluster,
-                                                                                 storeDef);
+                                                                                    optimizedStealerNodeToMappingTuples,
+                                                                                    targetCluster,
+                                                                                    storeDef);
 
                 if(nodeIds.size() > 0) {
                     List<Versioned<byte[]>> values = storageEngine.get(key, null);
@@ -379,9 +379,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         // current node
         for(Integer partition: partitionsToDonate) {
             if(!StoreRoutingPlan.checkPartitionBelongsToNode(partition,
-                                                          voldemortConfig.getNodeId(),
-                                                          initialCluster,
-                                                          storeDef)) {
+                                                             voldemortConfig.getNodeId(),
+                                                             initialCluster,
+                                                             storeDef)) {
                 logger.info("Node " + voldemortConfig.getNodeId()
                             + " does not seem to contain partition " + partition
                             + " as primary/secondary");
@@ -399,9 +399,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
                 scanned++;
                 List<Integer> nodeIds = StoreRoutingPlan.checkKeyBelongsToPartition(key.get(),
-                                                                                 optimizedStealerNodeToMappingTuples,
-                                                                                 targetCluster,
-                                                                                 storeDef);
+                                                                                    optimizedStealerNodeToMappingTuples,
+                                                                                    targetCluster,
+                                                                                    storeDef);
 
                 if(nodeIds.size() > 0) {
                     putValue(nodeIds, key, value, nodeToQueue, fetched);

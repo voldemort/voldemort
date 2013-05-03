@@ -134,13 +134,11 @@ public class RebalanceController {
         // Add all new nodes to a 'new current cluster'
         Cluster newCurrentCluster = RebalanceUtils.getClusterWithNewNodes(currentCluster,
                                                                           targetCluster);
-
         // Make admin client point to this updated current cluster
         adminClient.setAdminClientCluster(newCurrentCluster);
 
         // Do some verification
         if(!rebalanceConfig.isShowPlanEnabled()) {
-
             // Now validate that all the nodes ( new + old ) are in normal state
             RebalanceUtils.validateClusterState(newCurrentCluster, adminClient);
 
@@ -150,7 +148,6 @@ public class RebalanceController {
             // Propagate the updated cluster metadata to everyone
             logger.info("Propagating new cluster " + newCurrentCluster + " to all nodes");
             RebalanceUtils.propagateCluster(adminClient, newCurrentCluster);
-
         }
 
         rebalancePerClusterTransition(newCurrentCluster, targetCluster, storeDefs);
@@ -377,7 +374,18 @@ public class RebalanceController {
                                         logger,
                                         "Skipping rebalance task id "
                                                 + orderedClusterTransition.getId()
-                                                + " since it is empty");
+                                                + " since it is empty.");
+                // Even though there is no rebalancing work to do, cluster
+                // metadata must be updated so that the server is aware of the
+                // new cluster xml.
+                adminClient.rebalanceOps.rebalanceStateChange(orderedClusterTransition.getCurrentCluster(),
+                                                              orderedClusterTransition.getTargetCluster(),
+                                                              rebalancePartitionsInfoList,
+                                                              false,
+                                                              true,
+                                                              false,
+                                                              false,
+                                                              true);
                 return;
             }
 
@@ -633,7 +641,6 @@ public class RebalanceController {
         if(rebalanceConfig.isShowPlanEnabled()) {
             return;
         }
-
         // Get an ExecutorService in place used for submitting our tasks
         ExecutorService service = RebalanceUtils.createExecutors(rebalanceConfig.getMaxParallelRebalancing());
 
@@ -770,9 +777,12 @@ public class RebalanceController {
             HashMap<Integer, List<RebalancePartitionsInfo>> donorNodeBasedPartitionsInfo = RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
                                                                                                                                     false);
             for(Entry<Integer, List<RebalancePartitionsInfo>> entries: donorNodeBasedPartitionsInfo.entrySet()) {
+                // TODO: Can this sleep be removed?
+                /*-
                 try {
                     Thread.sleep(10000);
                 } catch(InterruptedException e) {}
+                 */
                 DonorBasedRebalanceTask rebalanceTask = new DonorBasedRebalanceTask(taskId,
                                                                                     entries.getValue(),
                                                                                     rebalanceConfig,

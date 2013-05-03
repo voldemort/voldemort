@@ -147,9 +147,10 @@ public class RebalanceClusterPlan {
         }
 
         for(int nodeId: nodeToBatchPlan.keySet()) {
-            this.rebalanceTaskQueue.offer(new RebalanceNodePlan(nodeId,
-                                                                Lists.newArrayList(nodeToBatchPlan.get(nodeId)),
-                                                                isStealerBased));
+            RebalanceNodePlan rnp = new RebalanceNodePlan(nodeId,
+                                                          Lists.newArrayList(nodeToBatchPlan.get(nodeId)),
+                                                          isStealerBased);
+            this.rebalanceTaskQueue.offer(rnp);
         }
         // TODO: (end) Remove ...
     }

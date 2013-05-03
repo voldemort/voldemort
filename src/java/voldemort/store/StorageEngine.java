@@ -104,6 +104,8 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
      */
     public boolean isPartitionAware();
 
+    // TODO: Does "isPartitionScanSupported() == true" imply
+    // "isPartitionAware() === true"?
     /**
      * Does the storage engine support efficient scanning of a single partition
      * 

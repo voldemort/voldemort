@@ -70,7 +70,6 @@ public class RebalanceClientConfig extends AdminClientConfig {
 
         if(props.containsKey(StealerBasedRebalancingString))
             this.setStealerBasedRebalancing(props.getBoolean(StealerBasedRebalancingString));
-
     }
 
     public RebalanceClientConfig() {
