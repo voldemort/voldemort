@@ -32,9 +32,9 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
-import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
@@ -80,7 +80,7 @@ public class StreamingClientTest {
             serverPorts = new int[TOTAL_SERVERS];
 
             storeDef = new StoreDefinitionBuilder().setName(TEST_STORE_NAME)
-                                                   .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                                   .setType(BdbStorageConfiguration.TYPE_NAME)
                                                    .setKeySerializer(new SerializerDefinition("string"))
                                                    .setValueSerializer(new SerializerDefinition("string"))
                                                    .setRoutingPolicy(RoutingTier.CLIENT)

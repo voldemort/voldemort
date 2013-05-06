@@ -16,6 +16,8 @@
 
 package voldemort.store;
 
+import java.util.List;
+
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
@@ -119,6 +121,16 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
      *         'batch-write' mode
      */
     public boolean beginBatchModifications();
+
+    /**
+     * Atomically update storage with the list of versioned values for the given
+     * key, to improve storage efficiency.
+     * 
+     * @param key Key to write
+     * @param values List of versioned values to be written atomically.
+     * @return list of obsolete versions that were rejected
+     */
+    public List<Versioned<V>> multiVersionPut(K key, List<Versioned<V>> values);
 
     /**
      * 

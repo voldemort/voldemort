@@ -1,5 +1,7 @@
 package voldemort.store;
 
+import java.util.List;
+
 import voldemort.VoldemortException;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -159,5 +161,10 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
     @Override
     public boolean endBatchModifications() {
         return false;
+    }
+
+    @Override
+    public List<Versioned<V>> multiVersionPut(K key, List<Versioned<V>> values) {
+        return innerStorageEngine.multiVersionPut(key, values);
     }
 }

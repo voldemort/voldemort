@@ -36,38 +36,38 @@ import voldemort.versioning.Versioned;
 
 public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequestHandler {
 
-    private VAdminProto.UpdatePartitionEntriesRequest request;
+    protected VAdminProto.UpdatePartitionEntriesRequest request;
 
-    private final VAdminProto.UpdatePartitionEntriesResponse.Builder responseBuilder = VAdminProto.UpdatePartitionEntriesResponse.newBuilder();
+    protected final VAdminProto.UpdatePartitionEntriesResponse.Builder responseBuilder = VAdminProto.UpdatePartitionEntriesResponse.newBuilder();
 
-    private final ErrorCodeMapper errorCodeMapper;
+    protected final ErrorCodeMapper errorCodeMapper;
 
-    private final EventThrottler throttler;
+    protected final EventThrottler throttler;
 
-    private final VoldemortFilter filter;
+    protected final VoldemortFilter filter;
 
-    private final StorageEngine<ByteArray, byte[], byte[]> storageEngine;
+    protected final StorageEngine<ByteArray, byte[], byte[]> storageEngine;
 
-    private int counter;
+    protected int counter;
 
-    private final long startTime;
+    protected final long startTime;
 
-    private final StreamingStats streamStats;
+    protected final StreamingStats streamStats;
 
-    private final Logger logger = Logger.getLogger(getClass());
+    protected final Logger logger = Logger.getLogger(getClass());
 
-    private AtomicBoolean isBatchWriteOff;
+    protected AtomicBoolean isBatchWriteOff;
 
     public UpdatePartitionEntriesStreamRequestHandler(UpdatePartitionEntriesRequest request,
                                                       ErrorCodeMapper errorCodeMapper,
                                                       VoldemortConfig voldemortConfig,
+                                                      StorageEngine<ByteArray, byte[], byte[]> storageEngine,
                                                       StoreRepository storeRepository,
                                                       NetworkClassLoader networkClassLoader) {
         super();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
-        storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
-                                                                    request.getStore());
+        this.storageEngine = storageEngine;
         throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         filter = (request.hasFilter()) ? AdminServiceRequestHandler.getFilterFromRequest(request.getFilter(),
                                                                                          voldemortConfig,
@@ -92,13 +92,13 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
             storageEngine.endBatchModifications();
     }
 
+    @Override
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
         long startNs = System.nanoTime();
         if(request == null) {
             int size = 0;
-
             try {
                 size = inputStream.readInt();
             } catch(EOFException e) {
@@ -187,16 +187,19 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
         return StreamRequestHandlerState.READING;
     }
 
+    @Override
     public StreamRequestDirection getDirection() {
         return StreamRequestDirection.READING;
     }
 
+    @Override
     public void close(DataOutputStream outputStream) throws IOException {
         ProtoUtils.writeMessage(outputStream, responseBuilder.build());
         storageEngine.endBatchModifications();
         isBatchWriteOff.compareAndSet(false, true);
     }
 
+    @Override
     public void handleError(DataOutputStream outputStream, VoldemortException e) throws IOException {
         responseBuilder.setError(ProtoUtils.encodeError(errorCodeMapper, e));
         if(logger.isEnabledFor(Level.ERROR))

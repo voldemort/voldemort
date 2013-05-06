@@ -231,6 +231,29 @@ public class KratiStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
         }
     }
 
+    @Override
+    public List<Versioned<byte[]>> multiVersionPut(ByteArray key,
+                                                   final List<Versioned<byte[]>> values)
+            throws VoldemortException {
+        StoreUtils.assertValidKey(key);
+        List<Versioned<byte[]>> valuesInStorage = null;
+        List<Versioned<byte[]>> obsoleteVals = null;
+
+        synchronized(this.locks.lockFor(key.get())) {
+            valuesInStorage = this.get(key, null);
+            obsoleteVals = computeVersionsToStore(valuesInStorage, values);
+
+            try {
+                datastore.put(key.get(), assembleValues(valuesInStorage));
+            } catch(Exception e) {
+                String message = "Failed to put key " + key;
+                logger.error(message, e);
+                throw new VoldemortException(message, e);
+            }
+        }
+        return obsoleteVals;
+    }
+
     /**
      * Store the versioned values
      * 

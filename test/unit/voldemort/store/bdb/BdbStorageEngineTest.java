@@ -17,6 +17,7 @@
 package voldemort.store.bdb;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -295,7 +296,16 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
             String[] backedUp = backupToDir.list();
             Arrays.sort(backedUp);
             assertArrayEquals(backedUp, new String[] { "00000000.jdb", "00000001.jdb" });
-            assertEquals(backupFileModified, backupToDir.listFiles()[0].lastModified());
+            FilenameFilter filter = new FilenameFilter() {
+
+                @Override
+                public boolean accept(File dir, String name) {
+                    if(name.equals("00000000.jdb"))
+                        return true;
+                    return false;
+                }
+            };
+            assertEquals(backupFileModified, backupToDir.listFiles(filter)[0].lastModified());
         } finally {
             deleteDir(backupToDir);
         }

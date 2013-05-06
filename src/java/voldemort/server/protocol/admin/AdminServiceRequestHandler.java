@@ -56,6 +56,7 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.backup.NativeBackupable;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.mysql.MysqlStorageEngine;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
@@ -548,42 +549,56 @@ public class AdminServiceRequestHandler implements RequestHandler {
         if(fetchValues) {
             if(storageEngine.isPartitionScanSupported() && !fetchOrphaned)
                 return new PartitionScanFetchEntriesRequestHandler(request,
-                                                                     metadataStore,
-                                                                     errorCodeMapper,
-                                                                     voldemortConfig,
-                                                                     storeRepository,
-                                                                     networkClassLoader);
+                                                                   metadataStore,
+                                                                   errorCodeMapper,
+                                                                   voldemortConfig,
+                                                                   storeRepository,
+                                                                   networkClassLoader);
             else
                 return new FullScanFetchEntriesRequestHandler(request,
-                                                            metadataStore,
-                                                            errorCodeMapper,
-                                                            voldemortConfig,
-                                                            storeRepository,
-                                                            networkClassLoader);
-        } else {
-            if(storageEngine.isPartitionScanSupported() && !fetchOrphaned)
-                return new PartitionScanFetchKeysRequestHandler(request,
-                                                                  metadataStore,
-                                                                  errorCodeMapper,
-                                                                  voldemortConfig,
-                                                                  storeRepository,
-                                                                  networkClassLoader);
-            else
-                return new FullScanFetchKeysRequestHandler(request,
-                                                         metadataStore,
-                                                         errorCodeMapper,
-                                                         voldemortConfig,
-                                                         storeRepository,
-                                                         networkClassLoader);
-        }
-    }
-
-    public StreamRequestHandler handleUpdatePartitionEntries(VAdminProto.UpdatePartitionEntriesRequest request) {
-        return new UpdatePartitionEntriesStreamRequestHandler(request,
+                                                              metadataStore,
                                                               errorCodeMapper,
                                                               voldemortConfig,
                                                               storeRepository,
                                                               networkClassLoader);
+        } else {
+            if(storageEngine.isPartitionScanSupported() && !fetchOrphaned)
+                return new PartitionScanFetchKeysRequestHandler(request,
+                                                                metadataStore,
+                                                                errorCodeMapper,
+                                                                voldemortConfig,
+                                                                storeRepository,
+                                                                networkClassLoader);
+            else
+                return new FullScanFetchKeysRequestHandler(request,
+                                                           metadataStore,
+                                                           errorCodeMapper,
+                                                           voldemortConfig,
+                                                           storeRepository,
+                                                           networkClassLoader);
+        }
+    }
+
+    public StreamRequestHandler handleUpdatePartitionEntries(VAdminProto.UpdatePartitionEntriesRequest request) {
+        StorageEngine<ByteArray, byte[], byte[]> storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
+                                                                                                             request.getStore());
+        if(storageEngine instanceof MysqlStorageEngine) {
+            // TODO This check is ugly. Need some generic capability to check
+            // which storage engine supports which operations.
+            return new UpdatePartitionEntriesStreamRequestHandler(request,
+                                                                  errorCodeMapper,
+                                                                  voldemortConfig,
+                                                                  storageEngine,
+                                                                  storeRepository,
+                                                                  networkClassLoader);
+        } else {
+            return new BufferedUpdatePartitionEntriesStreamRequestHandler(request,
+                                                                          errorCodeMapper,
+                                                                          voldemortConfig,
+                                                                          storageEngine,
+                                                                          storeRepository,
+                                                                          networkClassLoader);
+        }
     }
 
     public VAdminProto.AsyncOperationListResponse handleAsyncOperationList(VAdminProto.AsyncOperationListRequest request) {
@@ -1089,11 +1104,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 Versioned<byte[]> value = entry.getSecond();
                 throttler.maybeThrottle(key.length() + valueSize(value));
                 if(StoreRoutingPlan.checkKeyBelongsToPartition(metadataStore.getNodeId(),
-                                                            key.get(),
-                                                            replicaToPartitionList,
-                                                            request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
-                                                                                       : metadataStore.getCluster(),
-                                                            metadataStore.getStoreDef(storeName))
+                                                               key.get(),
+                                                               replicaToPartitionList,
+                                                               request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
+                                                                                          : metadataStore.getCluster(),
+                                                               metadataStore.getStoreDef(storeName))
                    && filter.accept(key, value)) {
                     if(storageEngine.delete(key, value.getVersion())) {
                         deleteSuccess++;

@@ -85,6 +85,47 @@ public class TestUtils {
     }
 
     /**
+     * Returns true if both the versioned lists are equal, in terms of values
+     * and vector clocks, taking into consideration, they might be in different
+     * orders as well. Ignores the timestamps as a part of the vector clock
+     * 
+     * @param first
+     * @param second
+     * @return
+     */
+    public static boolean areVersionedListsEqual(List<Versioned<byte[]>> first,
+                                                 List<Versioned<byte[]>> second) {
+        if(first.size() != second.size())
+            return false;
+        // find a match for every first element in second list
+        for(Versioned<byte[]> firstElement: first) {
+            boolean found = false;
+            for(Versioned<byte[]> secondElement: second) {
+                if(firstElement.equals(secondElement)) {
+                    found = true;
+                    break;
+                }
+            }
+            if(!found)
+                return false;
+        }
+
+        // find a match for every second element in first list
+        for(Versioned<byte[]> secondElement: second) {
+            boolean found = false;
+            for(Versioned<byte[]> firstElement: first) {
+                if(firstElement.equals(secondElement)) {
+                    found = true;
+                    break;
+                }
+            }
+            if(!found)
+                return false;
+        }
+        return true;
+    }
+
+    /**
      * Record events for the given sequence of nodes
      * 
      * @param clock The VectorClock to record the events on

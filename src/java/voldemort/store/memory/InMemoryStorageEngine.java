@@ -160,6 +160,45 @@ public class InMemoryStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, 
     }
 
     @Override
+    public List<Versioned<V>> multiVersionPut(K key, final List<Versioned<V>> values) {
+        StoreUtils.assertValidKey(key);
+        List<Versioned<V>> obsoleteVals = null;
+        boolean success = false;
+        while(!success) {
+            List<Versioned<V>> valuesInStorage = null;
+            boolean insert = false;
+            valuesInStorage = map.get(key);
+            if(valuesInStorage == null) {
+                valuesInStorage = new ArrayList<Versioned<V>>(values.size());
+                insert = true;
+            }
+            /*
+             * If this is an insert, the synchronized block effectively is a
+             * no-op. the putIfAbsent method guarantees the same behavior as in
+             * put(), in face of concurrent inserts
+             */
+            synchronized(valuesInStorage) {
+                // if this check fails, items has been removed from the map
+                // by delete, so we try again.
+                if(!insert && map.get(key) != valuesInStorage)
+                    continue;
+
+                obsoleteVals = computeVersionsToStore(valuesInStorage, values);
+                if(insert) {
+                    List<Versioned<V>> previousVersion = map.putIfAbsent(key, valuesInStorage);
+                    if(previousVersion != null) {
+                        // if non null, it means this insert lost. so retry
+                        continue;
+                    }
+                }
+                success = true;
+            }
+        }
+
+        return obsoleteVals;
+    }
+
+    @Override
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         return new InMemoryIterator<K, V>(map);
     }

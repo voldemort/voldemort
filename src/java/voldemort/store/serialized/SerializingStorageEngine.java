@@ -16,6 +16,8 @@
 
 package voldemort.store.serialized;
 
+import java.util.List;
+
 import voldemort.serialization.Serializer;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
@@ -166,5 +168,12 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
     @Override
     public boolean endBatchModifications() {
         return false;
+    }
+
+    @Override
+    public List<Versioned<V>> multiVersionPut(K key, List<Versioned<V>> values) {
+        // This is used only for slops as of now.
+        throw new UnsupportedOperationException("multiVersionPut is not supported for "
+                                                + this.getClass().getName());
     }
 }
