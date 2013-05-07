@@ -30,12 +30,16 @@ import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreUtils;
 import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+// TODO: (review) change this from a static helper class to a full-blown class
+// "Repartitioner"?
 /**
  * RepartitionUtils provides functions that balance the distribution of
  * partitions across a cluster.
@@ -44,6 +48,48 @@ import com.google.common.collect.Maps;
 public class RepartitionUtils {
 
     private static Logger logger = Logger.getLogger(RepartitionUtils.class);
+
+    /**
+     * Recommended (default) number of times to attempt repartitioning.
+     */
+    public final static int DEFAULT_REPARTITION_ATTEMPTS = 5;
+    /**
+     * Default number of random partition ID swaps to attempt, if random swaps
+     * are enabled.
+     */
+    public final static int DEFAULT_RANDOM_SWAP_ATTEMPTS = 100;
+    /**
+     * Default number of successful random swaps (i.e., the random swap improves
+     * balance) after which reparitioning stops, if random swaps are enabled.
+     */
+    public final static int DEFAULT_RANDOM_SWAP_SUCCESSES = 100;
+    /**
+     * Default number of greedy partition ID swaps to perform, if greedy swaps
+     * are enabled. Each greedy partition ID swaps considers (some number of
+     * partitions per node) X (some number of partitions from rest of cluster)
+     * and selects the best such swap.
+     */
+    public final static int DEFAULT_GREEDY_SWAP_ATTEMPTS = 5;
+    /**
+     * Default setting for which zone IDs to run greedy swap algorithm. null
+     * implies greedily swapping across all zones.
+     */
+    public final static List<Integer> DEFAULT_GREEDY_ZONE_IDS = null;
+    /**
+     * Default (max) number of partition IDs per node to consider, if greedy
+     * swaps are enabled.
+     */
+    public final static int DEFAULT_GREEDY_MAX_PARTITIONS_PER_NODE = 5;
+    /**
+     * Default (max) number of partition IDs from all the other nodes in the
+     * cluster to consider, if greedy swaps are enabled.
+     */
+    public final static int DEFAULT_GREEDY_MAX_PARTITIONS_PER_ZONE = 25;
+    /**
+     * Default limit on length of contiguous partition ID run within a zone. 0
+     * implies no limit on such runs.
+     */
+    public final static int DEFAULT_MAX_CONTIGUOUS_PARTITIONS = 0;
 
     /**
      * Runs a number of distinct algorithms over the specified clusters/store
@@ -63,8 +109,7 @@ public class RepartitionUtils {
      * 
      * This method is used for three key use cases:
      * <ul>
-     * <li>Rebalancing : Distribute partition IDs better for an existing
-     * cluster.
+     * <li>Shuffling : Distribute partition IDs better for an existing cluster.
      * <li>Cluster expansion : Distribute partition IDs to take advantage of new
      * nodes (added to some of the zones).
      * <li>Zone expansion : Distribute partition IDs into a new zone.
@@ -76,14 +121,19 @@ public class RepartitionUtils {
      *        expansion, otherwise pass in same as currentCluster.
      * @param targetStoreDefs target store defs; needed for zone expansion,
      *        otherwise pass in same as currentStores.
-     * @param outputDir
-     * @param attempts
-     * @param disableNodeBalancing
-     * @param disableZoneBalancing
-     * @param enableRandomSwaps
+     * @param outputDir Directory in which to dump cluster xml and analysis
+     *        files.
+     * @param attempts Number of distinct repartitionings to attempt, the best
+     *        of which is returned.
+     * @param disableNodeBalancing Disables the core algorithm that balances
+     *        primaries among nodes within each zone.
+     * @param disableZoneBalancing For the core algorithm that balances
+     *        primaries among nodes in each zone, disable balancing primaries
+     *        among zones.
+     * @param enableRandomSwaps Enables random swap optimization.
      * @param randomSwapAttempts
      * @param randomSwapSuccesses
-     * @param enableGreedySwaps
+     * @param enableGreedySwaps Enables greedy swap optimization.
      * @param greedyZoneIds
      * @param greedySwapAttempts
      * @param greedySwapMaxPartitionsPerNode
@@ -156,6 +206,11 @@ public class RepartitionUtils {
             double currentUtility = partitionBalance.getUtility();
             System.out.println("Optimization number " + attempt + ": " + currentUtility
                                + " max/min ratio");
+            System.out.println("-------------------------\n");
+            System.out.println(dumpInvalidMetadataRate(targetCluster,
+                                                       currentStoreDefs,
+                                                       nextCluster,
+                                                       currentStoreDefs));
 
             if(currentUtility <= minUtility) {
                 minUtility = currentUtility;
@@ -254,7 +309,14 @@ public class RepartitionUtils {
         return new Pair<HashMap<Node, Integer>, HashMap<Node, Integer>>(donorNodes, stealerNodes);
     }
 
+    // TODO: (refactor) rename targetCluster -> interimCluster
     /**
+     * This method balances primary partitions among nodes within a zone, and
+     * optionally primary partitions among zones. The balancing is done at the
+     * level of partitionIds. Such partition Id movement may, or may not, result
+     * in data movement during a rebalancing. See RebalancePlan for the object
+     * responsible for determining which partition-stores move where for a
+     * specific repartitioning.
      * 
      * @param targetCluster
      * @param balanceZones indicates whether or not number of primary partitions
@@ -299,7 +361,24 @@ public class RepartitionUtils {
         HashMap<Node, Integer> stealerNodes = donorsAndStealers.getSecond();
         List<Node> stealerNodeKeys = new ArrayList<Node>(stealerNodes.keySet());
 
-        // Go over every stealerNode and steal partitions from donor nodes
+        /*
+         * There is no "intelligence" here about which partition IDs are moved
+         * where. The RebalancePlan object owns determining how to move data
+         * around to meet a specific repartitioning. That said, a little bit of
+         * intelligence here may go a long way. For example, for zone expansion
+         * data could be minimized by:
+         * 
+         * (1) Selecting a minimal # of partition IDs for the new zoneto
+         * minimize how much the ring in existing zones is perturbed;
+         * 
+         * (2) Selecting partitions for the new zone from contiguous runs of
+         * partition IDs in other zones that are not currently n-ary partitions
+         * for other primary partitions;
+         * 
+         * (3) Some combination of (1) and (2)...
+         */
+
+        // Go over every stealerNode and steal partition Ids from donor nodes
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
         Collections.shuffle(stealerNodeKeys, new Random(System.currentTimeMillis()));
@@ -774,6 +853,59 @@ public class RepartitionUtils {
         return true;
     }
 
+    // TODO: move to some other util class since it is called by
+    // RepartitionUtils and by RebalancePlan.
+    /**
+     * 
+     * @param curCluster
+     * @param targetClustertargetPartitionsPerZone
+     * @return
+     */
+    public static String dumpInvalidMetadataRate(final Cluster currentCluster,
+                                                 List<StoreDefinition> currentStoreDefs,
+                                                 final Cluster targetCluster,
+                                                 List<StoreDefinition> targetStoreDefs) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Dump of invalid metadata rates per zone").append(Utils.NEWLINE);
+
+        HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(currentStoreDefs);
+
+        for(StoreDefinition currentStoreDef: uniqueStores.keySet()) {
+            sb.append("Store exemplar: " + currentStoreDef.getName())
+              .append(Utils.NEWLINE)
+              .append("\tThere are " + uniqueStores.get(currentStoreDef) + " other similar stores.")
+              .append(Utils.NEWLINE);
+
+            StoreRoutingPlan currentSRP = new StoreRoutingPlan(currentCluster, currentStoreDef);
+            StoreDefinition targetStoreDef = StoreUtils.getStoreDef(targetStoreDefs,
+                                                                    currentStoreDef.getName());
+            StoreRoutingPlan targetSRP = new StoreRoutingPlan(targetCluster, targetStoreDef);
+
+            // Only care about existing zones
+            for(int zoneId: currentCluster.getZoneIds()) {
+                int zoneLocalPrimaries = 0;
+                int invalidMetadata = 0;
+                // Examine nodes in current cluster in existing zone.
+                for(int nodeId: currentCluster.getNodeIdsInZone(zoneId)) {
+                    for(int partitionId: targetSRP.getZonePrimaryPartitionIds(nodeId)) {
+                        zoneLocalPrimaries++;
+                        if(!currentSRP.getNaryPartitionIds(nodeId).contains(partitionId)) {
+                            invalidMetadata++;
+                        }
+                    }
+                }
+                float rate = invalidMetadata / (float) zoneLocalPrimaries;
+                sb.append("\tZone " + zoneId)
+                  .append(" : total zone primaries " + zoneLocalPrimaries)
+                  .append(", # that trigger invalid metadata " + invalidMetadata)
+                  .append(" => " + rate)
+                  .append(Utils.NEWLINE);
+            }
+        }
+
+        return sb.toString();
+    }
+
     // TODO: Move to some more generic util class?
     /**
      * This method breaks the inputList into distinct lists that are no longer
@@ -820,6 +952,7 @@ public class RepartitionUtils {
         return itemsToRemove;
     }
 
+    // TODO: (review) rename the methods... "evenlyDistribute"
     // TODO: Move to some more generic util class?
     /**
      * This method returns a list that "evenly" (within one) distributes some
@@ -829,8 +962,8 @@ public class RepartitionUtils {
      * @param breadSlices The number of buckets over which to evenly distribute
      *        the elements.
      * @param peanutButter The number of elements to distribute.
-     * @return A list of size breadSlices each integer entry of which indicates
-     *         the number of elements
+     * @return A list of size breadSlices, each integer entry of which indicates
+     *         the number of elements.
      */
     public static List<Integer> peanutButterList(int breadSlices, int peanutButter) {
         if(breadSlices < 1) {
@@ -855,13 +988,14 @@ public class RepartitionUtils {
     }
 
     // TODO: Move to some more generic util class?
+    // TODO: (review) Rename from peanutButter.
     /**
      * This method returns a map that "evenly" (within one) distributes some
      * number of elements (peanut butter) over some number of buckets (bread
      * slices).
      * 
-     * @param set The collection of objects over which which to evenly
-     *        distribute the elements.
+     * @param set The keys of the map over which which to evenly distribute the
+     *        elements.
      * @param peanutButter The number of elements to distribute.
      * @return A Map with keys specified by breadSlices each integer entry of
      *         which indicates the number of elements

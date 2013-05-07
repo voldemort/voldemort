@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -30,6 +31,17 @@ import voldemort.store.StoreDefinition;
 import com.google.common.collect.Maps;
 
 public class PartitionBalance {
+
+    /**
+     * Multiplier in utility method to weight the balance of "IOPS" (get QPS &
+     * pseudo-master put QPS) relative to "CAPACITY".
+     */
+    private final static int UTILITY_MULTIPLIER_IOPS = 2;
+    /**
+     * Multiplier in utility method to weight the balance of "CAPACITY" (put QPS
+     * and therefore amount of data stored) relative to "IOPS".
+     */
+    private final static int UTILITY_MULTIPLIER_CAPACITY = 1;
 
     private final Cluster cluster;
 
@@ -50,7 +62,6 @@ public class PartitionBalance {
 
         HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
         Set<Integer> nodeIds = cluster.getNodeIds();
-        Set<Integer> zoneIds = cluster.getZoneIds();
 
         builder.append("PARTITION DUMP\n");
         this.primaryAggNodeIdToPartitionCount = Maps.newHashMap();
@@ -71,107 +82,51 @@ public class PartitionBalance {
         for(StoreDefinition storeDefinition: uniqueStores.keySet()) {
             StoreRoutingPlan storeRoutingPlan = new StoreRoutingPlan(cluster, storeDefinition);
 
-            builder.append("\n");
-            builder.append("Store exemplar: " + storeDefinition.getName() + "\n");
-            builder.append("\tReplication factor: " + storeDefinition.getReplicationFactor() + "\n");
-            builder.append("\tRouting strategy: " + storeDefinition.getRoutingStrategyType() + "\n");
-            builder.append("\tThere are " + uniqueStores.get(storeDefinition)
-                           + " other similar stores.\n");
+            // High level information about the store def exemplar
+            builder.append(Utils.NEWLINE)
+                   .append("Store exemplar: " + storeDefinition.getName())
+                   .append(Utils.NEWLINE)
+                   .append("\tReplication factor: " + storeDefinition.getReplicationFactor())
+                   .append(Utils.NEWLINE)
+                   .append("\tRouting strategy: " + storeDefinition.getRoutingStrategyType())
+                   .append(Utils.NEWLINE)
+                   .append("\tThere are " + uniqueStores.get(storeDefinition)
+                           + " other similar stores.")
+                   .append(Utils.NEWLINE)
+                   .append(Utils.NEWLINE);
 
-            // Map of node Id to Sets of pairs. Pairs of Integers are of
-            // <replica_type, partition_id>
-            Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = RebalanceUtils.getNodeIdToAllPartitions(cluster,
-                                                                                                                      storeDefinition,
-                                                                                                                      true);
-            Map<Integer, Integer> primaryNodeIdToPartitionCount = Maps.newHashMap();
-            Map<Integer, Integer> nodeIdToZonePrimaryCount = Maps.newHashMap();
-            Map<Integer, Integer> allNodeIdToPartitionCount = Maps.newHashMap();
+            // Detailed dump of partitions on nodes
+            builder.append(dumpZoneNAryDetails(storeRoutingPlan));
+            builder.append(Utils.NEWLINE);
 
-            // Print out all partitions, by replica type, per node
-            builder.append("\n");
-            builder.append("\tDetailed Dump:\n");
+            builder.append(dumpReplicaTypeDetails(cluster, storeDefinition));
+            builder.append(Utils.NEWLINE);
+
+            // Per-node counts of various partition types (primary,
+            // zone-primary, and n-ary)
+            Map<Integer, Integer> nodeIdToPrimaryCount = getNodeIdToPrimaryCount(cluster);
+            Map<Integer, Integer> nodeIdToZonePrimaryCount = getNodeIdToZonePrimaryCount(cluster,
+                                                                                         storeRoutingPlan);
+            Map<Integer, Integer> nodeIdToNaryCount = getNodeIdToNaryCount(cluster,
+                                                                           storeRoutingPlan);
+
+            builder.append("\tSummary of NAry counts:").append(Utils.NEWLINE);
             for(Integer nodeId: nodeIds) {
-                builder.append("\tNode ID: " + nodeId + "in zone "
-                               + cluster.getNodeById(nodeId).getZoneId() + "\n");
-                primaryNodeIdToPartitionCount.put(nodeId, 0);
-                nodeIdToZonePrimaryCount.put(nodeId, 0);
-                allNodeIdToPartitionCount.put(nodeId, 0);
-                Set<Pair<Integer, Integer>> partitionPairs = nodeIdToAllPartitions.get(nodeId);
-
-                int replicaType = 0;
-                while(partitionPairs.size() > 0) {
-                    List<Pair<Integer, Integer>> replicaPairs = new ArrayList<Pair<Integer, Integer>>();
-                    for(Pair<Integer, Integer> pair: partitionPairs) {
-                        if(pair.getFirst() == replicaType) {
-                            replicaPairs.add(pair);
-                        }
-                    }
-                    List<Integer> partitions = new ArrayList<Integer>();
-                    for(Pair<Integer, Integer> pair: replicaPairs) {
-                        partitionPairs.remove(pair);
-                        partitions.add(pair.getSecond());
-                    }
-                    java.util.Collections.sort(partitions);
-
-                    builder.append("\t\t" + replicaType);
-                    for(int zoneId: zoneIds) {
-                        builder.append(" : z" + zoneId + " : ");
-                        List<Integer> zonePartitions = new ArrayList<Integer>();
-                        for(int partitionId: partitions) {
-                            if(cluster.getPartitionIdsInZone(zoneId).contains(partitionId)) {
-                                zonePartitions.add(partitionId);
-                            }
-                        }
-                        builder.append(zonePartitions.toString());
-
-                    }
-                    builder.append("\n");
-                    if(replicaType == 0) {
-                        primaryNodeIdToPartitionCount.put(nodeId,
-                                                          primaryNodeIdToPartitionCount.get(nodeId)
-                                                                  + partitions.size());
-                    }
-
-                    allNodeIdToPartitionCount.put(nodeId, allNodeIdToPartitionCount.get(nodeId)
-                                                          + partitions.size());
-                    replicaType++;
-                }
-            }
-
-            // Go through all partition IDs and determine which node is
-            // "first" in the replicating node list for every zone. This
-            // determines the number of "zone primaries" each node hosts.
-            for(int partitionId = 0; partitionId < cluster.getNumberOfPartitions(); partitionId++) {
-                for(int zoneId: zoneIds) {
-                    for(int nodeId: storeRoutingPlan.getReplicationNodeList(partitionId)) {
-                        if(cluster.getNodeById(nodeId).getZoneId() == zoneId) {
-                            nodeIdToZonePrimaryCount.put(nodeId,
-                                                         nodeIdToZonePrimaryCount.get(nodeId) + 1);
-                            break;
-                        }
-                    }
-                }
-            }
-
-            builder.append("\n");
-            builder.append("\tSummary Dump:\n");
-            for(Integer nodeId: nodeIds) {
-                builder.append("\tNode ID: " + nodeId + " : "
-                               + allNodeIdToPartitionCount.get(nodeId) + "\n");
+                builder.append("\tNode ID: " + nodeId + " : " + nodeIdToNaryCount.get(nodeId)
+                               + "\n");
                 primaryAggNodeIdToPartitionCount.put(nodeId,
                                                      primaryAggNodeIdToPartitionCount.get(nodeId)
-                                                             + (primaryNodeIdToPartitionCount.get(nodeId) * uniqueStores.get(storeDefinition)));
+                                                             + (nodeIdToPrimaryCount.get(nodeId) * uniqueStores.get(storeDefinition)));
                 aggNodeIdToZonePrimaryCount.put(nodeId, aggNodeIdToZonePrimaryCount.get(nodeId)
                                                         + nodeIdToZonePrimaryCount.get(nodeId)
                                                         * uniqueStores.get(storeDefinition));
                 allAggNodeIdToPartitionCount.put(nodeId,
                                                  allAggNodeIdToPartitionCount.get(nodeId)
-                                                         + (allNodeIdToPartitionCount.get(nodeId) * uniqueStores.get(storeDefinition)));
+                                                         + (nodeIdToNaryCount.get(nodeId) * uniqueStores.get(storeDefinition)));
             }
         }
 
-        builder.append("\n");
-        builder.append("\n");
+        builder.append(Utils.NEWLINE).append(Utils.NEWLINE);
 
         Pair<Double, String> summary = summarizeBalance(primaryAggNodeIdToPartitionCount,
                                                         "AGGREGATE PRIMARY-PARTITION COUNT (across all stores)");
@@ -189,6 +144,149 @@ public class PartitionBalance {
         this.naryMaxMin = summary.getFirst();
 
         this.verbose = builder.toString();
+    }
+
+    /**
+     * Go through all nodes and determine how many partition Ids each node
+     * hosts.
+     * 
+     * @param cluster
+     * @return map of nodeId to number of primary partitions hosted on node.
+     */
+    private Map<Integer, Integer> getNodeIdToPrimaryCount(Cluster cluster) {
+        Map<Integer, Integer> nodeIdToPrimaryCount = Maps.newHashMap();
+        for(Node node: cluster.getNodes()) {
+            nodeIdToPrimaryCount.put(node.getId(), node.getPartitionIds().size());
+        }
+
+        return nodeIdToPrimaryCount;
+    }
+
+    /**
+     * Go through all partition IDs and determine which node is "first" in the
+     * replicating node list for every zone. This determines the number of
+     * "zone primaries" each node hosts.
+     * 
+     * @return map of nodeId to number of zone-primaries hosted on node.
+     */
+    private Map<Integer, Integer> getNodeIdToZonePrimaryCount(Cluster cluster,
+                                                              StoreRoutingPlan storeRoutingPlan) {
+        Map<Integer, Integer> nodeIdToZonePrimaryCount = Maps.newHashMap();
+        for(Integer nodeId: cluster.getNodeIds()) {
+            nodeIdToZonePrimaryCount.put(nodeId,
+                                         storeRoutingPlan.getZonePrimaryPartitionIds(nodeId).size());
+        }
+
+        return nodeIdToZonePrimaryCount;
+    }
+
+    /**
+     * Go through all node IDs and determine which node
+     * 
+     * @param cluster
+     * @param storeRoutingPlan
+     * @return
+     */
+    private Map<Integer, Integer> getNodeIdToNaryCount(Cluster cluster,
+                                                       StoreRoutingPlan storeRoutingPlan) {
+        Map<Integer, Integer> nodeIdToNaryCount = Maps.newHashMap();
+
+        for(int nodeId: cluster.getNodeIds()) {
+            nodeIdToNaryCount.put(nodeId, storeRoutingPlan.getNaryPartitionIds(nodeId).size());
+        }
+
+        return nodeIdToNaryCount;
+    }
+
+    // TODO: (refactor) When/if "replica type" is exorcised from the code base,
+    // this detailed dump method should be removed.
+    /**
+     * Dumps the partition IDs per node in terms of "replica type".
+     * 
+     * @param cluster
+     * @param storeDefinition
+     * @return pretty printed string of detailed replica tyep dump.
+     */
+    private String dumpReplicaTypeDetails(Cluster cluster, StoreDefinition storeDefinition) {
+        StringBuilder sb = new StringBuilder();
+        Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = RebalanceUtils.getNodeIdToAllPartitions(cluster,
+                                                                                                                  storeDefinition,
+                                                                                                                  true);
+        sb.append("\tDetailed Dump (Replica Types):").append(Utils.NEWLINE);
+        for(Integer nodeId: cluster.getNodeIds()) {
+            sb.append("\tNode ID: " + nodeId + " in zone "
+                      + cluster.getNodeById(nodeId).getZoneId()).append(Utils.NEWLINE);
+            Set<Pair<Integer, Integer>> partitionPairs = nodeIdToAllPartitions.get(nodeId);
+
+            int replicaType = 0;
+            while(partitionPairs.size() > 0) {
+                List<Pair<Integer, Integer>> replicaPairs = new ArrayList<Pair<Integer, Integer>>();
+                for(Pair<Integer, Integer> pair: partitionPairs) {
+                    if(pair.getFirst() == replicaType) {
+                        replicaPairs.add(pair);
+                    }
+                }
+                List<Integer> partitions = new ArrayList<Integer>();
+                for(Pair<Integer, Integer> pair: replicaPairs) {
+                    partitionPairs.remove(pair);
+                    partitions.add(pair.getSecond());
+                }
+                java.util.Collections.sort(partitions);
+
+                sb.append("\t\t" + replicaType);
+                for(int zoneId: cluster.getZoneIds()) {
+                    sb.append(" : z" + zoneId + " : ");
+                    List<Integer> zonePartitions = new ArrayList<Integer>();
+                    for(int partitionId: partitions) {
+                        if(cluster.getPartitionIdsInZone(zoneId).contains(partitionId)) {
+                            zonePartitions.add(partitionId);
+                        }
+                    }
+                    sb.append(zonePartitions.toString());
+
+                }
+                sb.append(Utils.NEWLINE);
+
+                replicaType++;
+            }
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Dumps the partition IDs per node in terms of zone n-ary type.
+     * 
+     * @param cluster
+     * @param storeRoutingPlan
+     * @return pretty printed string of detailed zone n-ary type.
+     */
+    private String dumpZoneNAryDetails(StoreRoutingPlan storeRoutingPlan) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("\tDetailed Dump (Zone N-Aries):").append(Utils.NEWLINE);
+        for(Node node: storeRoutingPlan.getCluster().getNodes()) {
+            int zoneId = node.getZoneId();
+            int nodeId = node.getId();
+            sb.append("\tNode ID: " + nodeId + " in zone " + zoneId).append(Utils.NEWLINE);
+            List<Integer> naries = storeRoutingPlan.getNaryPartitionIds(nodeId);
+            Map<Integer, List<Integer>> zoneNaryTypeToPartitionIds = new HashMap<Integer, List<Integer>>();
+            for(int nary: naries) {
+                int zoneReplicaType = storeRoutingPlan.getZoneReplicaType(zoneId, nodeId, nary);
+                if(!zoneNaryTypeToPartitionIds.containsKey(zoneReplicaType)) {
+                    zoneNaryTypeToPartitionIds.put(zoneReplicaType, new ArrayList<Integer>());
+                }
+                zoneNaryTypeToPartitionIds.get(zoneReplicaType).add(nary);
+            }
+
+            for(int replicaType: new TreeSet<Integer>(zoneNaryTypeToPartitionIds.keySet())) {
+                sb.append("\t\t" + replicaType + " : ");
+                sb.append(zoneNaryTypeToPartitionIds.get(replicaType).toString());
+                sb.append(Utils.NEWLINE);
+            }
+        }
+
+        return sb.toString();
     }
 
     public double getPrimaryMaxMin() {
@@ -234,7 +332,8 @@ public class PartitionBalance {
      */
     public double getUtility() {
 
-        return 2 * getZonePrimaryMaxMin() + getNaryMaxMin();
+        return (UTILITY_MULTIPLIER_IOPS * getZonePrimaryMaxMin())
+               + (UTILITY_MULTIPLIER_CAPACITY * getNaryMaxMin());
     }
 
     @Override

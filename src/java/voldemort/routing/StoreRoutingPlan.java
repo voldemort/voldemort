@@ -34,8 +34,6 @@ import voldemort.utils.Utils;
 
 import com.google.common.collect.Lists;
 
-// TODO: Add StoreInstanceTest unit test for these helper methods.
-
 /**
  * This class wraps up a Cluster object and a StoreDefinition. The methods are
  * effectively helper or util style methods for querying the routing plan that
@@ -48,6 +46,7 @@ public class StoreRoutingPlan {
     private final StoreDefinition storeDefinition;
     private final Map<Integer, Integer> partitionIdToNodeIdMap;
     private final Map<Integer, List<Integer>> nodeIdToNaryPartitionMap;
+    private final Map<Integer, List<Integer>> nodeIdToZonePrimaryMap;
     private final RoutingStrategy routingStrategy;
 
     public StoreRoutingPlan(Cluster cluster, StoreDefinition storeDefinition) {
@@ -57,14 +56,20 @@ public class StoreRoutingPlan {
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
                                                                                   cluster);
         this.nodeIdToNaryPartitionMap = new HashMap<Integer, List<Integer>>();
+        this.nodeIdToZonePrimaryMap = new HashMap<Integer, List<Integer>>();
         for(int nodeId: cluster.getNodeIds()) {
             this.nodeIdToNaryPartitionMap.put(nodeId, new ArrayList<Integer>());
+            this.nodeIdToZonePrimaryMap.put(nodeId, new ArrayList<Integer>());
         }
         for(int masterPartitionId = 0; masterPartitionId < cluster.getNumberOfPartitions(); ++masterPartitionId) {
             List<Integer> naryPartitionIds = getReplicatingPartitionList(masterPartitionId);
             for(int naryPartitionId: naryPartitionIds) {
                 int naryNodeId = getNodeIdForPartitionId(naryPartitionId);
                 nodeIdToNaryPartitionMap.get(naryNodeId).add(masterPartitionId);
+                int naryZoneId = cluster.getNodeById(naryNodeId).getZoneId();
+                if(getZoneReplicaType(naryZoneId, naryNodeId, naryPartitionId) == 0) {
+                    nodeIdToZonePrimaryMap.get(naryNodeId).add(masterPartitionId);
+                }
             }
         }
     }
@@ -87,8 +92,6 @@ public class StoreRoutingPlan {
         return this.routingStrategy.getReplicatingPartitionList(masterPartitionId);
     }
 
-    // TODO: Add test for this method (if this method is still required after
-    // the RebalanceController is updated to use RebalancePlan).
     /**
      * 
      * @param nodeId
@@ -96,6 +99,15 @@ public class StoreRoutingPlan {
      */
     public List<Integer> getNaryPartitionIds(int nodeId) {
         return nodeIdToNaryPartitionMap.get(nodeId);
+    }
+
+    /**
+     * 
+     * @param nodeId
+     * @return all nary partition IDs hosted on the node.
+     */
+    public List<Integer> getZonePrimaryPartitionIds(int nodeId) {
+        return nodeIdToZonePrimaryMap.get(nodeId);
     }
 
     /**
@@ -387,7 +399,6 @@ public class StoreRoutingPlan {
     // TODO: (refactor) Move from static methods to non-static methods that use
     // this object's cluster and storeDefinition member for the various
     // check*BelongsTo* methods.
-
     /**
      * Check that the key belongs to one of the partitions in the map of replica
      * type to partitions

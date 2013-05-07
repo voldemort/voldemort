@@ -538,7 +538,7 @@ public class RebalanceUtils {
         for(int donatedPartition: donatedPartitions) {
 
             // Gets the donor Node that owns this donated partition
-            Node donorNode = ClusterUtils.getNodeByPartitionId(updatedCluster, donatedPartition);
+            Node donorNode = updatedCluster.getNodeForPartitionId(donatedPartition);
             Node stealerNode = updatedCluster.getNodeById(stealerNodeId);
 
             if(donorNode == stealerNode) {

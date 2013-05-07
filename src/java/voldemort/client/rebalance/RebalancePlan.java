@@ -33,6 +33,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.MoveMap;
 import voldemort.utils.PartitionBalance;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.RepartitionUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 
@@ -96,6 +97,11 @@ public class RebalancePlan {
         logger.info("Target cluster : " + targetCluster);
         logger.info("Final cluster : " + finalCluster);
         logger.info("Batch size : " + batchSize);
+
+        logger.info(RepartitionUtils.dumpInvalidMetadataRate(currentCluster,
+                                                             currentStores,
+                                                             finalCluster,
+                                                             finalStores));
 
         // Initialize the plan
         batchPlans = new ArrayList<RebalanceClusterPlan>();
