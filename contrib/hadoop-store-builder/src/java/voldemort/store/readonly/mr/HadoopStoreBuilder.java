@@ -580,13 +580,24 @@ public class HadoopStoreBuilder {
         }
     }
 
-    private long sizeOfPath(FileSystem fs, Path path) throws IOException {
+    /**
+     * Calculate the size of a path on DFS.
+     *
+     * @param fs the FileSystem object that corresponds to the Path
+     * @param path the path to determine the size of
+     * @param glob if the path should be globbed, if called recursively this must be false
+     */
+    private long sizeOfPath(FileSystem fs, Path path, boolean glob) throws IOException {
         long size = 0;
-        FileStatus[] statuses = fs.listStatus(path);
+        // Use path globing if the glob flag is set to true.
+        FileStatus[] statuses = (glob)?fs.globStatus(path):fs.listStatus(path);
+
         if(statuses != null) {
             for(FileStatus status: statuses) {
-                if(status.isDir())
-                    size += sizeOfPath(fs, status.getPath());
+                if(status.isDir()) {
+                    // don't use file path globbing when calling sizeOfPath recursively
+                    size += sizeOfPath(fs, status.getPath(), false);
+                }
                 else
                     size += status.getLen();
             }
@@ -594,4 +605,10 @@ public class HadoopStoreBuilder {
         return size;
     }
 
+    /**
+     * Calculate the size of a path on DFS globing the path.
+     */
+    private long sizeOfPath(FileSystem fs, Path path) throws IOException {
+        return sizeOfPath(fs, path, true);
+    }
 }
