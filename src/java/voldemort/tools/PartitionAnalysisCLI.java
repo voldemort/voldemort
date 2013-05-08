@@ -29,7 +29,6 @@ import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
-import voldemort.utils.ClusterInstance;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
@@ -109,7 +108,7 @@ public class PartitionAnalysisCLI {
         Cluster currentCluster = new ClusterMapper().readCluster(new File(clusterXML));
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXML));
 
-        PartitionBalance partitionBalance = new ClusterInstance(currentCluster, storeDefs).getPartitionBalance();
+        PartitionBalance partitionBalance = new PartitionBalance(currentCluster, storeDefs);
         System.out.println(partitionBalance);
     }
 

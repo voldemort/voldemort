@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.junit.Test;
 
+import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
@@ -117,43 +118,43 @@ public class RebalanceUtilsTest {
     @Test
     public void testClusterTransformationAndVerification() {
         // Two-zone cluster: no-op
-        doClusterTransformationAndVerification(ClusterInstanceTest.getZZCluster(),
-                                               ClusterInstanceTest.getZZCluster(),
-                                               ClusterInstanceTest.getZZCluster());
+        doClusterTransformationAndVerification(ClusterTestUtils.getZZCluster(),
+                                               ClusterTestUtils.getZZCluster(),
+                                               ClusterTestUtils.getZZCluster());
 
         // Two-zone cluster: rebalance
-        doClusterTransformationAndVerification(ClusterInstanceTest.getZZCluster(),
-                                               ClusterInstanceTest.getZZCluster(),
-                                               ClusterInstanceTest.getZZClusterWithSwappedPartitions());
+        doClusterTransformationAndVerification(ClusterTestUtils.getZZCluster(),
+                                               ClusterTestUtils.getZZCluster(),
+                                               ClusterTestUtils.getZZClusterWithSwappedPartitions());
 
         // Two-zone cluster: cluster expansion
-        doClusterTransformationAndVerification(ClusterInstanceTest.getZZCluster(),
-                                               ClusterInstanceTest.getZZClusterWithNN(),
-                                               ClusterInstanceTest.getZZClusterWithPP());
+        doClusterTransformationAndVerification(ClusterTestUtils.getZZCluster(),
+                                               ClusterTestUtils.getZZClusterWithNN(),
+                                               ClusterTestUtils.getZZClusterWithPP());
 
         // Three-zone cluster: no-op
-        doClusterTransformationAndVerification(ClusterInstanceTest.getZZZCluster(),
-                                               ClusterInstanceTest.getZZZCluster(),
-                                               ClusterInstanceTest.getZZZCluster());
+        doClusterTransformationAndVerification(ClusterTestUtils.getZZZCluster(),
+                                               ClusterTestUtils.getZZZCluster(),
+                                               ClusterTestUtils.getZZZCluster());
 
         // Three-zone cluster: rebalance
-        doClusterTransformationAndVerification(ClusterInstanceTest.getZZZCluster(),
-                                               ClusterInstanceTest.getZZZCluster(),
-                                               ClusterInstanceTest.getZZZClusterWithSwappedPartitions());
+        doClusterTransformationAndVerification(ClusterTestUtils.getZZZCluster(),
+                                               ClusterTestUtils.getZZZCluster(),
+                                               ClusterTestUtils.getZZZClusterWithSwappedPartitions());
 
         // Three-zone cluster: cluster expansion
-        doClusterTransformationAndVerification(ClusterInstanceTest.getZZZCluster(),
-                                               ClusterInstanceTest.getZZZClusterWithNNN(),
-                                               ClusterInstanceTest.getZZZClusterWithPPP());
+        doClusterTransformationAndVerification(ClusterTestUtils.getZZZCluster(),
+                                               ClusterTestUtils.getZZZClusterWithNNN(),
+                                               ClusterTestUtils.getZZZClusterWithPPP());
 
         // TODO: Fix this test to pass. This test currently fails because the
         // method RebalanceUtils.getClusterWithNewNodes cannot handle a new zone
         // coming into existence between currentCluster & targetCluster.
         // Two- to Three-zone clusters: zone expansion
         /*-
-        doClusterTransformationAndVerification(ClusterInstanceTest.getZZCluster(),
-                                               ClusterInstanceTest.getZZECluster(),
-                                               ClusterInstanceTest.getZZEClusterXXP());
+        doClusterTransformationAndVerification(ClusterTestUtils.getZZCluster(),
+                                               ClusterTestUtils.getZZECluster(),
+                                               ClusterTestUtils.getZZEClusterXXP());
          */
     }
 
@@ -164,9 +165,9 @@ public class RebalanceUtilsTest {
         // Two-zone cluster: rebalance with extra partitions in target
         excepted = false;
         try {
-            doClusterTransformation(ClusterInstanceTest.getZZCluster(),
-                                    ClusterInstanceTest.getZZClusterWithExtraPartitions(),
-                                    ClusterInstanceTest.getZZClusterWithSwappedPartitions());
+            doClusterTransformation(ClusterTestUtils.getZZCluster(),
+                                    ClusterTestUtils.getZZClusterWithExtraPartitions(),
+                                    ClusterTestUtils.getZZClusterWithSwappedPartitions());
         } catch(VoldemortException ve) {
             excepted = true;
         }
@@ -175,9 +176,9 @@ public class RebalanceUtilsTest {
         // Two-zone cluster: rebalance with extra partitions in final
         excepted = false;
         try {
-            doClusterTransformation(ClusterInstanceTest.getZZCluster(),
-                                    ClusterInstanceTest.getZZCluster(),
-                                    ClusterInstanceTest.getZZClusterWithExtraPartitions());
+            doClusterTransformation(ClusterTestUtils.getZZCluster(),
+                                    ClusterTestUtils.getZZCluster(),
+                                    ClusterTestUtils.getZZClusterWithExtraPartitions());
         } catch(VoldemortException ve) {
             excepted = true;
         }
@@ -186,9 +187,9 @@ public class RebalanceUtilsTest {
         // Two-zone cluster: node ids swapped in target
         excepted = false;
         try {
-            doClusterTransformation(ClusterInstanceTest.getZZCluster(),
-                                    ClusterInstanceTest.getZZClusterWithNNWithSwappedNodeIds(),
-                                    ClusterInstanceTest.getZZClusterWithPP());
+            doClusterTransformation(ClusterTestUtils.getZZCluster(),
+                                    ClusterTestUtils.getZZClusterWithNNWithSwappedNodeIds(),
+                                    ClusterTestUtils.getZZClusterWithPP());
         } catch(VoldemortException ve) {
             excepted = true;
         }
@@ -198,9 +199,9 @@ public class RebalanceUtilsTest {
         // same as partitions being migrated among nodes.
         excepted = false;
         try {
-            doClusterTransformation(ClusterInstanceTest.getZZCluster(),
-                                    ClusterInstanceTest.getZZClusterWithNN(),
-                                    ClusterInstanceTest.getZZClusterWithPPWithSwappedNodeIds());
+            doClusterTransformation(ClusterTestUtils.getZZCluster(),
+                                    ClusterTestUtils.getZZClusterWithNN(),
+                                    ClusterTestUtils.getZZClusterWithPPWithSwappedNodeIds());
         } catch(VoldemortException ve) {
             excepted = true;
         }
@@ -209,9 +210,9 @@ public class RebalanceUtilsTest {
         // Two-zone cluster: too many node ids in final
         excepted = false;
         try {
-            doClusterTransformation(ClusterInstanceTest.getZZCluster(),
-                                    ClusterInstanceTest.getZZClusterWithNN(),
-                                    ClusterInstanceTest.getZZClusterWithPPWithTooManyNodes());
+            doClusterTransformation(ClusterTestUtils.getZZCluster(),
+                                    ClusterTestUtils.getZZClusterWithNN(),
+                                    ClusterTestUtils.getZZClusterWithPPWithTooManyNodes());
         } catch(VoldemortException ve) {
             excepted = true;
         }

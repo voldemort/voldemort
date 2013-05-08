@@ -25,9 +25,9 @@ import java.util.Map;
 
 import org.junit.Test;
 
+import voldemort.ClusterTestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
-import voldemort.utils.ClusterInstanceTest;
 import voldemort.utils.ClusterUtils;
 
 public class RepartitionerTest {
@@ -363,8 +363,8 @@ public class RepartitionerTest {
     @Test
     public void testRebalance() {
         // Two zone cluster
-        Cluster currentCluster = ClusterInstanceTest.getZZCluster();
-        List<StoreDefinition> storeDefs = ClusterInstanceTest.getZZStoreDefsInMemory();
+        Cluster currentCluster = ClusterTestUtils.getZZCluster();
+        List<StoreDefinition> storeDefs = ClusterTestUtils.getZZStoreDefsInMemory();
         verifyBalanceZoneAndNode(currentCluster, storeDefs, currentCluster, storeDefs);
         verifyBalanceNodesNotZones(currentCluster, storeDefs, currentCluster, storeDefs);
         verifyRepartitionNoop(currentCluster, storeDefs, currentCluster, storeDefs);
@@ -372,8 +372,8 @@ public class RepartitionerTest {
         verifyGreedySwapsImproveBalance(currentCluster, storeDefs);
 
         // Three zone cluster
-        currentCluster = ClusterInstanceTest.getZZZCluster();
-        storeDefs = ClusterInstanceTest.getZZZStoreDefsInMemory();
+        currentCluster = ClusterTestUtils.getZZZCluster();
+        storeDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
         verifyBalanceZoneAndNode(currentCluster, storeDefs, currentCluster, storeDefs);
         verifyBalanceNodesNotZones(currentCluster, storeDefs, currentCluster, storeDefs);
         verifyRepartitionNoop(currentCluster, storeDefs, currentCluster, storeDefs);
@@ -384,17 +384,17 @@ public class RepartitionerTest {
     @Test
     public void testClusterExpansion() {
         // Two zone cluster
-        Cluster currentCluster = ClusterInstanceTest.getZZCluster();
-        Cluster targetCluster = ClusterInstanceTest.getZZClusterWithNN();
-        List<StoreDefinition> storeDefs = ClusterInstanceTest.getZZStoreDefsInMemory();
+        Cluster currentCluster = ClusterTestUtils.getZZCluster();
+        Cluster targetCluster = ClusterTestUtils.getZZClusterWithNN();
+        List<StoreDefinition> storeDefs = ClusterTestUtils.getZZStoreDefsInMemory();
         verifyBalanceZoneAndNode(currentCluster, storeDefs, targetCluster, storeDefs);
         verifyBalanceNodesNotZones(currentCluster, storeDefs, targetCluster, storeDefs);
         verifyRepartitionNoop(currentCluster, storeDefs, targetCluster, storeDefs);
 
         // Three zone cluster
-        currentCluster = ClusterInstanceTest.getZZZCluster();
-        targetCluster = ClusterInstanceTest.getZZZClusterWithNNN();
-        storeDefs = ClusterInstanceTest.getZZZStoreDefsInMemory();
+        currentCluster = ClusterTestUtils.getZZZCluster();
+        targetCluster = ClusterTestUtils.getZZZClusterWithNNN();
+        storeDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
         verifyBalanceZoneAndNode(currentCluster, storeDefs, targetCluster, storeDefs);
         verifyBalanceNodesNotZones(currentCluster, storeDefs, targetCluster, storeDefs);
         verifyRepartitionNoop(currentCluster, storeDefs, targetCluster, storeDefs);
@@ -402,11 +402,11 @@ public class RepartitionerTest {
 
     @Test
     public void testZoneExpansion() {
-        Cluster currentCluster = ClusterInstanceTest.getZZCluster();
-        List<StoreDefinition> currentStoreDefs = ClusterInstanceTest.getZZStoreDefsInMemory();
+        Cluster currentCluster = ClusterTestUtils.getZZCluster();
+        List<StoreDefinition> currentStoreDefs = ClusterTestUtils.getZZStoreDefsInMemory();
 
-        Cluster targetCluster = ClusterInstanceTest.getZZZClusterWithNNN();
-        List<StoreDefinition> targetStoreDefs = ClusterInstanceTest.getZZZStoreDefsInMemory();
+        Cluster targetCluster = ClusterTestUtils.getZZZClusterWithNNN();
+        List<StoreDefinition> targetStoreDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
 
         verifyBalanceZoneAndNode(currentCluster, currentStoreDefs, targetCluster, targetStoreDefs);
         // verifyBalanceNodesNotZones does not make sense for zone expansion.
@@ -478,13 +478,13 @@ public class RepartitionerTest {
     @Test
     public void testDeContig() {
         // Two zone cluster
-        Cluster currentCluster = ClusterInstanceTest.getZZCluster();
-        List<StoreDefinition> storeDefs = ClusterInstanceTest.getZZStoreDefsInMemory();
+        Cluster currentCluster = ClusterTestUtils.getZZCluster();
+        List<StoreDefinition> storeDefs = ClusterTestUtils.getZZStoreDefsInMemory();
         decontigRepartition(currentCluster, storeDefs);
 
         // Three zone cluster
-        currentCluster = ClusterInstanceTest.getZZZCluster();
-        storeDefs = ClusterInstanceTest.getZZZStoreDefsInMemory();
+        currentCluster = ClusterTestUtils.getZZZCluster();
+        storeDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
         decontigRepartition(currentCluster, storeDefs);
     }
 

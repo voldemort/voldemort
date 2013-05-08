@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 LinkedIn, Inc
+ * 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -13,10 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-
-package voldemort.utils;
-
-import static org.junit.Assert.assertTrue;
+package voldemort;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,10 +21,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.junit.Test;
-
-import voldemort.ServerTestUtils;
-import voldemort.VoldemortException;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -41,30 +34,7 @@ import voldemort.store.memory.InMemoryStorageConfiguration;
 
 import com.google.common.collect.Lists;
 
-/**
- * This test focuses on constructing ClusterInstances and then invoking
- * analyzeBalanceVerbose(). This method heavily exercises much of the
- * partition/replicaType code paths.
- * 
- * The positive test cases cover expected configurations:
- * <ul>
- * <li>2 or 3 zones
- * <li>0 or 1 zones without partitions
- * <li>one or more zones with new nodes ('new' meaning no partitions on that
- * node)
- * </ul>
- * 
- * The "negative test cases" cover:
- * <ul>
- * <li>Store definition mis-match with cluster in terms of number of zones.
- * <li>Insufficient nodes in new zone to reach desired replication level.
- * </ul>
- * 
- */
-public class ClusterInstanceTest {
-
-    // TODO: Rename class/file to PartitionBalanceTest. Change tests to directly
-    // use PartitionBalance rather than go through ClusterInstance.
+public class ClusterTestUtils {
 
     // TODO: Move these storeDefs and cluster helper test methods into
     // ClusterTestUtils.
@@ -143,7 +113,7 @@ public class ClusterInstanceTest {
      */
     public static List<StoreDefinition> getZZStoreDefsInMemory() {
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
-        storeDefs.addAll(getZZ111StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(ClusterTestUtils.getZZ111StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
         storeDefs.addAll(getZZ211StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
         storeDefs.addAll(getZZ322StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
         return storeDefs;
@@ -151,7 +121,7 @@ public class ClusterInstanceTest {
 
     public static List<StoreDefinition> getZZStoreDefsBDB() {
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
-        storeDefs.addAll(getZZ111StoreDefs(BdbStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(ClusterTestUtils.getZZ111StoreDefs(BdbStorageConfiguration.TYPE_NAME));
         storeDefs.addAll(getZZ211StoreDefs(BdbStorageConfiguration.TYPE_NAME));
         storeDefs.addAll(getZZ322StoreDefs(BdbStorageConfiguration.TYPE_NAME));
         return storeDefs;
@@ -500,112 +470,4 @@ public class ClusterInstanceTest {
         return new Cluster(cluster.getName(), nodeList, zones);
     }
 
-    @Test
-    public void testBasicThingsThatShouldWork() {
-        ClusterInstance ci;
-
-        ci = new ClusterInstance(getZZCluster(), getZZStoreDefsInMemory());
-        ci.getPartitionBalance();
-
-        ci = new ClusterInstance(getZZZCluster(), getZZZStoreDefsInMemory());
-        ci.getPartitionBalance();
-    }
-
-    @Test
-    public void testEmptyZoneThingsThatShouldWork() {
-        ClusterInstance ci;
-
-        ci = new ClusterInstance(getZECluster(), getZZStoreDefsInMemory());
-        ci.getPartitionBalance();
-
-        ci = new ClusterInstance(getZEZCluster(), getZZZStoreDefsInMemory());
-        ci.getPartitionBalance();
-
-        ci = new ClusterInstance(getZEZClusterWithOnlyOneNodeInNewZone(), getZZZStoreDefsInMemory());
-        ci.getPartitionBalance();
-    }
-
-    @Test
-    public void testNewNodeThingsThatShouldWork() {
-        ClusterInstance ci;
-
-        ci = new ClusterInstance(getZZClusterWithNN(), getZZStoreDefsInMemory());
-        ci.getPartitionBalance();
-
-        ci = new ClusterInstance(getZEZClusterWithXNN(), getZZZStoreDefsInMemory());
-        ci.getPartitionBalance();
-    }
-
-    @Test
-    public void testClusterStoreZoneCountMismatch() {
-        ClusterInstance ci;
-        boolean veCaught;
-
-        veCaught = false;
-        try {
-            ci = new ClusterInstance(getZZCluster(), getZZZStoreDefsInMemory());
-            ci.getPartitionBalance();
-        } catch(VoldemortException ve) {
-            veCaught = true;
-        }
-        assertTrue(veCaught);
-
-        veCaught = false;
-        try {
-            ci = new ClusterInstance(getZZZCluster(), getZZStoreDefsInMemory());
-            ci.getPartitionBalance();
-        } catch(VoldemortException ve) {
-            veCaught = true;
-        }
-        assertTrue(veCaught);
-    }
-
-    @Test
-    public void testClusterWithZoneThatCannotFullyReplicate() {
-        ClusterInstance ci;
-
-        boolean veCaught = false;
-        try {
-            ci = new ClusterInstance(getZZZClusterWithOnlyOneNodeInNewZone(),
-                                     getZZZStoreDefsInMemory());
-            ci.getPartitionBalance();
-        } catch(VoldemortException ve) {
-            veCaught = true;
-        }
-        assertTrue(veCaught);
-    }
-
-    /**
-     * Confirm that zone Ids need not be contiguous. This tests for the ability
-     * to shrink zones.
-     */
-    @Test
-    public void testNonContiguousZonesThatShouldWork() {
-        ClusterInstance ci;
-
-        ci = new ClusterInstance(getZZClusterWithNonContiguousZoneIDsButContiguousNodeIDs(),
-                                 getZZStoreDefsInMemory());
-        ci.getPartitionBalance();
-    }
-
-    // TODO: Fix handling of node Ids so that they do not need to be contiguous.
-    /**
-     * This should be a positive test. But, for now, is a negative test to
-     * confirm that we require nodeIds to be contiguous. This may become a
-     * problem if we ever shrink the number of zones.
-     */
-    @Test
-    public void testNonContiguousZonesThatShouldWorkButDoNot() {
-        ClusterInstance ci;
-
-        boolean veCaught = false;
-        try {
-            ci = new ClusterInstance(getZZClusterWithNonContiguousZoneIDsAndNonContiguousNodeIDs(),
-                                     getZZStoreDefsInMemory());
-            ci.getPartitionBalance();
-        } catch(VoldemortException ve) {
-            veCaught = true;
-        }
-        assertTrue(veCaught);
-    }
 }

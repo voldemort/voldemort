@@ -28,7 +28,6 @@ import org.apache.log4j.Logger;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
-import voldemort.utils.ClusterInstance;
 import voldemort.utils.ClusterUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
@@ -157,7 +156,7 @@ public class Repartitioner {
                                       final int greedySwapMaxPartitionsPerNode,
                                       final int greedySwapMaxPartitionsPerZone,
                                       final int maxContiguousPartitionsPerZone) {
-        PartitionBalance partitionBalance = new ClusterInstance(currentCluster, currentStoreDefs).getPartitionBalance();
+        PartitionBalance partitionBalance = new PartitionBalance(currentCluster, currentStoreDefs);
         RebalanceUtils.dumpAnalysisToFile(outputDir,
                                           RebalanceUtils.currentClusterFileName,
                                           partitionBalance);
@@ -195,7 +194,7 @@ public class Repartitioner {
             RebalanceUtils.validateCurrentFinalCluster(currentCluster, nextCluster);
 
             System.out.println("-------------------------\n");
-            partitionBalance = new ClusterInstance(nextCluster, targetStoreDefs).getPartitionBalance();
+            partitionBalance = new PartitionBalance(nextCluster, targetStoreDefs);
             double currentUtility = partitionBalance.getUtility();
             System.out.println("Optimization number " + attempt + ": " + currentUtility
                                + " max/min ratio");
@@ -219,7 +218,7 @@ public class Repartitioner {
 
         System.out.println("\n==========================");
         System.out.println("Final distribution");
-        partitionBalance = new ClusterInstance(minCluster, targetStoreDefs).getPartitionBalance();
+        partitionBalance = new PartitionBalance(minCluster, targetStoreDefs);
         System.out.println(partitionBalance);
 
         RebalanceUtils.dumpClusterToFile(outputDir, RebalanceUtils.finalClusterFileName, minCluster);
@@ -631,16 +630,14 @@ public class Repartitioner {
         List<Integer> zoneIds = new ArrayList<Integer>(targetCluster.getZoneIds());
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
-        double currentUtility = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
-                                                                             .getUtility();
+        double currentUtility = new PartitionBalance(returnCluster, storeDefs).getUtility();
 
         int successes = 0;
         for(int i = 0; i < randomSwapAttempts; i++) {
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
             for(Integer zoneId: zoneIds) {
                 Cluster shuffleResults = swapRandomPartitionsWithinZone(returnCluster, zoneId);
-                double nextUtility = new ClusterInstance(shuffleResults, storeDefs).getPartitionBalance()
-                                                                                   .getUtility();
+                double nextUtility = new PartitionBalance(shuffleResults, storeDefs).getUtility();
                 if(nextUtility < currentUtility) {
                     System.out.println("Swap improved max-min ratio: " + currentUtility + " -> "
                                        + nextUtility + " (improvement " + successes
@@ -681,8 +678,7 @@ public class Repartitioner {
         System.out.println("GreedyRandom : nodeIds:" + nodeIds);
 
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
-        double currentUtility = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
-                                                                             .getUtility();
+        double currentUtility = new PartitionBalance(returnCluster, storeDefs).getUtility();
         int nodeIdA = -1;
         int nodeIdB = -1;
         int partitionIdA = -1;
@@ -719,8 +715,7 @@ public class Repartitioner {
                                                         partitionIdEh,
                                                         nodeIdBee,
                                                         partitionIdBee);
-                    double swapUtility = new ClusterInstance(swapResult, storeDefs).getPartitionBalance()
-                                                                                   .getUtility();
+                    double swapUtility = new PartitionBalance(swapResult, storeDefs).getUtility();
                     if(swapUtility < currentUtility) {
                         currentUtility = swapUtility;
                         System.out.println(" -> " + currentUtility);
@@ -786,8 +781,7 @@ public class Repartitioner {
             return returnCluster;
         }
 
-        double currentUtility = new ClusterInstance(returnCluster, storeDefs).getPartitionBalance()
-                                                                             .getUtility();
+        double currentUtility = new PartitionBalance(returnCluster, storeDefs).getUtility();
 
         for(int i = 0; i < greedyAttempts; i++) {
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
@@ -807,8 +801,7 @@ public class Repartitioner {
                                                                     greedySwapMaxPartitionsPerNode,
                                                                     greedySwapMaxPartitionsPerZone,
                                                                     storeDefs);
-                double nextUtility = new ClusterInstance(shuffleResults, storeDefs).getPartitionBalance()
-                                                                                   .getUtility();
+                double nextUtility = new PartitionBalance(shuffleResults, storeDefs).getUtility();
 
                 if(nextUtility == currentUtility) {
                     System.out.println("Not improving for zone: " + zoneId);

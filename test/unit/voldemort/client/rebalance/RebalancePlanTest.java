@@ -23,9 +23,9 @@ import java.util.List;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import voldemort.ClusterTestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
-import voldemort.utils.ClusterInstanceTest;
 
 public class RebalancePlanTest {
 
@@ -42,17 +42,17 @@ public class RebalancePlanTest {
 
     @BeforeClass
     public static void setup() {
-        zzCurrent = ClusterInstanceTest.getZZCluster();
-        zzRebalance = ClusterInstanceTest.getZZClusterWithSwappedPartitions();
-        zzClusterExpansion = ClusterInstanceTest.getZZClusterWithPP();
-        zzStores = ClusterInstanceTest.getZZStoreDefsBDB();
+        zzCurrent = ClusterTestUtils.getZZCluster();
+        zzRebalance = ClusterTestUtils.getZZClusterWithSwappedPartitions();
+        zzClusterExpansion = ClusterTestUtils.getZZClusterWithPP();
+        zzStores = ClusterTestUtils.getZZStoreDefsBDB();
 
-        zzzCurrent = ClusterInstanceTest.getZZZCluster();
+        zzzCurrent = ClusterTestUtils.getZZZCluster();
 
-        zzzRebalance = ClusterInstanceTest.getZZZClusterWithSwappedPartitions();
-        zzzClusterExpansion = ClusterInstanceTest.getZZZClusterWithPPP();
-        zzzZoneExpansion = ClusterInstanceTest.getZZEClusterXXP();
-        zzzStores = ClusterInstanceTest.getZZZStoreDefsBDB();
+        zzzRebalance = ClusterTestUtils.getZZZClusterWithSwappedPartitions();
+        zzzClusterExpansion = ClusterTestUtils.getZZZClusterWithPPP();
+        zzzZoneExpansion = ClusterTestUtils.getZZEClusterXXP();
+        zzzStores = ClusterTestUtils.getZZZStoreDefsBDB();
     }
 
     RebalancePlan makePlan(Cluster cCluster,
