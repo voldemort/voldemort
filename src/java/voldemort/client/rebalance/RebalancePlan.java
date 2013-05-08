@@ -16,7 +16,6 @@
 
 package voldemort.client.rebalance;
 
-import java.io.File;
 import java.io.StringReader;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -33,7 +32,6 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.MoveMap;
 import voldemort.utils.PartitionBalance;
 import voldemort.utils.RebalanceUtils;
-import voldemort.utils.RepartitionUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 
@@ -98,7 +96,7 @@ public class RebalancePlan {
         logger.info("Final cluster : " + finalCluster);
         logger.info("Batch size : " + batchSize);
 
-        logger.info(RepartitionUtils.dumpInvalidMetadataRate(currentCluster,
+        logger.info(RebalanceUtils.analyzeInvalidMetadataRate(currentCluster,
                                                              currentStores,
                                                              finalCluster,
                                                              finalStores));
@@ -149,7 +147,7 @@ public class RebalancePlan {
 
         // Output initial and final cluster
         if(outputDir != null)
-            RebalanceUtils.dumpCluster(targetCluster, finalCluster, new File(outputDir));
+            RebalanceUtils.dumpClusters(targetCluster, finalCluster, outputDir);
 
         // Determine which partitions must be stolen
         for(Node stealerNode: finalCluster.getNodes()) {
@@ -191,10 +189,10 @@ public class RebalancePlan {
             // TODO: Change naming convention in dumpCluster to be current- &
             // final- or target- & final-
             if(outputDir != null)
-                RebalanceUtils.dumpCluster(batchTargetCluster,
-                                           batchFinalCluster,
-                                           new File(outputDir),
-                                           "batch-" + Integer.toString(batches) + ".");
+                RebalanceUtils.dumpClusters(batchTargetCluster,
+                                            batchFinalCluster,
+                                            outputDir,
+                                            "batch-" + Integer.toString(batches) + ".");
 
             // Generate a plan to compute the tasks
             // TODO: OK to remove option to "delete" from planning?

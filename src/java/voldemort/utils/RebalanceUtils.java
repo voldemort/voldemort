@@ -49,9 +49,11 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreUtils;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -76,7 +78,7 @@ public class RebalanceUtils {
     public final static List<String> canRebalanceList = Arrays.asList(BdbStorageConfiguration.TYPE_NAME,
                                                                       ReadOnlyStorageConfiguration.TYPE_NAME);
 
-    public final static String initialClusterFileName = "initial-cluster.xml";
+    public final static String currentClusterFileName = "current-cluster.xml";
     public final static String finalClusterFileName = "final-cluster.xml";
 
     /**
@@ -978,35 +980,19 @@ public class RebalanceUtils {
     /**
      * Given the initial and final cluster dumps it into the output directory
      * 
-     * @param initialCluster Initial cluster metadata
+     * @param currentCluster Initial cluster metadata
      * @param finalCluster Final cluster metadata
      * @param outputDir Output directory where to dump this file
      * @param filePrefix String to prepend to the initial & final cluster
      *        metadata files
      * @throws IOException
      */
-    public static void dumpCluster(Cluster initialCluster,
-                                   Cluster finalCluster,
-                                   File outputDir,
-                                   String filePrefix) {
-
-        // Create the output directory if it doesn't exist
-        if(!outputDir.exists()) {
-            Utils.mkdirs(outputDir);
-        }
-
-        // Get the file paths
-        File initialClusterFile = new File(outputDir, filePrefix + initialClusterFileName);
-        File finalClusterFile = new File(outputDir, filePrefix + finalClusterFileName);
-
-        // Write the output
-        ClusterMapper mapper = new ClusterMapper();
-        try {
-            FileUtils.writeStringToFile(initialClusterFile, mapper.writeCluster(initialCluster));
-            FileUtils.writeStringToFile(finalClusterFile, mapper.writeCluster(finalCluster));
-        } catch(IOException e) {
-            logger.error("Error writing cluster metadata to file");
-        }
+    public static void dumpClusters(Cluster currentCluster,
+                                    Cluster finalCluster,
+                                    String outputDirName,
+                                    String filePrefix) {
+        dumpClusterToFile(outputDirName, filePrefix + currentClusterFileName, currentCluster);
+        dumpClusterToFile(outputDirName, filePrefix + finalClusterFileName, finalCluster);
     }
 
     /**
@@ -1017,8 +1003,59 @@ public class RebalanceUtils {
      * @param outputDir Output directory where to dump this file
      * @throws IOException
      */
-    public static void dumpCluster(Cluster initialCluster, Cluster finalCluster, File outputDir) {
-        dumpCluster(initialCluster, finalCluster, outputDir, "");
+    public static void dumpClusters(Cluster initialCluster,
+                                    Cluster finalCluster,
+                                    String outputDirName) {
+        dumpClusters(initialCluster, finalCluster, outputDirName, "");
+    }
+
+    /**
+     * Prints a cluster xml to a file.
+     * 
+     * @param outputDirName
+     * @param fileName
+     * @param cluster
+     */
+    public static void dumpClusterToFile(String outputDirName, String fileName, Cluster cluster) {
+
+        if(outputDirName != null) {
+            File outputDir = new File(outputDirName);
+            if(!outputDir.exists()) {
+                Utils.mkdirs(outputDir);
+            }
+
+            try {
+                FileUtils.writeStringToFile(new File(outputDirName, fileName),
+                                            new ClusterMapper().writeCluster(cluster));
+            } catch(IOException e) {
+                logger.error("IOException during dumpClusterToFile: " + e);
+            }
+        }
+    }
+
+    /**
+     * Prints a balance analysis to a file.
+     * 
+     * @param outputDirName
+     * @param baseFileName suffix '.analysis' is appended to baseFileName.
+     * @param partitionBalance
+     */
+    public static void dumpAnalysisToFile(String outputDirName,
+                                          String baseFileName,
+                                          PartitionBalance partitionBalance) {
+        if(outputDirName != null) {
+            File outputDir = new File(outputDirName);
+            if(!outputDir.exists()) {
+                Utils.mkdirs(outputDir);
+            }
+
+            try {
+                FileUtils.writeStringToFile(new File(outputDirName, baseFileName + ".analysis"),
+                                            partitionBalance.toString());
+            } catch(IOException e) {
+                logger.error("IOException during dumpAnalysisToFile: " + e);
+            }
+        }
     }
 
     /**
@@ -1188,4 +1225,65 @@ public class RebalanceUtils {
             }
         });
     }
+
+    /**
+     * Compares current cluster with target cluster. Uses pertinent store defs
+     * for each cluster to determine if a node that hosts a zone-primary in the
+     * current cluster will no longer host any zone-nary in the target cluster.
+     * This check is the precondition for a server returning an invalid metadata
+     * exception to a client on a normal-case put or get. Normal-case being that
+     * the zone-primary receives the pseudo-master put or the get operation.
+     * 
+     * @param currentCluster
+     * @param currentStoreDefs
+     * @param targetCluster
+     * @param targetStoreDefs
+     * @return pretty-printed string documenting invalid metadata rates for each
+     *         zone.
+     */
+    public static String analyzeInvalidMetadataRate(final Cluster currentCluster,
+                                                    List<StoreDefinition> currentStoreDefs,
+                                                    final Cluster targetCluster,
+                                                    List<StoreDefinition> targetStoreDefs) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Dump of invalid metadata rates per zone").append(Utils.NEWLINE);
+
+        HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(currentStoreDefs);
+
+        for(StoreDefinition currentStoreDef: uniqueStores.keySet()) {
+            sb.append("Store exemplar: " + currentStoreDef.getName())
+              .append(Utils.NEWLINE)
+              .append("\tThere are " + uniqueStores.get(currentStoreDef) + " other similar stores.")
+              .append(Utils.NEWLINE);
+
+            StoreRoutingPlan currentSRP = new StoreRoutingPlan(currentCluster, currentStoreDef);
+            StoreDefinition targetStoreDef = StoreUtils.getStoreDef(targetStoreDefs,
+                                                                    currentStoreDef.getName());
+            StoreRoutingPlan targetSRP = new StoreRoutingPlan(targetCluster, targetStoreDef);
+
+            // Only care about existing zones
+            for(int zoneId: currentCluster.getZoneIds()) {
+                int zoneLocalPrimaries = 0;
+                int invalidMetadata = 0;
+                // Examine nodes in current cluster in existing zone.
+                for(int nodeId: currentCluster.getNodeIdsInZone(zoneId)) {
+                    for(int partitionId: targetSRP.getZonePrimaryPartitionIds(nodeId)) {
+                        zoneLocalPrimaries++;
+                        if(!currentSRP.getNaryPartitionIds(nodeId).contains(partitionId)) {
+                            invalidMetadata++;
+                        }
+                    }
+                }
+                float rate = invalidMetadata / (float) zoneLocalPrimaries;
+                sb.append("\tZone " + zoneId)
+                  .append(" : total zone primaries " + zoneLocalPrimaries)
+                  .append(", # that trigger invalid metadata " + invalidMetadata)
+                  .append(" => " + rate)
+                  .append(Utils.NEWLINE);
+            }
+        }
+
+        return sb.toString();
+    }
+
 }

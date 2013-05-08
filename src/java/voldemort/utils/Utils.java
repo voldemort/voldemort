@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -26,8 +26,10 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -620,4 +622,106 @@ public class Utils {
             return endNs - startNs;
         }
     }
+
+    /**
+     * This method breaks the inputList into distinct lists that are no longer
+     * than maxContiguous in length. It does so by removing elements from the
+     * inputList. This method removes the minimum necessary items to achieve the
+     * goal. This method chooses items to remove that minimize the length of the
+     * maximum remaining run. E.g. given an inputList of 20 elements and
+     * maxContiguous=8, this method will return the 2 elements that break the
+     * inputList into 3 runs of 6 items. (As opposed to 2 elements that break
+     * the inputList into two runs of eight items and one run of two items.)
+     * 
+     * @param inputList The list to be broken into separate runs.
+     * @param maxContiguous The upper limit on sub-list size
+     * @return A list of Integers to be removed from inputList to achieve the
+     *         maxContiguous goal.
+     */
+    public static List<Integer> removeItemsToSplitListEvenly(final List<Integer> inputList,
+                                                             int maxContiguous) {
+        List<Integer> itemsToRemove = new ArrayList<Integer>();
+        int contiguousCount = inputList.size();
+        if(contiguousCount > maxContiguous) {
+            // Determine how many items must be removed to ensure no contig run
+            // longer than maxContiguous
+            int numToRemove = contiguousCount / (maxContiguous + 1);
+            // Breaking in numToRemove places results in numToRemove+1 runs.
+            int numRuns = numToRemove + 1;
+            // Num items left to break into numRuns
+            int numItemsLeft = contiguousCount - numToRemove;
+            // Determine minimum length of each run after items are removed.
+            int floorOfEachRun = numItemsLeft / numRuns;
+            // Determine how many runs need one extra element to evenly
+            // distribute numItemsLeft among all numRuns
+            int numOfRunsWithExtra = numItemsLeft - (floorOfEachRun * numRuns);
+
+            int offset = 0;
+            for(int i = 0; i < numToRemove; ++i) {
+                offset += floorOfEachRun;
+                if(i < numOfRunsWithExtra)
+                    offset++;
+                itemsToRemove.add(inputList.get(offset));
+                offset++;
+            }
+        }
+        return itemsToRemove;
+    }
+
+    /**
+     * This method returns a list that "evenly" (within one) distributes some
+     * number of elements (peanut butter) over some number of buckets (bread
+     * slices).
+     * 
+     * @param listLength The number of buckets over which to evenly distribute
+     *        the elements.
+     * @param numElements The number of elements to distribute.
+     * @return A list of size breadSlices, each integer entry of which indicates
+     *         the number of elements.
+     */
+    public static List<Integer> distributeEvenlyIntoList(int listLength, int numElements) {
+        if(listLength < 1) {
+            throw new IllegalArgumentException("Argument listLength must be greater than 0 : "
+                                               + listLength);
+        }
+        if(numElements < 0) {
+            throw new IllegalArgumentException("Argument numElements must be zero or more : "
+                                               + numElements);
+        }
+        int floorElements = numElements / listLength;
+        int itemsWithMoreElements = numElements - (listLength * floorElements);
+
+        ArrayList<Integer> evenList = new ArrayList<Integer>(listLength);
+        for(int i = 0; i < itemsWithMoreElements; i++) {
+            evenList.add(i, floorElements + 1);
+        }
+        for(int i = itemsWithMoreElements; i < listLength; i++) {
+            evenList.add(i, floorElements);
+        }
+        return evenList;
+    }
+
+    /**
+     * This method returns a map that "evenly" (within one) distributes some
+     * number of elements (peanut butter) over some number of buckets (bread
+     * slices).
+     * 
+     * @param set The keys of the map over which which to evenly distribute the
+     *        elements.
+     * @param numElements The number of elements to distribute.
+     * @return A Map with keys specified by breadSlices each integer entry of
+     *         which indicates the number of elements
+     */
+    public static Map<Integer, Integer> distributeEvenlyIntoMap(Set<Integer> mapKeys,
+                                                                int numElements) {
+        Map<Integer, Integer> evenMap = new HashMap<Integer, Integer>();
+        List<Integer> evenList = distributeEvenlyIntoList(mapKeys.size(), numElements);
+        int offset = 0;
+        for(Integer key: mapKeys) {
+            evenMap.put(key, evenList.get(offset));
+            offset++;
+        }
+        return evenMap;
+    }
+
 }

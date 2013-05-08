@@ -16,24 +16,18 @@
 
 package voldemort.utils;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
-import voldemort.store.StoreUtils;
-import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -47,7 +41,7 @@ import com.google.common.collect.Maps;
  */
 public class RepartitionUtils {
 
-    private static Logger logger = Logger.getLogger(RepartitionUtils.class);
+    static Logger logger = Logger.getLogger(RepartitionUtils.class);
 
     /**
      * Recommended (default) number of times to attempt repartitioning.
@@ -161,9 +155,9 @@ public class RepartitionUtils {
                                       final int greedySwapMaxPartitionsPerZone,
                                       final int maxContiguousPartitionsPerZone) {
         PartitionBalance partitionBalance = new ClusterInstance(currentCluster, currentStoreDefs).getPartitionBalance();
-        dumpAnalysisToFile(outputDir,
-                           RebalanceUtils.initialClusterFileName + ".analysis",
-                           partitionBalance.toString());
+        RebalanceUtils.dumpAnalysisToFile(outputDir,
+                                          RebalanceUtils.currentClusterFileName,
+                                          partitionBalance);
 
         Cluster minCluster = targetCluster;
 
@@ -195,11 +189,7 @@ public class RepartitionUtils {
                                                       new ArrayList<Integer>(targetCluster.getZoneIds()),
                                                       targetStoreDefs);
             }
-
-            if(!validateClusterUpdate(currentCluster, nextCluster)) {
-                System.err.println("The modified cluster does not pass validation. Reverting to initial cluster...");
-                nextCluster = currentCluster;
-            }
+            RebalanceUtils.validateCurrentFinalCluster(currentCluster, nextCluster);
 
             System.out.println("-------------------------\n");
             partitionBalance = new ClusterInstance(nextCluster, targetStoreDefs).getPartitionBalance();
@@ -207,20 +197,19 @@ public class RepartitionUtils {
             System.out.println("Optimization number " + attempt + ": " + currentUtility
                                + " max/min ratio");
             System.out.println("-------------------------\n");
-            System.out.println(dumpInvalidMetadataRate(targetCluster,
-                                                       currentStoreDefs,
-                                                       nextCluster,
-                                                       currentStoreDefs));
+            System.out.println(RebalanceUtils.analyzeInvalidMetadataRate(targetCluster,
+                                                                         currentStoreDefs,
+                                                                         nextCluster,
+                                                                         currentStoreDefs));
 
             if(currentUtility <= minUtility) {
                 minUtility = currentUtility;
                 minCluster = nextCluster;
 
-                dumpClusterToFile(outputDir,
-                                  RebalanceUtils.finalClusterFileName + attempt,
-                                  minCluster);
-                dumpAnalysisToFile(outputDir, RebalanceUtils.finalClusterFileName + attempt
-                                              + ".analysis", partitionBalance.toString());
+                RebalanceUtils.dumpClusterToFile(outputDir, RebalanceUtils.finalClusterFileName
+                                                            + attempt, minCluster);
+                RebalanceUtils.dumpAnalysisToFile(outputDir, RebalanceUtils.finalClusterFileName
+                                                             + attempt, partitionBalance);
             }
             System.out.println("-------------------------\n");
         }
@@ -230,10 +219,10 @@ public class RepartitionUtils {
         partitionBalance = new ClusterInstance(minCluster, targetStoreDefs).getPartitionBalance();
         System.out.println(partitionBalance);
 
-        dumpClusterToFile(outputDir, RebalanceUtils.finalClusterFileName, minCluster);
-        dumpAnalysisToFile(outputDir,
-                           RebalanceUtils.finalClusterFileName + ".analysis",
-                           partitionBalance.toString());
+        RebalanceUtils.dumpClusterToFile(outputDir, RebalanceUtils.finalClusterFileName, minCluster);
+        RebalanceUtils.dumpAnalysisToFile(outputDir,
+                                          RebalanceUtils.finalClusterFileName,
+                                          partitionBalance);
         return minCluster;
     }
 
@@ -251,8 +240,8 @@ public class RepartitionUtils {
                                                                                               Map<Integer, Integer> targetPartitionsPerZone) {
         HashMap<Integer, List<Integer>> numPartitionsPerNode = Maps.newHashMap();
         for(Integer zoneId: targetCluster.getZoneIds()) {
-            List<Integer> partitionsOnNode = peanutButterList(targetCluster.getNumberOfNodesInZone(zoneId),
-                                                              targetPartitionsPerZone.get(zoneId));
+            List<Integer> partitionsOnNode = Utils.distributeEvenlyIntoList(targetCluster.getNumberOfNodesInZone(zoneId),
+                                                                            targetPartitionsPerZone.get(zoneId));
             numPartitionsPerNode.put(zoneId, partitionsOnNode);
         }
         return numPartitionsPerNode;
@@ -328,8 +317,8 @@ public class RepartitionUtils {
 
         Map<Integer, Integer> targetPartitionsPerZone;
         if(balanceZones) {
-            targetPartitionsPerZone = peanutButterMap(targetCluster.getZoneIds(),
-                                                      targetCluster.getNumberOfPartitions());
+            targetPartitionsPerZone = Utils.distributeEvenlyIntoMap(targetCluster.getZoneIds(),
+                                                                    targetCluster.getNumberOfPartitions());
 
             System.out.println("numPartitionsPerZone");
             for(int zoneId: targetCluster.getZoneIds()) {
@@ -508,8 +497,8 @@ public class RepartitionUtils {
                                                  % targetCluster.getNumberOfPartitions());
                     }
                     System.out.println("Contiguous partitions: " + contiguousPartitions);
-                    partitionsToRemoveFromThisZone.addAll(removeItemsToSplitListEvenly(contiguousPartitions,
-                                                                                       maxContiguousPartitionsPerZone));
+                    partitionsToRemoveFromThisZone.addAll(Utils.removeItemsToSplitListEvenly(contiguousPartitions,
+                                                                                             maxContiguousPartitionsPerZone));
                 }
             }
 
@@ -832,200 +821,6 @@ public class RepartitionUtils {
         }
 
         return returnCluster;
-    }
-
-    /**
-     * Validate that two cluster metadata instances are consistent with one
-     * another. I.e., that they have the same number of partitions. Note that
-     * the Cluster object does additional verification upon construction (e.g.,
-     * that partitions are numbered consecutively) and so there is no risk of
-     * duplicate partitions.
-     * 
-     * @param before cluster metadata before any changes
-     * @param after cluster metadata after any changes
-     * @return false if the 'after' metadata is not consistent with the 'before'
-     *         metadata
-     */
-    public static boolean validateClusterUpdate(final Cluster before, final Cluster after) {
-        if(before.getNumberOfPartitions() != after.getNumberOfPartitions()) {
-            return false;
-        }
-        return true;
-    }
-
-    // TODO: move to some other util class since it is called by
-    // RepartitionUtils and by RebalancePlan.
-    /**
-     * 
-     * @param curCluster
-     * @param targetClustertargetPartitionsPerZone
-     * @return
-     */
-    public static String dumpInvalidMetadataRate(final Cluster currentCluster,
-                                                 List<StoreDefinition> currentStoreDefs,
-                                                 final Cluster targetCluster,
-                                                 List<StoreDefinition> targetStoreDefs) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Dump of invalid metadata rates per zone").append(Utils.NEWLINE);
-
-        HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(currentStoreDefs);
-
-        for(StoreDefinition currentStoreDef: uniqueStores.keySet()) {
-            sb.append("Store exemplar: " + currentStoreDef.getName())
-              .append(Utils.NEWLINE)
-              .append("\tThere are " + uniqueStores.get(currentStoreDef) + " other similar stores.")
-              .append(Utils.NEWLINE);
-
-            StoreRoutingPlan currentSRP = new StoreRoutingPlan(currentCluster, currentStoreDef);
-            StoreDefinition targetStoreDef = StoreUtils.getStoreDef(targetStoreDefs,
-                                                                    currentStoreDef.getName());
-            StoreRoutingPlan targetSRP = new StoreRoutingPlan(targetCluster, targetStoreDef);
-
-            // Only care about existing zones
-            for(int zoneId: currentCluster.getZoneIds()) {
-                int zoneLocalPrimaries = 0;
-                int invalidMetadata = 0;
-                // Examine nodes in current cluster in existing zone.
-                for(int nodeId: currentCluster.getNodeIdsInZone(zoneId)) {
-                    for(int partitionId: targetSRP.getZonePrimaryPartitionIds(nodeId)) {
-                        zoneLocalPrimaries++;
-                        if(!currentSRP.getNaryPartitionIds(nodeId).contains(partitionId)) {
-                            invalidMetadata++;
-                        }
-                    }
-                }
-                float rate = invalidMetadata / (float) zoneLocalPrimaries;
-                sb.append("\tZone " + zoneId)
-                  .append(" : total zone primaries " + zoneLocalPrimaries)
-                  .append(", # that trigger invalid metadata " + invalidMetadata)
-                  .append(" => " + rate)
-                  .append(Utils.NEWLINE);
-            }
-        }
-
-        return sb.toString();
-    }
-
-    // TODO: Move to some more generic util class?
-    /**
-     * This method breaks the inputList into distinct lists that are no longer
-     * than maxContiguous in length. It does so by removing elements from the
-     * inputList. This method removes the minimum necessary items to achieve the
-     * goal. This method chooses items to remove that minimize the length of the
-     * maximum remaining run. E.g. given an inputList of 20 elements and
-     * maxContiguous=8, this method will return the 2 elements that break the
-     * inputList into 3 runs of 6 items. (As opposed to 2 elements that break
-     * the inputList into two runs of eight items and one run of two items.)
-     * 
-     * @param inputList The list to be broken into separate runs.
-     * @param maxContiguous The upper limit on sub-list size
-     * @return A list of Integers to be removed from inputList to achieve the
-     *         maxContiguous goal.
-     */
-    public static List<Integer> removeItemsToSplitListEvenly(final List<Integer> inputList,
-                                                             int maxContiguous) {
-        List<Integer> itemsToRemove = new ArrayList<Integer>();
-        int contiguousCount = inputList.size();
-        if(contiguousCount > maxContiguous) {
-            // Determine how many items must be removed to ensure no contig run
-            // longer than maxContiguous
-            int numToRemove = contiguousCount / (maxContiguous + 1);
-            // Breaking in numToRemove places results in numToRemove+1 runs.
-            int numRuns = numToRemove + 1;
-            // Num items left to break into numRuns
-            int numItemsLeft = contiguousCount - numToRemove;
-            // Determine minimum length of each run after items are removed.
-            int floorOfEachRun = numItemsLeft / numRuns;
-            // Determine how many runs need one extra element to evenly
-            // distribute numItemsLeft among all numRuns
-            int numOfRunsWithExtra = numItemsLeft - (floorOfEachRun * numRuns);
-
-            int offset = 0;
-            for(int i = 0; i < numToRemove; ++i) {
-                offset += floorOfEachRun;
-                if(i < numOfRunsWithExtra)
-                    offset++;
-                itemsToRemove.add(inputList.get(offset));
-                offset++;
-            }
-        }
-        return itemsToRemove;
-    }
-
-    // TODO: (review) rename the methods... "evenlyDistribute"
-    // TODO: Move to some more generic util class?
-    /**
-     * This method returns a list that "evenly" (within one) distributes some
-     * number of elements (peanut butter) over some number of buckets (bread
-     * slices).
-     * 
-     * @param breadSlices The number of buckets over which to evenly distribute
-     *        the elements.
-     * @param peanutButter The number of elements to distribute.
-     * @return A list of size breadSlices, each integer entry of which indicates
-     *         the number of elements.
-     */
-    public static List<Integer> peanutButterList(int breadSlices, int peanutButter) {
-        if(breadSlices < 1) {
-            throw new IllegalArgumentException("Argument breadSlices must be greater than 0 : "
-                                               + breadSlices);
-        }
-        if(peanutButter < 0) {
-            throw new IllegalArgumentException("Argument peanutButter must be zero or more : "
-                                               + peanutButter);
-        }
-        int floorPB = peanutButter / breadSlices;
-        int breadWithMorePB = peanutButter - (breadSlices * floorPB);
-
-        ArrayList<Integer> pbList = new ArrayList<Integer>(breadSlices);
-        for(int i = 0; i < breadWithMorePB; i++) {
-            pbList.add(i, floorPB + 1);
-        }
-        for(int i = breadWithMorePB; i < breadSlices; i++) {
-            pbList.add(i, floorPB);
-        }
-        return pbList;
-    }
-
-    // TODO: Move to some more generic util class?
-    // TODO: (review) Rename from peanutButter.
-    /**
-     * This method returns a map that "evenly" (within one) distributes some
-     * number of elements (peanut butter) over some number of buckets (bread
-     * slices).
-     * 
-     * @param set The keys of the map over which which to evenly distribute the
-     *        elements.
-     * @param peanutButter The number of elements to distribute.
-     * @return A Map with keys specified by breadSlices each integer entry of
-     *         which indicates the number of elements
-     */
-    public static Map<Integer, Integer> peanutButterMap(Set<Integer> breadSlices, int peanutButter) {
-        Map<Integer, Integer> pbMap = new HashMap<Integer, Integer>();
-        List<Integer> pbList = peanutButterList(breadSlices.size(), peanutButter);
-        int offset = 0;
-        for(Integer breadSlice: breadSlices) {
-            pbMap.put(breadSlice, pbList.get(offset));
-            offset++;
-        }
-        return pbMap;
-    }
-
-    public static void dumpClusterToFile(String outputDir, String fileName, Cluster cluster) {
-        if(outputDir != null) {
-            try {
-                FileUtils.writeStringToFile(new File(outputDir, fileName),
-                                            new ClusterMapper().writeCluster(cluster));
-            } catch(Exception e) {}
-        }
-    }
-
-    public static void dumpAnalysisToFile(String outputDir, String fileName, String analysis) {
-        if(outputDir != null) {
-            try {
-                FileUtils.writeStringToFile(new File(outputDir, fileName), analysis);
-            } catch(Exception e) {}
-        }
     }
 
 }

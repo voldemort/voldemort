@@ -16,7 +16,6 @@
 
 package voldemort.client.rebalance;
 
-import java.io.File;
 import java.io.StringReader;
 import java.text.DecimalFormat;
 import java.util.HashMap;
@@ -189,9 +188,9 @@ public class RebalanceController {
 
         // Output initial and final cluster
         if(rebalanceConfig.hasOutputDirectory())
-            RebalanceUtils.dumpCluster(currentCluster,
-                                       targetCluster,
-                                       new File(rebalanceConfig.getOutputDirectory()));
+            RebalanceUtils.dumpClusters(currentCluster,
+                                        targetCluster,
+                                        rebalanceConfig.getOutputDirectory());
 
         // Start first dry run to compute the stolen partitions
         for(Node stealerNode: targetCluster.getNodes()) {
@@ -310,10 +309,10 @@ public class RebalanceController {
 
             // Output the transition plan to the output directory
             if(rebalanceConfig.hasOutputDirectory())
-                RebalanceUtils.dumpCluster(currentCluster,
-                                           transitionCluster,
-                                           new File(rebalanceConfig.getOutputDirectory()),
-                                           "batch-" + Integer.toString(batchCounter) + ".");
+                RebalanceUtils.dumpClusters(currentCluster,
+                                            transitionCluster,
+                                            rebalanceConfig.getOutputDirectory(),
+                                            "batch-" + Integer.toString(batchCounter) + ".");
 
             long startTimeMs = System.currentTimeMillis();
             rebalancePerPartitionTransition(orderedClusterTransition);
