@@ -55,6 +55,8 @@ public class VectorClockTest {
                    getClock(1).compare(getClock(2)) == Occurred.CONCURRENTLY);
         assertTrue("Clocks with different events should be concurrent.",
                    getClock(1, 1, 2).compare(getClock(1, 1, 3)) == Occurred.CONCURRENTLY);
+        assertTrue("Clocks with different events should be concurrent.",
+                   getClock(1, 2, 3, 3).compare(getClock(1, 1, 2, 3)) == Occurred.CONCURRENTLY);
         assertTrue(getClock(2, 2).compare(getClock(1, 2, 2, 3)) == Occurred.BEFORE
                    && getClock(1, 2, 2, 3).compare(getClock(2, 2)) == Occurred.AFTER);
     }
@@ -102,6 +104,41 @@ public class VectorClockTest {
         assertEquals("This clock does not serialize to itself.",
                      clock,
                      new VectorClock(clock.toBytes()));
+    }
+
+    @Test
+    public void testSerializationBackwardCompatibility() {
+        assertEquals("The empty clock serializes incorrectly.",
+                     getClock(),
+                     new VectorClock(getClock().toBytes()));
+        VectorClock clock = getClock(1, 1, 2, 3, 4, 4, 6);
+        // Old Vector Clock would serialize to this:
+        // 0 5 1 0 1 2 0 2 1 0 3 1 0 4 2 0 6 1 [timestamp]
+        byte[] knownSerializedHead = { 0, 5, 1, 0, 1, 2, 0, 2, 1, 0, 3, 1, 0, 4, 2, 0, 6, 1 };
+        byte[] serialized = clock.toBytes();
+        for(int index = 0; index < knownSerializedHead.length; index++) {
+            assertEquals("byte at index " + index + " is not equal",
+                         knownSerializedHead[index],
+                         serialized[index]);
+        }
+    }
+
+    /**
+     * Pre-condition: timestamp is ignored in determine vector clock equality
+     */
+    @Test
+    public void testDeserializationBackwardCompatibility() {
+        assertEquals("The empty clock serializes incorrectly.",
+                     getClock(),
+                     new VectorClock(getClock().toBytes()));
+        VectorClock clock = getClock(1, 1, 2, 3, 4, 4, 6);
+        // Old Vector Clock would serialize to this:
+        // 0 5; 1; 0 1, 2; 0 2, 1; 0 3, 1; 0 4, 2; 0 6, 1; [timestamp=random]
+        byte[] knownSerialized = { 0, 5, 1, 0, 1, 2, 0, 2, 1, 0, 3, 1, 0, 4, 2, 0, 6, 1, 0, 0, 1,
+                0x3e, 0x7b, (byte) 0x8c, (byte) 0x9d, 0x19 };
+        assertEquals("vector clock does not deserialize correctly on given byte array",
+                     clock,
+                     new VectorClock(knownSerialized));
     }
 
     @Test
