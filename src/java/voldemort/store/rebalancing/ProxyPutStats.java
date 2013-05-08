@@ -53,6 +53,7 @@ public class ProxyPutStats {
     }
 
     public void reportProxyPutFailure() {
+        this.reportProxyPutCompletion();
         this.numProxyPutFailures.incrementAndGet();
         if(this.parent != null) {
             this.parent.reportProxyPutFailure();

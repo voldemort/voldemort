@@ -133,6 +133,10 @@ public class Rebalancer implements Runnable {
      * bridges have not been setup and we either miss a proxy put or return a
      * null for get/getalls
      * 
+     * TODO:refactor The rollback logic here is too convoluted. Specifically,
+     * the independent updates to each key could be split up into their own
+     * methods.
+     * 
      * @param cluster Cluster metadata to change
      * @param rebalancePartitionsInfo List of rebalance partitions info
      * @param swapRO Boolean to indicate swapping of RO store
@@ -317,10 +321,9 @@ public class Rebalancer implements Runnable {
         try {
             metadataStore.writeLock.lock();
             try {
-                // TODO why increment server 0 all the time?
                 VectorClock updatedVectorClock = ((VectorClock) metadataStore.get(clusterKey, null)
                                                                              .get(0)
-                                                                             .getVersion()).incremented(0,
+                                                                             .getVersion()).incremented(metadataStore.getNodeId(),
                                                                                                         System.currentTimeMillis());
                 metadataStore.put(clusterKey, Versioned.value((Object) cluster, updatedVectorClock));
             } finally {

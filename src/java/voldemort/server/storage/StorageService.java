@@ -1031,8 +1031,17 @@ public class StorageService extends AbstractService {
                 lastException = e;
             }
         }
-
         logger.info("Closed failure detector.");
+
+        // shut down the proxy put thread pool
+        this.proxyPutWorkerPool.shutdown();
+        try {
+            if(!this.proxyPutWorkerPool.awaitTermination(10, TimeUnit.SECONDS))
+                this.proxyPutWorkerPool.shutdownNow();
+        } catch(InterruptedException e) {
+            this.proxyPutWorkerPool.shutdownNow();
+        }
+        logger.info("Closed proxy put thread pool.");
 
         /* If there is an exception, throw it */
         if(lastException instanceof VoldemortException)

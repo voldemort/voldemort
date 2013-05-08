@@ -16,6 +16,11 @@
 
 package voldemort.store.rebalancing;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,8 +34,6 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executors;
-
-import junit.framework.TestCase;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
@@ -79,7 +82,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 @RunWith(Parameterized.class)
-public class RedirectingStoreTest extends TestCase {
+public class RedirectingStoreTest {
 
     private VoldemortServer[] servers;
     private Cluster targetCluster;
@@ -106,7 +109,6 @@ public class RedirectingStoreTest extends TestCase {
         return Arrays.asList(new Object[][] { { true }, { false } });
     }
 
-    @Override
     @Before
     public void setUp() throws IOException, InterruptedException {
         currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1 }, { 2, 3 }, {} });
@@ -221,7 +223,6 @@ public class RedirectingStoreTest extends TestCase {
 
     }
 
-    @Override
     @After
     public void tearDown() {
         for(VoldemortServer server: servers) {

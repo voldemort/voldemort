@@ -16,7 +16,6 @@
 
 package voldemort.store.rebalancing;
 
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.cluster.Node;
@@ -52,6 +51,7 @@ public class AsyncProxyPutTask implements Runnable {
     private final Versioned<byte[]> value;
     private final byte[] transforms;
     private final int destinationNode;
+    private final MetadataStore metadata;
 
     AsyncProxyPutTask(RedirectingStore redirectingStore,
                       ByteArray key,
@@ -63,53 +63,54 @@ public class AsyncProxyPutTask implements Runnable {
         this.transforms = transforms;
         this.redirectingStore = redirectingStore;
         this.destinationNode = destinationNode;
-        logger.setLevel(Level.TRACE);
+        this.metadata = redirectingStore.getMetadataStore();
     }
 
     @Override
     public void run() {
-
-        MetadataStore metadata = redirectingStore.getMetadataStore();
-        Node donorNode = metadata.getCluster().getNodeById(destinationNode);
+        Node proxyNode = metadata.getCluster().getNodeById(destinationNode);
         long startNs = System.nanoTime();
         try {
             // TODO there are no retries now if the node we want to write to is
             // unavailable
-            redirectingStore.checkNodeAvailable(donorNode);
+            redirectingStore.checkNodeAvailable(proxyNode);
             Store<ByteArray, byte[], byte[]> socketStore = redirectingStore.getRedirectingSocketStore(redirectingStore.getName(),
                                                                                                       destinationNode);
 
             socketStore.put(key, value, transforms);
-            redirectingStore.recordSuccess(donorNode, startNs);
+            redirectingStore.recordSuccess(proxyNode, startNs);
             if(logger.isTraceEnabled()) {
                 logger.trace("Proxy write for store " + redirectingStore.getName() + " key "
                              + ByteUtils.toBinaryString(key.get()) + " to destinationNode:"
                              + destinationNode);
             }
         } catch(UnreachableStoreException e) {
-            redirectingStore.recordException(donorNode, startNs, e);
-            logger.error("Failed to reach proxy node " + donorNode, e);
-            redirectingStore.reporteProxyPutFailure();
+            redirectingStore.recordException(proxyNode, startNs, e);
+            logFailedProxyPutIfNeeded(e);
         } catch(ObsoleteVersionException ove) {
-            // Proxy puts can get an OVE if somehow there are two stealers for
-            // the same donor and the other stealer's proxy put already got to
-            // the donor.. This will not result from online put winning, since
-            // we don't issue proxy puts if the donor is still a replica
-            if(logger.isTraceEnabled()) {
-                logger.trace("OVE in proxy put for destinationNode: " + destinationNode
-                                     + " from node:" + metadata.getNodeId() + " on key "
-                                     + ByteUtils.toHexString(key.get()) + " Version:"
-                                     + value.getVersion(),
-                             ove);
-            }
-            redirectingStore.reporteProxyPutFailure();
+            /*
+             * Proxy puts can get an OVE if somehow there are two stealers for
+             * the same proxy node and the other stealer's proxy put already got
+             * tothe proxy node.. This will not result from online put winning,
+             * since we don't issue proxy puts if the proxy node is still a
+             * replica
+             */
+            logFailedProxyPutIfNeeded(ove);
         } catch(Exception e) {
             // Just log the key.. Not sure having values in the log is a good
             // idea.
-            logger.error("Unexpected exception in proxy put for destinationNode: "
-                         + destinationNode + " from node:" + metadata.getNodeId() + " on key "
-                         + ByteUtils.toHexString(key.get()) + " Version:" + value.getVersion(), e);
-            redirectingStore.reporteProxyPutFailure();
+            logFailedProxyPutIfNeeded(e);
         }
+    }
+
+    private void logFailedProxyPutIfNeeded(Exception e) {
+        redirectingStore.reportProxyPutFailure();
+        // only log OVE if trace debugging is on.
+        if(e instanceof ObsoleteVersionException && !logger.isTraceEnabled()) {
+            return;
+        }
+        logger.error("Exception in proxy put for proxyNode: " + destinationNode + " from node:"
+                     + metadata.getNodeId() + " on key " + ByteUtils.toHexString(key.get())
+                     + " Version:" + value.getVersion(), e);
     }
 }
