@@ -38,6 +38,7 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
+import voldemort.client.protocol.pb.VProto.KeyedVersions;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.common.nio.ByteBufferBackedInputStream;
@@ -1140,20 +1141,24 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.UpdateMetadataResponse handleUpdateMetadata(VAdminProto.UpdateMetadataRequest request) {
         VAdminProto.UpdateMetadataResponse.Builder response = VAdminProto.UpdateMetadataResponse.newBuilder();
 
-        try {
-            ByteArray key = ProtoUtils.decodeBytes(request.getKey());
-            String keyString = ByteUtils.getString(key.get(), "UTF-8");
-            if(MetadataStore.METADATA_KEYS.contains(keyString)) {
-                Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(request.getVersioned());
-                logger.info("Updating metadata for key '" + keyString + "'");
-                metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
-                                  versionedValue,
-                                  null);
-                logger.info("Successfully updated metadata for key '" + keyString + "'");
+        for(KeyedVersions keyValue: request.getKeyValueList()) {
+
+            try {
+                ByteArray key = ProtoUtils.decodeBytes(keyValue.getKey());
+                String keyString = ByteUtils.getString(key.get(), "UTF-8");
+                if(MetadataStore.METADATA_KEYS.contains(keyString)) {
+                    Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(keyValue.getVersions(0));
+                    logger.info("Updating metadata for key '" + keyString + "'");
+                    metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
+                                      versionedValue,
+                                      null);
+                    logger.info("Successfully updated metadata for key '" + keyString + "'");
+                }
+            } catch(VoldemortException e) {
+                response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+                logger.error("handleUpdateMetadata failed for request(" + request.toString() + ")",
+                             e);
             }
-        } catch(VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleUpdateMetadata failed for request(" + request.toString() + ")", e);
         }
 
         return response.build();

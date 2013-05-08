@@ -21,8 +21,7 @@ message GetMetadataResponse {
 }
 
 message UpdateMetadataRequest {
-  required bytes key = 1;
-  required Versioned versioned = 2;
+  repeated KeyedVersions keyValue = 1;
 }
 
 message UpdateMetadataResponse {
