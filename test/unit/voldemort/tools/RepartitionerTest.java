@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.tools;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -27,8 +27,10 @@ import org.junit.Test;
 
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ClusterInstanceTest;
+import voldemort.utils.ClusterUtils;
 
-public class RepartitionUtilsTest {
+public class RepartitionerTest {
 
     /**
      * Nodes balanced == each server has same number (within 1) of partition Ids
@@ -99,23 +101,23 @@ public class RepartitionUtilsTest {
         // within zone.
         boolean disableNodeBalancing = false;
         boolean disableZoneBalancing = false;
-        Cluster repartitionedCluster = RepartitionUtils.repartition(currentCluster,
-                                                                    currentStores,
-                                                                    targetCluster,
-                                                                    targetStores,
-                                                                    null,
-                                                                    1,
-                                                                    disableNodeBalancing,
-                                                                    disableZoneBalancing,
-                                                                    false,
-                                                                    0,
-                                                                    0,
-                                                                    false,
-                                                                    null,
-                                                                    0,
-                                                                    0,
-                                                                    0,
-                                                                    0);
+        Cluster repartitionedCluster = Repartitioner.repartition(currentCluster,
+                                                                 currentStores,
+                                                                 targetCluster,
+                                                                 targetStores,
+                                                                 null,
+                                                                 1,
+                                                                 disableNodeBalancing,
+                                                                 disableZoneBalancing,
+                                                                 false,
+                                                                 0,
+                                                                 0,
+                                                                 false,
+                                                                 null,
+                                                                 0,
+                                                                 0,
+                                                                 0,
+                                                                 0);
         assertTrue(verifyNodesBalancedInEachZone(repartitionedCluster));
         assertTrue(verifyZonesBalanced(repartitionedCluster));
     }
@@ -142,24 +144,24 @@ public class RepartitionUtilsTest {
         // within zone.
         boolean disableNodeBalancing = false;
         boolean disableZoneBalancing = true;
-        Cluster repartitionedCluster = RepartitionUtils.repartition(currentCluster,
-                                                                    currentStores,
+        Cluster repartitionedCluster = Repartitioner.repartition(currentCluster,
+                                                                 currentStores,
 
-                                                                    targetCluster,
-                                                                    targetStores,
-                                                                    null,
-                                                                    1,
-                                                                    disableNodeBalancing,
-                                                                    disableZoneBalancing,
-                                                                    false,
-                                                                    0,
-                                                                    0,
-                                                                    false,
-                                                                    null,
-                                                                    0,
-                                                                    0,
-                                                                    0,
-                                                                    0);
+                                                                 targetCluster,
+                                                                 targetStores,
+                                                                 null,
+                                                                 1,
+                                                                 disableNodeBalancing,
+                                                                 disableZoneBalancing,
+                                                                 false,
+                                                                 0,
+                                                                 0,
+                                                                 false,
+                                                                 null,
+                                                                 0,
+                                                                 0,
+                                                                 0,
+                                                                 0);
         assertTrue(verifyNodesBalancedInEachZone(repartitionedCluster));
         assertFalse(verifyZonesBalanced(repartitionedCluster));
     }
@@ -184,23 +186,23 @@ public class RepartitionUtilsTest {
         // Confirm noop rebalance has no effect on target cluster
         boolean disableNodeBalancing = true;
         boolean disableZoneBalancing = true;
-        Cluster repartitionedCluster = RepartitionUtils.repartition(currentCluster,
-                                                                    currentStores,
-                                                                    targetCluster,
-                                                                    targetStores,
-                                                                    null,
-                                                                    1,
-                                                                    disableNodeBalancing,
-                                                                    disableZoneBalancing,
-                                                                    false,
-                                                                    0,
-                                                                    0,
-                                                                    false,
-                                                                    null,
-                                                                    0,
-                                                                    0,
-                                                                    0,
-                                                                    0);
+        Cluster repartitionedCluster = Repartitioner.repartition(currentCluster,
+                                                                 currentStores,
+                                                                 targetCluster,
+                                                                 targetStores,
+                                                                 null,
+                                                                 1,
+                                                                 disableNodeBalancing,
+                                                                 disableZoneBalancing,
+                                                                 false,
+                                                                 0,
+                                                                 0,
+                                                                 false,
+                                                                 null,
+                                                                 0,
+                                                                 0,
+                                                                 0,
+                                                                 0);
         assertTrue(repartitionedCluster.equals(targetCluster));
     }
 
@@ -224,23 +226,23 @@ public class RepartitionUtilsTest {
         boolean enableRandomSwaps = true;
         int swapAttempts = 100;
         int swapSuccesses = 1;
-        Cluster repartitionedCluster = RepartitionUtils.repartition(currentCluster,
-                                                                    currentStores,
-                                                                    currentCluster,
-                                                                    currentStores,
-                                                                    null,
-                                                                    1,
-                                                                    disableNodeBalancing,
-                                                                    disableZoneBalancing,
-                                                                    enableRandomSwaps,
-                                                                    swapAttempts,
-                                                                    swapSuccesses,
-                                                                    false,
-                                                                    null,
-                                                                    0,
-                                                                    0,
-                                                                    0,
-                                                                    0);
+        Cluster repartitionedCluster = Repartitioner.repartition(currentCluster,
+                                                                 currentStores,
+                                                                 currentCluster,
+                                                                 currentStores,
+                                                                 null,
+                                                                 1,
+                                                                 disableNodeBalancing,
+                                                                 disableZoneBalancing,
+                                                                 enableRandomSwaps,
+                                                                 swapAttempts,
+                                                                 swapSuccesses,
+                                                                 false,
+                                                                 null,
+                                                                 0,
+                                                                 0,
+                                                                 0,
+                                                                 0);
         // Confirm repartitioned cluster is still imbalanced on all fronts
         assertFalse(verifyNodesBalancedInEachZone(repartitionedCluster));
         assertFalse(verifyZonesBalanced(repartitionedCluster));
@@ -274,23 +276,23 @@ public class RepartitionUtilsTest {
         int swapAttempts = 1;
         int swapsPerNode = 100;
         int swapsPerZone = 100;
-        Cluster repartitionedCluster = RepartitionUtils.repartition(currentCluster,
-                                                                    currentStores,
-                                                                    currentCluster,
-                                                                    currentStores,
-                                                                    null,
-                                                                    1,
-                                                                    disableNodeBalancing,
-                                                                    disableZoneBalancing,
-                                                                    false,
-                                                                    0,
-                                                                    0,
-                                                                    enableGreedySwaps,
-                                                                    greedyZones,
-                                                                    swapAttempts,
-                                                                    swapsPerNode,
-                                                                    swapsPerZone,
-                                                                    0);
+        Cluster repartitionedCluster = Repartitioner.repartition(currentCluster,
+                                                                 currentStores,
+                                                                 currentCluster,
+                                                                 currentStores,
+                                                                 null,
+                                                                 1,
+                                                                 disableNodeBalancing,
+                                                                 disableZoneBalancing,
+                                                                 false,
+                                                                 0,
+                                                                 0,
+                                                                 enableGreedySwaps,
+                                                                 greedyZones,
+                                                                 swapAttempts,
+                                                                 swapsPerNode,
+                                                                 swapsPerZone,
+                                                                 0);
         // Confirm repartitioned cluster is still imbalanced on all fronts
         assertFalse(verifyNodesBalancedInEachZone(repartitionedCluster));
         assertFalse(verifyZonesBalanced(repartitionedCluster));
@@ -303,23 +305,23 @@ public class RepartitionUtilsTest {
         greedyZones = new ArrayList<Integer>();
         greedyZones.add(currentCluster.getZoneIds().iterator().next());
 
-        repartitionedCluster = RepartitionUtils.repartition(currentCluster,
-                                                            currentStores,
-                                                            currentCluster,
-                                                            currentStores,
-                                                            null,
-                                                            1,
-                                                            disableNodeBalancing,
-                                                            disableZoneBalancing,
-                                                            false,
-                                                            0,
-                                                            0,
-                                                            enableGreedySwaps,
-                                                            greedyZones,
-                                                            swapAttempts,
-                                                            swapsPerNode,
-                                                            swapsPerZone,
-                                                            0);
+        repartitionedCluster = Repartitioner.repartition(currentCluster,
+                                                         currentStores,
+                                                         currentCluster,
+                                                         currentStores,
+                                                         null,
+                                                         1,
+                                                         disableNodeBalancing,
+                                                         disableZoneBalancing,
+                                                         false,
+                                                         0,
+                                                         0,
+                                                         enableGreedySwaps,
+                                                         greedyZones,
+                                                         swapAttempts,
+                                                         swapsPerNode,
+                                                         swapsPerZone,
+                                                         0);
         // Confirm repartitioned cluster is still imbalanced on all fronts
         assertFalse(verifyNodesBalancedInEachZone(repartitionedCluster));
         assertFalse(verifyZonesBalanced(repartitionedCluster));
@@ -332,23 +334,23 @@ public class RepartitionUtilsTest {
         // zone-by-zone)
         greedyZones = null;
 
-        repartitionedCluster = RepartitionUtils.repartition(currentCluster,
-                                                            currentStores,
-                                                            currentCluster,
-                                                            currentStores,
-                                                            null,
-                                                            1,
-                                                            disableNodeBalancing,
-                                                            disableZoneBalancing,
-                                                            false,
-                                                            0,
-                                                            0,
-                                                            enableGreedySwaps,
-                                                            greedyZones,
-                                                            swapAttempts,
-                                                            swapsPerNode,
-                                                            swapsPerZone,
-                                                            0);
+        repartitionedCluster = Repartitioner.repartition(currentCluster,
+                                                         currentStores,
+                                                         currentCluster,
+                                                         currentStores,
+                                                         null,
+                                                         1,
+                                                         disableNodeBalancing,
+                                                         disableZoneBalancing,
+                                                         false,
+                                                         0,
+                                                         0,
+                                                         enableGreedySwaps,
+                                                         greedyZones,
+                                                         swapAttempts,
+                                                         swapsPerNode,
+                                                         swapsPerZone,
+                                                         0);
         // Confirm repartitioned cluster is still imbalanced on all fronts
         assertFalse(verifyNodesBalancedInEachZone(repartitionedCluster));
         assertFalse(verifyZonesBalanced(repartitionedCluster));
@@ -453,23 +455,23 @@ public class RepartitionUtilsTest {
         // Do not do any repartitioning other than that necessary to get rid of
         // contiguous runs
         boolean disableNodeBalancing = true;
-        repartitionedCluster = RepartitionUtils.repartition(currentCluster,
-                                                            currentStores,
-                                                            currentCluster,
-                                                            currentStores,
-                                                            null,
-                                                            1,
-                                                            disableNodeBalancing,
-                                                            false,
-                                                            false,
-                                                            0,
-                                                            0,
-                                                            false,
-                                                            null,
-                                                            0,
-                                                            0,
-                                                            0,
-                                                            maxContigRun);
+        repartitionedCluster = Repartitioner.repartition(currentCluster,
+                                                         currentStores,
+                                                         currentCluster,
+                                                         currentStores,
+                                                         null,
+                                                         1,
+                                                         disableNodeBalancing,
+                                                         false,
+                                                         false,
+                                                         0,
+                                                         0,
+                                                         false,
+                                                         null,
+                                                         0,
+                                                         0,
+                                                         0,
+                                                         maxContigRun);
         assertTrue(verifyNoncontiguousPartitions(repartitionedCluster, maxContigRun + 1));
     }
 

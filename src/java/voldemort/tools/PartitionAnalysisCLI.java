@@ -31,7 +31,6 @@ import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ClusterInstance;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.PartitionBalance;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;

@@ -29,8 +29,8 @@ import org.apache.log4j.Logger;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
+import voldemort.tools.PartitionBalance;
 import voldemort.utils.MoveMap;
-import voldemort.utils.PartitionBalance;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
@@ -97,9 +97,9 @@ public class RebalancePlan {
         logger.info("Batch size : " + batchSize);
 
         logger.info(RebalanceUtils.analyzeInvalidMetadataRate(currentCluster,
-                                                             currentStores,
-                                                             finalCluster,
-                                                             finalStores));
+                                                              currentStores,
+                                                              finalCluster,
+                                                              finalStores));
 
         // Initialize the plan
         batchPlans = new ArrayList<RebalanceClusterPlan>();

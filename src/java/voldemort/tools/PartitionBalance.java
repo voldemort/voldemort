@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.tools;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,8 +27,15 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ClusterUtils;
+import voldemort.utils.KeyDistributionGenerator;
+import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Utils;
 
 import com.google.common.collect.Maps;
+
+;
 
 public class PartitionBalance {
 

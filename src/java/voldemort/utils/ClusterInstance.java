@@ -20,7 +20,7 @@ import java.util.List;
 
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
-
+import voldemort.tools.PartitionBalance;
 
 /**
  * This class wraps up a Cluster object and a List<StoreDefinition>. The methods

@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.tools;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,20 +28,23 @@ import org.apache.log4j.Logger;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ClusterInstance;
+import voldemort.utils.ClusterUtils;
+import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Utils;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-// TODO: (review) change this from a static helper class to a full-blown class
-// "Repartitioner"?
 /**
  * RepartitionUtils provides functions that balance the distribution of
  * partitions across a cluster.
  * 
  */
-public class RepartitionUtils {
+public class Repartitioner {
 
-    static Logger logger = Logger.getLogger(RepartitionUtils.class);
+    static Logger logger = Logger.getLogger(Repartitioner.class);
 
     /**
      * Recommended (default) number of times to attempt repartitioning.
