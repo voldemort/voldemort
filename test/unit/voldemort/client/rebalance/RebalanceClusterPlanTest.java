@@ -39,6 +39,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
+// TODO: Most of these tests are currently failing. Once RebalanceClusterPlan is
+// cleaned up further, fix these. In particular, once OrderedClusterTransision
+// is cleaned up, or removed, make sure these tests (or equivalent) all pass.
 public class RebalanceClusterPlanTest extends TestCase {
 
     private static String storeDefFile = "test/common/voldemort/config/stores.xml";
@@ -74,7 +77,6 @@ public class RebalanceClusterPlanTest extends TestCase {
     }
 
     public void testRebalancePlanDelete() {
-
         // CASE 1
         currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 },
                 { 4, 5, 6, 7 }, {} });

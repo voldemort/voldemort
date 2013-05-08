@@ -43,12 +43,14 @@ public class PartitionBalance {
      * Multiplier in utility method to weight the balance of "IOPS" (get QPS &
      * pseudo-master put QPS) relative to "CAPACITY".
      */
-    private final static int UTILITY_MULTIPLIER_IOPS = 2;
+    private final static int UTILITY_MULTIPLIER_IOPS = 1;
     /**
      * Multiplier in utility method to weight the balance of "CAPACITY" (put QPS
      * and therefore amount of data stored) relative to "IOPS".
+     * 
+     * Currently, we bias towards balancing capacity over iops.
      */
-    private final static int UTILITY_MULTIPLIER_CAPACITY = 1;
+    private final static int UTILITY_MULTIPLIER_CAPACITY = 2;
 
     private final Cluster cluster;
 
