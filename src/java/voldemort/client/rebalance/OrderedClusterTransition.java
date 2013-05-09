@@ -36,6 +36,7 @@ public class OrderedClusterTransition {
     private String printedContent;
     private final int id;
 
+    @Deprecated
     public OrderedClusterTransition(final Cluster currentCluster,
                                     final Cluster targetCluster,
                                     List<StoreDefinition> storeDefs,
@@ -44,6 +45,15 @@ public class OrderedClusterTransition {
         this.currentCluster = currentCluster;
         this.targetCluster = targetCluster;
         this.storeDefs = storeDefs;
+        this.rebalanceClusterPlan = rebalanceClusterPlan;
+        this.orderedRebalancePartitionsInfoList = orderedClusterPlan(rebalanceClusterPlan);
+    }
+
+    public OrderedClusterTransition(final RebalanceClusterPlan rebalanceClusterPlan) {
+        this.id = idGen.incrementAndGet();
+        this.currentCluster = rebalanceClusterPlan.getCurrentCluster();
+        this.targetCluster = rebalanceClusterPlan.getFinalCluster();
+        this.storeDefs = rebalanceClusterPlan.getStoreDefs();
         this.rebalanceClusterPlan = rebalanceClusterPlan;
         this.orderedRebalancePartitionsInfoList = orderedClusterPlan(rebalanceClusterPlan);
     }

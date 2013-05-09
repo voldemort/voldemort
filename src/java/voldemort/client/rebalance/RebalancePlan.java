@@ -257,6 +257,22 @@ public class RebalancePlan {
         return (sb.toString());
     }
 
+    public Cluster getCurrentCluster() {
+        return currentCluster;
+    }
+
+    public List<StoreDefinition> getCurrentStores() {
+        return currentStores;
+    }
+
+    public Cluster getFinalCluster() {
+        return finalCluster;
+    }
+
+    public List<StoreDefinition> getFinalStores() {
+        return finalStores;
+    }
+
     /**
      * 
      * @return The plan!

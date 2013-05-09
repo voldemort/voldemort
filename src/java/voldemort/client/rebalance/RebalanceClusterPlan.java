@@ -171,12 +171,16 @@ public class RebalanceClusterPlan {
         // TODO: (end) Remove ...
     }
 
-    public Cluster getTargetCluster() {
+    public Cluster getCurrentCluster() {
         return targetCluster;
     }
 
     public Cluster getFinalCluster() {
         return finalCluster;
+    }
+
+    public List<StoreDefinition> getStoreDefs() {
+        return storeDefs;
     }
 
     @Deprecated

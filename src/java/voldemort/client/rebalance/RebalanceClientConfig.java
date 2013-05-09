@@ -21,6 +21,10 @@ import java.util.Properties;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.utils.Props;
 
+// TODO: This class mixes configuration of RebalancePlan with configuration of
+// RebalanceController. It needs to be deprecated so that a clean way of setting
+// the parameters/configs for each of these classes is put in place.
+@Deprecated
 public class RebalanceClientConfig extends AdminClientConfig {
 
     public final static int MAX_PARALLEL_REBALANCING = 1;

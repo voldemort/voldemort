@@ -181,6 +181,7 @@ public abstract class AbstractRebalanceTest {
                                      List<StoreDefinition> storeDefs,
                                      RebalanceController rebalanceClient,
                                      List<Integer> nodeCheckList) {
+        // TODO: Switch test to RebalancePlan-based testing
         rebalanceClient.rebalance(targetCluster);
         checkEntriesPostRebalance(currentCluster,
                                   targetCluster,

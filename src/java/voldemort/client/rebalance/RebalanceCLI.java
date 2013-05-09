@@ -153,6 +153,7 @@ public class RebalanceCLI {
             }
 
             if(options.has("url")) {
+                // Old rebalancing controller
 
                 if(!options.has("target-cluster")) {
                     System.err.println("Missing required arguments: target-cluster");
@@ -169,8 +170,12 @@ public class RebalanceCLI {
                 rebalanceController.rebalance(targetCluster);
 
             } else {
-
-                Set<String> missing = CmdUtils.missing(options, "current-cluster", "current-stores");
+                // Entropy tool
+                Set<String> missing = CmdUtils.missing(options,
+                                                       "entropy",
+                                                       "output-dir",
+                                                       "current-cluster",
+                                                       "current-stores");
                 if(missing.size() > 0) {
                     System.err.println("Missing required arguments: "
                                        + Joiner.on(", ").join(missing));
@@ -184,45 +189,20 @@ public class RebalanceCLI {
                 Cluster currentCluster = new ClusterMapper().readCluster(new File(currentClusterXML));
                 List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(currentStoresXML));
 
-                // TODO: Remove this option.
-                if(options.has("entropy")) {
-
-                    if(!config.hasOutputDirectory()) {
-                        System.err.println("Missing arguments output-dir");
-                        printHelp(System.err, parser);
-                        System.exit(ERROR_EXIT_CODE);
-                    }
-
-                    boolean entropy = (Boolean) options.valueOf("entropy");
-                    boolean verbose = options.has("verbose-logging");
-                    long numKeys = CmdUtils.valueOf(options, "keys", Entropy.DEFAULT_NUM_KEYS);
-                    Entropy generator = new Entropy(-1, numKeys, verbose);
-                    generator.generateEntropy(currentCluster,
-                                              storeDefs,
-                                              new File(config.getOutputDirectory()),
-                                              entropy);
-                    return;
-
-                }
-
-                if(!options.has("target-cluster")) {
-                    System.err.println("Missing required arguments: target-cluster");
-                    printHelp(System.err, parser);
-                    System.exit(ERROR_EXIT_CODE);
-                }
-
-                String targetClusterXML = (String) options.valueOf("target-cluster");
-                Cluster targetCluster = new ClusterMapper().readCluster(new File(targetClusterXML));
-
-                rebalanceController = new RebalanceController(currentCluster, config);
-                rebalanceController.rebalance(currentCluster, targetCluster, storeDefs);
-
+                boolean entropy = (Boolean) options.valueOf("entropy");
+                boolean verbose = options.has("verbose-logging");
+                long numKeys = CmdUtils.valueOf(options, "keys", Entropy.DEFAULT_NUM_KEYS);
+                Entropy generator = new Entropy(-1, numKeys, verbose);
+                generator.generateEntropy(currentCluster,
+                                          storeDefs,
+                                          new File(config.getOutputDirectory()),
+                                          entropy);
             }
 
-            exitCode = SUCCESS_EXIT_CODE;
             if(logger.isInfoEnabled()) {
                 logger.info("Successfully terminated rebalance all tasks");
             }
+            exitCode = SUCCESS_EXIT_CODE;
 
         } catch(VoldemortException e) {
             logger.error("Unsuccessfully terminated rebalance operation - " + e.getMessage(), e);

@@ -739,6 +739,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
                 @Override
                 public void run() {
                     try {
+                        // TODO: Switch test to RebalancePlan-based testing
                         rebalanceClient.rebalance(updatedTargetCluster);
                     } catch(Exception e) {
                         logger.error("Error in rebalancing... ", e);

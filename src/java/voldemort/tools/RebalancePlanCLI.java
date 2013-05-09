@@ -79,8 +79,8 @@ public class RebalancePlanCLI {
 
     private static void printUsage() {
         StringBuilder help = new StringBuilder();
-        help.append("RepartitionCLI\n");
-        help.append("  Moves partitions to achieve better balance. This can be done for rebalancing (improve balance among existing nodes),"
+        help.append("RebalancePlanCLI\n");
+        help.append("  Moves partitions to achieve better balance. This can be done for shuffling (improve balance among existing nodes),"
                     + " cluster expansion (adding nodes to some zones), and zone expansion (adding an entire new zone).\n");
         help.append("Options:\n");
         help.append("  Required:\n");
@@ -133,6 +133,7 @@ public class RebalancePlanCLI {
         return options;
     }
 
+    // TODO: Rename target-cluster target-stores to final-*
     public static void main(String[] args) throws Exception {
         setupParser();
         OptionSet options = getValidOptions(args);
@@ -169,9 +170,6 @@ public class RebalancePlanCLI {
         if(options.has("donor-based")) {
             stealerBased = false;
         }
-
-        RebalanceClientConfig config = new RebalanceClientConfig();
-        config.setPrimaryPartitionBatchSize(batchSize);
 
         new RebalancePlan(currentCluster,
                           currentStoreDefs,

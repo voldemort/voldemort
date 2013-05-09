@@ -849,7 +849,8 @@ public class RebalanceUtils {
      *        definitions
      * @return List of store definitions
      */
-    public static List<StoreDefinition> getStoreDefinition(Cluster cluster, AdminClient adminClient) {
+    public static List<StoreDefinition> getCurrentStoreDefinitions(Cluster cluster,
+                                                                   AdminClient adminClient) {
         List<StoreDefinition> storeDefs = null;
         for(Node node: cluster.getNodes()) {
             List<StoreDefinition> storeDefList = adminClient.metadataMgmtOps.getRemoteStoreDefList(node.getId())
