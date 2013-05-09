@@ -5,14 +5,13 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.RebalanceClientConfig;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 
 public abstract class RebalanceTask implements Runnable {
 
     protected final int taskId;
     protected Exception exception;
-    protected final RebalanceClientConfig config;
+    protected final long timeoutSeconds;
     protected final AdminClient adminClient;
     protected final Semaphore donorPermit;
     protected final AtomicBoolean isComplete;
@@ -22,12 +21,12 @@ public abstract class RebalanceTask implements Runnable {
 
     public RebalanceTask(final int taskId,
                          final List<RebalancePartitionsInfo> stealInfos,
-                         final RebalanceClientConfig config,
+                         final long timeoutSeconds,
                          final Semaphore donorPermit,
                          final AdminClient adminClient) {
         this.stealInfos = stealInfos;
         this.taskId = taskId;
-        this.config = config;
+        this.timeoutSeconds = timeoutSeconds;
         this.adminClient = adminClient;
         this.donorPermit = donorPermit;
         this.exception = null;

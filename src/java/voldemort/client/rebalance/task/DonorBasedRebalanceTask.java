@@ -7,7 +7,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.RebalanceClientConfig;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.RebalanceUtils;
@@ -26,10 +25,10 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
 
     public DonorBasedRebalanceTask(final int taskId,
                                    final List<RebalancePartitionsInfo> stealInfos,
-                                   final RebalanceClientConfig config,
+                                   final long timeoutSeconds,
                                    final Semaphore donorPermit,
                                    final AdminClient adminClient) {
-        super(taskId, stealInfos, config, donorPermit, adminClient);
+        super(taskId, stealInfos, timeoutSeconds, donorPermit, adminClient);
         RebalanceUtils.assertSameDonor(stealInfos, -1);
         this.donorNodeId = stealInfos.get(0).getDonorId();
     }
@@ -49,7 +48,7 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
             // Wait for the task to get over
             adminClient.rpcOps.waitForCompletion(donorNodeId,
                                                  rebalanceAsyncId,
-                                                 config.getRebalancingClientTimeoutSeconds(),
+                                                 timeoutSeconds,
                                                  TimeUnit.SECONDS);
             RebalanceUtils.printLog(taskId,
                                     logger,

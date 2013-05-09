@@ -172,7 +172,7 @@ public class RebalanceControllerCLI {
         // If this test doesn't pass, something is wrong in prod!
         RebalanceUtils.validateClusterStores(currentCluster, currentStoreDefs);
 
-        // Deterimine final cluster/stores and validate them
+        // Determine final cluster/stores and validate them
         String finalClusterXML = (String) options.valueOf("final-cluster");
         Cluster finalCluster = new ClusterMapper().readCluster(new File(finalClusterXML));
 

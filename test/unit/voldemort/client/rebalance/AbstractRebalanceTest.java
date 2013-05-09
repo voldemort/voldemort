@@ -176,6 +176,8 @@ public abstract class AbstractRebalanceTest {
         return "tcp://" + node.getHost() + ":" + node.getSocketPort();
     }
 
+    // TODO: replaced by rebalanceAndCheck(...RebalancePlan...)
+    @Deprecated
     protected void rebalanceAndCheck(Cluster currentCluster,
                                      Cluster targetCluster,
                                      List<StoreDefinition> storeDefs,
@@ -191,6 +193,20 @@ public abstract class AbstractRebalanceTest {
                                   null);
     }
 
+    protected void rebalanceAndCheck(RebalancePlan rebalancePlan,
+                                     RebalanceController rebalanceClient,
+                                     List<Integer> nodeCheckList) {
+        rebalanceClient.rebalance(rebalancePlan);
+        checkEntriesPostRebalance(rebalancePlan.getCurrentCluster(),
+                                  rebalancePlan.getFinalCluster(),
+                                  rebalancePlan.getCurrentStores(),
+                                  nodeCheckList,
+                                  testEntries,
+                                  null);
+    }
+
+    // TODO: change from storeDefs to currentStoreDefs and finalStoreDefs to
+    // handle zone expansion/shrink tests.
     protected void checkEntriesPostRebalance(Cluster currentCluster,
                                              Cluster targetCluster,
                                              List<StoreDefinition> storeDefs,
