@@ -87,6 +87,7 @@ public class Benchmark {
     public static final String START_KEY_INDEX = "start-key-index";
 
     public static final String READS = "r";
+    public static final String BATCH_READS = "b";
     public static final String WRITES = "w";
     public static final String DELETES = "d";
     public static final String MIXED = "m";
@@ -512,6 +513,10 @@ public class Benchmark {
               .withRequiredArg()
               .describedAs("read-percent")
               .ofType(Integer.class);
+        parser.accepts(BATCH_READS, "percentage of --ops-count to be batch-reads; valid values [0-100]")
+                .withRequiredArg()
+                .describedAs("batch-read-percent")
+                .ofType(Integer.class);
         parser.accepts(WRITES, "percentage of --ops-count to be writes; valid values [0-100]")
               .withRequiredArg()
               .describedAs("write-percent")
@@ -687,6 +692,7 @@ public class Benchmark {
             mainProps.put(TARGET_THROUGHPUT, CmdUtils.valueOf(options, TARGET_THROUGHPUT, -1));
             mainProps.put(METRIC_TYPE, CmdUtils.valueOf(options, METRIC_TYPE, SUMMARY_METRIC_TYPE));
             mainProps.put(READS, CmdUtils.valueOf(options, READS, 0));
+            mainProps.put(BATCH_READS, CmdUtils.valueOf(options, BATCH_READS, 0));
             mainProps.put(WRITES, CmdUtils.valueOf(options, WRITES, 0));
             mainProps.put(DELETES, CmdUtils.valueOf(options, DELETES, 0));
             mainProps.put(MIXED, CmdUtils.valueOf(options, MIXED, 0));

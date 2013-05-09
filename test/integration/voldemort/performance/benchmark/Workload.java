@@ -33,7 +33,8 @@ import voldemort.VoldemortException;
 import voldemort.client.StoreClient;
 import voldemort.performance.benchmark.generator.CounterGenerator;
 import voldemort.performance.benchmark.generator.DiscreteGenerator;
-import voldemort.performance.benchmark.generator.FileIntegerGenerator;
+import voldemort.performance.benchmark.generator.FileStringGenerator;
+import voldemort.performance.benchmark.generator.Generator;
 import voldemort.performance.benchmark.generator.IntegerGenerator;
 import voldemort.performance.benchmark.generator.ScrambledZipfianGenerator;
 import voldemort.performance.benchmark.generator.SkewedLatestGenerator;
@@ -52,36 +53,23 @@ public class Workload {
 
         public T next();
 
-        public T next(int maxNumber);
-
-        public int lastInt();
+        public T lastKey();
 
     }
 
     public abstract static class AbstractKeyProvider<T> implements KeyProvider<T> {
 
-        protected IntegerGenerator generator;
+        protected Generator generator;
 
-        private AbstractKeyProvider(IntegerGenerator generator) {
+        private AbstractKeyProvider(Generator generator) {
             this.generator = generator;
         }
 
-        public abstract T next(int maxNumber);
-
+        @Override
         public abstract T next();
 
-        public int lastInt() {
-            return generator.lastInt();
-        }
-
-        private Integer nextLessThan(int maxNumber) {
-            int nextNum = 0;
-            do {
-                nextNum = generator.nextInt();
-            } while(nextNum > maxNumber);
-            return nextNum;
-        }
-
+        @Override
+        public abstract T lastKey();
     }
 
     public static class IntegerKeyProvider extends AbstractKeyProvider<Integer> {
@@ -92,19 +80,18 @@ public class Workload {
 
         @Override
         public Integer next() {
-            return this.generator.nextInt();
+            return ((IntegerGenerator) this.generator).nextInt();
         }
 
         @Override
-        public Integer next(int maxNumber) {
-            return super.nextLessThan(maxNumber);
+        public Integer lastKey() {
+            return ((IntegerGenerator) this.generator).lastInt();
         }
-
     }
 
     public static class StringKeyProvider extends AbstractKeyProvider<String> {
 
-        private StringKeyProvider(IntegerGenerator generator) {
+        private StringKeyProvider(Generator generator) {
             super(generator);
         }
 
@@ -114,10 +101,9 @@ public class Workload {
         }
 
         @Override
-        public String next(int maxNumber) {
-            return Integer.toString(super.nextLessThan(maxNumber));
+        public String lastKey() {
+            return this.generator.lastString();
         }
-
     }
 
     public static class ByteArrayKeyProvider extends AbstractKeyProvider<byte[]> {
@@ -129,14 +115,14 @@ public class Workload {
         @Override
         public byte[] next() {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            bos.write(this.generator.nextInt());
+            bos.write(((IntegerGenerator) this.generator).nextInt());
             return bos.toByteArray();
         }
 
         @Override
-        public byte[] next(int maxNumber) {
+        public byte[] lastKey() {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            bos.write(super.nextLessThan(maxNumber));
+            bos.write(((IntegerGenerator) this.generator).lastInt());
             return bos.toByteArray();
         }
     }
@@ -148,6 +134,7 @@ public class Workload {
         private final AtomicInteger totalRequests = new AtomicInteger(0);
         private final AtomicInteger cachedRequests = new AtomicInteger(0);
         private final List<T> visitedKeys = new ArrayList<T>();
+        private T lastKey;
 
         private CachedKeyProvider(KeyProvider<T> delegate, int percentCached) {
             this.delegate = delegate;
@@ -167,6 +154,7 @@ public class Workload {
             return null;
         }
 
+        @Override
         public T next() {
             T cachedRecord = getCachedRecord();
             if(cachedRecord == null) {
@@ -174,41 +162,29 @@ public class Workload {
                 synchronized(visitedKeys) {
                     visitedKeys.add(value);
                 }
+                lastKey = value;
                 return value;
             } else {
+                lastKey = cachedRecord;
                 return cachedRecord;
             }
         }
 
-        public T next(int maxNumber) {
-            T cachedRecord = getCachedRecord();
-            if(cachedRecord == null) {
-                T value = delegate.next(maxNumber);
-                synchronized(visitedKeys) {
-                    visitedKeys.add(value);
-                }
-                return value;
-            } else {
-                return cachedRecord;
-            }
-        }
-
-        public int lastInt() {
-            return 0;
+        @Override
+        public T lastKey() {
+            return lastKey;
         }
     }
 
-    public static KeyProvider<?> getKeyProvider(Class<?> cls,
-                                                IntegerGenerator generator,
-                                                int percentCached) {
+    public static KeyProvider<?> getKeyProvider(Class<?> cls, Generator generator, int percentCached) {
         if(cls == Integer.class) {
-            IntegerKeyProvider kp = new IntegerKeyProvider(generator);
+            IntegerKeyProvider kp = new IntegerKeyProvider((IntegerGenerator) generator);
             return percentCached != 0 ? new CachedKeyProvider<Integer>(kp, percentCached) : kp;
         } else if(cls == String.class) {
             StringKeyProvider kp = new StringKeyProvider(generator);
             return percentCached != 0 ? new CachedKeyProvider<String>(kp, percentCached) : kp;
         } else if(cls == byte[].class) {
-            ByteArrayKeyProvider kp = new ByteArrayKeyProvider(generator);
+            ByteArrayKeyProvider kp = new ByteArrayKeyProvider((IntegerGenerator) generator);
             return percentCached != 0 ? new CachedKeyProvider<byte[]>(kp, percentCached) : kp;
         } else {
             throw new IllegalArgumentException("No KeyProvider exists for class " + cls);
@@ -251,6 +227,30 @@ public class Workload {
         return targets;
     }
 
+    public List<String> loadCustomKeys(File file) throws IOException {
+
+        List<String> targets = new ArrayList<String>();
+        BufferedReader reader = null;
+
+        try {
+            reader = new BufferedReader(new FileReader(file));
+            String text;
+            while((text = reader.readLine()) != null) {
+                targets.add(text.replaceAll("\\s+", ""));
+            }
+        } finally {
+            try {
+                if(reader != null) {
+                    reader.close();
+                }
+            } catch(IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return targets;
+    }
+
     private DiscreteGenerator operationChooser;
     private DiscreteGenerator transformsChooser;
     private KeyProvider<?> warmUpKeyProvider;
@@ -266,6 +266,7 @@ public class Workload {
      */
     public void init(Props props) {
         int readPercent = props.getInt(Benchmark.READS, 0);
+        int batchReadPercent = props.getInt(Benchmark.BATCH_READS, 0);
         int writePercent = props.getInt(Benchmark.WRITES, 0);
         int deletePercent = props.getInt(Benchmark.DELETES, 0);
         int mixedPercent = props.getInt(Benchmark.MIXED, 0);
@@ -281,20 +282,23 @@ public class Workload {
                                      .compareTo("true") == 0;
 
         double readProportion = (double) readPercent / (double) 100;
+        double batchReadProportion = (double) batchReadPercent / (double) 100;
         double writeProportion = (double) writePercent / (double) 100;
         double deleteProportion = (double) deletePercent / (double) 100;
         double mixedProportion = (double) mixedPercent / (double) 100;
 
         // Using default read only
-        if(Math.abs(writeProportion + readProportion + mixedProportion + deleteProportion) != 1.0) {
+        if(Math.abs(writeProportion + readProportion + batchReadProportion + mixedProportion
+                    + deleteProportion) != 1.0) {
             throw new VoldemortException("The sum of all workload percentage is NOT 100% \n"
                                          + " Read=" + (double) readPercent / (double) 100
+                                         + " BatchRead=" + (double) batchReadPercent / (double) 100
                                          + " Write=" + (double) writePercent / (double) 100
                                          + " Delete=" + (double) deletePercent / (double) 100
                                          + " Mixed=" + (double) mixedPercent / (double) 100);
         }
 
-        List<Integer> keysFromFile = null;
+        List<String> keysFromFile = null;
         int recordCount = 0;
         if(props.containsKey(Benchmark.REQUEST_FILE)) {
             try {
@@ -302,7 +306,8 @@ public class Workload {
                 if(!new File(fileRecordSelectionFile).exists()) {
                     throw new UndefinedPropertyException("File does not exist");
                 }
-                keysFromFile = loadKeys(new File(fileRecordSelectionFile));
+                // keysFromFile = loadKeys(new File(fileRecordSelectionFile));
+                keysFromFile = loadCustomKeys(new File(fileRecordSelectionFile));
                 recordSelection = new String(Benchmark.FILE_RECORD_SELECTION);
             } catch(Exception e) {
                 // Falling back to default uniform selection
@@ -348,6 +353,9 @@ public class Workload {
         if(readProportion > 0) {
             operationChooser.addValue(readProportion, Benchmark.READS);
         }
+        if(batchReadProportion > 0) {
+            operationChooser.addValue(batchReadProportion, Benchmark.BATCH_READS);
+        }
         if(mixedProportion > 0) {
             operationChooser.addValue(mixedProportion, Benchmark.MIXED);
         }
@@ -367,7 +375,7 @@ public class Workload {
 
         }
 
-        IntegerGenerator keyGenerator = null;
+        Generator keyGenerator = null;
         if(recordSelection.compareTo(Benchmark.UNIFORM_RECORD_SELECTION) == 0) {
 
             int keySpace = (recordCount > 0) ? recordCount : Integer.MAX_VALUE;
@@ -384,7 +392,8 @@ public class Workload {
 
         } else if(recordSelection.compareTo(Benchmark.FILE_RECORD_SELECTION) == 0) {
 
-            keyGenerator = new FileIntegerGenerator(0, keysFromFile);
+            // keyGenerator = new FileIntegerGenerator(0, keysFromFile);
+            keyGenerator = new FileStringGenerator(0, keysFromFile);
 
         }
         this.keyProvider = getKeyProvider(keyTypeClass, keyGenerator, cachedPercent);
@@ -425,6 +434,12 @@ public class Workload {
             db.delete(key);
         } else if(op.compareTo(Benchmark.READS) == 0) {
             db.read(key, this.value, transform);
+        } else if(op.compareTo(Benchmark.BATCH_READS) == 0) {
+            List<Object> keys = new ArrayList<Object>();
+            for(int i = 0; i < 10; i++) {
+                keys.add(keyProvider.next());
+            }
+            db.batchread(keys);
         }
         return true;
 
@@ -437,21 +452,32 @@ public class Workload {
     public void loadSampleValues(StoreClient<Object, Object> client) {
         if(this.sampleSize > 0) {
             sampleValues = Lists.newArrayList();
-            for(int i = 0; i < sampleSize; i++) {
+            int ignored = 0;
+            int newSize = 0;
+            for(int i = 0; ((i - ignored) < sampleSize) && (ignored < sampleSize); i++, newSize++) {
                 Object key = keyProvider.next();
-                Versioned<Object> versioned = client.get(key);
-                if(null == versioned) {
-                    logger.error("NULL is sampled for key " + key);
-                    System.err.println("NULL is sampled for key " + key);
+                if (key != null) {
+                    Versioned<Object> versioned = client.get(key);
+                    if(null == versioned) {
+                        //logger.error("NULL is sampled for key " + key);
+                        //System.err.println("NULL is sampled for key " + key);
+                        ignored++;
+                    } else {
+                        sampleValues.add(versioned);
+                    }
+                } else {
+                    System.err.println("NULL Key");
                 }
-                sampleValues.add(versioned);
             }
+            System.err.println("Ignored " + ignored + " keys");
+            System.err.println("Sampled " + newSize + " keys");
+            sampleSize = newSize;
         }
     }
 
     public Object getRandomSampleValue() {
         Object value = null;
-        Versioned<Object> versioned = sampleValues.get(randomSampler.nextInt(sampleSize));
+        Versioned<Object> versioned = sampleValues.get(randomSampler.nextInt(sampleSize) % sampleValues.size());
         if(versioned != null) {
             value = versioned.getValue();
         }
