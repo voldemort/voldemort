@@ -582,7 +582,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public StreamRequestHandler handleUpdatePartitionEntries(VAdminProto.UpdatePartitionEntriesRequest request) {
         StorageEngine<ByteArray, byte[], byte[]> storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                                                              request.getStore());
-        if(storageEngine instanceof MysqlStorageEngine) {
+        if(!voldemortConfig.getMultiVersionStreamingPutsEnabled()
+           || storageEngine instanceof MysqlStorageEngine) {
             // TODO This check is ugly. Need some generic capability to check
             // which storage engine supports which operations.
             return new UpdatePartitionEntriesStreamRequestHandler(request,

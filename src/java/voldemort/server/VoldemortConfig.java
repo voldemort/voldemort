@@ -202,6 +202,7 @@ public class VoldemortConfig implements Serializable {
 
     private long streamMaxReadBytesPerSec;
     private long streamMaxWriteBytesPerSec;
+    private boolean multiVersionStreamingPutsEnabled;
     private int gossipIntervalMs;
 
     private String failureDetectorImplementation;
@@ -353,6 +354,8 @@ public class VoldemortConfig implements Serializable {
         this.streamMaxReadBytesPerSec = props.getBytes("stream.read.byte.per.sec", 10 * 1000 * 1000);
         this.streamMaxWriteBytesPerSec = props.getBytes("stream.write.byte.per.sec",
                                                         10 * 1000 * 1000);
+        this.multiVersionStreamingPutsEnabled = props.getBoolean("use.multi.version.streaming.puts",
+                                                                 true);
 
         this.socketTimeoutMs = props.getInt("socket.timeout.ms", 5000);
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 64 * 1024);
@@ -1456,6 +1459,25 @@ public class VoldemortConfig implements Serializable {
 
     public long getSlopMaxWriteBytesPerSec() {
         return slopMaxWriteBytesPerSec;
+    }
+
+    /**
+     * If true, multiple successive versions of the same key, will be atomically
+     * written to storage in a single operation. Currently not supported for
+     * MySqlStorageEngine
+     * 
+     * <ul>
+     * <li>Property : "use.multi.version.streaming.puts"</li>
+     * <li>Default : true</li>
+     * </ul>
+     * 
+     */
+    public void setMultiVersionStreamingPutsEnabled(boolean multiVersionStreamingPutsEnabled) {
+        this.multiVersionStreamingPutsEnabled = multiVersionStreamingPutsEnabled;
+    }
+
+    public boolean getMultiVersionStreamingPutsEnabled() {
+        return this.multiVersionStreamingPutsEnabled;
     }
 
     /**

@@ -20,6 +20,7 @@ import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
+import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
 /**
@@ -67,9 +68,12 @@ class BufferedUpdatePartitionEntriesStreamRequestHandler extends
     }
 
     /**
-     * Now, it could be that the stream broke off and has more pending versions.
-     * For now, we simply commit what we have to disk. A better design would
-     * rely on in-stream markers to do the flushing to storage.
+     * Persists the current set of versions buffered for the current key into
+     * storage, using the multiVersionPut api
+     * 
+     * NOTE: Now, it could be that the stream broke off and has more pending
+     * versions. For now, we simply commit what we have to disk. A better design
+     * would rely on in-stream markers to do the flushing to storage.
      */
     private void writeBufferedValsToStorage() {
         long startNs = System.nanoTime();
@@ -78,7 +82,8 @@ class BufferedUpdatePartitionEntriesStreamRequestHandler extends
                                                                              currBufferedVals);
         currBufferedVals = new ArrayList<Versioned<byte[]>>(VALS_BUFFER_EXPECTED_SIZE);
         if(streamStats != null) {
-            streamStats.reportStorageTime(Operation.UPDATE_ENTRIES, System.nanoTime() - startNs);
+            streamStats.reportStorageTime(Operation.UPDATE_ENTRIES,
+                                          Utils.elapsedTimeNs(startNs, System.nanoTime()));
             streamStats.reportStreamingPut(Operation.UPDATE_ENTRIES);
         }
 
@@ -127,8 +132,8 @@ class BufferedUpdatePartitionEntriesStreamRequestHandler extends
                 if(logger.isTraceEnabled())
                     logger.trace("Incomplete read for message size");
                 if(streamStats != null)
-                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES, System.nanoTime()
-                                                                            - startNs);
+                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES,
+                                                  Utils.elapsedTimeNs(startNs, System.nanoTime()));
                 return StreamRequestHandlerState.INCOMPLETE_READ;
             }
 
@@ -142,8 +147,8 @@ class BufferedUpdatePartitionEntriesStreamRequestHandler extends
                 if(logger.isTraceEnabled())
                     logger.trace("Message size -1, completed partition update");
                 if(streamStats != null)
-                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES, System.nanoTime()
-                                                                            - startNs);
+                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES,
+                                                  Utils.elapsedTimeNs(startNs, System.nanoTime()));
                 return StreamRequestHandlerState.COMPLETE;
             }
 
@@ -161,8 +166,8 @@ class BufferedUpdatePartitionEntriesStreamRequestHandler extends
                 return StreamRequestHandlerState.INCOMPLETE_READ;
             } finally {
                 if(streamStats != null)
-                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES, System.nanoTime()
-                                                                            - startNs);
+                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES,
+                                                  Utils.elapsedTimeNs(startNs, System.nanoTime()));
             }
 
             VAdminProto.UpdatePartitionEntriesRequest.Builder builder = VAdminProto.UpdatePartitionEntriesRequest.newBuilder();
@@ -175,8 +180,9 @@ class BufferedUpdatePartitionEntriesStreamRequestHandler extends
         Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
 
         if(filter.accept(key, value)) {
+            // Check if the current key is same as the one before.
             if(currBufferedKey != null && !key.equals(currBufferedKey)) {
-                // write buffered values to storage
+                // if not, write buffered values for the previous key to storage
                 writeBufferedValsToStorage();
             }
             currBufferedKey = key;

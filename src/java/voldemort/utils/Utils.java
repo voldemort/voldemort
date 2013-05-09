@@ -603,4 +603,21 @@ public class Utils {
         }
         return null;
     }
+
+    /**
+     * Specifically, this utility is to address the fact that System.nanoTime()
+     * can sometimes go backwards, due to the fact that it relies on the
+     * performance counters
+     * 
+     * @param startNs
+     * @param endNs
+     * @return 0 if endNs < startNs, delta otherwise
+     */
+    public static long elapsedTimeNs(long startNs, long endNs) {
+        if(endNs < startNs) {
+            return 0L;
+        } else {
+            return endNs - startNs;
+        }
+    }
 }

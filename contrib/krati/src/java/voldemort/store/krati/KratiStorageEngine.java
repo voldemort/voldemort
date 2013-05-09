@@ -241,7 +241,7 @@ public class KratiStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
 
         synchronized(this.locks.lockFor(key.get())) {
             valuesInStorage = this.get(key, null);
-            obsoleteVals = computeVersionsToStore(valuesInStorage, values);
+            obsoleteVals = resolveAndConstructVersionsToPersist(valuesInStorage, values);
 
             try {
                 datastore.put(key.get(), assembleValues(valuesInStorage));

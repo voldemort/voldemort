@@ -693,7 +693,7 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
                 valuesInStorage = new ArrayList<Versioned<byte[]>>(values.size());
             }
 
-            obsoleteVals = computeVersionsToStore(valuesInStorage, values);
+            obsoleteVals = resolveAndConstructVersionsToPersist(valuesInStorage, values);
             valueEntry.setData(StoreBinaryFormat.toByteArray(valuesInStorage));
             status = getBdbDatabase().put(transaction, keyEntry, valueEntry);
 

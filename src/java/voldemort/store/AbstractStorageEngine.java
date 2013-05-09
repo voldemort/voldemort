@@ -74,8 +74,8 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
      * @param multiPutValues list of new versions being written to storage
      * @return list of versions from multiPutVals that were rejected as obsolete
      */
-    protected List<Versioned<V>> computeVersionsToStore(List<Versioned<V>> valuesInStorage,
-                                                        List<Versioned<V>> multiPutValues) {
+    protected List<Versioned<V>> resolveAndConstructVersionsToPersist(List<Versioned<V>> valuesInStorage,
+                                                                    List<Versioned<V>> multiPutValues) {
         List<Versioned<V>> obsoleteVals = new ArrayList<Versioned<V>>(multiPutValues.size());
         // Go over all the values and determine whether the version is
         // acceptable
@@ -89,8 +89,9 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
                 if(occurred == Occurred.BEFORE) {
                     obsolete = true;
                     break;
-                } else if(occurred == Occurred.AFTER)
+                } else if(occurred == Occurred.AFTER) {
                     iter.remove();
+                }
             }
             if(obsolete) {
                 // add to return value if obsolete
