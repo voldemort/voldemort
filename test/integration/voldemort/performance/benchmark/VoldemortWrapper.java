@@ -16,10 +16,14 @@
 
 package voldemort.performance.benchmark;
 
+import java.util.List;
+
 import voldemort.client.StoreClient;
 import voldemort.client.UpdateAction;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
+
+import java.util.Map;
 
 public class VoldemortWrapper {
 
@@ -35,6 +39,7 @@ public class VoldemortWrapper {
 
     public enum Operations {
         Read("reads"),
+        BatchRead("batch-reads"),
         Delete("deletes"),
         Write("writes"),
         Mixed("transactions");
@@ -78,6 +83,27 @@ public class VoldemortWrapper {
         measurement.recordReturnCode(Operations.Read.getOpString(), res.ordinal());
     }
 
+    public void batchread(List<Object> keys) {
+        long startNs = System.nanoTime();
+        Map<Object, Versioned<Object>> returnedValue = voldemortStore.getAll(keys);
+        long endNs = System.nanoTime();
+        measurement.recordLatency(Operations.BatchRead.getOpString(),
+                (int) ((endNs - startNs) / Time.NS_PER_MS));
+
+        ReturnCode res = ReturnCode.Ok;
+        if(returnedValue == null && !this.ignoreNulls) {
+            res = ReturnCode.Error;
+        }
+
+        /*
+        if(verifyReads && !expectedValue.equals(returnedValue.getValue())) {
+            res = ReturnCode.Error;
+        }
+        */
+
+        measurement.recordReturnCode(Operations.BatchRead.getOpString(), res.ordinal());
+    }
+
     public void mixed(final Object key, final Object newValue, final Object transforms) {
 
         boolean updated = voldemortStore.applyUpdate(new UpdateAction<Object, Object>() {
@@ -87,7 +113,12 @@ public class VoldemortWrapper {
                 long startNs = System.nanoTime();
                 Versioned<Object> vs = storeClient.get(key);
                 if(vs != null)
-                    storeClient.put(key, newValue, transforms);
+                    if (vs.getValue() instanceof String) {
+                        storeClient.put(key, newValue, transforms);
+                    } else {
+                        storeClient.put(key, vs.getValue(), transforms);
+                    }
+
                 long endNs = System.nanoTime();
                 measurement.recordLatency(Operations.Mixed.getOpString(),
                                           (int) ((endNs - startNs) / Time.NS_PER_MS));
