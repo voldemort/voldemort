@@ -176,23 +176,7 @@ public abstract class AbstractRebalanceTest {
         return "tcp://" + node.getHost() + ":" + node.getSocketPort();
     }
 
-    // TODO: replaced by rebalanceAndCheck(...RebalancePlan...)
-    @Deprecated
-    protected void rebalanceAndCheck(Cluster currentCluster,
-                                     Cluster targetCluster,
-                                     List<StoreDefinition> storeDefs,
-                                     RebalanceController rebalanceClient,
-                                     List<Integer> nodeCheckList) {
-        // TODO: Switch test to RebalancePlan-based testing
-        rebalanceClient.rebalance(targetCluster);
-        checkEntriesPostRebalance(currentCluster,
-                                  targetCluster,
-                                  storeDefs,
-                                  nodeCheckList,
-                                  testEntries,
-                                  null);
-    }
-
+    // TODO: Add javadoc
     protected void rebalanceAndCheck(RebalancePlan rebalancePlan,
                                      RebalanceController rebalanceClient,
                                      List<Integer> nodeCheckList) {

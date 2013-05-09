@@ -19,33 +19,34 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import voldemort.cluster.Cluster;
-import voldemort.store.StoreDefinition;
 import voldemort.utils.Utils;
 
-public abstract class RebalanceTypedBatchPlan extends RebalanceClusterPlan {
+// TODO: Better name? ExecutableBatchPlan?
+public abstract class RebalanceTypedBatchPlan {
 
+    protected final List<RebalancePartitionsInfo> batchPlan;
     protected final Queue<RebalanceNodePlan> rebalanceTaskQueue;
 
-    public RebalanceTypedBatchPlan(final Cluster currentCluster,
-                                   final Cluster targetCluster,
-                                   final List<StoreDefinition> storeDefs,
-                                   final boolean enabledDeletePartition) {
-        super(currentCluster, targetCluster, storeDefs, enabledDeletePartition, true);
+    public RebalanceTypedBatchPlan(final RebalanceClusterPlan rebalanceClusterPlan) {
+        this.batchPlan = rebalanceClusterPlan.getBatchPlan();
 
         // TODO: Why does this data structure need to be concurrent!? I have
         // cut-and-paste this construction from prior code. But, if this needs
         // to be concurrent-safe, then the declaration of the getRebaalncePlan
         // methods ought to indicate that a concurrent safe struct is being
-        // returned.
-        this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
+        // returned. [if no value in concurrent, want to remove so that there is
+        // no confusion about usage of this member.]
+
         // Sub-classes populate this data member in their constructor
+        this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
     }
 
-    // TODO: drop the "TWO" suffix after this method has been removed from
-    // parent class RebalanceClusterPlan. This will happen as part of switching
-    // the rebalance controller over to use RebalancePlanner.
-    public Queue<RebalanceNodePlan> getRebalancingTaskQueueTWO() {
+    /**
+     * Returns the rebalancing task queue to be executed.
+     * 
+     * @return
+     */
+    public Queue<RebalanceNodePlan> getRebalancingTaskQueue() {
         return rebalanceTaskQueue;
     }
 

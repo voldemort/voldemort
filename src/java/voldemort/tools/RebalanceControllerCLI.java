@@ -28,7 +28,6 @@ import joptsimple.OptionSet;
 
 import org.apache.log4j.Logger;
 
-import voldemort.client.rebalance.RebalanceClientConfig;
 import voldemort.client.rebalance.RebalanceController;
 import voldemort.client.rebalance.RebalancePlan;
 import voldemort.cluster.Cluster;
@@ -57,25 +56,22 @@ public class RebalanceControllerCLI {
         // TODO: WTF
         parser.accepts("tries",
                        "(1) Tries during rebalance [ Default: "
-                               + RebalanceClientConfig.MAX_TRIES_REBALANCING
+                               + RebalanceController.MAX_TRIES_REBALANCING
                                + " ] (2) Number of tries while generating new metadata")
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("num-tries");
         // TODO: WTF
-        parser.accepts("delete",
-                       "Delete after rebalancing (Valid only for RW Stores) [ Default : false ] ");
-        // TODO: WTF
         parser.accepts("timeout",
                        "Time-out in seconds for rebalancing of a single task ( stealer - donor tuple ) [ Default : "
-                               + RebalanceClientConfig.REBALANCING_CLIENT_TIMEOUT_SEC + " ]")
+                               + RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC + " ]")
               .withRequiredArg()
               .ofType(Long.class)
               .describedAs("sec");
         // TODO: WTF
         parser.accepts("parallelism",
                        "Number of rebalances to run in parallel [ Default:"
-                               + RebalanceClientConfig.MAX_PARALLEL_REBALANCING + " ]")
+                               + RebalanceController.MAX_PARALLEL_REBALANCING + " ]")
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("parallelism");
@@ -92,7 +88,7 @@ public class RebalanceControllerCLI {
         // TODO: Switch default for batch size to infinite.
         parser.accepts("batch",
                        "Number of primary partitions to move together [ Default : "
-                               + RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE + " ]")
+                               + RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE + " ]")
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("num-primary-partitions");
@@ -159,13 +155,17 @@ public class RebalanceControllerCLI {
         // Bootstrap & fetch current cluster/stores
         String bootstrapURL = (String) options.valueOf("url");
 
-        // TODO: Process optional controller args
+        boolean stealerBased = true;
+        if(options.has("donor-based")) {
+            stealerBased = false;
+        }
+        // TODO: Process other optional controller args
+
         RebalanceController rebalanceController = new RebalanceController(bootstrapURL,
                                                                           1,
                                                                           2,
                                                                           TimeUnit.DAYS.toSeconds(30),
-                                                                          true,
-                                                                          false);
+                                                                          stealerBased);
 
         Cluster currentCluster = rebalanceController.getCurrentCluster();
         List<StoreDefinition> currentStoreDefs = rebalanceController.getCurrentStoreDefs();
@@ -187,16 +187,11 @@ public class RebalanceControllerCLI {
         // Process optional planning args
         int batchSize = CmdUtils.valueOf(options,
                                          "batch",
-                                         RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE);
+                                         RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE);
 
         String outputDir = null;
         if(options.has("output-dir")) {
             outputDir = (String) options.valueOf("output-dir");
-        }
-
-        boolean stealerBased = true;
-        if(options.has("donor-based")) {
-            stealerBased = false;
         }
 
         // Plan rebalancing
@@ -205,7 +200,6 @@ public class RebalanceControllerCLI {
                                                         currentStoreDefs,
                                                         finalCluster,
                                                         finalStoreDefs,
-                                                        stealerBased,
                                                         batchSize,
                                                         outputDir);
         // Execute rebalancing plan.

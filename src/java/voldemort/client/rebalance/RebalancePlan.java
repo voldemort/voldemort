@@ -41,21 +41,21 @@ import com.google.common.collect.TreeMultimap;
 // TODO: Add a header comment.
 // TODO: Remove stealerBased from the constructor once RebalanceController is
 // switched over to use RebalancePlan. (Or sooner)
-// TODO: Add (simple & basic) tests of RebalancePlan
 public class RebalancePlan {
 
     private static final Logger logger = Logger.getLogger(RebalancePlan.class);
+
+    // TODO: Rename this and set to (effectively) infinite.
+    public final static int PRIMARY_PARTITION_BATCH_SIZE = 1;
 
     private final Cluster currentCluster;
     private final List<StoreDefinition> currentStores;
     private final Cluster finalCluster;
     private final List<StoreDefinition> finalStores;
-    private final boolean stealerBased;
     private final int batchSize;
     private final String outputDir;
 
-    // TODO: (refactor) Better name than targetCluster? expandedCluster?
-    // specCluster?
+    // TODO: (refactor) Better name than targetCluster? -> interimCluster
     private final Cluster targetCluster;
     private List<RebalanceClusterPlan> batchPlans;
 
@@ -70,14 +70,12 @@ public class RebalancePlan {
                          final List<StoreDefinition> currentStores,
                          final Cluster finalCluster,
                          final List<StoreDefinition> finalStores,
-                         boolean stealerBased,
                          int batchSize,
                          String outputDir) {
         this.currentCluster = currentCluster;
         this.currentStores = RebalanceUtils.validateRebalanceStore(currentStores);
         this.finalCluster = finalCluster;
         this.finalStores = RebalanceUtils.validateRebalanceStore(finalStores);
-        this.stealerBased = stealerBased;
         this.batchSize = batchSize;
         this.outputDir = outputDir;
 
@@ -117,16 +115,9 @@ public class RebalancePlan {
     public RebalancePlan(final Cluster currentCluster,
                          final List<StoreDefinition> currentStores,
                          final Cluster finalCluster,
-                         boolean stealerBased,
                          int batchSize,
                          String outputDir) {
-        this(currentCluster,
-             currentStores,
-             finalCluster,
-             currentStores,
-             stealerBased,
-             batchSize,
-             outputDir);
+        this(currentCluster, currentStores, finalCluster, currentStores, batchSize, outputDir);
     }
 
     /**
@@ -195,13 +186,9 @@ public class RebalancePlan {
                                             "batch-" + Integer.toString(batches) + ".");
 
             // Generate a plan to compute the tasks
-            // TODO: OK to remove option to "delete" from planning?
-            boolean deleteEnabled = false;
             final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(batchTargetCluster,
                                                                                        batchFinalCluster,
-                                                                                       finalStores,
-                                                                                       deleteEnabled,
-                                                                                       stealerBased);
+                                                                                       finalStores);
             batchPlans.add(rebalanceClusterPlan);
 
             numXZonePartitionStoreMoves += rebalanceClusterPlan.getCrossZonePartitionStoreMoves();

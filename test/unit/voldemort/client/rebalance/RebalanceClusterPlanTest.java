@@ -42,6 +42,7 @@ import com.google.common.collect.Sets;
 // TODO: Most of these tests are currently failing. Once RebalanceClusterPlan is
 // cleaned up further, fix these. In particular, once OrderedClusterTransision
 // is cleaned up, or removed, make sure these tests (or equivalent) all pass.
+// TODO: remove TestCase and add @Test annotations
 public class RebalanceClusterPlanTest extends TestCase {
 
     private static String storeDefFile = "test/common/voldemort/config/stores.xml";
@@ -70,7 +71,7 @@ public class RebalanceClusterPlanTest extends TestCase {
         targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 1 }, { 0 }, { 2 } });
 
         try {
-            new RebalanceClusterPlan(currentCluster, targetCluster, storeDefList, true);
+            new RebalanceClusterPlan(currentCluster, targetCluster, storeDefList);
             fail("Should have thrown an exception since the migration should result in decrease in replication factor");
         } catch(VoldemortException e) {}
 
@@ -854,12 +855,11 @@ public class RebalanceClusterPlanTest extends TestCase {
                                                                     List<StoreDefinition> storeDef) {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
-                                                                      storeDef,
-                                                                      true);
-        final OrderedClusterTransition orderedClusterTransition = new OrderedClusterTransition(currentCluster,
-                                                                                               targetCluster,
-                                                                                               storeDef,
-                                                                                               rebalancePlan);
+                                                                      storeDef);
+        // TODO: add a stealer-based arugment to this method to decide type of
+        // exectuable batch (stealer- or donor-based)
+        final RebalanceStealerBasedBatchPlan rsbbp = new RebalanceStealerBasedBatchPlan(rebalancePlan);
+        final OrderedClusterTransition orderedClusterTransition = new OrderedClusterTransition(rsbbp);
         return orderedClusterTransition;
     }
 

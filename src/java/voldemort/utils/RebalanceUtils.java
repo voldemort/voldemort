@@ -42,7 +42,6 @@ import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.rebalance.RebalanceClusterPlan;
 import voldemort.client.rebalance.RebalanceNodePlan;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -178,51 +177,6 @@ public class RebalanceUtils {
                                              + clock + " and on current node " + newClock);
 
         }
-    }
-
-    // TODO: Deprecate in favor of RebalanceClusterPlan.getCrossZoneMoves()
-    /**
-     * Return the number of cross zone copying that is going to take place
-     * 
-     * @param targetCluster Target cluster metadata
-     * @param plan The rebalance plan
-     * @return Number of cross zone moves
-     */
-    @Deprecated
-    public static int getCrossZoneMoves(final Cluster targetCluster, final RebalanceClusterPlan plan) {
-
-        int crossZoneMoves = 0;
-        for(RebalanceNodePlan nodePlan: plan.getRebalancingTaskQueue()) {
-            List<RebalancePartitionsInfo> infos = nodePlan.getRebalanceTaskList();
-            for(RebalancePartitionsInfo info: infos) {
-                Node donorNode = targetCluster.getNodeById(info.getDonorId());
-                Node stealerNode = targetCluster.getNodeById(info.getStealerId());
-
-                if(donorNode.getZoneId() != stealerNode.getZoneId()) {
-                    crossZoneMoves++;
-                }
-            }
-        }
-
-        return crossZoneMoves;
-    }
-
-    // TODO: Deprecate in favor of RebalanceClusterPlan.getTotalMoves()
-    /**
-     * Return the number of total moves
-     * 
-     * @param plan The rebalance plan
-     * @return Number of moves
-     */
-    @Deprecated
-    public static int getTotalMoves(final RebalanceClusterPlan plan) {
-
-        int totalMoves = 0;
-        for(RebalanceNodePlan nodePlan: plan.getRebalancingTaskQueue()) {
-            totalMoves += nodePlan.getRebalanceTaskList().size();
-        }
-
-        return totalMoves;
     }
 
     /**

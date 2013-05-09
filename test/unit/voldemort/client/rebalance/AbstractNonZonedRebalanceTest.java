@@ -246,14 +246,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
             long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            boolean deleteAfter = true;
             RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
                                                                           maxTries,
                                                                           timeout,
-                                                                          stealerBased,
-                                                                          deleteAfter);
-            int batchSize = RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE;
+                                                                          stealerBased);
+            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
             try {
 
@@ -309,14 +307,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
             long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            boolean deleteAfter = true;
             RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
                                                                           maxTries,
                                                                           timeout,
-                                                                          stealerBased,
-                                                                          deleteAfter);
-            int batchSize = RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE;
+                                                                          stealerBased);
+            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
             try {
@@ -383,14 +379,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
             long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            boolean deleteAfter = true;
             RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
                                                                           maxTries,
                                                                           timeout,
-                                                                          stealerBased,
-                                                                          deleteAfter);
-            int batchSize = RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE;
+                                                                          stealerBased);
+            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
             try {
@@ -435,14 +429,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
             long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            boolean deleteAfter = true;
             RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
                                                                           maxTries,
                                                                           timeout,
-                                                                          stealerBased,
-                                                                          deleteAfter);
-            int batchSize = RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE;
+                                                                          stealerBased);
+            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
             try {
@@ -496,9 +488,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                           maxParallel,
                                                                           maxTries,
                                                                           timeout,
-                                                                          stealerBased,
-                                                                          deleteAfter);
-            int batchSize = RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE;
+                                                                          stealerBased);
+            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
             try {
@@ -508,15 +499,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                              false);
 
                 AdminClient admin = rebalanceClient.getAdminClient();
-                // Figure out the positive and negative keys to check
-                /*-
-                 * TODO: remove delete keys tests
-                List<ByteArray> negativeTestKeyList = sampleKeysFromPartition(admin,
-                                                                              1,
-                                                                              rwStoreDefWithReplication.getName(),
-                                                                              Arrays.asList(3),
-                                                                              20);
-                 */
+                // Figure out the positive keys to check
                 List<ByteArray> positiveTestKeyList = sampleKeysFromPartition(admin,
                                                                               1,
                                                                               rwStoreDefWithReplication.getName(),
@@ -540,15 +523,6 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                      1,
                                      rwStoreDefWithReplication.getName(),
                                      positiveTestKeyList);
-                // do the negative tests
-                // TODO: deleteAfter does not currently work in the new
-                // controller
-                /*-
-                checkForKeyNonExistence(admin,
-                                        1,
-                                        rwStoreDefWithReplication.getName(),
-                                        negativeTestKeyList);
-                 */
 
                 logger.info("[Primary] Successful clean after Rebalancing");
             } finally {
@@ -588,14 +562,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
             long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            boolean deleteAfter = false;
             RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
                                                                           maxTries,
                                                                           timeout,
-                                                                          stealerBased,
-                                                                          deleteAfter);
-            int batchSize = RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE;
+                                                                          stealerBased);
+            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
             try {
@@ -606,14 +578,6 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
                 AdminClient admin = rebalanceClient.getAdminClient();
                 // Figure out the positive and negative keys to check
-                /*-
-                 * TODO: remove delete keys stuff.
-                List<ByteArray> negativeTestKeyList = sampleKeysFromPartition(admin,
-                                                                              1,
-                                                                              rwStoreDefWithReplication.getName(),
-                                                                              Arrays.asList(3),
-                                                                              20);
-                 */
                 List<ByteArray> positiveTestKeyList = sampleKeysFromPartition(admin,
                                                                               0,
                                                                               rwStoreDefWithReplication.getName(),
@@ -637,15 +601,6 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                      0,
                                      rwStoreDefWithReplication.getName(),
                                      positiveTestKeyList);
-                // TODO: deleteAfter does not currently work in the new
-                // controller
-                /*-
-                // do the negative tests
-                checkForKeyNonExistence(admin,
-                                        1,
-                                        rwStoreDefWithReplication.getName(),
-                                        negativeTestKeyList);
-                 */
 
                 logger.info("[Secondary] Successful clean after Rebalancing");
             } finally {
@@ -691,13 +646,11 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
             long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            boolean deleteAfter = true;
             RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
                                                                           maxTries,
                                                                           timeout,
-                                                                          stealerBased,
-                                                                          deleteAfter);
+                                                                          stealerBased);
             int batchSize = 100;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
@@ -762,13 +715,11 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
             long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            boolean deleteAfter = true;
             RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
                                                                           maxTries,
                                                                           timeout,
-                                                                          stealerBased,
-                                                                          deleteAfter);
+                                                                          stealerBased);
             int batchSize = 100;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
@@ -830,14 +781,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             // We are forced to use stealer based since RO does not support
             // donor based rebalancing yet
             boolean stealerBased = true;
-            boolean deleteAfter = true;
             final RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                                 maxParallel,
                                                                                 maxTries,
                                                                                 timeout,
-                                                                                stealerBased,
-                                                                                deleteAfter);
-            int batchSize = RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE;
+                                                                                stealerBased);
+            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
             final RebalancePlan rebalancePlan = rebalanceClient.getPlan(updatedTargetCluster,
                                                                         batchSize);
 
@@ -963,6 +912,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
 // TODO: MERGE FIX
     // TODO: Fix this test.
+    // TODO: fix this test. Need to take the plan into account to correctly do
+    // tests.
     @Test(timeout = 600000)
     public void testProxyPutDuringRebalancing() throws Exception {
         System.err.println("testProxyPutDuringRebalancing is currently failing (intermittently)?");
@@ -998,14 +949,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
             long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            boolean deleteAfter = true;
             final RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                                 maxParallel,
                                                                                 maxTries,
                                                                                 timeout,
-                                                                                stealerBased,
-                                                                                deleteAfter);
-            int batchSize = RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE;
+                                                                                stealerBased);
+            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
             final RebalancePlan rebalancePlan = rebalanceClient.getPlan(updatedTargetCluster,
                                                                         batchSize);
 
@@ -1217,14 +1166,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
             long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            boolean deleteAfter = true;
             final RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                                 maxParallel,
                                                                                 maxTries,
                                                                                 timeout,
-                                                                                stealerBased,
-                                                                                deleteAfter);
-            int batchSize = RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE;
+                                                                                stealerBased);
+            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
             final RebalancePlan rebalancePlan = rebalanceClient.getPlan(updatedTargetCluster,
                                                                         batchSize);
 

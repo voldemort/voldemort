@@ -60,17 +60,10 @@ public class RebalancePlanTest {
                            Cluster fCluster,
                            List<StoreDefinition> fStores) {
         // Defaults for plans
-        boolean stealerBased = true;
         int batchSize = 1000;
         String outputDir = null;
 
-        return new RebalancePlan(cCluster,
-                                 cStores,
-                                 fCluster,
-                                 fStores,
-                                 stealerBased,
-                                 batchSize,
-                                 outputDir);
+        return new RebalancePlan(cCluster, cStores, fCluster, fStores, batchSize, outputDir);
     }
 
     @Test

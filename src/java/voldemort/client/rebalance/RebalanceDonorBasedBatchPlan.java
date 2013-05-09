@@ -19,18 +19,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import voldemort.cluster.Cluster;
-import voldemort.store.StoreDefinition;
-
 import com.google.common.collect.Lists;
 
 public class RebalanceDonorBasedBatchPlan extends RebalanceTypedBatchPlan {
 
-    public RebalanceDonorBasedBatchPlan(final Cluster currentCluster,
-                                        final Cluster targetCluster,
-                                        final List<StoreDefinition> storeDefs,
-                                        final boolean enabledDeletePartition) {
-        super(currentCluster, targetCluster, storeDefs, enabledDeletePartition);
+    public RebalanceDonorBasedBatchPlan(RebalanceClusterPlan rebalanceClusterPlan) {
+        super(rebalanceClusterPlan);
 
         HashMap<Integer, List<RebalancePartitionsInfo>> donorToBatchPlan = new HashMap<Integer, List<RebalancePartitionsInfo>>();
         for(RebalancePartitionsInfo info: batchPlan) {
