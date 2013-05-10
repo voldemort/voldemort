@@ -15,20 +15,34 @@
  */
 package voldemort.client.rebalance;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import voldemort.routing.StoreRoutingPlan;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.Utils;
 
 // TODO: Rename to ExecutableRebalanceBatch
 public abstract class RebalanceTypedBatchPlan {
 
-    protected final List<RebalancePartitionsInfo> batchPlan;
+    protected final RebalanceClusterPlan rebalanceClusterPlan;
+    // Construct store routing plans so that task order can be optimized.
+    private final Map<String, StoreRoutingPlan> storeToRoutingPlan;
+
     protected final Queue<RebalanceNodePlan> rebalanceTaskQueue;
 
     public RebalanceTypedBatchPlan(final RebalanceClusterPlan rebalanceClusterPlan) {
-        this.batchPlan = rebalanceClusterPlan.getBatchPlan();
+        this.rebalanceClusterPlan = rebalanceClusterPlan;
+        this.storeToRoutingPlan = new HashMap<String, StoreRoutingPlan>();
+        for(StoreDefinition storeDef: rebalanceClusterPlan.getStoreDefs()) {
+            this.storeToRoutingPlan.put(storeDef.getName(),
+                                        new StoreRoutingPlan(rebalanceClusterPlan.getFinalCluster(),
+                                                             storeDef));
+        }
 
         // TODO: Why does this data structure need to be concurrent!? I have
         // cut-and-paste this construction from prior code. But, if this needs
@@ -48,6 +62,33 @@ public abstract class RebalanceTypedBatchPlan {
      */
     public Queue<RebalanceNodePlan> getRebalancingTaskQueue() {
         return rebalanceTaskQueue;
+    }
+
+    // TODO: Change method name once types have better names.
+    // TODO: add javadoc
+    // Take an unorderd list of tasks and order them by zone n-ary for sake of
+    // prioritizing zone primaries ahead of zone secondaries ahead of ...
+    protected List<RebalancePartitionsInfo> sortTasks(int nodeId,
+                                                      List<RebalancePartitionsInfo> tasks) {
+        int zoneId = rebalanceClusterPlan.getFinalCluster().getNodeById(nodeId).getZoneId();
+        for(RebalancePartitionsInfo task: tasks) {
+            Map<Integer, List<RebalancePartitionsInfo>> zoneNaryToTasks = new HashMap<Integer, List<RebalancePartitionsInfo>>();
+            for(String storeName: storeToRoutingPlan.keySet()) {
+                StoreRoutingPlan storeRoutingPlan = storeToRoutingPlan.get(storeName);
+                List<Integer> partitionIds = task.getPartitionIds(storeName);
+                for(Integer partitionId: partitionIds) {
+                    int zoneNaryType = storeRoutingPlan.getZoneReplicaType(zoneId,
+                                                                           nodeId,
+                                                                           partitionId);
+                    if(!zoneNaryToTasks.containsKey(zoneNaryType)) {
+                        zoneNaryToTasks.put(zoneNaryType, new ArrayList<RebalancePartitionsInfo>());
+                    }
+                    List<RebalancePartitionsInfo> naryTasks = zoneNaryToTasks.get(zoneNaryType);
+                    // naryTasks. .add(partitionId);
+                }
+            }
+        }
+        return null;
     }
 
     @Override

@@ -19,6 +19,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -56,13 +57,17 @@ public class RebalancePartitionsInfo {
 
     private final int stealerId;
     private final int donorId;
+    private HashMap<String, List<Integer>> storeToPartitionIds;
+
     // TODO: (refactor) Unclear what value of the inner Hashmap is. It maps
     // "replica type" to lists of partition IDs. A list of partition IDs (per
     // store) seems sufficient for all purposes. The replica type is a
     // distraction.
+    @Deprecated
     private HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitionList;
     // TODO: (refactor) What value is maxReplica? Seems like it is used in loops
     // internally. No idea why it is a member.
+    @Deprecated
     private int maxReplica;
     // TODO: (refactor) Does the initialCluster have to be a member? See if it
     // can be removed. There is a getInitialCluster method that is called by
@@ -70,8 +75,11 @@ public class RebalancePartitionsInfo {
     // class? At first glance, all usages of this method are awkward/unclean
     // (i.e., seems like initialCluster could be found through other paths in
     // all cases).
+    @Deprecated
     private Cluster initialCluster;
 
+    // TODO: pre-"flatten" argument storeToReplicaToAddPArtitionList and then
+    // drop. Internally, we transform this struct into something much simpler.
     /**
      * Rebalance Partitions info maintains all information needed for
      * rebalancing for a stealer-donor node tuple
@@ -95,15 +103,26 @@ public class RebalancePartitionsInfo {
                                    Cluster initialCluster) {
         this.stealerId = stealerNodeId;
         this.donorId = donorId;
-        this.storeToReplicaToAddPartitionList = storeToReplicaToAddPartitionList;
-        this.maxReplica = 0;
-
-        // Find the max replica number
-        findMaxReplicaType(storeToReplicaToAddPartitionList);
+        setStoreToReplicaToAddPartitionList(storeToReplicaToAddPartitionList);
 
         this.initialCluster = Utils.notNull(initialCluster);
     }
 
+    private void flattenStoreToReplicaToAddPartitionListTOStoreToPartitionIds() {
+        this.storeToPartitionIds = new HashMap<String, List<Integer>>();
+        for(Entry<String, HashMap<Integer, List<Integer>>> entry: storeToReplicaToAddPartitionList.entrySet()) {
+            if(!this.storeToPartitionIds.containsKey(entry.getKey())) {
+                this.storeToPartitionIds.put(entry.getKey(), new LinkedList<Integer>());
+            }
+            List<Integer> storesPartitionIds = this.storeToPartitionIds.get(entry.getKey());
+            for(List<Integer> replicaTypesPartitionIds: entry.getValue().values()) {
+                storesPartitionIds.addAll(replicaTypesPartitionIds);
+            }
+        }
+    }
+
+    // TODO: Get rid of this.
+    @Deprecated
     private void findMaxReplicaType(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList) {
         for(Entry<String, HashMap<Integer, List<Integer>>> entry: storeToReplicaToPartitionList.entrySet()) {
             for(Entry<Integer, List<Integer>> replicaToPartitionList: entry.getValue().entrySet()) {
@@ -206,6 +225,8 @@ public class RebalancePartitionsInfo {
         return stealerId;
     }
 
+    // TODO: Get rid of this.
+    @Deprecated
     public synchronized Cluster getInitialCluster() {
         return initialCluster;
     }
@@ -233,24 +254,43 @@ public class RebalancePartitionsInfo {
      * 
      * @return Set of store names
      */
+    // TODO: Get rid of this.
+    @Deprecated
     public synchronized Set<String> getUnbalancedStoreList() {
         return storeToReplicaToAddPartitionList.keySet();
     }
 
+    // TODO: Get rid of this.
+    @Deprecated
     public synchronized HashMap<String, HashMap<Integer, List<Integer>>> getStoreToReplicaToAddPartitionList() {
         return this.storeToReplicaToAddPartitionList;
     }
 
+    // TODO: Get rid of this.
+    @Deprecated
     public synchronized HashMap<Integer, List<Integer>> getReplicaToAddPartitionList(String storeName) {
         return this.storeToReplicaToAddPartitionList.get(storeName);
     }
 
+    // TODO: Get rid of this.
+    @Deprecated
     public synchronized void setStoreToReplicaToAddPartitionList(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitionList) {
         this.storeToReplicaToAddPartitionList = storeToReplicaToAddPartitionList;
+        findMaxReplicaType(storeToReplicaToAddPartitionList);
+        flattenStoreToReplicaToAddPartitionListTOStoreToPartitionIds();
     }
 
     public synchronized void removeStore(String storeName) {
         this.storeToReplicaToAddPartitionList.remove(storeName);
+        this.storeToPartitionIds.remove(storeName);
+    }
+
+    public synchronized List<Integer> getPartitionIds(String storeName) {
+        return this.storeToPartitionIds.get(storeName);
+    }
+
+    public synchronized void setPartitionIds(String storeName, List<Integer> partitionIds) {
+        this.storeToPartitionIds.put(storeName, partitionIds);
     }
 
     /**
@@ -258,6 +298,8 @@ public class RebalancePartitionsInfo {
      * 
      * @return List of primary partitions
      */
+    // TODO: Get rid of this.
+    @Deprecated
     public synchronized List<Integer> getStealMasterPartitions() {
         Iterator<HashMap<Integer, List<Integer>>> iter = storeToReplicaToAddPartitionList.values()
                                                                                          .iterator();

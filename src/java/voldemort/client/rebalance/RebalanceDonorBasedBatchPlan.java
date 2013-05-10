@@ -27,7 +27,7 @@ public class RebalanceDonorBasedBatchPlan extends RebalanceTypedBatchPlan {
         super(rebalanceClusterPlan);
 
         HashMap<Integer, List<RebalancePartitionsInfo>> donorToBatchPlan = new HashMap<Integer, List<RebalancePartitionsInfo>>();
-        for(RebalancePartitionsInfo info: batchPlan) {
+        for(RebalancePartitionsInfo info: rebalanceClusterPlan.getBatchPlan()) {
             int donorId = info.getDonorId();
             if(!donorToBatchPlan.containsKey(donorId)) {
                 donorToBatchPlan.put(donorId, new ArrayList<RebalancePartitionsInfo>());

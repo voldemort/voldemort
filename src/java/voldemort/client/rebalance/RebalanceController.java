@@ -46,7 +46,14 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 
+// TODO: javadoc header needed
 public class RebalanceController {
+
+    // TODO: Remove server side "optimization" that does not bother to steal
+    // partition-stores it already hosts. That code will be unnecessary. This
+    // also affects AdminClient that has an override of this option. Do not
+    // complete this work until the atomic metadata update is merged with this
+    // branch. Otherwise, there will be conflicts on .proto changes.
 
     private static final Logger logger = Logger.getLogger(RebalanceController.class);
 

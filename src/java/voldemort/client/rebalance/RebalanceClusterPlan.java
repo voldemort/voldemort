@@ -87,18 +87,7 @@ public class RebalanceClusterPlan {
         RebalanceUtils.validateClusterStores(finalCluster, storeDefs);
 
         this.batchPlan = batchPlan();
-        /*-
-        for(Node node: finalCluster.getNodes()) {
-            this.batchPlan.addAll(getRebalancePartitionsInfo(node.getId(), enabledDeletePartition));
-        }
-         */
 
-        // TODO: Add some priority ordering somewhere in this class.
-        // prioritizeBatchPlan();
-
-        // TODO: Once plan-level optimization is complete, remove server side
-        // "optimization" that does not bother to steal partition-stores it
-        // already hosts. That code will be unnecessary.
     }
 
     public Cluster getCurrentCluster() {

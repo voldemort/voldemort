@@ -27,7 +27,7 @@ public class RebalanceStealerBasedBatchPlan extends RebalanceTypedBatchPlan {
         super(rebalanceClusterPlan);
 
         HashMap<Integer, List<RebalancePartitionsInfo>> stealerToBatchPlan = new HashMap<Integer, List<RebalancePartitionsInfo>>();
-        for(RebalancePartitionsInfo info: batchPlan) {
+        for(RebalancePartitionsInfo info: rebalanceClusterPlan.getBatchPlan()) {
             int stealerId = info.getStealerId();
             if(!stealerToBatchPlan.containsKey(stealerId)) {
                 stealerToBatchPlan.put(stealerId, new ArrayList<RebalancePartitionsInfo>());
