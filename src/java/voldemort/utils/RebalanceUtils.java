@@ -42,7 +42,6 @@ import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.rebalance.RebalanceNodePlan;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -1052,22 +1051,6 @@ public class RebalanceUtils {
         }
 
         return partitionTuples;
-    }
-
-    /**
-     * Given a list of node plans flattens it into a list of partitions info
-     * 
-     * @param rebalanceNodePlanList Complete list of rebalance node plan
-     * @return Flattened list of partition plans
-     */
-    public static List<RebalancePartitionsInfo> flattenNodePlans(List<RebalanceNodePlan> rebalanceNodePlanList) {
-        List<RebalancePartitionsInfo> list = new ArrayList<RebalancePartitionsInfo>();
-        for(RebalanceNodePlan rebalanceNodePlan: rebalanceNodePlanList) {
-            for(final RebalancePartitionsInfo stealInfo: rebalanceNodePlan.getRebalanceTaskList()) {
-                list.add(stealInfo);
-            }
-        }
-        return list;
     }
 
     /**
