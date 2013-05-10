@@ -745,7 +745,6 @@ public class RebalanceClusterPlanTest extends TestCase {
         }
     }
 
-    // TODO: This will become 'createExecutableBatch' (i think)
     /**
      * Given the current and target cluster metadata, along with your store
      * definition, return the executable tasks.
@@ -761,9 +760,7 @@ public class RebalanceClusterPlanTest extends TestCase {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDef);
-        // TODO: add a stealer-based arugment to this method to decide type of
-        // exectuable batch (stealer- or donor-based)
-        return new RebalanceStealerBasedBatchPlan(rebalancePlan).getRebalancingTasks();
+        return rebalancePlan.getBatchPlan();
     }
 
 }

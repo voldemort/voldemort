@@ -205,24 +205,11 @@ public class RebalanceController {
 
         for(RebalanceClusterPlan batchPlan: entirePlan) {
             logger.info("========  REBALANCING BATCH " + (batchCount + 1) + "  ========");
-            // TODO: Any way to deprecate/remove OrderedClusterTransition?
-            RebalanceTypedBatchPlan executableBatch = null;
-            if(stealerBasedRebalancing) {
-                executableBatch = new RebalanceStealerBasedBatchPlan(batchPlan);
-            } else {
-                executableBatch = new RebalanceDonorBasedBatchPlan(batchPlan);
-            }
-
-            RebalanceUtils.printLog(batchCount, logger, executableBatch.toString());
+            RebalanceUtils.printLog(batchCount, logger, batchPlan.toString());
 
             long startTimeMs = System.currentTimeMillis();
-            // TODO: should be
-            // 'executeBatch(batchCount,batchPlan,executableBatch)'
-            executeBatch(batchCount,
-                         batchPlan.getCurrentCluster(),
-                         batchPlan.getFinalCluster(),
-                         batchPlan.getStoreDefs(),
-                         executableBatch);
+            // ACTUALLY DO A BATCH OF REBALANCING!
+            executeBatch(batchCount, batchPlan);
             totalTimeMs += (System.currentTimeMillis() - startTimeMs);
 
             // Bump up the statistics
@@ -284,13 +271,13 @@ public class RebalanceController {
     }
 
     // TODO: Add javadoc.
-    private void executeBatch(int batchCount,
-                              final Cluster batchCurrentCluster,
-                              final Cluster batchFinalCluster,
-                              List<StoreDefinition> batchStoreDefs,
-                              final RebalanceTypedBatchPlan executableBatch) {
+    private void executeBatch(int batchCount, final RebalanceClusterPlan batchPlan) {
+        final Cluster batchCurrentCluster = batchPlan.getCurrentCluster();
+        final Cluster batchFinalCluster = batchPlan.getFinalCluster();
+        final List<StoreDefinition> batchStoreDefs = batchPlan.getStoreDefs();
+
         try {
-            final List<RebalancePartitionsInfo> rebalancePartitionsInfoList = executableBatch.getRebalancingTasks();
+            final List<RebalancePartitionsInfo> rebalancePartitionsInfoList = batchPlan.getBatchPlan();
 
             if(rebalancePartitionsInfoList.isEmpty()) {
                 RebalanceUtils.printLog(batchCount, logger, "Skipping batch " + batchCount

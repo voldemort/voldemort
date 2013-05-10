@@ -289,6 +289,10 @@ public class RebalancePartitionsInfo {
         return this.storeToPartitionIds.get(storeName);
     }
 
+    public synchronized Set<String> getPartitionStores() {
+        return this.storeToPartitionIds.keySet();
+    }
+
     public synchronized void setPartitionIds(String storeName, List<Integer> partitionIds) {
         this.storeToPartitionIds.put(storeName, partitionIds);
     }
@@ -332,6 +336,28 @@ public class RebalancePartitionsInfo {
             }
         }
         sb.append(")");
+        return sb.toString();
+    }
+
+    // TODO: Add javadoc
+    // TODO: move to rebalanceUtils? Or leave here?
+    public static String taskListToString(List<RebalancePartitionsInfo> infos) {
+        StringBuffer sb = new StringBuffer();
+        for(RebalancePartitionsInfo info: infos) {
+            sb.append("\t")
+              .append(info.getDonorId())
+              .append(" -> ")
+              .append(info.getStealerId())
+              .append(" : [");
+            for(String storeName: info.getPartitionStores()) {
+                sb.append("{")
+                  .append(storeName)
+                  .append(" : ")
+                  .append(info.getPartitionIds(storeName))
+                  .append("}");
+            }
+            sb.append("]").append(Utils.NEWLINE);
+        }
         return sb.toString();
     }
 

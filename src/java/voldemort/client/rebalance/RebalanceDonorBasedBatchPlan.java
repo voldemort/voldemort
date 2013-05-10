@@ -19,8 +19,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import com.google.common.collect.Lists;
-
 public class RebalanceDonorBasedBatchPlan extends RebalanceTypedBatchPlan {
 
     public RebalanceDonorBasedBatchPlan(RebalanceClusterPlan rebalanceClusterPlan) {
@@ -36,9 +34,11 @@ public class RebalanceDonorBasedBatchPlan extends RebalanceTypedBatchPlan {
         }
 
         for(int donorId: donorToBatchPlan.keySet()) {
+            /*-
             rebalanceTaskQueue.offer(new RebalanceNodePlan(donorId,
                                                            Lists.newArrayList(donorToBatchPlan.get(donorId)),
                                                            false));
+             */
         }
     }
 }

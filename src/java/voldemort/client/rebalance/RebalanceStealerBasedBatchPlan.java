@@ -19,8 +19,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import com.google.common.collect.Lists;
-
 public class RebalanceStealerBasedBatchPlan extends RebalanceTypedBatchPlan {
 
     public RebalanceStealerBasedBatchPlan(RebalanceClusterPlan rebalanceClusterPlan) {
@@ -36,9 +34,11 @@ public class RebalanceStealerBasedBatchPlan extends RebalanceTypedBatchPlan {
         }
 
         for(int stealerId: stealerToBatchPlan.keySet()) {
+            /*-
             rebalanceTaskQueue.offer(new RebalanceNodePlan(stealerId,
                                                            Lists.newArrayList(stealerToBatchPlan.get(stealerId)),
                                                            true));
+             */
         }
     }
 }

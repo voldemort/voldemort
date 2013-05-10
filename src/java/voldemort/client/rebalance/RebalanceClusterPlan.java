@@ -36,10 +36,6 @@ import com.google.common.collect.Maps;
 // exactly three prefixes used to distinguish cluster xml: initial or current,
 // target or spec or expanded, and final. 'target' has historically been
 // overloaded to mean spec/expanded or final depending on context.
-// TODO: Remove stealerBased boolean argument from constructor. If a
-// stealer-based or donor-based plan is needed, then either
-// RebalanceStealerBasedBatchPlan or RebalanceDonorBasedBatchPlan should be
-// constructed.
 // TODO: (refactor) Fix this header comment after all the refactoring...
 /**
  * Compares the target cluster configuration with the final cluster
@@ -155,30 +151,6 @@ public class RebalanceClusterPlan {
         }
 
         return partitionStoreMoves;
-    }
-
-    /**
-     * Prioritize the batchPlan such that primary partitions are ordered ahead
-     * or other nary partitions in the list.
-     */
-    private void prioritizeBatchPlan() {
-        // TODO: Steal logic from "ORderedClusterTransition" and put it here.
-        // The RebalancePlan ought to specify the priority ordering and so place
-        // primary moves ahead of nary moves.
-
-        // TODO: Fix this to use zonePrimary rather than just primary. Need to
-        // rebase with master to pick up appropriate helper methods first
-        // though.
-
-        // NO-OP
-
-        /*-
-         * Start of code to implement the basics.
-        HashMap<Integer, List<RebalancePartitionsInfo>> naryToBatchPlan = new HashMap<Integer, List<RebalancePartitionsInfo>>();
-        for(RebalancePartitionsInfo info: batchPlan) {
-        }
-        List<RebalancePartitionsInfo> infos = Lists.newArrayList(batchPlan);
-         */
     }
 
     // TODO: Simplify / kill this complicated struct once
@@ -328,13 +300,8 @@ public class RebalanceClusterPlan {
 
         StringBuilder builder = new StringBuilder();
         builder.append("Rebalancing Batch Plan : ").append(Utils.NEWLINE);
-
-        for(RebalancePartitionsInfo rebalancePartitionsInfo: batchPlan) {
-            builder.append(rebalancePartitionsInfo).append(Utils.NEWLINE);
-        }
+        builder.append(RebalancePartitionsInfo.taskListToString(batchPlan));
 
         return builder.toString();
-
     }
-
 }

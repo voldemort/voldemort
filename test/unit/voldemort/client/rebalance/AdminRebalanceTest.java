@@ -84,8 +84,6 @@ import com.google.common.collect.Maps;
 @RunWith(Parameterized.class)
 public class AdminRebalanceTest {
 
-    // TODO: fix to use new rebalancer!?!?!?!?!?
-
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                   10000,
                                                                                   100000,
@@ -104,6 +102,7 @@ public class AdminRebalanceTest {
 
     private final boolean useNio;
 
+    // TODO: should to test stealer- and donor-based rebalancing
     public AdminRebalanceTest(boolean useNio) {
         this.useNio = useNio;
     }
@@ -151,10 +150,7 @@ public class AdminRebalanceTest {
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
                                                                                 storeDef2));
-        // TODO: also test donor-based
-        RebalanceStealerBasedBatchPlan rsbbp = new RebalanceStealerBasedBatchPlan(plan);
-        plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(rsbbp.getRebalancingTaskQueue()));
-
+        plans = Lists.newArrayList(plan.getBatchPlan());
         adminClient = ServerTestUtils.getAdminClient(cluster);
     }
 
@@ -195,10 +191,7 @@ public class AdminRebalanceTest {
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
                                                                                 storeDef2));
-        // TODO: also test donor-based
-        RebalanceStealerBasedBatchPlan rsbbp = new RebalanceStealerBasedBatchPlan(plan);
-        plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(rsbbp.getRebalancingTaskQueue()));
-
+        plans = Lists.newArrayList(plan.getBatchPlan());
         adminClient = ServerTestUtils.getAdminClient(cluster);
     }
 
@@ -249,10 +242,8 @@ public class AdminRebalanceTest {
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
                                                                                 storeDef2));
-        // TODO: also test donor-based
-        RebalanceStealerBasedBatchPlan rsbbp = new RebalanceStealerBasedBatchPlan(plan);
-        plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(rsbbp.getRebalancingTaskQueue()));
 
+        plans = Lists.newArrayList(plan.getBatchPlan());
         adminClient = ServerTestUtils.getAdminClient(cluster);
     }
 
@@ -321,9 +312,7 @@ public class AdminRebalanceTest {
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
                                                                                 storeDef2));
-        // TODO: also test donor-based
-        RebalanceStealerBasedBatchPlan rsbbp = new RebalanceStealerBasedBatchPlan(plan);
-        plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(rsbbp.getRebalancingTaskQueue()));
+        plans = plan.getBatchPlan();
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
 
