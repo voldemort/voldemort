@@ -15,7 +15,6 @@
  */
 package voldemort.client.rebalance;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +24,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.Utils;
+
+import com.google.common.collect.Lists;
 
 // TODO: Rename to ExecutableRebalanceBatch
 public abstract class RebalanceTypedBatchPlan {
@@ -64,31 +65,15 @@ public abstract class RebalanceTypedBatchPlan {
         return rebalanceTaskQueue;
     }
 
-    // TODO: Change method name once types have better names.
-    // TODO: add javadoc
-    // Take an unorderd list of tasks and order them by zone n-ary for sake of
-    // prioritizing zone primaries ahead of zone secondaries ahead of ...
-    protected List<RebalancePartitionsInfo> sortTasks(int nodeId,
-                                                      List<RebalancePartitionsInfo> tasks) {
-        int zoneId = rebalanceClusterPlan.getFinalCluster().getNodeById(nodeId).getZoneId();
-        for(RebalancePartitionsInfo task: tasks) {
-            Map<Integer, List<RebalancePartitionsInfo>> zoneNaryToTasks = new HashMap<Integer, List<RebalancePartitionsInfo>>();
-            for(String storeName: storeToRoutingPlan.keySet()) {
-                StoreRoutingPlan storeRoutingPlan = storeToRoutingPlan.get(storeName);
-                List<Integer> partitionIds = task.getPartitionIds(storeName);
-                for(Integer partitionId: partitionIds) {
-                    int zoneNaryType = storeRoutingPlan.getZoneReplicaType(zoneId,
-                                                                           nodeId,
-                                                                           partitionId);
-                    if(!zoneNaryToTasks.containsKey(zoneNaryType)) {
-                        zoneNaryToTasks.put(zoneNaryType, new ArrayList<RebalancePartitionsInfo>());
-                    }
-                    List<RebalancePartitionsInfo> naryTasks = zoneNaryToTasks.get(zoneNaryType);
-                    // naryTasks. .add(partitionId);
-                }
-            }
+    // TODO: Are both interfaces (getRebalancingTasks &&
+    // getRebalancingTaskQueue) needed?
+    // TODO: javadoc
+    public List<RebalancePartitionsInfo> getRebalancingTasks() {
+        List<RebalancePartitionsInfo> infos = Lists.newArrayList();
+        for(RebalanceNodePlan rebalanceNodePlan: rebalanceTaskQueue) {
+            infos.addAll(rebalanceNodePlan.getRebalanceTaskList());
         }
-        return null;
+        return infos;
     }
 
     @Override

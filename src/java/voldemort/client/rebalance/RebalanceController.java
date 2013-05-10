@@ -212,9 +212,8 @@ public class RebalanceController {
             } else {
                 executableBatch = new RebalanceDonorBasedBatchPlan(batchPlan);
             }
-            final OrderedClusterTransition orderedClusterTransition = new OrderedClusterTransition(executableBatch);
 
-            RebalanceUtils.printLog(batchCount, logger, orderedClusterTransition.toString());
+            RebalanceUtils.printLog(batchCount, logger, executableBatch.toString());
 
             long startTimeMs = System.currentTimeMillis();
             // TODO: should be
@@ -223,7 +222,7 @@ public class RebalanceController {
                          batchPlan.getCurrentCluster(),
                          batchPlan.getFinalCluster(),
                          batchPlan.getStoreDefs(),
-                         orderedClusterTransition);
+                         executableBatch);
             totalTimeMs += (System.currentTimeMillis() - startTimeMs);
 
             // Bump up the statistics
@@ -289,9 +288,9 @@ public class RebalanceController {
                               final Cluster batchCurrentCluster,
                               final Cluster batchFinalCluster,
                               List<StoreDefinition> batchStoreDefs,
-                              final OrderedClusterTransition orderedClusterTransition) {
+                              final RebalanceTypedBatchPlan executableBatch) {
         try {
-            final List<RebalancePartitionsInfo> rebalancePartitionsInfoList = orderedClusterTransition.getOrderedRebalancePartitionsInfoList();
+            final List<RebalancePartitionsInfo> rebalancePartitionsInfoList = executableBatch.getRebalancingTasks();
 
             if(rebalancePartitionsInfoList.isEmpty()) {
                 RebalanceUtils.printLog(batchCount, logger, "Skipping batch " + batchCount

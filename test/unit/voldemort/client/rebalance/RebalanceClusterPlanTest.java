@@ -85,15 +85,15 @@ public class RebalanceClusterPlanTest extends TestCase {
         targetCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 1, 2, 3 },
                 { 4, 5, 6, 7 }, { 0 } });
 
-        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = createOrderedClusterTransition(currentCluster,
-                                                                                                         targetCluster,
-                                                                                                         Lists.newArrayList(ServerTestUtils.getStoreDef("test",
-                                                                                                                                                        2,
-                                                                                                                                                        1,
-                                                                                                                                                        1,
-                                                                                                                                                        1,
-                                                                                                                                                        1,
-                                                                                                                                                        RoutingStrategyType.CONSISTENT_STRATEGY))).getOrderedRebalancePartitionsInfoList();
+        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
+                                                                                             targetCluster,
+                                                                                             Lists.newArrayList(ServerTestUtils.getStoreDef("test",
+                                                                                                                                            2,
+                                                                                                                                            1,
+                                                                                                                                            1,
+                                                                                                                                            1,
+                                                                                                                                            1,
+                                                                                                                                            RoutingStrategyType.CONSISTENT_STRATEGY)));
         assertEquals("There should have exactly 2 rebalancing node",
                      2,
                      getUniqueNodeCount(orderedRebalancePartitionInfoList, false));
@@ -143,15 +143,15 @@ public class RebalanceClusterPlanTest extends TestCase {
         targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 1, 2, 3 },
                 { 4, 5, 6, 7, 0 } });
 
-        orderedRebalancePartitionInfoList = createOrderedClusterTransition(currentCluster,
-                                                                           targetCluster,
-                                                                           Lists.newArrayList(ServerTestUtils.getStoreDef("test",
-                                                                                                                          2,
-                                                                                                                          1,
-                                                                                                                          1,
-                                                                                                                          1,
-                                                                                                                          1,
-                                                                                                                          RoutingStrategyType.CONSISTENT_STRATEGY))).getOrderedRebalancePartitionsInfoList();
+        orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
+                                                               targetCluster,
+                                                               Lists.newArrayList(ServerTestUtils.getStoreDef("test",
+                                                                                                              2,
+                                                                                                              1,
+                                                                                                              1,
+                                                                                                              1,
+                                                                                                              1,
+                                                                                                              RoutingStrategyType.CONSISTENT_STRATEGY)));
         assertEquals("There should have exactly 2 rebalancing node",
                      2,
                      getUniqueNodeCount(orderedRebalancePartitionInfoList, false));
@@ -204,9 +204,9 @@ public class RebalanceClusterPlanTest extends TestCase {
         targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 3, 6, 9, 12, 15 },
                 { 1, 4, 7, 10, 13, 16 }, { 2, 5, 8, 11, 14, 17 }, {} });
 
-        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = createOrderedClusterTransition(currentCluster,
-                                                                                                         targetCluster,
-                                                                                                         storeDefList2).getOrderedRebalancePartitionsInfoList();
+        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
+                                                                                             targetCluster,
+                                                                                             storeDefList2);
         assertEquals("There should have exactly 1 rebalancing node",
                      1,
                      getUniqueNodeCount(orderedRebalancePartitionInfoList, false));
@@ -248,9 +248,9 @@ public class RebalanceClusterPlanTest extends TestCase {
                 { 2, 6 }, { 3, 7 } });
 
         // PHASE 1
-        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = createOrderedClusterTransition(currentCluster,
-                                                                                                         targetCluster,
-                                                                                                         storeDefList2).getOrderedRebalancePartitionsInfoList();
+        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
+                                                                                             targetCluster,
+                                                                                             storeDefList2);
         assertEquals("There should have exactly 3 rebalancing node",
                      3,
                      getUniqueNodeCount(orderedRebalancePartitionInfoList, false));
@@ -313,9 +313,9 @@ public class RebalanceClusterPlanTest extends TestCase {
         targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { {}, { 0, 1, 5 },
                 { 4, 2, 6 }, { 3, 7 } });
 
-        orderedRebalancePartitionInfoList = createOrderedClusterTransition(currentCluster,
-                                                                           targetCluster,
-                                                                           storeDefList2).getOrderedRebalancePartitionsInfoList();
+        orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
+                                                               targetCluster,
+                                                               storeDefList2);
 
         assertEquals("There should have exactly 3 rebalancing node",
                      3,
@@ -378,9 +378,9 @@ public class RebalanceClusterPlanTest extends TestCase {
         targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 4 }, { 2, 1, 5 },
                 { 6 }, { 3, 7 } });
 
-        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = createOrderedClusterTransition(currentCluster,
-                                                                                                         targetCluster,
-                                                                                                         storeDefList2).getOrderedRebalancePartitionsInfoList();
+        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
+                                                                                             targetCluster,
+                                                                                             storeDefList2);
 
         assertEquals("There should have exactly 3 rebalancing node",
                      3,
@@ -442,9 +442,9 @@ public class RebalanceClusterPlanTest extends TestCase {
         targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 4 }, { 2, 1, 5 }, {},
                 { 6, 3, 7 } });
 
-        orderedRebalancePartitionInfoList = createOrderedClusterTransition(currentCluster,
-                                                                           targetCluster,
-                                                                           storeDefList2).getOrderedRebalancePartitionsInfoList();
+        orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
+                                                               targetCluster,
+                                                               storeDefList2);
 
         assertEquals("There should have exactly 3 rebalancing node",
                      3,
@@ -509,9 +509,9 @@ public class RebalanceClusterPlanTest extends TestCase {
         targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 2, 3 }, { 4, 6 },
                 { 7, 8, 9 }, { 1, 5 } });
 
-        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = createOrderedClusterTransition(currentCluster,
-                                                                                                         targetCluster,
-                                                                                                         storeDefList).getOrderedRebalancePartitionsInfoList();
+        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
+                                                                                             targetCluster,
+                                                                                             storeDefList);
 
         assertEquals("There should have exactly 3 rebalancing node",
                      3,
@@ -617,9 +617,9 @@ public class RebalanceClusterPlanTest extends TestCase {
         targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 4 }, { 2, 3 }, { 1, 5 },
                 { 0 } });
 
-        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = createOrderedClusterTransition(currentCluster,
-                                                                                                         targetCluster,
-                                                                                                         storeDefList2).getOrderedRebalancePartitionsInfoList();
+        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
+                                                                                             targetCluster,
+                                                                                             storeDefList2);
 
         assertEquals("There should have exactly 1 rebalancing node",
                      1,
@@ -748,24 +748,22 @@ public class RebalanceClusterPlanTest extends TestCase {
     // TODO: This will become 'createExecutableBatch' (i think)
     /**
      * Given the current and target cluster metadata, along with your store
-     * definition generates the ordered transition
+     * definition, return the executable tasks.
      * 
      * @param currentCluster Current cluster metadata
      * @param targetCluster Target cluster metadata
      * @param storeDef List of store definitions
-     * @return Ordered cluster transition
+     * @return list of tasks
      */
-    private OrderedClusterTransition createOrderedClusterTransition(Cluster currentCluster,
-                                                                    Cluster targetCluster,
-                                                                    List<StoreDefinition> storeDef) {
+    private List<RebalancePartitionsInfo> getExecutableTasks(Cluster currentCluster,
+                                                             Cluster targetCluster,
+                                                             List<StoreDefinition> storeDef) {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDef);
         // TODO: add a stealer-based arugment to this method to decide type of
         // exectuable batch (stealer- or donor-based)
-        final RebalanceStealerBasedBatchPlan rsbbp = new RebalanceStealerBasedBatchPlan(rebalancePlan);
-        final OrderedClusterTransition orderedClusterTransition = new OrderedClusterTransition(rsbbp);
-        return orderedClusterTransition;
+        return new RebalanceStealerBasedBatchPlan(rebalancePlan).getRebalancingTasks();
     }
 
 }
