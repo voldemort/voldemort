@@ -3,12 +3,7 @@ package voldemort.client.rebalance;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import voldemort.cluster.Cluster;
-import voldemort.store.StoreDefinition;
-import voldemort.utils.ByteArray;
-import voldemort.utils.KeyDistributionGenerator;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.Lists;
@@ -24,60 +19,12 @@ import com.google.common.collect.Lists;
  */
 public class OrderedClusterTransition {
 
-    // TODO: (refactor) What is the value of this idGen member? It is only used
-    // in print outs? If it has no value, then remove it. (Same with member
-    // 'id')
-    private static final AtomicInteger idGen = new AtomicInteger(0);
-    private final Cluster currentCluster;
-    private final Cluster targetCluster;
-    private final RebalanceTypedBatchPlan rebalanceClusterPlan;
     private final List<RebalancePartitionsInfo> orderedRebalancePartitionsInfoList;
-    private final List<StoreDefinition> storeDefs;
     private String printedContent;
-    private final int id;
-
-    @Deprecated
-    public OrderedClusterTransition(final Cluster currentCluster,
-                                    final Cluster targetCluster,
-                                    List<StoreDefinition> storeDefs,
-                                    final RebalanceTypedBatchPlan rebalanceClusterPlan) {
-        this.id = idGen.incrementAndGet();
-        this.currentCluster = currentCluster;
-        this.targetCluster = targetCluster;
-        this.storeDefs = storeDefs;
-        this.rebalanceClusterPlan = rebalanceClusterPlan;
-        this.orderedRebalancePartitionsInfoList = orderedClusterPlan(rebalanceClusterPlan);
-    }
 
     @Deprecated
     public OrderedClusterTransition(final RebalanceTypedBatchPlan rebalanceClusterPlan) {
-        this.id = idGen.incrementAndGet();
-        /*-
-        this.currentCluster = rebalanceClusterPlan.getCurrentCluster();
-        this.targetCluster = rebalanceClusterPlan.getFinalCluster();
-        this.storeDefs = rebalanceClusterPlan.getStoreDefs();
-         */
-        this.currentCluster = null;
-        this.targetCluster = null;
-        this.storeDefs = null;
-        this.rebalanceClusterPlan = rebalanceClusterPlan;
         this.orderedRebalancePartitionsInfoList = orderedClusterPlan(rebalanceClusterPlan);
-    }
-
-    public List<StoreDefinition> getStoreDefs() {
-        return this.storeDefs;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public Cluster getTargetCluster() {
-        return targetCluster;
-    }
-
-    public Cluster getCurrentCluster() {
-        return currentCluster;
     }
 
     public List<RebalancePartitionsInfo> getOrderedRebalancePartitionsInfoList() {
@@ -88,24 +35,7 @@ public class OrderedClusterTransition {
     public String toString() {
         if(printedContent == null) {
             StringBuilder sb = new StringBuilder();
-            List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
-            sb.append("- Rebalance Task Id : ").append(getId()).append(Utils.NEWLINE);
-            sb.append("- Current cluster : ")
-              .append(KeyDistributionGenerator.printOverallDistribution(getCurrentCluster(),
-                                                                        getStoreDefs(),
-                                                                        keys))
-              .append(Utils.NEWLINE);
-            sb.append("- Target cluster : ")
-              .append(KeyDistributionGenerator.printOverallDistribution(getTargetCluster(),
-                                                                        getStoreDefs(),
-                                                                        keys))
-              .append(Utils.NEWLINE);
-            /*-
-            sb.append("- Partition distribution : ")
-              .append(Utils.NEWLINE)
-              .append(getRebalanceClusterPlan().printPartitionDistribution())
-              .append(Utils.NEWLINE);
-             */
+            sb.append("- OrderedClusterTransition ").append(Utils.NEWLINE);
             sb.append("- Ordered rebalance node plan : ")
               .append(Utils.NEWLINE)
               .append(printRebalanceNodePlan(getOrderedRebalancePartitionsInfoList()));
@@ -120,10 +50,6 @@ public class OrderedClusterTransition {
             builder.append(partitionInfo).append(Utils.NEWLINE);
         }
         return builder.toString();
-    }
-
-    private RebalanceTypedBatchPlan getRebalanceClusterPlan() {
-        return rebalanceClusterPlan;
     }
 
     /**

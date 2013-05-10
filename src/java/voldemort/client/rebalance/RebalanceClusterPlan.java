@@ -235,9 +235,7 @@ public class RebalanceClusterPlan {
                 result.add(new RebalancePartitionsInfo(stealerDonor.getFirst(),
                                                        stealerDonor.getSecond(),
                                                        stealerDonorToStoreToStealPartition.get(stealerDonor),
-                                                       new HashMap<String, HashMap<Integer, List<Integer>>>(),
-                                                       targetCluster,
-                                                       0));
+                                                       targetCluster));
             }
             return result;
         }

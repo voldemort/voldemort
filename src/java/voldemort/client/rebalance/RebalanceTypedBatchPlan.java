@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import voldemort.utils.Utils;
 
-// TODO: Better name? ExecutableBatchPlan?
+// TODO: Rename to ExecutableRebalanceBatch
 public abstract class RebalanceTypedBatchPlan {
 
     protected final List<RebalancePartitionsInfo> batchPlan;

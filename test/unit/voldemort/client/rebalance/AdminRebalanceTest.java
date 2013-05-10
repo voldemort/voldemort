@@ -433,10 +433,7 @@ public class AdminRebalanceTest {
                                                                                                                           plans.get(0)
                                                                                                                                .getStoreToReplicaToAddPartitionList(),
                                                                                                                           plans.get(0)
-                                                                                                                               .getStoreToReplicaToDeletePartitionList(),
-                                                                                                                          plans.get(0)
-                                                                                                                               .getInitialCluster(),
-                                                                                                                          0))));
+                                                                                                                               .getInitialCluster()))));
 
             try {
                 adminClient.rebalanceOps.rebalanceNode(plans.get(0));
@@ -944,9 +941,7 @@ public class AdminRebalanceTest {
                       .update(new RebalancePartitionsInfo(3,
                                                           0,
                                                           new HashMap<String, HashMap<Integer, List<Integer>>>(),
-                                                          new HashMap<String, HashMap<Integer, List<Integer>>>(),
-                                                          cluster,
-                                                          0));
+                                                          cluster));
 
             try {
                 // TODO pass the target storedefs
@@ -1162,9 +1157,7 @@ public class AdminRebalanceTest {
                       .update(new RebalancePartitionsInfo(3,
                                                           0,
                                                           new HashMap<String, HashMap<Integer, List<Integer>>>(),
-                                                          new HashMap<String, HashMap<Integer, List<Integer>>>(),
-                                                          cluster,
-                                                          0));
+                                                          cluster));
 
             try {
                 // TODO pass the target storedefs
@@ -1282,9 +1275,7 @@ public class AdminRebalanceTest {
                       .update(new RebalancePartitionsInfo(3,
                                                           0,
                                                           new HashMap<String, HashMap<Integer, List<Integer>>>(),
-                                                          new HashMap<String, HashMap<Integer, List<Integer>>>(),
-                                                          cluster,
-                                                          0));
+                                                          cluster));
 
             try {
                 // TODO pass the target storedefs

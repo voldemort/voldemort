@@ -95,9 +95,7 @@ public class MetadataStoreTest {
             return ByteUtils.getBytes(new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                                     (int) Math.random() * 5,
                                                                                                     storeToReplicaToPartitionList,
-                                                                                                    storeToReplicaToPartitionList,
-                                                                                                    ServerTestUtils.getLocalCluster(1),
-                                                                                                    (int) Math.random() * 3))).toJsonString(),
+                                                                                                    ServerTestUtils.getLocalCluster(1)))).toJsonString(),
                                       "UTF-8");
         }
 

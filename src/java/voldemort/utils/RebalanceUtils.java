@@ -1106,20 +1106,14 @@ public class RebalanceUtils {
 
             // Filter the plans only for stores given
             HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitions = info.getStoreToReplicaToAddPartitionList();
-            HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToDeletePartitions = info.getStoreToReplicaToDeletePartitionList();
 
             HashMap<String, HashMap<Integer, List<Integer>>> newStoreToReplicaToAddPartitions = Maps.newHashMap();
-            HashMap<String, HashMap<Integer, List<Integer>>> newStoreToReplicaToDeletePartitions = Maps.newHashMap();
             for(String storeName: storeNames) {
                 if(storeToReplicaToAddPartitions.containsKey(storeName))
                     newStoreToReplicaToAddPartitions.put(storeName,
                                                          storeToReplicaToAddPartitions.get(storeName));
-                if(storeToReplicaToDeletePartitions.containsKey(storeName))
-                    newStoreToReplicaToDeletePartitions.put(storeName,
-                                                            storeToReplicaToDeletePartitions.get(storeName));
             }
             info.setStoreToReplicaToAddPartitionList(newStoreToReplicaToAddPartitions);
-            info.setStoreToReplicaToDeletePartitionList(newStoreToReplicaToDeletePartitions);
 
             plans.add(info);
         }

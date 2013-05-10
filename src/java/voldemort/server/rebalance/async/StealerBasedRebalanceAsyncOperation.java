@@ -72,6 +72,7 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
 
                 executors.submit(new Runnable() {
 
+                    @Override
                     public void run() {
                         try {
                             boolean isReadOnlyStore = metadataStore.getStoreDef(storeName)
@@ -198,23 +199,6 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
 
             logger.info(getHeader(stealInfo) + "Completed partition migration for store "
                         + storeName + " from donor node " + stealInfo.getDonorId());
-        }
-
-        // Delete partitions
-        if(stealInfo.getReplicaToDeletePartitionList(storeName) != null
-           && stealInfo.getReplicaToDeletePartitionList(storeName).size() > 0 && !isReadOnlyStore) {
-
-            logger.info(getHeader(stealInfo) + "Deleting partitions for store " + storeName
-                        + " on donor node " + stealInfo.getDonorId());
-
-            adminClient.storeMntOps.deletePartitions(stealInfo.getDonorId(),
-                                                     storeName,
-                                                     stealInfo.getReplicaToDeletePartitionList(storeName),
-                                                     stealInfo.getInitialCluster(),
-                                                     null);
-            logger.info(getHeader(stealInfo) + "Deleted partitions for store " + storeName
-                        + " on donor node " + stealInfo.getDonorId());
-
         }
 
         logger.info(getHeader(stealInfo) + "Finished all migration for store " + storeName);
