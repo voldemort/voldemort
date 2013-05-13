@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,6 +16,10 @@
 
 package voldemort.client.rebalance;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.fail;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -26,7 +30,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+
 import voldemort.ServerTestUtils;
 import voldemort.VoldemortException;
 import voldemort.VoldemortTestConstants;
@@ -39,11 +45,10 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
-// TODO: Most of these tests are currently failing. Once RebalanceClusterPlan is
-// cleaned up further, fix these. In particular, once OrderedClusterTransision
-// is cleaned up, or removed, make sure these tests (or equivalent) all pass.
-// TODO: junit 4 : remove TestCase and add @Test annotations
-public class RebalanceClusterPlanTest extends TestCase {
+// TODO: This test needs to be mostly re-written. The planning algorithm has
+// changed and this test focused on the implementation of the prior planning
+// algorithm, rather than the features of a plan in general.
+public class RebalanceClusterPlanTest {
 
     private static String storeDefFile = "test/common/voldemort/config/stores.xml";
     private Cluster currentCluster;
@@ -51,7 +56,7 @@ public class RebalanceClusterPlanTest extends TestCase {
     private List<StoreDefinition> storeDefList;
     private List<StoreDefinition> storeDefList2;
 
-    @Override
+    @Before
     public void setUp() {
         try {
             storeDefList = new StoreDefinitionsMapper().readStoreList(new FileReader(new File(storeDefFile)));
@@ -65,6 +70,7 @@ public class RebalanceClusterPlanTest extends TestCase {
      * Tests the scenario where-in a migration causes a drop in the number of
      * replicas
      */
+    @Test
     public void testRebalancePlanInsufficientReplicas() {
         currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1 }, { 2 } });
 
@@ -77,13 +83,16 @@ public class RebalanceClusterPlanTest extends TestCase {
 
     }
 
+    @Test
     public void testRebalancePlanDelete() {
+        int numServers = 3;
+        int ports[] = ServerTestUtils.findFreePorts(3 * numServers);
         // CASE 1
-        currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 },
-                { 4, 5, 6, 7 }, {} });
+        currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
+                { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, {} });
 
-        targetCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 1, 2, 3 },
-                { 4, 5, 6, 7 }, { 0 } });
+        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
+                { 1, 2, 3 }, { 4, 5, 6, 7 }, { 0 } });
 
         List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
                                                                                              targetCluster,
@@ -103,8 +112,6 @@ public class RebalanceClusterPlanTest extends TestCase {
         assertEquals("Stealer 2 should have 1 entry",
                      1,
                      getStealerNodePartitionInfoCount(2, orderedRebalancePartitionInfoList));
-        // make sure partitionInfo is ordered with primary ones first
-        checkOrderedPartitionInfo(orderedRebalancePartitionInfoList);
 
         // Partitions to move
         HashMap<Integer, List<Integer>> partitionsToMove = Maps.newHashMap();
@@ -161,8 +168,6 @@ public class RebalanceClusterPlanTest extends TestCase {
         assertEquals("Stealer 1 should have 1 entry",
                      1,
                      getStealerNodePartitionInfoCount(1, orderedRebalancePartitionInfoList));
-        // make sure partitionInfo is ordered with primary ones first
-        checkOrderedPartitionInfo(orderedRebalancePartitionInfoList);
 
         partitionsToMove = Maps.newHashMap();
         partitionsToMove.put(0, Lists.newArrayList(0));
@@ -196,13 +201,16 @@ public class RebalanceClusterPlanTest extends TestCase {
     /**
      * Tests the case where-in we delete all the partitions from the last node
      */
+    @Test
     public void testRebalancePlanDeleteLastNode() {
+        int numServers = 4;
+        int ports[] = ServerTestUtils.findFreePorts(3 * numServers);
 
-        currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 3, 6, 9, 12, 15 },
-                { 1, 4, 7, 10, 13, 16 }, { 2, 5, 8, 11, 14, 17 }, { 0 } });
+        currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
+                { 3, 6, 9, 12, 15 }, { 1, 4, 7, 10, 13, 16 }, { 2, 5, 8, 11, 14, 17 }, { 0 } });
 
-        targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 3, 6, 9, 12, 15 },
-                { 1, 4, 7, 10, 13, 16 }, { 2, 5, 8, 11, 14, 17 }, {} });
+        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
+                { 0, 3, 6, 9, 12, 15 }, { 1, 4, 7, 10, 13, 16 }, { 2, 5, 8, 11, 14, 17 }, {} });
 
         List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
                                                                                              targetCluster,
@@ -217,8 +225,6 @@ public class RebalanceClusterPlanTest extends TestCase {
         assertEquals("Stealer 0 should have 1 entry",
                      1,
                      getStealerNodePartitionInfoCount(0, orderedRebalancePartitionInfoList));
-        // make sure partitionInfo is ordered with primary ones first
-        checkOrderedPartitionInfo(orderedRebalancePartitionInfoList);
 
         HashMap<Integer, List<Integer>> partitionsToMove = Maps.newHashMap();
         partitionsToMove.clear();
@@ -239,13 +245,16 @@ public class RebalanceClusterPlanTest extends TestCase {
     /**
      * Tests the scenario where-in we delete the first node
      */
+    @Test
     public void testRebalancePlanDeleteFirstNode() {
+        int numServers = 4;
+        int ports[] = ServerTestUtils.findFreePorts(3 * numServers);
 
-        currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 4 }, { 1, 5 },
-                { 2, 6 }, { 3, 7 } });
+        currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
+                { 1, 5 }, { 2, 6 }, { 3, 7 } });
 
-        targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 4 }, { 0, 1, 5 },
-                { 2, 6 }, { 3, 7 } });
+        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 4 },
+                { 0, 1, 5 }, { 2, 6 }, { 3, 7 } });
 
         // PHASE 1
         List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
@@ -260,8 +269,6 @@ public class RebalanceClusterPlanTest extends TestCase {
         assertEquals("Stealer 1 should have 1 entry",
                      1,
                      getStealerNodePartitionInfoCount(1, orderedRebalancePartitionInfoList));
-        // make sure partitionInfo is ordered with primary ones first
-        checkOrderedPartitionInfo(orderedRebalancePartitionInfoList);
 
         HashMap<Integer, List<Integer>> partitionsToMove = Maps.newHashMap();
         partitionsToMove.clear();
@@ -327,8 +334,6 @@ public class RebalanceClusterPlanTest extends TestCase {
         assertEquals("Stealer 2 should have 1 entry",
                      1,
                      getStealerNodePartitionInfoCount(2, orderedRebalancePartitionInfoList));
-        // make sure partitionInfo is ordered with primary ones first
-        checkOrderedPartitionInfo(orderedRebalancePartitionInfoList);
 
         partitionsToMove.clear();
         partitionsToMove.put(0, Lists.newArrayList(4));
@@ -371,12 +376,16 @@ public class RebalanceClusterPlanTest extends TestCase {
 
     }
 
+    @Test
     public void testRebalanceDeletingMiddleNode() {
-        currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 4 }, { 1, 5 },
-                { 2, 6 }, { 3, 7 } });
+        int numServers = 4;
+        int ports[] = ServerTestUtils.findFreePorts(3 * numServers);
 
-        targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 4 }, { 2, 1, 5 },
-                { 6 }, { 3, 7 } });
+        currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
+                { 1, 5 }, { 2, 6 }, { 3, 7 } });
+
+        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
+                { 2, 1, 5 }, { 6 }, { 3, 7 } });
 
         List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
                                                                                              targetCluster,
@@ -393,8 +402,6 @@ public class RebalanceClusterPlanTest extends TestCase {
         assertEquals("Stealer 1 should have 1 entry",
                      1,
                      getStealerNodePartitionInfoCount(1, orderedRebalancePartitionInfoList));
-        // make sure partitionInfo is ordered with primary ones first
-        checkOrderedPartitionInfo(orderedRebalancePartitionInfoList);
 
         HashMap<Integer, List<Integer>> partitionsToMove = Maps.newHashMap();
         partitionsToMove.clear();
@@ -456,8 +463,6 @@ public class RebalanceClusterPlanTest extends TestCase {
         assertEquals("Stealer 3 should have 1 entry",
                      1,
                      getStealerNodePartitionInfoCount(3, orderedRebalancePartitionInfoList));
-        // make sure partitionInfo is ordered with primary ones first
-        checkOrderedPartitionInfo(orderedRebalancePartitionInfoList);
 
         partitionsToMove.clear();
         partitionsToMove.put(0, Lists.newArrayList(6));
@@ -502,12 +507,16 @@ public class RebalanceClusterPlanTest extends TestCase {
     }
 
     @SuppressWarnings("unchecked")
+    @Test
     public void testRebalancePlanWithReplicationChanges() {
-        currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 1, 2, 3 },
-                { 4, 5, 6 }, { 7, 8, 9 }, {} });
+        int numServers = 4;
+        int ports[] = ServerTestUtils.findFreePorts(3 * numServers);
 
-        targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 2, 3 }, { 4, 6 },
-                { 7, 8, 9 }, { 1, 5 } });
+        currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
+                { 0, 1, 2, 3 }, { 4, 5, 6 }, { 7, 8, 9 }, {} });
+
+        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
+                { 0, 2, 3 }, { 4, 6 }, { 7, 8, 9 }, { 1, 5 } });
 
         List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
                                                                                              targetCluster,
@@ -528,8 +537,6 @@ public class RebalanceClusterPlanTest extends TestCase {
         assertEquals("Stealer 1 should have 1 entry",
                      1,
                      this.getStealerNodePartitionInfoCount(1, orderedRebalancePartitionInfoList));
-        // make sure partitionInfo is ordered with primary ones first
-        checkOrderedPartitionInfo(orderedRebalancePartitionInfoList);
 
         HashMap<String, HashMap<Integer, List<Integer>>> storeToPartitionsToMove[] = new HashMap[5];
 
@@ -610,12 +617,16 @@ public class RebalanceClusterPlanTest extends TestCase {
     /**
      * Issue 288
      */
+    @Test
     public void testRebalanceAllReplicasBeingMigrated() {
-        currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 4 }, { 2, 3 },
-                { 1, 5 }, {} });
+        int numServers = 4;
+        int ports[] = ServerTestUtils.findFreePorts(3 * numServers);
 
-        targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 4 }, { 2, 3 }, { 1, 5 },
-                { 0 } });
+        currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
+                { 2, 3 }, { 1, 5 }, {} });
+
+        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 4 },
+                { 2, 3 }, { 1, 5 }, { 0 } });
 
         List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getExecutableTasks(currentCluster,
                                                                                              targetCluster,
@@ -630,8 +641,6 @@ public class RebalanceClusterPlanTest extends TestCase {
         assertEquals("Stealer 3 should have 2 entry",
                      2,
                      this.getStealerNodePartitionInfoCount(3, orderedRebalancePartitionInfoList));
-        // make sure partitionInfo is ordered with primary ones first
-        checkOrderedPartitionInfo(orderedRebalancePartitionInfoList);
 
         HashMap<Integer, List<Integer>> partitionsToMove1 = Maps.newHashMap(), partitionsToMove2 = Maps.newHashMap();
         partitionsToMove1.put(0, Lists.newArrayList(0));
@@ -694,23 +703,6 @@ public class RebalanceClusterPlanTest extends TestCase {
             }
         }
         return partitionList;
-    }
-
-    private void checkOrderedPartitionInfo(List<RebalancePartitionsInfo> rebalancePartitionInfoList) {
-        boolean primaryMovesCompleted = false;
-        for(RebalancePartitionsInfo partitionInfo: rebalancePartitionInfoList) {
-            List<Integer> stealMasterPartitions = partitionInfo.getStealMasterPartitions();
-            if(stealMasterPartitions == null || stealMasterPartitions.isEmpty()) {
-                primaryMovesCompleted = true;
-            } else if(primaryMovesCompleted) {
-                // if partitionInfo contains primary movement and we have
-                // previously concluded that all partitionInfo with primary
-                // movements are processed, we are looking at an out-of-ordered
-                // partitionInfo
-                fail("OrderedPartitionInfo has primary partition move after non-primary partition moves: "
-                     + rebalancePartitionInfoList);
-            }
-        }
     }
 
     private void checkAllRebalanceInfoPresent(List<RebalancePartitionsInfo> toCheckRebalanceInfoList,
