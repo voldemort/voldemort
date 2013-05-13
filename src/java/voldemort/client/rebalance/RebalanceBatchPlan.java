@@ -31,27 +31,17 @@ import voldemort.utils.Utils;
 
 import com.google.common.collect.Maps;
 
-// TODO: (refactor) Rename RebalanceClusterPlan to RebalanceBatchPlan
 // TODO: (refactor) Fix cluster nomenclature in general: make sure there are
 // exactly three prefixes used to distinguish cluster xml: initial or current,
 // target or spec or expanded, and final. 'target' has historically been
 // overloaded to mean spec/expanded or final depending on context.
-// TODO: (refactor) Fix this header comment after all the refactoring...
 /**
- * Compares the target cluster configuration with the final cluster
- * configuration and generates a plan to move the partitions. The plan can be
- * either generated from the perspective of the stealer or the donor. <br>
- * 
- * The end result is one of the following -
- * 
- * <li>A map of stealer node-ids to partitions desired to be stolen from various
- * donor nodes
- * 
- * <li>A map of donor node-ids to partitions which we need to donate to various
- * stealer nodes
- * 
+ * Constructs a batch plan that goes from targetCluster to finalCluster. The
+ * partition-stores included in the move are based on those listed in storeDefs.
+ * This batch plan is execution-agnostic, i.e., a plan is generated and later
+ * stealer- versus donor-based execution of that plan is decided.
  */
-public class RebalanceClusterPlan {
+public class RebalanceBatchPlan {
 
     private final Cluster targetCluster;
     private final Cluster finalCluster;
@@ -72,9 +62,9 @@ public class RebalanceClusterPlan {
      * @param isStealerBased Do we want to generate the final plan based on the
      *        stealer node or the donor node?
      */
-    public RebalanceClusterPlan(final Cluster targetCluster,
-                                final Cluster finalCluster,
-                                final List<StoreDefinition> storeDefs) {
+    public RebalanceBatchPlan(final Cluster targetCluster,
+                              final Cluster finalCluster,
+                              final List<StoreDefinition> storeDefs) {
         this.targetCluster = targetCluster;
         this.finalCluster = finalCluster;
         this.storeDefs = storeDefs;
@@ -153,21 +143,25 @@ public class RebalanceClusterPlan {
         return partitionStoreMoves;
     }
 
-    // TODO: Simplify / kill this complicated struct once
-    // RebalancePartitionsInfo is rationalized.
-    private class UnnecessarilyComplicatedDataStructure {
+    // TODO: (replicaType) As part of dropping replicaType and
+    // RebalancePartitionsInfo from code, simplify this object.
+    /**
+     * Gathers all of the state necessary to build a
+     * List<RebalancePartitionsInfo> which is effectively a (batch) plan.
+     */
+    private class RebalancePartitionsInfoBuilder {
 
         final HashMap<Pair<Integer, Integer>, HashMap<String, HashMap<Integer, List<Integer>>>> stealerDonorToStoreToStealPartition;
 
-        UnnecessarilyComplicatedDataStructure() {
+        RebalancePartitionsInfoBuilder() {
             stealerDonorToStoreToStealPartition = Maps.newHashMap();
         }
 
-        public void shovelCrapIn(int stealerNodeId,
-                                 int donorNodeId,
-                                 String storeName,
-                                 int donorReplicaType,
-                                 int partitionId) {
+        public void addPartitionStoreMove(int stealerNodeId,
+                                          int donorNodeId,
+                                          String storeName,
+                                          int donorReplicaType,
+                                          int partitionId) {
             Pair<Integer, Integer> stealerDonor = new Pair<Integer, Integer>(stealerNodeId,
                                                                              donorNodeId);
             if(!stealerDonorToStoreToStealPartition.containsKey(stealerDonor)) {
@@ -189,7 +183,7 @@ public class RebalanceClusterPlan {
             partitionIdList.add(partitionId);
         }
 
-        public List<RebalancePartitionsInfo> shovelCrapOut() {
+        public List<RebalancePartitionsInfo> buildRebalancePartitionsInfos() {
             final List<RebalancePartitionsInfo> result = new ArrayList<RebalancePartitionsInfo>();
 
             for(Pair<Integer, Integer> stealerDonor: stealerDonorToStoreToStealPartition.keySet()) {
@@ -202,32 +196,27 @@ public class RebalanceClusterPlan {
         }
     }
 
-    // TODO: Revisit these "two principles". I am not sure about the second one.
-    // Either because I don't like delete being mixed with this code or because
-    // we probably want to copy from a to-be-deleted partitoin-store.
-    /*
-     * Generate the list of partition movement based on 2 principles:
-     * 
-     * <ol> <li>The number of partitions don't change; they are only
-     * redistributed across nodes <li>A primary or replica partition that is
-     * going to be deleted is never used to copy from data from another stealer
-     * </ol>
-     * 
-     * @param targetCluster Current cluster configuration
-     * 
-     * @param finalCluster Target cluster configuration
-     * 
-     * @param storeDefs List of store definitions
-     * 
-     * @param stealerNodeId Id of the stealer node
-     * 
-     * @param enableDeletePartition To delete or not to delete?
-     */
-    // TODO: more verbose javadoc based on above (possibly)
     /**
-     * Determine the batch plan!
+     * Determine the batch plan and return it. The batch plan has the following
+     * properties:
      * 
-     * @return
+     * 1) A stealer node does not steal any partition-stores it already hosts.
+     * 
+     * 2) If possible, a stealer node that is the n-ary zone replica in the
+     * finalCluster steals from the n-ary zone replica in the targetCluster in
+     * the same zone.
+     * 
+     * 3) If there are no partitoin-stores to steal in the same zone (i.e., this
+     * is the "zone expansion" use case), then the stealer node that is the
+     * n-ary zone replica in the finalCluster determines which pre-existing zone
+     * in the targetCluster hosts the primary partitionId for the
+     * partition-store and steals the n-ary zone replica from that zone.
+     * 
+     * In summary, this batch plan avoids all unnecessary cross zone moves,
+     * distributes cross zone moves into new zones evenly across existing zones,
+     * and copies replicaFactor partition-stores into any new zone.
+     * 
+     * @return the batch plan
      */
     private List<RebalancePartitionsInfo> batchPlan() {
         // Construct all store routing plans once.
@@ -240,7 +229,7 @@ public class RebalanceClusterPlan {
                                                                                 storeDef));
         }
 
-        UnnecessarilyComplicatedDataStructure ucds = new UnnecessarilyComplicatedDataStructure();
+        RebalancePartitionsInfoBuilder rpiBuilder = new RebalancePartitionsInfoBuilder();
         // For every node in the final cluster ...
         for(Node stealerNode: finalCluster.getNodes()) {
             int stealerZoneId = stealerNode.getZoneId();
@@ -280,16 +269,16 @@ public class RebalanceClusterPlan {
                                                                      stealerPartitionId);
                     int donorReplicaType = targetSRP.getReplicaType(donorNodeId, stealerPartitionId);
 
-                    ucds.shovelCrapIn(stealerNodeId,
-                                      donorNodeId,
-                                      storeDef.getName(),
-                                      donorReplicaType,
-                                      stealerPartitionId);
+                    rpiBuilder.addPartitionStoreMove(stealerNodeId,
+                                                     donorNodeId,
+                                                     storeDef.getName(),
+                                                     donorReplicaType,
+                                                     stealerPartitionId);
                 }
             }
         }
 
-        return ucds.shovelCrapOut();
+        return rpiBuilder.buildRebalancePartitionsInfos();
     }
 
     @Override

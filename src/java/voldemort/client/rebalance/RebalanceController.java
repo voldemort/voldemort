@@ -199,11 +199,11 @@ public class RebalanceController {
         int partitionStoreCount = 0;
         long totalTimeMs = 0;
 
-        List<RebalanceClusterPlan> entirePlan = rebalancePlan.getPlan();
+        List<RebalanceBatchPlan> entirePlan = rebalancePlan.getPlan();
         int numBatches = entirePlan.size();
         int numPartitionStores = rebalancePlan.getPartitionStoresMoved();
 
-        for(RebalanceClusterPlan batchPlan: entirePlan) {
+        for(RebalanceBatchPlan batchPlan: entirePlan) {
             logger.info("========  REBALANCING BATCH " + (batchCount + 1) + "  ========");
             RebalanceUtils.printLog(batchCount, logger, batchPlan.toString());
 
@@ -271,7 +271,7 @@ public class RebalanceController {
     }
 
     // TODO: Add javadoc.
-    private void executeBatch(int batchCount, final RebalanceClusterPlan batchPlan) {
+    private void executeBatch(int batchCount, final RebalanceBatchPlan batchPlan) {
         final Cluster batchCurrentCluster = batchPlan.getCurrentCluster();
         final Cluster batchFinalCluster = batchPlan.getFinalCluster();
         final List<StoreDefinition> batchStoreDefs = batchPlan.getStoreDefs();

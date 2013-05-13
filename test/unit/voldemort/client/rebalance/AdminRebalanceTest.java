@@ -146,10 +146,9 @@ public class AdminRebalanceTest {
 
         targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 2, Lists.newArrayList(0));
 
-        RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
-                                                             targetCluster,
-                                                             Lists.newArrayList(storeDef1,
-                                                                                storeDef2));
+        RebalanceBatchPlan plan = new RebalanceBatchPlan(cluster,
+                                                         targetCluster,
+                                                         Lists.newArrayList(storeDef1, storeDef2));
         plans = Lists.newArrayList(plan.getBatchPlan());
         adminClient = ServerTestUtils.getAdminClient(cluster);
     }
@@ -187,10 +186,9 @@ public class AdminRebalanceTest {
                                                         new Properties());
 
         targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
-        RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
-                                                             targetCluster,
-                                                             Lists.newArrayList(storeDef1,
-                                                                                storeDef2));
+        RebalanceBatchPlan plan = new RebalanceBatchPlan(cluster,
+                                                         targetCluster,
+                                                         Lists.newArrayList(storeDef1, storeDef2));
         plans = Lists.newArrayList(plan.getBatchPlan());
         adminClient = ServerTestUtils.getAdminClient(cluster);
     }
@@ -238,10 +236,9 @@ public class AdminRebalanceTest {
                                                         new Properties());
 
         targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
-        RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
-                                                             targetCluster,
-                                                             Lists.newArrayList(storeDef1,
-                                                                                storeDef2));
+        RebalanceBatchPlan plan = new RebalanceBatchPlan(cluster,
+                                                         targetCluster,
+                                                         Lists.newArrayList(storeDef1, storeDef2));
 
         plans = Lists.newArrayList(plan.getBatchPlan());
         adminClient = ServerTestUtils.getAdminClient(cluster);
@@ -308,10 +305,9 @@ public class AdminRebalanceTest {
 
         targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         // Make plan only with RO stores
-        RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
-                                                             targetCluster,
-                                                             Lists.newArrayList(storeDef1,
-                                                                                storeDef2));
+        RebalanceBatchPlan plan = new RebalanceBatchPlan(cluster,
+                                                         targetCluster,
+                                                         Lists.newArrayList(storeDef1, storeDef2));
         plans = plan.getBatchPlan();
 
         adminClient = ServerTestUtils.getAdminClient(cluster);

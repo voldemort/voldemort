@@ -48,7 +48,7 @@ import com.google.common.collect.Sets;
 // TODO: This test needs to be mostly re-written. The planning algorithm has
 // changed and this test focused on the implementation of the prior planning
 // algorithm, rather than the features of a plan in general.
-public class RebalanceClusterPlanTest {
+public class RebalanceBatchPlanTest {
 
     private static String storeDefFile = "test/common/voldemort/config/stores.xml";
     private Cluster currentCluster;
@@ -77,7 +77,7 @@ public class RebalanceClusterPlanTest {
         targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 1 }, { 0 }, { 2 } });
 
         try {
-            new RebalanceClusterPlan(currentCluster, targetCluster, storeDefList);
+            new RebalanceBatchPlan(currentCluster, targetCluster, storeDefList);
             fail("Should have thrown an exception since the migration should result in decrease in replication factor");
         } catch(VoldemortException e) {}
 
@@ -749,9 +749,9 @@ public class RebalanceClusterPlanTest {
     private List<RebalancePartitionsInfo> getExecutableTasks(Cluster currentCluster,
                                                              Cluster targetCluster,
                                                              List<StoreDefinition> storeDef) {
-        RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
-                                                                      targetCluster,
-                                                                      storeDef);
+        RebalanceBatchPlan rebalancePlan = new RebalanceBatchPlan(currentCluster,
+                                                                  targetCluster,
+                                                                  storeDef);
         return rebalancePlan.getBatchPlan();
     }
 

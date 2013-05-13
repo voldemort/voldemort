@@ -50,7 +50,7 @@ import voldemort.client.RoutingTier;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.rebalance.RebalanceClusterPlan;
+import voldemort.client.rebalance.RebalanceBatchPlan;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.NoopFailureDetector;
@@ -197,10 +197,10 @@ public class RedirectingStoreTest {
         }
         assertTrue("Not enough secondary entries", primaryEntriesMoved.size() > 1);
 
-        RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
-                                                                             targetCluster,
-                                                                             Lists.newArrayList(storeDef));
-        List<RebalancePartitionsInfo> plans = Lists.newArrayList(rebalanceClusterPlan.getBatchPlan());
+        RebalanceBatchPlan RebalanceBatchPlan = new RebalanceBatchPlan(currentCluster,
+                                                                       targetCluster,
+                                                                       Lists.newArrayList(storeDef));
+        List<RebalancePartitionsInfo> plans = Lists.newArrayList(RebalanceBatchPlan.getBatchPlan());
 
         // Set into rebalancing state
         for(RebalancePartitionsInfo partitionPlan: plans) {
