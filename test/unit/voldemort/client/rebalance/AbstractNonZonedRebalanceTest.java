@@ -240,7 +240,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             targetCluster = updateCluster(targetCluster);
 
             // TODO: make helper method(s) (possibly at AbstractREbalanceTest
-            // level) that constructs appropriate controller & plan.
+            // level) that constructs appropriate controller & plan. There is a
+            // fair bit of cut-and-pasted coding among these tests...
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = RebalanceController.MAX_PARALLEL_REBALANCING;
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
@@ -483,7 +484,6 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
             long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            boolean deleteAfter = false;
             RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
                                                                           maxTries,
@@ -914,6 +914,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
     // TODO: Fix this test.
     // TODO: fix this test. Need to take the plan into account to correctly do
     // tests.
+    // TODO: Confirm that this test passes after rebasing with Vinoth's fixes.
     @Test(timeout = 600000)
     public void testProxyPutDuringRebalancing() throws Exception {
         System.err.println("testProxyPutDuringRebalancing is currently failing (intermittently)?");

@@ -27,7 +27,8 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     private static final Logger logger = Logger.getLogger(StealerBasedRebalanceTask.class);
 
     private final int stealerNodeId;
-    // TODO: What is the use of this parameter!?!?!?!?!
+    // TODO: What is the use of maxTries for stealer-based tasks? Need to
+    // validate reason for existence or remove.
     private final int maxTries;
 
     public StealerBasedRebalanceTask(final int taskId,
@@ -74,6 +75,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
                                      rebalanceException);
     }
 
+    @Override
     public void run() {
         int rebalanceAsyncId = INVALID_REBALANCE_ID;
 

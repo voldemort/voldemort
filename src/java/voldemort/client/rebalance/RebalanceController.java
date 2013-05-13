@@ -46,7 +46,10 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 
-// TODO: javadoc header needed
+/**
+ * Executes a RebalancePlan.
+ * 
+ */
 public class RebalanceController {
 
     // TODO: Remove server side "optimization" that does not bother to steal
@@ -153,8 +156,8 @@ public class RebalanceController {
         validateCluster(finalCluster, finalStores);
 
         logger.info("Propagating cluster " + finalCluster + " to all nodes");
-        // TODO: Add finalStores here so that cluster & stores can be updated
-        // atomically.
+        // TODO: (atomic cluster/stores update) Add finalStores here so that
+        // cluster & stores can be updated atomically. Need to rebase first.
         RebalanceUtils.propagateCluster(adminClient, finalCluster);
 
         executePlan(rebalancePlan);
@@ -270,7 +273,15 @@ public class RebalanceController {
         RebalanceUtils.printLog(batchCount, logger, sb.toString());
     }
 
-    // TODO: Add javadoc.
+    /**
+     * Executes a batch plan.
+     * 
+     * @param batchCount Used as the ID of the batch plan. This allows related
+     *        tasks on client- & server-side to pretty print messages in a
+     *        manner that debugging can track specific batch plans across the
+     *        cluster.
+     * @param batchPlan The batch plan...
+     */
     private void executeBatch(int batchCount, final RebalanceBatchPlan batchPlan) {
         final Cluster batchCurrentCluster = batchPlan.getCurrentCluster();
         final Cluster batchFinalCluster = batchPlan.getFinalCluster();
@@ -469,10 +480,11 @@ public class RebalanceController {
         }
     }
 
-    // TODO: Fix this javadoc comment. Break this into multiple "sub" methods?
-    // AFAIK, this method either does the RO stores or the RW stores in a batch.
-    // I.e., there are at most 2 sub-batches for any given batch. And, in
-    // practice, there is one sub-batch that is either RO or RW.
+    // TODO: (refactor) Break this state-machine like method into multiple "sub"
+    // methods. AFAIK, this method either does the RO stores or the RW stores in
+    // a batch. I.e., there are at most 2 sub-batches for any given batch. And,
+    // in practice, there is one sub-batch that is either RO or RW.
+    // TODO: Fix the javadoc comment to be more easily understood.
     /**
      * The smallest granularity of rebalancing where-in we move partitions for a
      * sub-set of stores. Finally at the end of the movement, the node is
@@ -631,12 +643,11 @@ public class RebalanceController {
             HashMap<Integer, List<RebalancePartitionsInfo>> donorNodeBasedPartitionsInfo = RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
                                                                                                                                     false);
             for(Entry<Integer, List<RebalancePartitionsInfo>> entries: donorNodeBasedPartitionsInfo.entrySet()) {
-                // TODO: Can this sleep be removed?
-                /*-
-                try {
-                    Thread.sleep(10000);
-                } catch(InterruptedException e) {}
-                 */
+                // At some point, a 10 second sleep was added here to help with
+                // a race condition. Leaving this comment here in case, at some
+                // point in the future, we need to hack around some race
+                // condition:
+                // Thread.sleep(10000);
                 DonorBasedRebalanceTask rebalanceTask = new DonorBasedRebalanceTask(taskId,
                                                                                     entries.getValue(),
                                                                                     rebalancingClientTimeoutSeconds,

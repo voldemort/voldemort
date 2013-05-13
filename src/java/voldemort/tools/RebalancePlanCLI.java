@@ -125,7 +125,7 @@ public class RebalancePlanCLI {
         return options;
     }
 
-    // TODO: Rename target-cluster target-stores to final-*
+    // TODO: (refactor) Rename target-cluster target-stores to final-*
     public static void main(String[] args) throws Exception {
         setupParser();
         OptionSet options = getValidOptions(args);
