@@ -682,7 +682,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     }
 
     protected void recordSuccess(Node node, long startNs) {
-        proxyPutStats.reportProxyPutCompletion();
         failureDetector.recordSuccess(node, (System.nanoTime() - startNs) / Time.NS_PER_MS);
     }
 
@@ -692,6 +691,10 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
 
     protected void reportProxyPutFailure() {
         proxyPutStats.reportProxyPutFailure();
+    }
+
+    protected void reportProxyPutSuccess() {
+        proxyPutStats.reportProxyPutCompletion();
     }
 
     public ProxyPutStats getProxyPutStats() {

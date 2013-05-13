@@ -79,9 +79,10 @@ public class AsyncProxyPutTask implements Runnable {
 
             socketStore.put(key, value, transforms);
             redirectingStore.recordSuccess(proxyNode, startNs);
+            redirectingStore.reportProxyPutSuccess();
             if(logger.isTraceEnabled()) {
                 logger.trace("Proxy write for store " + redirectingStore.getName() + " key "
-                             + ByteUtils.toBinaryString(key.get()) + " to destinationNode:"
+                             + ByteUtils.toHexString(key.get()) + " to destinationNode:"
                              + destinationNode);
             }
         } catch(UnreachableStoreException e) {

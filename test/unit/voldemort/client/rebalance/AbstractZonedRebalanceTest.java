@@ -622,6 +622,11 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
 
             RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
             rebalanceClientConfig.setMaxParallelRebalancing(2);
+            // Its is imperative that we test in a single shot since multiple
+            // batches would mean the proxy bridges being torn down and
+            // established multiple times and we cannot test against the source
+            // cluster topology then.
+            rebalanceClientConfig.setPrimaryPartitionBatchSize(Integer.MAX_VALUE);
             rebalanceClientConfig.setStealerBasedRebalancing(!useDonorBased);
 
             final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,

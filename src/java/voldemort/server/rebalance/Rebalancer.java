@@ -167,24 +167,38 @@ public class Rebalancer implements Runnable {
         Cluster previousRebalancingSourceCluster = null;
 
         try {
-            // CHANGE CLUSTER METADATA
-            if(changeClusterMetadata) {
-                logger.info("Switching metadata from " + currentCluster + " to " + cluster);
-                changeCluster(MetadataStore.CLUSTER_KEY, cluster);
-                completedClusterChange = true;
-            }
 
-            // SWAP RO DATA FOR ALL STORES
-            if(swapRO) {
-                swapROStores(swappedStoreNames, false);
-            }
-
+            /*
+             * Do the rebalancing state changes. It is important that this
+             * happens before the actual cluster metadata is changed. Here's
+             * what could happen otherwise. When a batch completes with
+             * {current_cluster c2, rebalancing_source_cluster c1} and the next
+             * rebalancing state changes it to {current_cluster c3,
+             * rebalancing_source_cluster c2} is set for the next batch, then
+             * there could be a window during which the state is
+             * {current_cluster c3, rebalancing_source_cluster c1}. On the other
+             * hand, when we update the rebalancing source cluster first, there
+             * is a window where the state is {current_cluster c2,
+             * rebalancing_source_cluster c2}, which still fine, because of the
+             * following. Successful completion of a batch means the cluster is
+             * finalized, so its okay to stop proxying based on {current_cluster
+             * c2, rebalancing_source_cluster c1}. And since the cluster
+             * metadata has not yet been updated to c3, the writes will happen
+             * based on c2.
+             * 
+             * Even if some clients have already seen the {current_cluster c3,
+             * rebalancing_source_cluster c2} state from other servers, the
+             * operation will be rejected with InvalidMetadataException since
+             * this server itself is not aware of C3
+             */
             // CHANGE REBALANCING STATE
             if(changeRebalanceState) {
                 try {
                     previousRebalancingSourceCluster = metadataStore.getRebalancingSourceCluster();
                     if(!rollback) {
                         // Save up the current cluster for Redirecting store
+                        logger.info("Setting rebalancing source cluster xml from "
+                                    + previousRebalancingSourceCluster + "to " + currentCluster);
                         changeCluster(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, currentCluster);
                         completedRebalanceSourceClusterChange = true;
 
@@ -194,6 +208,8 @@ public class Rebalancer implements Runnable {
                         }
                     } else {
                         // Reset the rebalancing source cluster back to null
+                        logger.info("Resetting rebalancing source cluster xml from "
+                                    + previousRebalancingSourceCluster + "to null");
                         changeCluster(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, null);
                         completedRebalanceSourceClusterChange = true;
 
@@ -205,6 +221,18 @@ public class Rebalancer implements Runnable {
                 } catch(Exception e) {
                     throw new VoldemortException(e);
                 }
+            }
+
+            // CHANGE CLUSTER METADATA
+            if(changeClusterMetadata) {
+                logger.info("Switching metadata from " + currentCluster + " to " + cluster);
+                changeCluster(MetadataStore.CLUSTER_KEY, cluster);
+                completedClusterChange = true;
+            }
+
+            // SWAP RO DATA FOR ALL STORES
+            if(swapRO) {
+                swapROStores(swappedStoreNames, false);
             }
         } catch(VoldemortException e) {
 

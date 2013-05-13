@@ -470,7 +470,7 @@ public class VoldemortConfig implements Serializable {
         this.usePartitionScanForRebalance = props.getBoolean("use.partition.scan.for.rebalance",
                                                              true);
         this.maxProxyPutThreads = props.getInt("max.proxy.put.threads", 1);
-        this.proxyPutsDuringRebalance = props.getBoolean("proxy.puts.during.rebalance", false);
+        this.proxyPutsDuringRebalance = props.getBoolean("proxy.puts.during.rebalance", true);
 
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
                                                              FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
