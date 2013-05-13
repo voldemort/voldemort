@@ -252,7 +252,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                           maxTries,
                                                                           timeout,
                                                                           stealerBased);
-            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
+            int batchSize = RebalancePlan.BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
             try {
 
@@ -313,7 +313,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                           maxTries,
                                                                           timeout,
                                                                           stealerBased);
-            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
+            int batchSize = RebalancePlan.BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
             try {
@@ -385,7 +385,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                           maxTries,
                                                                           timeout,
                                                                           stealerBased);
-            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
+            int batchSize = RebalancePlan.BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
             try {
@@ -435,7 +435,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                           maxTries,
                                                                           timeout,
                                                                           stealerBased);
-            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
+            int batchSize = RebalancePlan.BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
             try {
@@ -489,7 +489,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                           maxTries,
                                                                           timeout,
                                                                           stealerBased);
-            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
+            int batchSize = RebalancePlan.BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
             try {
@@ -567,7 +567,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                           maxTries,
                                                                           timeout,
                                                                           stealerBased);
-            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
+            int batchSize = RebalancePlan.BATCH_SIZE;
             RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
 
             try {
@@ -786,7 +786,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                                 maxTries,
                                                                                 timeout,
                                                                                 stealerBased);
-            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
+            int batchSize = RebalancePlan.BATCH_SIZE;
             final RebalancePlan rebalancePlan = rebalanceClient.getPlan(updatedTargetCluster,
                                                                         batchSize);
 
@@ -955,7 +955,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                                 maxTries,
                                                                                 timeout,
                                                                                 stealerBased);
-            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
+            int batchSize = RebalancePlan.BATCH_SIZE;
             final RebalancePlan rebalancePlan = rebalanceClient.getPlan(updatedTargetCluster,
                                                                         batchSize);
 
@@ -1172,7 +1172,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                                 maxTries,
                                                                                 timeout,
                                                                                 stealerBased);
-            int batchSize = RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE;
+            int batchSize = RebalancePlan.BATCH_SIZE;
             final RebalancePlan rebalancePlan = rebalanceClient.getPlan(updatedTargetCluster,
                                                                         batchSize);
 

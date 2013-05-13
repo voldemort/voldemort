@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
@@ -53,22 +52,20 @@ public class RebalanceControllerCLI {
         parser.accepts("donor-based", "Execute donor-based rebalancing.");
         parser.accepts("stealer-based", "Execute stealer-based rebalancing (default).");
 
-        // TODO: WTF
+        // TODO: Can this option be deprecated?
         parser.accepts("tries",
-                       "(1) Tries during rebalance [ Default: "
-                               + RebalanceController.MAX_TRIES_REBALANCING
-                               + " ] (2) Number of tries while generating new metadata")
+                       "Tries during stealer-based rebalance [ Default: "
+                               + RebalanceController.MAX_TRIES_REBALANCING + " ]")
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("num-tries");
-        // TODO: WTF
+        // TODO: Can this option be deprecated?
         parser.accepts("timeout",
                        "Time-out in seconds for rebalancing of a single task ( stealer - donor tuple ) [ Default : "
                                + RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC + " ]")
               .withRequiredArg()
               .ofType(Long.class)
               .describedAs("sec");
-        // TODO: WTF
         parser.accepts("parallelism",
                        "Number of rebalances to run in parallel [ Default:"
                                + RebalanceController.MAX_PARALLEL_REBALANCING + " ]")
@@ -84,15 +81,14 @@ public class RebalanceControllerCLI {
               .withRequiredArg()
               .describedAs("stores.xml");
 
-        // TODO: These options are common with RebalancePlanCLI. How to share?
-        // TODO: Switch default for batch size to infinite.
         parser.accepts("batch",
-                       "Number of primary partitions to move together [ Default : "
-                               + RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE + " ]")
+                       "Number of primary partitions to move together [ RebalancePlan parameter; Default : "
+                               + RebalancePlan.BATCH_SIZE + " ]")
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("num-primary-partitions");
-        parser.accepts("output-dir", "Output directory in which to dump per-batch metadata")
+        parser.accepts("output-dir",
+                       "RebalancePlan parameter; Output directory in which to dump per-batch metadata")
               .withRequiredArg()
               .ofType(String.class)
               .describedAs("path");
@@ -108,11 +104,10 @@ public class RebalanceControllerCLI {
         help.append("    --final-cluster <clusterXML>\n");
         help.append("  Optional:\n");
         help.append("    --final-stores <storesXML> [ Needed for zone expansion ]\n");
-        help.append("    --output-dir [ Output directory is where we store the optimized cluster ]\n");
+        help.append("    --output-dir [ Output directory in which plan is stored ]\n");
         help.append("    --batch <batch> [ Number of primary partitions to move in each rebalancing batch. ]\n");
         help.append("    --output-dir <outputDir> [ Directory in which cluster metadata is dumped for each batch of the plan. ]\n");
         help.append("    --stealer-based or --donor-based [ Defaults to stealer-based. ]\n");
-        // TODO: Add in WTF members: parallelism, tries, timeout, delete, other?
 
         try {
             parser.printHelpOn(System.out);
@@ -155,16 +150,31 @@ public class RebalanceControllerCLI {
         // Bootstrap & fetch current cluster/stores
         String bootstrapURL = (String) options.valueOf("url");
 
+        // Process optional "controller" arguments
         boolean stealerBased = true;
         if(options.has("donor-based")) {
             stealerBased = false;
         }
-        // TODO: Process other optional controller args
+
+        int parallelism = RebalanceController.MAX_PARALLEL_REBALANCING;
+        if(options.has("parallelism")) {
+            parallelism = (Integer) options.valueOf("parallelism");
+        }
+
+        int tries = RebalanceController.MAX_TRIES_REBALANCING;
+        if(options.has("tries")) {
+            tries = (Integer) options.valueOf("tries");
+        }
+
+        long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
+        if(options.has("timeout")) {
+            timeout = (Integer) options.valueOf("timeout");
+        }
 
         RebalanceController rebalanceController = new RebalanceController(bootstrapURL,
-                                                                          1,
-                                                                          2,
-                                                                          TimeUnit.DAYS.toSeconds(30),
+                                                                          parallelism,
+                                                                          tries,
+                                                                          timeout,
                                                                           stealerBased);
 
         Cluster currentCluster = rebalanceController.getCurrentCluster();
@@ -184,25 +194,20 @@ public class RebalanceControllerCLI {
         RebalanceUtils.validateClusterStores(finalCluster, finalStoreDefs);
         RebalanceUtils.validateCurrentFinalCluster(currentCluster, finalCluster);
 
-        // Process optional planning args
-        int batchSize = CmdUtils.valueOf(options,
-                                         "batch",
-                                         RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE);
+        // Process optional "planning" arguments
+        int batchSize = CmdUtils.valueOf(options, "batch", RebalancePlan.BATCH_SIZE);
 
         String outputDir = null;
         if(options.has("output-dir")) {
             outputDir = (String) options.valueOf("output-dir");
         }
 
-        // Plan rebalancing
-        // TODO: Figure out when/how stealerBased flag should be used.
-        RebalancePlan rebalancePlan = new RebalancePlan(currentCluster,
+        // Plan & execute rebalancing.
+        rebalanceController.rebalance(new RebalancePlan(currentCluster,
                                                         currentStoreDefs,
                                                         finalCluster,
                                                         finalStoreDefs,
                                                         batchSize,
-                                                        outputDir);
-        // Execute rebalancing plan.
-        rebalanceController.rebalance(rebalancePlan);
+                                                        outputDir));
     }
 }

@@ -45,8 +45,13 @@ public class RebalancePlan {
 
     private static final Logger logger = Logger.getLogger(RebalancePlan.class);
 
-    // TODO: Rename this and set to (effectively) infinite.
-    public final static int PRIMARY_PARTITION_BATCH_SIZE = 1;
+    /**
+     * The number of "primary" partition IDs to move in each batch of the plan.
+     * Moving a primary partition ID between nodes results in between zero and
+     * (# of zones) * (2) * (# stores) partition-stores being moved. The (2)
+     * comes from an upper bound of a single move affecting two-nodes per zone.
+     */
+    public final static int BATCH_SIZE = Integer.MAX_VALUE;
 
     private final Cluster currentCluster;
     private final List<StoreDefinition> currentStores;

@@ -60,10 +60,9 @@ public class RebalancePlanCLI {
                        "Path to target store definition xml. Needed for zone expansion.")
               .withRequiredArg()
               .describedAs("stores.xml");
-        // TODO: Switch default for batch size to infinite.
         parser.accepts("batch",
                        "Number of primary partitions to move together [ Default : "
-                               + RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE + " ]")
+                               + RebalancePlan.BATCH_SIZE + " ]")
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("num-primary-partitions");
@@ -150,9 +149,7 @@ public class RebalancePlanCLI {
         List<StoreDefinition> targetStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(targetStoresXML));
 
         // Optional args
-        int batchSize = CmdUtils.valueOf(options,
-                                         "batch",
-                                         RebalancePlan.PRIMARY_PARTITION_BATCH_SIZE);
+        int batchSize = CmdUtils.valueOf(options, "batch", RebalancePlan.BATCH_SIZE);
 
         String outputDir = null;
         if(options.has("output-dir")) {
