@@ -143,7 +143,7 @@ message PerStorePartitionTuple {
 message RebalancePartitionInfoMap {
   required int32 stealer_id = 1;
   required int32 donor_id = 2;
-  required int32 attempt = 3;
+  optional int32 OBSOLETE__DO_NOT_USE__attempt = 3;
   repeated PerStorePartitionTuple replica_to_add_partition = 4;
   repeated PerStorePartitionTuple replica_to_delete_partition = 5;
   required string initial_cluster = 6;

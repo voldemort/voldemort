@@ -102,7 +102,7 @@ public class AdminRebalanceTest {
 
     private final boolean useNio;
 
-    // TODO: should to test stealer- and donor-based rebalancing
+    // TODO: should test stealer- and donor-based rebalancing
     public AdminRebalanceTest(boolean useNio) {
         this.useNio = useNio;
     }

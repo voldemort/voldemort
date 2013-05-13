@@ -36,18 +36,24 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-// TODO: Merge this with what is currently REbalanceNodePlan? No!? This class
-// serves to purposes: 1) In RebalanceClusterPlan, these things are created and
-// the BatchPlan is expressed as a list of these; 2) In RebalanceNodePlan, the
-// work each node does during a batch is expressed as an ordered list of these.
-// Are all interfaces /members needed for both use cases? simplification &
-// clarification would be really nice.
-
-// TODO: Rename to include PartitionStore in name since the basic unit of work
-// tracked within this class is at the level of partition-stores, not
-// partitions. Maybe "RebalancePartitionStoreTask" is a good name? Though, this
-// class covers all partition-stores that must move between this particular
-// donor/stealer.
+// TODO: Drop this class as part of work to remove replicaType from the code
+// base. Note that this class is serialized over the wire and serialized on disk
+// (in the metadata store on the server). So, dropping this class will be
+// complicated.
+//
+// This class serves a few distinct purposes:
+//
+// 1) In RebalanceClusterPlan, these things are created and the BatchPlan is
+// expressed as a list of these;
+//
+// 2) In RebalanceNodePlan, the work each node does during a batch is expressed
+// as an ordered list of these.
+//
+// 3) Each node keeps a copy of these in its metadata store as part of
+// rebalancing.
+//
+// These use cases should be handled separately. Any other
+// simplification & clarification would be really nice.
 /**
  * Holds the list of partitions being moved / deleted for a stealer-donor node
  * tuple
@@ -151,11 +157,9 @@ public class RebalancePartitionsInfo {
         Cluster initialCluster = new ClusterMapper().readCluster(new StringReader((String) map.get("initialCluster")));
 
         HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartition = Maps.newHashMap();
-        HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToDeletePartition = Maps.newHashMap();
         for(String unbalancedStore: unbalancedStoreList) {
 
             HashMap<Integer, List<Integer>> replicaToAddPartition = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> replicaToDeletePartitionList = Maps.newHashMap();
             for(int replicaNo = 0; replicaNo <= maxReplicas; replicaNo++) {
                 List<Integer> partitionList = Utils.uncheckedCast(map.get(unbalancedStore
                                                                           + "replicaToAddPartitionList"
@@ -164,21 +168,10 @@ public class RebalancePartitionsInfo {
                 // rebalancing tests
                 if(partitionList.size() > 0)
                     replicaToAddPartition.put(replicaNo, partitionList);
-
-                List<Integer> deletePartitionList = Utils.uncheckedCast(map.get(unbalancedStore
-                                                                                + "replicaToDeletePartitionList"
-                                                                                + Integer.toString(replicaNo)));
-                // TODO there is a potential NPE hiding here that might fail
-                // rebalancing tests
-                if(deletePartitionList.size() > 0)
-                    replicaToDeletePartitionList.put(replicaNo, deletePartitionList);
             }
 
             if(replicaToAddPartition.size() > 0)
                 storeToReplicaToAddPartition.put(unbalancedStore, replicaToAddPartition);
-
-            if(replicaToDeletePartitionList.size() > 0)
-                storeToReplicaToDeletePartition.put(unbalancedStore, replicaToDeletePartitionList);
         }
 
         return new RebalancePartitionsInfo(stealerId,
