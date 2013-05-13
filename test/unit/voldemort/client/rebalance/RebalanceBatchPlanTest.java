@@ -45,6 +45,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
+// TODO: This suite of tests is known to mostly fail. Sorry.
 // TODO: This test needs to be mostly re-written. The planning algorithm has
 // changed and this test focused on the implementation of the prior planning
 // algorithm, rather than the features of a plan in general.
