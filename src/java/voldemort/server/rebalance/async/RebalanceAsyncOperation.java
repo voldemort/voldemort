@@ -28,6 +28,7 @@ public abstract class RebalanceAsyncOperation extends AsyncOperation {
 
         return Executors.newFixedThreadPool(numThreads, new ThreadFactory() {
 
+            @Override
             public Thread newThread(Runnable r) {
                 Thread thread = new Thread(r);
                 thread.setName(r.getClass().getName());

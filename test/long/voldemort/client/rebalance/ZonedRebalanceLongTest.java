@@ -24,16 +24,13 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 /**
- * Start VoldemortServer locally using ServerTestUtils and run rebalancing
- * tests.
- * 
+ * Run a version of RebalanceTests with a lot more keys.
  * 
  */
-// TODO: Rename RebalanceTest -> NonZonedRebalanceTest
 @RunWith(Parameterized.class)
-public class RebalanceTest extends AbstractNonZonedRebalanceTest {
+public class ZonedRebalanceLongTest extends AbstractZonedRebalanceTest {
 
-    private final int NUM_KEYS = 20;
+    private final int NUM_KEYS = 10100;
 
     // TODO: Add back donor-based tests. These tests are broken because it is
     // near impossible to get the replica-type handshake correct between the
@@ -41,8 +38,8 @@ public class RebalanceTest extends AbstractNonZonedRebalanceTest {
     // paths (e.g.,
     // DonorBasedRebalanceAsyncOperation.fetchEntriesForStealersPartitionScan),
     // then donor-based code should work again.
-    // public RebalanceTest(boolean useNio, boolean useDonorBased) {
-    public RebalanceTest(boolean useNio) {
+    // public RebalanceLongTest(boolean useNio, boolean useDonorBased) {
+    public ZonedRebalanceLongTest(boolean useNio) {
         super(useNio, false);
     }
 
@@ -53,11 +50,11 @@ public class RebalanceTest extends AbstractNonZonedRebalanceTest {
                 { false, false } });
          */
         return Arrays.asList(new Object[][] { { true }, { false } });
-
     }
 
     @Override
     protected int getNumKeys() {
         return NUM_KEYS;
     }
+
 }
