@@ -201,7 +201,7 @@ public class PartitionBalance {
         Map<Integer, Integer> nodeIdToNaryCount = Maps.newHashMap();
 
         for(int nodeId: cluster.getNodeIds()) {
-            nodeIdToNaryCount.put(nodeId, storeRoutingPlan.getNaryPartitionIds(nodeId).size());
+            nodeIdToNaryCount.put(nodeId, storeRoutingPlan.getZoneNAryPartitionIds(nodeId).size());
         }
 
         return nodeIdToNaryCount;
@@ -278,10 +278,10 @@ public class PartitionBalance {
             int zoneId = node.getZoneId();
             int nodeId = node.getId();
             sb.append("\tNode ID: " + nodeId + " in zone " + zoneId).append(Utils.NEWLINE);
-            List<Integer> naries = storeRoutingPlan.getNaryPartitionIds(nodeId);
+            List<Integer> naries = storeRoutingPlan.getZoneNAryPartitionIds(nodeId);
             Map<Integer, List<Integer>> zoneNaryTypeToPartitionIds = new HashMap<Integer, List<Integer>>();
             for(int nary: naries) {
-                int zoneReplicaType = storeRoutingPlan.getZoneReplicaType(zoneId, nodeId, nary);
+                int zoneReplicaType = storeRoutingPlan.getZoneNaryForNodesPartition(zoneId, nodeId, nary);
                 if(!zoneNaryTypeToPartitionIds.containsKey(zoneReplicaType)) {
                     zoneNaryTypeToPartitionIds.put(zoneReplicaType, new ArrayList<Integer>());
                 }

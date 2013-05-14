@@ -53,6 +53,7 @@ public class DonorBasedRebalancePusherSlave implements Runnable {
         nodeIterator = new ResumableIterator<Pair<ByteArray, Versioned<byte[]>>>();
     }
 
+    @Override
     public void run() throws VoldemortException {
         boolean needWait = false;
         logger.info("DonorBasedRebalancePusherSlave begains to send partitions for store "
@@ -79,13 +80,11 @@ public class DonorBasedRebalancePusherSlave implements Runnable {
 
             if(needWait) {
                 try {
-                    // sleep for 5 minutes if exception occur while communicate
-                    // with remote node
-                    logger.info("waiting for 5 minutes for the remote node to recover");
-                    // TODO: Is this sleep really needed? Why?
-                    Thread.sleep(TimeUnit.MINUTES.toMillis(5));
+                    logger.info("waiting 30 seconds for the remote node to recover...");
+                    Thread.sleep(TimeUnit.SECONDS.toMillis(30));
                     needWait = false;
                 } catch(InterruptedException e) {
+                    logger.info("sleep interrupted while waiting for remote node to recover:" + e);
                     // continue
                 }
             }
@@ -120,6 +119,7 @@ public class DonorBasedRebalancePusherSlave implements Runnable {
         private Pair<ByteArray, Versioned<byte[]>> currentElem = null;
         private ArrayList<Pair<ByteArray, Versioned<byte[]>>> tentativeList = Lists.newArrayList();
 
+        @Override
         public void close() {}
 
         public void setRecoveryMode() {
@@ -143,6 +143,7 @@ public class DonorBasedRebalancePusherSlave implements Runnable {
             this.currentElem = null;
         }
 
+        @Override
         public boolean hasNext() {
             boolean hasNext = false;
             if(!done) {
@@ -173,6 +174,7 @@ public class DonorBasedRebalancePusherSlave implements Runnable {
 
         // return the element when one or more is available, blocked
         // otherwise
+        @Override
         public Pair<ByteArray, Versioned<byte[]>> next() {
             if(done) {
                 throw new NoSuchElementException();
@@ -227,6 +229,7 @@ public class DonorBasedRebalancePusherSlave implements Runnable {
             return retValue;
         }
 
+        @Override
         public void remove() {
             throw new VoldemortException("Remove not supported");
         }

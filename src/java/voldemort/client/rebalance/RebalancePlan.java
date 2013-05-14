@@ -127,7 +127,7 @@ public class RebalancePlan {
 
     /**
      * Create a plan. The plan consists of batches. Each batch involves the
-     * movement of nor more than batchSize primary partitions. The movement of a
+     * movement of no more than batchSize primary partitions. The movement of a
      * single primary partition may require migration of other n-ary replicas,
      * and potentially deletions. Migrating a primary or n-ary partition
      * requires migrating one partition-store for every store hosted at that
@@ -137,9 +137,6 @@ public class RebalancePlan {
     private void plan() {
         // Mapping of stealer node to list of primary partitions being moved
         final TreeMultimap<Integer, Integer> stealerToStolenPrimaryPartitions = TreeMultimap.create();
-
-        // Used for creating clones
-        ClusterMapper mapper = new ClusterMapper();
 
         // Output initial and final cluster
         if(outputDir != null)
@@ -159,11 +156,11 @@ public class RebalancePlan {
 
         // Determine plan batch-by-batch
         int batches = 0;
-        Cluster batchTargetCluster = mapper.readCluster(new StringReader(mapper.writeCluster(targetCluster)));
+        Cluster batchTargetCluster = cloneCluster(targetCluster);
         while(!stealerToStolenPrimaryPartitions.isEmpty()) {
 
             // Generate a batch partitions to move
-            Cluster batchFinalCluster = mapper.readCluster(new StringReader(mapper.writeCluster(batchTargetCluster)));
+            Cluster batchFinalCluster = cloneCluster(batchTargetCluster);
             int partitions = 0;
             List<Entry<Integer, Integer>> partitionsMoved = Lists.newArrayList();
             for(Entry<Integer, Integer> stealerToPartition: stealerToStolenPrimaryPartitions.entries()) {
@@ -202,10 +199,22 @@ public class RebalancePlan {
             zoneMoveMap.add(RebalanceBatchPlan.getZoneMoveMap());
 
             batches++;
-            batchTargetCluster = mapper.readCluster(new StringReader(mapper.writeCluster(batchFinalCluster)));
+            batchTargetCluster = cloneCluster(batchFinalCluster);
         }
 
         logger.info(this);
+    }
+
+    /**
+     * In the absence of a Cluster.clone() operation, hack a clone method for
+     * local use.
+     * 
+     * @param cluster
+     * @return clone of Cluster cluster.
+     */
+    private Cluster cloneCluster(Cluster cluster) {
+        ClusterMapper mapper = new ClusterMapper();
+        return mapper.readCluster(new StringReader(mapper.writeCluster(cluster)));
     }
 
     /**

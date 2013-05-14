@@ -184,7 +184,7 @@ public class RebalanceController {
         // Reset the cluster that the admin client points at
         adminClient.setAdminClientCluster(finalCluster);
         // Validate that all the nodes ( new + old ) are in normal state
-        RebalanceUtils.validateProdClusterStateIsNormal(finalCluster, adminClient);
+        RebalanceUtils.checkEachServerInNormalState(finalCluster, adminClient);
         // Verify all old RO stores exist at version 2
         RebalanceUtils.validateReadOnlyStores(finalCluster, finalStores, adminClient);
     }
@@ -643,11 +643,6 @@ public class RebalanceController {
             HashMap<Integer, List<RebalancePartitionsInfo>> donorNodeBasedPartitionsInfo = RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
                                                                                                                                     false);
             for(Entry<Integer, List<RebalancePartitionsInfo>> entries: donorNodeBasedPartitionsInfo.entrySet()) {
-                // At some point, a 10 second sleep was added here to help with
-                // a race condition. Leaving this comment here in case, at some
-                // point in the future, we need to hack around some race
-                // condition:
-                // Thread.sleep(10000);
                 DonorBasedRebalanceTask rebalanceTask = new DonorBasedRebalanceTask(taskId,
                                                                                     entries.getValue(),
                                                                                     rebalancingClientTimeoutSeconds,

@@ -482,12 +482,12 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         // Use the old store definition to get the routing object
         StoreRoutingPlan oldRoutingPlan = new StoreRoutingPlan(sourceCluster, sourceStoreDef);
         // Check the current node's relationship to the key.
-        int zoneReplicaType = currentRoutingPlan.getZoneReplicaType(zoneId, nodeId, key);
+        int zoneNAry = currentRoutingPlan.getZoneNAry(zoneId, nodeId, key);
         // Determine which node held the key with the same relationship in the
         // old cluster. That is your man!
         Integer redirectNodeId;
         try {
-            redirectNodeId = oldRoutingPlan.getZoneReplicaNode(zoneId, zoneReplicaType, key);
+            redirectNodeId = oldRoutingPlan.getNodeIdForZoneNary(zoneId, zoneNAry, key);
         } catch(VoldemortException ve) {
             /*
              * If the zone does not exist, as in the case of Zone Expansion,

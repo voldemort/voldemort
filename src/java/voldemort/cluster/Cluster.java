@@ -259,6 +259,10 @@ public class Cluster implements Serializable {
         return builder.toString();
     }
 
+    // TODO: Add a .clone() implementation. See hacked method in
+    // RebalancePlan.cloneCluster for example of current approach to cloning
+    // (use ClusterMapper to serde via XML...)
+
     @Override
     public boolean equals(Object second) {
         if(this == second)

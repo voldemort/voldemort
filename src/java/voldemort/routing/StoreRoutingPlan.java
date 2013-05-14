@@ -67,7 +67,7 @@ public class StoreRoutingPlan {
                 int naryNodeId = getNodeIdForPartitionId(naryPartitionId);
                 nodeIdToNaryPartitionMap.get(naryNodeId).add(masterPartitionId);
                 int naryZoneId = cluster.getNodeById(naryNodeId).getZoneId();
-                if(getZoneReplicaType(naryZoneId, naryNodeId, naryPartitionId) == 0) {
+                if(getZoneNaryForNodesPartition(naryZoneId, naryNodeId, naryPartitionId) == 0) {
                     nodeIdToZonePrimaryMap.get(naryNodeId).add(masterPartitionId);
                 }
             }
@@ -93,18 +93,23 @@ public class StoreRoutingPlan {
     }
 
     /**
+     * Returns all (zone n-ary) partition IDs hosted on the node.
      * 
      * @param nodeId
-     * @return all nary partition IDs hosted on the node.
+     * @return all zone n-ary partition IDs hosted on the node in an unordered
+     *         list.
      */
-    public List<Integer> getNaryPartitionIds(int nodeId) {
+    public List<Integer> getZoneNAryPartitionIds(int nodeId) {
         return nodeIdToNaryPartitionMap.get(nodeId);
     }
 
     /**
+     * Returns all zone-primary partition IDs on node. A zone-primary means zone
+     * n-ary==0. Zone-primary nodes are generally pseudo-masters in the zone and
+     * receive get traffic for some partition Id.
      * 
      * @param nodeId
-     * @return all nary partition IDs hosted on the node.
+     * @return all primary partition IDs (zone n-ary == 0) hosted on the node.
      */
     public List<Integer> getZonePrimaryPartitionIds(int nodeId) {
         return nodeIdToZonePrimaryMap.get(nodeId);
@@ -220,9 +225,10 @@ public class StoreRoutingPlan {
      * @param zoneId
      * @param nodeId
      * @param key
-     * @return
+     * @return zone n-ary level for key hosted on node id in zone id.
      */
-    public int getZoneReplicaType(int zoneId, int nodeId, byte[] key) {
+    // TODO: add unit test.
+    public int getZoneNAry(int zoneId, int nodeId, byte[] key) {
         if(cluster.getNodeById(nodeId).getZoneId() != zoneId) {
             throw new VoldemortException("Node " + nodeId + " is not in zone " + zoneId
                                          + "! The node is in zone "
@@ -230,19 +236,19 @@ public class StoreRoutingPlan {
         }
 
         List<Node> replicatingNodes = this.routingStrategy.routeRequest(key);
-        int zoneReplicaType = -1;
+        int zoneNAry = -1;
         for(Node node: replicatingNodes) {
             // bump up the replica number once you encounter a node in the given
             // zone
             if(node.getZoneId() == zoneId) {
-                zoneReplicaType++;
+                zoneNAry++;
             }
             // we are done when we find the given node
             if(node.getId() == nodeId) {
-                return zoneReplicaType;
+                return zoneNAry;
             }
         }
-        if(zoneReplicaType > -1) {
+        if(zoneNAry > -1) {
             throw new VoldemortException("Node " + nodeId + " not a replica for the key "
                                          + ByteUtils.toHexString(key) + " in given zone " + zoneId);
         } else {
@@ -251,15 +257,19 @@ public class StoreRoutingPlan {
         }
     }
 
-    // TODO: After other rebalancing code is cleaned up, either document and add
-    // a test, or remove this method. (Unclear if this method is needed once we
-    // drop replicaType from some key code paths).
-    public boolean hasZoneReplicaType(int zoneId, int partitionId) {
+    /**
+     * checks if zone replicates partition Id. False should only be returned in
+     * zone expansion use cases.
+     * 
+     * @param zoneId
+     * @param partitionId
+     * @return true iff partitionId is replicated in zone id.
+     */
+    // TODO: add unit test.
+    public boolean zoneHasReplica(int zoneId, int partitionId) {
         List<Integer> replicatingNodeIds = getReplicationNodeList(partitionId);
         for(int replicatingNodeId: replicatingNodeIds) {
             Node replicatingNode = cluster.getNodeById(replicatingNodeId);
-            // bump up the replica number once you encounter a node in the given
-            // zone
             if(replicatingNode.getZoneId() == zoneId) {
                 return true;
             }
@@ -267,16 +277,18 @@ public class StoreRoutingPlan {
         return false;
     }
 
-    // TODO: After other rebalancing code is cleaned up, either document and add
-    // a test, or remove this method. (Unclear if this method is needed once we
-    // drop replicaType from some key code paths).
     /**
+     * Determines the zone n-ary replica level of the specified partitionId on
+     * the node id in zone id.
      * 
      * @param zoneId
      * @param nodeId
      * @param partitionId
+     * @return zone n-ary replica level of the partition id on the node id in
+     *         the zone id (primary == 0, secondary == 1, ...)
      */
-    public int getZoneReplicaType(int zoneId, int nodeId, int partitionId) {
+    // TODO: add unit test.
+    public int getZoneNaryForNodesPartition(int zoneId, int nodeId, int partitionId) {
         if(cluster.getNodeById(nodeId).getZoneId() != zoneId) {
             throw new VoldemortException("Node " + nodeId + " is not in zone " + zoneId
                                          + "! The node is in zone "
@@ -284,19 +296,19 @@ public class StoreRoutingPlan {
         }
 
         List<Integer> replicatingNodeIds = getReplicationNodeList(partitionId);
-        int zoneReplicaType = -1;
+        int zoneNAry = -1;
         for(int replicatingNodeId: replicatingNodeIds) {
             Node replicatingNode = cluster.getNodeById(replicatingNodeId);
             // bump up the replica number once you encounter a node in the given
             // zone
             if(replicatingNode.getZoneId() == zoneId) {
-                zoneReplicaType++;
+                zoneNAry++;
             }
             if(replicatingNode.getId() == nodeId) {
-                return zoneReplicaType;
+                return zoneNAry;
             }
         }
-        if(zoneReplicaType > 0) {
+        if(zoneNAry > 0) {
             throw new VoldemortException("Node " + nodeId + " not a replica for partition "
                                          + partitionId + " in given zone " + zoneId);
         } else {
@@ -305,14 +317,15 @@ public class StoreRoutingPlan {
         }
     }
 
-    // TODO: After other rebalancing code is cleaned up, either document and add
-    // a test, or remove this method. (Unclear if this method is needed once we
-    // drop replicaType from some key code paths).
     /**
+     * Determines replicaType for partition id on node id.
      * 
      * @param nodeId
      * @param partitionId
+     * @return replicaType of the partition Id on the given node id.
      */
+    // TODO: (replicaType) drop method.
+    @Deprecated
     public int getReplicaType(int nodeId, int partitionId) {
         List<Integer> replicatingNodeIds = getReplicationNodeList(partitionId);
         int replicaType = -1;
@@ -337,68 +350,76 @@ public class StoreRoutingPlan {
      * the node that contains the key as the nth replica in the given zone.
      * 
      * @param zoneId
-     * @param zoneReplicaType
+     * @param zoneNary
      * @param key
-     * @return
+     * @return node id that hosts zone n-ary replica for the key
      */
-    public int getZoneReplicaNode(int zoneId, int zoneReplicaType, byte[] key) {
+    // TODO: add unit test.
+    public int getNodeIdForZoneNary(int zoneId, int zoneNary, byte[] key) {
         List<Node> replicatingNodes = this.routingStrategy.routeRequest(key);
-        int zoneReplicaTypeCounter = -1;
+        int zoneNAry = -1;
         for(Node node: replicatingNodes) {
-            // bump up the counter if we encounter a replica in the given zone
+            // bump up the counter if we encounter a replica in the given zone;
+            // return current node if counter now matches requested
             if(node.getZoneId() == zoneId) {
-                zoneReplicaTypeCounter++;
-            }
-            // when the counter matches up with the replicaNumber we need, we
-            // are done.
-            if(zoneReplicaTypeCounter == zoneReplicaType) {
-                return node.getId();
+                zoneNAry++;
+
+                if(zoneNAry == zoneNary) {
+                    return node.getId();
+                }
             }
         }
-        if(zoneReplicaTypeCounter == -1) {
+        if(zoneNAry == -1) {
             throw new VoldemortException("Could not find any replicas for the key "
                                          + ByteUtils.toHexString(key) + " in given zone " + zoneId);
         } else {
-            throw new VoldemortException("Could not find " + (zoneReplicaType + 1)
+            throw new VoldemortException("Could not find " + (zoneNary + 1)
                                          + " replicas for the key " + ByteUtils.toHexString(key)
                                          + " in given zone " + zoneId + ". Only found "
-                                         + (zoneReplicaTypeCounter + 1));
+                                         + (zoneNAry + 1));
         }
     }
 
-    // TODO: After other rebalancing code is cleaned up, either document and add
-    // a test, or remove this method. (Unclear if this method is needed once we
-    // drop replicaType from some key code paths).
-    public int getZoneReplicaNodeId(int zoneId, int zoneReplicaType, int partitionId) {
+    /**
+     * Determines which node hosts partition id with specified n-ary level in
+     * specified zone.
+     * 
+     * @param zoneId
+     * @param zoneNary
+     * @param partitionId
+     * @return node ID that hosts zone n-ary replica of partition.
+     */
+    // TODO: add unit test.
+    public int getNodeIdForZoneNary(int zoneId, int zoneNary, int partitionId) {
         List<Integer> replicatingNodeIds = getReplicationNodeList(partitionId);
 
-        int zoneReplicaTypeCounter = -1;
+        int zoneNAry = -1;
         for(int replicatingNodeId: replicatingNodeIds) {
             Node replicatingNode = cluster.getNodeById(replicatingNodeId);
             // bump up the counter if we encounter a replica in the given zone
             if(replicatingNode.getZoneId() == zoneId) {
-                zoneReplicaTypeCounter++;
+                zoneNAry++;
             }
             // when the counter matches up with the replicaNumber we need, we
             // are done.
-            if(zoneReplicaTypeCounter == zoneReplicaType) {
+            if(zoneNAry == zoneNary) {
                 return replicatingNode.getId();
             }
         }
-        if(zoneReplicaTypeCounter == 0) {
+        if(zoneNAry == 0) {
             throw new VoldemortException("Could not find any replicas for the partition "
                                          + partitionId + " in given zone " + zoneId);
         } else {
-            throw new VoldemortException("Could not find " + zoneReplicaType
+            throw new VoldemortException("Could not find " + zoneNary
                                          + " replicas for the partition " + partitionId
-                                         + " in given zone " + zoneId + ". Only found "
-                                         + zoneReplicaTypeCounter);
+                                         + " in given zone " + zoneId + ". Only found " + zoneNAry);
         }
     }
 
     // TODO: (refactor) Move from static methods to non-static methods that use
     // this object's cluster and storeDefinition member for the various
-    // check*BelongsTo* methods.
+    // check*BelongsTo* methods. Also, tweak internal members to make these
+    // checks easier/faster.
     /**
      * Check that the key belongs to one of the partitions in the map of replica
      * type to partitions

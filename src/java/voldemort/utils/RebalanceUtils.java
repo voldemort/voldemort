@@ -45,6 +45,7 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.StoreRoutingPlan;
@@ -121,6 +122,10 @@ public class RebalanceUtils {
 
     }
 
+    // TODO: (refactor) Either move all methods that take an AdminClient
+    // somewhere else. Either (i) into a name space of AdminClient or (ii)
+    // separate utils class. Must wait until after all changes for abortable
+    // rebalance & atomic update of cluster/stores are merged to do this change.
     /**
      * Get the latest cluster from all available nodes in the cluster<br>
      * 
@@ -209,8 +214,8 @@ public class RebalanceUtils {
      * @param adminClient Admin client used to query
      * @throws VoldemortRebalancingException if any node is not in normal state
      */
-    public static void validateProdClusterStateIsNormal(final Cluster cluster,
-                                                        final AdminClient adminClient) {
+    public static void checkEachServerInNormalState(final Cluster cluster,
+                                                    final AdminClient adminClient) {
         for(Node node: cluster.getNodes()) {
             Versioned<VoldemortState> versioned = adminClient.rebalanceOps.getRemoteServerState(node.getId());
 
@@ -244,6 +249,12 @@ public class RebalanceUtils {
         return;
     }
 
+    // TODO: This method is biased towards the 3 currently supported use cases:
+    // shuffle, cluster expansion, and zone expansion. There are two other use
+    // cases we need to consider: cluster contraction (reducing # nodes in a
+    // zone) and zone contraction (reducing # of zones). We probably want to end
+    // up pass an enum into this method so we can do proper checks based on use
+    // case.
     /**
      * A final cluster ought to be a super set of current cluster. I.e.,
      * existing node IDs ought to map to same server, but partition layout can
@@ -356,7 +367,9 @@ public class RebalanceUtils {
      * @param rhs
      */
     public static void validateClusterZonesSame(final Cluster lhs, final Cluster rhs) {
-        if(lhs.getZones().equals(rhs.getZones()))
+        Set<Zone> lhsSet = new HashSet<Zone>(lhs.getZones());
+        Set<Zone> rhsSet = new HashSet<Zone>(rhs.getZones());
+        if(!lhsSet.equals(rhsSet))
             throw new VoldemortException("Zones are not the same [ lhs cluster zones ("
                                          + lhs.getZones() + ") not equal to rhs cluster zones ("
                                          + rhs.getZones() + ") ]");
@@ -1202,7 +1215,7 @@ public class RebalanceUtils {
                 for(int nodeId: currentCluster.getNodeIdsInZone(zoneId)) {
                     for(int partitionId: targetSRP.getZonePrimaryPartitionIds(nodeId)) {
                         zoneLocalPrimaries++;
-                        if(!currentSRP.getNaryPartitionIds(nodeId).contains(partitionId)) {
+                        if(!currentSRP.getZoneNAryPartitionIds(nodeId).contains(partitionId)) {
                             invalidMetadata++;
                         }
                     }

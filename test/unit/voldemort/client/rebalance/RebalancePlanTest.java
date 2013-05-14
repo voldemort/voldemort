@@ -60,7 +60,7 @@ public class RebalancePlanTest {
                            Cluster fCluster,
                            List<StoreDefinition> fStores) {
         // Defaults for plans
-        int batchSize = 1000;
+        int batchSize = RebalancePlan.BATCH_SIZE;
         String outputDir = null;
 
         return new RebalancePlan(cCluster, cStores, fCluster, fStores, batchSize, outputDir);
