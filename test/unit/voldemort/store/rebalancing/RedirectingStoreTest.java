@@ -214,6 +214,11 @@ public class RedirectingStoreTest {
             servers[partitionPlan.getStealerId()].getMetadataStore()
                                                  .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
                                                       currentCluster);
+
+            // update orginal storedefs
+            servers[partitionPlan.getStealerId()].getMetadataStore()
+                                                 .put(MetadataStore.REBALANCING_SOURCE_STORES_XML,
+                                                      Lists.newArrayList(storeDef));
         }
 
         // Update the cluster metadata on all three nodes

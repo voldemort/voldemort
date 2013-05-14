@@ -265,10 +265,11 @@ message FailedFetchStoreResponse {
 message RebalanceStateChangeRequest {
   repeated RebalancePartitionInfoMap rebalance_partition_info_list = 1;
   required string cluster_string = 2;
-  required bool swap_ro = 3;
-  required bool change_cluster_metadata = 4;
-  required bool change_rebalance_state = 5;
-  required bool rollback = 6;
+  required string stores_string = 3;
+  required bool swap_ro = 4;
+  required bool change_cluster_metadata = 5;
+  required bool change_rebalance_state = 6;
+  required bool rollback = 7;
 }
 
 message RebalanceStateChangeResponse {

@@ -18165,29 +18165,36 @@ public final class VAdminProto {
     public boolean hasClusterString() { return hasClusterString; }
     public java.lang.String getClusterString() { return clusterString_; }
     
-    // required bool swap_ro = 3;
-    public static final int SWAP_RO_FIELD_NUMBER = 3;
+    // required string stores_string = 3;
+    public static final int STORES_STRING_FIELD_NUMBER = 3;
+    private boolean hasStoresString;
+    private java.lang.String storesString_ = "";
+    public boolean hasStoresString() { return hasStoresString; }
+    public java.lang.String getStoresString() { return storesString_; }
+    
+    // required bool swap_ro = 4;
+    public static final int SWAP_RO_FIELD_NUMBER = 4;
     private boolean hasSwapRo;
     private boolean swapRo_ = false;
     public boolean hasSwapRo() { return hasSwapRo; }
     public boolean getSwapRo() { return swapRo_; }
     
-    // required bool change_cluster_metadata = 4;
-    public static final int CHANGE_CLUSTER_METADATA_FIELD_NUMBER = 4;
+    // required bool change_cluster_metadata = 5;
+    public static final int CHANGE_CLUSTER_METADATA_FIELD_NUMBER = 5;
     private boolean hasChangeClusterMetadata;
     private boolean changeClusterMetadata_ = false;
     public boolean hasChangeClusterMetadata() { return hasChangeClusterMetadata; }
     public boolean getChangeClusterMetadata() { return changeClusterMetadata_; }
     
-    // required bool change_rebalance_state = 5;
-    public static final int CHANGE_REBALANCE_STATE_FIELD_NUMBER = 5;
+    // required bool change_rebalance_state = 6;
+    public static final int CHANGE_REBALANCE_STATE_FIELD_NUMBER = 6;
     private boolean hasChangeRebalanceState;
     private boolean changeRebalanceState_ = false;
     public boolean hasChangeRebalanceState() { return hasChangeRebalanceState; }
     public boolean getChangeRebalanceState() { return changeRebalanceState_; }
     
-    // required bool rollback = 6;
-    public static final int ROLLBACK_FIELD_NUMBER = 6;
+    // required bool rollback = 7;
+    public static final int ROLLBACK_FIELD_NUMBER = 7;
     private boolean hasRollback;
     private boolean rollback_ = false;
     public boolean hasRollback() { return hasRollback; }
@@ -18197,6 +18204,7 @@ public final class VAdminProto {
     }
     public final boolean isInitialized() {
       if (!hasClusterString) return false;
+      if (!hasStoresString) return false;
       if (!hasSwapRo) return false;
       if (!hasChangeClusterMetadata) return false;
       if (!hasChangeRebalanceState) return false;
@@ -18216,17 +18224,20 @@ public final class VAdminProto {
       if (hasClusterString()) {
         output.writeString(2, getClusterString());
       }
+      if (hasStoresString()) {
+        output.writeString(3, getStoresString());
+      }
       if (hasSwapRo()) {
-        output.writeBool(3, getSwapRo());
+        output.writeBool(4, getSwapRo());
       }
       if (hasChangeClusterMetadata()) {
-        output.writeBool(4, getChangeClusterMetadata());
+        output.writeBool(5, getChangeClusterMetadata());
       }
       if (hasChangeRebalanceState()) {
-        output.writeBool(5, getChangeRebalanceState());
+        output.writeBool(6, getChangeRebalanceState());
       }
       if (hasRollback()) {
-        output.writeBool(6, getRollback());
+        output.writeBool(7, getRollback());
       }
       getUnknownFields().writeTo(output);
     }
@@ -18245,21 +18256,25 @@ public final class VAdminProto {
         size += com.google.protobuf.CodedOutputStream
           .computeStringSize(2, getClusterString());
       }
+      if (hasStoresString()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeStringSize(3, getStoresString());
+      }
       if (hasSwapRo()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeBoolSize(3, getSwapRo());
+          .computeBoolSize(4, getSwapRo());
       }
       if (hasChangeClusterMetadata()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeBoolSize(4, getChangeClusterMetadata());
+          .computeBoolSize(5, getChangeClusterMetadata());
       }
       if (hasChangeRebalanceState()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeBoolSize(5, getChangeRebalanceState());
+          .computeBoolSize(6, getChangeRebalanceState());
       }
       if (hasRollback()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeBoolSize(6, getRollback());
+          .computeBoolSize(7, getRollback());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -18432,6 +18447,9 @@ public final class VAdminProto {
         if (other.hasClusterString()) {
           setClusterString(other.getClusterString());
         }
+        if (other.hasStoresString()) {
+          setStoresString(other.getStoresString());
+        }
         if (other.hasSwapRo()) {
           setSwapRo(other.getSwapRo());
         }
@@ -18479,19 +18497,23 @@ public final class VAdminProto {
               setClusterString(input.readString());
               break;
             }
-            case 24: {
-              setSwapRo(input.readBool());
+            case 26: {
+              setStoresString(input.readString());
               break;
             }
             case 32: {
-              setChangeClusterMetadata(input.readBool());
+              setSwapRo(input.readBool());
               break;
             }
             case 40: {
-              setChangeRebalanceState(input.readBool());
+              setChangeClusterMetadata(input.readBool());
               break;
             }
             case 48: {
+              setChangeRebalanceState(input.readBool());
+              break;
+            }
+            case 56: {
               setRollback(input.readBool());
               break;
             }
@@ -18572,7 +18594,28 @@ public final class VAdminProto {
         return this;
       }
       
-      // required bool swap_ro = 3;
+      // required string stores_string = 3;
+      public boolean hasStoresString() {
+        return result.hasStoresString();
+      }
+      public java.lang.String getStoresString() {
+        return result.getStoresString();
+      }
+      public Builder setStoresString(java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  result.hasStoresString = true;
+        result.storesString_ = value;
+        return this;
+      }
+      public Builder clearStoresString() {
+        result.hasStoresString = false;
+        result.storesString_ = getDefaultInstance().getStoresString();
+        return this;
+      }
+      
+      // required bool swap_ro = 4;
       public boolean hasSwapRo() {
         return result.hasSwapRo();
       }
@@ -18590,7 +18633,7 @@ public final class VAdminProto {
         return this;
       }
       
-      // required bool change_cluster_metadata = 4;
+      // required bool change_cluster_metadata = 5;
       public boolean hasChangeClusterMetadata() {
         return result.hasChangeClusterMetadata();
       }
@@ -18608,7 +18651,7 @@ public final class VAdminProto {
         return this;
       }
       
-      // required bool change_rebalance_state = 5;
+      // required bool change_rebalance_state = 6;
       public boolean hasChangeRebalanceState() {
         return result.hasChangeRebalanceState();
       }
@@ -18626,7 +18669,7 @@ public final class VAdminProto {
         return this;
       }
       
-      // required bool rollback = 6;
+      // required bool rollback = 7;
       public boolean hasRollback() {
         return result.hasRollback();
       }
@@ -23228,90 +23271,91 @@ public final class VAdminProto {
       "demort.Error\"@\n\027FailedFetchStoreRequest\022" +
       "\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\";",
       "\n\030FailedFetchStoreResponse\022\037\n\005error\030\001 \001(" +
-      "\0132\020.voldemort.Error\"\346\001\n\033RebalanceStateCh" +
+      "\0132\020.voldemort.Error\"\375\001\n\033RebalanceStateCh" +
       "angeRequest\022K\n\035rebalance_partition_info_" +
       "list\030\001 \003(\0132$.voldemort.RebalancePartitio" +
-      "nInfoMap\022\026\n\016cluster_string\030\002 \002(\t\022\017\n\007swap" +
-      "_ro\030\003 \002(\010\022\037\n\027change_cluster_metadata\030\004 \002" +
-      "(\010\022\036\n\026change_rebalance_state\030\005 \002(\010\022\020\n\010ro" +
-      "llback\030\006 \002(\010\"?\n\034RebalanceStateChangeResp" +
-      "onse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"G\n" +
-      " DeleteStoreRebalanceStateRequest\022\022\n\nsto",
-      "re_name\030\001 \002(\t\022\017\n\007node_id\030\002 \002(\005\"D\n!Delete" +
-      "StoreRebalanceStateResponse\022\037\n\005error\030\001 \001" +
-      "(\0132\020.voldemort.Error\"h\n\023NativeBackupRequ" +
-      "est\022\022\n\nstore_name\030\001 \002(\t\022\022\n\nbackup_dir\030\002 " +
-      "\002(\t\022\024\n\014verify_files\030\003 \002(\010\022\023\n\013incremental" +
-      "\030\004 \002(\010\">\n\024ReserveMemoryRequest\022\022\n\nstore_" +
-      "name\030\001 \002(\t\022\022\n\nsize_in_mb\030\002 \002(\003\"8\n\025Reserv" +
-      "eMemoryResponse\022\037\n\005error\030\001 \001(\0132\020.voldemo" +
-      "rt.Error\"\360\016\n\025VoldemortAdminRequest\022)\n\004ty" +
-      "pe\030\001 \002(\0162\033.voldemort.AdminRequestType\0223\n",
-      "\014get_metadata\030\002 \001(\0132\035.voldemort.GetMetad" +
-      "ataRequest\0229\n\017update_metadata\030\003 \001(\0132 .vo" +
-      "ldemort.UpdateMetadataRequest\022J\n\030update_" +
-      "partition_entries\030\004 \001(\0132(.voldemort.Upda" +
-      "tePartitionEntriesRequest\022H\n\027fetch_parti" +
-      "tion_entries\030\005 \001(\0132\'.voldemort.FetchPart" +
-      "itionEntriesRequest\022J\n\030delete_partition_" +
-      "entries\030\006 \001(\0132(.voldemort.DeletePartitio" +
-      "nEntriesRequest\022K\n\031initiate_fetch_and_up" +
-      "date\030\007 \001(\0132(.voldemort.InitiateFetchAndU",
-      "pdateRequest\022F\n\026async_operation_status\030\010" +
-      " \001(\0132&.voldemort.AsyncOperationStatusReq" +
-      "uest\022H\n\027initiate_rebalance_node\030\t \001(\0132\'." +
-      "voldemort.InitiateRebalanceNodeRequest\022B" +
-      "\n\024async_operation_stop\030\n \001(\0132$.voldemort" +
-      ".AsyncOperationStopRequest\022B\n\024async_oper" +
-      "ation_list\030\013 \001(\0132$.voldemort.AsyncOperat" +
-      "ionListRequest\022;\n\020truncate_entries\030\014 \001(\013" +
-      "2!.voldemort.TruncateEntriesRequest\022-\n\ta" +
-      "dd_store\030\r \001(\0132\032.voldemort.AddStoreReque",
-      "st\0223\n\014delete_store\030\016 \001(\0132\035.voldemort.Del" +
-      "eteStoreRequest\0221\n\013fetch_store\030\017 \001(\0132\034.v" +
-      "oldemort.FetchStoreRequest\022/\n\nswap_store" +
-      "\030\020 \001(\0132\033.voldemort.SwapStoreRequest\0227\n\016r" +
-      "ollback_store\030\021 \001(\0132\037.voldemort.Rollback" +
-      "StoreRequest\022D\n\026get_ro_max_version_dir\030\022" +
-      " \001(\0132$.voldemort.GetROMaxVersionDirReque" +
-      "st\022L\n\032get_ro_current_version_dir\030\023 \001(\0132(" +
-      ".voldemort.GetROCurrentVersionDirRequest" +
-      "\022D\n\025fetch_partition_files\030\024 \001(\0132%.voldem",
-      "ort.FetchPartitionFilesRequest\022@\n\023update" +
-      "_slop_entries\030\026 \001(\0132#.voldemort.UpdateSl" +
-      "opEntriesRequest\022>\n\022failed_fetch_store\030\030" +
-      " \001(\0132\".voldemort.FailedFetchStoreRequest" +
-      "\022C\n\025get_ro_storage_format\030\031 \001(\0132$.voldem" +
-      "ort.GetROStorageFormatRequest\022F\n\026rebalan" +
-      "ce_state_change\030\032 \001(\0132&.voldemort.Rebala" +
-      "nceStateChangeRequest\022/\n\nrepair_job\030\033 \001(" +
-      "\0132\033.voldemort.RepairJobRequest\022X\n initia" +
-      "te_rebalance_node_on_donor\030\034 \001(\0132..volde",
-      "mort.InitiateRebalanceNodeOnDonorRequest" +
-      "\022Q\n\034delete_store_rebalance_state\030\035 \001(\0132+" +
-      ".voldemort.DeleteStoreRebalanceStateRequ" +
-      "est\0225\n\rnative_backup\030\036 \001(\0132\036.voldemort.N" +
-      "ativeBackupRequest\0227\n\016reserve_memory\030\037 \001" +
-      "(\0132\037.voldemort.ReserveMemoryRequest*\310\005\n\020" +
-      "AdminRequestType\022\020\n\014GET_METADATA\020\000\022\023\n\017UP" +
-      "DATE_METADATA\020\001\022\034\n\030UPDATE_PARTITION_ENTR" +
-      "IES\020\002\022\033\n\027FETCH_PARTITION_ENTRIES\020\003\022\034\n\030DE" +
-      "LETE_PARTITION_ENTRIES\020\004\022\035\n\031INITIATE_FET",
-      "CH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPERATION_STATU" +
-      "S\020\006\022\033\n\027INITIATE_REBALANCE_NODE\020\007\022\030\n\024ASYN" +
-      "C_OPERATION_STOP\020\010\022\030\n\024ASYNC_OPERATION_LI" +
-      "ST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r\n\tADD_STORE\020" +
-      "\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\n" +
-      "SWAP_STORE\020\016\022\022\n\016ROLLBACK_STORE\020\017\022\032\n\026GET_" +
-      "RO_MAX_VERSION_DIR\020\020\022\036\n\032GET_RO_CURRENT_V" +
-      "ERSION_DIR\020\021\022\031\n\025FETCH_PARTITION_FILES\020\022\022" +
-      "\027\n\023UPDATE_SLOP_ENTRIES\020\024\022\026\n\022FAILED_FETCH" +
-      "_STORE\020\026\022\031\n\025GET_RO_STORAGE_FORMAT\020\027\022\032\n\026R",
-      "EBALANCE_STATE_CHANGE\020\030\022\016\n\nREPAIR_JOB\020\031\022" +
-      "$\n INITIATE_REBALANCE_NODE_ON_DONOR\020\032\022 \n" +
-      "\034DELETE_STORE_REBALANCE_STATE\020\033\022\021\n\rNATIV" +
-      "E_BACKUP\020\034\022\022\n\016RESERVE_MEMORY\020\035B-\n\034voldem" +
-      "ort.client.protocol.pbB\013VAdminProtoH\001"
+      "nInfoMap\022\026\n\016cluster_string\030\002 \002(\t\022\025\n\rstor" +
+      "es_string\030\003 \002(\t\022\017\n\007swap_ro\030\004 \002(\010\022\037\n\027chan" +
+      "ge_cluster_metadata\030\005 \002(\010\022\036\n\026change_reba" +
+      "lance_state\030\006 \002(\010\022\020\n\010rollback\030\007 \002(\010\"?\n\034R" +
+      "ebalanceStateChangeResponse\022\037\n\005error\030\001 \001" +
+      "(\0132\020.voldemort.Error\"G\n DeleteStoreRebal",
+      "anceStateRequest\022\022\n\nstore_name\030\001 \002(\t\022\017\n\007" +
+      "node_id\030\002 \002(\005\"D\n!DeleteStoreRebalanceSta" +
+      "teResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Er" +
+      "ror\"h\n\023NativeBackupRequest\022\022\n\nstore_name" +
+      "\030\001 \002(\t\022\022\n\nbackup_dir\030\002 \002(\t\022\024\n\014verify_fil" +
+      "es\030\003 \002(\010\022\023\n\013incremental\030\004 \002(\010\">\n\024Reserve" +
+      "MemoryRequest\022\022\n\nstore_name\030\001 \002(\t\022\022\n\nsiz" +
+      "e_in_mb\030\002 \002(\003\"8\n\025ReserveMemoryResponse\022\037" +
+      "\n\005error\030\001 \001(\0132\020.voldemort.Error\"\360\016\n\025Vold" +
+      "emortAdminRequest\022)\n\004type\030\001 \002(\0162\033.voldem",
+      "ort.AdminRequestType\0223\n\014get_metadata\030\002 \001" +
+      "(\0132\035.voldemort.GetMetadataRequest\0229\n\017upd" +
+      "ate_metadata\030\003 \001(\0132 .voldemort.UpdateMet" +
+      "adataRequest\022J\n\030update_partition_entries" +
+      "\030\004 \001(\0132(.voldemort.UpdatePartitionEntrie" +
+      "sRequest\022H\n\027fetch_partition_entries\030\005 \001(" +
+      "\0132\'.voldemort.FetchPartitionEntriesReque" +
+      "st\022J\n\030delete_partition_entries\030\006 \001(\0132(.v" +
+      "oldemort.DeletePartitionEntriesRequest\022K" +
+      "\n\031initiate_fetch_and_update\030\007 \001(\0132(.vold",
+      "emort.InitiateFetchAndUpdateRequest\022F\n\026a" +
+      "sync_operation_status\030\010 \001(\0132&.voldemort." +
+      "AsyncOperationStatusRequest\022H\n\027initiate_" +
+      "rebalance_node\030\t \001(\0132\'.voldemort.Initiat" +
+      "eRebalanceNodeRequest\022B\n\024async_operation" +
+      "_stop\030\n \001(\0132$.voldemort.AsyncOperationSt" +
+      "opRequest\022B\n\024async_operation_list\030\013 \001(\0132" +
+      "$.voldemort.AsyncOperationListRequest\022;\n" +
+      "\020truncate_entries\030\014 \001(\0132!.voldemort.Trun" +
+      "cateEntriesRequest\022-\n\tadd_store\030\r \001(\0132\032.",
+      "voldemort.AddStoreRequest\0223\n\014delete_stor" +
+      "e\030\016 \001(\0132\035.voldemort.DeleteStoreRequest\0221" +
+      "\n\013fetch_store\030\017 \001(\0132\034.voldemort.FetchSto" +
+      "reRequest\022/\n\nswap_store\030\020 \001(\0132\033.voldemor" +
+      "t.SwapStoreRequest\0227\n\016rollback_store\030\021 \001" +
+      "(\0132\037.voldemort.RollbackStoreRequest\022D\n\026g" +
+      "et_ro_max_version_dir\030\022 \001(\0132$.voldemort." +
+      "GetROMaxVersionDirRequest\022L\n\032get_ro_curr" +
+      "ent_version_dir\030\023 \001(\0132(.voldemort.GetROC" +
+      "urrentVersionDirRequest\022D\n\025fetch_partiti",
+      "on_files\030\024 \001(\0132%.voldemort.FetchPartitio" +
+      "nFilesRequest\022@\n\023update_slop_entries\030\026 \001" +
+      "(\0132#.voldemort.UpdateSlopEntriesRequest\022" +
+      ">\n\022failed_fetch_store\030\030 \001(\0132\".voldemort." +
+      "FailedFetchStoreRequest\022C\n\025get_ro_storag" +
+      "e_format\030\031 \001(\0132$.voldemort.GetROStorageF" +
+      "ormatRequest\022F\n\026rebalance_state_change\030\032" +
+      " \001(\0132&.voldemort.RebalanceStateChangeReq" +
+      "uest\022/\n\nrepair_job\030\033 \001(\0132\033.voldemort.Rep" +
+      "airJobRequest\022X\n initiate_rebalance_node",
+      "_on_donor\030\034 \001(\0132..voldemort.InitiateReba" +
+      "lanceNodeOnDonorRequest\022Q\n\034delete_store_" +
+      "rebalance_state\030\035 \001(\0132+.voldemort.Delete" +
+      "StoreRebalanceStateRequest\0225\n\rnative_bac" +
+      "kup\030\036 \001(\0132\036.voldemort.NativeBackupReques" +
+      "t\0227\n\016reserve_memory\030\037 \001(\0132\037.voldemort.Re" +
+      "serveMemoryRequest*\310\005\n\020AdminRequestType\022" +
+      "\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022\034" +
+      "\n\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027FETCH_PA" +
+      "RTITION_ENTRIES\020\003\022\034\n\030DELETE_PARTITION_EN",
+      "TRIES\020\004\022\035\n\031INITIATE_FETCH_AND_UPDATE\020\005\022\032" +
+      "\n\026ASYNC_OPERATION_STATUS\020\006\022\033\n\027INITIATE_R" +
+      "EBALANCE_NODE\020\007\022\030\n\024ASYNC_OPERATION_STOP\020" +
+      "\010\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020TRUNCATE_" +
+      "ENTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELETE_STORE" +
+      "\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016R" +
+      "OLLBACK_STORE\020\017\022\032\n\026GET_RO_MAX_VERSION_DI" +
+      "R\020\020\022\036\n\032GET_RO_CURRENT_VERSION_DIR\020\021\022\031\n\025F" +
+      "ETCH_PARTITION_FILES\020\022\022\027\n\023UPDATE_SLOP_EN" +
+      "TRIES\020\024\022\026\n\022FAILED_FETCH_STORE\020\026\022\031\n\025GET_R",
+      "O_STORAGE_FORMAT\020\027\022\032\n\026REBALANCE_STATE_CH" +
+      "ANGE\020\030\022\016\n\nREPAIR_JOB\020\031\022$\n INITIATE_REBAL" +
+      "ANCE_NODE_ON_DONOR\020\032\022 \n\034DELETE_STORE_REB" +
+      "ALANCE_STATE\020\033\022\021\n\rNATIVE_BACKUP\020\034\022\022\n\016RES" +
+      "ERVE_MEMORY\020\035B-\n\034voldemort.client.protoc" +
+      "ol.pbB\013VAdminProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -23723,7 +23767,7 @@ public final class VAdminProto {
           internal_static_voldemort_RebalanceStateChangeRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_RebalanceStateChangeRequest_descriptor,
-              new java.lang.String[] { "RebalancePartitionInfoList", "ClusterString", "SwapRo", "ChangeClusterMetadata", "ChangeRebalanceState", "Rollback", },
+              new java.lang.String[] { "RebalancePartitionInfoList", "ClusterString", "StoresString", "SwapRo", "ChangeClusterMetadata", "ChangeRebalanceState", "Rollback", },
               voldemort.client.protocol.pb.VAdminProto.RebalanceStateChangeRequest.class,
               voldemort.client.protocol.pb.VAdminProto.RebalanceStateChangeRequest.Builder.class);
           internal_static_voldemort_RebalanceStateChangeResponse_descriptor =

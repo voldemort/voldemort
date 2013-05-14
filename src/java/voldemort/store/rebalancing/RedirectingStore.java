@@ -443,6 +443,10 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         // metadata listener callbacks, so we need not allocate these objects
         // all the time
         Cluster sourceCluster = metadata.getRebalancingSourceCluster();
+
+        // Logic to get the old storedef
+        List<StoreDefinition> sourceStoreDefs = metadata.getRebalancingSourceStores();
+
         if(sourceCluster == null) {
             /*
              * This is more for defensive coding purposes. The update of the
@@ -450,16 +454,39 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
              * REBALANCING mode and is reset to null after the server goes back
              * to NORMAL mode.
              */
+
             if(logger.isTraceEnabled()) {
+
                 logger.trace("Old Cluster is null.. bail");
             }
             return null;
         }
+        if(sourceStoreDefs == null) {
+            /*
+             * This is more for defensive coding purposes. The update of the
+             * source stores key happens before the server is put in REBALANCING
+             * mode and is reset to null after the server goes back to NORMAL
+             * mode.
+             */
 
+            if(logger.isTraceEnabled()) {
+
+                logger.trace("Old stores def is null.. bail");
+            }
+            return null;
+        }
+
+        StoreDefinition sourceStoreDef = null;
+        for(StoreDefinition sourceStoreDefIt: sourceStoreDefs) {
+            if(storeDef.getName().equals(sourceStoreDefIt.getName()))
+                sourceStoreDef = storeDef;
+        }
         Integer nodeId = metadata.getNodeId();
         Integer zoneId = currentRoutingPlan.getCluster().getNodeById(nodeId).getZoneId();
 
-        StoreRoutingPlan oldRoutingPlan = new StoreRoutingPlan(sourceCluster, storeDef);
+        // Use the old store definition to get the routing object instead of the
+        // new one
+        StoreRoutingPlan oldRoutingPlan = new StoreRoutingPlan(sourceCluster, sourceStoreDef);
         // Check the current node's relationship to the key.
         int zoneReplicaType = currentRoutingPlan.getZoneReplicaType(zoneId, nodeId, key);
         // Determine which node held the key with the same relationship in the

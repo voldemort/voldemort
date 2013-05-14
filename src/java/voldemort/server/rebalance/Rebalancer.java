@@ -147,12 +147,14 @@ public class Rebalancer implements Runnable {
      * @param rollback Boolean to indicate that we are rolling back or not
      */
     public void rebalanceStateChange(Cluster cluster,
+                                     List<StoreDefinition> storeDefs,
                                      List<RebalancePartitionsInfo> rebalancePartitionsInfo,
                                      boolean swapRO,
                                      boolean changeClusterMetadata,
                                      boolean changeRebalanceState,
                                      boolean rollback) {
         Cluster currentCluster = metadataStore.getCluster();
+        List<StoreDefinition> currentStoreDefs = metadataStore.getStoreDefList();
 
         logger.info("Server doing rebalance state change with options [ cluster metadata change - "
                     + changeClusterMetadata + " ], [ changing rebalancing state - "
@@ -165,47 +167,51 @@ public class Rebalancer implements Runnable {
         boolean completedClusterChange = false;
         boolean completedRebalanceSourceClusterChange = false;
         Cluster previousRebalancingSourceCluster = null;
+        List<StoreDefinition> previousRebalancingSourceStores = null;
 
         try {
 
             /*
-             * Do the rebalancing state changes.
+             * Do the rebalancing state changes. It is important that this
+             * happens before the actual cluster metadata is changed. Here's
+             * what could happen otherwise. When a batch completes with
+             * {current_cluster c2, rebalancing_source_cluster c1} and the next
+             * rebalancing state changes it to {current_cluster c3,
+             * rebalancing_source_cluster c2} is set for the next batch, then
+             * there could be a window during which the state is
+             * {current_cluster c3, rebalancing_source_cluster c1}. On the other
+             * hand, when we update the rebalancing source cluster first, there
+             * is a window where the state is {current_cluster c2,
+             * rebalancing_source_cluster c2}, which still fine, because of the
+             * following. Successful completion of a batch means the cluster is
+             * finalized, so its okay to stop proxying based on {current_cluster
+             * c2, rebalancing_source_cluster c1}. And since the cluster
+             * metadata has not yet been updated to c3, the writes will happen
+             * based on c2.
              * 
-             * Note : It is important that this happens before the actual
-             * cluster metadata is changed. Here's what could go wrong
-             * otherwise. When a batch completes with {current_cluster c2,
-             * rebalancing_source_cluster c1} and the next rebalancing state
-             * changes it to {current_cluster c3, rebalancing_source_cluster c2}
-             * is set for the next batch, then there could be a window during
-             * which the state is {current_cluster c3,
-             * rebalancing_source_cluster c1}. Hence, the proxy bridges could be
-             * setup incorrectly (resulting in proxy puts not propogating
-             * correctly or get returning null)
-             * 
-             * On the other hand, when we update the rebalancing source cluster
-             * first as below,things work even without these two updates being
-             * atomic. There is a window where the state is {current_cluster c2,
-             * rebalancing_source_cluster c2}, which is still correct, because
-             * of the following. Successful completion of a batch means the
-             * cluster is finalized, so its okay to stop proxying based on
-             * {current_cluster c2, rebalancing_source_cluster c1}. And since
-             * the cluster metadata has not yet been updated to c3, the writes
-             * will happen based on c2.
              * 
              * Even if some clients have already seen the {current_cluster c3,
              * rebalancing_source_cluster c2} state from other servers, the
              * operation will be rejected with InvalidMetadataException since
              * this server itself is not aware of C3
              */
+
             // CHANGE REBALANCING STATE
             if(changeRebalanceState) {
                 try {
                     previousRebalancingSourceCluster = metadataStore.getRebalancingSourceCluster();
+                    previousRebalancingSourceStores = metadataStore.getRebalancingSourceStores();
                     if(!rollback) {
-                        // Save up the current cluster for Redirecting store
-                        logger.info("Setting rebalancing source cluster xml from "
-                                    + previousRebalancingSourceCluster + "to " + currentCluster);
-                        changeCluster(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, currentCluster);
+
+                        // Save up the current cluster and stores def for
+                        // Redirecting store
+                        changeClusterAndStores(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                               currentCluster,
+                                               // Save the current store defs
+                                               // for Redirecting store
+                                               MetadataStore.REBALANCING_SOURCE_STORES_XML,
+                                               currentStoreDefs);
+
                         completedRebalanceSourceClusterChange = true;
 
                         for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
@@ -214,9 +220,12 @@ public class Rebalancer implements Runnable {
                         }
                     } else {
                         // Reset the rebalancing source cluster back to null
-                        logger.info("Resetting rebalancing source cluster xml from "
-                                    + previousRebalancingSourceCluster + "to null");
-                        changeCluster(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, null);
+
+                        changeClusterAndStores(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, null,
+                        // Reset the rebalancing source stores back to null
+                                               MetadataStore.REBALANCING_SOURCE_STORES_XML,
+                                               null);
+
                         completedRebalanceSourceClusterChange = true;
 
                         for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
@@ -229,10 +238,16 @@ public class Rebalancer implements Runnable {
                 }
             }
 
-            // CHANGE CLUSTER METADATA
+            // CHANGE CLUSTER METADATA AND STORE METADATA
             if(changeClusterMetadata) {
-                logger.info("Switching metadata from " + currentCluster + " to " + cluster);
-                changeCluster(MetadataStore.CLUSTER_KEY, cluster);
+                logger.info("Switching cluster metadata from " + currentCluster + " to " + cluster);
+                logger.info("Switching stores metadata from " + currentStoreDefs + " to "
+                            + storeDefs);
+                changeClusterAndStores(MetadataStore.CLUSTER_KEY,
+                                       cluster,
+                                       MetadataStore.STORES_KEY,
+                                       storeDefs);
+
                 completedClusterChange = true;
             }
 
@@ -240,15 +255,20 @@ public class Rebalancer implements Runnable {
             if(swapRO) {
                 swapROStores(swappedStoreNames, false);
             }
+
         } catch(VoldemortException e) {
 
             logger.error("Got exception while changing state, now rolling back changes", e);
 
-            // ROLLBACK CLUSTER CHANGE
+            // ROLLBACK CLUSTER AND STORES CHANGE
             if(completedClusterChange) {
                 try {
                     logger.info("Rolling back cluster.xml to " + currentCluster);
-                    changeCluster(MetadataStore.CLUSTER_KEY, currentCluster);
+                    logger.info("Rolling back stores.xml to " + currentStoreDefs);
+                    changeClusterAndStores(MetadataStore.CLUSTER_KEY,
+                                           currentCluster,
+                                           MetadataStore.STORES_KEY,
+                                           currentStoreDefs);
                 } catch(Exception exception) {
                     logger.error("Error while rolling back cluster metadata to " + currentCluster,
                                  exception);
@@ -290,12 +310,17 @@ public class Rebalancer implements Runnable {
 
             }
 
-            // Revert changes to REBALANCING_SOURCE_CLUSTER_XML
+            // Revert changes to REBALANCING_SOURCE_CLUSTER_XML and
+            // REBALANCING_SOURCE_STORES_XML
             if(completedRebalanceSourceClusterChange) {
                 logger.info("Reverting the REBALANCING_SOURCE_CLUSTER_XML back to "
                             + previousRebalancingSourceCluster);
-                changeCluster(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
-                              previousRebalancingSourceCluster);
+                logger.info("Reverting the REBALANCING_SOURCE_STORES_XML back to "
+                            + previousRebalancingSourceStores);
+                changeClusterAndStores(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                       previousRebalancingSourceCluster,
+                                       MetadataStore.REBALANCING_SOURCE_STORES_XML,
+                                       previousRebalancingSourceStores);
             }
 
             throw e;
@@ -347,25 +372,38 @@ public class Rebalancer implements Runnable {
     }
 
     /**
-     * Updates the cluster metadata
+     * Updates the cluster and store metadata atomically
+     * 
+     * This is required during rebalance and expansion into a new zone since we
+     * have to update the store def along with the cluster def.
      * 
      * @param cluster The cluster metadata information
+     * @param storeDefs The stores metadata information
      */
-    private void changeCluster(String clusterKey, final Cluster cluster) {
+    private void changeClusterAndStores(String clusterKey,
+                                        final Cluster cluster,
+                                        String storesKey,
+                                        final List<StoreDefinition> storeDefs) {
+        metadataStore.writeLock.lock();
         try {
-            metadataStore.writeLock.lock();
-            try {
-                VectorClock updatedVectorClock = ((VectorClock) metadataStore.get(clusterKey, null)
-                                                                             .get(0)
-                                                                             .getVersion()).incremented(metadataStore.getNodeId(),
-                                                                                                        System.currentTimeMillis());
-                metadataStore.put(clusterKey, Versioned.value((Object) cluster, updatedVectorClock));
-            } finally {
-                metadataStore.writeLock.unlock();
-            }
+            VectorClock updatedVectorClock = ((VectorClock) metadataStore.get(clusterKey, null)
+                                                                         .get(0)
+                                                                         .getVersion()).incremented(metadataStore.getNodeId(),
+                                                                                                    System.currentTimeMillis());
+            metadataStore.put(clusterKey, Versioned.value((Object) cluster, updatedVectorClock));
+
+            // now put new stores
+            updatedVectorClock = ((VectorClock) metadataStore.get(storesKey, null)
+                                                             .get(0)
+                                                             .getVersion()).incremented(metadataStore.getNodeId(),
+                                                                                        System.currentTimeMillis());
+            metadataStore.put(storesKey, Versioned.value((Object) storeDefs, updatedVectorClock));
+
         } catch(Exception e) {
             logger.info("Error while changing cluster to " + cluster + "for key " + clusterKey);
             throw new VoldemortException(e);
+        } finally {
+            metadataStore.writeLock.unlock();
         }
     }
 

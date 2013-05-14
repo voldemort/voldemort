@@ -834,8 +834,14 @@ public class AdminRebalanceTest {
                                                                           .build()));
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               true,
                                                               true,
@@ -853,8 +859,14 @@ public class AdminRebalanceTest {
             checkRO(cluster);
 
             // Test 2) All passes scenario
+            // TODO pass the target storedefs
+            // ATTENTION JAY
             adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                           targetCluster,
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
                                                           plans,
                                                           true,
                                                           true,
@@ -948,8 +960,14 @@ public class AdminRebalanceTest {
                                                           0));
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               true,
                                                               true,
@@ -996,8 +1014,14 @@ public class AdminRebalanceTest {
                                                                           .build()));
 
             try {
+                // // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               true,
                                                               true,
@@ -1029,8 +1053,15 @@ public class AdminRebalanceTest {
                                                                  storeDef4));
 
             // Test 3) Everything should work
+
+            // TODO pass the target storedefs
+            // ATTENTION JAY
             adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                           targetCluster,
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
                                                           plans,
                                                           true,
                                                           true,
@@ -1100,8 +1131,14 @@ public class AdminRebalanceTest {
             startFourNodeRW();
 
             // Test 1) Normal case where-in all are up
+            // TODO pass the target storedefs
+            // ATTENTION JAY
             adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                           targetCluster,
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
                                                           plans,
                                                           false,
                                                           false,
@@ -1140,8 +1177,14 @@ public class AdminRebalanceTest {
                                                           0));
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               false,
                                                               false,
@@ -1168,8 +1211,14 @@ public class AdminRebalanceTest {
             servers[3] = null;
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               false,
                                                               false,
@@ -1199,8 +1248,14 @@ public class AdminRebalanceTest {
             startFourNodeRW();
 
             // Test 1) Normal case where-in all are up
+            // TODO pass the target storedefs
+            // ATTENTION JAY
             adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                           targetCluster,
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
                                                           plans,
                                                           false,
                                                           true,
@@ -1242,8 +1297,14 @@ public class AdminRebalanceTest {
                                                           0));
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               false,
                                                               true,
@@ -1271,8 +1332,14 @@ public class AdminRebalanceTest {
             servers[3] = null;
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               false,
                                                               true,

@@ -323,12 +323,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 Cluster cluster = new ClusterMapper().readCluster(new StringReader(request.getClusterString()));
 
+                List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(request.getStoresString()));
                 boolean swapRO = request.getSwapRo();
                 boolean changeClusterMetadata = request.getChangeClusterMetadata();
                 boolean changeRebalanceState = request.getChangeRebalanceState();
                 boolean rollback = request.getRollback();
 
                 rebalancer.rebalanceStateChange(cluster,
+                                                storeDefs,
                                                 rebalancePartitionsInfo,
                                                 swapRO,
                                                 changeClusterMetadata,
@@ -380,7 +382,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                              + metadataStore.getNodeId());
 
             // We should be in rebalancing state to run this function
-            if(!metadataStore.getServerState()
+            if(!metadataStore.getServerStateUnlocked()
                              .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
                 response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                          new VoldemortException("Voldemort server "
@@ -725,7 +727,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         final String storeName = request.getStoreName();
         VAdminProto.SwapStoreResponse.Builder response = VAdminProto.SwapStoreResponse.newBuilder();
 
-        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+        if(!metadataStore.getServerStateUnlocked()
+                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Voldemort server "
                                                                             + metadataStore.getNodeId()
@@ -1141,27 +1144,32 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.UpdateMetadataResponse handleUpdateMetadata(VAdminProto.UpdateMetadataRequest request) {
         VAdminProto.UpdateMetadataResponse.Builder response = VAdminProto.UpdateMetadataResponse.newBuilder();
 
-        for(KeyedVersions keyValue: request.getKeyValueList()) {
+        metadataStore.writeLock.lock();
+        try {
+            for(KeyedVersions keyValue: request.getKeyValueList()) {
 
-            try {
-                ByteArray key = ProtoUtils.decodeBytes(keyValue.getKey());
-                String keyString = ByteUtils.getString(key.get(), "UTF-8");
-                if(MetadataStore.METADATA_KEYS.contains(keyString)) {
-                    Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(keyValue.getVersions(0));
-                    logger.info("Updating metadata for key '" + keyString + "'");
-                    metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
-                                      versionedValue,
-                                      null);
-                    logger.info("Successfully updated metadata for key '" + keyString + "'");
+                try {
+                    ByteArray key = ProtoUtils.decodeBytes(keyValue.getKey());
+                    String keyString = ByteUtils.getString(key.get(), "UTF-8");
+                    if(MetadataStore.METADATA_KEYS.contains(keyString)) {
+                        Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(keyValue.getVersions(0));
+                        logger.info("Updating metadata for key '" + keyString + "'");
+                        metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
+                                          versionedValue,
+                                          null);
+                        logger.info("Successfully updated metadata for key '" + keyString + "'");
+                    }
+                } catch(VoldemortException e) {
+                    response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+                    logger.error("handleUpdateMetadata failed for request(" + request.toString()
+                                 + ")", e);
                 }
-            } catch(VoldemortException e) {
-                response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-                logger.error("handleUpdateMetadata failed for request(" + request.toString() + ")",
-                             e);
             }
-        }
 
-        return response.build();
+            return response.build();
+        } finally {
+            metadataStore.writeLock.unlock();
+        }
     }
 
     public VAdminProto.GetMetadataResponse handleGetMetadata(VAdminProto.GetMetadataRequest request) {
@@ -1211,7 +1219,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.DeleteStoreResponse.Builder response = VAdminProto.DeleteStoreResponse.newBuilder();
 
         // don't try to delete a store in the middle of rebalancing
-        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+        if(!metadataStore.getServerStateUnlocked()
+                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Voldemort server is not in normal state")));
             return response.build();
@@ -1288,7 +1297,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.AddStoreResponse.Builder response = VAdminProto.AddStoreResponse.newBuilder();
 
         // don't try to add a store when not in normal state
-        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+        if(!metadataStore.getServerStateUnlocked()
+                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Voldemort server is not in normal state")));
             return response.build();

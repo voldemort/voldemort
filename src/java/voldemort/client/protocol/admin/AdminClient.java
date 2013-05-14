@@ -863,6 +863,14 @@ public class AdminClient {
             updateRemoteMetadata(remoteNodeId, keyValueMap);
         }
 
+        /*
+         * remoteNodeId the nodeId of the server keyValueMap a Map of metadata
+         * keys to their versioned value
+         * 
+         * This method passes multiple metadata keys to the server atomic update
+         * of stores and cluster xml during rebalance
+         */
+
         public void updateRemoteMetadata(int remoteNodeId,
                                          HashMap<String, Versioned<String>> keyValueMap) {
 
@@ -2419,6 +2427,8 @@ public class AdminClient {
          */
         public void rebalanceStateChange(Cluster existingCluster,
                                          Cluster transitionCluster,
+                                         List<StoreDefinition> existingStoreDefs,
+                                         List<StoreDefinition> targetStoreDefs,
                                          List<RebalancePartitionsInfo> rebalancePartitionPlanList,
                                          boolean swapRO,
                                          boolean changeClusterMetadata,
@@ -2438,6 +2448,7 @@ public class AdminClient {
                     try {
                         individualStateChange(nodeId,
                                               transitionCluster,
+                                              targetStoreDefs,
                                               stealerNodeToPlan.get(nodeId),
                                               swapRO,
                                               changeClusterMetadata,
@@ -2482,6 +2493,7 @@ public class AdminClient {
                         try {
                             individualStateChange(completedNodeId,
                                                   existingCluster,
+                                                  existingStoreDefs,
                                                   stealerNodeToPlan.get(completedNodeId),
                                                   swapRO,
                                                   changeClusterMetadata,
@@ -2521,6 +2533,7 @@ public class AdminClient {
          */
         private void individualStateChange(int nodeId,
                                            Cluster cluster,
+                                           List<StoreDefinition> storeDefs,
                                            List<RebalancePartitionsInfo> rebalancePartitionPlanList,
                                            boolean swapRO,
                                            boolean changeClusterMetadata,
@@ -2559,6 +2572,7 @@ public class AdminClient {
                                                                                                                           .setChangeRebalanceState(changeRebalanceState)
                                                                                                                           .setClusterString(clusterMapper.writeCluster(cluster))
                                                                                                                           .setRollback(rollback)
+                                                                                                                          .setStoresString(new StoreDefinitionsMapper().writeStoreList(storeDefs))
                                                                                                                           .build();
             VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                               .setRebalanceStateChange(getRebalanceStateChangeRequest)
