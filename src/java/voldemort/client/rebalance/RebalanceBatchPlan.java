@@ -317,9 +317,12 @@ public class RebalanceBatchPlan {
                              int stealerZoneId,
                              int stealerNodeId,
                              int stealerPartitionId) {
+        int stealerZoneNAry = finalSRP.getZoneNaryForNodesPartition(stealerZoneId,
+                                                                    stealerNodeId,
+                                                                    stealerPartitionId);
 
         int donorZoneId;
-        if(targetSRP.zoneHasReplica(stealerZoneId, stealerPartitionId)) {
+        if(targetSRP.zoneNAryExists(stealerZoneId, stealerZoneNAry, stealerPartitionId)) {
             // Steal from local n-ary (since one exists).
             donorZoneId = stealerZoneId;
         } else {
@@ -328,9 +331,6 @@ public class RebalanceBatchPlan {
             donorZoneId = targetCluster.getNodeById(targetMasterNodeId).getZoneId();
         }
 
-        int stealerZoneNAry = finalSRP.getZoneNaryForNodesPartition(stealerZoneId,
-                                                                    stealerNodeId,
-                                                                    stealerPartitionId);
         return targetSRP.getNodeIdForZoneNary(donorZoneId, stealerZoneNAry, stealerPartitionId);
 
     }

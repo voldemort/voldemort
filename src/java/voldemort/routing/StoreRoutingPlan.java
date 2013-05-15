@@ -258,20 +258,24 @@ public class StoreRoutingPlan {
     }
 
     /**
-     * checks if zone replicates partition Id. False should only be returned in
-     * zone expansion use cases.
+     * checks if zone has a zone n-ary for partition Id. False should only be
+     * returned in zone expansion use cases.
      * 
      * @param zoneId
+     * @param zoneNAry zone n-ary replica to confirm
      * @param partitionId
-     * @return true iff partitionId is replicated in zone id.
+     * @return true iff partitionId has zone-nary replica in zone id .
      */
     // TODO: add unit test.
-    public boolean zoneHasReplica(int zoneId, int partitionId) {
-        List<Integer> replicatingNodeIds = getReplicationNodeList(partitionId);
-        for(int replicatingNodeId: replicatingNodeIds) {
+    public boolean zoneNAryExists(int zoneId, int zoneNAry, int partitionId) {
+        int currentZoneNAry = -1;
+        for(int replicatingNodeId: getReplicationNodeList(partitionId)) {
             Node replicatingNode = cluster.getNodeById(replicatingNodeId);
             if(replicatingNode.getZoneId() == zoneId) {
-                return true;
+                currentZoneNAry++;
+                if(currentZoneNAry == zoneNAry) {
+                    return true;
+                }
             }
         }
         return false;
@@ -303,9 +307,9 @@ public class StoreRoutingPlan {
             // zone
             if(replicatingNode.getZoneId() == zoneId) {
                 zoneNAry++;
-            }
-            if(replicatingNode.getId() == nodeId) {
-                return zoneNAry;
+                if(replicatingNode.getId() == nodeId) {
+                    return zoneNAry;
+                }
             }
         }
         if(zoneNAry > 0) {

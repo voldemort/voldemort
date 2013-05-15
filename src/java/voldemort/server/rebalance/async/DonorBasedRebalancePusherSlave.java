@@ -84,7 +84,7 @@ public class DonorBasedRebalancePusherSlave implements Runnable {
                     Thread.sleep(TimeUnit.SECONDS.toMillis(30));
                     needWait = false;
                 } catch(InterruptedException e) {
-                    logger.info("sleep interrupted while waiting for remote node to recover:" + e);
+                    logger.error("sleep interrupted while waiting for remote node to recover", e);
                     // continue
                 }
             }

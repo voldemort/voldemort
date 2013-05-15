@@ -16,7 +16,6 @@
 
 package voldemort.client.rebalance;
 
-import java.io.StringReader;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -33,7 +32,6 @@ import voldemort.tools.PartitionBalance;
 import voldemort.utils.MoveMap;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
-import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.TreeMultimap;
@@ -156,11 +154,11 @@ public class RebalancePlan {
 
         // Determine plan batch-by-batch
         int batches = 0;
-        Cluster batchTargetCluster = cloneCluster(targetCluster);
+        Cluster batchTargetCluster = Cluster.cloneCluster(targetCluster);
         while(!stealerToStolenPrimaryPartitions.isEmpty()) {
 
             // Generate a batch partitions to move
-            Cluster batchFinalCluster = cloneCluster(batchTargetCluster);
+            Cluster batchFinalCluster = Cluster.cloneCluster(batchTargetCluster);
             int partitions = 0;
             List<Entry<Integer, Integer>> partitionsMoved = Lists.newArrayList();
             for(Entry<Integer, Integer> stealerToPartition: stealerToStolenPrimaryPartitions.entries()) {
@@ -199,22 +197,10 @@ public class RebalancePlan {
             zoneMoveMap.add(RebalanceBatchPlan.getZoneMoveMap());
 
             batches++;
-            batchTargetCluster = cloneCluster(batchFinalCluster);
+            batchTargetCluster = Cluster.cloneCluster(batchFinalCluster);
         }
 
         logger.info(this);
-    }
-
-    /**
-     * In the absence of a Cluster.clone() operation, hack a clone method for
-     * local use.
-     * 
-     * @param cluster
-     * @return clone of Cluster cluster.
-     */
-    private Cluster cloneCluster(Cluster cluster) {
-        ClusterMapper mapper = new ClusterMapper();
-        return mapper.readCluster(new StringReader(mapper.writeCluster(cluster)));
     }
 
     /**

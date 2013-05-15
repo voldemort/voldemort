@@ -17,6 +17,7 @@
 package voldemort.cluster;
 
 import java.io.Serializable;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,6 +33,7 @@ import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.utils.Utils;
+import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Sets;
 
@@ -259,9 +261,18 @@ public class Cluster implements Serializable {
         return builder.toString();
     }
 
-    // TODO: Add a .clone() implementation. See hacked method in
-    // RebalancePlan.cloneCluster for example of current approach to cloning
-    // (use ClusterMapper to serde via XML...)
+    // TODO: Add a proper .clone() implementation.
+    /**
+     * In the absence of a proper Cluster.clone() operation, this hack safely
+     * clones a Cluster object via serde to/from XML.
+     * 
+     * @param cluster
+     * @return clone of Cluster cluster.
+     */
+    public static Cluster cloneCluster(Cluster cluster) {
+        ClusterMapper mapper = new ClusterMapper();
+        return mapper.readCluster(new StringReader(mapper.writeCluster(cluster)));
+    }
 
     @Override
     public boolean equals(Object second) {
