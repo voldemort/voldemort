@@ -118,10 +118,10 @@ public class Rebalancer implements Runnable {
      * 
      * <pre>
      * | swapRO | changeClusterMetadata | changeRebalanceState | Order |
-     * | f | t | t | cluster -> rebalance | 
+     * | f | t | t | rebalance -> cluster  | 
      * | f | f | t | rebalance |
      * | t | t | f | cluster -> swap |
-     * | t | t | t | cluster -> swap -> rebalance |
+     * | t | t | t | rebalance -> cluster -> swap|
      * </pre>
      * 
      * In general we need to do [ cluster change -> swap -> rebalance state
@@ -169,22 +169,28 @@ public class Rebalancer implements Runnable {
         try {
 
             /*
-             * Do the rebalancing state changes. It is important that this
-             * happens before the actual cluster metadata is changed. Here's
-             * what could happen otherwise. When a batch completes with
-             * {current_cluster c2, rebalancing_source_cluster c1} and the next
-             * rebalancing state changes it to {current_cluster c3,
-             * rebalancing_source_cluster c2} is set for the next batch, then
-             * there could be a window during which the state is
-             * {current_cluster c3, rebalancing_source_cluster c1}. On the other
-             * hand, when we update the rebalancing source cluster first, there
-             * is a window where the state is {current_cluster c2,
-             * rebalancing_source_cluster c2}, which still fine, because of the
-             * following. Successful completion of a batch means the cluster is
-             * finalized, so its okay to stop proxying based on {current_cluster
-             * c2, rebalancing_source_cluster c1}. And since the cluster
-             * metadata has not yet been updated to c3, the writes will happen
-             * based on c2.
+             * Do the rebalancing state changes.
+             * 
+             * Note : It is important that this happens before the actual
+             * cluster metadata is changed. Here's what could go wrong
+             * otherwise. When a batch completes with {current_cluster c2,
+             * rebalancing_source_cluster c1} and the next rebalancing state
+             * changes it to {current_cluster c3, rebalancing_source_cluster c2}
+             * is set for the next batch, then there could be a window during
+             * which the state is {current_cluster c3,
+             * rebalancing_source_cluster c1}. Hence, the proxy bridges could be
+             * setup incorrectly (resulting in proxy puts not propogating
+             * correctly or get returning null)
+             * 
+             * On the other hand, when we update the rebalancing source cluster
+             * first as below,things work even without these two updates being
+             * atomic. There is a window where the state is {current_cluster c2,
+             * rebalancing_source_cluster c2}, which is still correct, because
+             * of the following. Successful completion of a batch means the
+             * cluster is finalized, so its okay to stop proxying based on
+             * {current_cluster c2, rebalancing_source_cluster c1}. And since
+             * the cluster metadata has not yet been updated to c3, the writes
+             * will happen based on c2.
              * 
              * Even if some clients have already seen the {current_cluster c3,
              * rebalancing_source_cluster c2} state from other servers, the
