@@ -65,13 +65,20 @@ public class StoreRoutingPlan {
             List<Integer> naryPartitionIds = getReplicatingPartitionList(masterPartitionId);
             for(int naryPartitionId: naryPartitionIds) {
                 int naryNodeId = getNodeIdForPartitionId(naryPartitionId);
-                nodeIdToNaryPartitionMap.get(naryNodeId).add(masterPartitionId);
-                int naryZoneId = cluster.getNodeById(naryNodeId).getZoneId();
-                if(getZoneNaryForNodesPartition(naryZoneId, naryNodeId, naryPartitionId) == 0) {
-                    nodeIdToZonePrimaryMap.get(naryNodeId).add(masterPartitionId);
+                this.nodeIdToNaryPartitionMap.get(naryNodeId).add(masterPartitionId);
+            }
+        }
+        for(int nodeId: cluster.getNodeIds()) {
+            int naryZoneId = cluster.getNodeById(nodeId).getZoneId();
+            List<Integer> naryPartitionIds = this.nodeIdToNaryPartitionMap.get(nodeId);
+            List<Integer> zoneNAries = this.nodeIdToZonePrimaryMap.get(nodeId);
+            for(int naryPartitionId: naryPartitionIds) {
+                if(getZoneNaryForNodesPartition(naryZoneId, nodeId, naryPartitionId) == 0) {
+                    zoneNAries.add(naryPartitionId);
                 }
             }
         }
+
     }
 
     public Cluster getCluster() {
@@ -307,9 +314,9 @@ public class StoreRoutingPlan {
             // zone
             if(replicatingNode.getZoneId() == zoneId) {
                 zoneNAry++;
-                if(replicatingNode.getId() == nodeId) {
-                    return zoneNAry;
-                }
+            }
+            if(replicatingNodeId == nodeId) {
+                return zoneNAry;
             }
         }
         if(zoneNAry > 0) {
