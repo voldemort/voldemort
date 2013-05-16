@@ -21,7 +21,7 @@ message GetMetadataResponse {
 }
 
 message UpdateMetadataRequest {
-  repeated KeyedVersions keyValue = 1;
+  repeated KeyedVersions metadataEntry = 1;
 }
 
 message UpdateMetadataResponse {

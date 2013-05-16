@@ -1146,13 +1146,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         metadataStore.writeLock.lock();
         try {
-            for(KeyedVersions keyValue: request.getKeyValueList()) {
+            for(KeyedVersions keyValue: request.getMetadataEntryList()) {
 
                 try {
                     ByteArray key = ProtoUtils.decodeBytes(keyValue.getKey());
                     String keyString = ByteUtils.getString(key.get(), "UTF-8");
                     if(MetadataStore.METADATA_KEYS.contains(keyString)) {
-                        Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(keyValue.getVersions(0));
+                        Versioned<byte[]> versionedValue = ProtoUtils.decodeVersionedMetadataKeyValue(keyValue);
                         logger.info("Updating metadata for key '" + keyString + "'");
                         metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
                                           versionedValue,

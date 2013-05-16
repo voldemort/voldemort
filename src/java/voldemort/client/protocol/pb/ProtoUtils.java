@@ -31,6 +31,7 @@ import voldemort.client.protocol.pb.VAdminProto.PartitionTuple;
 import voldemort.client.protocol.pb.VAdminProto.PerStorePartitionTuple;
 import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
 import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
+import voldemort.client.protocol.pb.VProto.KeyedVersions;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.utils.ByteArray;
@@ -196,6 +197,17 @@ public class ProtoUtils {
     public static Versioned<byte[]> decodeVersioned(VProto.Versioned versioned) {
         return new Versioned<byte[]>(versioned.getValue().toByteArray(),
                                      decodeClock(versioned.getVersion()));
+    }
+
+    /**
+     * Given a list of value versions for the metadata keys we are just
+     * interested in the value at index 0 This is because even if we have to
+     * update the cluster.xml we marshall a single key into a versioned list
+     * Hence we just look at the value at index 0
+     * 
+     */
+    public static Versioned<byte[]> decodeVersionedMetadataKeyValue(KeyedVersions keyValue) {
+        return decodeVersioned(keyValue.getVersions(0));
     }
 
     public static List<Versioned<byte[]>> decodeVersions(List<VProto.Versioned> versioned) {

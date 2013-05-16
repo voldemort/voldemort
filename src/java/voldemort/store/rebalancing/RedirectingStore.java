@@ -463,10 +463,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         }
         if(sourceStoreDefs == null) {
             /*
-             * This is more for defensive coding purposes. The update of the
-             * source stores key happens before the server is put in REBALANCING
-             * mode and is reset to null after the server goes back to NORMAL
-             * mode.
+             * similar to the above for stores xml
              */
 
             if(logger.isTraceEnabled()) {
@@ -477,15 +474,12 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         }
 
         StoreDefinition sourceStoreDef = null;
-        for(StoreDefinition sourceStoreDefIt: sourceStoreDefs) {
-            if(storeDef.getName().equals(sourceStoreDefIt.getName()))
-                sourceStoreDef = storeDef;
-        }
+        sourceStoreDef = StoreUtils.getStoreDef(sourceStoreDefs, storeDef.getName());
+
         Integer nodeId = metadata.getNodeId();
         Integer zoneId = currentRoutingPlan.getCluster().getNodeById(nodeId).getZoneId();
 
-        // Use the old store definition to get the routing object instead of the
-        // new one
+        // Use the old store definition to get the routing object
         StoreRoutingPlan oldRoutingPlan = new StoreRoutingPlan(sourceCluster, sourceStoreDef);
         // Check the current node's relationship to the key.
         int zoneReplicaType = currentRoutingPlan.getZoneReplicaType(zoneId, nodeId, key);

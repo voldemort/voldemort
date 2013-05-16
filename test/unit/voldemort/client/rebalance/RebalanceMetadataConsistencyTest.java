@@ -123,7 +123,7 @@ public class RebalanceMetadataConsistencyTest {
     @Test
     public void testThreading() {
 
-        for(int i = 0; i < 30; i++) {
+        for(int i = 0; i < 3000; i++) {
 
             Cluster cluster;
             StoreDefinition storeDef;
@@ -189,8 +189,10 @@ public class RebalanceMetadataConsistencyTest {
         @Override
         public void run() {
 
+            metadataStore.readLock.lock();
             checkCluster = metadataStore.getCluster();
             checkstores = metadataStore.getStoreDefList();
+            metadataStore.readLock.unlock();
 
             if(checkCluster.equals(currentCluster)) {
                 Assert.assertEquals(checkstores.get(0), rwStoreDefWithReplication);

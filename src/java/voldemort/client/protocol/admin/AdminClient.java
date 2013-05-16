@@ -874,14 +874,10 @@ public class AdminClient {
         public void updateRemoteMetadata(int remoteNodeId,
                                          HashMap<String, Versioned<String>> keyValueMap) {
 
-            Iterator it = keyValueMap.entrySet().iterator();
-            ArrayList<KeyedVersions> allKeyVersions = new ArrayList();
-            while(it.hasNext()) {
-                Map.Entry pairs = (Map.Entry) it.next();
-
-                String key = (String) pairs.getKey();
-
-                Versioned<String> value = (Versioned<String>) pairs.getValue();
+            ArrayList<KeyedVersions> allKeyVersions = new ArrayList<KeyedVersions>();
+            for(Entry<String, Versioned<String>> entry: keyValueMap.entrySet()) {
+                String key = entry.getKey();
+                Versioned<String> value = entry.getValue();
                 ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
 
                 Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
@@ -897,7 +893,7 @@ public class AdminClient {
             VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                          .setType(VAdminProto.AdminRequestType.UPDATE_METADATA)
                                                                                          .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
-                                                                                                                                             .addAllKeyValue(allKeyVersions)
+                                                                                                                                             .addAllMetadataEntry(allKeyVersions)
 
                                                                                                                                              .build())
                                                                                          .build();
