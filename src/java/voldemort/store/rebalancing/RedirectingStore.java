@@ -401,7 +401,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     }
 
     public boolean isServerRebalancing() {
-        return VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState());
+        return VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerStateUnlocked());
     }
 
     /**

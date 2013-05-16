@@ -518,7 +518,7 @@ public class AdminRebalanceTest {
             for(VoldemortServer server: servers) {
                 assertEquals(server.getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(server.getMetadataStore().getServerState(),
+                assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
             }
         } finally {
@@ -725,7 +725,7 @@ public class AdminRebalanceTest {
             for(VoldemortServer server: servers) {
                 assertEquals(server.getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(server.getMetadataStore().getServerState(),
+                assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
             }
         } finally {
@@ -810,7 +810,7 @@ public class AdminRebalanceTest {
             for(VoldemortServer server: servers) {
                 assertEquals(server.getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(server.getMetadataStore().getServerState(),
+                assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
             }
 
@@ -983,7 +983,7 @@ public class AdminRebalanceTest {
                 if(server.getMetadataStore().getNodeId() != 3) {
                     assertEquals(server.getMetadataStore().getRebalancerState(),
                                  new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                    assertEquals(server.getMetadataStore().getServerState(),
+                    assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                                  MetadataStore.VoldemortState.NORMAL_SERVER);
                 }
                 assertEquals(server.getMetadataStore().getCluster(), cluster);
@@ -1036,7 +1036,7 @@ public class AdminRebalanceTest {
             for(VoldemortServer server: servers) {
                 assertEquals(server.getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(server.getMetadataStore().getServerState(),
+                assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
                 assertEquals(server.getMetadataStore().getCluster(), cluster);
             }
@@ -1074,7 +1074,8 @@ public class AdminRebalanceTest {
                 nodesChecked.add(plan.getStealerId());
                 assertEquals(servers[plan.getStealerId()].getMetadataStore().getRebalancerState(),
                              new RebalancerState(Lists.newArrayList(plan)));
-                assertEquals(servers[plan.getStealerId()].getMetadataStore().getServerState(),
+                assertEquals(servers[plan.getStealerId()].getMetadataStore()
+                                                         .getServerStateUnlocked(),
                              MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
                 assertEquals(servers[plan.getStealerId()].getMetadataStore().getCluster(),
                              targetCluster);
@@ -1087,7 +1088,7 @@ public class AdminRebalanceTest {
             for(int nodeId: allNodes) {
                 assertEquals(servers[nodeId].getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(servers[nodeId].getMetadataStore().getServerState(),
+                assertEquals(servers[nodeId].getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
                 assertEquals(servers[nodeId].getMetadataStore().getCluster(), targetCluster);
             }

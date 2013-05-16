@@ -180,7 +180,7 @@ public class MetadataStoreTest {
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
         assertEquals("Values should match.",
-                     metadataStore.getServerState(),
+                     metadataStore.getServerStateUnlocked(),
                      VoldemortState.REBALANCING_MASTER_SERVER);
 
         // do clean
@@ -188,7 +188,7 @@ public class MetadataStoreTest {
 
         // check all values revert back to default.
         assertEquals("Values should match.",
-                     metadataStore.getServerState(),
+                     metadataStore.getServerStateUnlocked(),
                      VoldemortState.NORMAL_SERVER);
     }
 

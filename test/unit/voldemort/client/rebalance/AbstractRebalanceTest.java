@@ -134,7 +134,7 @@ public abstract class AbstractRebalanceTest {
         if(server == null) {
             throw new VoldemortException("Node id " + nodeId + " does not exist");
         } else {
-            return server.getMetadataStore().getServerState();
+            return server.getMetadataStore().getServerStateUnlocked();
         }
     }
 
@@ -241,8 +241,8 @@ public abstract class AbstractRebalanceTest {
             List<Integer> partitions = routing.getPartitionList(keyBytes.get());
 
             if(StoreRoutingPlan.checkKeyBelongsToPartition(partitions,
-                                                        node.getPartitionIds(),
-                                                        flattenedPresentTuples)) {
+                                                           node.getPartitionIds(),
+                                                           flattenedPresentTuples)) {
                 List<Versioned<byte[]>> values = store.get(keyBytes, null);
 
                 // expecting exactly one version

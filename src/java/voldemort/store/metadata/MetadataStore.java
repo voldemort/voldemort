@@ -424,15 +424,10 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         }
     }
 
-    public VoldemortState getServerState() {
-        // acquire read lock
-        readLock.lock();
-        try {
-            return VoldemortState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
-        } finally {
-            readLock.unlock();
+    public VoldemortState getServerStateUnlocked() {
 
-        }
+        return VoldemortState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
+
     }
 
     public RebalancerState getRebalancerState() {

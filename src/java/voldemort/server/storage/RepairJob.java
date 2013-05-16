@@ -64,7 +64,8 @@ public class RepairJob implements Runnable {
     public void run() {
 
         // don't try to run slop pusher job when rebalancing
-        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+        if(!metadataStore.getServerStateUnlocked()
+                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             logger.error("Cannot run repair job since Voldemort server is not in normal state");
             return;
         }
