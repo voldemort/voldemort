@@ -132,5 +132,4 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
         pipelineData.setNodes(nodes);
         pipeline.addEvent(completeEvent);
     }
-
 }

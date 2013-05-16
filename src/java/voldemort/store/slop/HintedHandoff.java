@@ -103,7 +103,7 @@ public class HintedHandoff {
     public void sendHintParallel(Node failedNode, Version version, Slop slop) {
         List<Node> nodes = new LinkedList<Node>();
         nodes.addAll(handoffStrategy.routeHint(failedNode));
-        if(logger.isTraceEnabled()) {
+        if(logger.isDebugEnabled()) {
             List<Integer> nodeIds = new ArrayList<Integer>();
             for(Node node: nodes) {
                 nodeIds.add(node.getId());
@@ -114,20 +114,32 @@ public class HintedHandoff {
                                                                version), nodes);
     }
 
+    /**
+     * A callback that handles requestComplete event from NIO selector manager
+     * Will try any possible nodes and pass itself as callback util all nodes
+     * are exhausted
+     * 
+     * @param slopKey
+     * @param slopVersioned
+     * @param nodesToTry List of nodes to try to contact. Will become shorter
+     *        after each callback
+     */
     private void sendOneAsyncHint(final ByteArray slopKey,
                                   final Versioned<byte[]> slopVersioned,
-                                  final List<Node> routeNodes) {
+                                  final List<Node> nodesToTry) {
         Node nodeToHostHint = null;
-        while(routeNodes.size() > 0) {
-            nodeToHostHint = routeNodes.remove(0);
+        boolean foundNode = false;
+        while(nodesToTry.size() > 0) {
+            nodeToHostHint = nodesToTry.remove(0);
             if(!failedNodes.contains(nodeToHostHint) && failureDetector.isAvailable(nodeToHostHint)) {
+                foundNode = true;
                 break;
-            } else {
-                nodeToHostHint = null;
             }
         }
-        if(nodeToHostHint == null) {
-            logger.error("trying to send an async hint but used up all nodes");
+        if(!foundNode) {
+            Slop slop = slopSerializer.toObject(slopVersioned.getValue());
+            logger.error("Trying to send an async hint but used up all nodes. key: "
+                         + slop.getKey() + " version: " + slopVersioned.getVersion().toString());
             return;
         }
         final Node node = nodeToHostHint;
@@ -166,7 +178,7 @@ public class HintedHandoff {
                         failureDetector.recordException(node, (System.nanoTime() - startNs)
                                                               / Time.NS_PER_MS, use);
                     }
-                    sendOneAsyncHint(slopKey, slopVersioned, routeNodes);
+                    sendOneAsyncHint(slopKey, slopVersioned, nodesToTry);
                 }
 
                 if(loggerDebugEnabled)

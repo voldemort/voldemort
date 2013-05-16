@@ -56,9 +56,7 @@ public class HintedHandoffTestEnvironment implements Runnable {
     private final static String STORE_NAME = "test-store";
     private final static SerializerDefinition SEL_DEF = new SerializerDefinition("identity");
     private final static Integer NUM_NODES_TOTAL = 8;
-    private final static Integer DEFAULT_REPLICATION_FACTOR = 2;
-    private final static Integer DEFAULT_P_READS = 1;
-    private final static Integer DEFAULT_R_READS = 1;
+    private final static Integer DEFAULT_REPLICATION_FACTOR = 3;
     private final static Integer DEFAULT_P_WRITES = 1;
     private final static Integer DEFAULT_R_WRITES = 1;
     private final static HintedHandoffStrategyType DEFAULT_HINT_ROUTING_STRATEGY = HintedHandoffStrategyType.PROXIMITY_STRATEGY;
@@ -117,8 +115,8 @@ public class HintedHandoffTestEnvironment implements Runnable {
                        .setRoutingPolicy(RoutingTier.CLIENT)
                        .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                        .setReplicationFactor(DEFAULT_REPLICATION_FACTOR)
-                       .setPreferredReads(DEFAULT_P_READS)
-                       .setRequiredReads(DEFAULT_R_READS)
+                       .setPreferredReads(1)
+                       .setRequiredReads(1)
                        .setPreferredWrites(DEFAULT_P_WRITES)
                        .setRequiredWrites(DEFAULT_R_WRITES)
                        .setHintedHandoffStrategy(DEFAULT_HINT_ROUTING_STRATEGY);
@@ -140,6 +138,43 @@ public class HintedHandoffTestEnvironment implements Runnable {
         return this;
     }
 
+    public HintedHandoffTestEnvironment setZonedReplicationFactor(int number) {
+        HashMap<Integer, Integer> zoneReplicationFactor = new HashMap<Integer, Integer>();
+        zoneReplicationFactor.put(0, number);
+        zoneReplicationFactor.put(1, number);
+        storeDefBuilder.setReplicationFactor(number * 2);
+        storeDefBuilder.setZoneCountReads(1).setZoneCountWrites(1);
+        return this;
+    }
+
+    /**
+     * Create inner store and storage engines before server starts
+     * 
+     * @param nodeId
+     */
+    public void createInnerStore(int nodeId) {
+        Store<ByteArray, byte[], byte[]> realStore = new InMemoryPutAssertionStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME);
+        ForceFailStore<ByteArray, byte[], byte[]> forceFailStore = new ForceFailStore<ByteArray, byte[], byte[]>(realStore,
+                                                                                                                 new PersistenceFailureException("Force failed"));
+        SleepyStore<ByteArray, byte[], byte[]> sleepyStore = new SleepyStore<ByteArray, byte[], byte[]>(0,
+                                                                                                        forceFailStore);
+        realStores.put(nodeId, realStore);
+        forceFailStores.put(nodeId, forceFailStore);
+        sleepyStores.put(nodeId, sleepyStore);
+    }
+
+    /**
+     * Start a server How it works:
+     * 
+     * 1. create a server using test utilities
+     * 
+     * 2.Inject prepared test store and storage engine
+     * 
+     * 3. Inject prepared slop store and storage engine
+     * 
+     * @param nodeId The node of server to start
+     * @throws IOException
+     */
     public void startServer(int nodeId) throws IOException {
         if(logger.isInfoEnabled())
             logger.info("Starting server of node [" + nodeId + "]");
@@ -189,6 +224,11 @@ public class HintedHandoffTestEnvironment implements Runnable {
         }
     }
 
+    /**
+     * Stop a server
+     * 
+     * @param nodeId The node of server to stop
+     */
     public void stopServer(int nodeId) {
         if(logger.isInfoEnabled())
             logger.info("Stopping server of node [" + nodeId + "]");
@@ -196,15 +236,13 @@ public class HintedHandoffTestEnvironment implements Runnable {
         server.stop();
     }
 
-    public void createInnerStore(int nodeId) {
-        Store<ByteArray, byte[], byte[]> realStore = new InMemoryPutAssertionStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME);
-        ForceFailStore<ByteArray, byte[], byte[]> forceFailStore = new ForceFailStore<ByteArray, byte[], byte[]>(realStore,
-                                                                                                                 new PersistenceFailureException("Force failed"));
-        SleepyStore<ByteArray, byte[], byte[]> sleepyStore = new SleepyStore<ByteArray, byte[], byte[]>(0,
-                                                                                                        forceFailStore);
-        realStores.put(nodeId, realStore);
-        forceFailStores.put(nodeId, forceFailStore);
-        sleepyStores.put(nodeId, sleepyStore);
+    public Set<Integer> getUniqueRandomNumbers(int max, int count) {
+        Set<Integer> result = new HashSet<Integer>();
+        Random r = new Random(System.currentTimeMillis());
+        while(result.size() <= max && result.size() < count) {
+            result.add(r.nextInt(max));
+        }
+        return result;
     }
 
     @Override
@@ -296,15 +334,11 @@ public class HintedHandoffTestEnvironment implements Runnable {
         }
     }
 
-    public Set<Integer> getUniqueRandomNumbers(int max, int count) {
-        Set<Integer> result = new HashSet<Integer>();
-        Random r = new Random();
-        while(result.size() <= max && result.size() < count) {
-            result.add(r.nextInt(max));
-        }
-        return result;
-    }
-
+    /**
+     * Make a node to shutdown
+     * 
+     * @param nodeId
+     */
     public void makeNodeDown(int nodeId) {
         if(nodesStatus.get(nodeId) != NodeStatus.DOWN) {
             if(logger.isInfoEnabled()) {
@@ -316,6 +350,11 @@ public class HintedHandoffTestEnvironment implements Runnable {
         }
     }
 
+    /**
+     * Make the node slow to respond to requests
+     * 
+     * @param nodeId
+     */
     public void makeNodeSlow(int nodeId) {
         if(nodesStatus.get(nodeId) != NodeStatus.SLOW) {
             if(logger.isInfoEnabled()) {
@@ -327,6 +366,11 @@ public class HintedHandoffTestEnvironment implements Runnable {
         }
     }
 
+    /**
+     * Make a node throwing out PersistenceFailureException
+     * 
+     * @param nodeId
+     */
     public void makeNodeBdbError(int nodeId) {
         if(nodesStatus.get(nodeId) != NodeStatus.BDB_ERROR) {
             if(logger.isInfoEnabled()) {
@@ -338,6 +382,11 @@ public class HintedHandoffTestEnvironment implements Runnable {
         }
     }
 
+    /**
+     * Making a node to NORMAL state
+     * 
+     * @param nodeId
+     */
     public void makeNodeNormal(int nodeId) {
         NodeStatus status = nodesStatus.get(nodeId);
         if(status == null) {
@@ -380,7 +429,13 @@ public class HintedHandoffTestEnvironment implements Runnable {
         return factory.getStoreClient(STORE_NAME);
     }
 
-    public void waitForWrapUp() throws InterruptedException {
+    /**
+     * Wrap up the testing environment by making all servers normal and wait for
+     * all slops to be pushed
+     * 
+     * @throws InterruptedException
+     */
+    public void warpUp() throws InterruptedException {
         if(logger.isInfoEnabled()) {
             logger.info("Waiting for wrap up");
         }
@@ -415,6 +470,12 @@ public class HintedHandoffTestEnvironment implements Runnable {
         }
     }
 
+    /**
+     * Starting the testing environment and wait until all Voldemort server
+     * instances are online
+     * 
+     * @throws InterruptedException
+     */
     public void start() throws InterruptedException {
         if(logger.isInfoEnabled()) {
             logger.info("Starting up and wait");
@@ -426,6 +487,9 @@ public class HintedHandoffTestEnvironment implements Runnable {
         }
     }
 
+    /**
+     * Stop the testing environment
+     */
     public void stop() {
         factory.close();
         for(Integer nodeId: voldemortServers.keySet()) {

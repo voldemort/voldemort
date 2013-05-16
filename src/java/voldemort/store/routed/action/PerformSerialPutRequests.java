@@ -24,11 +24,10 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
-import voldemort.store.PersistenceFailureException;
 import voldemort.store.Store;
-import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.PipelineRoutedStore;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -127,8 +126,7 @@ public class PerformSerialPutRequests extends
                                  + (System.nanoTime() - start) + " ns" + " (keyRef: "
                                  + System.identityHashCode(key) + ")");
 
-                if(e instanceof UnreachableStoreException
-                   || e instanceof PersistenceFailureException) {
+                if(PipelineRoutedStore.isSlopableFailure(e)) {
                     pipelineData.getSynchronizer().tryDelegateSlop(node);
                 }
                 if(handleResponseError(e, node, requestTime, pipeline, failureDetector))

@@ -1,5 +1,6 @@
 package voldemort.store.memory;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,6 +12,16 @@ import voldemort.VoldemortException;
 import voldemort.store.StoreUtils;
 import voldemort.versioning.Versioned;
 
+/**
+ * . This class is used to assert puts on keys and to examine what key put
+ * assertions has been fulfilled and what are not This is particularly useful
+ * for cases where there are a large number of puts and the their values do not
+ * matter and they are not read
+ * 
+ * @param <K> Key Type
+ * @param <V> Value Type
+ * @param <T> Transformation Type
+ */
 public class InMemoryPutAssertionStorageEngine<K, V, T> extends InMemoryStorageEngine<K, V, T> {
 
     private static final Logger logger = Logger.getLogger(InMemoryPutAssertionStorageEngine.class);
@@ -26,7 +37,7 @@ public class InMemoryPutAssertionStorageEngine<K, V, T> extends InMemoryStorageE
         StoreUtils.assertValidKey(key);
 
         // delete if exist
-        List<Versioned<V>> result = super.getInnerMap().remove(key);
+        List<Versioned<V>> result = map.remove(key);
         if(result == null || result.size() == 0) {
             // if non-exist, record as assertion
             assertionMap.put(key, true); // use synchronized to avoid race
@@ -64,6 +75,6 @@ public class InMemoryPutAssertionStorageEngine<K, V, T> extends InMemoryStorageE
     }
 
     public Set<K> getFailedAssertions() {
-        return assertionMap.keySet();
+        return Collections.unmodifiableSet(assertionMap.keySet());
     }
 }

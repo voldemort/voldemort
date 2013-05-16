@@ -47,7 +47,7 @@ import voldemort.versioning.Versioned;
 public class InMemoryStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, T> {
 
     private static final Logger logger = Logger.getLogger(InMemoryStorageEngine.class);
-    private final ConcurrentMap<K, List<Versioned<V>>> map;
+    protected final ConcurrentMap<K, List<Versioned<V>>> map;
 
     public InMemoryStorageEngine(String name) {
         super(name);
@@ -65,10 +65,6 @@ public class InMemoryStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, 
 
     public boolean delete(K key) {
         return delete(key, null);
-    }
-
-    public ConcurrentMap<K, List<Versioned<V>>> getInnerMap() {
-        return map;
     }
 
     @Override

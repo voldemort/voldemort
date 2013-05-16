@@ -31,12 +31,11 @@ import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.InvalidMetadataException;
-import voldemort.store.PersistenceFailureException;
-import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.PipelineRoutedStore;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Response;
 import voldemort.store.slop.HintedHandoff;
@@ -139,7 +138,12 @@ public class PerformParallelPutRequests extends
                     }
 
                     if(!responseHandledByMaster) {
-                        if(isSlopableFailure(response.getValue())) {
+                        if(logger.isDebugEnabled()) {
+                            logger.debug("PUT {key:"
+                                         + key
+                                         + "} Master thread did not accept the response: will handle in worker thread");
+                        }
+                        if(PipelineRoutedStore.isSlopableFailure(response.getValue())) {
                             if(logger.isDebugEnabled())
                                 logger.debug("PUT {key:" + key + "} failed on node={id:"
                                              + node.getId() + ",host:" + node.getHost() + "}");
@@ -176,6 +180,8 @@ public class PerformParallelPutRequests extends
                                 }
                             }
                         } else {
+                            // did not slop because either it's not exception or
+                            // the exception is ignorable
                             if(logger.isDebugEnabled()) {
                                 if(result instanceof Exception) {
                                     logger.debug("PUT {key:"
@@ -184,7 +190,7 @@ public class PerformParallelPutRequests extends
                                                  + result.getClass().toString());
                                 } else {
                                     logger.debug("PUT {key:" + key
-                                                 + "} will not send hint. Response is normal");
+                                                 + "} will not send hint. Response is success");
                                 }
                             }
                         }
@@ -365,7 +371,7 @@ public class PerformParallelPutRequests extends
 
                     return;
                 }
-                if(isSlopableFailure(response.getValue())) {
+                if(PipelineRoutedStore.isSlopableFailure(response.getValue())) {
                     pipelineData.getSynchronizer().tryDelegateSlop(response.getNode());
                 }
 
@@ -379,10 +385,5 @@ public class PerformParallelPutRequests extends
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
             }
         }
-    }
-
-    private boolean isSlopableFailure(Object object) {
-        return object instanceof UnreachableStoreException
-               || object instanceof PersistenceFailureException;
     }
 }

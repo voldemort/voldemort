@@ -28,15 +28,20 @@ import voldemort.utils.ByteArray;
 public class LongHintedHandoffTest {
 
     private final Logger logger = Logger.getLogger(LongHintedHandoffTest.class);
-    private static final Long MAX_TOTAL_TIME_MS = 1000L * 60 * 10;
+    private static final Long MAX_TOTAL_TIME_MS = 1000L * 60 * 5;
     private static final Integer KEY_LENGTH = 16;
     private static final Integer VALUE_LENGTH = 32;
     private HintedHandoffTestEnvironment testEnv;
     private final Integer replicationFactor;
     private final Integer requiredWrites;
     private final Integer preferredWrites;
+    private final Boolean zoned;
 
-    public LongHintedHandoffTest(int replicationFactor, int requiredWrites, int preferredWrites) {
+    public LongHintedHandoffTest(boolean zoned,
+                                 int replicationFactor,
+                                 int requiredWrites,
+                                 int preferredWrites) {
+        this.zoned = zoned;
         this.replicationFactor = replicationFactor;
         this.requiredWrites = requiredWrites;
         this.preferredWrites = preferredWrites;
@@ -44,16 +49,22 @@ public class LongHintedHandoffTest {
 
     @Parameterized.Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { 3, 1, 1 }, { 3, 1, 2 }, { 3, 1, 3 }, { 3, 2, 2 },
-                { 3, 2, 3 }, { 3, 3, 3 }, { 2, 1, 1 }, { 2, 1, 2 }, { 2, 2, 2 } });
+        return Arrays.asList(new Object[][] { { true, 3, 1, 1 }, { true, 3, 1, 2 },
+                { true, 3, 1, 3 }, { true, 3, 2, 2 }, { true, 3, 2, 3 }, { true, 3, 3, 3 },
+                { true, 2, 1, 1 }, { true, 2, 1, 2 }, { true, 2, 2, 2 }, { false, 3, 1, 1 },
+                { false, 3, 1, 2 }, { false, 3, 1, 3 }, { false, 3, 2, 2 }, { false, 3, 2, 3 },
+                { false, 3, 3, 3 }, { false, 2, 1, 1 }, { false, 2, 1, 2 }, { false, 2, 2, 2 } });
     }
 
     @Before
     public void setUp() throws InterruptedException {
         testEnv = new HintedHandoffTestEnvironment();
-        testEnv.setReplicationFactor(replicationFactor)
-               .setPreferredWrite(preferredWrites)
-               .setRequiredWrite(requiredWrites);
+        testEnv.setPreferredWrite(preferredWrites).setRequiredWrite(requiredWrites);
+        if(this.zoned) {
+            testEnv.setReplicationFactor(replicationFactor);
+        } else {
+            testEnv.setZonedReplicationFactor(replicationFactor);
+        }
         testEnv.start();
     }
 
@@ -106,7 +117,7 @@ public class LongHintedHandoffTest {
         }
 
         // bring all servers up
-        testEnv.waitForWrapUp();
+        testEnv.warpUp();
 
         // check
         long numFailedAssertions = 0;

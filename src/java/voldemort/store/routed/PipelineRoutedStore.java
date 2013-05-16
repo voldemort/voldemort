@@ -30,10 +30,12 @@ import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.common.VoldemortOpCode;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.store.CompositeVoldemortRequest;
+import voldemort.store.PersistenceFailureException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreRequest;
 import voldemort.store.StoreUtils;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
@@ -903,5 +905,10 @@ public class PipelineRoutedStore extends RoutedStore {
     public boolean delete(CompositeVoldemortRequest<ByteArray, byte[]> request)
             throws VoldemortException {
         return delete(request.getKey(), request.getVersion(), request.getRoutingTimeoutInMs());
+    }
+
+    public static boolean isSlopableFailure(Object response) {
+        return response instanceof UnreachableStoreException
+               || response instanceof PersistenceFailureException;
     }
 }
