@@ -241,11 +241,13 @@ public class RebalanceUtils {
      */
     public static void validateClusterStores(final Cluster cluster,
                                              final List<StoreDefinition> storeDefs) {
-        // Constructing a PartitionBalance object has the (desirable in this
+        // Constructing a StoreRoutingPlan has the (desirable in this
         // case) side-effect of verifying that the store definition is congruent
         // with the cluster definition. If there are issues, exceptions are
         // thrown.
-        new PartitionBalance(cluster, storeDefs);
+        for(StoreDefinition storeDefinition: storeDefs) {
+            new StoreRoutingPlan(cluster, storeDefinition);
+        }
         return;
     }
 
@@ -621,8 +623,13 @@ public class RebalanceUtils {
                                                                        .getPartitionIds());
 
         List<Integer> currentList = new ArrayList<Integer>();
-        if(ClusterUtils.containsNode(currentCluster, stealNodeId))
+        if(ClusterUtils.containsNode(currentCluster, stealNodeId)) {
             currentList = currentCluster.getNodeById(stealNodeId).getPartitionIds();
+        } else {
+            // TODO: Is throwing exception desirable here?
+            throw new VoldemortException("Current cluster does not contain stealer node (cluster : [[["
+                                         + currentCluster + "]]], node id " + stealNodeId + ")");
+        }
 
         // remove all current partitions from targetList
         targetList.removeAll(currentList);

@@ -29,6 +29,19 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     private final int stealerNodeId;
     // TODO: What is the use of maxTries for stealer-based tasks? Need to
     // validate reason for existence or remove.
+    // NOTES FROM VINOTH:
+    // I traced the code down and it seems like this is basically used to
+    // reissue StealerBasedRebalanceTask when it encounters an
+    // AlreadyRebalancingException (which is tied to obtaining a rebalance
+    // permit for the donor node) .. In general, I vote for removing this
+    // parameter.. I think we should have the controller wait/block with a
+    // decent log message if it truly blocked on other tasks to complete... But,
+    // we need to check how likely this retry is saving us grief today and
+    // probably stick to it for sometime, as we stabliize the code base with the
+    // new planner/controller et al...Right way to do this.. Controller simply
+    // submits "work" to the server and servers are mature enough to throttle
+    // and process them as fast as they can. Since that looks like changing all
+    // the server execution frameworks, let's stick with this for now..
     private final int maxTries;
 
     public StealerBasedRebalanceTask(final int taskId,

@@ -114,7 +114,7 @@ public class RebalancePartitionsInfo {
         this.initialCluster = Utils.notNull(initialCluster);
     }
 
-    private void flattenStoreToReplicaToAddPartitionListTOStoreToPartitionIds() {
+    private void flattenStoreToReplicaTypeToAddPartitionListTOStoreToPartitionIds() {
         this.storeToPartitionIds = new HashMap<String, List<Integer>>();
         for(Entry<String, HashMap<Integer, List<Integer>>> entry: storeToReplicaToAddPartitionList.entrySet()) {
             if(!this.storeToPartitionIds.containsKey(entry.getKey())) {
@@ -270,7 +270,7 @@ public class RebalancePartitionsInfo {
     public synchronized void setStoreToReplicaToAddPartitionList(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitionList) {
         this.storeToReplicaToAddPartitionList = storeToReplicaToAddPartitionList;
         findMaxReplicaType(storeToReplicaToAddPartitionList);
-        flattenStoreToReplicaToAddPartitionListTOStoreToPartitionIds();
+        flattenStoreToReplicaTypeToAddPartitionListTOStoreToPartitionIds();
     }
 
     public synchronized void removeStore(String storeName) {

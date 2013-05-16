@@ -153,7 +153,7 @@ public class RebalanceController {
         List<StoreDefinition> finalStores = rebalancePlan.getFinalStores();
 
         validatePlan(rebalancePlan);
-        validateCluster(finalCluster, finalStores);
+        prepareForRebalance(finalCluster, finalStores);
 
         logger.info("Propagating cluster " + finalCluster + " to all nodes");
         // TODO: (atomic cluster/stores update) Add finalStores here so that
@@ -163,6 +163,11 @@ public class RebalanceController {
         executePlan(rebalancePlan);
     }
 
+    /**
+     * Validates all aspects of the plan (i.e., all config files)
+     * 
+     * @param rebalancePlan
+     */
     private void validatePlan(RebalancePlan rebalancePlan) {
         logger.info("Validating plan state.");
 
@@ -178,7 +183,18 @@ public class RebalanceController {
         RebalanceUtils.validateRebalanceStore(finalStores);
     }
 
-    private void validateCluster(Cluster finalCluster, List<StoreDefinition> finalStores) {
+    /**
+     * Validates deployed cluster:
+     * <ul>
+     * <li>sets local admin client to finalCluster
+     * <li>checks that all servers are currently in normal state
+     * <li>confirms read-only stores can be rebalanced.
+     * </ul>
+     * 
+     * @param finalCluster
+     * @param finalStores
+     */
+    private void prepareForRebalance(Cluster finalCluster, List<StoreDefinition> finalStores) {
         logger.info("Validating state of deployed cluster.");
 
         // Reset the cluster that the admin client points at
@@ -309,9 +325,6 @@ public class RebalanceController {
 
             RebalanceUtils.printLog(batchCount, logger, "Starting batch " + batchCount + ".");
 
-            // Flatten the node plans to partition plans
-            List<RebalancePartitionsInfo> rebalancePartitionPlanList = rebalancePartitionsInfoList;
-
             // Split the store definitions
             List<StoreDefinition> readOnlyStoreDefs = StoreDefinitionUtils.filterStores(batchStoreDefs,
                                                                                         true);
@@ -323,7 +336,7 @@ public class RebalanceController {
 
             // STEP 1 - Cluster state change
             boolean finishedReadOnlyPhase = false;
-            List<RebalancePartitionsInfo> filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionPlanList,
+            List<RebalancePartitionsInfo> filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionsInfoList,
                                                                                                                             readOnlyStoreDefs);
 
             rebalanceStateChange(batchCount,
@@ -346,7 +359,7 @@ public class RebalanceController {
 
             // STEP 3 - Cluster change state
             finishedReadOnlyPhase = true;
-            filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionPlanList,
+            filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionsInfoList,
                                                                                               readWriteStoreDefs);
 
             rebalanceStateChange(batchCount,

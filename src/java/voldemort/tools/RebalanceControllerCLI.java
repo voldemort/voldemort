@@ -66,8 +66,9 @@ public class RebalanceControllerCLI {
               .withRequiredArg()
               .ofType(Long.class)
               .describedAs("sec");
+        // TODO: Can this option be described better?
         parser.accepts("parallelism",
-                       "Number of rebalances to run in parallel [ Default:"
+                       "Number of servers running stealer- or donor-based tasks in parallel [ Default:"
                                + RebalanceController.MAX_PARALLEL_REBALANCING + " ]")
               .withRequiredArg()
               .ofType(Integer.class)
@@ -81,7 +82,7 @@ public class RebalanceControllerCLI {
               .withRequiredArg()
               .describedAs("stores.xml");
 
-        parser.accepts("batch",
+        parser.accepts("batch-size",
                        "Number of primary partitions to move together [ RebalancePlan parameter; Default : "
                                + RebalancePlan.BATCH_SIZE + " ]")
               .withRequiredArg()
@@ -195,7 +196,7 @@ public class RebalanceControllerCLI {
         RebalanceUtils.validateCurrentFinalCluster(currentCluster, finalCluster);
 
         // Process optional "planning" arguments
-        int batchSize = CmdUtils.valueOf(options, "batch", RebalancePlan.BATCH_SIZE);
+        int batchSize = CmdUtils.valueOf(options, "batch-size", RebalancePlan.BATCH_SIZE);
 
         String outputDir = null;
         if(options.has("output-dir")) {
