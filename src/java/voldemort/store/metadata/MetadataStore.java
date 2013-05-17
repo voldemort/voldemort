@@ -798,7 +798,9 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 valueObject = clusterMapper.readCluster(new StringReader(value.getValue()));
             }
         } else if(REBALANCING_SOURCE_STORES_XML.equals(key)) {
-            valueObject = storeMapper.readStoreList(new StringReader(value.getValue()));
+            if(value.getValue() != null && value.getValue().length() > 0) {
+                valueObject = storeMapper.readStoreList(new StringReader(value.getValue()));
+            }
         } else {
             throw new VoldemortException("Unhandled key:'" + key
                                          + "' for String to Object serialization.");
