@@ -158,9 +158,6 @@ public class RebalanceMetadataConsistencyTest {
             this.storeDef = storeDef;
         }
 
-        /**
-         * Run method adding data to a fictitious database
-         */
         @Override
         public void run() {
 
@@ -183,9 +180,6 @@ public class RebalanceMetadataConsistencyTest {
 
     class ThreadReader implements Runnable {
 
-        /**
-         * Run method adding data to a fictitious database
-         */
         @Override
         public void run() {
 
