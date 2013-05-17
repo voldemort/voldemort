@@ -119,7 +119,6 @@ public class RebalanceMetadataConsistencyTest {
 
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
     @Test
     public void testThreading() {
 
