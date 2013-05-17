@@ -43,6 +43,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
@@ -236,38 +237,27 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           storeDefFileWithoutReplication,
                                           serverList,
                                           configProps);
-            // Update the cluster information based on the node information
-            targetCluster = updateCluster(targetCluster);
 
-            // TODO: make helper method(s) (possibly at AbstractREbalanceTest
-            // level) that constructs appropriate controller & plan. There is a
-            // fair bit of cut-and-pasted coding among these tests...
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            int maxParallel = RebalanceController.MAX_PARALLEL_REBALANCING;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                          maxParallel,
-                                                                          maxTries,
-                                                                          timeout,
-                                                                          stealerBased);
-            int batchSize = RebalancePlan.BATCH_SIZE;
-            RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
+
             try {
 
                 // Populate the two stores
                 populateData(currentCluster,
                              roStoreDefWithoutReplication,
-                             rebalanceClient.getAdminClient(),
+                             rebalanceKit.controller.getAdminClient(),
                              true);
 
                 populateData(currentCluster,
                              rwStoreDefWithoutReplication,
-                             rebalanceClient.getAdminClient(),
+                             rebalanceKit.controller.getAdminClient(),
                              false);
 
-                rebalanceAndCheck(rebalancePlan, rebalanceClient, Arrays.asList(1));
+                rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, Arrays.asList(1));
 
                 checkConsistentMetadata(targetCluster, serverList);
             } finally {
@@ -300,35 +290,26 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           storeDefFileWithReplication,
                                           serverList,
                                           configProps);
-            // Update the cluster information based on the node information
-            targetCluster = updateCluster(targetCluster);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            int maxParallel = RebalanceController.MAX_PARALLEL_REBALANCING;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                          maxParallel,
-                                                                          maxTries,
-                                                                          timeout,
-                                                                          stealerBased);
-            int batchSize = RebalancePlan.BATCH_SIZE;
-            RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
 
             try {
                 // Populate the two stores
                 populateData(currentCluster,
                              roStoreDefWithReplication,
-                             rebalanceClient.getAdminClient(),
+                             rebalanceKit.controller.getAdminClient(),
                              true);
 
                 populateData(currentCluster,
                              rwStoreDefWithReplication,
-                             rebalanceClient.getAdminClient(),
+                             rebalanceKit.controller.getAdminClient(),
                              false);
 
-                rebalanceAndCheck(rebalancePlan, rebalanceClient, Arrays.asList(0, 1));
+                rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, Arrays.asList(0, 1));
 
                 checkConsistentMetadata(targetCluster, serverList);
             } finally {
@@ -372,29 +353,20 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           roStoreDefFileWithReplication,
                                           serverList,
                                           configProps);
-            // Update the cluster information based on the node information
-            targetCluster = updateCluster(targetCluster);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            int maxParallel = RebalanceController.MAX_PARALLEL_REBALANCING;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                          maxParallel,
-                                                                          maxTries,
-                                                                          timeout,
-                                                                          stealerBased);
-            int batchSize = RebalancePlan.BATCH_SIZE;
-            RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
 
             try {
                 populateData(currentCluster,
                              roStoreDefWithReplication,
-                             rebalanceClient.getAdminClient(),
+                             rebalanceKit.controller.getAdminClient(),
                              true);
 
-                rebalanceAndCheck(rebalancePlan, rebalanceClient, Arrays.asList(0, 1));
+                rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, Arrays.asList(0, 1));
                 checkConsistentMetadata(targetCluster, serverList);
             } finally {
                 // stop servers
@@ -422,29 +394,19 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           serverList,
                                           null);
 
-            // Update the cluster information based on the node information
-            targetCluster = updateCluster(targetCluster);
-
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            int maxParallel = RebalanceController.MAX_PARALLEL_REBALANCING;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                          maxParallel,
-                                                                          maxTries,
-                                                                          timeout,
-                                                                          stealerBased);
-            int batchSize = RebalancePlan.BATCH_SIZE;
-            RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
 
             try {
                 populateData(currentCluster,
                              rwStoreDefWithReplication,
-                             rebalanceClient.getAdminClient(),
+                             rebalanceKit.controller.getAdminClient(),
                              false);
 
-                rebalanceAndCheck(rebalancePlan, rebalanceClient, Arrays.asList(0, 1));
+                rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, Arrays.asList(0, 1));
 
                 checkConsistentMetadata(targetCluster, serverList);
             } finally {
@@ -476,42 +438,32 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           rwStoreDefFileWithReplication,
                                           serverList,
                                           configProps);
-            // Update the cluster information based on the node information
-            targetCluster = updateCluster(targetCluster);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            int maxParallel = RebalanceController.MAX_PARALLEL_REBALANCING;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                          maxParallel,
-                                                                          maxTries,
-                                                                          timeout,
-                                                                          stealerBased);
-            int batchSize = RebalancePlan.BATCH_SIZE;
-            RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
 
             try {
-                populateData(currentCluster,
-                             rwStoreDefWithReplication,
-                             rebalanceClient.getAdminClient(),
-                             false);
+                AdminClient adminClient = rebalanceKit.controller.getAdminClient();
+                populateData(currentCluster, rwStoreDefWithReplication, adminClient, false);
 
-                AdminClient admin = rebalanceClient.getAdminClient();
                 // Figure out the positive keys to check
-                List<ByteArray> positiveTestKeyList = sampleKeysFromPartition(admin,
+                List<ByteArray> positiveTestKeyList = sampleKeysFromPartition(adminClient,
                                                                               1,
                                                                               rwStoreDefWithReplication.getName(),
                                                                               Arrays.asList(1),
                                                                               20);
 
-                rebalanceAndCheck(rebalancePlan, rebalanceClient, Arrays.asList(0, 1, 2));
+                rebalanceAndCheck(rebalanceKit.plan,
+                                  rebalanceKit.controller,
+                                  Arrays.asList(0, 1, 2));
                 checkConsistentMetadata(targetCluster, serverList);
 
                 // Do the cleanup operation
                 for(int i = 0; i < 3; i++) {
-                    admin.storeMntOps.repairJob(i);
+                    adminClient.storeMntOps.repairJob(i);
                 }
                 // wait for the repairs to complete
                 for(int i = 0; i < 3; i++) {
@@ -519,7 +471,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                 }
 
                 // do the positive tests
-                checkForKeyExistence(admin,
+                checkForKeyExistence(adminClient,
                                      1,
                                      rwStoreDefWithReplication.getName(),
                                      positiveTestKeyList);
@@ -554,42 +506,32 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           rwStoreDefFileWithReplication,
                                           serverList,
                                           configProps);
-            // Update the cluster information based on the node information
-            targetCluster = updateCluster(targetCluster);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            int maxParallel = RebalanceController.MAX_PARALLEL_REBALANCING;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                          maxParallel,
-                                                                          maxTries,
-                                                                          timeout,
-                                                                          stealerBased);
-            int batchSize = RebalancePlan.BATCH_SIZE;
-            RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
 
             try {
-                populateData(currentCluster,
-                             rwStoreDefWithReplication,
-                             rebalanceClient.getAdminClient(),
-                             false);
+                AdminClient adminClient = rebalanceKit.controller.getAdminClient();
+                populateData(currentCluster, rwStoreDefWithReplication, adminClient, false);
 
-                AdminClient admin = rebalanceClient.getAdminClient();
                 // Figure out the positive and negative keys to check
-                List<ByteArray> positiveTestKeyList = sampleKeysFromPartition(admin,
+                List<ByteArray> positiveTestKeyList = sampleKeysFromPartition(adminClient,
                                                                               0,
                                                                               rwStoreDefWithReplication.getName(),
                                                                               Arrays.asList(3),
                                                                               20);
 
-                rebalanceAndCheck(rebalancePlan, rebalanceClient, Arrays.asList(0, 1, 2));
+                rebalanceAndCheck(rebalanceKit.plan,
+                                  rebalanceKit.controller,
+                                  Arrays.asList(0, 1, 2));
                 checkConsistentMetadata(targetCluster, serverList);
 
                 // Do the cleanup operation
                 for(int i = 0; i < 3; i++) {
-                    admin.storeMntOps.repairJob(i);
+                    adminClient.storeMntOps.repairJob(i);
                 }
                 // wait for the repairs to complete
                 for(int i = 0; i < 3; i++) {
@@ -597,7 +539,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                 }
 
                 // do the positive tests
-                checkForKeyExistence(admin,
+                checkForKeyExistence(adminClient,
                                      0,
                                      rwStoreDefWithReplication.getName(),
                                      positiveTestKeyList);
@@ -638,34 +580,27 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           rwTwoStoreDefFileWithReplication,
                                           serverList,
                                           null);
-            // Update the cluster information based on the node information
-            targetCluster = updateCluster(targetCluster);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = 5;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                          maxParallel,
-                                                                          maxTries,
-                                                                          timeout,
-                                                                          stealerBased);
-            int batchSize = 100;
-            RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                maxParallel,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
 
             try {
                 populateData(currentCluster,
                              rwStoreDefWithReplication,
-                             rebalanceClient.getAdminClient(),
+                             rebalanceKit.controller.getAdminClient(),
                              false);
 
                 populateData(currentCluster,
                              rwStoreDefWithReplication2,
-                             rebalanceClient.getAdminClient(),
+                             rebalanceKit.controller.getAdminClient(),
                              false);
 
-                rebalanceAndCheck(rebalancePlan, rebalanceClient, serverList);
+                rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, serverList);
 
                 checkConsistentMetadata(targetCluster, serverList);
             } catch(Exception e) {
@@ -707,34 +642,27 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           rwTwoStoreDefFileWithReplication,
                                           serverList,
                                           serverProps);
-            // Update the cluster information based on the node information
-            targetCluster = updateCluster(targetCluster);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = 5;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                          maxParallel,
-                                                                          maxTries,
-                                                                          timeout,
-                                                                          stealerBased);
-            int batchSize = 100;
-            RebalancePlan rebalancePlan = rebalanceClient.getPlan(targetCluster, batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                maxParallel,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
 
             try {
                 populateData(currentCluster,
                              rwStoreDefWithReplication,
-                             rebalanceClient.getAdminClient(),
+                             rebalanceKit.controller.getAdminClient(),
                              false);
 
                 populateData(currentCluster,
                              rwStoreDefWithReplication2,
-                             rebalanceClient.getAdminClient(),
+                             rebalanceKit.controller.getAdminClient(),
                              false);
 
-                rebalanceAndCheck(rebalancePlan, rebalanceClient, serverList);
+                rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, serverList);
 
                 checkConsistentMetadata(targetCluster, serverList);
             } catch(Exception e) {
@@ -768,37 +696,29 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                storeDefFileWithReplication,
                                                                serverList,
                                                                configProps);
-            final Cluster updatedTargetCluster = updateCluster(targetCluster);
 
             ExecutorService executors = Executors.newFixedThreadPool(2);
             final AtomicBoolean rebalancingComplete = new AtomicBoolean(false);
             final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
-            String bootstrapUrl = getBootstrapUrl(updatedCurrentCluster, 0);
+            String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = 2;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
-            // We are forced to use stealer based since RO does not support
-            // donor based rebalancing yet
+            // Must use stealer-based for RO!
             boolean stealerBased = true;
-            final RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                                maxParallel,
-                                                                                maxTries,
-                                                                                timeout,
-                                                                                stealerBased);
-            int batchSize = RebalancePlan.BATCH_SIZE;
-            final RebalancePlan rebalancePlan = rebalanceClient.getPlan(updatedTargetCluster,
-                                                                        batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                maxParallel,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
 
             // Populate the two stores
             populateData(updatedCurrentCluster,
                          roStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
+                         rebalanceKit.controller.getAdminClient(),
                          true);
 
             populateData(updatedCurrentCluster,
                          rwStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
+                         rebalanceKit.controller.getAdminClient(),
                          false);
 
             final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCurrentCluster,
@@ -873,11 +793,13 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
                         Thread.sleep(500);
 
-                        rebalanceAndCheck(rebalancePlan, rebalanceClient, Arrays.asList(0, 1));
+                        rebalanceAndCheck(rebalanceKit.plan,
+                                          rebalanceKit.controller,
+                                          Arrays.asList(0, 1));
 
                         Thread.sleep(500);
                         rebalancingComplete.set(true);
-                        checkConsistentMetadata(updatedTargetCluster, serverList);
+                        checkConsistentMetadata(targetCluster, serverList);
                     } catch(Exception e) {
                         exceptions.add(e);
                         logger.error("Exception in rebalancing thread", e);
@@ -935,7 +857,6 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                rwStoreDefFileWithReplication,
                                                                serverList,
                                                                configProps);
-            final Cluster updatedTargetCluster = updateCluster(targetCluster);
 
             ExecutorService executors = Executors.newFixedThreadPool(2);
             final AtomicBoolean rebalancingComplete = new AtomicBoolean(false);
@@ -945,26 +866,20 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             // batches would mean the proxy bridges being torn down and
             // established multiple times and we cannot test against the source
             // cluster topology then.
-            String bootstrapUrl = getBootstrapUrl(updatedCurrentCluster, 0);
+            String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = 2;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            final RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                                maxParallel,
-                                                                                maxTries,
-                                                                                timeout,
-                                                                                stealerBased);
-            int batchSize = RebalancePlan.BATCH_SIZE;
-            final RebalancePlan rebalancePlan = rebalanceClient.getPlan(updatedTargetCluster,
-                                                                        batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                maxParallel,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
 
             populateData(updatedCurrentCluster,
                          rwStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
+                         rebalanceKit.controller.getAdminClient(),
                          false);
 
-            final AdminClient adminClient = rebalanceClient.getAdminClient();
+            final AdminClient adminClient = rebalanceKit.controller.getAdminClient();
             // the plan would cause these partitions to move
             // Partition : Donor -> Stealer
             // p2 (SEC) : 1 -> 0
@@ -1071,7 +986,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                 @Override
                 public void run() {
                     try {
-                        rebalanceClient.rebalance(rebalancePlan);
+                        rebalanceKit.rebalance();
                     } catch(Exception e) {
                         logger.error("Error in rebalancing... ", e);
                         exceptions.add(e);
@@ -1091,12 +1006,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                          true);
             assertEquals("Not enough time to begin proxy writing", proxyWritesDone.get(), true);
             checkEntriesPostRebalance(updatedCurrentCluster,
-                                      updatedTargetCluster,
+                                      targetCluster,
                                       Lists.newArrayList(rwStoreDefWithReplication),
                                       Arrays.asList(0, 1, 2),
                                       baselineTuples,
                                       baselineVersions);
-            checkConsistentMetadata(updatedTargetCluster, serverList);
+            checkConsistentMetadata(targetCluster, serverList);
             // check No Exception
             if(exceptions.size() > 0) {
 
@@ -1155,36 +1070,28 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                                                storeDefFileWithReplication,
                                                                serverList,
                                                                configProps);
-            final Cluster updatedTargetCluster = updateCluster(targetCluster);
 
             ExecutorService executors = Executors.newFixedThreadPool(2);
             final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
             final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
-            // populate data now.
-            String bootstrapUrl = getBootstrapUrl(updatedCurrentCluster, 0);
+            String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = 2;
-            int maxTries = RebalanceController.MAX_TRIES_REBALANCING;
-            long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
             boolean stealerBased = !useDonorBased;
-            final RebalanceController rebalanceClient = new RebalanceController(bootstrapUrl,
-                                                                                maxParallel,
-                                                                                maxTries,
-                                                                                timeout,
-                                                                                stealerBased);
-            int batchSize = RebalancePlan.BATCH_SIZE;
-            final RebalancePlan rebalancePlan = rebalanceClient.getPlan(updatedTargetCluster,
-                                                                        batchSize);
+            final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                                maxParallel,
+                                                                                                stealerBased,
+                                                                                                targetCluster);
 
             // Populate the two stores
             populateData(updatedCurrentCluster,
                          roStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
+                         rebalanceKit.controller.getAdminClient(),
                          true);
 
             populateData(updatedCurrentCluster,
                          rwStoreDefWithReplication,
-                         rebalanceClient.getAdminClient(),
+                         rebalanceKit.controller.getAdminClient(),
                          false);
 
             Node node = updatedCurrentCluster.getNodeById(1);
@@ -1261,7 +1168,9 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                 public void run() {
                     try {
                         Thread.sleep(500);
-                        rebalanceAndCheck(rebalancePlan, rebalanceClient, Arrays.asList(0, 1));
+                        rebalanceAndCheck(rebalanceKit.plan,
+                                          rebalanceKit.controller,
+                                          Arrays.asList(0, 1));
 
                         Thread.sleep(500);
                         rebalancingToken.set(true);

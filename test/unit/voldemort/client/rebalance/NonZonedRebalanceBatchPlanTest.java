@@ -35,6 +35,7 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 
+import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.VoldemortException;
 import voldemort.VoldemortTestConstants;
@@ -47,16 +48,17 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
-// TODO: (offline) fix this as part of completing the RebalancePlan work
-// TODO: This suite of tests is known to mostly fail. Sorry.
-// TODO: This test needs to be mostly re-written. The planning algorithm has
-// changed and this test focused on the implementation of the prior planning
-// algorithm, rather than the features of a plan in general.
-public class RebalanceBatchPlanTest {
+/**
+ * Tests rebalance batch plan for non-zoned cluster. These tests existed before
+ * the RebalancePlan was re-written in April/May 2013. That is why these tests
+ * follow a different format than those in ZonedRebalanceBatchPlanTest.
+ */
+public class NonZonedRebalanceBatchPlanTest {
 
     private static String storeDefFile = "test/common/voldemort/config/stores.xml";
     private Cluster currentCluster;
     private Cluster targetCluster;
+
     private List<StoreDefinition> storeDefList;
     private List<StoreDefinition> storeDefList2;
     private List<StoreDefinition> test211StoreDef;
@@ -108,9 +110,9 @@ public class RebalanceBatchPlanTest {
         targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 1, 2, 3 }, { 4, 5, 6, 7, 0 } });
 
-        List<RebalancePartitionsInfo> batchPlan = getBatchPlan(currentCluster,
-                                                               targetCluster,
-                                                               test211StoreDef);
+        List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                                targetCluster,
+                                                                                test211StoreDef);
 
         assertTrue("Batch plan should be empty.", batchPlan.isEmpty());
     }
@@ -119,7 +121,7 @@ public class RebalanceBatchPlanTest {
      * Expand on to an empty server.
      */
     @Test
-    public void testExpansion() {
+    public void testClusterExpansion() {
         int numServers = 3;
         int ports[] = ServerTestUtils.findFreePorts(3 * numServers);
 
@@ -129,9 +131,9 @@ public class RebalanceBatchPlanTest {
         targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 1, 2, 3 }, { 4, 5, 6, 7 }, { 0 } });
 
-        List<RebalancePartitionsInfo> batchPlan = getBatchPlan(currentCluster,
-                                                               targetCluster,
-                                                               test211StoreDef);
+        List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                                targetCluster,
+                                                                                test211StoreDef);
         // data should only move from node 0 to node 2 for node 2 to host
         // everything needed. no other movement should occur.
         assertEquals("There should be one move in this plan.", 1, batchPlan.size());
@@ -170,9 +172,9 @@ public class RebalanceBatchPlanTest {
         targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 0, 3, 6, 9, 12, 15 }, { 1, 4, 7, 10, 13, 16 }, { 2, 5, 8, 11, 14, 17 }, {} });
 
-        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getBatchPlan(currentCluster,
-                                                                                       targetCluster,
-                                                                                       storeDefList2);
+        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                                                        targetCluster,
+                                                                                                        storeDefList2);
         assertEquals("There should have exactly 1 rebalancing node",
                      1,
                      getUniqueNodeCount(orderedRebalancePartitionInfoList, false));
@@ -215,9 +217,9 @@ public class RebalanceBatchPlanTest {
                 { 0, 1, 5 }, { 2, 6 }, { 3, 7 } });
 
         // PHASE 1 - move partition 0 off of node 0 to node 1
-        List<RebalancePartitionsInfo> batchPlan = getBatchPlan(currentCluster,
-                                                               targetCluster,
-                                                               storeDefList2);
+        List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                                targetCluster,
+                                                                                storeDefList2);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
 
@@ -231,7 +233,7 @@ public class RebalanceBatchPlanTest {
         targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { {},
                 { 0, 1, 5 }, { 4, 2 }, { 3, 6, 7 } });
 
-        batchPlan = getBatchPlan(currentCluster, targetCluster, storeDefList2);
+        batchPlan = ClusterTestUtils.getBatchPlan(currentCluster, targetCluster, storeDefList2);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
         assertFalse("Batch plan for server 2 should not be empty.",
@@ -261,9 +263,9 @@ public class RebalanceBatchPlanTest {
         targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
                 { 2, 1, 5 }, { 6 }, { 3, 7 } });
 
-        List<RebalancePartitionsInfo> batchPlan = getBatchPlan(currentCluster,
-                                                               targetCluster,
-                                                               storeDefList2);
+        List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                                targetCluster,
+                                                                                storeDefList2);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
         assertFalse("Batch plan for server 1 should not be empty.",
@@ -287,7 +289,7 @@ public class RebalanceBatchPlanTest {
         targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
                 { 2, 1, 5 }, {}, { 6, 3, 7 } });
 
-        batchPlan = getBatchPlan(currentCluster, targetCluster, storeDefList2);
+        batchPlan = ClusterTestUtils.getBatchPlan(currentCluster, targetCluster, storeDefList2);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
 
@@ -297,7 +299,7 @@ public class RebalanceBatchPlanTest {
     }
 
     @Test
-    public void testManyStoreExpansion() {
+    public void testManyStoreClusterExpansion() {
         int numServers = 4;
         int ports[] = ServerTestUtils.findFreePorts(3 * numServers);
 
@@ -307,9 +309,9 @@ public class RebalanceBatchPlanTest {
         targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 0, 2, 3 }, { 4, 6 }, { 7, 8, 9 }, { 1, 5 } });
 
-        List<RebalancePartitionsInfo> batchPlan = getBatchPlan(currentCluster,
-                                                               targetCluster,
-                                                               storeDefList);
+        List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                                targetCluster,
+                                                                                storeDefList);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
         assertFalse("Batch plan for server 3 should not be empty.",
@@ -356,9 +358,9 @@ public class RebalanceBatchPlanTest {
         targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 4 },
                 { 2, 3 }, { 1, 5 }, { 0 } });
 
-        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = getBatchPlan(currentCluster,
-                                                                                       targetCluster,
-                                                                                       storeDefList2);
+        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                                                        targetCluster,
+                                                                                                        storeDefList2);
 
         assertEquals("There should have exactly 1 rebalancing node",
                      1,
@@ -463,24 +465,6 @@ public class RebalanceBatchPlanTest {
                           false,
                           match);
         }
-    }
-
-    /**
-     * Given the current and target cluster metadata, along with your store
-     * definition, return the batch plan.
-     * 
-     * @param currentCluster Current cluster metadata
-     * @param targetCluster Target cluster metadata
-     * @param storeDef List of store definitions
-     * @return list of tasks
-     */
-    private List<RebalancePartitionsInfo> getBatchPlan(Cluster currentCluster,
-                                                       Cluster targetCluster,
-                                                       List<StoreDefinition> storeDef) {
-        RebalanceBatchPlan rebalancePlan = new RebalanceBatchPlan(currentCluster,
-                                                                  targetCluster,
-                                                                  storeDef);
-        return rebalancePlan.getBatchPlan();
     }
 
 }

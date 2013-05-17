@@ -53,6 +53,8 @@ import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 
+// TODO: Drop this class (as well as all other ec2 tests) since the tests have
+// not been run in over a year.
 /**
  */
 public class Ec2RebalanceTest extends AbstractNonZonedRebalanceTest {
@@ -128,7 +130,8 @@ public class Ec2RebalanceTest extends AbstractNonZonedRebalanceTest {
         }
     }
 
-    @Override
+    // TODO: This is probably broken since it was removed from
+    // AbstractNonZonedRebalanceTest
     protected Cluster updateCluster(Cluster template) {
         List<Node> nodes = new ArrayList<Node>();
         for(Map.Entry<Integer, String> entry: nodeIdsInv.entrySet()) {

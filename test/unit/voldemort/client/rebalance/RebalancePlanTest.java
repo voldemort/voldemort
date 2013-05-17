@@ -26,16 +26,17 @@ import org.junit.Test;
 import voldemort.ClusterTestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.MoveMap;
 
 public class RebalancePlanTest {
 
     static Cluster zzCurrent;
-    static Cluster zzRebalance;
+    static Cluster zzShuffle;
     static Cluster zzClusterExpansion;
     static List<StoreDefinition> zzStores;
 
     static Cluster zzzCurrent;
-    static Cluster zzzRebalance;
+    static Cluster zzzShuffle;
     static Cluster zzzClusterExpansion;
     static Cluster zzzZoneExpansion;
     static List<StoreDefinition> zzzStores;
@@ -43,27 +44,16 @@ public class RebalancePlanTest {
     @BeforeClass
     public static void setup() {
         zzCurrent = ClusterTestUtils.getZZCluster();
-        zzRebalance = ClusterTestUtils.getZZClusterWithSwappedPartitions();
+        zzShuffle = ClusterTestUtils.getZZClusterWithSwappedPartitions();
         zzClusterExpansion = ClusterTestUtils.getZZClusterWithPP();
         zzStores = ClusterTestUtils.getZZStoreDefsBDB();
 
         zzzCurrent = ClusterTestUtils.getZZZCluster();
 
-        zzzRebalance = ClusterTestUtils.getZZZClusterWithSwappedPartitions();
+        zzzShuffle = ClusterTestUtils.getZZZClusterWithSwappedPartitions();
         zzzClusterExpansion = ClusterTestUtils.getZZZClusterWithPPP();
         zzzZoneExpansion = ClusterTestUtils.getZZEClusterXXP();
         zzzStores = ClusterTestUtils.getZZZStoreDefsBDB();
-    }
-
-    RebalancePlan makePlan(Cluster cCluster,
-                           List<StoreDefinition> cStores,
-                           Cluster fCluster,
-                           List<StoreDefinition> fStores) {
-        // Defaults for plans
-        int batchSize = RebalancePlan.BATCH_SIZE;
-        String outputDir = null;
-
-        return new RebalancePlan(cCluster, cStores, fCluster, fStores, batchSize, outputDir);
     }
 
     @Test
@@ -71,14 +61,14 @@ public class RebalancePlanTest {
         RebalancePlan rebalancePlan;
 
         // Two zones
-        rebalancePlan = makePlan(zzCurrent, zzStores, zzCurrent, zzStores);
+        rebalancePlan = ClusterTestUtils.makePlan(zzCurrent, zzStores, zzCurrent, zzStores);
         assertEquals(rebalancePlan.getPlan().size(), 0);
         assertEquals(rebalancePlan.getPrimariesMoved(), 0);
         assertEquals(rebalancePlan.getPartitionStoresMoved(), 0);
         assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
 
         // Three zones
-        rebalancePlan = makePlan(zzzCurrent, zzzStores, zzzCurrent, zzzStores);
+        rebalancePlan = ClusterTestUtils.makePlan(zzzCurrent, zzzStores, zzzCurrent, zzzStores);
         assertEquals(rebalancePlan.getPlan().size(), 0);
         assertEquals(rebalancePlan.getPrimariesMoved(), 0);
         assertEquals(rebalancePlan.getPartitionStoresMoved(), 0);
@@ -86,22 +76,39 @@ public class RebalancePlanTest {
     }
 
     @Test
-    public void testRebalance() {
+    public void testShuffle() {
         RebalancePlan rebalancePlan;
 
         // Two zones
-        rebalancePlan = makePlan(zzCurrent, zzStores, zzRebalance, zzStores);
+        rebalancePlan = ClusterTestUtils.makePlan(zzCurrent, zzStores, zzShuffle, zzStores);
         assertEquals(rebalancePlan.getPlan().size(), 1);
         assertTrue(rebalancePlan.getPrimariesMoved() > 0);
         assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
         assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
 
+        MoveMap zoneMoves = rebalancePlan.getZoneMoveMap();
+        assertTrue(zoneMoves.get(0, 0) > 0);
+        assertTrue(zoneMoves.get(0, 1) == 0);
+        assertTrue(zoneMoves.get(1, 0) == 0);
+        assertTrue(zoneMoves.get(1, 1) > 0);
+
         // Three zones
-        rebalancePlan = makePlan(zzzCurrent, zzzStores, zzzRebalance, zzzStores);
+        rebalancePlan = ClusterTestUtils.makePlan(zzzCurrent, zzzStores, zzzShuffle, zzzStores);
         assertEquals(rebalancePlan.getPlan().size(), 1);
         assertTrue(rebalancePlan.getPrimariesMoved() > 0);
         assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
         assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
+
+        zoneMoves = rebalancePlan.getZoneMoveMap();
+        assertTrue(zoneMoves.get(0, 0) > 0);
+        assertTrue(zoneMoves.get(0, 1) == 0);
+        assertTrue(zoneMoves.get(0, 2) == 0);
+        assertTrue(zoneMoves.get(1, 0) == 0);
+        assertTrue(zoneMoves.get(1, 1) > 0);
+        assertTrue(zoneMoves.get(1, 2) == 0);
+        assertTrue(zoneMoves.get(2, 0) == 0);
+        assertTrue(zoneMoves.get(2, 1) == 0);
+        assertTrue(zoneMoves.get(2, 2) > 0);
     }
 
     @Test
@@ -109,28 +116,57 @@ public class RebalancePlanTest {
         RebalancePlan rebalancePlan;
 
         // Two zones
-        rebalancePlan = makePlan(zzCurrent, zzStores, zzClusterExpansion, zzStores);
+        rebalancePlan = ClusterTestUtils.makePlan(zzCurrent, zzStores, zzClusterExpansion, zzStores);
         assertEquals(rebalancePlan.getPlan().size(), 1);
         assertTrue(rebalancePlan.getPrimariesMoved() > 0);
         assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
         assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
 
+        MoveMap zoneMoves = rebalancePlan.getZoneMoveMap();
+        assertTrue(zoneMoves.get(0, 0) > 0);
+        assertTrue(zoneMoves.get(0, 1) == 0);
+        assertTrue(zoneMoves.get(1, 0) == 0);
+        assertTrue(zoneMoves.get(1, 1) > 0);
+
         // Three zones
-        rebalancePlan = makePlan(zzzCurrent, zzzStores, zzzClusterExpansion, zzzStores);
+        rebalancePlan = ClusterTestUtils.makePlan(zzzCurrent, zzzStores, zzzClusterExpansion, zzzStores);
         assertEquals(rebalancePlan.getPlan().size(), 1);
         assertTrue(rebalancePlan.getPrimariesMoved() > 0);
         assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
         assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
+
+        zoneMoves = rebalancePlan.getZoneMoveMap();
+        assertTrue(zoneMoves.get(0, 0) > 0);
+        assertTrue(zoneMoves.get(0, 1) == 0);
+        assertTrue(zoneMoves.get(0, 2) == 0);
+        assertTrue(zoneMoves.get(1, 0) == 0);
+        assertTrue(zoneMoves.get(1, 1) > 0);
+        assertTrue(zoneMoves.get(1, 2) == 0);
+        assertTrue(zoneMoves.get(2, 0) == 0);
+        assertTrue(zoneMoves.get(2, 1) == 0);
+        assertTrue(zoneMoves.get(2, 2) > 0);
     }
 
     @Test
     public void testZoneExpansion() {
         RebalancePlan rebalancePlan;
 
-        rebalancePlan = makePlan(zzCurrent, zzStores, zzzZoneExpansion, zzzStores);
+        rebalancePlan = ClusterTestUtils.makePlan(zzCurrent, zzStores, zzzZoneExpansion, zzzStores);
         assertEquals(rebalancePlan.getPlan().size(), 1);
         assertTrue(rebalancePlan.getPrimariesMoved() > 0);
         assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
         assertTrue(rebalancePlan.getPartitionStoresMovedXZone() > 0);
+
+        // zone id 2 is the new zone.
+        MoveMap zoneMoves = rebalancePlan.getZoneMoveMap();
+        assertTrue(zoneMoves.get(0, 0) > 0);
+        assertTrue(zoneMoves.get(0, 1) == 0);
+        assertTrue(zoneMoves.get(0, 2) > 0);
+        assertTrue(zoneMoves.get(1, 0) == 0);
+        assertTrue(zoneMoves.get(1, 1) > 0);
+        assertTrue(zoneMoves.get(1, 2) > 0);
+        assertTrue(zoneMoves.get(2, 0) == 0);
+        assertTrue(zoneMoves.get(2, 1) == 0);
+        assertTrue(zoneMoves.get(2, 2) == 0);
     }
 }

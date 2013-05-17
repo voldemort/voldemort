@@ -508,9 +508,11 @@ public class ServerTestUtils {
      */
     // TODO: Method should eventually accept a list of ZoneIds so that
     // non-contig zone Ids can be tested.
+    /*-
     public static Cluster getLocalZonedCluster(int numberOfZones,
                                                int[][] nodeIdsPerZone,
                                                int[][] partitionMap) {
+        
 
         if(numberOfZones < 1) {
             throw new VoldemortException("The number of zones must be positive (" + numberOfZones
@@ -549,6 +551,65 @@ public class ServerTestUtils {
                                    zoneId,
                                    partitions));
                 partitionMapOffset++;
+            }
+        }
+
+        List<Zone> zones = Lists.newArrayList();
+        for(int i = 0; i < numberOfZones; i++) {
+            LinkedList<Integer> proximityList = Lists.newLinkedList();
+            int zoneId = i + 1;
+            for(int j = 0; j < numberOfZones; j++) {
+                proximityList.add(zoneId % numberOfZones);
+                zoneId++;
+            }
+            zones.add(new Zone(i, proximityList));
+        }
+        return new Cluster("cluster", nodes, zones);
+    }
+     */
+
+    public static Cluster getLocalZonedCluster(int numberOfZones,
+                                               int[][] nodeIdsPerZone,
+                                               int[][] partitionMap,
+                                               int[] ports) {
+
+        if(numberOfZones < 1) {
+            throw new VoldemortException("The number of zones must be positive (" + numberOfZones
+                                         + ")");
+        }
+        if(nodeIdsPerZone.length != numberOfZones) {
+            throw new VoldemortException("Mismatch between numberOfZones (" + numberOfZones
+                                         + ") and size of nodesPerZone array ("
+                                         + nodeIdsPerZone.length + ").");
+        }
+
+        int numNodes = 0;
+        for(int nodeIdsInZone[]: nodeIdsPerZone) {
+            numNodes += nodeIdsInZone.length;
+        }
+        if(partitionMap.length != numNodes) {
+            throw new VoldemortException("Mismatch between numNodes (" + numNodes
+                                         + ") and size of partitionMap array (" + partitionMap
+                                         + ").");
+        }
+
+        // Generate nodes
+        List<Node> nodes = new ArrayList<Node>();
+        int offset = 0;
+        for(int zoneId = 0; zoneId < numberOfZones; zoneId++) {
+            for(int nodeId: nodeIdsPerZone[zoneId]) {
+                List<Integer> partitions = new ArrayList<Integer>(partitionMap[nodeId].length);
+                for(int p: partitionMap[offset]) {
+                    partitions.add(p);
+                }
+                nodes.add(new Node(nodeId,
+                                   "localhost",
+                                   ports[nodeId * 3],
+                                   ports[nodeId * 3 + 1],
+                                   ports[nodeId * 3 + 2],
+                                   zoneId,
+                                   partitions));
+                offset++;
             }
         }
 

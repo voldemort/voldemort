@@ -36,7 +36,8 @@ public class ClusterUtilsTest {
                 { 3, 9, 13 }, { 4, 10 }, { 5, 11 } };
         Cluster cluster = ServerTestUtils.getLocalZonedCluster(numberOfZones,
                                                                nodesPerZone,
-                                                               partitionMap);
+                                                               partitionMap,
+                                                               ServerTestUtils.findFreePorts(6 * 3));
         Map<Integer, Integer> iiMap;
         // Zone 0:
         // 0, 1, 2, 6, 7, 8, 12, 14, 15, 16, 17
