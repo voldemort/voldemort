@@ -124,9 +124,10 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
 
             public void nodeUnavailable(Node node) {
                 if(logger.isInfoEnabled())
-                    logger.info(node + " has been marked as unavailable, destroying socket pool");
+                    logger.info(node + " has been marked as unavailable. Destroying socket pool !");
 
                 // Kill the socket pool for this node...
+
                 SocketDestination destination = new SocketDestination(node.getHost(),
                                                                       node.getSocketPort(),
                                                                       config.getRequestFormatType());

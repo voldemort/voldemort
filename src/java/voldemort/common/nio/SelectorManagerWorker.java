@@ -70,6 +70,11 @@ public abstract class SelectorManagerWorker implements Runnable {
         this.socketChannel = socketChannel;
         this.socketBufferSize = socketBufferSize;
         this.resizeThreshold = socketBufferSize * 2; // This is arbitrary...
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("Allocating input and output socket buffers of size: " + socketBufferSize);
+        }
+
         this.inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocate(socketBufferSize),
                                                            commBufferStats.getCommReadBufferSizeTracker());
         this.outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocate(socketBufferSize),
@@ -187,9 +192,10 @@ public abstract class SelectorManagerWorker implements Runnable {
         if(logger.isTraceEnabled())
             traceInputBufferState("About to clear read buffer");
 
-        if(inputStream.getBuffer().capacity() >= resizeThreshold)
+        if(inputStream.getBuffer().capacity() >= resizeThreshold) {
             inputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
-        else
+            logger.debug("Allocating a socket buffer of size : " + socketBufferSize);
+        } else
             inputStream.getBuffer().clear();
 
         if(logger.isTraceEnabled())

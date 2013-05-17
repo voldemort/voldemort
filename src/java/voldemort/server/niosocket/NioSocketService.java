@@ -27,15 +27,19 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.management.MBeanOperationInfo;
+
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.common.service.ServiceType;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.StatusManager;
 import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.server.protocol.vold.VoldemortNativeRequestHandler;
 import voldemort.utils.DaemonThreadFactory;
 
 /**
@@ -62,7 +66,7 @@ public class NioSocketService extends AbstractSocketService {
 
     private final RequestHandlerFactory requestHandlerFactory;
 
-    private final ServerSocketChannel serverSocketChannel;
+    private ServerSocketChannel serverSocketChannel;
 
     private final InetSocketAddress endpoint;
 
@@ -110,6 +114,48 @@ public class NioSocketService extends AbstractSocketService {
     @Override
     public StatusManager getStatusManager() {
         return statusManager;
+    }
+
+    @JmxOperation(description = "Pause the service and Restart with some delay.", impact = MBeanOperationInfo.ACTION)
+    public void tripSocketServer() {
+        // try {
+        // Close the acceptor socket
+        // serverSocketChannel.socket().close();
+        VoldemortNativeRequestHandler.numIntentionalFailures = 5;
+        System.err.println("Adding some delay on the server");
+
+        // Sleep for 1000 ms
+        // Thread.sleep(5000);
+
+        // Reopen the acceptor socket
+        // if(!serverSocketChannel.isOpen()) {
+        // this.serverSocketChannel = ServerSocketChannel.open();
+        // }
+        // serverSocketChannel.socket().bind(endpoint, acceptorBacklog);
+        // serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
+        // serverSocketChannel.socket().setReuseAddress(true);
+
+        // } catch(IOException e) {
+        // e.printStackTrace();
+        // } catch(InterruptedException e) {
+        // TODO Auto-generated catch block
+        // e.printStackTrace();
+        // }
+    }
+
+    @JmxOperation(description = "Restart the service.", impact = MBeanOperationInfo.ACTION)
+    public void restartSocketServer() {
+        try {
+            if(!serverSocketChannel.isOpen()) {
+                this.serverSocketChannel = ServerSocketChannel.open();
+            }
+            serverSocketChannel.socket().bind(endpoint, acceptorBacklog);
+            serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
+            serverSocketChannel.socket().setReuseAddress(true);
+            // acceptorThread.start();
+        } catch(IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -252,8 +298,8 @@ public class NioSocketService extends AbstractSocketService {
 
                     break;
                 } catch(Exception e) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn(e.getMessage(), e);
+                    // if(logger.isEnabledFor(Level.WARN))
+                    // logger.warn(e.getMessage(), e);
                 }
             }
 

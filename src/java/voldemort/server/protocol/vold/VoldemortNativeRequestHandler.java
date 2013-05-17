@@ -38,6 +38,8 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
     private final int protocolVersion;
 
+    public static int numIntentionalFailures = 0;
+
     public VoldemortNativeRequestHandler(ErrorCodeMapper errorMapper,
                                          StoreRepository repository,
                                          int protocolVersion) {
@@ -49,6 +51,14 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
     public StreamRequestHandler handleRequest(DataInputStream inputStream,
                                               DataOutputStream outputStream) throws IOException {
+
+        if(numIntentionalFailures > 0) {
+            try {
+                Thread.sleep(500);
+            } catch(Exception e) {}
+            numIntentionalFailures--;
+        }
+
         byte opCode = inputStream.readByte();
         String storeName = inputStream.readUTF();
         RequestRoutingType routingType = getRoutingType(inputStream);

@@ -344,7 +344,7 @@ public class Benchmark {
                                                           .setMaxConnectionsPerNode(numConnectionsPerNode)
                                                           .setRoutingTimeout(1500,
                                                                              TimeUnit.MILLISECONDS)
-                                                          .setSocketTimeout(1500,
+                                                          .setSocketTimeout(700,
                                                                             TimeUnit.MILLISECONDS)
                                                           .setConnectionTimeout(500,
                                                                                 TimeUnit.MILLISECONDS)

@@ -150,6 +150,12 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
         // Protect all logic to decide on available/unavailable w/in
         // synchronized section
         synchronized(nodeStatus) {
+
+            if(nodeStatus.getNumConsecutiveCatastrophicErrors() != 0 && successDelta > 0) {
+                nodeStatus.setNumConsecutiveCatastrophicErrors(0);
+                System.err.println("Resetting # consecutive connect errors for node : " + node);
+            }
+
             if(currentTime >= nodeStatus.getStartMillis() + getConfig().getThresholdInterval()) {
                 // We've passed into a new interval, so reset our counts
                 // appropriately.
@@ -169,7 +175,14 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                         logger.trace("Node " + node.getId() + " experienced catastrophic error: "
                                      + catastrophicError);
 
-                    invokeSetUnavailable = true;
+                    System.err.println("Catastrophic error occurred : " + catastrophicError
+                                       + " on node : " + node + " # accumulated errors = "
+                                       + nodeStatus.getNumConsecutiveCatastrophicErrors());
+
+                    nodeStatus.incrementConsecutiveCatastrophicErrors();
+                    if(nodeStatus.getNumConsecutiveCatastrophicErrors() >= 10) {
+                        invokeSetUnavailable = true;
+                    }
                 } else if(nodeStatus.getFailure() >= getConfig().getThresholdCountMinimum()) {
                     long percentage = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 

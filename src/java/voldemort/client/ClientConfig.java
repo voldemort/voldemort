@@ -52,7 +52,7 @@ public class ClientConfig {
     private volatile long connectionTimeoutMs = 500;
     private volatile long socketTimeoutMs = 5000;
     private volatile boolean socketKeepAlive = false;
-    private volatile int selectors = 8;
+    private volatile int selectors = 15;
     private volatile long routingTimeoutMs = 5000;
     private volatile TimeoutConfig timeoutConfig = new TimeoutConfig(routingTimeoutMs, false);
     private volatile int socketBufferSize = 64 * 1024;

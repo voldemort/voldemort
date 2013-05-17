@@ -187,9 +187,10 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
         // If we don't have anything else to write, that means we're done with
         // the request! So clear the buffers (resizing if necessary).
-        if(outputStream.getBuffer().capacity() >= resizeThreshold)
+        if(outputStream.getBuffer().capacity() >= resizeThreshold) {
             outputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
-        else
+            logger.debug("Allocating a socket buffer of size : " + socketBufferSize);
+        } else
             outputStream.getBuffer().clear();
 
         if(streamRequestHandler != null
