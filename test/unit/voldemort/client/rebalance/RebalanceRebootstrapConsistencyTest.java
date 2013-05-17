@@ -60,8 +60,6 @@ import com.google.common.collect.Maps;
  */
 public class RebalanceRebootstrapConsistencyTest {
 
-    private final static String STORE_NAME = "test";
-
     private Cluster cluster;
     private List<VoldemortServer> servers;
 
@@ -215,7 +213,7 @@ public class RebalanceRebootstrapConsistencyTest {
         replicaToPartitionList.put(0, ImmutableList.of(0, 1));
         int req = adminClient.storeMntOps.migratePartitions(0,
                                                             1,
-                                                            STORE_NAME,
+                                                            testStoreNameRW,
                                                             replicaToPartitionList,
                                                             null,
                                                             null,
@@ -237,7 +235,7 @@ public class RebalanceRebootstrapConsistencyTest {
                                  node1.getSocketPort(),
                                  node1.getAdminPort(),
                                  ImmutableList.of(0, 1));
-        adminClient.storeMntOps.deletePartitions(0, STORE_NAME, ImmutableList.of(0, 1), null);
+        adminClient.storeMntOps.deletePartitions(0, testStoreNameRW, ImmutableList.of(0, 1), null);
 
         newCluster = new Cluster(cluster.getName(),
                                  ImmutableList.of(newNode0, newNode1),
