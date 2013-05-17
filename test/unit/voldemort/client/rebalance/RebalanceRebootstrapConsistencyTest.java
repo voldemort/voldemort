@@ -19,10 +19,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
-import voldemort.client.SocketStoreClientFactory;
-import voldemort.client.StoreClient;
 import voldemort.client.SystemStore;
 import voldemort.client.SystemStoreRepository;
 import voldemort.client.protocol.admin.AdminClient;
@@ -54,9 +51,11 @@ import com.google.common.collect.Maps;
 
 /**
  * 
- * We simulate the rebelance controller here by changing the cluster state and
- * stores state On rebootstrap we want to ensure that the cluster and store defs
- * are consistent
+ * We simulate the rebalance controller here by changing the cluster state and
+ * stores state
+ * 
+ * On rebootstrap we want to ensure that the cluster and store defs are
+ * consistent from a client's perspective
  * 
  */
 public class RebalanceRebootstrapConsistencyTest {
@@ -65,19 +64,16 @@ public class RebalanceRebootstrapConsistencyTest {
 
     private Cluster cluster;
     private List<VoldemortServer> servers;
-    private StoreClient<String, String> storeClient;
 
     String[] bootStrapUrls = null;
     public static String socketUrl = "";
     protected final int CLIENT_ZONE_ID = 0;
-    private long newVersion = 0;
 
     private SystemStore<String, String> sysVersionStore;
     private SystemStoreRepository repository;
     private SchedulerService scheduler;
     private AsyncMetadataVersionManager asyncCheckMetadata;
     private boolean callbackDone = false;
-    private long updatedClusterVersion;
 
     private StoreDefinition rwStoreDefWithReplication;
     private StoreDefinition rwStoreDefWithReplication2;
@@ -131,7 +127,7 @@ public class RebalanceRebootstrapConsistencyTest {
                                                                  .setRequiredWrites(1)
                                                                  .build();
 
-        List<StoreDefinition> storedefs = new ArrayList();
+        List<StoreDefinition> storedefs = new ArrayList<StoreDefinition>();
 
         storedefs.add(rwStoreDefWithReplication);
 
@@ -160,9 +156,6 @@ public class RebalanceRebootstrapConsistencyTest {
             servers.add(voldemortServers[i]);
         }
 
-        String bootstrapUrl = cluster.getNodeById(0).getSocketUrl().toString();
-        storeClient = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl)).getStoreClient(STORE_NAME);
-
         socketUrl = voldemortServers[0].getIdentityNode().getSocketUrl().toString();
 
         bootStrapUrls = new String[1];
@@ -177,6 +170,7 @@ public class RebalanceRebootstrapConsistencyTest {
 
         Callable<Void> rebootstrapCallback = new Callable<Void>() {
 
+            @Override
             public Void call() throws Exception {
                 // callbackForClusterChange();
                 checkConsistentMetadata();
@@ -209,6 +203,9 @@ public class RebalanceRebootstrapConsistencyTest {
                 server.stop();
     }
 
+    /*
+     * simulate rebalance behavior
+     */
     public void rebalance() {
         assert servers != null && servers.size() > 1;
 
@@ -225,7 +222,7 @@ public class RebalanceRebootstrapConsistencyTest {
                                                             false);
         adminClient.rpcOps.waitForCompletion(1, req, 5, TimeUnit.SECONDS);
         Versioned<Cluster> versionedCluster = adminClient.metadataMgmtOps.getRemoteCluster(0);
-        Versioned<List<StoreDefinition>> versionedStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
+
         Node node0 = versionedCluster.getValue().getNodeById(0);
         Node node1 = versionedCluster.getValue().getNodeById(1);
         Node newNode0 = new Node(node0.getId(),
@@ -288,6 +285,9 @@ public class RebalanceRebootstrapConsistencyTest {
         }
     }
 
+    /*
+     * In callback ensure metadata is consistent
+     */
     private void checkConsistentMetadata() {
 
         Versioned<Cluster> versionedCluster = adminClient.metadataMgmtOps.getRemoteCluster(0);
