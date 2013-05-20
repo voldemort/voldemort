@@ -127,10 +127,8 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
 
                 try {
                     Object result = request.request(innerStore);
-
                     if(callback != null) {
-                        long diff = System.nanoTime() - start;
-
+                        long diff = Utils.elapsedTimeNs(start, System.nanoTime());
                         if(diff <= timeoutNs) {
                             try {
                                 callback.requestComplete(result, diff / Time.NS_PER_MS);
