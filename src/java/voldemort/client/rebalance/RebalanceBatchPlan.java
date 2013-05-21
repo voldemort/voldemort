@@ -41,6 +41,7 @@ import com.google.common.collect.Maps;
  * This batch plan is execution-agnostic, i.e., a plan is generated and later
  * stealer- versus donor-based execution of that plan is decided.
  */
+// TODO: atomic : add current/target store defs here
 public class RebalanceBatchPlan {
 
     private final Cluster targetCluster;
