@@ -569,6 +569,26 @@ public class ClusterTestUtils {
     }
 
     /**
+     * Given the current and target cluster metadata, along with your store
+     * definition, return the batch plan.
+     * 
+     * @param currentCluster Current cluster metadata
+     * @param targetCluster Target cluster metadata
+     * @param storeDef List of store definitions
+     * @return list of tasks for this batch plan
+     */
+    public static List<RebalancePartitionsInfo> getBatchPlan(Cluster currentCluster,
+                                                             List<StoreDefinition> currentStoreDefs,
+                                                             Cluster finalCluster,
+                                                             List<StoreDefinition> finalStoreDefs) {
+        RebalanceBatchPlan rebalancePlan = new RebalanceBatchPlan(currentCluster,
+                                                                  currentStoreDefs,
+                                                                  finalCluster,
+                                                                  finalStoreDefs);
+        return rebalancePlan.getBatchPlan();
+    }
+
+    /**
      * Constructs a plan to rebalance from current state (cCluster/cStores) to
      * final state (fCluster/fStores). Uses default values for the planning.
      * 

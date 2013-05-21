@@ -108,8 +108,19 @@ public class ZonedRebalanceBatchPlanTest {
     public void testZoneExpansion() {
         List<RebalancePartitionsInfo> batchPlan;
 
-        // Two-to-three zones
+        // Two-to-three zones (i)
         batchPlan = ClusterTestUtils.getBatchPlan(zzeZoneExpansion, zzzZoneExpansionXXP, zzzStores);
+        assertTrue(batchPlan.size() > 0);
+
+        // Two-to-three zones (ii)
+        batchPlan = ClusterTestUtils.getBatchPlan(zzCurrent,
+                                                  zzStores,
+                                                  zzzZoneExpansionXXP,
+                                                  zzzStores);
+        assertTrue(batchPlan.size() > 0);
+
+        // Two-to-three zones (iii)
+        batchPlan = ClusterTestUtils.getBatchPlan(zzCurrent, zzStores, zzzCurrent, zzzStores);
         assertTrue(batchPlan.size() > 0);
     }
 
