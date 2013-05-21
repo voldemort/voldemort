@@ -1,0 +1,1 @@
+for node in `echo $CLIENT_LIST | tr -s "," "\n"`; do ssh $node 'rm -rf vold*'; scp /home/csoman/linkedin_setup/voldemort/dist/voldemort-1.3.3.tar.gz $node: ; ssh $node 'gunzip voldemort-1.3.3.tar.gz; tar -xf voldemort-1.3.3.tar > /dev/null 2>&1; mv voldemort-1.3.3 voldemort';  done

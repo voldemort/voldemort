@@ -1,0 +1,90 @@
+This directory contains helper tools to deploy a cluster and setup clients to run the benchmark.
+
+___________________
+--------------------
+ RUNNING THE TESTS |
+____________________
+--------------------
+
+
+1) Setting up the environment file 
+===================================
+The file is called 'setup_env.inc'. You need to set the following parameters
+* CONFIG_DIR: This is the location of the config directory for your cluster
+* VLDMDIR: This is the location of the voldemort source directory
+* LOGDIR (Optional): Specifies where the log files would be generated
+
+Note: The cluster machines are directly read from the cluster.xml in the specified config directory. You do not need to explicitly specify them anywhere else.
+
+2) Deploying the cluster
+=========================
+Run the following command:
+
+./deploy.sh <Version number of the jar> [annhilate]
+
+If 'annhilate' is specified, it will destroy the config (and the data) on the already deployed cluster and re-copy the config.
+Not specifying 'annhilate' will simply deploy the server, using the existing config (and data).
+
+Eg:  ./deploy.sh 1.3.3 annhilate
+
+Note: All the logs are collected in the LOGDIR on the individual cluster machines.
+
+
+3) Copy the package to the client machines:
+===========================================
+
+These are a bunch of bash commands. 
+
+  3.1) First, set the client list:
+
+Eg: CLIENT_LIST=ela4-be642.prod,ela4-be610.prod,ela4-be691.prod,ela4-be408.prod,ela4-be690.prod,ela4-be706.prod,ela4-be555.prod,ela4-be409.prod,ela4-be643.prod,ela4-be609.prod
+
+(note - these are the actual clients I'm using. They're borrowed from the old read-only cluster - Solaris)
+
+  3.2) Then copy the package to each client:
+
+     for node in `echo $CLIENT_LIST | tr -s "," "\n"`; do ssh $node 'rm -rf vold*'; scp /home/csoman/linkedin_setup/voldemort/dist/voldemort-1.3.3.tar.gz $node: ; ssh $node 'gunzip voldemort-1.3.3.tar.gz; tar -xf voldemort-1.3.3.tar > /dev/null 2>&1; mv voldemort-1.3.3 voldemort';  done
+
+     Modify the path of the package as necessary. Make sure you use this command, since it also takes care of standardizing the names of the directories.
+
+4) Run the client benchmark
+============================
+
+start_benchmark_one_node.sh <benchmark-name> <client-list> <bootstrap-url>
+
+Eg: ./start_benchmark_n_nodes.sh test-high-load $CLIENT_LIST tcp://ela4-admin01.prod:6666
+
+All the client side logs are collected inside the LOGDIR (~/runlog/) on the controller machine.
+
+
+5) Adding artificial delays to the Server
+==========================================
+
+  4.1) Just add some delay:
+       ./bin/add_delay_socket_server.sh
+
+  4.2) Add delay and also disable new connections for some time:
+       ./bin/trip_socket_server.sh
+
+  Both these methods can be inserted in the 'random_suspend.sh' script which continuously adds these random variants to the server. 
+  Eg: ./random_suspend.sh
+
+
+
+___________________
+--------------------
+ NEW CODE REFERENCE |
+____________________
+--------------------
+
+1) NioSocketService.java
+This class has the new Mbean operations to add delay / trip the server
+
+2) ThresholdFailureDetector.java
+The changes for making connect exception less catastrophic
+
+3) VoldemortNativeRequestHandler.java
+Has the actual delay code for the socket service.
+
+
+

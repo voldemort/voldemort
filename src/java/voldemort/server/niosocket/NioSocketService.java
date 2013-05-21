@@ -118,44 +118,34 @@ public class NioSocketService extends AbstractSocketService {
 
     @JmxOperation(description = "Pause the service and Restart with some delay.", impact = MBeanOperationInfo.ACTION)
     public void tripSocketServer() {
-        // try {
-        // Close the acceptor socket
-        // serverSocketChannel.socket().close();
-        VoldemortNativeRequestHandler.numIntentionalFailures = 5;
-        System.err.println("Adding some delay on the server");
-
-        // Sleep for 1000 ms
-        // Thread.sleep(5000);
-
-        // Reopen the acceptor socket
-        // if(!serverSocketChannel.isOpen()) {
-        // this.serverSocketChannel = ServerSocketChannel.open();
-        // }
-        // serverSocketChannel.socket().bind(endpoint, acceptorBacklog);
-        // serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
-        // serverSocketChannel.socket().setReuseAddress(true);
-
-        // } catch(IOException e) {
-        // e.printStackTrace();
-        // } catch(InterruptedException e) {
-        // TODO Auto-generated catch block
-        // e.printStackTrace();
-        // }
-    }
-
-    @JmxOperation(description = "Restart the service.", impact = MBeanOperationInfo.ACTION)
-    public void restartSocketServer() {
         try {
+            // Close the acceptor socket
+            serverSocketChannel.socket().close();
+            VoldemortNativeRequestHandler.numIntentionalFailures = 5;
+            System.err.println("Adding some delay on the server");
+
+            // Sleep for 1000 ms
+            Thread.sleep(5000);
+
+            // Reopen the acceptor socket
             if(!serverSocketChannel.isOpen()) {
                 this.serverSocketChannel = ServerSocketChannel.open();
             }
             serverSocketChannel.socket().bind(endpoint, acceptorBacklog);
             serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
             serverSocketChannel.socket().setReuseAddress(true);
-            // acceptorThread.start();
+
         } catch(IOException e) {
             e.printStackTrace();
+        } catch(InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
         }
+    }
+
+    @JmxOperation(description = "Add some delay to the socket service.", impact = MBeanOperationInfo.ACTION)
+    public void addDelayToSocketServer() {
+        VoldemortNativeRequestHandler.numIntentionalFailures = 5;
     }
 
     @Override
