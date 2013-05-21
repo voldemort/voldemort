@@ -297,10 +297,10 @@ public class RebalanceController {
      * @param batchPlan The batch plan...
      */
     private void executeBatch(int batchCount, final RebalanceBatchPlan batchPlan) {
-        // TODO: Add current/final store defs here.
         final Cluster batchCurrentCluster = batchPlan.getCurrentCluster();
+        final List<StoreDefinition> batchCurrentStoreDefs = batchPlan.getCurrentStoreDefs();
         final Cluster batchFinalCluster = batchPlan.getFinalCluster();
-        final List<StoreDefinition> batchStoreDefs = batchPlan.getStoreDefs();
+        final List<StoreDefinition> batchFinalStoreDefs = batchPlan.getFinalStoreDefs();
 
         try {
             final List<RebalancePartitionsInfo> rebalancePartitionsInfoList = batchPlan.getBatchPlan();
@@ -313,8 +313,8 @@ public class RebalanceController {
                 // new cluster xml.
                 adminClient.rebalanceOps.rebalanceStateChange(batchCurrentCluster,
                                                               batchFinalCluster,
-                                                              batchStoreDefs,
-                                                              batchStoreDefs,
+                                                              batchCurrentStoreDefs,
+                                                              batchFinalStoreDefs,
                                                               rebalancePartitionsInfoList,
                                                               false,
                                                               true,
@@ -327,9 +327,9 @@ public class RebalanceController {
             RebalanceUtils.printLog(batchCount, logger, "Starting batch " + batchCount + ".");
 
             // Split the store definitions
-            List<StoreDefinition> readOnlyStoreDefs = StoreDefinitionUtils.filterStores(batchStoreDefs,
+            List<StoreDefinition> readOnlyStoreDefs = StoreDefinitionUtils.filterStores(batchFinalStoreDefs,
                                                                                         true);
-            List<StoreDefinition> readWriteStoreDefs = StoreDefinitionUtils.filterStores(batchStoreDefs,
+            List<StoreDefinition> readWriteStoreDefs = StoreDefinitionUtils.filterStores(batchFinalStoreDefs,
                                                                                          false);
             boolean hasReadOnlyStores = readOnlyStoreDefs != null && readOnlyStoreDefs.size() > 0;
             boolean hasReadWriteStores = readWriteStoreDefs != null
@@ -342,8 +342,9 @@ public class RebalanceController {
 
             rebalanceStateChange(batchCount,
                                  batchCurrentCluster,
+                                 batchCurrentStoreDefs,
                                  batchFinalCluster,
-                                 batchStoreDefs,
+                                 batchFinalStoreDefs,
                                  filteredRebalancePartitionPlanList,
                                  hasReadOnlyStores,
                                  hasReadWriteStores,
@@ -353,7 +354,7 @@ public class RebalanceController {
             if(hasReadOnlyStores) {
                 executeSubBatch(batchCount,
                                 batchCurrentCluster,
-                                batchStoreDefs,
+                                batchCurrentStoreDefs,
                                 filteredRebalancePartitionPlanList,
                                 hasReadOnlyStores,
                                 hasReadWriteStores,
@@ -367,8 +368,9 @@ public class RebalanceController {
 
             rebalanceStateChange(batchCount,
                                  batchCurrentCluster,
+                                 batchCurrentStoreDefs,
                                  batchFinalCluster,
-                                 batchStoreDefs,
+                                 batchFinalStoreDefs,
                                  filteredRebalancePartitionPlanList,
                                  hasReadOnlyStores,
                                  hasReadWriteStores,
@@ -378,7 +380,7 @@ public class RebalanceController {
             if(hasReadWriteStores) {
                 executeSubBatch(batchCount,
                                 batchCurrentCluster,
-                                batchStoreDefs,
+                                batchCurrentStoreDefs,
                                 filteredRebalancePartitionPlanList,
                                 hasReadOnlyStores,
                                 hasReadWriteStores,
@@ -425,8 +427,9 @@ public class RebalanceController {
      */
     private void rebalanceStateChange(final int taskId,
                                       Cluster batchCurrentCluster,
+                                      List<StoreDefinition> batchCurrentStoreDefs,
                                       Cluster batchFinalCluster,
-                                      List<StoreDefinition> batchStoreDefs,
+                                      List<StoreDefinition> batchFinalStoreDefs,
                                       List<RebalancePartitionsInfo> rebalancePartitionPlanList,
                                       boolean hasReadOnlyStores,
                                       boolean hasReadWriteStores,
@@ -447,8 +450,8 @@ public class RebalanceController {
                                         "Cluster metadata change + rebalance state change");
                 adminClient.rebalanceOps.rebalanceStateChange(batchCurrentCluster,
                                                               batchFinalCluster,
-                                                              batchStoreDefs,
-                                                              batchStoreDefs,
+                                                              batchCurrentStoreDefs,
+                                                              batchFinalStoreDefs,
                                                               rebalancePartitionPlanList,
                                                               false,
                                                               true,
@@ -460,8 +463,8 @@ public class RebalanceController {
                 RebalanceUtils.printLog(taskId, logger, "Rebalance state change");
                 adminClient.rebalanceOps.rebalanceStateChange(batchCurrentCluster,
                                                               batchFinalCluster,
-                                                              batchStoreDefs,
-                                                              batchStoreDefs,
+                                                              batchCurrentStoreDefs,
+                                                              batchFinalStoreDefs,
                                                               rebalancePartitionPlanList,
                                                               false,
                                                               false,
@@ -473,8 +476,8 @@ public class RebalanceController {
                 RebalanceUtils.printLog(taskId, logger, "Swap + Cluster metadata change");
                 adminClient.rebalanceOps.rebalanceStateChange(batchCurrentCluster,
                                                               batchFinalCluster,
-                                                              batchStoreDefs,
-                                                              batchStoreDefs,
+                                                              batchCurrentStoreDefs,
+                                                              batchFinalStoreDefs,
                                                               rebalancePartitionPlanList,
                                                               true,
                                                               true,
@@ -488,8 +491,8 @@ public class RebalanceController {
                                         "Swap + Cluster metadata change + rebalance state change");
                 adminClient.rebalanceOps.rebalanceStateChange(batchCurrentCluster,
                                                               batchFinalCluster,
-                                                              batchStoreDefs,
-                                                              batchStoreDefs,
+                                                              batchCurrentStoreDefs,
+                                                              batchFinalStoreDefs,
                                                               rebalancePartitionPlanList,
                                                               true,
                                                               true,
@@ -534,7 +537,7 @@ public class RebalanceController {
      * </pre>
      * 
      * @param taskId Rebalance task id
-     * @param batchCurrentCluster Cluster to rollback to if we have a problem
+     * @param batchRollbackCluster Cluster to rollback to if we have a problem
      * @param rebalancePartitionPlanList The list of rebalance partition plans
      * @param hasReadOnlyStores Are we rebalancing any read-only stores?
      * @param hasReadWriteStores Are we rebalancing any read-write stores?
@@ -542,8 +545,8 @@ public class RebalanceController {
      *        stores?
      */
     private void executeSubBatch(final int taskId,
-                                 final Cluster batchCurrentCluster,
-                                 final List<StoreDefinition> batchStoreDefs,
+                                 final Cluster batchRollbackCluster,
+                                 final List<StoreDefinition> batchRollbackStoreDefs,
                                  final List<RebalancePartitionsInfo> rebalancePartitionPlanList,
                                  boolean hasReadOnlyStores,
                                  boolean hasReadWriteStores,
@@ -558,8 +561,8 @@ public class RebalanceController {
         final List<RebalanceTask> incompleteTasks = Lists.newArrayList();
 
         // Semaphores for donor nodes - To avoid multiple disk sweeps
-        Semaphore[] donorPermits = new Semaphore[batchCurrentCluster.getNumberOfNodes()];
-        for(Node node: batchCurrentCluster.getNodes()) {
+        Semaphore[] donorPermits = new Semaphore[batchRollbackCluster.getNumberOfNodes()];
+        for(Node node: batchRollbackCluster.getNodes()) {
             donorPermits[node.getId()] = new Semaphore(1);
         }
 
@@ -617,9 +620,9 @@ public class RebalanceController {
             if(hasReadOnlyStores && hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 0
                 adminClient.rebalanceOps.rebalanceStateChange(null,
-                                                              batchCurrentCluster,
+                                                              batchRollbackCluster,
                                                               null,
-                                                              batchStoreDefs,
+                                                              batchRollbackStoreDefs,
                                                               null,
                                                               true,
                                                               true,
@@ -629,9 +632,9 @@ public class RebalanceController {
             } else if(hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 4
                 adminClient.rebalanceOps.rebalanceStateChange(null,
-                                                              batchCurrentCluster,
+                                                              batchRollbackCluster,
                                                               null,
-                                                              batchStoreDefs,
+                                                              batchRollbackStoreDefs,
                                                               null,
                                                               false,
                                                               true,

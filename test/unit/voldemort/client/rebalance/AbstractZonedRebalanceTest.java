@@ -701,8 +701,6 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         }
     }
 
-    // TODO: fix this test. Need to take the plan into account to correctly do
-    // tests.
     @Test(timeout = 600000)
     public void testProxyPutDuringRebalancing() throws Exception {
         logger.info("Starting testProxyPutDuringRebalancing");
@@ -717,15 +715,31 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
                                                                 Lists.newArrayList(6));
 
             /**
-             * original server partition ownership
+             * Original partition map
              * 
-             * [s0 : p0,p3,p4,p5,p6,p7] [s1 : p1-p7] [s2 : p1,p2] [s3 :
-             * p0,p1,p2,p3,p6,p7] [s4 : p1-p7] [s5 : p4,p5]
+             * [s0 : p0] [s1 : p1, p6] [s2 : p2]
              * 
-             * target server partition ownership
+             * [s3 : p3] [s4 : p4, p7] [s5 : p5]
              * 
-             * [s0 : p0,p2,p3,p4,p5,p6,p7] [s1 : p0,p1] [s2 : p1-p7] [s3 :
-             * p0.p1,p2,p3,p5,p6,p7] [s4 : p0,p1,p2,p3,p4,p7] [s5 : p4,p5,p6]
+             * Target server partition ownership
+             * 
+             * [s0 : p0] [s1 : p1] [s2 : p2, p7]
+             * 
+             * [s3 : p3] [s4 : p4] [s5 : p5, p6]
+             * 
+             * Note that rwStoreDefFileWithReplication is a "2/1/1" store def.
+             * 
+             * Original server n-ary partition ownership
+             * 
+             * [s0 : p0, p3-7] [s1 : p0-p7] [s2 : p1-2]
+             * 
+             * [s3 : p0-3, p6-7] [s4 : p0-p7] [s5 : p4-5]
+             * 
+             * Target server n-ary partition ownership
+             * 
+             * [s0 : p0, p2-7] [s1 : p0-1] [s2 : p1-p7]
+             * 
+             * [s3 : p0-3, p5-7] [s4 : p0-4, p7] [s5 : p4-6]
              */
             List<Integer> serverList = Arrays.asList(0, 1, 2, 3, 4, 5);
             Map<String, String> configProps = new HashMap<String, String>();
@@ -742,7 +756,8 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
             // Its is imperative that we test in a single shot since multiple
             // batches would mean the proxy bridges being torn down and
             // established multiple times and we cannot test against the source
-            // cluster topology then.
+            // cluster topology then. getRebalanceKit uses batch size of
+            // infinite, so this should be fine.
             String bootstrapUrl = getBootstrapUrl(updatedCurrentCluster, 0);
             int maxParallel = 2;
             boolean stealerBased = !useDonorBased;
@@ -753,8 +768,17 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
 
             populateData(currentCluster, rwStoreDefWithReplication);
             final AdminClient adminClient = rebalanceKit.controller.getAdminClient();
-            // the plan would cause the following cross zone move Partition :
-            // Donor -> Stealer p6 (PRI) : 1 -> 5
+            // the plan would cause these partitions to move:
+            // Partition : Donor -> stealer
+            //
+            // p2 (Z-SEC) : s1 -> s0
+            // p3-6 (Z-PRI) : s1 -> s2
+            // p7 (Z-PRI) : s0 -> s2
+            //
+            // p5 (Z-SEC): s4 -> s3
+            // p6 (Z-PRI): s4 -> s5
+            //
+            // :. rebalancing will run on servers 0, 2, 3, & 5
             final List<ByteArray> movingKeysList = sampleKeysFromPartition(adminClient,
                                                                            1,
                                                                            rwStoreDefWithReplication.getName(),
@@ -779,7 +803,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
                     SocketStoreClientFactory factory = null;
                     try {
                         // wait for the rebalancing to begin
-                        List<VoldemortServer> serverList = Lists.newArrayList(serverMap.get(4),
+                        List<VoldemortServer> serverList = Lists.newArrayList(serverMap.get(0),
                                                                               serverMap.get(2),
                                                                               serverMap.get(3),
                                                                               serverMap.get(5));

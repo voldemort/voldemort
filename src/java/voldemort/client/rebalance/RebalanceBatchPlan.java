@@ -36,57 +36,73 @@ import com.google.common.collect.Maps;
 // target or spec or expanded, and final. 'target' has historically been
 // overloaded to mean spec/expanded or final depending on context.
 /**
- * Constructs a batch plan that goes from targetCluster to finalCluster. The
+ * Constructs a batch plan that goes from currentCluster to finalCluster. The
  * partition-stores included in the move are based on those listed in storeDefs.
  * This batch plan is execution-agnostic, i.e., a plan is generated and later
  * stealer- versus donor-based execution of that plan is decided.
  */
-// TODO: atomic : add current/target store defs here
 public class RebalanceBatchPlan {
 
-    private final Cluster targetCluster;
+    private final Cluster currentCluster;
+    private final List<StoreDefinition> currentStoreDefs;
     private final Cluster finalCluster;
-    private final List<StoreDefinition> storeDefs;
+    private final List<StoreDefinition> finalStoreDefs;
 
     protected final List<RebalancePartitionsInfo> batchPlan;
 
     /**
-     * Compares the targetCluster configuration with the desired finalClsuter
-     * and builds a map of Target node-id to map of source node-ids and
-     * partitions desired to be stolen/fetched.
+     * Develops a batch plan to go from current cluster/stores to final
+     * cluster/stores.
      * 
-     * @param targetCluster The current cluster definition
-     * @param finalCluster The target cluster definition
-     * @param storeDefList The list of store definitions to rebalance
-     * @param enabledDeletePartition Delete the RW partition on the donor side
-     *        after rebalance
-     * @param isStealerBased Do we want to generate the final plan based on the
-     *        stealer node or the donor node?
+     * @param currentCluster
+     * @param currentStoreDefs
+     * @param finalCluster
+     * @param finalStoreDefs
      */
-    public RebalanceBatchPlan(final Cluster targetCluster,
+    public RebalanceBatchPlan(final Cluster currentCluster,
+                              final List<StoreDefinition> currentStoreDefs,
                               final Cluster finalCluster,
-                              final List<StoreDefinition> storeDefs) {
-        this.targetCluster = targetCluster;
+                              final List<StoreDefinition> finalStoreDefs) {
+        this.currentCluster = currentCluster;
+        this.currentStoreDefs = currentStoreDefs;
         this.finalCluster = finalCluster;
-        this.storeDefs = storeDefs;
-        RebalanceUtils.validateTargetFinalCluster(targetCluster, finalCluster);
-        RebalanceUtils.validateClusterStores(targetCluster, storeDefs);
-        RebalanceUtils.validateClusterStores(finalCluster, storeDefs);
+        this.finalStoreDefs = finalStoreDefs;
+        RebalanceUtils.validateCurrentFinalCluster(currentCluster, finalCluster);
+        RebalanceUtils.validateClusterStores(currentCluster, currentStoreDefs);
+        RebalanceUtils.validateClusterStores(finalCluster, finalStoreDefs);
 
         this.batchPlan = constructBatchPlan();
 
     }
 
+    /**
+     * Develops a batch plan to go from current cluster to final cluster for
+     * given stores. (Stores is common for current and final cluster.)
+     * 
+     * @param currentCluster
+     * @param finalCluster
+     * @param commonStoreDefs
+     */
+    public RebalanceBatchPlan(final Cluster currentCluster,
+                              final Cluster finalCluster,
+                              final List<StoreDefinition> commonStoreDefs) {
+        this(currentCluster, commonStoreDefs, finalCluster, commonStoreDefs);
+    }
+
     public Cluster getCurrentCluster() {
-        return targetCluster;
+        return currentCluster;
+    }
+
+    public List<StoreDefinition> getCurrentStoreDefs() {
+        return currentStoreDefs;
     }
 
     public Cluster getFinalCluster() {
         return finalCluster;
     }
 
-    public List<StoreDefinition> getStoreDefs() {
-        return storeDefs;
+    public List<StoreDefinition> getFinalStoreDefs() {
+        return finalStoreDefs;
     }
 
     public List<RebalancePartitionsInfo> getBatchPlan() {
@@ -115,6 +131,11 @@ public class RebalanceBatchPlan {
         return moveMap;
     }
 
+    /**
+     * Determines total number of partition-stores moved across zones.
+     * 
+     * @return number of cross zone partition-store moves
+     */
     public int getCrossZonePartitionStoreMoves() {
         int xzonePartitionStoreMoves = 0;
         for(RebalancePartitionsInfo info: batchPlan) {
@@ -191,7 +212,7 @@ public class RebalanceBatchPlan {
                 result.add(new RebalancePartitionsInfo(stealerDonor.getFirst(),
                                                        stealerDonor.getSecond(),
                                                        stealerDonorToStoreToStealPartition.get(stealerDonor),
-                                                       targetCluster));
+                                                       currentCluster));
             }
             return result;
         }
@@ -215,10 +236,12 @@ public class RebalanceBatchPlan {
     private List<RebalancePartitionsInfo> constructBatchPlan() {
         // Construct all store routing plans once.
         HashMap<String, StoreRoutingPlan> targetStoreRoutingPlans = new HashMap<String, StoreRoutingPlan>();
-        HashMap<String, StoreRoutingPlan> finalStoreRoutingPlans = new HashMap<String, StoreRoutingPlan>();
-        for(StoreDefinition storeDef: storeDefs) {
-            targetStoreRoutingPlans.put(storeDef.getName(), new StoreRoutingPlan(targetCluster,
+        for(StoreDefinition storeDef: currentStoreDefs) {
+            targetStoreRoutingPlans.put(storeDef.getName(), new StoreRoutingPlan(currentCluster,
                                                                                  storeDef));
+        }
+        HashMap<String, StoreRoutingPlan> finalStoreRoutingPlans = new HashMap<String, StoreRoutingPlan>();
+        for(StoreDefinition storeDef: finalStoreDefs) {
             finalStoreRoutingPlans.put(storeDef.getName(), new StoreRoutingPlan(finalCluster,
                                                                                 storeDef));
         }
@@ -230,7 +253,7 @@ public class RebalanceBatchPlan {
             int stealerNodeId = stealerNode.getId();
 
             // Consider all store definitions ...
-            for(StoreDefinition storeDef: storeDefs) {
+            for(StoreDefinition storeDef: finalStoreDefs) {
                 StoreRoutingPlan targetSRP = targetStoreRoutingPlans.get(storeDef.getName());
                 StoreRoutingPlan finalSRP = finalStoreRoutingPlans.get(storeDef.getName());
                 for(int stealerPartitionId: finalSRP.getZoneNAryPartitionIds(stealerNodeId)) {
@@ -329,7 +352,7 @@ public class RebalanceBatchPlan {
         } else {
             // Steal from zone that hosts primary partition Id.
             int targetMasterNodeId = targetSRP.getNodeIdForPartitionId(stealerPartitionId);
-            donorZoneId = targetCluster.getNodeById(targetMasterNodeId).getZoneId();
+            donorZoneId = currentCluster.getNodeById(targetMasterNodeId).getZoneId();
         }
 
         return targetSRP.getNodeIdForZoneNary(donorZoneId, stealerZoneNAry, stealerPartitionId);

@@ -832,14 +832,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
         }
     }
 
-// TODO: MERGE FIX
-    // TODO: Fix this test.
-    // TODO: fix this test. Need to take the plan into account to correctly do
-    // tests.
-    // TODO: Confirm that this test passes after rebasing with Vinoth's fixes.
     @Test(timeout = 600000)
     public void testProxyPutDuringRebalancing() throws Exception {
-        System.err.println("testProxyPutDuringRebalancing is currently failing (intermittently)?");
         logger.info("Starting testProxyPutDuringRebalancing");
         try {
             Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 },
@@ -882,8 +876,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             final AdminClient adminClient = rebalanceKit.controller.getAdminClient();
             // the plan would cause these partitions to move
             // Partition : Donor -> Stealer
-            // p2 (SEC) : 1 -> 0
-            // p3 (PRI) : 1 -> 2
+            // p2 (SEC) : s1 -> s0
+            // p3 (PRI) : s1 -> s2
             final List<ByteArray> movingKeysList = sampleKeysFromPartition(adminClient,
                                                                            1,
                                                                            rwStoreDefWithReplication.getName(),

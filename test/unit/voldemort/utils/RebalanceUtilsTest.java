@@ -96,13 +96,13 @@ public class RebalanceUtilsTest {
         if(verify)
             assertEquals(targetC, derivedTarget1);
 
-        Cluster derivedTarget2 = RebalanceUtils.getTargetCluster(currentC, finalC);
+        Cluster derivedTarget2 = RebalanceUtils.getInterimCluster(currentC, finalC);
         if(verify)
             assertEquals(targetC, derivedTarget2);
 
         RebalanceUtils.validateCurrentFinalCluster(currentC, finalC);
-        RebalanceUtils.validateCurrentTargetCluster(currentC, targetC);
-        RebalanceUtils.validateTargetFinalCluster(targetC, finalC);
+        RebalanceUtils.validateCurrentInterimCluster(currentC, targetC);
+        RebalanceUtils.validateInterimFinalCluster(targetC, finalC);
     }
 
     private void doClusterTransformation(Cluster currentC, Cluster targetC, Cluster finalC) {

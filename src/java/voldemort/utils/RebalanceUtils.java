@@ -280,30 +280,30 @@ public class RebalanceUtils {
      * (possibly in new zones) without partitions.
      * 
      * @param currentCluster
-     * @param targetCluster
+     * @param interimCluster
      */
-    public static void validateCurrentTargetCluster(final Cluster currentCluster,
-                                                    final Cluster targetCluster) {
-        validateClusterPartitionCounts(currentCluster, targetCluster);
-        validateClusterNodeState(currentCluster, targetCluster);
-        validateClusterPartitionState(currentCluster, targetCluster);
+    public static void validateCurrentInterimCluster(final Cluster currentCluster,
+                                                     final Cluster interimCluster) {
+        validateClusterPartitionCounts(currentCluster, interimCluster);
+        validateClusterNodeState(currentCluster, interimCluster);
+        validateClusterPartitionState(currentCluster, interimCluster);
 
         return;
     }
 
     /**
-     * Target and final ought to have same partition counts, same zones, and
-     * same node state. Partitions per node may of course differ.
+     * Interim and final clusters ought to have same partition counts, same
+     * zones, and same node state. Partitions per node may of course differ.
      * 
-     * @param targetCluster
+     * @param interimCluster
      * @param finalCluster
      */
-    public static void validateTargetFinalCluster(final Cluster targetCluster,
-                                                  final Cluster finalCluster) {
-        validateClusterPartitionCounts(targetCluster, finalCluster);
-        validateClusterZonesSame(targetCluster, finalCluster);
-        validateClusterNodeCounts(targetCluster, finalCluster);
-        validateClusterNodeState(targetCluster, finalCluster);
+    public static void validateInterimFinalCluster(final Cluster interimCluster,
+                                                   final Cluster finalCluster) {
+        validateClusterPartitionCounts(interimCluster, finalCluster);
+        validateClusterZonesSame(interimCluster, finalCluster);
+        validateClusterNodeCounts(interimCluster, finalCluster);
+        validateClusterNodeState(interimCluster, finalCluster);
         return;
     }
 
@@ -422,16 +422,16 @@ public class RebalanceUtils {
     }
 
     /**
-     * Given the current cluster and final cluster, generates a target cluster
+     * Given the current cluster and final cluster, generates an interim cluster
      * with empty new nodes (and zones).
      * 
      * @param currentCluster Current cluster metadata
      * @param finalCluster Final cluster metadata
-     * @return Returns a new target cluster which contains nodes and zones of
+     * @return Returns a new interim cluster which contains nodes and zones of
      *         final cluster, but with empty partition lists if they were not
      *         present in current cluster.
      */
-    public static Cluster getTargetCluster(Cluster currentCluster, Cluster finalCluster) {
+    public static Cluster getInterimCluster(Cluster currentCluster, Cluster finalCluster) {
         List<Node> newNodeList = new ArrayList<Node>(currentCluster.getNodes());
         for(Node node: finalCluster.getNodes()) {
             if(!ClusterUtils.containsNode(currentCluster, node.getId())) {
@@ -536,30 +536,29 @@ public class RebalanceUtils {
      * always.
      * 
      * @param currentCluster The cluster definition of the existing cluster
-     * @param targetCluster The target cluster definition
+     * @param finalCluster The target cluster definition
      * @param stealNodeId Node id of the stealer node
      * @return Returns a list of primary partitions which this stealer node will
      *         get
      */
     public static List<Integer> getStolenPrimaryPartitions(final Cluster currentCluster,
-                                                           final Cluster targetCluster,
+                                                           final Cluster finalCluster,
                                                            final int stealNodeId) {
-        List<Integer> targetList = new ArrayList<Integer>(targetCluster.getNodeById(stealNodeId)
-                                                                       .getPartitionIds());
+        List<Integer> finalList = new ArrayList<Integer>(finalCluster.getNodeById(stealNodeId)
+                                                                     .getPartitionIds());
 
         List<Integer> currentList = new ArrayList<Integer>();
         if(ClusterUtils.containsNode(currentCluster, stealNodeId)) {
             currentList = currentCluster.getNodeById(stealNodeId).getPartitionIds();
         } else {
-            // TODO: Is throwing exception desirable here?
-            throw new VoldemortException("Current cluster does not contain stealer node (cluster : [[["
-                                         + currentCluster + "]]], node id " + stealNodeId + ")");
+            if(logger.isDebugEnabled()) {
+                logger.debug("Current cluster does not contain stealer node (cluster : [[["
+                             + currentCluster + "]]], node id " + stealNodeId + ")");
+            }
         }
+        finalList.removeAll(currentList);
 
-        // remove all current partitions from targetList
-        targetList.removeAll(currentList);
-
-        return targetList;
+        return finalList;
     }
 
     /**

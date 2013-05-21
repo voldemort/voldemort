@@ -25,36 +25,48 @@ import java.util.Set;
 import voldemort.cluster.Node;
 
 /**
- * A routing strategy which just routes each request to all the nodes given
+ * A routing strategy which just routes each request to all the nodes given.
  * 
+ * Pretend that there is one partition ID "0" that all keys map to and that is
+ * replicated on all nodes.
  * 
  */
 public class RouteToAllStrategy implements RoutingStrategy {
 
-    private Collection<Node> nodes;
+    final private Collection<Node> nodes;
+    final private ArrayList<Integer> partitionIds;
+
+    final private int imaginaryPartitionId = 0;
 
     public RouteToAllStrategy(Collection<Node> nodes) {
         this.nodes = nodes;
+        this.partitionIds = new ArrayList<Integer>(1);
+        this.partitionIds.add(imaginaryPartitionId);
     }
 
+    @Override
     public int getNumReplicas() {
         return nodes.size();
     }
 
+    @Override
     public List<Node> routeRequest(byte[] key) {
         return new ArrayList<Node>(nodes);
     }
 
+    @Override
     public Set<Node> getNodes() {
         return new HashSet<Node>(nodes);
     }
 
+    @Override
     public List<Integer> getPartitionList(byte[] key) {
-        throw new UnsupportedOperationException("Not yet implemented.");
+        return partitionIds;
     }
 
+    @Override
     public List<Integer> getReplicatingPartitionList(int partitionId) {
-        throw new UnsupportedOperationException("Not yet implemented.");
+        return partitionIds;
     }
 
     /**
@@ -63,10 +75,12 @@ public class RouteToAllStrategy implements RoutingStrategy {
      * @param key
      * @return
      */
+    @Override
     public Integer getMasterPartition(byte[] key) {
-        throw new UnsupportedOperationException("Not yet implemented.");
+        return imaginaryPartitionId;
     }
 
+    @Override
     public String getType() {
         return RoutingStrategyType.TO_ALL_STRATEGY;
     }

@@ -59,6 +59,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         this(new FnvHashFunction(), nodes, numReplicas);
     }
 
+    @Override
     public int getNumReplicas() {
         return this.numReplicas;
     }
@@ -102,6 +103,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         return Integer.MAX_VALUE;
     }
 
+    @Override
     public List<Node> routeRequest(byte[] key) {
         List<Integer> partitionList = getPartitionList(key);
 
@@ -123,6 +125,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         return preferenceList;
     }
 
+    @Override
     public List<Integer> getReplicatingPartitionList(int index) {
         List<Node> preferenceList = new ArrayList<Node>(numReplicas);
         List<Integer> replicationPartitionsList = new ArrayList<Integer>(numReplicas);
@@ -156,10 +159,12 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
      * @param key
      * @return
      */
+    @Override
     public Integer getMasterPartition(byte[] key) {
         return abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
     }
 
+    @Override
     public Set<Node> getNodes() {
         Set<Node> s = Sets.newHashSetWithExpectedSize(partitionToNode.length);
         for(Node n: this.partitionToNode)
@@ -179,6 +184,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         return tags;
     }
 
+    @Override
     public List<Integer> getPartitionList(byte[] key) {
         // hash the key and perform a modulo on the total number of partitions,
         // to get the master partition
@@ -191,6 +197,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         return getReplicatingPartitionList(index);
     }
 
+    @Override
     public String getType() {
         return RoutingStrategyType.CONSISTENT_STRATEGY;
     }

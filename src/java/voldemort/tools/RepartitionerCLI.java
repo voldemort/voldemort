@@ -204,7 +204,7 @@ public class RepartitionerCLI {
         List<StoreDefinition> targetStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(targetStoresXML));
         RebalanceUtils.validateClusterStores(targetCluster, targetStoreDefs);
 
-        RebalanceUtils.validateCurrentTargetCluster(currentCluster, targetCluster);
+        RebalanceUtils.validateCurrentInterimCluster(currentCluster, targetCluster);
 
         // Optional administrivia args
         int attempts = CmdUtils.valueOf(options,
