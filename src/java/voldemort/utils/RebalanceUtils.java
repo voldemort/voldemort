@@ -1104,25 +1104,27 @@ public class RebalanceUtils {
         });
     }
 
+    // TODO: (refactor) separate analysis from pretty printing and add a unit
+    // test for the analysis sub-method.
     /**
-     * Compares current cluster with target cluster. Uses pertinent store defs
+     * Compares current cluster with final cluster. Uses pertinent store defs
      * for each cluster to determine if a node that hosts a zone-primary in the
-     * current cluster will no longer host any zone-nary in the target cluster.
+     * current cluster will no longer host any zone-nary in the final cluster.
      * This check is the precondition for a server returning an invalid metadata
      * exception to a client on a normal-case put or get. Normal-case being that
      * the zone-primary receives the pseudo-master put or the get operation.
      * 
      * @param currentCluster
      * @param currentStoreDefs
-     * @param targetCluster
-     * @param targetStoreDefs
+     * @param finalCluster
+     * @param finalStoreDefs
      * @return pretty-printed string documenting invalid metadata rates for each
      *         zone.
      */
     public static String analyzeInvalidMetadataRate(final Cluster currentCluster,
                                                     List<StoreDefinition> currentStoreDefs,
-                                                    final Cluster targetCluster,
-                                                    List<StoreDefinition> targetStoreDefs) {
+                                                    final Cluster finalCluster,
+                                                    List<StoreDefinition> finalStoreDefs) {
         StringBuilder sb = new StringBuilder();
         sb.append("Dump of invalid metadata rates per zone").append(Utils.NEWLINE);
 
@@ -1135,26 +1137,32 @@ public class RebalanceUtils {
               .append(Utils.NEWLINE);
 
             StoreRoutingPlan currentSRP = new StoreRoutingPlan(currentCluster, currentStoreDef);
-            StoreDefinition targetStoreDef = StoreUtils.getStoreDef(targetStoreDefs,
-                                                                    currentStoreDef.getName());
-            StoreRoutingPlan targetSRP = new StoreRoutingPlan(targetCluster, targetStoreDef);
+            StoreDefinition finalStoreDef = StoreUtils.getStoreDef(finalStoreDefs,
+                                                                   currentStoreDef.getName());
+            StoreRoutingPlan finalSRP = new StoreRoutingPlan(finalCluster, finalStoreDef);
 
             // Only care about existing zones
             for(int zoneId: currentCluster.getZoneIds()) {
-                int zoneLocalPrimaries = 0;
+                int zonePrimariesCount = 0;
                 int invalidMetadata = 0;
+
                 // Examine nodes in current cluster in existing zone.
                 for(int nodeId: currentCluster.getNodeIdsInZone(zoneId)) {
-                    for(int partitionId: targetSRP.getZonePrimaryPartitionIds(nodeId)) {
-                        zoneLocalPrimaries++;
-                        if(!currentSRP.getZoneNAryPartitionIds(nodeId).contains(partitionId)) {
+                    // For every zone-primary in current cluster
+                    for(int zonePrimaryPartitionId: currentSRP.getZonePrimaryPartitionIds(nodeId)) {
+                        zonePrimariesCount++;
+                        // Determine if original zone-primary node is still some
+                        // form of n-ary in final cluster. If not,
+                        // InvalidMetadataException will fire.
+                        if(!finalSRP.getZoneNAryPartitionIds(nodeId)
+                                    .contains(zonePrimaryPartitionId)) {
                             invalidMetadata++;
                         }
                     }
                 }
-                float rate = invalidMetadata / (float) zoneLocalPrimaries;
+                float rate = invalidMetadata / (float) zonePrimariesCount;
                 sb.append("\tZone " + zoneId)
-                  .append(" : total zone primaries " + zoneLocalPrimaries)
+                  .append(" : total zone primaries " + zonePrimariesCount)
                   .append(", # that trigger invalid metadata " + invalidMetadata)
                   .append(" => " + rate)
                   .append(Utils.NEWLINE);

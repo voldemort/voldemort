@@ -115,11 +115,6 @@ public class RebalancePlan {
         logger.info("Final cluster : " + finalCluster);
         logger.info("Batch size : " + batchSize);
 
-        logger.info(RebalanceUtils.analyzeInvalidMetadataRate(currentCluster,
-                                                              currentStoreDefs,
-                                                              finalCluster,
-                                                              finalStoreDefs));
-
         // Initialize the plan
         batchPlans = new ArrayList<RebalanceBatchPlan>();
 
@@ -291,6 +286,19 @@ public class RebalancePlan {
         return batchPlans;
     }
 
+    /**
+     * Total number of rebalancing tasks in the plan.
+     * 
+     * @return number of rebalancing tasks in the plan.
+     */
+    public int taskCount() {
+        int numTasks = 0;
+        for(RebalanceBatchPlan batchPlan: batchPlans) {
+            numTasks += batchPlan.getBatchPlan().size();
+        }
+        return numTasks;
+    }
+
     public int getPrimariesMoved() {
         return numPrimaryPartitionMoves;
     }
@@ -314,12 +322,19 @@ public class RebalancePlan {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        // Dump entire plan batch-by-batch, partition info-by-partition info...
+        // Add entire plan batch-by-batch, partition info-by-partition info...
         for(RebalanceBatchPlan batchPlan: batchPlans) {
             sb.append(batchPlan).append(Utils.NEWLINE);
         }
-        // Dump aggregate stats of the plan
+        // Add invalid metadata rate analysis
+        sb.append(RebalanceUtils.analyzeInvalidMetadataRate(currentCluster,
+                                                            currentStoreDefs,
+                                                            finalCluster,
+                                                            finalStoreDefs));
+        // Summarize aggregate plan stats
         sb.append("Total number of primary partition moves : " + numPrimaryPartitionMoves)
+          .append(Utils.NEWLINE)
+          .append("Total number of rebalance tasks : " + taskCount())
           .append(Utils.NEWLINE)
           .append("Total number of partition-store moves : " + numPartitionStoreMoves)
           .append(Utils.NEWLINE)

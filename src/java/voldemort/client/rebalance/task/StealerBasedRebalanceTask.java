@@ -41,7 +41,8 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     // submits "work" to the server and servers are mature enough to throttle
     // and process them as fast as they can. Since that looks like changing all
     // the server execution frameworks, let's stick with this for now..
-    // TODO: Talk with Lei and Vinoth and decide on the fate of ma
+    // TODO: Decide fate of maxTries argument after some integration tests are
+    // done.
     private final int maxTries;
 
     public StealerBasedRebalanceTask(final int taskId,
