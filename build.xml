@@ -429,6 +429,47 @@
     </junitreport>
   </target>
 
+  <target name="junit-rebalance" depends="build, buildtest" description="Run junit tests only for rebalance.">
+    <replace-dir dir="${testreport.dir}" />
+    <replace-dir dir="${testhtml.dir}" />
+    <junit printsummary="yes" showoutput="true" maxmemory="2048m" timeout="1200000">
+      <classpath refid="test-classpath" />
+      <formatter type="xml" />
+      <batchtest fork="yes" todir="${testreport.dir}">
+        <fileset dir="${unittestsrc.dir}">
+          <include name="**/*Rebalance*Test.java" />
+          <exclude name="**/Abstract*.java" />
+        </fileset>
+      </batchtest>
+    </junit>
+    <junitreport todir="${testhtml.dir}">
+      <fileset dir="${testreport.dir}">
+        <include name="TEST-*.xml" />
+      </fileset>
+      <report todir="${testhtml.dir}" format="frames" />
+    </junitreport>
+  </target>
+ 
+  <target name="junit-long-rebalance" depends="build, buildtest, junit-rebalance" description="Run long junit rebalance tests that uses larger data sets than normal junit tests.">
+    <replace-dir dir="${longtestreport.dir}" />
+    <replace-dir dir="${longtesthtml.dir}" />
+    <junit printsummary="yes" showoutput="true" maxmemory="2048m" fork="yes" timeout="5400000">
+      <classpath refid="test-classpath" />
+      <formatter type="xml" />
+      <batchtest todir="${longtestreport.dir}">
+        <fileset dir="${longtestsrc.dir}">
+          <include name="**/*Rebalance*Test.java" />
+        </fileset>
+      </batchtest>
+    </junit>
+    <junitreport todir="${longtesthtml.dir}">
+      <fileset dir="${longtestreport.dir}">
+        <include name="TEST-*.xml" />
+      </fileset>
+      <report todir="${longtesthtml.dir}" format="frames" />
+    </junitreport>
+  </target>
+
   <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test for class ClassName with -Dtest.name=[ClassName]  (Note: Use the class name, not the file name with the .java extension)">
     <replace-dir dir="${singletestreport.dir}" />
     <replace-dir dir="${singletesthtml.dir}" />
