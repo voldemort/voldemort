@@ -68,18 +68,15 @@ public class RebalanceController {
 
     public final static int MAX_PARALLEL_REBALANCING = 1;
     public final static int MAX_TRIES_REBALANCING = 2;
-    public final static long REBALANCING_CLIENT_TIMEOUT_SEC = TimeUnit.DAYS.toSeconds(30);
     public final static boolean STEALER_BASED_REBALANCING = true;
 
     private final int maxParallelRebalancing;
     private final int maxTriesRebalancing;
-    private final long rebalancingClientTimeoutSeconds;
     private final boolean stealerBasedRebalancing;
 
     public RebalanceController(String bootstrapUrl,
                                int maxParallelRebalancing,
                                int maxTriesRebalancing,
-                               long rebalancingClientTimeoutSeconds,
                                boolean stealerBased) {
         this.adminClient = new AdminClient(bootstrapUrl,
                                            new AdminClientConfig(),
@@ -90,7 +87,6 @@ public class RebalanceController {
 
         this.maxParallelRebalancing = maxParallelRebalancing;
         this.maxTriesRebalancing = maxTriesRebalancing;
-        this.rebalancingClientTimeoutSeconds = rebalancingClientTimeoutSeconds;
         this.stealerBasedRebalancing = stealerBased;
     }
 
@@ -240,15 +236,16 @@ public class RebalanceController {
         }
     }
 
+    // TODO: Add interim progress reporting of some sort. Whenever a task
+    // completes, a sane intra-batch progress report should be provided.
     /**
      * Pretty print a progress update after each batch complete.
      * 
-     * @param id
-     * @param batchCount
-     * @param numBatches
-     * @param partitionStoreCount
-     * @param numPartitionStores
-     * @param totalTimeMs
+     * @param batchCount current batch
+     * @param numBatches total number of batches
+     * @param partitionStoreCount partition stores migrated
+     * @param numPartitionStores total number of partition stores to migrate
+     * @param totalTimeMs total time, in milliseconds, of execution thus far.
      */
     private void batchStatusLog(int batchCount,
                                 int numBatches,
@@ -572,16 +569,10 @@ public class RebalanceController {
                                                         service,
                                                         rebalancePartitionPlanList,
                                                         donorPermits);
+            RebalanceUtils.printLog(taskId, logger, "All rebalance tasks submitted");
 
-            // All tasks submitted.
-            RebalanceUtils.printLog(taskId,
-                                    logger,
-                                    "All rebalance tasks were submitted ( shutting down in "
-                                            + this.rebalancingClientTimeoutSeconds + " sec )");
-
-            // Wait and shutdown after timeout
-            RebalanceUtils.executorShutDown(service, this.rebalancingClientTimeoutSeconds);
-
+            // Wait and shutdown after (infinite) timeout
+            RebalanceUtils.executorShutDown(service, Long.MAX_VALUE);
             RebalanceUtils.printLog(taskId, logger, "Finished waiting for executors");
 
             // Collects all failures + incomplete tasks from the rebalance
@@ -666,7 +657,6 @@ public class RebalanceController {
             for(RebalancePartitionsInfo partitionsInfo: rebalancePartitionPlanList) {
                 StealerBasedRebalanceTask rebalanceTask = new StealerBasedRebalanceTask(taskId,
                                                                                         partitionsInfo,
-                                                                                        rebalancingClientTimeoutSeconds,
                                                                                         maxTriesRebalancing,
                                                                                         donorPermits[partitionsInfo.getDonorId()],
                                                                                         adminClient);
@@ -680,7 +670,6 @@ public class RebalanceController {
             for(Entry<Integer, List<RebalancePartitionsInfo>> entries: donorNodeBasedPartitionsInfo.entrySet()) {
                 DonorBasedRebalanceTask rebalanceTask = new DonorBasedRebalanceTask(taskId,
                                                                                     entries.getValue(),
-                                                                                    rebalancingClientTimeoutSeconds,
                                                                                     donorPermits[entries.getValue()
                                                                                                         .get(0)
                                                                                                         .getDonorId()],

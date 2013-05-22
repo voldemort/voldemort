@@ -59,13 +59,6 @@ public class RebalanceControllerCLI {
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("num-tries");
-        // TODO: Can this option be deprecated?
-        parser.accepts("timeout",
-                       "Time-out in seconds for rebalancing of a single task ( stealer - donor tuple ) [ Default : "
-                               + RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC + " ]")
-              .withRequiredArg()
-              .ofType(Long.class)
-              .describedAs("sec");
         // TODO: Can this option be described better?
         parser.accepts("parallelism",
                        "Number of servers running stealer- or donor-based tasks in parallel [ Default:"
@@ -105,6 +98,8 @@ public class RebalanceControllerCLI {
         help.append("    --final-cluster <clusterXML>\n");
         help.append("  Optional:\n");
         help.append("    --final-stores <storesXML> [ Needed for zone expansion ]\n");
+        help.append("    --parallelism <parallelism> [ Number of rebalancing tasks to run in parallel ]");
+        help.append("    --tries <tries> [ Number of times to try starting an async rebalancing task on a node ");
         help.append("    --output-dir [ Output directory in which plan is stored ]\n");
         help.append("    --batch <batch> [ Number of primary partitions to move in each rebalancing batch. ]\n");
         help.append("    --output-dir <outputDir> [ Directory in which cluster metadata is dumped for each batch of the plan. ]\n");
@@ -167,15 +162,9 @@ public class RebalanceControllerCLI {
             tries = (Integer) options.valueOf("tries");
         }
 
-        long timeout = RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC;
-        if(options.has("timeout")) {
-            timeout = (Integer) options.valueOf("timeout");
-        }
-
         RebalanceController rebalanceController = new RebalanceController(bootstrapURL,
                                                                           parallelism,
                                                                           tries,
-                                                                          timeout,
                                                                           stealerBased);
 
         Cluster currentCluster = rebalanceController.getCurrentCluster();

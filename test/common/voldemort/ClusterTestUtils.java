@@ -632,13 +632,11 @@ public class ClusterTestUtils {
     public static RebalanceKit getRebalanceKit(String bootstrapUrl,
                                                int maxParallel,
                                                int maxTries,
-                                               long timeout,
                                                boolean stealerBased,
                                                Cluster finalCluster) {
         RebalanceController rebalanceController = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
                                                                           maxTries,
-                                                                          timeout,
                                                                           stealerBased);
         RebalancePlan rebalancePlan = rebalanceController.getPlan(finalCluster,
                                                                   RebalancePlan.BATCH_SIZE);
@@ -652,7 +650,6 @@ public class ClusterTestUtils {
         return getRebalanceKit(bootstrapUrl,
                                RebalanceController.MAX_PARALLEL_REBALANCING,
                                RebalanceController.MAX_TRIES_REBALANCING,
-                               RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC,
                                stealerBased,
                                finalCluster);
     }
@@ -664,7 +661,6 @@ public class ClusterTestUtils {
         return getRebalanceKit(bootstrapUrl,
                                maxParallel,
                                RebalanceController.MAX_TRIES_REBALANCING,
-                               RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC,
                                stealerBased,
                                finalCluster);
     }
@@ -676,7 +672,6 @@ public class ClusterTestUtils {
         RebalanceController rebalanceController = new RebalanceController(bootstrapUrl,
                                                                           RebalanceController.MAX_PARALLEL_REBALANCING,
                                                                           RebalanceController.MAX_TRIES_REBALANCING,
-                                                                          RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC,
                                                                           stealerBased);
         RebalancePlan rebalancePlan = rebalanceController.getPlan(finalCluster,
                                                                   finalStoreDefs,

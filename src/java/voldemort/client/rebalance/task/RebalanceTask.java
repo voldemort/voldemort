@@ -11,7 +11,6 @@ public abstract class RebalanceTask implements Runnable {
 
     protected final int taskId;
     protected Exception exception;
-    protected final long timeoutSeconds;
     protected final AdminClient adminClient;
     protected final Semaphore donorPermit;
     protected final AtomicBoolean isComplete;
@@ -21,12 +20,10 @@ public abstract class RebalanceTask implements Runnable {
 
     public RebalanceTask(final int taskId,
                          final List<RebalancePartitionsInfo> stealInfos,
-                         final long timeoutSeconds,
                          final Semaphore donorPermit,
                          final AdminClient adminClient) {
         this.stealInfos = stealInfos;
         this.taskId = taskId;
-        this.timeoutSeconds = timeoutSeconds;
         this.adminClient = adminClient;
         this.donorPermit = donorPermit;
         this.exception = null;

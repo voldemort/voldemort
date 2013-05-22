@@ -36,9 +36,10 @@ import voldemort.utils.Utils;
 import com.google.common.collect.Lists;
 import com.google.common.collect.TreeMultimap;
 
-// TODO: Add a header comment.
-// TODO: Remove stealerBased from the constructor once RebalanceController is
-// switched over to use RebalancePlan. (Or sooner)
+/**
+ * RebalancePlan encapsulates all aspects of planning a shuffle, cluster
+ * expansion, or zone expansion.
+ */
 public class RebalancePlan {
 
     private static final Logger logger = Logger.getLogger(RebalancePlan.class);
@@ -67,7 +68,24 @@ public class RebalancePlan {
     private final MoveMap nodeMoveMap;
     private final MoveMap zoneMoveMap;
 
-    // TODO: Add javadoc
+    /**
+     * Constructs a plan for the specified change from currentCluster/StoreDefs
+     * to finalCluster/StoreDefs.
+     * 
+     * finalStoreDefs are needed for the zone expansion use case since store
+     * definitions depend on the number of zones.
+     * 
+     * In theory, since current & final StoreDefs are passed in, this plan could
+     * be used to transform deployed store definitions. In practice, this use
+     * case has not been tested.
+     * 
+     * @param currentCluster current deployed cluster
+     * @param currentStoreDefs current deployed store defs
+     * @param finalCluster desired deployed cluster
+     * @param finalStoreDefs desired deployed store defs
+     * @param batchSize number of primary partitions to move in each batch.
+     * @param outputDir directory in which to dump metadata files for the plan
+     */
     public RebalancePlan(final Cluster currentCluster,
                          final List<StoreDefinition> currentStoreDefs,
                          final Cluster finalCluster,

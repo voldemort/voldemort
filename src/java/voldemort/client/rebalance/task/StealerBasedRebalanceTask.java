@@ -1,7 +1,6 @@
 package voldemort.client.rebalance.task;
 
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -42,15 +41,15 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     // submits "work" to the server and servers are mature enough to throttle
     // and process them as fast as they can. Since that looks like changing all
     // the server execution frameworks, let's stick with this for now..
+    // TODO: Talk with Lei and Vinoth and decide on the fate of ma
     private final int maxTries;
 
     public StealerBasedRebalanceTask(final int taskId,
                                      final RebalancePartitionsInfo stealInfo,
-                                     final long timeoutSeconds,
                                      final int maxTries,
                                      final Semaphore donorPermit,
                                      final AdminClient adminClient) {
-        super(taskId, Lists.newArrayList(stealInfo), timeoutSeconds, donorPermit, adminClient);
+        super(taskId, Lists.newArrayList(stealInfo), donorPermit, adminClient);
         this.maxTries = maxTries;
         this.stealerNodeId = stealInfo.getStealerId();
     }
@@ -77,9 +76,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
                                                 + " is currently rebalancing. Waiting till completion");
                 adminClient.rpcOps.waitForCompletion(stealerNodeId,
                                                      MetadataStore.SERVER_STATE_KEY,
-                                                     VoldemortState.NORMAL_SERVER.toString(),
-                                                     timeoutSeconds,
-                                                     TimeUnit.SECONDS);
+                                                     VoldemortState.NORMAL_SERVER.toString());
                 rebalanceException = e;
             }
         }
@@ -99,12 +96,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
             donorPermit.acquire();
 
             rebalanceAsyncId = startNodeRebalancing();
-
-            // Wait for the task to get over
-            adminClient.rpcOps.waitForCompletion(stealerNodeId,
-                                                 rebalanceAsyncId,
-                                                 timeoutSeconds,
-                                                 TimeUnit.SECONDS);
+            adminClient.rpcOps.waitForCompletion(stealerNodeId, rebalanceAsyncId);
             RebalanceUtils.printLog(taskId,
                                     logger,
                                     "Succesfully finished rebalance for async operation id "

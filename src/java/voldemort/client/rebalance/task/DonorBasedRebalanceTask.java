@@ -2,7 +2,6 @@ package voldemort.client.rebalance.task;
 
 import java.util.List;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -25,10 +24,9 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
 
     public DonorBasedRebalanceTask(final int taskId,
                                    final List<RebalancePartitionsInfo> stealInfos,
-                                   final long timeoutSeconds,
                                    final Semaphore donorPermit,
                                    final AdminClient adminClient) {
-        super(taskId, stealInfos, timeoutSeconds, donorPermit, adminClient);
+        super(taskId, stealInfos, donorPermit, adminClient);
         RebalanceUtils.assertSameDonor(stealInfos, -1);
         this.donorNodeId = stealInfos.get(0).getDonorId();
     }
@@ -46,11 +44,7 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
                                                     + " rebalancing task " + stealInfos);
             rebalanceAsyncId = adminClient.rebalanceOps.rebalanceNode(stealInfos);
 
-            // Wait for the task to get over
-            adminClient.rpcOps.waitForCompletion(donorNodeId,
-                                                 rebalanceAsyncId,
-                                                 timeoutSeconds,
-                                                 TimeUnit.SECONDS);
+            adminClient.rpcOps.waitForCompletion(donorNodeId, rebalanceAsyncId);
             RebalanceUtils.printLog(taskId,
                                     logger,
                                     "Succesfully finished rebalance for async operation id "

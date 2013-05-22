@@ -40,6 +40,16 @@ import com.google.common.collect.Maps;
  * partition-stores included in the move are based on those listed in storeDefs.
  * This batch plan is execution-agnostic, i.e., a plan is generated and later
  * stealer- versus donor-based execution of that plan is decided.
+ * 
+ * Long term, its unclear if the notion of RebalanceBatchPlan separate from
+ * RebalancePlan is needed. Batching tends to increase the overall cost of
+ * rebalancing and has historically been error prone. (I.e., the transition
+ * between batches has had intermittent failures.) Its value, if any, lies in
+ * allowing long-running (days or weeks) rebalancing jobs to have interim
+ * checkpoints such that single node failures don't force a restart from initial
+ * state. Should consider deprecating batching after zone expansion and zone
+ * shrinking have been done successfully as short (less than a day or two),
+ * single-batch rebalances.
  */
 public class RebalanceBatchPlan {
 
