@@ -49,15 +49,15 @@ public class RebalancePlanCLI {
         parser.accepts("current-cluster", "Path to current cluster xml")
               .withRequiredArg()
               .describedAs("cluster.xml");
-        parser.accepts("target-cluster", "Path to target cluster xml")
+        parser.accepts("final-cluster", "Path to final cluster xml")
               .withRequiredArg()
               .describedAs("cluster.xml");
         parser.accepts("current-stores",
                        "Path to current store definition xml. Needed for cluster and zone expansion.")
               .withRequiredArg()
               .describedAs("stores.xml");
-        parser.accepts("target-stores",
-                       "Path to target store definition xml. Needed for zone expansion.")
+        parser.accepts("final-stores",
+                       "Path to final store definition xml. Needed for zone expansion.")
               .withRequiredArg()
               .describedAs("stores.xml");
         parser.accepts("batch-size",
@@ -82,8 +82,8 @@ public class RebalancePlanCLI {
         help.append("    --current-cluster <clusterXML>\n");
         help.append("    --current-stores <storesXML>\n");
         help.append("  Optional:\n");
-        help.append("    --target-cluster <clusterXML> [ Needed for cluster or zone expansion ]\n");
-        help.append("    --target-stores <storesXML> [ Needed for zone expansion ]\n");
+        help.append("    --final-cluster <clusterXML> [ Needed for cluster or zone expansion ]\n");
+        help.append("    --final-stores <storesXML> [ Needed for zone expansion ]\n");
         help.append("    --batch <batch> [ Number of primary partitions to move in each rebalancing batch. ]\n");
         help.append("    --output-dir <outputDir> [ Directory in which cluster metadata is dumped for each batch of the plan. ]\n");
 
@@ -117,14 +117,13 @@ public class RebalancePlanCLI {
         if(missing.size() > 0) {
             printUsageAndDie("Missing required arguments: " + Joiner.on(", ").join(missing));
         }
-        if(options.has("target-stores") && !options.has("target-cluster")) {
-            printUsageAndDie("target-stores specified, but target-cluster not specified.");
+        if(options.has("final-stores") && !options.has("final-cluster")) {
+            printUsageAndDie("final-stores specified, but final-cluster not specified.");
         }
 
         return options;
     }
 
-    // TODO: (refactor) Rename target-cluster target-stores to final-*
     public static void main(String[] args) throws Exception {
         setupParser();
         OptionSet options = getValidOptions(args);
@@ -134,19 +133,19 @@ public class RebalancePlanCLI {
         String currentStoresXML = (String) options.valueOf("current-stores");
 
         // Required args for some use cases
-        String targetClusterXML = new String(currentClusterXML);
-        if(options.has("target-cluster")) {
-            targetClusterXML = (String) options.valueOf("target-cluster");
+        String finalClusterXML = new String(currentClusterXML);
+        if(options.has("final-cluster")) {
+            finalClusterXML = (String) options.valueOf("final-cluster");
         }
-        String targetStoresXML = new String(currentStoresXML);
-        if(options.has("target-stores")) {
-            targetStoresXML = (String) options.valueOf("target-stores");
+        String finalStoresXML = new String(currentStoresXML);
+        if(options.has("final-stores")) {
+            finalStoresXML = (String) options.valueOf("final-stores");
         }
 
         Cluster currentCluster = new ClusterMapper().readCluster(new File(currentClusterXML));
         List<StoreDefinition> currentStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(currentStoresXML));
-        Cluster targetCluster = new ClusterMapper().readCluster(new File(targetClusterXML));
-        List<StoreDefinition> targetStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(targetStoresXML));
+        Cluster finalCluster = new ClusterMapper().readCluster(new File(finalClusterXML));
+        List<StoreDefinition> finalStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(finalStoresXML));
 
         // Optional args
         int batchSize = CmdUtils.valueOf(options, "batch-size", RebalancePlan.BATCH_SIZE);
@@ -158,8 +157,8 @@ public class RebalancePlanCLI {
 
         new RebalancePlan(currentCluster,
                           currentStoreDefs,
-                          targetCluster,
-                          targetStoreDefs,
+                          finalCluster,
+                          finalStoreDefs,
                           batchSize,
                           outputDir);
     }

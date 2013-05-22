@@ -51,7 +51,6 @@ public class RebalanceControllerCLI {
         parser.accepts("url", "Url to bootstrap from ").withRequiredArg().describedAs("url");
         parser.accepts("donor-based", "Execute donor-based rebalancing.");
         parser.accepts("stealer-based", "Execute stealer-based rebalancing (default).");
-
         // TODO: Can this option be deprecated?
         parser.accepts("tries",
                        "Tries during stealer-based rebalance [ Default: "
@@ -59,14 +58,12 @@ public class RebalanceControllerCLI {
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("num-tries");
-        // TODO: Can this option be described better?
         parser.accepts("parallelism",
                        "Number of servers running stealer- or donor-based tasks in parallel [ Default:"
                                + RebalanceController.MAX_PARALLEL_REBALANCING + " ]")
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("parallelism");
-
         parser.accepts("final-cluster", "Path to target cluster xml")
               .withRequiredArg()
               .describedAs("cluster.xml");

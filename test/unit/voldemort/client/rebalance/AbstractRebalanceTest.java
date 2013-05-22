@@ -202,9 +202,6 @@ public abstract class AbstractRebalanceTest {
      * @param baselineTuples
      * @param baselineVersions
      */
-    // TODO: (atomic cluster/store update) change from storeDefs to
-    // currentStoreDefs and finalStoreDefs to
-    // handle zone expansion/shrink tests.
     protected void checkEntriesPostRebalance(Cluster currentCluster,
                                              Cluster targetCluster,
                                              List<StoreDefinition> storeDefs,
