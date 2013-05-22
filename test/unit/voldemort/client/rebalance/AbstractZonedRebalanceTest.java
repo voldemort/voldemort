@@ -240,39 +240,57 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
     // TODO: The tests based on this method are susceptible to TOCTOU
     // BindException issue since findFreePorts is used to determine the ports
     // for localhost:PORT of each node.
+    /**
+     * Scripts the execution of a specific type of zoned rebalance test: sets up
+     * cluster based on cCluster plus any new nodes/zones in fCluster,
+     * rebalances to fCluster, verifies rebalance was correct.
+     * 
+     * @param testTag For pretty printing
+     * @param cCluster current cluster
+     * @param fCluster final cluster
+     * @param cStoresXml XML file with current stores xml
+     * @param fStoresXml Unused parameter. Included for symmetry in method
+     *        declaration.
+     * @param cStoreDefs store defs for current cluster (from on cStoresXml)
+     * @param fStoreDefs store defs for final cluster.
+     * @throws Exception
+     */
     public void testZonedRebalance(String testTag,
                                    Cluster cCluster,
                                    Cluster fCluster,
-                                   String storesXml,
-                                   List<StoreDefinition> storeDefs) throws Exception {
+                                   String cStoresXml,
+                                   String fStoresXml,
+                                   List<StoreDefinition> cStoreDefs,
+                                   List<StoreDefinition> fStoreDefs) throws Exception {
         logger.info("Starting " + testTag);
         // Hacky work around of TOCTOU bind Exception issues. Each test that
-        // invokes this method brings servers up & down on the same ports.
+        // invokes this method brings servers up & down on the same ports. The
+        // OS seems to need a rest between subsequent tests...
         Thread.sleep(TimeUnit.SECONDS.toMillis(2));
         try {
-            Cluster currentCluster = cCluster;
-            Cluster targetCluster = fCluster;
+            Cluster interimCluster = RebalanceUtils.getInterimCluster(cCluster, fCluster);
 
             // start all the servers
-            List<Integer> serverList = new ArrayList<Integer>(currentCluster.getNodeIds());
+            List<Integer> serverList = new ArrayList<Integer>(interimCluster.getNodeIds());
             Map<String, String> configProps = new HashMap<String, String>();
             configProps.put("admin.max.threads", "5");
-            currentCluster = startServers(currentCluster, storesXml, serverList, configProps);
+            interimCluster = startServers(interimCluster, cStoresXml, serverList, configProps);
 
-            String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
+            String bootstrapUrl = getBootstrapUrl(interimCluster, 0);
             boolean stealerBased = !useDonorBased;
             ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                           stealerBased,
-                                                                                          targetCluster);
+                                                                                          fCluster,
+                                                                                          fStoreDefs);
 
             try {
-                for(StoreDefinition storeDef: storeDefs) {
-                    populateData(currentCluster, storeDef);
+                for(StoreDefinition storeDef: cStoreDefs) {
+                    populateData(cCluster, storeDef);
                 }
 
                 rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, serverList);
 
-                checkConsistentMetadata(targetCluster, serverList);
+                checkConsistentMetadata(fCluster, serverList);
             } finally {
                 // stop servers
                 stopServer(serverList);
@@ -281,6 +299,14 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
             logger.error("Assertion broken in " + testTag + " : ", ae);
             throw ae;
         }
+    }
+
+    public void testZonedRebalance(String testTag,
+                                   Cluster cCluster,
+                                   Cluster fCluster,
+                                   String storesXml,
+                                   List<StoreDefinition> storeDefs) throws Exception {
+        testZonedRebalance(testTag, cCluster, fCluster, storesXml, storesXml, storeDefs, storeDefs);
     }
 
     @Test(timeout = 600000)
@@ -293,11 +319,10 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         testZonedRebalance("TestShuffleZZ", zzCurrent, zzShuffle, zzStoresXml, zzStores);
     }
 
-    // TODO: Ideally, zzCurrent would be passed instead of zzClusterExpansionNN.
     @Test(timeout = 600000)
-    public void testClusterExpansionZZ() throws Exception {
+    public void testClusterExpansion() throws Exception {
         testZonedRebalance("TestClusterExpansionZZ",
-                           zzClusterExpansionNN,
+                           zzCurrent,
                            zzClusterExpansionPP,
                            zzStoresXml,
                            zzStores);
@@ -313,25 +338,23 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         testZonedRebalance("TestShuffleZZZ", zzzCurrent, zzzShuffle, zzzStoresXml, zzzStores);
     }
 
-    // TODO: Ideally, zzzCurrent would be passed instead of
-    // zzzClusterExpansionNNN.
     @Test(timeout = 600000)
     public void testClusterExpansionZZZ() throws Exception {
         testZonedRebalance("TestClusterExpansionZZZ",
-                           zzzClusterExpansionNNN,
+                           zzzCurrent,
                            zzzClusterExpansionPPP,
                            zzzStoresXml,
                            zzzStores);
     }
 
-    // TODO: Pass in zzCurrent and zzzZoneExpansionXXP after atomic metadata
-    // update is in place.
     @Test(timeout = 600000)
     public void testZoneExpansionZZ2ZZZ() throws Exception {
         testZonedRebalance("TestZoneExpansionZZ2ZZZ",
-                           zzeZoneExpansion,
+                           zzCurrent,
                            zzzZoneExpansionXXP,
+                           zzStoresXml,
                            zzzStoresXml,
+                           zzStores,
                            zzzStores);
     }
 

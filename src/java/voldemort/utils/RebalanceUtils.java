@@ -421,6 +421,7 @@ public class RebalanceUtils {
         }
     }
 
+    // TODO: Can getInterimCluster and getClusterWithNewNodes be merged?
     /**
      * Given the current cluster and final cluster, generates an interim cluster
      * with empty new nodes (and zones).
@@ -663,17 +664,17 @@ public class RebalanceUtils {
                 if((replicaPartitionList.size() % zonesWithPartitions != 0)
                    || ((replicaPartitionList.size() / zonesWithPartitions) != (storeDef.getReplicationFactor() / cluster.getNumberOfZones()))) {
 
-                    throw new VoldemortException("Number of replicas returned ("
-                                                 + replicaPartitionList.size()
-                                                 + ") does not make sense given the replication factor ("
-                                                 + storeDef.getReplicationFactor()
-                                                 + ") and that there are "
-                                                 + cluster.getNumberOfZones()
-                                                 + " zones of which "
-                                                 + zonesWithPartitions
-                                                 + " have partitions (and of which "
-                                                 + (cluster.getNumberOfZones() - zonesWithPartitions)
-                                                 + " are empty).");
+                    // For zone expansion & shrinking, this warning is expected
+                    // in some cases. For other use cases (shuffling, cluster
+                    // expansion), this warning indicates that something
+                    // is wrong between the clusters and store defs.
+                    logger.warn("Number of replicas returned (" + replicaPartitionList.size()
+                                + ") does not make sense given the replication factor ("
+                                + storeDef.getReplicationFactor() + ") and that there are "
+                                + cluster.getNumberOfZones() + " zones of which "
+                                + zonesWithPartitions + " have partitions (and of which "
+                                + (cluster.getNumberOfZones() - zonesWithPartitions)
+                                + " are empty).");
                 }
 
                 int replicaType = 0;

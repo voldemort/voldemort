@@ -669,4 +669,19 @@ public class ClusterTestUtils {
                                finalCluster);
     }
 
+    public static RebalanceKit getRebalanceKit(String bootstrapUrl,
+                                               boolean stealerBased,
+                                               Cluster finalCluster,
+                                               List<StoreDefinition> finalStoreDefs) {
+        RebalanceController rebalanceController = new RebalanceController(bootstrapUrl,
+                                                                          RebalanceController.MAX_PARALLEL_REBALANCING,
+                                                                          RebalanceController.MAX_TRIES_REBALANCING,
+                                                                          RebalanceController.REBALANCING_CLIENT_TIMEOUT_SEC,
+                                                                          stealerBased);
+        RebalancePlan rebalancePlan = rebalanceController.getPlan(finalCluster,
+                                                                  finalStoreDefs,
+                                                                  RebalancePlan.BATCH_SIZE);
+        return new RebalanceKit(rebalanceController, rebalancePlan);
+    }
+
 }
