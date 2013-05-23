@@ -91,6 +91,13 @@ public class VoldemortServer extends AbstractService {
         this.services = createServices();
     }
 
+    /**
+     * Constructor is used exclusively by tests. I.e., this is not a code path
+     * that is exercised in production.
+     * 
+     * @param config
+     * @param cluster
+     */
     public VoldemortServer(VoldemortConfig config, Cluster cluster) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;

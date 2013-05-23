@@ -69,15 +69,18 @@ public class RebalanceController {
     public final static int MAX_PARALLEL_REBALANCING = 1;
     public final static int MAX_TRIES_REBALANCING = 2;
     public final static boolean STEALER_BASED_REBALANCING = true;
+    public final static long PROXY_PAUSE_IN_SECONDS = TimeUnit.MINUTES.toSeconds(5);
 
     private final int maxParallelRebalancing;
     private final int maxTriesRebalancing;
     private final boolean stealerBasedRebalancing;
+    private final long proxyPauseS;
 
     public RebalanceController(String bootstrapUrl,
                                int maxParallelRebalancing,
                                int maxTriesRebalancing,
-                               boolean stealerBased) {
+                               boolean stealerBased,
+                               long proxyPauseS) {
         this.adminClient = new AdminClient(bootstrapUrl,
                                            new AdminClientConfig(),
                                            new ClientConfig());
@@ -88,6 +91,7 @@ public class RebalanceController {
         this.maxParallelRebalancing = maxParallelRebalancing;
         this.maxTriesRebalancing = maxTriesRebalancing;
         this.stealerBasedRebalancing = stealerBased;
+        this.proxyPauseS = proxyPauseS;
     }
 
     /**
@@ -353,6 +357,7 @@ public class RebalanceController {
 
             // STEP 2 - Move RO data
             if(hasReadOnlyStores) {
+                proxyPause();
                 executeSubBatch(batchCount,
                                 batchCurrentCluster,
                                 batchCurrentStoreDefs,
@@ -379,6 +384,9 @@ public class RebalanceController {
 
             // STEP 4 - Move RW data
             if(hasReadWriteStores) {
+                if(!hasReadOnlyStores) {
+                    proxyPause();
+                }
                 executeSubBatch(batchCount,
                                 batchCurrentCluster,
                                 batchCurrentStoreDefs,
@@ -395,6 +403,20 @@ public class RebalanceController {
             RebalanceUtils.printErrorLog(batchCount, logger, "Error in batch " + batchCount + " - "
                                                              + e.getMessage(), e);
             throw new VoldemortException("Rebalance failed on batch " + batchCount, e);
+        }
+    }
+
+    /**
+     * Pause between cluster change in metadata and starting server rebalancing
+     * work.
+     */
+    private void proxyPause() {
+        logger.info("Pausing after cluster state has changed to allow proxy bridges to be established. "
+                    + "Will start rebalancing work on servers in " + proxyPauseS + " seconds.");
+        try {
+            Thread.sleep(TimeUnit.SECONDS.toMillis(proxyPauseS));
+        } catch(InterruptedException e) {
+            logger.warn("Sleep interrupted in proxy pause.");
         }
     }
 

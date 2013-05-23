@@ -2392,6 +2392,12 @@ public class AdminClient {
                                                   value.getVersion());
         }
 
+        // TODO: The "Order" column makes no sense to me. This is very, very
+        // hard to grok. I want to prefix each entry with in the order column
+        // with a number (e.g., '0: rebalance', '1: cluster->Swap', ...) but
+        // have no idea what the order is. Are they in order in the table? what
+        // do the arrows mean in the order column?
+
         /**
          * Used in rebalancing to indicate change in states. Groups the
          * partition plans on the basis of stealer nodes and sends them over.
@@ -2399,22 +2405,22 @@ public class AdminClient {
          * The various combinations and their order of execution is given below
          * 
          * <pre>
-         * | swapRO | changeClusterMetadata | changeRebalanceState | Order |
-         * | f | t | t | cluster -> rebalance | 
-         * | f | f | t | rebalance |
-         * | t | t | f | cluster -> swap |
-         * | t | t | t | cluster -> swap -> rebalance |
+         * | swapRO | changeClusterMetadata | changeRebalanceState | Order                        |
+         * |   f    |         t             |          t           | cluster -> rebalance         | 
+         * |   f    |         f             |          t           | rebalance                    |
+         * |   t    |         t             |          f           | cluster -> swap              |
+         * |   t    |         t             |          t           | cluster -> swap -> rebalance |
          * </pre>
          * 
          * 
          * Similarly for rollback:
          * 
          * <pre>
-         * | swapRO | changeClusterMetadata | changeRebalanceState | Order |
-         * | f | t | t | remove from rebalance -> cluster  | 
-         * | f | f | t | remove from rebalance |
-         * | t | t | f | cluster -> swap |
-         * | t | t | t | remove from rebalance -> cluster -> swap  |
+         * | swapRO | changeClusterMetadata | changeRebalanceState | Order                                    |
+         * |   f    |         t             |          t           | remove from rebalance -> cluster         | 
+         * |   f    |         f             |          t           | remove from rebalance                    |
+         * |   t    |         t             |          f           | cluster -> swap                          |
+         * |   t    |         t             |          t           | remove from rebalance -> cluster -> swap |
          * </pre>
          * 
          * 

@@ -64,6 +64,13 @@ public class RebalanceControllerCLI {
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("parallelism");
+        parser.accepts("proxy-pause",
+                       "Time, in seconds, to pause between changing cluster metadata and starting rebalance tasks on server. [ Default:"
+                               + RebalanceController.PROXY_PAUSE_IN_SECONDS + " ]")
+              .withRequiredArg()
+              .ofType(Long.class)
+              .describedAs("proxy pause");
+
         parser.accepts("final-cluster", "Path to target cluster xml")
               .withRequiredArg()
               .describedAs("cluster.xml");
@@ -96,6 +103,7 @@ public class RebalanceControllerCLI {
         help.append("  Optional:\n");
         help.append("    --final-stores <storesXML> [ Needed for zone expansion ]\n");
         help.append("    --parallelism <parallelism> [ Number of rebalancing tasks to run in parallel ]");
+        help.append("    --proxy-pause <proxyPause> [ Seconds to pause between cluster change and server-side rebalancing tasks ]");
         help.append("    --tries <tries> [ Number of times to try starting an async rebalancing task on a node ");
         help.append("    --output-dir [ Output directory in which plan is stored ]\n");
         help.append("    --batch <batch> [ Number of primary partitions to move in each rebalancing batch. ]\n");
@@ -159,10 +167,16 @@ public class RebalanceControllerCLI {
             tries = (Integer) options.valueOf("tries");
         }
 
+        long proxyPauseS = RebalanceController.PROXY_PAUSE_IN_SECONDS;
+        if(options.has("proxy-pause")) {
+            proxyPauseS = (Long) options.valueOf("proxy-pause");
+        }
+
         RebalanceController rebalanceController = new RebalanceController(bootstrapURL,
                                                                           parallelism,
                                                                           tries,
-                                                                          stealerBased);
+                                                                          stealerBased,
+                                                                          proxyPauseS);
 
         Cluster currentCluster = rebalanceController.getCurrentCluster();
         List<StoreDefinition> currentStoreDefs = rebalanceController.getCurrentStoreDefs();

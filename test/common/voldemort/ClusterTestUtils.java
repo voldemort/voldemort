@@ -41,6 +41,8 @@ import com.google.common.collect.Lists;
 
 public class ClusterTestUtils {
 
+    public static long REBALANCE_CONTROLLER_TEST_PROXY_PAUSE_IN_SECONDS = 5;
+
     public static List<StoreDefinition> getZZ111StoreDefs(String storageType) {
 
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
@@ -664,11 +666,13 @@ public class ClusterTestUtils {
                                                int maxParallel,
                                                int maxTries,
                                                boolean stealerBased,
+                                               long proxyPauseS,
                                                Cluster finalCluster) {
         RebalanceController rebalanceController = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
                                                                           maxTries,
-                                                                          stealerBased);
+                                                                          stealerBased,
+                                                                          proxyPauseS);
         RebalancePlan rebalancePlan = rebalanceController.getPlan(finalCluster,
                                                                   RebalancePlan.BATCH_SIZE);
 
@@ -682,6 +686,7 @@ public class ClusterTestUtils {
                                RebalanceController.MAX_PARALLEL_REBALANCING,
                                RebalanceController.MAX_TRIES_REBALANCING,
                                stealerBased,
+                               REBALANCE_CONTROLLER_TEST_PROXY_PAUSE_IN_SECONDS,
                                finalCluster);
     }
 
@@ -693,6 +698,7 @@ public class ClusterTestUtils {
                                maxParallel,
                                RebalanceController.MAX_TRIES_REBALANCING,
                                stealerBased,
+                               REBALANCE_CONTROLLER_TEST_PROXY_PAUSE_IN_SECONDS,
                                finalCluster);
     }
 
@@ -703,7 +709,8 @@ public class ClusterTestUtils {
         RebalanceController rebalanceController = new RebalanceController(bootstrapUrl,
                                                                           RebalanceController.MAX_PARALLEL_REBALANCING,
                                                                           RebalanceController.MAX_TRIES_REBALANCING,
-                                                                          stealerBased);
+                                                                          stealerBased,
+                                                                          REBALANCE_CONTROLLER_TEST_PROXY_PAUSE_IN_SECONDS);
         RebalancePlan rebalancePlan = rebalanceController.getPlan(finalCluster,
                                                                   finalStoreDefs,
                                                                   RebalancePlan.BATCH_SIZE);
