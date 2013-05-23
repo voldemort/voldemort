@@ -37,6 +37,8 @@ public class SystemStoreConstants {
         voldsys$_metadata_version_persistence;
     }
 
+    // TODO: Verify that this hard coded system store works in three zones
+    // and/or extend it to have zone 2.
     public static final String SYSTEM_STORE_SCHEMA = "<stores>"
                                                      + "  <store>"
                                                      + "    <name>voldsys$_client_registry</name>"

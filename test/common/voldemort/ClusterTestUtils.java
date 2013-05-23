@@ -110,21 +110,50 @@ public class ClusterTestUtils {
         return storeDefs;
     }
 
+    public static List<StoreDefinition> getZZ322StoreDefsWithNonContiguousZoneIds(String storageType) {
+
+        List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
+        HashMap<Integer, Integer> zoneRep322 = new HashMap<Integer, Integer>();
+        zoneRep322.put(0, 3);
+        zoneRep322.put(2, 3);
+        StoreDefinition storeDef322 = new StoreDefinitionBuilder().setName("ZZ322")
+                                                                  .setType(storageType)
+                                                                  .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                  .setRoutingStrategyType(RoutingStrategyType.ZONE_STRATEGY)
+                                                                  .setKeySerializer(new SerializerDefinition("string"))
+                                                                  .setValueSerializer(new SerializerDefinition("string"))
+                                                                  .setReplicationFactor(6)
+                                                                  .setZoneReplicationFactor(zoneRep322)
+                                                                  .setRequiredReads(2)
+                                                                  .setRequiredWrites(2)
+                                                                  .setZoneCountReads(0)
+                                                                  .setZoneCountWrites(0)
+                                                                  .build();
+        storeDefs.add(storeDef322);
+        return storeDefs;
+    }
+
     /**
      * Store defs for zoned clusters with 2 zones. Covers the three store
      * definitions of interest: 3/2/2, 2/1/1, and
      */
     public static List<StoreDefinition> getZZStoreDefsInMemory() {
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
-        storeDefs.addAll(ClusterTestUtils.getZZ111StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(getZZ111StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
         storeDefs.addAll(getZZ211StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
         storeDefs.addAll(getZZ322StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
         return storeDefs;
     }
 
+    public static List<StoreDefinition> getZZStoreDefsWithNonContiguousZoneIDsInMemory() {
+        List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
+        storeDefs.addAll(getZZ322StoreDefsWithNonContiguousZoneIds(InMemoryStorageConfiguration.TYPE_NAME));
+        return storeDefs;
+    }
+
     public static List<StoreDefinition> getZZStoreDefsBDB() {
         List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
-        storeDefs.addAll(ClusterTestUtils.getZZ111StoreDefs(BdbStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(getZZ111StoreDefs(BdbStorageConfiguration.TYPE_NAME));
         storeDefs.addAll(getZZ211StoreDefs(BdbStorageConfiguration.TYPE_NAME));
         storeDefs.addAll(getZZ322StoreDefs(BdbStorageConfiguration.TYPE_NAME));
         return storeDefs;
@@ -511,6 +540,7 @@ public class ClusterTestUtils {
                                         node.getHttpPort(),
                                         node.getSocketPort(),
                                         node.getAdminPort(),
+                                        node.getZoneId(),
                                         node.getPartitionIds());
                 nodeList.add(newNode);
                 nodeId++;

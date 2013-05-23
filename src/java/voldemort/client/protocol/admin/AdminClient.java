@@ -673,7 +673,7 @@ public class AdminClient {
          * @param nodeId Id of the node to poll
          * @param requestId Id of the request to check
          * @param maxWait Maximum time we'll keep checking a request until we
-         *        give up
+         *        give up. Pass in 0 or less to wait "forever".
          * @param timeUnit Unit in which maxWait is expressed.
          * @param higherStatus A higher level async operation object. If this
          *        waiting is being run another async operation this helps us
@@ -688,7 +688,10 @@ public class AdminClient {
                                         TimeUnit timeUnit,
                                         AsyncOperationStatus higherStatus) {
             long delay = INITIAL_DELAY;
-            long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
+            long waitUntil = Long.MAX_VALUE;
+            if(maxWait > 0) {
+                waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
+            }
 
             String description = null;
             String oldStatus = "";
@@ -765,7 +768,7 @@ public class AdminClient {
          *         maxWait time.
          */
         public String waitForCompletion(int nodeId, int requestId) {
-            return waitForCompletion(nodeId, requestId, Long.MAX_VALUE, TimeUnit.SECONDS, null);
+            return waitForCompletion(nodeId, requestId, 0, TimeUnit.SECONDS, null);
         }
 
         /**

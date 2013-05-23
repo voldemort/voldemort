@@ -123,6 +123,10 @@ public class RebalanceController {
         RebalanceUtils.validateClusterStores(finalCluster, finalStoreDefs);
         RebalanceUtils.validateCurrentFinalCluster(currentCluster, finalCluster);
 
+        // TODO: (currentCluster vs interimCluster) Add more validation before
+        // constructing plan? Given that currentCluster was polled from prod
+        // cluster, should confirm that it is an "interim cluster" i.e., has
+        // same (superset?) of nodes as are in finalCluster.
         String outputDir = null;
         return new RebalancePlan(currentCluster,
                                  currentStoreDefs,

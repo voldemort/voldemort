@@ -249,7 +249,8 @@ public class StorageService extends AbstractService {
     }
 
     private void updateRepFactor(List<StoreDefinition> storesDefs) {
-        // need impl
+        // TODO: need implementation. Once implemented, see related todo in
+        // StoreRoutingPlan.verifyClusterStoreDefinition
     }
 
     @Override

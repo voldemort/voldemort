@@ -361,7 +361,7 @@ public class RepartitionerTest {
     }
 
     @Test
-    public void testRebalance() {
+    public void testShuffle() {
         // Two zone cluster
         Cluster currentCluster = ClusterTestUtils.getZZCluster();
         List<StoreDefinition> storeDefs = ClusterTestUtils.getZZStoreDefsInMemory();
@@ -402,8 +402,8 @@ public class RepartitionerTest {
 
     @Test
     public void testZoneExpansion() {
-        Cluster currentCluster = ClusterTestUtils.getZZCluster();
-        List<StoreDefinition> currentStoreDefs = ClusterTestUtils.getZZStoreDefsInMemory();
+        Cluster currentCluster = ClusterTestUtils.getZZECluster();
+        List<StoreDefinition> currentStoreDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
 
         Cluster targetCluster = ClusterTestUtils.getZZZClusterWithNNN();
         List<StoreDefinition> targetStoreDefs = ClusterTestUtils.getZZZStoreDefsInMemory();

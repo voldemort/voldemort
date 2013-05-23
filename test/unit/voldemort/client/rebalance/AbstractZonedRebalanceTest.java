@@ -41,7 +41,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import voldemort.ClusterTestUtils;
@@ -120,8 +119,13 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         super(useNio, useDonorBased);
     }
 
-    @BeforeClass
-    public static void generalSetup() throws IOException {
+    @Before
+    public void setUp() throws IOException {
+        setUpRWStuff();
+        setupZZandZZZ();
+    }
+
+    public static void setupZZandZZZ() throws IOException {
         zzCurrent = ClusterTestUtils.getZZCluster();
         zzShuffle = ClusterTestUtils.getZZClusterWithSwappedPartitions();
         zzClusterExpansionNN = ClusterTestUtils.getZZClusterWithNN();
@@ -145,8 +149,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         zzzStoresXml = zzzfile.getAbsolutePath();
     }
 
-    @Before
-    public void setUp() throws IOException {
+    public void setUpRWStuff() throws IOException {
         // First without replication
         HashMap<Integer, Integer> zrfRWStoreWithoutReplication = new HashMap<Integer, Integer>();
         zrfRWStoreWithoutReplication.put(0, 1);
@@ -236,6 +239,14 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         socketStoreFactory.close();
         socketStoreFactory = null;
     }
+
+    // TODO: (currentCluster vs interimCluster) Ideally, we could go from
+    // cCluster to fCluster for zone expansion. Unfortunately, to start a
+    // VoldemortServer, you need a cluster xml that includes that server. For
+    // now, we assume interim cluster is deployed (i.e., cluster with empty
+    // nodes in new zones). Either, deploying interim cluster with empty nodes
+    // must be codified in run book and tested as a pre-condition or servers
+    // need to be able to start without a cluster xml that includes them.
 
     // TODO: The tests based on this method are susceptible to TOCTOU
     // BindException issue since findFreePorts is used to determine the ports
@@ -349,12 +360,21 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
 
     @Test(timeout = 600000)
     public void testZoneExpansionZZ2ZZZ() throws Exception {
+        // TODO: see todo for method testZonedRebalance to understand why we
+        // cannot invoke the following:
+        /*-
         testZonedRebalance("TestZoneExpansionZZ2ZZZ",
                            zzCurrent,
                            zzzZoneExpansionXXP,
                            zzStoresXml,
                            zzzStoresXml,
                            zzStores,
+                           zzzStores);
+         */
+        testZonedRebalance("TestZoneExpansionZZ2ZZZ",
+                           zzeZoneExpansion,
+                           zzzZoneExpansionXXP,
+                           zzzStoresXml,
                            zzzStores);
     }
 

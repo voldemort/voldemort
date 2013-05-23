@@ -35,8 +35,6 @@ import voldemort.utils.Utils;
 
 import com.google.common.collect.Maps;
 
-;
-
 public class PartitionBalance {
 
     /**
@@ -207,15 +205,16 @@ public class PartitionBalance {
         return nodeIdToNaryCount;
     }
 
-    // TODO: (refactor) When/if "replica type" is exorcised from the code base,
+    // TODO: (replicaType) When replicaType is exorcized from the code base,
     // this detailed dump method should be removed.
     /**
      * Dumps the partition IDs per node in terms of "replica type".
      * 
      * @param cluster
      * @param storeDefinition
-     * @return pretty printed string of detailed replica tyep dump.
+     * @return pretty printed string of detailed replica type dump.
      */
+    @Deprecated
     private String dumpReplicaTypeDetails(Cluster cluster, StoreDefinition storeDefinition) {
         StringBuilder sb = new StringBuilder();
         Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = RebalanceUtils.getNodeIdToAllPartitions(cluster,
@@ -281,7 +280,9 @@ public class PartitionBalance {
             List<Integer> naries = storeRoutingPlan.getZoneNAryPartitionIds(nodeId);
             Map<Integer, List<Integer>> zoneNaryTypeToPartitionIds = new HashMap<Integer, List<Integer>>();
             for(int nary: naries) {
-                int zoneReplicaType = storeRoutingPlan.getZoneNaryForNodesPartition(zoneId, nodeId, nary);
+                int zoneReplicaType = storeRoutingPlan.getZoneNaryForNodesPartition(zoneId,
+                                                                                    nodeId,
+                                                                                    nary);
                 if(!zoneNaryTypeToPartitionIds.containsKey(zoneReplicaType)) {
                     zoneNaryTypeToPartitionIds.put(zoneReplicaType, new ArrayList<Integer>());
                 }

@@ -26,6 +26,7 @@ import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClusterUtils;
 import voldemort.utils.NodeUtils;
@@ -52,6 +53,8 @@ public class StoreRoutingPlan {
     public StoreRoutingPlan(Cluster cluster, StoreDefinition storeDefinition) {
         this.cluster = cluster;
         this.storeDefinition = storeDefinition;
+        verifyClusterStoreDefinition();
+
         this.partitionIdToNodeIdMap = ClusterUtils.getCurrentPartitionMapping(cluster);
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
                                                                                   cluster);
@@ -78,7 +81,50 @@ public class StoreRoutingPlan {
                 }
             }
         }
+    }
 
+    /**
+     * Verify that cluster is congruent to store def wrt zones.
+     */
+    private void verifyClusterStoreDefinition() {
+        if(SystemStoreConstants.isSystemStore(storeDefinition.getName())) {
+            // TODO: Once "todo" in StorageService.initSystemStores is complete,
+            // this early return can be removed and verification can be enabled
+            // for system stores.
+            return;
+        }
+
+        Set<Integer> clusterZoneIds = cluster.getZoneIds();
+
+        if(clusterZoneIds.size() > 1) { // Zoned
+            Map<Integer, Integer> zoneRepFactor = storeDefinition.getZoneReplicationFactor();
+            Set<Integer> storeDefZoneIds = zoneRepFactor.keySet();
+
+            if(!clusterZoneIds.equals(storeDefZoneIds)) {
+                throw new VoldemortException("Zone IDs in cluster (" + clusterZoneIds
+                                             + ") are incongruent with zone IDs in store defs ("
+                                             + storeDefZoneIds + ")");
+            }
+
+            for(int zoneId: clusterZoneIds) {
+                if(zoneRepFactor.get(zoneId) > cluster.getNumberOfNodesInZone(zoneId)) {
+                    throw new VoldemortException("Not enough nodes ("
+                                                 + cluster.getNumberOfNodesInZone(zoneId)
+                                                 + ") in zone with id " + zoneId
+                                                 + " for replication factor of "
+                                                 + zoneRepFactor.get(zoneId) + ".");
+                }
+            }
+        } else { // Non-zoned
+
+            if(storeDefinition.getReplicationFactor() > cluster.getNumberOfNodes()) {
+                System.err.println(storeDefinition);
+                System.err.println(cluster);
+                throw new VoldemortException("Not enough nodes (" + cluster.getNumberOfNodes()
+                                             + ") for replication factor of "
+                                             + storeDefinition.getReplicationFactor() + ".");
+            }
+        }
     }
 
     public Cluster getCluster() {

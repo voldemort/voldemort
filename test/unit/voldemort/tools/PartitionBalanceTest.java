@@ -60,9 +60,6 @@ public class PartitionBalanceTest {
 
         new PartitionBalance(ClusterTestUtils.getZEZCluster(),
                              ClusterTestUtils.getZZZStoreDefsInMemory());
-
-        new PartitionBalance(ClusterTestUtils.getZEZClusterWithOnlyOneNodeInNewZone(),
-                             ClusterTestUtils.getZZZStoreDefsInMemory());
     }
 
     @Test
@@ -114,9 +111,9 @@ public class PartitionBalanceTest {
      * to shrink zones.
      */
     @Test
-    public void testNonContiguousZonesThatShouldWork() {
+    public void testNonContiguousZoneIds() {
         new PartitionBalance(ClusterTestUtils.getZZClusterWithNonContiguousZoneIDsButContiguousNodeIDs(),
-                             ClusterTestUtils.getZZStoreDefsInMemory());
+                             ClusterTestUtils.getZZStoreDefsWithNonContiguousZoneIDsInMemory());
     }
 
     // TODO: Fix handling of node Ids so that they do not need to be contiguous.

@@ -99,6 +99,10 @@ public class RebalancePlan {
         this.batchSize = batchSize;
         this.outputDir = outputDir;
 
+        // TODO: (currentCluster vs interimCluster) Instead of divining
+        // interimCluster from currentCluster and finalCluster, should we
+        // require that interimCluster be passed in?
+
         // Derive the targetCluster from current & final cluster xml
         RebalanceUtils.validateCurrentFinalCluster(this.currentCluster, this.finalCluster);
         Cluster interimCluster = RebalanceUtils.getInterimCluster(this.currentCluster,
