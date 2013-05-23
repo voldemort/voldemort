@@ -128,7 +128,7 @@ public class RebalanceControllerCLI {
             System.exit(0);
         }
 
-        Set<String> missing = CmdUtils.missing(options, "url", "target-cluster");
+        Set<String> missing = CmdUtils.missing(options, "url", "final-cluster");
         if(missing.size() > 0) {
             printUsageAndDie("Missing required arguments: " + Joiner.on(", ").join(missing));
         }
