@@ -36,12 +36,13 @@ public class RouteToAllStrategy implements RoutingStrategy {
     final private Collection<Node> nodes;
     final private ArrayList<Integer> partitionIds;
 
-    final private int imaginaryPartitionId = 0;
+    // Use partition ID 0 for all keys to implement route to all strategy.
+    final static private int ROUTE_TO_ALL_PARTITION_ID = 0;
 
     public RouteToAllStrategy(Collection<Node> nodes) {
         this.nodes = nodes;
         this.partitionIds = new ArrayList<Integer>(1);
-        this.partitionIds.add(imaginaryPartitionId);
+        this.partitionIds.add(ROUTE_TO_ALL_PARTITION_ID);
     }
 
     @Override
@@ -77,7 +78,7 @@ public class RouteToAllStrategy implements RoutingStrategy {
      */
     @Override
     public Integer getMasterPartition(byte[] key) {
-        return imaginaryPartitionId;
+        return ROUTE_TO_ALL_PARTITION_ID;
     }
 
     @Override
