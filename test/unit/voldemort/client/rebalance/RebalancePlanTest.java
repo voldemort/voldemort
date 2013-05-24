@@ -38,6 +38,7 @@ public class RebalancePlanTest {
     static Cluster zzzCurrent;
     static Cluster zzzShuffle;
     static Cluster zzzClusterExpansion;
+    static Cluster zzeZoneExpansion;
     static Cluster zzzZoneExpansion;
     static List<StoreDefinition> zzzStores;
 
@@ -52,6 +53,7 @@ public class RebalancePlanTest {
 
         zzzShuffle = ClusterTestUtils.getZZZClusterWithSwappedPartitions();
         zzzClusterExpansion = ClusterTestUtils.getZZZClusterWithPPP();
+        zzeZoneExpansion = ClusterTestUtils.getZZECluster();
         zzzZoneExpansion = ClusterTestUtils.getZZEClusterXXP();
         zzzStores = ClusterTestUtils.getZZZStoreDefsBDB();
     }
@@ -129,7 +131,10 @@ public class RebalancePlanTest {
         assertTrue(zoneMoves.get(1, 1) > 0);
 
         // Three zones
-        rebalancePlan = ClusterTestUtils.makePlan(zzzCurrent, zzzStores, zzzClusterExpansion, zzzStores);
+        rebalancePlan = ClusterTestUtils.makePlan(zzzCurrent,
+                                                  zzzStores,
+                                                  zzzClusterExpansion,
+                                                  zzzStores);
         assertEquals(rebalancePlan.getPlan().size(), 1);
         assertTrue(rebalancePlan.getPrimariesMoved() > 0);
         assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
@@ -151,6 +156,7 @@ public class RebalancePlanTest {
     public void testZoneExpansion() {
         RebalancePlan rebalancePlan;
 
+        // This tests currentCluster to finalCluster
         rebalancePlan = ClusterTestUtils.makePlan(zzCurrent, zzStores, zzzZoneExpansion, zzzStores);
         assertEquals(rebalancePlan.getPlan().size(), 1);
         assertTrue(rebalancePlan.getPrimariesMoved() > 0);
@@ -159,6 +165,28 @@ public class RebalancePlanTest {
 
         // zone id 2 is the new zone.
         MoveMap zoneMoves = rebalancePlan.getZoneMoveMap();
+        assertTrue(zoneMoves.get(0, 0) > 0);
+        assertTrue(zoneMoves.get(0, 1) == 0);
+        assertTrue(zoneMoves.get(0, 2) > 0);
+        assertTrue(zoneMoves.get(1, 0) == 0);
+        assertTrue(zoneMoves.get(1, 1) > 0);
+        assertTrue(zoneMoves.get(1, 2) > 0);
+        assertTrue(zoneMoves.get(2, 0) == 0);
+        assertTrue(zoneMoves.get(2, 1) == 0);
+        assertTrue(zoneMoves.get(2, 2) == 0);
+
+        // This tests interimCluster to finalCluster
+        rebalancePlan = ClusterTestUtils.makePlan(zzeZoneExpansion,
+                                                  zzzStores,
+                                                  zzzZoneExpansion,
+                                                  zzzStores);
+        assertEquals(rebalancePlan.getPlan().size(), 1);
+        assertTrue(rebalancePlan.getPrimariesMoved() > 0);
+        assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
+        assertTrue(rebalancePlan.getPartitionStoresMovedXZone() > 0);
+
+        // zone id 2 is the new zone.
+        zoneMoves = rebalancePlan.getZoneMoveMap();
         assertTrue(zoneMoves.get(0, 0) > 0);
         assertTrue(zoneMoves.get(0, 1) == 0);
         assertTrue(zoneMoves.get(0, 2) > 0);

@@ -86,13 +86,13 @@ public class RepartitionerTest {
      * 
      * @param currentCluster
      * @param currentStores
-     * @param targetCluster
-     * @param targetStores
+     * @param interimCluster
+     * @param finalStores
      */
     public void verifyBalanceZoneAndNode(Cluster currentCluster,
                                          List<StoreDefinition> currentStores,
-                                         Cluster targetCluster,
-                                         List<StoreDefinition> targetStores) {
+                                         Cluster interimCluster,
+                                         List<StoreDefinition> finalStores) {
         // Confirm current cluster is imbalanced on all fronts:
         assertFalse(verifyNodesBalancedInEachZone(currentCluster));
         assertFalse(verifyZonesBalanced(currentCluster));
@@ -103,8 +103,8 @@ public class RepartitionerTest {
         boolean disableZoneBalancing = false;
         Cluster repartitionedCluster = Repartitioner.repartition(currentCluster,
                                                                  currentStores,
-                                                                 targetCluster,
-                                                                 targetStores,
+                                                                 interimCluster,
+                                                                 finalStores,
                                                                  null,
                                                                  1,
                                                                  disableNodeBalancing,
@@ -128,13 +128,13 @@ public class RepartitionerTest {
      * 
      * @param currentCluster
      * @param currentStores
-     * @param targetCluster
-     * @param targetStores
+     * @param interimCluster
+     * @param finalStores
      */
     public void verifyBalanceNodesNotZones(Cluster currentCluster,
                                            List<StoreDefinition> currentStores,
-                                           Cluster targetCluster,
-                                           List<StoreDefinition> targetStores) {
+                                           Cluster interimCluster,
+                                           List<StoreDefinition> finalStores) {
 
         // Confirm current cluster is imbalanced on all fronts:
         assertFalse(verifyNodesBalancedInEachZone(currentCluster));
@@ -147,8 +147,8 @@ public class RepartitionerTest {
         Cluster repartitionedCluster = Repartitioner.repartition(currentCluster,
                                                                  currentStores,
 
-                                                                 targetCluster,
-                                                                 targetStores,
+                                                                 interimCluster,
+                                                                 finalStores,
                                                                  null,
                                                                  1,
                                                                  disableNodeBalancing,
@@ -168,28 +168,28 @@ public class RepartitionerTest {
 
     /**
      * Verify the "no op" path through repartition method does not change the
-     * target cluster.
+     * interim cluster.
      * 
      * @param currentCluster
      * @param currentStores
-     * @param targetCluster
-     * @param targetStores
+     * @param interimCluster
+     * @param finalStores
      */
     public void verifyRepartitionNoop(Cluster currentCluster,
                                       List<StoreDefinition> currentStores,
-                                      Cluster targetCluster,
-                                      List<StoreDefinition> targetStores) {
+                                      Cluster interimCluster,
+                                      List<StoreDefinition> finalStores) {
         // Confirm current cluster is imbalanced on all fronts:
         assertFalse(verifyNodesBalancedInEachZone(currentCluster));
         assertFalse(verifyZonesBalanced(currentCluster));
 
-        // Confirm noop rebalance has no effect on target cluster
+        // Confirm noop rebalance has no effect on interim cluster
         boolean disableNodeBalancing = true;
         boolean disableZoneBalancing = true;
         Cluster repartitionedCluster = Repartitioner.repartition(currentCluster,
                                                                  currentStores,
-                                                                 targetCluster,
-                                                                 targetStores,
+                                                                 interimCluster,
+                                                                 finalStores,
                                                                  null,
                                                                  1,
                                                                  disableNodeBalancing,
@@ -203,7 +203,7 @@ public class RepartitionerTest {
                                                                  0,
                                                                  0,
                                                                  0);
-        assertTrue(repartitionedCluster.equals(targetCluster));
+        assertTrue(repartitionedCluster.equals(interimCluster));
     }
 
     /**
@@ -385,19 +385,19 @@ public class RepartitionerTest {
     public void testClusterExpansion() {
         // Two zone cluster
         Cluster currentCluster = ClusterTestUtils.getZZCluster();
-        Cluster targetCluster = ClusterTestUtils.getZZClusterWithNN();
+        Cluster interimCluster = ClusterTestUtils.getZZClusterWithNN();
         List<StoreDefinition> storeDefs = ClusterTestUtils.getZZStoreDefsInMemory();
-        verifyBalanceZoneAndNode(currentCluster, storeDefs, targetCluster, storeDefs);
-        verifyBalanceNodesNotZones(currentCluster, storeDefs, targetCluster, storeDefs);
-        verifyRepartitionNoop(currentCluster, storeDefs, targetCluster, storeDefs);
+        verifyBalanceZoneAndNode(currentCluster, storeDefs, interimCluster, storeDefs);
+        verifyBalanceNodesNotZones(currentCluster, storeDefs, interimCluster, storeDefs);
+        verifyRepartitionNoop(currentCluster, storeDefs, interimCluster, storeDefs);
 
         // Three zone cluster
         currentCluster = ClusterTestUtils.getZZZCluster();
-        targetCluster = ClusterTestUtils.getZZZClusterWithNNN();
+        interimCluster = ClusterTestUtils.getZZZClusterWithNNN();
         storeDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
-        verifyBalanceZoneAndNode(currentCluster, storeDefs, targetCluster, storeDefs);
-        verifyBalanceNodesNotZones(currentCluster, storeDefs, targetCluster, storeDefs);
-        verifyRepartitionNoop(currentCluster, storeDefs, targetCluster, storeDefs);
+        verifyBalanceZoneAndNode(currentCluster, storeDefs, interimCluster, storeDefs);
+        verifyBalanceNodesNotZones(currentCluster, storeDefs, interimCluster, storeDefs);
+        verifyRepartitionNoop(currentCluster, storeDefs, interimCluster, storeDefs);
     }
 
     @Test
@@ -405,12 +405,12 @@ public class RepartitionerTest {
         Cluster currentCluster = ClusterTestUtils.getZZECluster();
         List<StoreDefinition> currentStoreDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
 
-        Cluster targetCluster = ClusterTestUtils.getZZZClusterWithNNN();
-        List<StoreDefinition> targetStoreDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
+        Cluster interimCluster = ClusterTestUtils.getZZZClusterWithNNN();
+        List<StoreDefinition> finalStoreDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
 
-        verifyBalanceZoneAndNode(currentCluster, currentStoreDefs, targetCluster, targetStoreDefs);
+        verifyBalanceZoneAndNode(currentCluster, currentStoreDefs, interimCluster, finalStoreDefs);
         // verifyBalanceNodesNotZones does not make sense for zone expansion.
-        verifyRepartitionNoop(currentCluster, currentStoreDefs, targetCluster, targetStoreDefs);
+        verifyRepartitionNoop(currentCluster, currentStoreDefs, interimCluster, finalStoreDefs);
     }
 
     /**

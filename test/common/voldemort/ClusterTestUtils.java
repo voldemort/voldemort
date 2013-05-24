@@ -584,30 +584,31 @@ public class ClusterTestUtils {
     }
 
     /**
-     * Given the current and target cluster metadata, along with your store
+     * Given the current and final cluster metadata, along with your store
      * definition, return the batch plan.
      * 
      * @param currentCluster Current cluster metadata
-     * @param targetCluster Target cluster metadata
+     * @param finalCluster Final cluster metadata
      * @param storeDef List of store definitions
      * @return list of tasks for this batch plan
      */
     public static List<RebalancePartitionsInfo> getBatchPlan(Cluster currentCluster,
-                                                             Cluster targetCluster,
+                                                             Cluster finalCluster,
                                                              List<StoreDefinition> storeDef) {
         RebalanceBatchPlan rebalancePlan = new RebalanceBatchPlan(currentCluster,
-                                                                  targetCluster,
+                                                                  finalCluster,
                                                                   storeDef);
         return rebalancePlan.getBatchPlan();
     }
 
     /**
-     * Given the current and target cluster metadata, along with your store
+     * Given the current and final cluster metadata, along with your store
      * definition, return the batch plan.
      * 
-     * @param currentCluster Current cluster metadata
-     * @param targetCluster Target cluster metadata
-     * @param storeDef List of store definitions
+     * @param currentCluster
+     * @param currentStoreDefs
+     * @param finalCluster
+     * @param finalStoreDefs
      * @return list of tasks for this batch plan
      */
     public static List<RebalancePartitionsInfo> getBatchPlan(Cluster currentCluster,

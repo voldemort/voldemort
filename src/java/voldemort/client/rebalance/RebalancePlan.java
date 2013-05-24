@@ -79,7 +79,7 @@ public class RebalancePlan {
      * be used to transform deployed store definitions. In practice, this use
      * case has not been tested.
      * 
-     * @param currentCluster current deployed cluster
+     * @param currentCluster current deployed cluster.
      * @param currentStoreDefs current deployed store defs
      * @param finalCluster desired deployed cluster
      * @param finalStoreDefs desired deployed store defs
@@ -99,11 +99,7 @@ public class RebalancePlan {
         this.batchSize = batchSize;
         this.outputDir = outputDir;
 
-        // TODO: (currentCluster vs interimCluster) Instead of divining
-        // interimCluster from currentCluster and finalCluster, should we
-        // require that interimCluster be passed in?
-
-        // Derive the targetCluster from current & final cluster xml
+        // Derive the interimCluster from current & final cluster xml
         RebalanceUtils.validateCurrentFinalCluster(this.currentCluster, this.finalCluster);
         Cluster interimCluster = RebalanceUtils.getInterimCluster(this.currentCluster,
                                                                   this.finalCluster);

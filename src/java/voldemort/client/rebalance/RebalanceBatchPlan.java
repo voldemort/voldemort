@@ -31,10 +31,6 @@ import voldemort.utils.Utils;
 
 import com.google.common.collect.Maps;
 
-// TODO: (refactor) Fix cluster nomenclature in general: make sure there are
-// exactly three prefixes used to distinguish cluster xml: initial or current,
-// target or spec or expanded, and final. 'target' has historically been
-// overloaded to mean spec/expanded or final depending on context.
 /**
  * Constructs a batch plan that goes from currentCluster to finalCluster. The
  * partition-stores included in the move are based on those listed in storeDefs.
@@ -258,10 +254,10 @@ public class RebalanceBatchPlan {
      */
     private List<RebalancePartitionsInfo> constructBatchPlan() {
         // Construct all store routing plans once.
-        HashMap<String, StoreRoutingPlan> targetStoreRoutingPlans = new HashMap<String, StoreRoutingPlan>();
+        HashMap<String, StoreRoutingPlan> currentStoreRoutingPlans = new HashMap<String, StoreRoutingPlan>();
         for(StoreDefinition storeDef: currentStoreDefs) {
-            targetStoreRoutingPlans.put(storeDef.getName(), new StoreRoutingPlan(currentCluster,
-                                                                                 storeDef));
+            currentStoreRoutingPlans.put(storeDef.getName(), new StoreRoutingPlan(currentCluster,
+                                                                                  storeDef));
         }
         HashMap<String, StoreRoutingPlan> finalStoreRoutingPlans = new HashMap<String, StoreRoutingPlan>();
         for(StoreDefinition storeDef: finalStoreDefs) {
@@ -277,7 +273,7 @@ public class RebalanceBatchPlan {
 
             // Consider all store definitions ...
             for(StoreDefinition storeDef: finalStoreDefs) {
-                StoreRoutingPlan targetSRP = targetStoreRoutingPlans.get(storeDef.getName());
+                StoreRoutingPlan currentSRP = currentStoreRoutingPlans.get(storeDef.getName());
                 StoreRoutingPlan finalSRP = finalStoreRoutingPlans.get(storeDef.getName());
                 for(int stealerPartitionId: finalSRP.getZoneNAryPartitionIds(stealerNodeId)) {
                     // ... and all nary partition-stores,
@@ -285,12 +281,13 @@ public class RebalanceBatchPlan {
 
                     // Optimization: Do not steal a partition-store you already
                     // host!
-                    if(targetSRP.getReplicationNodeList(stealerPartitionId).contains(stealerNodeId)) {
+                    if(currentSRP.getReplicationNodeList(stealerPartitionId)
+                                 .contains(stealerNodeId)) {
                         continue;
                     }
 
                     // Determine which node to steal from.
-                    int donorNodeId = getDonorId(targetSRP,
+                    int donorNodeId = getDonorId(currentSRP,
                                                  finalSRP,
                                                  stealerZoneId,
                                                  stealerNodeId,
@@ -298,7 +295,8 @@ public class RebalanceBatchPlan {
 
                     // Add this specific partition-store steal to the overall
                     // plan
-                    int donorReplicaType = targetSRP.getReplicaType(donorNodeId, stealerPartitionId);
+                    int donorReplicaType = currentSRP.getReplicaType(donorNodeId,
+                                                                     stealerPartitionId);
                     rpiBuilder.addPartitionStoreMove(stealerNodeId,
                                                      donorNodeId,
                                                      storeDef.getName(),
@@ -320,12 +318,12 @@ public class RebalanceBatchPlan {
      * Current policy:
      * 
      * 1) If possible, a stealer node that is the zone n-ary in the finalCluster
-     * steals from the zone n-ary in the targetCluster in the same zone.
+     * steals from the zone n-ary in the currentCluster in the same zone.
      * 
      * 2) If there are no partition-stores to steal in the same zone (i.e., this
      * is the "zone expansion" use case), then a differnt policy must be used.
      * The stealer node that is the zone n-ary in the finalCluster determines
-     * which pre-existing zone in the targetCluster hosts the primary partition
+     * which pre-existing zone in the currentCluster hosts the primary partition
      * id for the partition-store. The stealer then steals the zone n-ary from
      * that pre-existing zone.
      * 
@@ -352,14 +350,14 @@ public class RebalanceBatchPlan {
      * n-aries in the new zone steal from the single cross-zone stealer in the
      * zone. This would require apparatus in the RebalanceController to work.
      * 
-     * @param targetSRP
+     * @param currentSRP
      * @param finalSRP
      * @param stealerZoneId
      * @param stealerNodeId
      * @param stealerPartitionId
      * @return the node id of the donor for this partition Id.
      */
-    protected int getDonorId(StoreRoutingPlan targetSRP,
+    protected int getDonorId(StoreRoutingPlan currentSRP,
                              StoreRoutingPlan finalSRP,
                              int stealerZoneId,
                              int stealerNodeId,
@@ -369,16 +367,16 @@ public class RebalanceBatchPlan {
                                                                     stealerPartitionId);
 
         int donorZoneId;
-        if(targetSRP.zoneNAryExists(stealerZoneId, stealerZoneNAry, stealerPartitionId)) {
+        if(currentSRP.zoneNAryExists(stealerZoneId, stealerZoneNAry, stealerPartitionId)) {
             // Steal from local n-ary (since one exists).
             donorZoneId = stealerZoneId;
         } else {
             // Steal from zone that hosts primary partition Id.
-            int targetMasterNodeId = targetSRP.getNodeIdForPartitionId(stealerPartitionId);
-            donorZoneId = currentCluster.getNodeById(targetMasterNodeId).getZoneId();
+            int currentMasterNodeId = currentSRP.getNodeIdForPartitionId(stealerPartitionId);
+            donorZoneId = currentCluster.getNodeById(currentMasterNodeId).getZoneId();
         }
 
-        return targetSRP.getNodeIdForZoneNary(donorZoneId, stealerZoneNAry, stealerPartitionId);
+        return currentSRP.getNodeIdForZoneNary(donorZoneId, stealerZoneNAry, stealerPartitionId);
 
     }
 

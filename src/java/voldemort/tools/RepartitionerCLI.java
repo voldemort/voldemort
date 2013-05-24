@@ -49,15 +49,15 @@ public class RepartitionerCLI {
         parser.accepts("current-cluster", "Path to current cluster xml")
               .withRequiredArg()
               .describedAs("cluster.xml");
-        parser.accepts("target-cluster", "Path to target cluster xml")
+        parser.accepts("interim-cluster", "Path to interim cluster xml")
               .withRequiredArg()
               .describedAs("cluster.xml");
         parser.accepts("current-stores",
                        "Path to current store definition xml. Needed for cluster and zone expansion.")
               .withRequiredArg()
               .describedAs("stores.xml");
-        parser.accepts("target-stores",
-                       "Path to target store definition xml. Needed for zone expansion.")
+        parser.accepts("final-stores",
+                       "Path to final store definition xml. Needed for zone expansion. Used with interim-cluster.")
               .withRequiredArg()
               .describedAs("stores.xml");
         parser.accepts("attempts",
@@ -128,8 +128,8 @@ public class RepartitionerCLI {
         help.append("    --current-cluster <clusterXML>\n");
         help.append("    --current-stores <storesXML>\n");
         help.append("  Optional:\n");
-        help.append("    --target-cluster <clusterXML> [ Needed for cluster or zone expansion ]\n");
-        help.append("    --target-stores <storesXML> [ Needed for zone expansion ]\n");
+        help.append("    --interim-cluster <clusterXML> [ Needed for cluster or zone expansion ]\n");
+        help.append("    --final-stores <storesXML> [ Needed for zone expansion ]\n");
         help.append("    --output-dir [ Output directory is where we store the optimized cluster ]\n");
         help.append("    --attempts [ Number of distinct cycles of repartitioning ]\n");
         help.append("    --disable-node-balancing [ Do not balance number of primary partitions among nodes within each zone ] \n");
@@ -173,8 +173,8 @@ public class RepartitionerCLI {
         if(missing.size() > 0) {
             printUsageAndDie("Missing required arguments: " + Joiner.on(", ").join(missing));
         }
-        if(options.has("target-stores") && !options.has("target-cluster")) {
-            printUsageAndDie("target-stores specified, but target-cluster not specified.");
+        if(options.has("final-stores") && !options.has("interim-cluster")) {
+            printUsageAndDie("final-stores specified, but interim-cluster not specified.");
         }
 
         return options;
@@ -187,24 +187,24 @@ public class RepartitionerCLI {
         // Required args
         String currentClusterXML = (String) options.valueOf("current-cluster");
         String currentStoresXML = (String) options.valueOf("current-stores");
-        String targetClusterXML = new String(currentClusterXML);
-        if(options.has("target-cluster")) {
-            targetClusterXML = (String) options.valueOf("target-cluster");
+        String interimClusterXML = new String(currentClusterXML);
+        if(options.has("interim-cluster")) {
+            interimClusterXML = (String) options.valueOf("interim-cluster");
         }
-        String targetStoresXML = new String(currentStoresXML);
-        if(options.has("target-stores")) {
-            targetStoresXML = (String) options.valueOf("target-stores");
+        String finalStoresXML = new String(currentStoresXML);
+        if(options.has("final-stores")) {
+            finalStoresXML = (String) options.valueOf("final-stores");
         }
 
         Cluster currentCluster = new ClusterMapper().readCluster(new File(currentClusterXML));
         List<StoreDefinition> currentStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(currentStoresXML));
         RebalanceUtils.validateClusterStores(currentCluster, currentStoreDefs);
 
-        Cluster targetCluster = new ClusterMapper().readCluster(new File(targetClusterXML));
-        List<StoreDefinition> targetStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(targetStoresXML));
-        RebalanceUtils.validateClusterStores(targetCluster, targetStoreDefs);
+        Cluster interimCluster = new ClusterMapper().readCluster(new File(interimClusterXML));
+        List<StoreDefinition> finalStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(finalStoresXML));
+        RebalanceUtils.validateClusterStores(interimCluster, finalStoreDefs);
 
-        RebalanceUtils.validateCurrentInterimCluster(currentCluster, targetCluster);
+        RebalanceUtils.validateCurrentInterimCluster(currentCluster, interimCluster);
 
         // Optional administrivia args
         int attempts = CmdUtils.valueOf(options,
@@ -258,8 +258,8 @@ public class RepartitionerCLI {
 
         Repartitioner.repartition(currentCluster,
                                   currentStoreDefs,
-                                  targetCluster,
-                                  targetStoreDefs,
+                                  interimCluster,
+                                  finalStoreDefs,
                                   outputDir,
                                   attempts,
                                   disableNodeBalancing,

@@ -40,11 +40,11 @@ public class RebalanceUtilsTest {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
-        Cluster targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+        Cluster finalCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 4, 5, 6, 7, 8 }, { 2, 3 } });
         Cluster updatedCluster = RebalanceUtils.updateCluster(currentCluster,
-                                                              new ArrayList<Node>(targetCluster.getNodes()));
-        assertEquals("updated cluster should match targetCluster", updatedCluster, targetCluster);
+                                                              new ArrayList<Node>(finalCluster.getNodes()));
+        assertEquals("updated cluster should match finalCluster", updatedCluster, finalCluster);
     }
 
     @Test
@@ -89,30 +89,30 @@ public class RebalanceUtilsTest {
     }
 
     private void doClusterTransformationBase(Cluster currentC,
-                                             Cluster targetC,
+                                             Cluster interimC,
                                              Cluster finalC,
                                              boolean verify) {
-        Cluster derivedTarget1 = RebalanceUtils.getClusterWithNewNodes(currentC, targetC);
+        Cluster derivedInterim1 = RebalanceUtils.getClusterWithNewNodes(currentC, interimC);
         if(verify)
-            assertEquals(targetC, derivedTarget1);
+            assertEquals(interimC, derivedInterim1);
 
-        Cluster derivedTarget2 = RebalanceUtils.getInterimCluster(currentC, finalC);
+        Cluster derivedInterim2 = RebalanceUtils.getInterimCluster(currentC, finalC);
         if(verify)
-            assertEquals(targetC, derivedTarget2);
+            assertEquals(interimC, derivedInterim2);
 
         RebalanceUtils.validateCurrentFinalCluster(currentC, finalC);
-        RebalanceUtils.validateCurrentInterimCluster(currentC, targetC);
-        RebalanceUtils.validateInterimFinalCluster(targetC, finalC);
+        RebalanceUtils.validateCurrentInterimCluster(currentC, interimC);
+        RebalanceUtils.validateInterimFinalCluster(interimC, finalC);
     }
 
-    private void doClusterTransformation(Cluster currentC, Cluster targetC, Cluster finalC) {
-        doClusterTransformationBase(currentC, targetC, finalC, false);
+    private void doClusterTransformation(Cluster currentC, Cluster interimC, Cluster finalC) {
+        doClusterTransformationBase(currentC, interimC, finalC, false);
     }
 
     public void doClusterTransformationAndVerification(Cluster currentC,
-                                                       Cluster targetC,
+                                                       Cluster interimC,
                                                        Cluster finalC) {
-        doClusterTransformationBase(currentC, targetC, finalC, true);
+        doClusterTransformationBase(currentC, interimC, finalC, true);
     }
 
     @Test
@@ -147,22 +147,16 @@ public class RebalanceUtilsTest {
                                                ClusterTestUtils.getZZZClusterWithNNN(),
                                                ClusterTestUtils.getZZZClusterWithPPP());
 
-        // TODO: Fix this test to pass. This test currently fails because the
-        // method RebalanceUtils.getClusterWithNewNodes cannot handle a new zone
-        // coming into existence between currentCluster & targetCluster.
-        // Two- to Three-zone clusters: zone expansion
-        /*-
         doClusterTransformationAndVerification(ClusterTestUtils.getZZCluster(),
                                                ClusterTestUtils.getZZECluster(),
                                                ClusterTestUtils.getZZEClusterXXP());
-         */
     }
 
     @Test
     public void testClusterTransformationAndVerificationExceptions() {
         boolean excepted;
 
-        // Two-zone cluster: rebalance with extra partitions in target
+        // Two-zone cluster: rebalance with extra partitions in interim cluster
         excepted = false;
         try {
             doClusterTransformation(ClusterTestUtils.getZZCluster(),
@@ -184,7 +178,7 @@ public class RebalanceUtilsTest {
         }
         assertTrue(excepted);
 
-        // Two-zone cluster: node ids swapped in target
+        // Two-zone cluster: node ids swapped in interim cluster
         excepted = false;
         try {
             doClusterTransformation(ClusterTestUtils.getZZCluster(),

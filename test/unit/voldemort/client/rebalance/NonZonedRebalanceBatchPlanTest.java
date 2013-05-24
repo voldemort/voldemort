@@ -57,7 +57,7 @@ public class NonZonedRebalanceBatchPlanTest {
 
     private static String storeDefFile = "test/common/voldemort/config/stores.xml";
     private Cluster currentCluster;
-    private Cluster targetCluster;
+    private Cluster finalCluster;
 
     private List<StoreDefinition> storeDefList;
     private List<StoreDefinition> storeDefList2;
@@ -88,10 +88,10 @@ public class NonZonedRebalanceBatchPlanTest {
     public void testInsufficientNodes() {
         currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1 }, { 2 } });
 
-        targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 1 }, { 0 }, { 2 } });
+        finalCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 1 }, { 0 }, { 2 } });
 
         try {
-            new RebalanceBatchPlan(currentCluster, targetCluster, storeDefList);
+            new RebalanceBatchPlan(currentCluster, finalCluster, storeDefList);
             fail("Should have thrown an exception since the migration should result in decrease in replication factor");
         } catch(VoldemortException e) {}
 
@@ -107,11 +107,11 @@ public class NonZonedRebalanceBatchPlanTest {
         currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
 
-        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
+        finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 1, 2, 3 }, { 4, 5, 6, 7, 0 } });
 
         List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                targetCluster,
+                                                                                finalCluster,
                                                                                 test211StoreDef);
 
         assertTrue("Batch plan should be empty.", batchPlan.isEmpty());
@@ -128,11 +128,11 @@ public class NonZonedRebalanceBatchPlanTest {
         currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, {} });
 
-        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
+        finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 1, 2, 3 }, { 4, 5, 6, 7 }, { 0 } });
 
         List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                targetCluster,
+                                                                                finalCluster,
                                                                                 test211StoreDef);
         // data should only move from node 0 to node 2 for node 2 to host
         // everything needed. no other movement should occur.
@@ -169,11 +169,11 @@ public class NonZonedRebalanceBatchPlanTest {
         currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 3, 6, 9, 12, 15 }, { 1, 4, 7, 10, 13, 16 }, { 2, 5, 8, 11, 14, 17 }, { 0 } });
 
-        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
+        finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 0, 3, 6, 9, 12, 15 }, { 1, 4, 7, 10, 13, 16 }, { 2, 5, 8, 11, 14, 17 }, {} });
 
         List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                                        targetCluster,
+                                                                                                        finalCluster,
                                                                                                         storeDefList2);
         assertEquals("There should have exactly 1 rebalancing node",
                      1,
@@ -213,12 +213,12 @@ public class NonZonedRebalanceBatchPlanTest {
         currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
                 { 1, 5 }, { 2, 6 }, { 3, 7 } });
 
-        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 4 },
+        finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 4 },
                 { 0, 1, 5 }, { 2, 6 }, { 3, 7 } });
 
         // PHASE 1 - move partition 0 off of node 0 to node 1
         List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                targetCluster,
+                                                                                finalCluster,
                                                                                 storeDefList2);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
@@ -230,10 +230,10 @@ public class NonZonedRebalanceBatchPlanTest {
         currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 4 },
                 { 0, 1, 5 }, { 2 }, { 3, 6, 7 } });
 
-        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { {},
+        finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { {},
                 { 0, 1, 5 }, { 4, 2 }, { 3, 6, 7 } });
 
-        batchPlan = ClusterTestUtils.getBatchPlan(currentCluster, targetCluster, storeDefList2);
+        batchPlan = ClusterTestUtils.getBatchPlan(currentCluster, finalCluster, storeDefList2);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
         assertFalse("Batch plan for server 2 should not be empty.",
@@ -260,11 +260,11 @@ public class NonZonedRebalanceBatchPlanTest {
         currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
                 { 1, 5 }, { 2, 6 }, { 3, 7 } });
 
-        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
+        finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
                 { 2, 1, 5 }, { 6 }, { 3, 7 } });
 
         List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                targetCluster,
+                                                                                finalCluster,
                                                                                 storeDefList2);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
@@ -286,10 +286,10 @@ public class NonZonedRebalanceBatchPlanTest {
         currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
                 { 2, 1, 5 }, { 6 }, { 3, 7 } });
 
-        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
+        finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
                 { 2, 1, 5 }, {}, { 6, 3, 7 } });
 
-        batchPlan = ClusterTestUtils.getBatchPlan(currentCluster, targetCluster, storeDefList2);
+        batchPlan = ClusterTestUtils.getBatchPlan(currentCluster, finalCluster, storeDefList2);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
 
@@ -306,11 +306,11 @@ public class NonZonedRebalanceBatchPlanTest {
         currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 0, 1, 2, 3 }, { 4, 5, 6 }, { 7, 8, 9 }, {} });
 
-        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
+        finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 0, 2, 3 }, { 4, 6 }, { 7, 8, 9 }, { 1, 5 } });
 
         List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                targetCluster,
+                                                                                finalCluster,
                                                                                 storeDefList);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
@@ -355,11 +355,11 @@ public class NonZonedRebalanceBatchPlanTest {
         currentCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
                 { 2, 3 }, { 1, 5 }, {} });
 
-        targetCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 4 },
+        finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 4 },
                 { 2, 3 }, { 1, 5 }, { 0 } });
 
         List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                                        targetCluster,
+                                                                                                        finalCluster,
                                                                                                         storeDefList2);
 
         assertEquals("There should have exactly 1 rebalancing node",

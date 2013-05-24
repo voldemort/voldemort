@@ -143,9 +143,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    public void checkConsistentMetadata(Cluster targetCluster, List<Integer> serverList) {
+    public void checkConsistentMetadata(Cluster finalCluster, List<Integer> serverList) {
         for(int nodeId: serverList) {
-            assertEquals(targetCluster, getCurrentCluster(nodeId));
+            assertEquals(finalCluster, getCurrentCluster(nodeId));
             assertEquals(MetadataStore.VoldemortState.NORMAL_SERVER, getCurrentState(nodeId));
         }
     }
@@ -196,14 +196,14 @@ public abstract class AbstractRebalanceTest {
      * the rebalance.
      * 
      * @param currentCluster
-     * @param targetCluster
+     * @param finalCluster
      * @param storeDefs
      * @param nodeCheckList
      * @param baselineTuples
      * @param baselineVersions
      */
     protected void checkEntriesPostRebalance(Cluster currentCluster,
-                                             Cluster targetCluster,
+                                             Cluster finalCluster,
                                              List<StoreDefinition> storeDefs,
                                              List<Integer> nodeCheckList,
                                              HashMap<String, String> baselineTuples,
@@ -212,23 +212,23 @@ public abstract class AbstractRebalanceTest {
             Map<Integer, Set<Pair<Integer, Integer>>> currentNodeToPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
                                                                                                                              storeDef,
                                                                                                                              true);
-            Map<Integer, Set<Pair<Integer, Integer>>> targetNodeToPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(targetCluster,
-                                                                                                                            storeDef,
-                                                                                                                            true);
+            Map<Integer, Set<Pair<Integer, Integer>>> finalNodeToPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(finalCluster,
+                                                                                                                           storeDef,
+                                                                                                                           true);
 
             for(int nodeId: nodeCheckList) {
                 Set<Pair<Integer, Integer>> currentPartitionTuples = currentNodeToPartitionTuples.get(nodeId);
-                Set<Pair<Integer, Integer>> targetPartitionTuples = targetNodeToPartitionTuples.get(nodeId);
+                Set<Pair<Integer, Integer>> finalPartitionTuples = finalNodeToPartitionTuples.get(nodeId);
 
                 HashMap<Integer, List<Integer>> flattenedPresentTuples = RebalanceUtils.flattenPartitionTuples(Utils.getAddedInTarget(currentPartitionTuples,
-                                                                                                                                      targetPartitionTuples));
+                                                                                                                                      finalPartitionTuples));
                 Store<ByteArray, byte[], byte[]> store = getSocketStore(storeDef.getName(),
-                                                                        targetCluster.getNodeById(nodeId)
-                                                                                     .getHost(),
-                                                                        targetCluster.getNodeById(nodeId)
-                                                                                     .getSocketPort());
-                checkGetEntries(targetCluster.getNodeById(nodeId),
-                                targetCluster,
+                                                                        finalCluster.getNodeById(nodeId)
+                                                                                    .getHost(),
+                                                                        finalCluster.getNodeById(nodeId)
+                                                                                    .getSocketPort());
+                checkGetEntries(finalCluster.getNodeById(nodeId),
+                                finalCluster,
                                 storeDef,
                                 store,
                                 flattenedPresentTuples,

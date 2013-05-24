@@ -225,9 +225,9 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                     { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
-            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                        1,
-                                                                        Lists.newArrayList(2, 3));
+            Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                       1,
+                                                                       Lists.newArrayList(2, 3));
 
             // start servers 0 , 1 only
             List<Integer> serverList = Arrays.asList(0, 1);
@@ -242,7 +242,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             try {
 
@@ -259,7 +259,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
                 rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, Arrays.asList(1));
 
-                checkConsistentMetadata(targetCluster, serverList);
+                checkConsistentMetadata(finalCluster, serverList);
             } finally {
                 // stop servers
                 stopServer(serverList);
@@ -277,9 +277,9 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                     { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
-            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                        1,
-                                                                        Lists.newArrayList(2, 3));
+            Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                       1,
+                                                                       Lists.newArrayList(2, 3));
 
             // start servers 0 , 1 only
             List<Integer> serverList = Arrays.asList(0, 1);
@@ -295,7 +295,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             try {
                 // Populate the two stores
@@ -311,7 +311,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
                 rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, Arrays.asList(0, 1));
 
-                checkConsistentMetadata(targetCluster, serverList);
+                checkConsistentMetadata(finalCluster, serverList);
             } finally {
                 // stop servers
                 stopServer(serverList);
@@ -329,9 +329,9 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                     { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
-            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                        1,
-                                                                        Lists.newArrayList(2, 3));
+            Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                       1,
+                                                                       Lists.newArrayList(2, 3));
 
             // start servers 0 , 1 only
             List<Integer> serverList = Arrays.asList(0, 1);
@@ -358,7 +358,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             try {
                 populateData(currentCluster,
@@ -367,7 +367,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                              true);
 
                 rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, Arrays.asList(0, 1));
-                checkConsistentMetadata(targetCluster, serverList);
+                checkConsistentMetadata(finalCluster, serverList);
             } finally {
                 // stop servers
                 stopServer(serverList);
@@ -384,9 +384,9 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
         try {
             Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                     { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
-            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                        1,
-                                                                        Lists.newArrayList(2, 3));
+            Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                       1,
+                                                                       Lists.newArrayList(2, 3));
             // start servers 0 , 1 only
             List<Integer> serverList = Arrays.asList(0, 1);
             currentCluster = startServers(currentCluster,
@@ -398,7 +398,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             try {
                 populateData(currentCluster,
@@ -408,7 +408,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
                 rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, Arrays.asList(0, 1));
 
-                checkConsistentMetadata(targetCluster, serverList);
+                checkConsistentMetadata(finalCluster, serverList);
             } finally {
                 // stop servers
                 stopServer(serverList);
@@ -426,9 +426,9 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 },
                     { 1, 3 }, { 2 } });
 
-            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                        2,
-                                                                        Lists.newArrayList(3));
+            Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                       2,
+                                                                       Lists.newArrayList(3));
 
             // start servers 0 , 1, 2
             Map<String, String> configProps = new HashMap<String, String>();
@@ -443,7 +443,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             try {
                 AdminClient adminClient = rebalanceKit.controller.getAdminClient();
@@ -459,7 +459,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                 rebalanceAndCheck(rebalanceKit.plan,
                                   rebalanceKit.controller,
                                   Arrays.asList(0, 1, 2));
-                checkConsistentMetadata(targetCluster, serverList);
+                checkConsistentMetadata(finalCluster, serverList);
 
                 // Do the cleanup operation
                 for(int i = 0; i < 3; i++) {
@@ -494,9 +494,9 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 3 },
                     { 1 }, { 2 } });
 
-            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                        2,
-                                                                        Lists.newArrayList(3));
+            Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                       2,
+                                                                       Lists.newArrayList(3));
 
             // start servers 0 , 1, 2
             Map<String, String> configProps = new HashMap<String, String>();
@@ -511,7 +511,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             try {
                 AdminClient adminClient = rebalanceKit.controller.getAdminClient();
@@ -527,7 +527,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                 rebalanceAndCheck(rebalanceKit.plan,
                                   rebalanceKit.controller,
                                   Arrays.asList(0, 1, 2));
-                checkConsistentMetadata(targetCluster, serverList);
+                checkConsistentMetadata(finalCluster, serverList);
 
                 // Do the cleanup operation
                 for(int i = 0; i < 3; i++) {
@@ -571,7 +571,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                 ports[i * 3 + 2] = nodes.get(i).getAdminPort();
             }
 
-            Cluster targetCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
+            Cluster finalCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
                     { 0, 4, 7 }, { 2, 8 }, { 1, 6 }, { 3, 5, 9 } });
 
             // start servers
@@ -587,7 +587,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             try {
                 populateData(currentCluster,
@@ -602,7 +602,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
                 rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, serverList);
 
-                checkConsistentMetadata(targetCluster, serverList);
+                checkConsistentMetadata(finalCluster, serverList);
             } catch(Exception e) {
                 fail(e.getMessage());
             } finally {
@@ -631,7 +631,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                 ports[i * 3 + 2] = nodes.get(i).getAdminPort();
             }
 
-            Cluster targetCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
+            Cluster finalCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
                     { 0, 4, 7 }, { 2, 8 }, { 1, 6 }, { 3, 5, 9 } });
 
             // start servers
@@ -649,7 +649,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             try {
                 populateData(currentCluster,
@@ -664,7 +664,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
                 rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, serverList);
 
-                checkConsistentMetadata(targetCluster, serverList);
+                checkConsistentMetadata(finalCluster, serverList);
             } catch(Exception e) {
                 fail(e.getMessage());
             } finally {
@@ -684,10 +684,10 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                     { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
-            final Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                              1,
-                                                                              Lists.newArrayList(2,
-                                                                                                 3));
+            final Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                             1,
+                                                                             Lists.newArrayList(2,
+                                                                                                3));
             // start servers 0 , 1 only
             final List<Integer> serverList = Arrays.asList(0, 1);
             Map<String, String> configProps = new HashMap<String, String>();
@@ -708,7 +708,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             // Populate the two stores
             populateData(updatedCurrentCluster,
@@ -799,7 +799,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
                         Thread.sleep(500);
                         rebalancingComplete.set(true);
-                        checkConsistentMetadata(targetCluster, serverList);
+                        checkConsistentMetadata(finalCluster, serverList);
                     } catch(Exception e) {
                         exceptions.add(e);
                         logger.error("Exception in rebalancing thread", e);
@@ -839,9 +839,9 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 },
                     { 1, 3 }, { 2 } });
 
-            Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                        2,
-                                                                        Lists.newArrayList(3));
+            Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                       2,
+                                                                       Lists.newArrayList(3));
 
             // start servers 0,1,2 only
             final List<Integer> serverList = Arrays.asList(0, 1, 2);
@@ -866,7 +866,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             populateData(updatedCurrentCluster,
                          rwStoreDefWithReplication,
@@ -1000,12 +1000,12 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                          true);
             assertEquals("Not enough time to begin proxy writing", proxyWritesDone.get(), true);
             checkEntriesPostRebalance(updatedCurrentCluster,
-                                      targetCluster,
+                                      finalCluster,
                                       Lists.newArrayList(rwStoreDefWithReplication),
                                       Arrays.asList(0, 1, 2),
                                       baselineTuples,
                                       baselineVersions);
-            checkConsistentMetadata(targetCluster, serverList);
+            checkConsistentMetadata(finalCluster, serverList);
             // check No Exception
             if(exceptions.size() > 0) {
 
@@ -1052,10 +1052,10 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                     { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
-            final Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                              1,
-                                                                              Lists.newArrayList(2,
-                                                                                                 3));
+            final Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                             1,
+                                                                             Lists.newArrayList(2,
+                                                                                                3));
 
             final List<Integer> serverList = Arrays.asList(0, 1);
             Map<String, String> configProps = new HashMap<String, String>();
@@ -1075,7 +1075,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
                                                                                                 stealerBased,
-                                                                                                targetCluster);
+                                                                                                finalCluster);
 
             // Populate the two stores
             populateData(updatedCurrentCluster,
@@ -1168,7 +1168,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
                         Thread.sleep(500);
                         rebalancingToken.set(true);
-                        checkConsistentMetadata(targetCluster, serverList);
+                        checkConsistentMetadata(finalCluster, serverList);
                     } catch(Exception e) {
                         exceptions.add(e);
                     } finally {

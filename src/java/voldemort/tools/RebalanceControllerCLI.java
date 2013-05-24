@@ -71,11 +71,11 @@ public class RebalanceControllerCLI {
               .ofType(Long.class)
               .describedAs("proxy pause");
 
-        parser.accepts("final-cluster", "Path to target cluster xml")
+        parser.accepts("final-cluster", "Path to final cluster xml")
               .withRequiredArg()
               .describedAs("cluster.xml");
         parser.accepts("final-stores",
-                       "Path to target store definition xml. Needed for zone expansion.")
+                       "Path to final store definition xml. Needed for zone expansion.")
               .withRequiredArg()
               .describedAs("stores.xml");
 

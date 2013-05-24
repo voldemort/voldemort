@@ -36,7 +36,7 @@ public class RebalanceMetadataConsistencyTest {
 
     private MetadataStore metadataStore;
     private Cluster currentCluster;
-    private Cluster targetCluster;
+    private Cluster finalCluster;
 
     protected static String testStoreNameRW = "test";
     protected static String testStoreNameRW2 = "test2";
@@ -78,7 +78,7 @@ public class RebalanceMetadataConsistencyTest {
 
         currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1, 3 }, { 2 } });
 
-        targetCluster = ServerTestUtils.getLocalCluster(3,
+        finalCluster = ServerTestUtils.getLocalCluster(3,
                                                         new int[][] { { 0 }, { 1 }, { 2 }, { 3 } });
 
         rwStoreDefWithReplication = new StoreDefinitionBuilder().setName(testStoreNameRW)
@@ -131,7 +131,7 @@ public class RebalanceMetadataConsistencyTest {
                 storeDef = rwStoreDefWithReplication;
 
             } else {
-                cluster = targetCluster;
+                cluster = finalCluster;
                 storeDef = rwStoreDefWithReplication2;
 
             }
@@ -190,7 +190,7 @@ public class RebalanceMetadataConsistencyTest {
             if(checkCluster.equals(currentCluster)) {
                 Assert.assertEquals(checkstores.get(0), rwStoreDefWithReplication);
             }
-            if(checkCluster.equals(targetCluster)) {
+            if(checkCluster.equals(finalCluster)) {
                 Assert.assertEquals(checkstores.get(0), rwStoreDefWithReplication2);
             }
         }

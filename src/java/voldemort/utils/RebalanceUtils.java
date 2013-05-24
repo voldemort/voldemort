@@ -274,9 +274,9 @@ public class RebalanceUtils {
     }
 
     /**
-     * A target cluster ought to be a super set of current cluster. I.e., it
+     * An interim cluster ought to be a super set of current cluster. I.e., it
      * ought to either be the same as current cluster (every partition is mapped
-     * to the same node of current & target), or it ought to have more nodes
+     * to the same node of current & interim), or it ought to have more nodes
      * (possibly in new zones) without partitions.
      * 
      * @param currentCluster
@@ -421,7 +421,6 @@ public class RebalanceUtils {
         }
     }
 
-    // TODO: Can getInterimCluster and getClusterWithNewNodes be merged?
     /**
      * Given the current cluster and final cluster, generates an interim cluster
      * with empty new nodes (and zones).
@@ -446,22 +445,16 @@ public class RebalanceUtils {
     }
 
     /**
-     * Given the current cluster and a target cluster, generates a cluster with
-     * new nodes ( which in turn contain empty partition lists )
+     * Given the current cluster and an interim cluster, generates a cluster
+     * with new nodes (which in turn contain empty partition lists).
      * 
      * @param currentCluster Current cluster metadata
-     * @param targetCluster Target cluster metadata
+     * @param interimCluster Interim cluster metadata
      * @return Returns a new cluster which contains nodes of the current cluster
      *         + new nodes
      */
-    public static Cluster getClusterWithNewNodes(Cluster currentCluster, Cluster targetCluster) {
-        ArrayList<Node> newNodes = new ArrayList<Node>();
-        for(Node node: targetCluster.getNodes()) {
-            if(!ClusterUtils.containsNode(currentCluster, node.getId())) {
-                newNodes.add(NodeUtils.updateNode(node, new ArrayList<Integer>()));
-            }
-        }
-        return updateCluster(currentCluster, newNodes);
+    public static Cluster getClusterWithNewNodes(Cluster currentCluster, Cluster interimCluster) {
+        return getInterimCluster(currentCluster, interimCluster);
     }
 
     /**
@@ -537,7 +530,7 @@ public class RebalanceUtils {
      * always.
      * 
      * @param currentCluster The cluster definition of the existing cluster
-     * @param finalCluster The target cluster definition
+     * @param finalCluster The final cluster definition
      * @param stealNodeId Node id of the stealer node
      * @return Returns a list of primary partitions which this stealer node will
      *         get
@@ -566,28 +559,28 @@ public class RebalanceUtils {
      * Find all [replica_type, partition] tuples to be stolen
      * 
      * @param currentCluster Current cluster metadata
-     * @param targetCluster Target cluster metadata
+     * @param finalCluster Final cluster metadata
      * @param storeDef Store Definition
      * @return Map of stealer node id to sets of [ replica_type, partition ]
      *         tuples
      */
     public static Map<Integer, Set<Pair<Integer, Integer>>> getStolenPartitionTuples(final Cluster currentCluster,
-                                                                                     final Cluster targetCluster,
+                                                                                     final Cluster finalCluster,
                                                                                      final StoreDefinition storeDef) {
         Map<Integer, Set<Pair<Integer, Integer>>> currentNodeIdToReplicas = getNodeIdToAllPartitions(currentCluster,
                                                                                                      storeDef,
                                                                                                      true);
-        Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToReplicas = getNodeIdToAllPartitions(targetCluster,
-                                                                                                    storeDef,
-                                                                                                    true);
+        Map<Integer, Set<Pair<Integer, Integer>>> finalNodeIdToReplicas = getNodeIdToAllPartitions(finalCluster,
+                                                                                                   storeDef,
+                                                                                                   true);
 
         Map<Integer, Set<Pair<Integer, Integer>>> stealerNodeToStolenPartitionTuples = Maps.newHashMap();
-        for(int stealerId: NodeUtils.getNodeIds(Lists.newArrayList(targetCluster.getNodes()))) {
+        for(int stealerId: NodeUtils.getNodeIds(Lists.newArrayList(finalCluster.getNodes()))) {
             Set<Pair<Integer, Integer>> clusterStealerReplicas = currentNodeIdToReplicas.get(stealerId);
-            Set<Pair<Integer, Integer>> targetStealerReplicas = targetNodeIdToReplicas.get(stealerId);
+            Set<Pair<Integer, Integer>> finalStealerReplicas = finalNodeIdToReplicas.get(stealerId);
 
             Set<Pair<Integer, Integer>> diff = Utils.getAddedInTarget(clusterStealerReplicas,
-                                                                      targetStealerReplicas);
+                                                                      finalStealerReplicas);
 
             if(diff != null && diff.size() > 0) {
                 stealerNodeToStolenPartitionTuples.put(stealerId, diff);
@@ -908,17 +901,17 @@ public class RebalanceUtils {
     }
 
     /**
-     * Given the initial and final cluster dumps it into the output directory
+     * Given the current and final cluster dumps it into the output directory
      * 
-     * @param initialCluster Initial cluster metadata
+     * @param currentCluster Initial cluster metadata
      * @param finalCluster Final cluster metadata
      * @param outputDir Output directory where to dump this file
      * @throws IOException
      */
-    public static void dumpClusters(Cluster initialCluster,
+    public static void dumpClusters(Cluster currentCluster,
                                     Cluster finalCluster,
                                     String outputDirName) {
-        dumpClusters(initialCluster, finalCluster, outputDirName, "");
+        dumpClusters(currentCluster, finalCluster, outputDirName, "");
     }
 
     /**

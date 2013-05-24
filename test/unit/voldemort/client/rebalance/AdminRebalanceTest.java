@@ -95,8 +95,8 @@ public class AdminRebalanceTest {
     private StoreDefinition storeDef3;
     private StoreDefinition storeDef4;
     private VoldemortServer[] servers;
-    private Cluster cluster;
-    private Cluster targetCluster;
+    private Cluster currentCluster;
+    private Cluster finalCluster;
     private AdminClient adminClient;
     private List<RebalancePartitionsInfo> plans;
 
@@ -135,22 +135,22 @@ public class AdminRebalanceTest {
         int numServers = 3;
         servers = new VoldemortServer[numServers];
         int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, {} };
-        cluster = ServerTestUtils.startVoldemortCluster(numServers,
-                                                        servers,
-                                                        partitionMap,
-                                                        socketStoreFactory,
-                                                        useNio,
-                                                        null,
-                                                        tempStoreXml.getAbsolutePath(),
-                                                        new Properties());
+        currentCluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                               servers,
+                                                               partitionMap,
+                                                               socketStoreFactory,
+                                                               useNio,
+                                                               null,
+                                                               tempStoreXml.getAbsolutePath(),
+                                                               new Properties());
 
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 2, Lists.newArrayList(0));
+        finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster, 2, Lists.newArrayList(0));
 
-        RebalanceBatchPlan plan = new RebalanceBatchPlan(cluster,
-                                                         targetCluster,
+        RebalanceBatchPlan plan = new RebalanceBatchPlan(currentCluster,
+                                                         finalCluster,
                                                          Lists.newArrayList(storeDef1, storeDef2));
         plans = Lists.newArrayList(plan.getBatchPlan());
-        adminClient = ServerTestUtils.getAdminClient(cluster);
+        adminClient = ServerTestUtils.getAdminClient(currentCluster);
     }
 
     public void startFourNodeRW() throws IOException {
@@ -176,21 +176,21 @@ public class AdminRebalanceTest {
         int numServers = 4;
         servers = new VoldemortServer[numServers];
         int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, {} };
-        cluster = ServerTestUtils.startVoldemortCluster(numServers,
-                                                        servers,
-                                                        partitionMap,
-                                                        socketStoreFactory,
-                                                        useNio,
-                                                        null,
-                                                        tempStoreXml.getAbsolutePath(),
-                                                        new Properties());
+        currentCluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                               servers,
+                                                               partitionMap,
+                                                               socketStoreFactory,
+                                                               useNio,
+                                                               null,
+                                                               tempStoreXml.getAbsolutePath(),
+                                                               new Properties());
 
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
-        RebalanceBatchPlan plan = new RebalanceBatchPlan(cluster,
-                                                         targetCluster,
+        finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster, 3, Lists.newArrayList(0));
+        RebalanceBatchPlan plan = new RebalanceBatchPlan(currentCluster,
+                                                         finalCluster,
                                                          Lists.newArrayList(storeDef1, storeDef2));
         plans = Lists.newArrayList(plan.getBatchPlan());
-        adminClient = ServerTestUtils.getAdminClient(cluster);
+        adminClient = ServerTestUtils.getAdminClient(currentCluster);
     }
 
     public void startFourNodeRO() throws IOException {
@@ -226,22 +226,22 @@ public class AdminRebalanceTest {
         int numServers = 4;
         servers = new VoldemortServer[numServers];
         int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, {} };
-        cluster = ServerTestUtils.startVoldemortCluster(numServers,
-                                                        servers,
-                                                        partitionMap,
-                                                        socketStoreFactory,
-                                                        useNio,
-                                                        null,
-                                                        tempStoreXml.getAbsolutePath(),
-                                                        new Properties());
+        currentCluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                               servers,
+                                                               partitionMap,
+                                                               socketStoreFactory,
+                                                               useNio,
+                                                               null,
+                                                               tempStoreXml.getAbsolutePath(),
+                                                               new Properties());
 
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
-        RebalanceBatchPlan plan = new RebalanceBatchPlan(cluster,
-                                                         targetCluster,
+        finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster, 3, Lists.newArrayList(0));
+        RebalanceBatchPlan plan = new RebalanceBatchPlan(currentCluster,
+                                                         finalCluster,
                                                          Lists.newArrayList(storeDef1, storeDef2));
 
         plans = Lists.newArrayList(plan.getBatchPlan());
-        adminClient = ServerTestUtils.getAdminClient(cluster);
+        adminClient = ServerTestUtils.getAdminClient(currentCluster);
     }
 
     public void startFourNodeRORW() throws IOException {
@@ -294,23 +294,23 @@ public class AdminRebalanceTest {
         int numServers = 4;
         servers = new VoldemortServer[numServers];
         int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, {} };
-        cluster = ServerTestUtils.startVoldemortCluster(numServers,
-                                                        servers,
-                                                        partitionMap,
-                                                        socketStoreFactory,
-                                                        useNio,
-                                                        null,
-                                                        tempStoreXml.getAbsolutePath(),
-                                                        new Properties());
+        currentCluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                               servers,
+                                                               partitionMap,
+                                                               socketStoreFactory,
+                                                               useNio,
+                                                               null,
+                                                               tempStoreXml.getAbsolutePath(),
+                                                               new Properties());
 
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
+        finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster, 3, Lists.newArrayList(0));
         // Make plan only with RO stores
-        RebalanceBatchPlan plan = new RebalanceBatchPlan(cluster,
-                                                         targetCluster,
+        RebalanceBatchPlan plan = new RebalanceBatchPlan(currentCluster,
+                                                         finalCluster,
                                                          Lists.newArrayList(storeDef1, storeDef2));
         plans = plan.getBatchPlan();
 
-        adminClient = ServerTestUtils.getAdminClient(cluster);
+        adminClient = ServerTestUtils.getAdminClient(currentCluster);
 
     }
 
@@ -359,11 +359,11 @@ public class AdminRebalanceTest {
             HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_SIZE);
 
             SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(Lists.newArrayList("tcp://"
-                                                                                                                                   + cluster.getNodeById(0)
-                                                                                                                                            .getHost()
+                                                                                                                                   + currentCluster.getNodeById(0)
+                                                                                                                                                   .getHost()
                                                                                                                                    + ":"
-                                                                                                                                   + cluster.getNodeById(0)
-                                                                                                                                            .getSocketPort())));
+                                                                                                                                   + currentCluster.getNodeById(0)
+                                                                                                                                                   .getSocketPort())));
             StoreClient<Object, Object> storeClient1 = factory.getStoreClient("test"), storeClient2 = factory.getStoreClient("test2");
 
             List<Integer> primaryPartitionsMoved = Lists.newArrayList(0);
@@ -373,7 +373,7 @@ public class AdminRebalanceTest {
             HashMap<ByteArray, byte[]> secondaryEntriesMoved = Maps.newHashMap();
 
             RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef2,
-                                                                                          cluster);
+                                                                                          currentCluster);
             for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
                 storeClient1.put(new String(entry.getKey().get()), new String(entry.getValue()));
                 storeClient2.put(new String(entry.getKey().get()), new String(entry.getValue()));
@@ -436,7 +436,7 @@ public class AdminRebalanceTest {
 
             // Update the cluster metadata on all three nodes
             for(VoldemortServer server: servers) {
-                server.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
+                server.getMetadataStore().put(MetadataStore.CLUSTER_KEY, finalCluster);
             }
 
             // Actually run it
@@ -524,11 +524,11 @@ public class AdminRebalanceTest {
             HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_SIZE);
 
             SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(Lists.newArrayList("tcp://"
-                                                                                                                                   + cluster.getNodeById(0)
-                                                                                                                                            .getHost()
+                                                                                                                                   + currentCluster.getNodeById(0)
+                                                                                                                                                   .getHost()
                                                                                                                                    + ":"
-                                                                                                                                   + cluster.getNodeById(0)
-                                                                                                                                            .getSocketPort())));
+                                                                                                                                   + currentCluster.getNodeById(0)
+                                                                                                                                                   .getSocketPort())));
             StoreClient<Object, Object> storeClient1 = factory.getStoreClient("test"), storeClient2 = factory.getStoreClient("test2");
 
             List<Integer> primaryPartitionsMoved = Lists.newArrayList(0);
@@ -540,7 +540,7 @@ public class AdminRebalanceTest {
             HashMap<ByteArray, byte[]> tertiaryEntriesMoved = Maps.newHashMap();
 
             RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef2,
-                                                                                          cluster);
+                                                                                          currentCluster);
             for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
                 storeClient1.put(new String(entry.getKey().get()), new String(entry.getValue()));
                 storeClient2.put(new String(entry.getKey().get()), new String(entry.getValue()));
@@ -569,7 +569,7 @@ public class AdminRebalanceTest {
 
             // Update the cluster metadata on all three nodes
             for(VoldemortServer server: servers) {
-                server.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
+                server.getMetadataStore().put(MetadataStore.CLUSTER_KEY, finalCluster);
             }
 
             // Actually run it
@@ -805,10 +805,8 @@ public class AdminRebalanceTest {
                                                                           .build()));
 
             try {
-                // TODO pass the target storedefs
-                // ATTENTION JAY
-                adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                              targetCluster,
+                adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                              finalCluster,
                                                               servers[2].getMetadataStore()
                                                                         .getStoreDefList(),
                                                               servers[2].getMetadataStore()
@@ -827,13 +825,11 @@ public class AdminRebalanceTest {
 
             // Test that all servers are still using the old cluster and have
             // swapped successfully
-            checkRO(cluster);
+            checkRO(currentCluster);
 
             // Test 2) All passes scenario
-            // TODO pass the target storedefs
-            // ATTENTION JAY
-            adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                          targetCluster,
+            adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                          finalCluster,
                                                           servers[2].getMetadataStore()
                                                                     .getStoreDefList(),
                                                           servers[2].getMetadataStore()
@@ -845,7 +841,7 @@ public class AdminRebalanceTest {
                                                           true,
                                                           true);
 
-            checkRO(targetCluster);
+            checkRO(finalCluster);
 
             // Test 3) Now try fetching files again even though they are
             // mmap-ed. Should fail...
@@ -926,13 +922,11 @@ public class AdminRebalanceTest {
                       .update(new RebalancePartitionsInfo(3,
                                                           0,
                                                           new HashMap<String, HashMap<Integer, List<Integer>>>(),
-                                                          cluster));
+                                                          currentCluster));
 
             try {
-                // TODO pass the target storedefs
-                // ATTENTION JAY
-                adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                              targetCluster,
+                adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                              finalCluster,
                                                               servers[2].getMetadataStore()
                                                                         .getStoreDefList(),
                                                               servers[2].getMetadataStore()
@@ -955,9 +949,9 @@ public class AdminRebalanceTest {
                     assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                                  MetadataStore.VoldemortState.NORMAL_SERVER);
                 }
-                assertEquals(server.getMetadataStore().getCluster(), cluster);
+                assertEquals(server.getMetadataStore().getCluster(), currentCluster);
             }
-            checkRO(cluster);
+            checkRO(currentCluster);
 
             // Clean-up everything
             cleanUpAllState();
@@ -983,10 +977,8 @@ public class AdminRebalanceTest {
                                                                           .build()));
 
             try {
-                // // TODO pass the target storedefs
-                // ATTENTION JAY
-                adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                              targetCluster,
+                adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                              finalCluster,
                                                               servers[2].getMetadataStore()
                                                                         .getStoreDefList(),
                                                               servers[2].getMetadataStore()
@@ -1007,9 +999,9 @@ public class AdminRebalanceTest {
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
                 assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
-                assertEquals(server.getMetadataStore().getCluster(), cluster);
+                assertEquals(server.getMetadataStore().getCluster(), currentCluster);
             }
-            checkRO(cluster);
+            checkRO(currentCluster);
 
             // Clean-up everything
             cleanUpAllState();
@@ -1022,11 +1014,8 @@ public class AdminRebalanceTest {
                                                                  storeDef4));
 
             // Test 3) Everything should work
-
-            // TODO pass the target storedefs
-            // ATTENTION JAY
-            adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                          targetCluster,
+            adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                          finalCluster,
                                                           servers[2].getMetadataStore()
                                                                     .getStoreDefList(),
                                                           servers[2].getMetadataStore()
@@ -1047,10 +1036,10 @@ public class AdminRebalanceTest {
                                                          .getServerStateUnlocked(),
                              MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
                 assertEquals(servers[plan.getStealerId()].getMetadataStore().getCluster(),
-                             targetCluster);
+                             finalCluster);
             }
 
-            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(currentCluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
@@ -1059,10 +1048,10 @@ public class AdminRebalanceTest {
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
                 assertEquals(servers[nodeId].getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
-                assertEquals(servers[nodeId].getMetadataStore().getCluster(), targetCluster);
+                assertEquals(servers[nodeId].getMetadataStore().getCluster(), finalCluster);
             }
 
-            checkRO(targetCluster);
+            checkRO(finalCluster);
         } finally {
             shutDown();
         }
@@ -1101,10 +1090,8 @@ public class AdminRebalanceTest {
             startFourNodeRW();
 
             // Test 1) Normal case where-in all are up
-            // TODO pass the target storedefs
-            // ATTENTION JAY
-            adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                          targetCluster,
+            adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                          finalCluster,
                                                           servers[2].getMetadataStore()
                                                                     .getStoreDefList(),
                                                           servers[2].getMetadataStore()
@@ -1123,7 +1110,7 @@ public class AdminRebalanceTest {
                              new RebalancerState(Lists.newArrayList(plan)));
             }
 
-            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(currentCluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
@@ -1142,13 +1129,11 @@ public class AdminRebalanceTest {
                       .update(new RebalancePartitionsInfo(3,
                                                           0,
                                                           new HashMap<String, HashMap<Integer, List<Integer>>>(),
-                                                          cluster));
+                                                          currentCluster));
 
             try {
-                // TODO pass the target storedefs
-                // ATTENTION JAY
-                adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                              targetCluster,
+                adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                              finalCluster,
                                                               servers[2].getMetadataStore()
                                                                         .getStoreDefList(),
                                                               servers[2].getMetadataStore()
@@ -1179,10 +1164,8 @@ public class AdminRebalanceTest {
             servers[3] = null;
 
             try {
-                // TODO pass the target storedefs
-                // ATTENTION JAY
-                adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                              targetCluster,
+                adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                              finalCluster,
                                                               servers[2].getMetadataStore()
                                                                         .getStoreDefList(),
                                                               servers[2].getMetadataStore()
@@ -1216,10 +1199,8 @@ public class AdminRebalanceTest {
             startFourNodeRW();
 
             // Test 1) Normal case where-in all are up
-            // TODO pass the target storedefs
-            // ATTENTION JAY
-            adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                          targetCluster,
+            adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                          finalCluster,
                                                           servers[2].getMetadataStore()
                                                                     .getStoreDefList(),
                                                           servers[2].getMetadataStore()
@@ -1237,17 +1218,17 @@ public class AdminRebalanceTest {
                 assertEquals(servers[plan.getStealerId()].getMetadataStore().getRebalancerState(),
                              new RebalancerState(Lists.newArrayList(plan)));
                 assertEquals(servers[plan.getStealerId()].getMetadataStore().getCluster(),
-                             targetCluster);
+                             finalCluster);
             }
 
-            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(currentCluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
             for(int nodeId: allNodes) {
                 assertEquals(servers[nodeId].getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(servers[nodeId].getMetadataStore().getCluster(), targetCluster);
+                assertEquals(servers[nodeId].getMetadataStore().getCluster(), finalCluster);
             }
 
             // Clean-up everything
@@ -1260,13 +1241,11 @@ public class AdminRebalanceTest {
                       .update(new RebalancePartitionsInfo(3,
                                                           0,
                                                           new HashMap<String, HashMap<Integer, List<Integer>>>(),
-                                                          cluster));
+                                                          currentCluster));
 
             try {
-                // TODO pass the target storedefs
-                // ATTENTION JAY
-                adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                              targetCluster,
+                adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                              finalCluster,
                                                               servers[2].getMetadataStore()
                                                                         .getStoreDefList(),
                                                               servers[2].getMetadataStore()
@@ -1287,7 +1266,7 @@ public class AdminRebalanceTest {
                     assertEquals(server.getMetadataStore().getRebalancerState(),
                                  new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
                 }
-                assertEquals(server.getMetadataStore().getCluster(), cluster);
+                assertEquals(server.getMetadataStore().getCluster(), currentCluster);
             }
 
             // Clean-up everything
@@ -1298,10 +1277,8 @@ public class AdminRebalanceTest {
             servers[3] = null;
 
             try {
-                // TODO pass the target storedefs
-                // ATTENTION JAY
-                adminClient.rebalanceOps.rebalanceStateChange(cluster,
-                                                              targetCluster,
+                adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                              finalCluster,
                                                               servers[2].getMetadataStore()
                                                                         .getStoreDefList(),
                                                               servers[2].getMetadataStore()
@@ -1321,7 +1298,7 @@ public class AdminRebalanceTest {
                 if(server != null) {
                     assertEquals(server.getMetadataStore().getRebalancerState(),
                                  new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                    assertEquals(server.getMetadataStore().getCluster(), cluster);
+                    assertEquals(server.getMetadataStore().getCluster(), currentCluster);
                 }
             }
         } finally {
@@ -1334,7 +1311,7 @@ public class AdminRebalanceTest {
 
             if(server != null) {
                 // Put back the old cluster metadata
-                server.getMetadataStore().put(MetadataStore.CLUSTER_KEY, cluster);
+                server.getMetadataStore().put(MetadataStore.CLUSTER_KEY, currentCluster);
 
                 // Clear all the rebalancing state
                 server.getMetadataStore().cleanAllRebalancingState();
@@ -1343,7 +1320,7 @@ public class AdminRebalanceTest {
     }
 
     private void buildROStore(StoreDefinition storeDef, int numChunks) throws IOException {
-        Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = RebalanceUtils.getNodeIdToAllPartitions(cluster,
+        Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
                                                                                                                   storeDef,
                                                                                                                   true);
         for(Entry<Integer, Set<Pair<Integer, Integer>>> entry: nodeIdToAllPartitions.entrySet()) {

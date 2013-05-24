@@ -123,8 +123,25 @@ public class VoldemortServer extends AbstractService {
 
     /**
      * Compare the configured hostname with all the ip addresses and hostnames
-     * for the server node, and log a warning if there is a mismatch
+     * for the server node, and log a warning if there is a mismatch.
+     * 
      */
+    // TODO: VoldemortServer should throw exception if cluster xml, node id, and
+    // server's state are not all mutually consistent.
+    //
+    // "I attempted to do this in the past. In practice its hard since the
+    // hostname strings returned may not exactly match what's in cluster.xml
+    // (ela4-app0000.prod vs ela4-app0000.prod.linkedin.com). And for folks
+    // running with multiple interfaces and stuff in the open source world, not
+    // sure how it would fan out..
+    //
+    // I am in favour of doing this though.. May be implement a server config,
+    // "strict.hostname.check.on.startup" which is false by default and true for
+    // our environments and our SRE makes sure there is an exact match?" --
+    // VChandar
+    //
+    // "Strict host name doesn't work? We can always trim the rest before the comparison."
+    // -- LGao
     private void checkHostName() {
         try {
             HashSet<String> ipAddrList = new HashSet<String>();
