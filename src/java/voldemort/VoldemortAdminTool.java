@@ -49,6 +49,7 @@ import java.util.Set;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
+import org.apache.commons.codec.DecoderException;
 import org.apache.commons.io.FileUtils;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
@@ -613,7 +614,7 @@ public class VoldemortAdminTool {
                 if(storeNames == null || storeNames.size() == 0) {
                     throw new VoldemortException("Must specify store name using --stores option");
                 }
-                executeQueryKeys(nodeId, adminClient, storeNames, keyList);
+                executeQueryKeys(nodeId, adminClient, storeNames, keyList, options.has("ascii"));
             }
             if(ops.contains("h")) {
                 if(nodeId == -1) {
@@ -826,8 +827,10 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries --url [url] --node [node-id]");
         stream.println("\t9) Update entries for a set of stores using the output from a binary dump fetch entries");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --update-entries [folder path from output of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated list of store names]");
-        stream.println("\t10) Query stores for a set of keys on a specific node.");
+        stream.println("\t10.a) Query stores for a set of keys on a specific node, in hexstring format");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --query-keys [comma-separated list of keys] --url [url] --node [node-id] --stores [comma-separated list of store names]");
+        stream.println("\t10.b) Query stores for a set of keys on a specific node, in ascii format");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --query-keys [comma-separated list of keys] --url [url] --node [node-id] --stores [comma-separated list of store names] --ascii");
         stream.println("\t11) Mirror data from another voldemort server (possibly in another cluster) for specified stores");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --mirror-from-url [bootstrap url to mirror from] --mirror-node [node to mirror from] --url [url] --node [node-id] --stores [comma-separated-list-of-store-names]");
         stream.println("\t12) Mirror data from another voldemort server (possibly in another cluster) for all stores in current cluster");
@@ -1631,11 +1634,22 @@ public class VoldemortAdminTool {
     private static void executeQueryKeys(final Integer nodeId,
                                          AdminClient adminClient,
                                          List<String> storeNames,
-                                         List<String> keys) throws IOException {
-        Serializer<String> serializer = new StringSerializer();
+                                         List<String> keys,
+                                         boolean useAscii) throws IOException {
         List<ByteArray> listKeys = new ArrayList<ByteArray>();
+        Serializer<String> serializer = new StringSerializer();
         for(String key: keys) {
-            listKeys.add(new ByteArray(serializer.toBytes(key)));
+            try {
+                if(useAscii) {
+                    listKeys.add(new ByteArray(serializer.toBytes(key)));
+                } else {
+                    listKeys.add(new ByteArray(ByteUtils.fromHexString(key)));
+                }
+            } catch(DecoderException de) {
+                System.err.println("Error decoding key " + key);
+                de.printStackTrace();
+                return;
+            }
         }
         for(final String storeName: storeNames) {
             final Iterator<QueryKeyResult> iterator = adminClient.streamingOps.queryKeys(nodeId.intValue(),

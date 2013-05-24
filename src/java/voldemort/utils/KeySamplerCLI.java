@@ -21,10 +21,12 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -65,7 +67,7 @@ public class KeySamplerCLI {
     private final AdminClient adminClient;
     private final Cluster cluster;
     private final List<StoreDefinition> storeDefinitions;
-    private final Map<String, StringBuilder> storeNameToKeyStringsMap;
+    private final Set<String> storeNameSet;
 
     private final String outDir;
 
@@ -90,7 +92,7 @@ public class KeySamplerCLI {
         this.adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
         this.cluster = adminClient.getAdminClientCluster();
         this.storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue();
-        this.storeNameToKeyStringsMap = new HashMap<String, StringBuilder>();
+        this.storeNameSet = new HashSet<String>();
         for(StoreDefinition storeDefinition: storeDefinitions) {
             String storeName = storeDefinition.getName();
             if(storeNames != null) {
@@ -101,13 +103,13 @@ public class KeySamplerCLI {
                     continue;
                 }
             }
-            this.storeNameToKeyStringsMap.put(storeName, new StringBuilder());
+            this.storeNameSet.add(storeName);
         }
 
         if(storeNames != null) {
             List<String> badStoreNames = new LinkedList<String>();
             for(String storeName: storeNames) {
-                if(!this.storeNameToKeyStringsMap.keySet().contains(storeName)) {
+                if(!this.storeNameSet.contains(storeName)) {
                     badStoreNames.add(storeName);
                 }
             }
@@ -129,7 +131,7 @@ public class KeySamplerCLI {
 
     public boolean sampleStores() {
         for(StoreDefinition storeDefinition: storeDefinitions) {
-            if(storeNameToKeyStringsMap.keySet().contains(storeDefinition.getName())) {
+            if(storeNameSet.contains(storeDefinition.getName())) {
                 if(!sampleStore(storeDefinition)) {
                     return false;
                 }
@@ -141,30 +143,31 @@ public class KeySamplerCLI {
     public static class NodeSampleResult {
 
         public final boolean success;
-        public final String keysString;
+        public final Exception exception;
 
-        NodeSampleResult(boolean success, String keysString) {
+        NodeSampleResult(boolean success, Exception exception) {
             this.success = success;
-            this.keysString = keysString;
+            this.exception = exception;
         }
     }
 
-    public class NodeSampler implements Callable<NodeSampleResult> {
+    public class SampleNodeTask implements Callable<NodeSampleResult> {
 
         private final Node node;
         private final StoreDefinition storeDefinition;
         private final EventThrottler throttler;
+        private final Writer writer;
 
-        NodeSampler(Node node, StoreDefinition storeDefinition) {
+        public SampleNodeTask(Node node, StoreDefinition storeDefinition, Writer writer) {
             this.node = node;
             this.storeDefinition = storeDefinition;
             this.throttler = new EventThrottler(keysPerSecondLimit);
+            this.writer = writer;
         }
 
         @Override
         public NodeSampleResult call() throws Exception {
             String storeName = storeDefinition.getName();
-            StringBuilder hexKeysString = new StringBuilder();
             String nodeTag = node.getId() + " [" + node.getHost() + "]";
 
             List<Integer> nodePartitionIds = new ArrayList<Integer>(node.getPartitionIds());
@@ -173,7 +176,7 @@ public class KeySamplerCLI {
                 if(nodePartitionIds.size() == 0) {
                     logger.info("No partitions to sample for store '" + storeName + "' on node "
                                 + nodeTag);
-                    return new NodeSampleResult(true, hexKeysString.toString());
+                    return new NodeSampleResult(true, null);
                 }
             }
 
@@ -195,7 +198,10 @@ public class KeySamplerCLI {
                 while(fetchIterator.hasNext()) {
                     ByteArray key = fetchIterator.next();
                     String hexKeyString = ByteUtils.toHexString(key.get());
-                    hexKeysString.append(hexKeyString + "\n");
+                    // locking to prevent garbled output from multiple threads
+                    synchronized(this.writer) {
+                        writer.append(hexKeyString + "\n");
+                    }
                     keyCount++;
 
                     throttler.maybeThrottle(1);
@@ -220,11 +226,13 @@ public class KeySamplerCLI {
                 }
 
                 logger.info("Finished sample --- " + infoTag);
-                return new NodeSampleResult(true, hexKeysString.toString());
+                return new NodeSampleResult(true, null);
             } catch(VoldemortException ve) {
                 logger.error("Failed to sample --- " + infoTag + " --- VoldemortException caught ("
-                             + ve.getMessage() + ") caused by (" + ve.getCause().getMessage() + ")");
-                throw ve;
+                                     + ve.getMessage() + ") caused by ("
+                                     + ve.getCause().getMessage() + ")",
+                             ve);
+                return new NodeSampleResult(false, ve);
             }
         }
     }
@@ -246,8 +254,9 @@ public class KeySamplerCLI {
 
             Map<Node, Future<NodeSampleResult>> results = new HashMap<Node, Future<NodeSampleResult>>();
             for(Node node: cluster.getNodes()) {
-                Future<NodeSampleResult> future = nodeSamplerService.submit(new NodeSampler(node,
-                                                                                            storeDefinition));
+                Future<NodeSampleResult> future = nodeSamplerService.submit(new SampleNodeTask(node,
+                                                                                               storeDefinition,
+                                                                                               keyWriter));
                 results.put(node, future);
             }
 
@@ -261,34 +270,33 @@ public class KeySamplerCLI {
 
                 try {
                     NodeSampleResult nodeSampleResult = future.get();
-                    if(nodeSampleResult.success) {
-                        keyWriter.write(nodeSampleResult.keysString);
-                    } else {
+                    if(!nodeSampleResult.success) {
                         success = false;
                         logger.error("Sampling on node " + node.getHost() + " of store "
-                                     + storeDefinition.getName() + " failed.");
+                                             + storeDefinition.getName() + " failed.",
+                                     nodeSampleResult.exception);
                     }
                 } catch(ExecutionException ee) {
                     success = false;
                     logger.error("Encountered an execution exception on node " + node.getHost()
-                                 + " while sampling " + storeName + ": " + ee.getMessage());
+                                 + " while sampling " + storeName, ee);
                     ee.printStackTrace();
                 } catch(InterruptedException ie) {
                     success = false;
                     logger.error("Waiting for node " + node.getHost() + " to be sampled for store "
-                                 + storeName + ", but was interrupted: " + ie.getMessage());
+                                 + storeName + ", but was interrupted", ie);
                 }
             }
             return success;
         } catch(IOException e) {
-            logger.error("IOException encountered for store " + storeName + " : " + e.getMessage());
+            logger.error("IOException encountered for store " + storeName, e);
             return false;
         } finally {
             try {
                 keyWriter.close();
             } catch(IOException e) {
                 logger.error("IOException caught while trying to close keyWriter for store "
-                             + storeName + " : " + e.getMessage());
+                             + storeName, e);
             }
         }
     }
