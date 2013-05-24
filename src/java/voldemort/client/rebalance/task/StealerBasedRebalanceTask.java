@@ -22,12 +22,12 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.rebalance.RebalanceBatchPlanProgressBar;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.utils.RebalanceUtils;
 
 import com.google.common.collect.Lists;
 
@@ -61,12 +61,21 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     // done.
     private final int maxTries;
 
-    public StealerBasedRebalanceTask(final int taskId,
+    public StealerBasedRebalanceTask(final int batchId,
+                                     final int taskId,
                                      final RebalancePartitionsInfo stealInfo,
                                      final int maxTries,
                                      final Semaphore donorPermit,
-                                     final AdminClient adminClient) {
-        super(taskId, Lists.newArrayList(stealInfo), donorPermit, adminClient);
+                                     final AdminClient adminClient,
+                                     final RebalanceBatchPlanProgressBar progressBar) {
+        super(batchId,
+              taskId,
+              Lists.newArrayList(stealInfo),
+              donorPermit,
+              adminClient,
+              progressBar,
+              logger);
+
         this.maxTries = maxTries;
         this.stealerNodeId = stealInfo.getStealerId();
     }
@@ -79,18 +88,15 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
             nTries++;
             try {
 
-                RebalanceUtils.printLog(taskId, logger, "Starting on node " + stealerNodeId
-                                                        + " rebalancing task " + stealInfos.get(0));
-
+                taskLog("Trying to start async rebalance task on stealer node " + stealerNodeId);
                 int asyncOperationId = adminClient.rebalanceOps.rebalanceNode(stealInfos.get(0));
+                taskLog("Started async rebalance task on stealer node " + stealerNodeId);
+
                 return asyncOperationId;
 
             } catch(AlreadyRebalancingException e) {
-                RebalanceUtils.printLog(taskId,
-                                        logger,
-                                        "Node "
-                                                + stealerNodeId
-                                                + " is currently rebalancing. Waiting till completion");
+                taskLog("Node " + stealerNodeId
+                        + " is currently rebalancing. Waiting till completion");
                 adminClient.rpcOps.waitForCompletion(stealerNodeId,
                                                      MetadataStore.SERVER_STATE_KEY,
                                                      VoldemortState.NORMAL_SERVER.toString());
@@ -107,17 +113,14 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
         int rebalanceAsyncId = INVALID_REBALANCE_ID;
 
         try {
-            RebalanceUtils.printLog(taskId, logger, "Acquiring donor permit for node "
-                                                    + stealInfos.get(0).getDonorId() + " for "
-                                                    + stealInfos);
-            donorPermit.acquire();
+            acquirePermit(stealInfos.get(0).getDonorId());
 
+            // Start rebalance task and then wait.
             rebalanceAsyncId = startNodeRebalancing();
+            taskStart(rebalanceAsyncId);
+
             adminClient.rpcOps.waitForCompletion(stealerNodeId, rebalanceAsyncId);
-            RebalanceUtils.printLog(taskId,
-                                    logger,
-                                    "Succesfully finished rebalance for async operation id "
-                                            + rebalanceAsyncId);
+            taskDone(rebalanceAsyncId);
 
         } catch(UnreachableStoreException e) {
             exception = e;

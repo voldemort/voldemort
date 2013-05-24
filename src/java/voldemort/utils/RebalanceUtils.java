@@ -700,12 +700,24 @@ public class RebalanceUtils {
     /**
      * Print log to the following logger ( Info level )
      * 
-     * @param taskId Task id
+     * @param batchId Task id
      * @param logger Logger class
      * @param message The message to print
      */
-    public static void printLog(int taskId, Logger logger, String message) {
-        logger.info("Task id [" + Integer.toString(taskId) + "] " + message);
+    public static void printBatchLog(int batchId, Logger logger, String message) {
+        logger.info("[Rebalance batch id " + batchId + "] " + message);
+    }
+
+    /**
+     * Print log to the following logger ( Info level )
+     * 
+     * @param batchId
+     * @param taskId
+     * @param logger
+     * @param message
+     */
+    public static void printBatchTaskLog(int batchId, int taskId, Logger logger, String message) {
+        logger.info("[Rebalance batch/task id " + batchId + "/" + taskId + "] " + message);
     }
 
     /**
@@ -977,6 +989,14 @@ public class RebalanceUtils {
             }
         }
         return flattenedTuples;
+    }
+
+    public static int countPartitionStores(List<RebalancePartitionsInfo> infos) {
+        int count = 0;
+        for(RebalancePartitionsInfo info: infos) {
+            count += info.getPartitionStoreCount();
+        }
+        return count;
     }
 
     /**

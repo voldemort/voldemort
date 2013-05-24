@@ -298,7 +298,7 @@ public class RebalancePlan {
     public int taskCount() {
         int numTasks = 0;
         for(RebalanceBatchPlan batchPlan: batchPlans) {
-            numTasks += batchPlan.getBatchPlan().size();
+            numTasks += batchPlan.getTaskCount();
         }
         return numTasks;
     }

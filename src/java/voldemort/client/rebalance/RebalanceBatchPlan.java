@@ -119,6 +119,10 @@ public class RebalanceBatchPlan {
         return batchPlan;
     }
 
+    public RebalanceBatchPlanProgressBar getProgressBar(int batchId) {
+        return new RebalanceBatchPlanProgressBar(batchId, getTaskCount(), getPartitionStoreMoves());
+    }
+
     public MoveMap getZoneMoveMap() {
         MoveMap moveMap = new MoveMap(finalCluster.getZoneIds());
 
@@ -173,6 +177,15 @@ public class RebalanceBatchPlan {
         }
 
         return partitionStoreMoves;
+    }
+
+    /**
+     * Returns the number of rebalance tasks in this batch.
+     * 
+     * @return number of rebalance tasks in this batch
+     */
+    public int getTaskCount() {
+        return batchPlan.size();
     }
 
     // TODO: (replicaType) As part of dropping replicaType and

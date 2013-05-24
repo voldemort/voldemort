@@ -18,32 +18,56 @@ package voldemort.client.rebalance.task;
 
 import java.util.List;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.log4j.Logger;
+
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.rebalance.RebalanceBatchPlanProgressBar;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.utils.RebalanceUtils;
 
 public abstract class RebalanceTask implements Runnable {
 
+    protected final int batchId;
     protected final int taskId;
-    protected Exception exception;
-    protected final AdminClient adminClient;
-    protected final Semaphore donorPermit;
-    protected final AtomicBoolean isComplete;
     protected final List<RebalancePartitionsInfo> stealInfos;
+    protected final Semaphore donorPermit;
+    protected final AdminClient adminClient;
+    protected final RebalanceBatchPlanProgressBar progressBar;
+    protected final Logger loggerToUse;
+
+    protected Exception exception;
+    protected final AtomicBoolean isComplete;
+
+    protected final int partitionStoreCount;
+    protected long timeMs;
 
     protected final static int INVALID_REBALANCE_ID = -1;
 
-    public RebalanceTask(final int taskId,
+    public RebalanceTask(final int batchId,
+                         final int taskId,
                          final List<RebalancePartitionsInfo> stealInfos,
                          final Semaphore donorPermit,
-                         final AdminClient adminClient) {
-        this.stealInfos = stealInfos;
+                         final AdminClient adminClient,
+                         final RebalanceBatchPlanProgressBar progressBar,
+                         final Logger logger) {
+        this.batchId = batchId;
         this.taskId = taskId;
-        this.adminClient = adminClient;
+        this.stealInfos = stealInfos;
         this.donorPermit = donorPermit;
+        this.adminClient = adminClient;
+        this.progressBar = progressBar;
+        this.loggerToUse = logger;
+
         this.exception = null;
         this.isComplete = new AtomicBoolean(false);
+
+        this.partitionStoreCount = RebalanceUtils.countPartitionStores(stealInfos);
+        this.timeMs = 0;
+
+        taskLog(toString());
     }
 
     public List<RebalancePartitionsInfo> getStealInfos() {
@@ -62,9 +86,73 @@ public abstract class RebalanceTask implements Runnable {
         return exception;
     }
 
-    @Override
-    public String toString() {
-        return "Rebalance task : " + getStealInfos();
+    protected void acquirePermit(int nodeId) throws InterruptedException {
+        permitStart(nodeId);
+        donorPermit.acquire();
+        permitAcquired(nodeId);
     }
 
+    @Override
+    public String toString() {
+        return "Rebalance task " + taskId + "from batch " + batchId + " : " + getStealInfos();
+    }
+
+    /**
+     * Helper method to log updates in uniform manner that includes batch & task
+     * ID.
+     * 
+     * @param message
+     */
+    protected void taskLog(String message) {
+        RebalanceUtils.printBatchTaskLog(batchId, taskId, loggerToUse, message);
+    }
+
+    /**
+     * Helper method to pretty print progress and timing info.
+     * 
+     * @param nodeId node ID for which donor permit is required
+     */
+    protected void permitStart(int nodeId) {
+        timeMs = System.currentTimeMillis();
+        taskLog("Acquiring donor permit for node " + nodeId + ".");
+    }
+
+    /**
+     * Helper method to pretty print progress and timing info.
+     * 
+     * @param nodeId node ID for which donor permit is required
+     */
+    protected void permitAcquired(int nodeId) {
+        long durationMs = System.currentTimeMillis() - timeMs;
+        timeMs = 0;
+        taskLog("Acquired donor permit for node " + nodeId + " in "
+                + TimeUnit.MILLISECONDS.toSeconds(durationMs) + " seconds.");
+    }
+
+    /**
+     * Helper method to pretty print progress and timing info.
+     * 
+     * @param rebalanceAsyncId ID of the async rebalancing task
+     */
+    protected void taskStart(int rebalanceAsyncId) {
+        timeMs = System.currentTimeMillis();
+        taskLog("Starting rebalance of " + partitionStoreCount
+                + " partition-stores for async operation id " + rebalanceAsyncId + ".");
+        progressBar.beginTask(taskId);
+    }
+
+    /**
+     * Helper method to pretty print progress and timing info.
+     * 
+     * @param rebalanceAsyncId ID of the async rebalancing task
+     */
+    protected void taskDone(int rebalanceAsyncId) {
+        long durationMs = System.currentTimeMillis() - timeMs;
+        timeMs = 0;
+        taskLog("Successfully finished rebalance of " + partitionStoreCount
+                + " for async operation id " + rebalanceAsyncId + " in "
+                + TimeUnit.MILLISECONDS.toSeconds(durationMs) + " seconds.");
+
+        progressBar.completeTask(taskId, partitionStoreCount);
+    }
 }

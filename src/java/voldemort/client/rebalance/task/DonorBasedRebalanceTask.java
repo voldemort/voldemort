@@ -22,6 +22,7 @@ import java.util.concurrent.Semaphore;
 import org.apache.log4j.Logger;
 
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.rebalance.RebalanceBatchPlanProgressBar;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.RebalanceUtils;
@@ -38,11 +39,14 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
 
     private final int donorNodeId;
 
-    public DonorBasedRebalanceTask(final int taskId,
+    public DonorBasedRebalanceTask(final int batchId,
+                                   final int taskId,
                                    final List<RebalancePartitionsInfo> stealInfos,
                                    final Semaphore donorPermit,
-                                   final AdminClient adminClient) {
-        super(taskId, stealInfos, donorPermit, adminClient);
+                                   final AdminClient adminClient,
+                                   final RebalanceBatchPlanProgressBar progressBar) {
+        super(batchId, taskId, stealInfos, donorPermit, adminClient, progressBar, logger);
+
         RebalanceUtils.assertSameDonor(stealInfos, -1);
         this.donorNodeId = stealInfos.get(0).getDonorId();
     }
@@ -52,19 +56,14 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
         int rebalanceAsyncId = INVALID_REBALANCE_ID;
 
         try {
-            RebalanceUtils.printLog(taskId, logger, "Acquiring donor permit for node "
-                                                    + donorNodeId + " for " + stealInfos);
-            donorPermit.acquire();
+            acquirePermit(donorNodeId);
 
-            RebalanceUtils.printLog(taskId, logger, "Starting on node " + donorNodeId
-                                                    + " rebalancing task " + stealInfos);
+            // Start rebalance task and then wait.
             rebalanceAsyncId = adminClient.rebalanceOps.rebalanceNode(stealInfos);
+            taskStart(rebalanceAsyncId);
 
             adminClient.rpcOps.waitForCompletion(donorNodeId, rebalanceAsyncId);
-            RebalanceUtils.printLog(taskId,
-                                    logger,
-                                    "Succesfully finished rebalance for async operation id "
-                                            + rebalanceAsyncId);
+            taskDone(rebalanceAsyncId);
 
         } catch(UnreachableStoreException e) {
             exception = e;

@@ -86,6 +86,8 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     private final HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> storeToNodePartitionMapping;
 
+    private final int partitionStoreCount;
+
     // each table being rebalanced is associated with one executor service and a
     // pool of threads
     private Map<String, Pair<ExecutorService, List<DonorBasedRebalancePusherSlave>>> updatePushSlavePool;
@@ -111,13 +113,18 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                                              int requestId,
                                              List<RebalancePartitionsInfo> stealInfos,
                                              boolean usePartitionScan) {
-        super(rebalancer, voldemortConfig, metadataStore, requestId, "Donor based rebalance : "
-                                                                     + stealInfos);
+        super(rebalancer,
+              voldemortConfig,
+              metadataStore,
+              requestId,
+              "Donor based rebalance of " + RebalanceUtils.countPartitionStores(stealInfos)
+                      + " partition-stores.");
         this.storeRepository = storeRepository;
         this.stealInfos = stealInfos;
         this.targetCluster = metadataStore.getCluster();
         this.initialCluster = stealInfos.get(0).getInitialCluster();
         this.usePartitionScan = usePartitionScan;
+        this.partitionStoreCount = RebalanceUtils.countPartitionStores(stealInfos);
 
         // Group the plans by the store names
         this.storeToNodePartitionMapping = groupByStores(stealInfos);
@@ -202,8 +209,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                                                                 + storesCompleted,
                                                         failures);
             } else {
-                logger.info(getHeader(stealInfos) + "Rebalance of " + stealInfos
-                            + " completed successfully for all " + totalStoresCount + " stores");
+                logger.info(getHeader(stealInfos) + "Rebalance of " + partitionStoreCount
+                            + " partition-stores completed successfully for all "
+                            + totalStoresCount + " stores");
             }
         } finally {
             adminClient.close();

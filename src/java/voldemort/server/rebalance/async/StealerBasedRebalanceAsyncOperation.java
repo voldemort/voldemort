@@ -43,17 +43,23 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
     private List<Integer> rebalanceStatusList;
 
     private final RebalancePartitionsInfo stealInfo;
+    private final int partitionStoreCount;
 
     public StealerBasedRebalanceAsyncOperation(Rebalancer rebalancer,
                                                VoldemortConfig voldemortConfig,
                                                MetadataStore metadataStore,
                                                int requestId,
                                                RebalancePartitionsInfo stealInfo) {
-        super(rebalancer, voldemortConfig, metadataStore, requestId, "Stealer based rebalance : "
-                                                                     + stealInfo);
+        super(rebalancer,
+              voldemortConfig,
+              metadataStore,
+              requestId,
+              "Stealer based rebalance of " + stealInfo.getPartitionStoreCount()
+                      + " partition-stores.");
         this.rebalancer = rebalancer;
         this.stealInfo = stealInfo;
         this.rebalanceStatusList = new ArrayList<Integer>();
+        this.partitionStoreCount = stealInfo.getPartitionStoreCount();
     }
 
     @Override
@@ -119,8 +125,9 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
             if(unbalancedStores.isEmpty()) {
                 logger.info(getHeader(stealInfo) + "Rebalance of " + stealInfo
                             + " completed successfully for all " + totalStoresCount + " stores");
-                updateStatus(getHeader(stealInfo) + "Rebalance of " + stealInfo
-                             + " completed successfully for all " + totalStoresCount + " stores");
+                updateStatus(getHeader(stealInfo) + "Rebalance of " + partitionStoreCount
+                             + " partition-stores completed successfully for all "
+                             + totalStoresCount + " stores");
                 metadataStore.deleteRebalancingState(stealInfo);
             } else {
                 throw new VoldemortRebalancingException(getHeader(stealInfo)

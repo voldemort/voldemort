@@ -698,9 +698,10 @@ public class AdminClient {
             while(System.currentTimeMillis() < waitUntil) {
                 try {
                     AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
-                    if(!status.getStatus().equalsIgnoreCase(oldStatus))
+                    if(!status.getStatus().equalsIgnoreCase(oldStatus)) {
                         logger.info("Status from node " + nodeId + " (" + status.getDescription()
                                     + ") - " + status.getStatus());
+                    }
                     oldStatus = status.getStatus();
 
                     if(higherStatus != null) {

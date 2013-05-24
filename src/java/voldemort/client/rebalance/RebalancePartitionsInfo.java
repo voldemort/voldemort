@@ -286,6 +286,14 @@ public class RebalancePartitionsInfo {
         return this.storeToPartitionIds.keySet();
     }
 
+    public synchronized int getPartitionStoreCount() {
+        int count = 0;
+        for(String store: storeToPartitionIds.keySet()) {
+            count += storeToPartitionIds.get(store).size();
+        }
+        return count;
+    }
+
     public synchronized void setPartitionIds(String storeName, List<Integer> partitionIds) {
         this.storeToPartitionIds.put(storeName, partitionIds);
     }
