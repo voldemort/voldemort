@@ -103,7 +103,7 @@ public class RebalanceBatchPlanProgressBar {
         }
 
         // Title line
-        sb.append("Progess update on rebalancing batch " + batchId).append(Utils.NEWLINE);
+        sb.append("Progress update on rebalancing batch " + batchId).append(Utils.NEWLINE);
         // Tasks in flight update
         sb.append("There are currently " + tasksInFlight.size() + " rebalance tasks executing: ")
           .append(tasksInFlight)
