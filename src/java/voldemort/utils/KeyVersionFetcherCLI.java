@@ -44,7 +44,6 @@ import joptsimple.OptionSet;
 import org.apache.commons.codec.DecoderException;
 import org.apache.log4j.Logger;
 
-import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -161,22 +160,20 @@ public class KeyVersionFetcherCLI {
 
     public class ZoneToNaryToString {
 
-        Map<Integer, Map<Integer, String>> zoneToNaryToString;
+        Map<Integer, Map<Integer, Set<String>>> zoneToNaryToString;
 
         ZoneToNaryToString() {
-            zoneToNaryToString = new HashMap<Integer, Map<Integer, String>>();
+            zoneToNaryToString = new HashMap<Integer, Map<Integer, Set<String>>>();
         }
 
         public void addZoneNaryString(int zoneId, int zoneNAry, String string) {
             if(!zoneToNaryToString.containsKey(zoneId)) {
-                zoneToNaryToString.put(zoneId, new HashMap<Integer, String>());
+                zoneToNaryToString.put(zoneId, new HashMap<Integer, Set<String>>());
             }
-            if(zoneToNaryToString.get(zoneId).containsKey(zoneNAry)) {
-                throw new VoldemortException("ZoneToNaryToString already contains zoneNary "
-                                             + zoneNAry);
-            } else {
-                zoneToNaryToString.get(zoneId).put(zoneNAry, string);
+            if(!zoneToNaryToString.get(zoneId).containsKey(zoneNAry)) {
+                zoneToNaryToString.get(zoneId).put(zoneNAry, new TreeSet<String>());
             }
+            zoneToNaryToString.get(zoneId).get(zoneNAry).add(string);
         }
 
         @Override
@@ -188,12 +185,14 @@ public class KeyVersionFetcherCLI {
                 Set<Integer> sortedZoneNAries = new TreeSet<Integer>(zoneToNaryToString.get(zoneId)
                                                                                        .keySet());
                 for(int zoneNary: sortedZoneNAries) {
-                    sb.append(zoneId)
-                      .append(" : ")
-                      .append(zoneNary)
-                      .append(" : ")
-                      .append(zoneToNaryToString.get(zoneId).get(zoneNary))
-                      .append("\n");
+                    for(String string: zoneToNaryToString.get(zoneId).get(zoneNary)) {
+                        sb.append(zoneId)
+                          .append(" : ")
+                          .append(zoneNary)
+                          .append(" : ")
+                          .append(string)
+                          .append("\n");
+                    }
                 }
             }
             return sb.toString();
