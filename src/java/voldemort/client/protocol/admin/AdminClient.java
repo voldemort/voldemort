@@ -2393,17 +2393,17 @@ public class AdminClient {
                                                   value.getVersion());
         }
 
-        // TODO: The "Order" column makes no sense to me. This is very, very
-        // hard to grok. I want to prefix each entry with in the order column
-        // with a number (e.g., '0: rebalance', '1: cluster->Swap', ...) but
-        // have no idea what the order is. Are they in order in the table? what
-        // do the arrows mean in the order column?
-
         /**
          * Used in rebalancing to indicate change in states. Groups the
          * partition plans on the basis of stealer nodes and sends them over.
          * 
          * The various combinations and their order of execution is given below
+         * where:
+         * <ul>
+         * <li>'cluster' means cluster state is updated
+         * <li>'rebalance' means rebalance flag is set.
+         * <li>'swap' means stores are swapped.
+         * </ul>
          * 
          * <pre>
          * | swapRO | changeClusterMetadata | changeRebalanceState | Order                        |
@@ -2414,7 +2414,12 @@ public class AdminClient {
          * </pre>
          * 
          * 
-         * Similarly for rollback:
+         * Similarly for rollback, order means the following:
+         * <ul>
+         * <li>'remove from rebalance' means set rebalance flag false
+         * <li>'cluster' means cluster is rolled back
+         * <li>'swap' means stores are swapped
+         * </ul>
          * 
          * <pre>
          * | swapRO | changeClusterMetadata | changeRebalanceState | Order                                    |

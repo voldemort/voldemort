@@ -103,7 +103,7 @@ public class RebalanceControllerCLI {
         help.append("  Optional:\n");
         help.append("    --final-stores <storesXML> [ Needed for zone expansion ]\n");
         help.append("    --parallelism <parallelism> [ Number of rebalancing tasks to run in parallel ]");
-        help.append("    --proxy-pause <proxyPause> [ Seconds to pause between cluster change and server-side rebalancing tasks ]");
+        help.append("    --proxy-pause <proxyPauseSec> [ Seconds to pause between cluster change and server-side rebalancing tasks ]");
         help.append("    --tries <tries> [ Number of times to try starting an async rebalancing task on a node ");
         help.append("    --output-dir [ Output directory in which plan is stored ]\n");
         help.append("    --batch <batch> [ Number of primary partitions to move in each rebalancing batch. ]\n");
@@ -167,16 +167,16 @@ public class RebalanceControllerCLI {
             tries = (Integer) options.valueOf("tries");
         }
 
-        long proxyPauseS = RebalanceController.PROXY_PAUSE_IN_SECONDS;
+        long proxyPauseSec = RebalanceController.PROXY_PAUSE_IN_SECONDS;
         if(options.has("proxy-pause")) {
-            proxyPauseS = (Long) options.valueOf("proxy-pause");
+            proxyPauseSec = (Long) options.valueOf("proxy-pause");
         }
 
         RebalanceController rebalanceController = new RebalanceController(bootstrapURL,
                                                                           parallelism,
                                                                           tries,
                                                                           stealerBased,
-                                                                          proxyPauseS);
+                                                                          proxyPauseSec);
 
         Cluster currentCluster = rebalanceController.getCurrentCluster();
         List<StoreDefinition> currentStoreDefs = rebalanceController.getCurrentStoreDefs();

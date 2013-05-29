@@ -31,25 +31,33 @@ public class RebalanceBatchPlanProgressBar {
     private static final DecimalFormat decimalFormatter = new DecimalFormat("#.##");
 
     private final int batchId;
-    private final int taskCount;
-    private final int partitionStoreCount;
+    private final int totalTaskCount;
+    private final int totalPartitionStoreCount;
 
     private final long startTimeMs;
 
     private Set<Integer> tasksInFlight;
-    private int numTasks;
-    private int numPartitionStores;
+    private int numTasksCompleted;
+    private int numPartitionStoresMigrated;
 
-    RebalanceBatchPlanProgressBar(int batchId, int taskCount, int partitionStoreCount) {
+    /**
+     * Construct a progress bar object to track rebalance tasks completed and
+     * partition-stores migrated.
+     * 
+     * @param batchId
+     * @param totalTaskCount
+     * @param totalPartitionStoreCount
+     */
+    RebalanceBatchPlanProgressBar(int batchId, int totalTaskCount, int totalPartitionStoreCount) {
         this.batchId = batchId;
-        this.taskCount = taskCount;
-        this.partitionStoreCount = partitionStoreCount;
+        this.totalTaskCount = totalTaskCount;
+        this.totalPartitionStoreCount = totalPartitionStoreCount;
 
         this.startTimeMs = System.currentTimeMillis();
 
         this.tasksInFlight = new HashSet<Integer>();
-        this.numTasks = 0;
-        this.numPartitionStores = 0;
+        this.numTasksCompleted = 0;
+        this.numPartitionStoresMigrated = 0;
     }
 
     /**
@@ -65,17 +73,17 @@ public class RebalanceBatchPlanProgressBar {
 
     /**
      * Called whenever a rebalance task completes. This means one task is done
-     * and some number of partition stores have been moved.
+     * and some number of partition stores have been migrated.
      * 
      * @param taskId
-     * @param partitionStoreCount Number of partition stores moved by this
+     * @param totalPartitionStoreCount Number of partition stores moved by this
      *        completed task.
      */
-    synchronized public void completeTask(int taskId, int taskPartitionStores) {
+    synchronized public void completeTask(int taskId, int partitionStoresMigrated) {
         tasksInFlight.remove(taskId);
 
-        numTasks++;
-        numPartitionStores += taskPartitionStores;
+        numTasksCompleted++;
+        numPartitionStoresMigrated += partitionStoresMigrated;
 
         updateProgressBar();
     }
@@ -89,8 +97,8 @@ public class RebalanceBatchPlanProgressBar {
     synchronized public String getPrettyProgressBar() {
         StringBuilder sb = new StringBuilder();
 
-        double taskRate = numTasks / (double) taskCount;
-        double partitionStoreRate = numPartitionStores / (double) partitionStoreCount;
+        double taskRate = numTasksCompleted / (double) totalTaskCount;
+        double partitionStoreRate = numPartitionStoresMigrated / (double) totalPartitionStoreCount;
 
         long deltaTimeMs = System.currentTimeMillis() - startTimeMs;
         long taskTimeRemainingMs = Long.MAX_VALUE;
@@ -110,7 +118,8 @@ public class RebalanceBatchPlanProgressBar {
           .append(".")
           .append(Utils.NEWLINE);
         // Tasks completed update
-        sb.append("\t" + numTasks + " out of " + taskCount + " rebalance tasks complete.")
+        sb.append("\t" + numTasksCompleted + " out of " + totalTaskCount
+                  + " rebalance tasks complete.")
           .append(Utils.NEWLINE)
           .append("\t")
           .append(decimalFormatter.format(taskRate * 100.0))
@@ -121,7 +130,7 @@ public class RebalanceBatchPlanProgressBar {
           .append(" minutes) remaining.")
           .append(Utils.NEWLINE);
         // Partition-stores migrated update
-        sb.append("\t" + numPartitionStores + " out of " + partitionStoreCount
+        sb.append("\t" + numPartitionStoresMigrated + " out of " + totalPartitionStoreCount
                   + " partition-stores migrated.")
           .append(Utils.NEWLINE)
           .append("\t")

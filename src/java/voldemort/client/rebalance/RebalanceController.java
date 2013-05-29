@@ -74,13 +74,13 @@ public class RebalanceController {
     private final int maxParallelRebalancing;
     private final int maxTriesRebalancing;
     private final boolean stealerBasedRebalancing;
-    private final long proxyPauseS;
+    private final long proxyPauseSec;
 
     public RebalanceController(String bootstrapUrl,
                                int maxParallelRebalancing,
                                int maxTriesRebalancing,
                                boolean stealerBased,
-                               long proxyPauseS) {
+                               long proxyPauseSec) {
         this.adminClient = new AdminClient(bootstrapUrl,
                                            new AdminClientConfig(),
                                            new ClientConfig());
@@ -91,7 +91,7 @@ public class RebalanceController {
         this.maxParallelRebalancing = maxParallelRebalancing;
         this.maxTriesRebalancing = maxTriesRebalancing;
         this.stealerBasedRebalancing = stealerBased;
-        this.proxyPauseS = proxyPauseS;
+        this.proxyPauseSec = proxyPauseSec;
     }
 
     /**
@@ -354,7 +354,6 @@ public class RebalanceController {
 
             // STEP 2 - Move RO data
             if(hasReadOnlyStores) {
-                proxyPause();
                 RebalanceBatchPlanProgressBar progressBar = batchPlan.getProgressBar(batchId);
                 executeSubBatch(batchId,
                                 progressBar,
@@ -383,9 +382,7 @@ public class RebalanceController {
 
             // STEP 4 - Move RW data
             if(hasReadWriteStores) {
-                if(!hasReadOnlyStores) {
-                    proxyPause();
-                }
+                proxyPause();
                 RebalanceBatchPlanProgressBar progressBar = batchPlan.getProgressBar(batchId);
                 executeSubBatch(batchId,
                                 progressBar,
@@ -415,9 +412,9 @@ public class RebalanceController {
      */
     private void proxyPause() {
         logger.info("Pausing after cluster state has changed to allow proxy bridges to be established. "
-                    + "Will start rebalancing work on servers in " + proxyPauseS + " seconds.");
+                    + "Will start rebalancing work on servers in " + proxyPauseSec + " seconds.");
         try {
-            Thread.sleep(TimeUnit.SECONDS.toMillis(proxyPauseS));
+            Thread.sleep(TimeUnit.SECONDS.toMillis(proxyPauseSec));
         } catch(InterruptedException e) {
             logger.warn("Sleep interrupted in proxy pause.");
         }
@@ -442,7 +439,7 @@ public class RebalanceController {
      * 
      * Truth table, FTW!
      * 
-     * @param batchId Rebalancing task id
+     * @param batchId Rebalancing batch id
      * @param batchCurrentCluster Current cluster
      * @param batchFinalCluster Transition cluster to propagate
      * @param rebalancePartitionPlanList List of partition plan list
@@ -562,7 +559,7 @@ public class RebalanceController {
      * | 7 | f | f | f | won't be triggered |
      * </pre>
      * 
-     * @param batchId Rebalance task id
+     * @param batchId Rebalance batch id
      * @param batchRollbackCluster Cluster to rollback to if we have a problem
      * @param rebalancePartitionPlanList The list of rebalance partition plans
      * @param hasReadOnlyStores Are we rebalancing any read-only stores?

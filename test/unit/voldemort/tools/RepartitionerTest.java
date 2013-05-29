@@ -401,7 +401,20 @@ public class RepartitionerTest {
     }
 
     @Test
-    public void testZoneExpansion() {
+    public void testZoneExpansionAsRepartitionerCLI() {
+        Cluster currentCluster = ClusterTestUtils.getZZCluster();
+        List<StoreDefinition> currentStoreDefs = ClusterTestUtils.getZZStoreDefsInMemory();
+
+        Cluster interimCluster = ClusterTestUtils.getZZZClusterWithNNN();
+        List<StoreDefinition> finalStoreDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
+
+        verifyBalanceZoneAndNode(currentCluster, currentStoreDefs, interimCluster, finalStoreDefs);
+        // verifyBalanceNodesNotZones does not make sense for zone expansion.
+        verifyRepartitionNoop(currentCluster, currentStoreDefs, interimCluster, finalStoreDefs);
+    }
+
+    @Test
+    public void testZoneExpansionAsRebalanceControllerCLI() {
         Cluster currentCluster = ClusterTestUtils.getZZECluster();
         List<StoreDefinition> currentStoreDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
 

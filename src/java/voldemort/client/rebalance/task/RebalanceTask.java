@@ -42,7 +42,8 @@ public abstract class RebalanceTask implements Runnable {
     protected final AtomicBoolean isComplete;
 
     protected final int partitionStoreCount;
-    protected long timeMs;
+    protected long permitAcquisitionTimeMs;
+    protected long taskCompletionTimeMs;
 
     protected final static int INVALID_REBALANCE_ID = -1;
 
@@ -65,7 +66,8 @@ public abstract class RebalanceTask implements Runnable {
         this.isComplete = new AtomicBoolean(false);
 
         this.partitionStoreCount = RebalanceUtils.countPartitionStores(stealInfos);
-        this.timeMs = 0;
+        this.permitAcquisitionTimeMs = -1;
+        this.taskCompletionTimeMs = -1;
 
         taskLog(toString());
     }
@@ -113,7 +115,7 @@ public abstract class RebalanceTask implements Runnable {
      * @param nodeId node ID for which donor permit is required
      */
     protected void permitStart(int nodeId) {
-        timeMs = System.currentTimeMillis();
+        permitAcquisitionTimeMs = System.currentTimeMillis();
         taskLog("Acquiring donor permit for node " + nodeId + ".");
     }
 
@@ -123,10 +125,13 @@ public abstract class RebalanceTask implements Runnable {
      * @param nodeId node ID for which donor permit is required
      */
     protected void permitAcquired(int nodeId) {
-        long durationMs = System.currentTimeMillis() - timeMs;
-        timeMs = 0;
-        taskLog("Acquired donor permit for node " + nodeId + " in "
-                + TimeUnit.MILLISECONDS.toSeconds(durationMs) + " seconds.");
+        String durationString = "";
+        if(permitAcquisitionTimeMs >= 0) {
+            long durationMs = System.currentTimeMillis() - permitAcquisitionTimeMs;
+            permitAcquisitionTimeMs = -1;
+            durationString = " in " + TimeUnit.MILLISECONDS.toSeconds(durationMs) + " seconds.";
+        }
+        taskLog("Acquired donor permit for node " + nodeId + durationString);
     }
 
     /**
@@ -135,7 +140,7 @@ public abstract class RebalanceTask implements Runnable {
      * @param rebalanceAsyncId ID of the async rebalancing task
      */
     protected void taskStart(int rebalanceAsyncId) {
-        timeMs = System.currentTimeMillis();
+        taskCompletionTimeMs = System.currentTimeMillis();
         taskLog("Starting rebalance of " + partitionStoreCount
                 + " partition-stores for async operation id " + rebalanceAsyncId + ".");
         progressBar.beginTask(taskId);
@@ -147,11 +152,14 @@ public abstract class RebalanceTask implements Runnable {
      * @param rebalanceAsyncId ID of the async rebalancing task
      */
     protected void taskDone(int rebalanceAsyncId) {
-        long durationMs = System.currentTimeMillis() - timeMs;
-        timeMs = 0;
+        String durationString = "";
+        if(taskCompletionTimeMs >= 0) {
+            long durationMs = System.currentTimeMillis() - taskCompletionTimeMs;
+            taskCompletionTimeMs = -1;
+            durationString = " in " + TimeUnit.MILLISECONDS.toSeconds(durationMs) + " seconds.";
+        }
         taskLog("Successfully finished rebalance of " + partitionStoreCount
-                + " for async operation id " + rebalanceAsyncId + " in "
-                + TimeUnit.MILLISECONDS.toSeconds(durationMs) + " seconds.");
+                + " for async operation id " + rebalanceAsyncId + durationString);
 
         progressBar.completeTask(taskId, partitionStoreCount);
     }
