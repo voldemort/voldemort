@@ -1,8 +1,0 @@
-Manifest-Version: 1.0
-Ant-Version: Apache Ant 1.7.1
-Created-By: 20.2-b06 (Sun Microsystems Inc.)
-Voldemort-Implementation-Version: 1.3.0
-Implementation-Title: Voldemort
-Implementation-Version: 1.3.0
-Implementation-Vendor: LinkedIn
-

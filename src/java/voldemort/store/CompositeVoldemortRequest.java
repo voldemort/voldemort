@@ -1,8 +1,28 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store;
 
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+/**
+ * A base class for the different types of Voldemort requests containing all the
+ * necessary components
+ */
 public class CompositeVoldemortRequest<K, V> {
 
     private final K key;
@@ -10,7 +30,7 @@ public class CompositeVoldemortRequest<K, V> {
     private final Iterable<K> getAllIterableKeys;
     private final Versioned<V> value;
     private Version version;
-    private long routingTimeout;
+    private long routingTimeoutInMs;
     private final boolean resolveConflicts;
     private final byte operationType;
 
@@ -19,13 +39,13 @@ public class CompositeVoldemortRequest<K, V> {
                                      Iterable<K> keys,
                                      Versioned<V> value,
                                      Version version,
-                                     long timeout,
+                                     long timeoutInMs,
                                      boolean resolveConflicts,
                                      byte operationType) {
         this.key = key;
         this.rawValue = rawValue;
         this.getAllIterableKeys = keys;
-        this.routingTimeout = timeout;
+        this.routingTimeoutInMs = timeoutInMs;
         this.value = value;
         this.version = version;
         this.resolveConflicts = resolveConflicts;
@@ -49,11 +69,11 @@ public class CompositeVoldemortRequest<K, V> {
     }
 
     public long getRoutingTimeoutInMs() {
-        return routingTimeout;
+        return routingTimeoutInMs;
     }
 
-    public void setRoutingTimeoutInMs(long timeout) {
-        this.routingTimeout = timeout;
+    public void setRoutingTimeoutInMs(long timeoutInMs) {
+        this.routingTimeoutInMs = timeoutInMs;
     }
 
     public boolean resolveConflicts() {

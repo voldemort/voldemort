@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2010 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,10 +16,13 @@
 
 package voldemort.server.protocol.admin;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.collect.ImmutableSet;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -29,11 +32,14 @@ import voldemort.common.service.AbstractService;
 import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
 
+import com.google.common.collect.ImmutableSet;
+
 /**
  * Asynchronous job scheduler for admin service operations.
- *
- * TODO: requesting a unique id, then creating an operation with that id seems like a bad API design.
- *
+ * 
+ * TODO: requesting a unique id, then creating an operation with that id seems
+ * like a bad API design.
+ * 
  */
 @JmxManaged(description = "Asynchronous operation execution")
 public class AsyncOperationService extends AbstractService {
@@ -96,6 +102,19 @@ public class AsyncOperationService extends AbstractService {
         }
     }
 
+    public List<Integer> getMatchingAsyncOperationList(String jobDescPattern, boolean showCompleted) {
+        List<Integer> operationIds = getAsyncOperationList(showCompleted);
+        List<Integer> matchingOperationIds = new ArrayList<Integer>(operationIds.size());
+        for(Integer operationId: operationIds) {
+            AsyncOperation operation = operations.get(operationId);
+            String operationDescription = operation.getStatus().getDescription();
+            if(operationDescription != null && operationDescription.indexOf(jobDescPattern) != -1) {
+                matchingOperationIds.add(operationId);
+            }
+        }
+        return matchingOperationIds;
+    }
+
     @JmxOperation(description = "Retrieve all operations")
     public String getAllAsyncOperations() {
         String result;
@@ -108,23 +127,25 @@ public class AsyncOperationService extends AbstractService {
     }
 
     /**
-     * Get list of asynchronous operations on this node. By default, only the pending
-     * operations are returned.
+     * Get list of asynchronous operations on this node. By default, only the
+     * pending operations are returned.
+     * 
      * @param showCompleted Show completed operations
      * @return A list of operation ids.
      */
     public List<Integer> getAsyncOperationList(boolean showCompleted) {
         /**
-         * Create a copy using an immutable set to avoid a {@link java.util.ConcurrentModificationException}
+         * Create a copy using an immutable set to avoid a
+         * {@link java.util.ConcurrentModificationException}
          */
         Set<Integer> keySet = ImmutableSet.copyOf(operations.keySet());
 
-        if (showCompleted)
+        if(showCompleted)
             return new ArrayList<Integer>(keySet);
 
         List<Integer> keyList = new ArrayList<Integer>();
-        for (int key: keySet) {
-            if (!operations.get(key).getStatus().isComplete())
+        for(int key: keySet) {
+            if(!operations.get(key).getStatus().isComplete())
                 keyList.add(key);
         }
         return keyList;
@@ -142,7 +163,7 @@ public class AsyncOperationService extends AbstractService {
     public String stopAsyncOperation(int requestId) {
         try {
             stopOperation(requestId);
-        } catch (VoldemortException e) {
+        } catch(VoldemortException e) {
             return e.getMessage();
         }
 
@@ -158,6 +179,7 @@ public class AsyncOperationService extends AbstractService {
 
     /**
      * Generate a unique request id
+     * 
      * @return A new, guaranteed unique, request id
      */
     public int getUniqueRequestId() {

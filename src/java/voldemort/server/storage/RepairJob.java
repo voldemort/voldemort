@@ -64,7 +64,8 @@ public class RepairJob implements Runnable {
     public void run() {
 
         // don't try to run slop pusher job when rebalancing
-        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+        if(!metadataStore.getServerStateUnlocked()
+                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             logger.error("Cannot run repair job since Voldemort server is not in normal state");
             return;
         }
@@ -97,8 +98,7 @@ public class RepairJob implements Runnable {
                     long repairSlops = 0L;
                     long numDeletedKeys = 0;
                     while(iterator.hasNext()) {
-                        Pair<ByteArray, Versioned<byte[]>> keyAndVal;
-                        keyAndVal = iterator.next();
+                        Pair<ByteArray, Versioned<byte[]>> keyAndVal = iterator.next();
                         List<Node> nodes = routingStrategy.routeRequest(keyAndVal.getFirst().get());
 
                         if(!hasDestination(nodes)) {
@@ -111,7 +111,8 @@ public class RepairJob implements Runnable {
                     }
                     closeIterator(iterator);
                     localStats.put(storeDef.getName(), repairSlops);
-                    logger.info("Completed store " + storeDef.getName());
+                    logger.info("Completed store " + storeDef.getName() + " #Scanned:"
+                                + progress.get() + " #Deleted:" + numDeletedKeys);
                 }
             }
         } catch(Exception e) {

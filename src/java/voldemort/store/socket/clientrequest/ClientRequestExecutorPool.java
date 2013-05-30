@@ -131,6 +131,17 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         return factory;
     }
 
+    /***
+     * Create a new socket store to talk to a given server for a specific store
+     * 
+     * Note: IGNORE_CHECKS will only be honored for Protobuf request format
+     * 
+     * @param storeName
+     * @param hostName
+     * @param port
+     * @param requestFormatType protocol to use
+     * @param requestRoutingType routed/ignore checks/normal
+     */
     @Override
     public SocketStore create(String storeName,
                               String hostName,

@@ -25,8 +25,11 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -35,6 +38,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
@@ -78,6 +82,47 @@ public class TestUtils {
      */
     public static Versioned<byte[]> getVersioned(byte[] value, int... nodes) {
         return new Versioned<byte[]>(value, getClock(nodes));
+    }
+
+    /**
+     * Returns true if both the versioned lists are equal, in terms of values
+     * and vector clocks, taking into consideration, they might be in different
+     * orders as well. Ignores the timestamps as a part of the vector clock
+     * 
+     * @param first
+     * @param second
+     * @return
+     */
+    public static boolean areVersionedListsEqual(List<Versioned<byte[]>> first,
+                                                 List<Versioned<byte[]>> second) {
+        if(first.size() != second.size())
+            return false;
+        // find a match for every first element in second list
+        for(Versioned<byte[]> firstElement: first) {
+            boolean found = false;
+            for(Versioned<byte[]> secondElement: second) {
+                if(firstElement.equals(secondElement)) {
+                    found = true;
+                    break;
+                }
+            }
+            if(!found)
+                return false;
+        }
+
+        // find a match for every second element in first list
+        for(Versioned<byte[]> secondElement: second) {
+            boolean found = false;
+            for(Versioned<byte[]> firstElement: first) {
+                if(firstElement.equals(secondElement)) {
+                    found = true;
+                    break;
+                }
+            }
+            if(!found)
+                return false;
+        }
+        return true;
     }
 
     /**
@@ -308,6 +353,39 @@ public class TestUtils {
             }
         }
         return diffPartition;
+    }
+
+    /**
+     * Given a StoreRoutingPlan generates upto numKeysPerPartition keys per
+     * partition
+     * 
+     * @param numKeysPerPartition
+     * @return a hashmap of partition to list of keys generated
+     */
+    public static HashMap<Integer, List<byte[]>> createPartitionsKeys(StoreRoutingPlan routingPlan,
+                                                                      int numKeysPerPartition) {
+        HashMap<Integer, List<byte[]>> partitionToKeyList = new HashMap<Integer, List<byte[]>>();
+        Set<Integer> partitionsPending = new HashSet<Integer>(routingPlan.getCluster()
+                                                                         .getNumberOfPartitions());
+        for(int partition = 0; partition < routingPlan.getCluster().getNumberOfPartitions(); partition++) {
+            partitionsPending.add(partition);
+            partitionToKeyList.put(partition, new ArrayList<byte[]>(numKeysPerPartition));
+        }
+
+        for(int key = 0;; key++) {
+            byte[] keyBytes = ("key" + key).getBytes();
+            int partition = routingPlan.getMasterPartitionId(keyBytes);
+            if(partitionToKeyList.get(partition).size() < numKeysPerPartition) {
+                partitionToKeyList.get(partition).add(keyBytes);
+                if(partitionToKeyList.get(partition).size() == numKeysPerPartition) {
+                    partitionsPending.remove(partition);
+                }
+            }
+            if(partitionsPending.size() == 0) {
+                break;
+            }
+        }
+        return partitionToKeyList;
     }
 
     /**

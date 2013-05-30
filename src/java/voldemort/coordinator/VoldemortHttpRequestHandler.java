@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,7 +16,6 @@
 
 package voldemort.coordinator;
 
-import static org.jboss.netty.handler.codec.http.HttpHeaders.isKeepAlive;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 
 import java.io.IOException;
@@ -35,19 +34,19 @@ import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.handler.codec.http.HttpChunk;
-import org.jboss.netty.handler.codec.http.HttpChunkTrailer;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.util.CharsetUtil;
 
 import voldemort.common.VoldemortOpCode;
 import voldemort.store.CompositeDeleteVoldemortRequest;
 import voldemort.store.CompositeGetAllVoldemortRequest;
 import voldemort.store.CompositeGetVoldemortRequest;
 import voldemort.store.CompositePutVoldemortRequest;
+import voldemort.store.CompositeVersionedPutVoldemortRequest;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 /**
  * A class to handle the HTTP request and execute the same on behalf of the thin
@@ -60,8 +59,6 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     public HttpRequest request;
     private boolean readingChunks;
-    /** Buffer that stores the response content */
-    private final StringBuilder buf = new StringBuilder();
     private Map<String, FatClientWrapper> fatClientMap;
     private final Logger logger = Logger.getLogger(VoldemortHttpRequestHandler.class);
     public static final String X_VOLD_REQUEST_TIMEOUT_MS = "X-VOLD-Request-Timeout-ms";
@@ -70,20 +67,25 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
     public static final String CUSTOM_RESOLVING_STRATEGY = "custom";
     public static final String DEFAULT_RESOLVING_STRATEGY = "timestamp";
 
+    private CoordinatorErrorStats errorStats = null;
+
     // Implicit constructor defined for the derived classes
     public VoldemortHttpRequestHandler() {}
 
-    public VoldemortHttpRequestHandler(Map<String, FatClientWrapper> fatClientMap) {
+    public VoldemortHttpRequestHandler(Map<String, FatClientWrapper> fatClientMap,
+                                       CoordinatorErrorStats errorStats) {
         this.fatClientMap = fatClientMap;
+        this.errorStats = errorStats;
     }
 
     /**
-     * Function to parse the HTTP headers and build a Voldemort request object
+     * Function to parse (and validate) the HTTP headers and build a Voldemort
+     * request object
      * 
      * @param requestURI URI of the REST request
      * @param httpMethod Message Event object used to write the response to
      * @param e The REST (Voldemort) operation type
-     * @return true if a valid request was received. False otherwise
+     * @return A composite request object corresponding to the incoming request
      */
     private CompositeVoldemortRequest<ByteArray, byte[]> parseRequest(String requestURI,
                                                                       MessageEvent e,
@@ -153,19 +155,23 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
                     return null;
                 }
                 byte[] putValue = readValue(content);
-                requestWrapper = new CompositePutVoldemortRequest<ByteArray, byte[]>(putKey,
-                                                                                     putValue,
-                                                                                     operationTimeoutInMs);
+                VectorClock putOpVectorClock = getVectorClock(this.request.getHeader(X_VOLD_VECTOR_CLOCK));
+                if(putOpVectorClock != null && putOpVectorClock.getEntries().size() > 0) {
+                    requestWrapper = new CompositeVersionedPutVoldemortRequest<ByteArray, byte[]>(putKey,
+                                                                                                  new Versioned<byte[]>(putValue,
+                                                                                                                        putOpVectorClock),
+                                                                                                  operationTimeoutInMs);
+                } else {
+                    requestWrapper = new CompositePutVoldemortRequest<ByteArray, byte[]>(putKey,
+                                                                                         putValue,
+                                                                                         operationTimeoutInMs);
+                }
 
                 break;
             case VoldemortOpCode.DELETE_OP_CODE:
-                VectorClock vc = getVectorClock(this.request.getHeader(X_VOLD_VECTOR_CLOCK));
-                if(vc == null) {
-                    // handleBadRequest(e,
-                    // "Incorrect vector clock specified in the request");
-                }
+                VectorClock deleteOpVectorClock = getVectorClock(this.request.getHeader(X_VOLD_VECTOR_CLOCK));
                 requestWrapper = new CompositeDeleteVoldemortRequest<ByteArray, byte[]>(keyList.get(0),
-                                                                                        vc,
+                                                                                        deleteOpVectorClock,
                                                                                         operationTimeoutInMs);
 
                 break;
@@ -192,6 +198,8 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
                 readingChunks = true;
             } else {
 
+                long startTimeStampInNs = System.nanoTime();
+
                 CompositeVoldemortRequest<ByteArray, byte[]> requestObject = parseRequest(requestURI,
                                                                                           e,
                                                                                           this.request.getMethod());
@@ -205,11 +213,13 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
                 }
 
                 if(storeName == null || fatClientWrapper == null) {
+                    this.errorStats.reportException(new IllegalArgumentException());
                     handleBadRequest(e, "Invalid store name. Critical error.");
                     return;
                 }
 
                 if(requestObject == null) {
+                    this.errorStats.reportException(new IllegalArgumentException());
                     handleBadRequest(e, "Illegal request.");
                     return;
                 }
@@ -219,28 +229,28 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
                         if(logger.isDebugEnabled()) {
                             logger.debug("Incoming get request");
                         }
-                        fatClientWrapper.submitGetRequest(requestObject, e);
+                        fatClientWrapper.submitGetRequest(requestObject, e, startTimeStampInNs);
                         break;
                     case VoldemortOpCode.GET_ALL_OP_CODE:
-                        fatClientWrapper.submitGetAllRequest(requestObject, e, storeName);
+                        fatClientWrapper.submitGetAllRequest(requestObject,
+                                                             e,
+                                                             storeName,
+                                                             startTimeStampInNs);
                         break;
 
                     case VoldemortOpCode.PUT_OP_CODE:
                         if(logger.isDebugEnabled()) {
                             logger.debug("Incoming put request");
                         }
-                        fatClientWrapper.submitPutRequest(requestObject, e);
+                        fatClientWrapper.submitPutRequest(requestObject, e, startTimeStampInNs);
                         break;
                     case VoldemortOpCode.DELETE_OP_CODE:
-                        fatClientWrapper.submitDeleteRequest(requestObject, e);
+                        fatClientWrapper.submitDeleteRequest(requestObject, e, startTimeStampInNs);
                         break;
                     default:
                         String errorMessage = "Illegal operation.";
                         logger.error(errorMessage);
-                        RESTErrorHandler.handleError(BAD_REQUEST,
-                                                     e,
-                                                     isKeepAlive(request),
-                                                     errorMessage);
+                        RESTErrorHandler.handleError(BAD_REQUEST, e, errorMessage);
                         return;
                 }
 
@@ -249,23 +259,7 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
             HttpChunk chunk = (HttpChunk) e.getMessage();
             if(chunk.isLast()) {
                 readingChunks = false;
-                buf.append("END OF CONTENT\r\n");
-
-                HttpChunkTrailer trailer = (HttpChunkTrailer) chunk;
-                if(!trailer.getHeaderNames().isEmpty()) {
-                    buf.append("\r\n");
-                    for(String name: trailer.getHeaderNames()) {
-                        for(String value: trailer.getHeaders(name)) {
-                            buf.append("TRAILING HEADER: " + name + " = " + value + "\r\n");
-                        }
-                    }
-                    buf.append("\r\n");
-                }
-
-            } else {
-                buf.append("CHUNK: " + chunk.getContent().toString(CharsetUtil.UTF_8) + "\r\n");
             }
-
         }
     }
 
@@ -278,6 +272,11 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
      */
     private VectorClock getVectorClock(String vectorClockHeader) {
         VectorClock vc = null;
+
+        if(vectorClockHeader == null) {
+            return null;
+        }
+
         ObjectMapper mapper = new ObjectMapper();
         if(logger.isDebugEnabled()) {
             logger.debug("Received vector clock : " + vectorClockHeader);
@@ -312,7 +311,7 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
     private void handleBadRequest(MessageEvent e, String msg) {
         String errorMessage = msg;
         logger.error(errorMessage);
-        RESTErrorHandler.handleError(BAD_REQUEST, e, false, errorMessage);
+        RESTErrorHandler.handleError(BAD_REQUEST, e, errorMessage);
     }
 
     /**

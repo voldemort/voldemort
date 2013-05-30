@@ -122,6 +122,15 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
     }
 
     @Override
+    public List<Versioned<byte[]>> multiVersionPut(ByteArray key, List<Versioned<byte[]>> values) {
+        StoreUtils.assertValidKey(key);
+        int partition = routingStrategy.getMasterPartition(key.get());
+        ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
+                                                                                partition));
+        return super.multiVersionPut(prefixedKey, values);
+    }
+
+    @Override
     protected Logger getLogger() {
         return logger;
     }

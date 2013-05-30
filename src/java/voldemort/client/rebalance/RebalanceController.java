@@ -30,6 +30,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.task.DonorBasedRebalanceTask;
 import voldemort.client.rebalance.task.RebalanceTask;
@@ -58,7 +59,9 @@ public class RebalanceController {
     private final RebalanceClientConfig rebalanceConfig;
 
     public RebalanceController(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
-        this.adminClient = new AdminClient(bootstrapUrl, rebalanceConfig, new ClientConfig());
+        this.adminClient = new AdminClient(bootstrapUrl,
+                                           rebalanceConfig,
+                                           new ClientConfig().setRequestFormatType(RequestFormatType.PROTOCOL_BUFFERS));
         this.rebalanceConfig = rebalanceConfig;
     }
 
@@ -386,6 +389,7 @@ public class RebalanceController {
             // Flatten the node plans to partition plans
             List<RebalancePartitionsInfo> rebalancePartitionPlanList = rebalancePartitionsInfoList;
 
+            List<StoreDefinition> allStoreDefs = orderedClusterTransition.getStoreDefs();
             // Split the store definitions
             List<StoreDefinition> readOnlyStoreDefs = StoreDefinitionUtils.filterStores(orderedClusterTransition.getStoreDefs(),
                                                                                         true);
@@ -400,9 +404,14 @@ public class RebalanceController {
             List<RebalancePartitionsInfo> filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionPlanList,
                                                                                                                             readOnlyStoreDefs);
 
+            // TODO this method right nowtakes just the source stores definition
+            // the 2nd argument needs to be fixed
+            // ATTENTION JAY
             rebalanceStateChange(orderedClusterTransition.getId(),
                                  orderedClusterTransition.getCurrentCluster(),
                                  orderedClusterTransition.getTargetCluster(),
+                                 allStoreDefs,
+                                 allStoreDefs,
                                  filteredRebalancePartitionPlanList,
                                  hasReadOnlyStores,
                                  hasReadWriteStores,
@@ -423,9 +432,14 @@ public class RebalanceController {
             filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionPlanList,
                                                                                               readWriteStoreDefs);
 
+            // TODO this method right nowtakes just the source stores definition
+            // the 2nd argument needs to be fixed
+            // ATTENTION JAY
             rebalanceStateChange(orderedClusterTransition.getId(),
                                  orderedClusterTransition.getCurrentCluster(),
                                  orderedClusterTransition.getTargetCluster(),
+                                 allStoreDefs,
+                                 allStoreDefs,
                                  filteredRebalancePartitionPlanList,
                                  hasReadOnlyStores,
                                  hasReadWriteStores,
@@ -460,6 +474,8 @@ public class RebalanceController {
     }
 
     /**
+     * TODO JAY -- This interface expects the source stores definition and
+     * target stores def
      * 
      * Perform a group of state change actions. Also any errors + rollback
      * procedures are performed at this level itself.
@@ -490,6 +506,8 @@ public class RebalanceController {
     private void rebalanceStateChange(final int taskId,
                                       Cluster currentCluster,
                                       Cluster transitionCluster,
+                                      List<StoreDefinition> existingStoreDefs,
+                                      List<StoreDefinition> targetStoreDefs,
                                       List<RebalancePartitionsInfo> rebalancePartitionPlanList,
                                       boolean hasReadOnlyStores,
                                       boolean hasReadWriteStores,
@@ -511,6 +529,8 @@ public class RebalanceController {
                 if(!rebalanceConfig.isShowPlanEnabled())
                     adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
                                                                   transitionCluster,
+                                                                  existingStoreDefs,
+                                                                  targetStoreDefs,
                                                                   rebalancePartitionPlanList,
                                                                   false,
                                                                   true,
@@ -523,6 +543,8 @@ public class RebalanceController {
                 if(!rebalanceConfig.isShowPlanEnabled())
                     adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
                                                                   transitionCluster,
+                                                                  existingStoreDefs,
+                                                                  targetStoreDefs,
                                                                   rebalancePartitionPlanList,
                                                                   false,
                                                                   false,
@@ -535,6 +557,8 @@ public class RebalanceController {
                 if(!rebalanceConfig.isShowPlanEnabled())
                     adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
                                                                   transitionCluster,
+                                                                  existingStoreDefs,
+                                                                  targetStoreDefs,
                                                                   rebalancePartitionPlanList,
                                                                   true,
                                                                   true,
@@ -549,6 +573,8 @@ public class RebalanceController {
                 if(!rebalanceConfig.isShowPlanEnabled())
                     adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
                                                                   transitionCluster,
+                                                                  existingStoreDefs,
+                                                                  targetStoreDefs,
                                                                   rebalancePartitionPlanList,
                                                                   true,
                                                                   true,
@@ -676,8 +702,15 @@ public class RebalanceController {
 
             if(hasReadOnlyStores && hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 0
-                adminClient.rebalanceOps.rebalanceStateChange(null,
-                                                              currentCluster,
+
+                // TODO this method right nowtakes just the source stores
+                // definition
+                // the 2nd argument needs to be fixed
+                // ATTENTION JAY
+                adminClient.rebalanceOps.rebalanceStateChange(null, currentCluster, null, null, // pass
+                                                                                                // current
+                                                                                                // store
+                                                                                                // def
                                                               null,
                                                               true,
                                                               true,
@@ -686,8 +719,15 @@ public class RebalanceController {
                                                               false);
             } else if(hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 4
-                adminClient.rebalanceOps.rebalanceStateChange(null,
-                                                              currentCluster,
+
+                // TODO this method right nowtakes just the source stores
+                // definition
+                // the 2nd argument needs to be fixed
+                // ATTENTION JAY
+                adminClient.rebalanceOps.rebalanceStateChange(null, currentCluster, null, null, // pass
+                                                                                                // current
+                                                                                                // store
+                                                                                                // def
                                                               null,
                                                               false,
                                                               true,

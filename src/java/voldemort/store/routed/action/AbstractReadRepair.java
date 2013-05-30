@@ -78,7 +78,7 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
 
         long startTimeNs = -1;
 
-        if(logger.isTraceEnabled())
+        if(logger.isDebugEnabled())
             startTimeNs = System.nanoTime();
 
         if(nodeValues.size() > 1 && preferred > 1) {

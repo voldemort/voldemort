@@ -80,6 +80,12 @@ public class PausableStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, 
     }
 
     @Override
+    public List<Versioned<V>> multiVersionPut(K key, final List<Versioned<V>> values) {
+        blockIfNecessary();
+        return inner.multiVersionPut(key, values);
+    }
+
+    @Override
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         blockIfNecessary();
         return inner.entries();

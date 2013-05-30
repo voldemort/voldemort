@@ -128,10 +128,7 @@ public class Pipeline {
      */
 
     public void abort() {
-        if(isHintedHandoffEnabled())
-            addEvent(Event.ABORTED);
-        else
-            addEvent(Event.ERROR);
+        addEvent(Event.ERROR);
     }
 
     /**

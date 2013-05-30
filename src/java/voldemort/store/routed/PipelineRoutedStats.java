@@ -21,11 +21,11 @@ import voldemort.versioning.ObsoleteVersionException;
  */
 public class PipelineRoutedStats {
 
-    private ConcurrentHashMap<Class<? extends Exception>, AtomicLong> errCountMap;
-    private AtomicLong severeExceptionCount;
-    private AtomicLong benignExceptionCount;
+    protected ConcurrentHashMap<Class<? extends Exception>, AtomicLong> errCountMap;
+    protected AtomicLong severeExceptionCount;
+    protected AtomicLong benignExceptionCount;
 
-    PipelineRoutedStats() {
+    protected PipelineRoutedStats() {
         errCountMap = new ConcurrentHashMap<Class<? extends Exception>, AtomicLong>();
         errCountMap.put(InvalidMetadataException.class, new AtomicLong(0));
         errCountMap.put(InsufficientOperationalNodesException.class, new AtomicLong(0));
@@ -99,7 +99,7 @@ public class PipelineRoutedStats {
         errCountMap.get(e.getClass()).incrementAndGet();
     }
 
-    private boolean isSevere(Exception ve) {
+    public boolean isSevere(Exception ve) {
         if(ve instanceof InsufficientOperationalNodesException
            || ve instanceof InsufficientZoneResponsesException
            || ve instanceof InvalidMetadataException)

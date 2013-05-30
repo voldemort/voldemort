@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -29,6 +29,7 @@ import voldemort.client.StoreClientFactory;
 import voldemort.store.CompositeVersionedPutVoldemortRequest;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.InvalidMetadataException;
+import voldemort.store.Store;
 import voldemort.store.StoreTimeoutException;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -41,6 +42,8 @@ import com.google.common.collect.Maps;
  * A special store client to invoke Voldemort operations with the following new
  * features: 1) Per call timeout facility 2) Ability to disable resolution per
  * call
+ * 
+ * TODO: Merge this with DefaultStoreClient eventually.
  * 
  * @param <K> Type of the Key
  * @param <V> Type of the Value
@@ -68,6 +71,17 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         bootStrap(clusterXml, storesXml);
     }
 
+    /**
+     * Dummy constructor for Unit test purposes
+     * 
+     * @param customStore A custom store object to use for performing the
+     *        operations
+     */
+    public DynamicTimeoutStoreClient(Store<K, V, Object> customStore) {
+        this.store = customStore;
+        this.metadataRefreshAttempts = 1;
+    }
+
     // Bootstrap using the given cluster xml and stores xml
     // The super class bootStrap() method is used to handle the
     // InvalidMetadataException
@@ -76,6 +90,13 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         this.store = factory.getRawStore(storeName, null, customStoresXml, customClusterXml, null);
     }
 
+    /**
+     * Performs a get operation with the specified composite request object
+     * 
+     * @param requestWrapper A composite request object containing the key (and
+     *        / or default value) and timeout.
+     * @return The Versioned value corresponding to the key
+     */
     public Versioned<V> getWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
         validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
@@ -92,14 +113,21 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
+    /**
+     * Performs a put operation with the specified composite request object
+     * 
+     * @param requestWrapper A composite request object containing the key and
+     *        value
+     * @return Version of the value for the successful put
+     */
     public Version putWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
         validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         Versioned<V> versioned;
         long startTime = System.currentTimeMillis();
 
         // We use the full timeout for doing the Get. In this, we're being
-        // optimistic that the subsequent put might be faster all the steps
-        // might finish within the alloted time
+        // optimistic that the subsequent put might be faster such that all the
+        // steps might finish within the alloted time
         versioned = getWithCustomTimeout(requestWrapper);
 
         long endTime = System.currentTimeMillis();
@@ -119,6 +147,15 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                                                                              (requestWrapper.getRoutingTimeoutInMs() - (endTime - startTime))));
     }
 
+    /**
+     * Performs a Versioned put operation with the specified composite request
+     * object
+     * 
+     * @param requestWrapper Composite request object containing the key and the
+     *        versioned object
+     * @return Version of the value for the successful put
+     * @throws ObsoleteVersionException
+     */
     public Version putVersionedWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper)
             throws ObsoleteVersionException {
         validateTimeout(requestWrapper.getRoutingTimeoutInMs());
@@ -136,6 +173,14 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
+    /**
+     * Performs a get all operation with the specified composite request object
+     * 
+     * @param requestWrapper Composite request object containing a reference to
+     *        the Iterable keys
+     * 
+     * @return Map of the keys to the corresponding versioned values
+     */
     public Map<K, Versioned<V>> getAllWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
         validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         Map<K, List<Versioned<V>>> items = null;
@@ -161,6 +206,13 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         return result;
     }
 
+    /**
+     * Performs a delete operation with the specified composite request object
+     * 
+     * @param deleteRequestObject Composite request object containing the key to
+     *        delete
+     * @return true if delete was successful. False otherwise
+     */
     public boolean deleteWithCustomTimeout(CompositeVoldemortRequest<K, V> deleteRequestObject) {
         validateTimeout(deleteRequestObject.getRoutingTimeoutInMs());
         if(deleteRequestObject.getVersion() == null) {
@@ -194,7 +246,11 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         return store.delete(deleteRequestObject);
     }
 
-    // Make sure that the timeout specified is valid
+    /**
+     * Function to check that the timeout specified is valid
+     * 
+     * @param opTimeoutInMs The specified timeout in milliseconds
+     */
     private void validateTimeout(long opTimeoutInMs) {
         if(opTimeoutInMs <= 0) {
             throw new IllegalArgumentException("Illegal parameter: Timeout is too low: "

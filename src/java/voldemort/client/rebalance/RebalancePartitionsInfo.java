@@ -131,12 +131,16 @@ public class RebalancePartitionsInfo {
                 List<Integer> partitionList = Utils.uncheckedCast(map.get(unbalancedStore
                                                                           + "replicaToAddPartitionList"
                                                                           + Integer.toString(replicaNo)));
+                // TODO there is a potential NPE hiding here that might fail
+                // rebalancing tests
                 if(partitionList.size() > 0)
                     replicaToAddPartition.put(replicaNo, partitionList);
 
                 List<Integer> deletePartitionList = Utils.uncheckedCast(map.get(unbalancedStore
                                                                                 + "replicaToDeletePartitionList"
                                                                                 + Integer.toString(replicaNo)));
+                // TODO there is a potential NPE hiding here that might fail
+                // rebalancing tests
                 if(deletePartitionList.size() > 0)
                     replicaToDeletePartitionList.put(replicaNo, deletePartitionList);
             }
@@ -156,7 +160,7 @@ public class RebalancePartitionsInfo {
                                            attempt);
     }
 
-    public ImmutableMap<String, Object> asMap() {
+    public synchronized ImmutableMap<String, Object> asMap() {
         ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<String, Object>();
 
         builder.put("stealerId", stealerId)
@@ -199,23 +203,23 @@ public class RebalancePartitionsInfo {
         return builder.build();
     }
 
-    public void setAttempt(int attempt) {
+    public synchronized void setAttempt(int attempt) {
         this.attempt = attempt;
     }
 
-    public int getDonorId() {
+    public synchronized int getDonorId() {
         return donorId;
     }
 
-    public int getAttempt() {
+    public synchronized int getAttempt() {
         return attempt;
     }
 
-    public int getStealerId() {
+    public synchronized int getStealerId() {
         return stealerId;
     }
 
-    public Cluster getInitialCluster() {
+    public synchronized Cluster getInitialCluster() {
         return initialCluster;
     }
 
@@ -225,35 +229,35 @@ public class RebalancePartitionsInfo {
      * 
      * @return Set of store names
      */
-    public Set<String> getUnbalancedStoreList() {
+    public synchronized Set<String> getUnbalancedStoreList() {
         return storeToReplicaToAddPartitionList.keySet();
     }
 
-    public HashMap<String, HashMap<Integer, List<Integer>>> getStoreToReplicaToAddPartitionList() {
+    public synchronized HashMap<String, HashMap<Integer, List<Integer>>> getStoreToReplicaToAddPartitionList() {
         return this.storeToReplicaToAddPartitionList;
     }
 
-    public HashMap<String, HashMap<Integer, List<Integer>>> getStoreToReplicaToDeletePartitionList() {
+    public synchronized HashMap<String, HashMap<Integer, List<Integer>>> getStoreToReplicaToDeletePartitionList() {
         return this.storeToReplicaToDeletePartitionList;
     }
 
-    public HashMap<Integer, List<Integer>> getReplicaToAddPartitionList(String storeName) {
+    public synchronized HashMap<Integer, List<Integer>> getReplicaToAddPartitionList(String storeName) {
         return this.storeToReplicaToAddPartitionList.get(storeName);
     }
 
-    public HashMap<Integer, List<Integer>> getReplicaToDeletePartitionList(String storeName) {
+    public synchronized HashMap<Integer, List<Integer>> getReplicaToDeletePartitionList(String storeName) {
         return this.storeToReplicaToDeletePartitionList.get(storeName);
     }
 
-    public void setStoreToReplicaToAddPartitionList(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitionList) {
+    public synchronized void setStoreToReplicaToAddPartitionList(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitionList) {
         this.storeToReplicaToAddPartitionList = storeToReplicaToAddPartitionList;
     }
 
-    public void setStoreToReplicaToDeletePartitionList(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToDeletePartitionList) {
+    public synchronized void setStoreToReplicaToDeletePartitionList(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToDeletePartitionList) {
         this.storeToReplicaToDeletePartitionList = storeToReplicaToDeletePartitionList;
     }
 
-    public void removeStore(String storeName) {
+    public synchronized void removeStore(String storeName) {
         this.storeToReplicaToAddPartitionList.remove(storeName);
         this.storeToReplicaToDeletePartitionList.remove(storeName);
     }
@@ -263,7 +267,7 @@ public class RebalancePartitionsInfo {
      * 
      * @return List of primary partitions
      */
-    public List<Integer> getStealMasterPartitions() {
+    public synchronized List<Integer> getStealMasterPartitions() {
         Iterator<HashMap<Integer, List<Integer>>> iter = storeToReplicaToAddPartitionList.values()
                                                                                          .iterator();
         List<Integer> primaryPartitionsBeingMoved = Lists.newArrayList();
@@ -276,7 +280,7 @@ public class RebalancePartitionsInfo {
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         StringBuffer sb = new StringBuffer();
         sb.append("\nRebalancePartitionsInfo(" + getStealerId() + " ["
                   + initialCluster.getNodeById(getStealerId()).getHost() + "] <--- " + getDonorId()
@@ -307,7 +311,7 @@ public class RebalancePartitionsInfo {
         return sb.toString();
     }
 
-    public String toJsonString() {
+    public synchronized String toJsonString() {
         Map<String, Object> map = asMap();
 
         StringWriter writer = new StringWriter();
@@ -317,7 +321,7 @@ public class RebalancePartitionsInfo {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public synchronized boolean equals(Object o) {
         if(this == o)
             return true;
         if(o == null || getClass() != o.getClass())
@@ -344,7 +348,7 @@ public class RebalancePartitionsInfo {
     }
 
     @Override
-    public int hashCode() {
+    public synchronized int hashCode() {
         int result = stealerId;
         result = 31 * result + donorId;
         result = 31 * result + initialCluster.hashCode();

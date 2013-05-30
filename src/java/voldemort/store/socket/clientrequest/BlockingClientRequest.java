@@ -57,8 +57,8 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         return delegate.isComplete() && latch.getCount() == 0;
     }
 
-    public void await() throws InterruptedException {
-        latch.await(timeoutMs, TimeUnit.MILLISECONDS);
+    public boolean await() throws InterruptedException {
+        return latch.await(timeoutMs, TimeUnit.MILLISECONDS);
     }
 
     public T getResult() throws VoldemortException, IOException {

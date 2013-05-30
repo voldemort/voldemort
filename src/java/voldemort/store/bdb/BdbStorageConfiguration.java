@@ -39,6 +39,7 @@ import voldemort.utils.Time;
 
 import com.google.common.collect.Maps;
 import com.sleepycat.je.CacheMode;
+import com.sleepycat.je.CheckpointConfig;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseException;
@@ -304,12 +305,30 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     /**
      * Forceful cleanup the logs
      */
-    @JmxOperation(description = "Forceful start the cleaner threads")
+    @JmxOperation(description = "Forcefully invoke the log cleaning")
     public void cleanLogs() {
         synchronized(lock) {
             try {
                 for(Environment environment: environments.values()) {
                     environment.cleanLog();
+                }
+            } catch(DatabaseException e) {
+                throw new VoldemortException(e);
+            }
+        }
+    }
+
+    /**
+     * Forceful checkpointing
+     */
+    @JmxOperation(description = "Forcefully checkpoint all the environments")
+    public void checkPointAllEnvironments() {
+        synchronized(lock) {
+            try {
+                for(Environment environment: environments.values()) {
+                    CheckpointConfig checkPointConfig = new CheckpointConfig();
+                    checkPointConfig.setForce(true);
+                    environment.checkpoint(checkPointConfig);
                 }
             } catch(DatabaseException e) {
                 throw new VoldemortException(e);

@@ -17,6 +17,7 @@
 package voldemort.store.routed;
 
 import voldemort.cluster.Node;
+import voldemort.store.routed.action.AsyncPutSynchronizer;
 import voldemort.store.routed.action.PerformSerialPutRequests;
 import voldemort.versioning.Versioned;
 
@@ -32,6 +33,8 @@ public class PutPipelineData extends BasicPipelineData<Void> {
     private Versioned<byte[]> versionedCopy;
 
     private long startTimeNs;
+
+    final private AsyncPutSynchronizer synchronizer = new AsyncPutSynchronizer();
 
     /**
      * Returns the previously determined "master" node. This is the first node
@@ -95,4 +98,7 @@ public class PutPipelineData extends BasicPipelineData<Void> {
         return this.startTimeNs;
     }
 
+    public AsyncPutSynchronizer getSynchronizer() {
+        return synchronizer;
+    }
 }

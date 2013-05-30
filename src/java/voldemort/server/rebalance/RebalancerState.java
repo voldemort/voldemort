@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.Map;
 
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.StoreInstance;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -103,7 +103,7 @@ public class RebalancerState {
 
                 // If yes, check if the key belongs to one of the partitions
                 // being moved
-                if(StoreInstance.checkKeyBelongsToPartition(keyPartitions,
+                if(StoreRoutingPlan.checkKeyBelongsToPartition(keyPartitions,
                                                             nodePartitions,
                                                             info.getReplicaToAddPartitionList(storeName))) {
                     return info;

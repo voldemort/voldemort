@@ -42,7 +42,6 @@
 	<classpathentry kind="lib" path="lib/commons-pool-1.5.2.jar"/>
 	<classpathentry kind="lib" path="lib/protobuf-java-2.3.0.jar"/>
 	<classpathentry kind="lib" path="contrib/ec2-testing/lib/typica.jar"/>
-	<classpathentry kind="lib" path="lib/google-collect-1.0.jar"/>
 	<classpathentry kind="lib" path="lib/je-4.1.17.jar"/>
 	<classpathentry kind="lib" path="lib/paranamer-2.1.jar"/>
 	<classpathentry kind="lib" path="lib/jackson-mapper-asl-1.4.0.jar"/>
@@ -63,6 +62,7 @@
 	<classpathentry kind="lib" path="contrib/restclient/lib/data-1.5.10.jar"/>
 	<classpathentry kind="lib" path="contrib/restclient/lib/pegasus-common-1.5.10.jar"/>
 	<classpathentry kind="lib" path="contrib/restclient/lib/r2-1.5.10.jar"/>
+	<classpathentry kind="lib" path="lib/guava-14.0.1.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

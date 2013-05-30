@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.routing;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,9 +24,13 @@ import java.util.Set;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
-import voldemort.routing.RoutingStrategyFactory;
-import voldemort.routing.RoutingStrategyType;
+import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ByteUtils;
+import voldemort.utils.ClusterUtils;
+import voldemort.utils.NodeUtils;
+import voldemort.utils.Pair;
+import voldemort.utils.Utils;
 
 import com.google.common.collect.Lists;
 
@@ -34,25 +38,23 @@ import com.google.common.collect.Lists;
 
 /**
  * This class wraps up a Cluster object and a StoreDefinition. The methods are
- * effectively helper or util style methods for analyzing partitions and so on
- * which are a function of both Cluster and StoreDefinition.
+ * effectively helper or util style methods for querying the routing plan that
+ * will be generated for a given routing strategy upon store and cluster
+ * topology information.
  */
-public class StoreInstance {
-
-    // TODO: (refactor) Improve upon the name "StoreInstance". Object-oriented
-    // meaning of 'instance' is too easily confused with system notion of an
-    // "instance of a cluster" (the intended usage in this class name).
+public class StoreRoutingPlan {
 
     private final Cluster cluster;
     private final StoreDefinition storeDefinition;
-
     private final Map<Integer, Integer> partitionIdToNodeIdMap;
+    private final RoutingStrategy routingStrategy;
 
-    public StoreInstance(Cluster cluster, StoreDefinition storeDefinition) {
+    public StoreRoutingPlan(Cluster cluster, StoreDefinition storeDefinition) {
         this.cluster = cluster;
         this.storeDefinition = storeDefinition;
-
-        partitionIdToNodeIdMap = ClusterUtils.getCurrentPartitionMapping(cluster);
+        this.partitionIdToNodeIdMap = ClusterUtils.getCurrentPartitionMapping(cluster);
+        this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
+                                                                                  cluster);
     }
 
     public Cluster getCluster() {
@@ -69,19 +71,28 @@ public class StoreInstance {
      * @param masterPartitionId
      * @return List of partition IDs that replicate the master partition ID.
      */
-    public List<Integer> getReplicationPartitionList(int masterPartitionId) {
-        return new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster)
-                                           .getReplicatingPartitionList(masterPartitionId);
+    public List<Integer> getReplicatingPartitionList(int masterPartitionId) {
+        return this.routingStrategy.getReplicatingPartitionList(masterPartitionId);
     }
 
     /**
      * Determines list of partition IDs that replicate the key.
      * 
      * @param key
-     * @return List of partition IDs that replicate the partition ID.
+     * @return List of partition IDs that replicate the given key
      */
-    public List<Integer> getReplicationPartitionList(final byte[] key) {
-        return getReplicationPartitionList(getMasterPartitionId(key));
+    public List<Integer> getReplicatingPartitionList(final byte[] key) {
+        return this.routingStrategy.getPartitionList(key);
+    }
+
+    /**
+     * Determines the list of nodes that the key replicates to
+     * 
+     * @param key
+     * @return list of nodes that key replicates to
+     */
+    public List<Integer> getReplicationNodeList(final byte[] key) {
+        return NodeUtils.getNodeIds(this.routingStrategy.routeRequest(key));
     }
 
     /**
@@ -91,8 +102,7 @@ public class StoreInstance {
      * @return
      */
     public int getMasterPartitionId(final byte[] key) {
-        return new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster)
-                                           .getMasterPartition(key);
+        return this.routingStrategy.getMasterPartition(key);
     }
 
     /**
@@ -113,8 +123,11 @@ public class StoreInstance {
      * @return partitionId if found, otherwise null.
      */
     public Integer getNodesPartitionIdForKey(int nodeId, final byte[] key) {
-        List<Integer> partitionIds = getReplicationPartitionList(key);
+        // this is all the partitions the key replicates to.
+        List<Integer> partitionIds = getReplicatingPartitionList(key);
         for(Integer partitionId: partitionIds) {
+            // check which of the replicating partitions belongs to the node in
+            // question
             if(getNodeIdForPartitionId(partitionId) == nodeId) {
                 return partitionId;
             }
@@ -147,8 +160,88 @@ public class StoreInstance {
         return nodeIds;
     }
 
+    /**
+     * Returns the list of node ids this partition replicates to.
+     * 
+     * TODO ideally the {@link RoutingStrategy} should house a routeRequest(int
+     * partition) method
+     * 
+     * @param partitionId
+     * @return
+     * @throws VoldemortException
+     */
     public List<Integer> getReplicationNodeList(int partitionId) throws VoldemortException {
-        return getNodeIdListForPartitionIdList(getReplicationPartitionList(partitionId));
+        return getNodeIdListForPartitionIdList(getReplicatingPartitionList(partitionId));
+    }
+
+    /**
+     * Given a key that belong to a given node, returns a number n (< zone
+     * replication factor), such that the given node holds the key as the nth
+     * replica of the given zone
+     * 
+     * eg: if the method returns 1, then given node hosts the key as the zone
+     * secondary in the given zone
+     * 
+     * @param zoneId
+     * @param nodeId
+     * @param key
+     * @return
+     */
+    public int getZoneReplicaType(int zoneId, int nodeId, byte[] key) {
+        List<Node> replicatingNodes = this.routingStrategy.routeRequest(key);
+        int zoneReplicaType = -1;
+        for(Node node: replicatingNodes) {
+            // bump up the replica number once you encounter a node in the given
+            // zone
+            if(node.getZoneId() == zoneId) {
+                zoneReplicaType++;
+            }
+            // we are done when we find the given node
+            if(node.getId() == nodeId) {
+                return zoneReplicaType;
+            }
+        }
+        if(zoneReplicaType > -1) {
+            throw new VoldemortException("Node " + nodeId + " not a replica for the key "
+                                         + ByteUtils.toHexString(key) + " in given zone " + zoneId);
+        } else {
+            throw new VoldemortException("Could not find any replicas for the key "
+                                         + ByteUtils.toHexString(key) + " in given zone " + zoneId);
+        }
+    }
+
+    /**
+     * Given a key and a replica type n (< zone replication factor), figure out
+     * the node that contains the key as the nth replica in the given zone.
+     * 
+     * @param zoneId
+     * @param zoneReplicaType
+     * @param key
+     * @return
+     */
+    public int getZoneReplicaNode(int zoneId, int zoneReplicaType, byte[] key) {
+        List<Node> replicatingNodes = this.routingStrategy.routeRequest(key);
+        int zoneReplicaTypeCounter = -1;
+        for(Node node: replicatingNodes) {
+            // bump up the counter if we encounter a replica in the given zone
+            if(node.getZoneId() == zoneId) {
+                zoneReplicaTypeCounter++;
+            }
+            // when the counter matches up with the replicaNumber we need, we
+            // are done.
+            if(zoneReplicaTypeCounter == zoneReplicaType) {
+                return node.getId();
+            }
+        }
+        if(zoneReplicaTypeCounter == -1) {
+            throw new VoldemortException("Could not find any replicas for the key "
+                                         + ByteUtils.toHexString(key) + " in given zone " + zoneId);
+        } else {
+            throw new VoldemortException("Could not find " + (zoneReplicaType + 1)
+                                         + " replicas for the key " + ByteUtils.toHexString(key)
+                                         + " in given zone " + zoneId + ". Only found "
+                                         + (zoneReplicaTypeCounter + 1));
+        }
     }
 
     // TODO: (refactor) Move from static methods to non-static methods that use
@@ -212,9 +305,9 @@ public class StoreInstance {
                                                                                              cluster)
                                                                       .getPartitionList(key);
             List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-            checkResult = StoreInstance.checkKeyBelongsToPartition(keyPartitions,
-                                                                   nodePartitions,
-                                                                   replicaToPartitionList);
+            checkResult = StoreRoutingPlan.checkKeyBelongsToPartition(keyPartitions,
+                                                                      nodePartitions,
+                                                                      replicaToPartitionList);
         }
         return checkResult;
     }
@@ -266,9 +359,9 @@ public class StoreInstance {
         for(Pair<Integer, HashMap<Integer, List<Integer>>> stealNodeToMap: stealerNodeToMappingTuples) {
             List<Integer> nodePartitions = cluster.getNodeById(stealNodeToMap.getFirst())
                                                   .getPartitionIds();
-            if(StoreInstance.checkKeyBelongsToPartition(keyPartitions,
-                                                        nodePartitions,
-                                                        stealNodeToMap.getSecond())) {
+            if(StoreRoutingPlan.checkKeyBelongsToPartition(keyPartitions,
+                                                           nodePartitions,
+                                                           stealNodeToMap.getSecond())) {
                 nodesToPush.add(stealNodeToMap.getFirst());
             }
         }

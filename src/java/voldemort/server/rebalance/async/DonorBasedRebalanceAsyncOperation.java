@@ -38,6 +38,7 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.rebalance.Rebalancer;
@@ -51,7 +52,6 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
-import voldemort.utils.StoreInstance;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.HashMultimap;
@@ -330,7 +330,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
             while(running.get() && keys.hasNext()) {
                 ByteArray key = keys.next();
                 scanned++;
-                List<Integer> nodeIds = StoreInstance.checkKeyBelongsToPartition(key.get(),
+                List<Integer> nodeIds = StoreRoutingPlan.checkKeyBelongsToPartition(key.get(),
                                                                                  optimizedStealerNodeToMappingTuples,
                                                                                  targetCluster,
                                                                                  storeDef);
@@ -378,7 +378,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         // check if all the partitions being requested are present in the
         // current node
         for(Integer partition: partitionsToDonate) {
-            if(!StoreInstance.checkPartitionBelongsToNode(partition,
+            if(!StoreRoutingPlan.checkPartitionBelongsToNode(partition,
                                                           voldemortConfig.getNodeId(),
                                                           initialCluster,
                                                           storeDef)) {
@@ -398,7 +398,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 Versioned<byte[]> value = entry.getSecond();
 
                 scanned++;
-                List<Integer> nodeIds = StoreInstance.checkKeyBelongsToPartition(key.get(),
+                List<Integer> nodeIds = StoreRoutingPlan.checkKeyBelongsToPartition(key.get(),
                                                                                  optimizedStealerNodeToMappingTuples,
                                                                                  targetCluster,
                                                                                  storeDef);

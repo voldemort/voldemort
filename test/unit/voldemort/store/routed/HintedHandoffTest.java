@@ -1,7 +1,6 @@
 package voldemort.store.routed;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 
@@ -136,7 +135,7 @@ public class HintedHandoffTest {
                                            .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                            .setKeySerializer(serDef)
                                            .setValueSerializer(serDef)
-                                           .setRoutingPolicy(RoutingTier.SERVER)
+                                           .setRoutingPolicy(RoutingTier.CLIENT)
                                            .setRoutingStrategyType(strategyType)
                                            .setReplicationFactor(replicationFactor)
                                            .setPreferredReads(preads)
@@ -232,36 +231,6 @@ public class HintedHandoffTest {
 
         if(routedStoreThreadPool != null)
             routedStoreThreadPool.shutdown();
-    }
-
-    @Test
-    public void testHintedHandoff() throws Exception {
-        Set<Integer> failedNodes = getFailedNodes();
-        Multimap<Integer, ByteArray> failedKeys = populateStore(failedNodes);
-        Thread.sleep(5000);
-
-        Map<ByteArray, byte[]> dataInSlops = Maps.newHashMap();
-        Set<ByteArray> slopKeys = makeSlopKeys(failedKeys, Slop.Operation.PUT);
-        for(Store<ByteArray, Slop, byte[]> slopStore: slopStores.values()) {
-            Map<ByteArray, List<Versioned<Slop>>> res = slopStore.getAll(slopKeys, null);
-            for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
-                Slop slop = entry.getValue().get(0).getValue();
-                dataInSlops.put(slop.getKey(), slop.getValue());
-
-                if(logger.isTraceEnabled())
-                    logger.trace(slop);
-            }
-        }
-
-        for(Map.Entry<Integer, ByteArray> failedKey: failedKeys.entries()) {
-            byte[] expected = keyValues.get(failedKey.getValue()).get();
-            byte[] actual = dataInSlops.get(failedKey.getValue());
-
-            assertNotNull("data should be stored in the slop for key = " + failedKey.getValue(),
-                          actual);
-            assertEquals("correct should be stored in slop", 0, ByteUtils.compare(actual, expected));
-        }
-
     }
 
     private Set<ByteArray> makeSlopKeys(Multimap<Integer, ByteArray> failedKeys,

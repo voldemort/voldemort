@@ -44,6 +44,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
 import voldemort.versioning.ClockEntry;
 import voldemort.versioning.VectorClock;
@@ -58,7 +59,7 @@ public class ConsistencyFix {
 
     private final String storeName;
     private final AdminClient adminClient;
-    private final StoreInstance storeInstance;
+    private final StoreRoutingPlan storeInstance;
     private final Stats stats;
     private final long perServerQPSLimit;
     private final ConcurrentMap<Integer, EventThrottler> putThrottlers;
@@ -83,7 +84,7 @@ public class ConsistencyFix {
                                                                                           storeName);
         logger.info("Store definition for store " + storeName + " has been determined.");
 
-        storeInstance = new StoreInstance(cluster, storeDefinition);
+        storeInstance = new StoreRoutingPlan(cluster, storeDefinition);
 
         stats = new Stats(progressBar);
 
@@ -97,7 +98,7 @@ public class ConsistencyFix {
         return storeName;
     }
 
-    public StoreInstance getStoreInstance() {
+    public StoreRoutingPlan getStoreInstance() {
         return storeInstance;
     }
 

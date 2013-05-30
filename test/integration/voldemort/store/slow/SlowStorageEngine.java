@@ -126,6 +126,12 @@ public class SlowStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, T> {
     }
 
     @Override
+    public List<Versioned<V>> multiVersionPut(K key, final List<Versioned<V>> values) {
+        delayByOp(VoldemortOpCode.PUT_OP_CODE);
+        return innerStorageEngine.multiVersionPut(key, values);
+    }
+
+    @Override
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         return innerStorageEngine.entries();
     }

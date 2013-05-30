@@ -200,7 +200,7 @@ public class AdminRebalanceTest {
                                                 .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                 .setKeySerializer(new SerializerDefinition("string"))
                                                 .setValueSerializer(new SerializerDefinition("string"))
-                                                .setRoutingPolicy(RoutingTier.SERVER)
+                                                .setRoutingPolicy(RoutingTier.CLIENT)
                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                 .setReplicationFactor(2)
                                                 .setPreferredReads(1)
@@ -212,7 +212,7 @@ public class AdminRebalanceTest {
                                                 .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                 .setKeySerializer(new SerializerDefinition("string"))
                                                 .setValueSerializer(new SerializerDefinition("string"))
-                                                .setRoutingPolicy(RoutingTier.SERVER)
+                                                .setRoutingPolicy(RoutingTier.CLIENT)
                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                 .setReplicationFactor(3)
                                                 .setPreferredReads(1)
@@ -252,7 +252,7 @@ public class AdminRebalanceTest {
                                                 .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                 .setKeySerializer(new SerializerDefinition("string"))
                                                 .setValueSerializer(new SerializerDefinition("string"))
-                                                .setRoutingPolicy(RoutingTier.SERVER)
+                                                .setRoutingPolicy(RoutingTier.CLIENT)
                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                 .setReplicationFactor(2)
                                                 .setPreferredReads(1)
@@ -264,7 +264,7 @@ public class AdminRebalanceTest {
                                                 .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                 .setKeySerializer(new SerializerDefinition("string"))
                                                 .setValueSerializer(new SerializerDefinition("string"))
-                                                .setRoutingPolicy(RoutingTier.SERVER)
+                                                .setRoutingPolicy(RoutingTier.CLIENT)
                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                 .setReplicationFactor(3)
                                                 .setPreferredReads(1)
@@ -399,6 +399,9 @@ public class AdminRebalanceTest {
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.SERVER_STATE_KEY,
                                                             MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+                getServer(partitionPlan.getStealerId()).getMetadataStore()
+                                                       .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                                            partitionPlan.getInitialCluster());
             }
 
             try {
@@ -515,7 +518,7 @@ public class AdminRebalanceTest {
             for(VoldemortServer server: servers) {
                 assertEquals(server.getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(server.getMetadataStore().getServerState(),
+                assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
             }
         } finally {
@@ -571,6 +574,9 @@ public class AdminRebalanceTest {
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.REBALANCING_STEAL_INFO,
                                                             new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
+                getServer(partitionPlan.getStealerId()).getMetadataStore()
+                                                       .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                                            partitionPlan.getInitialCluster());
             }
 
             // Update the cluster metadata on all three nodes
@@ -719,7 +725,7 @@ public class AdminRebalanceTest {
             for(VoldemortServer server: servers) {
                 assertEquals(server.getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(server.getMetadataStore().getServerState(),
+                assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
             }
         } finally {
@@ -745,6 +751,9 @@ public class AdminRebalanceTest {
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.REBALANCING_STEAL_INFO,
                                                             new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
+                getServer(partitionPlan.getStealerId()).getMetadataStore()
+                                                       .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                                            partitionPlan.getInitialCluster());
             }
 
             // Actually run it
@@ -801,7 +810,7 @@ public class AdminRebalanceTest {
             for(VoldemortServer server: servers) {
                 assertEquals(server.getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(server.getMetadataStore().getServerState(),
+                assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
             }
 
@@ -815,7 +824,7 @@ public class AdminRebalanceTest {
                                                                           .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                                           .setKeySerializer(new SerializerDefinition("string"))
                                                                           .setValueSerializer(new SerializerDefinition("string"))
-                                                                          .setRoutingPolicy(RoutingTier.SERVER)
+                                                                          .setRoutingPolicy(RoutingTier.CLIENT)
                                                                           .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                                           .setReplicationFactor(2)
                                                                           .setPreferredReads(1)
@@ -825,8 +834,14 @@ public class AdminRebalanceTest {
                                                                           .build()));
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               true,
                                                               true,
@@ -844,8 +859,14 @@ public class AdminRebalanceTest {
             checkRO(cluster);
 
             // Test 2) All passes scenario
+            // TODO pass the target storedefs
+            // ATTENTION JAY
             adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                           targetCluster,
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
                                                           plans,
                                                           true,
                                                           true,
@@ -899,6 +920,9 @@ public class AdminRebalanceTest {
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.REBALANCING_STEAL_INFO,
                                                             new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
+                getServer(partitionPlan.getStealerId()).getMetadataStore()
+                                                       .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                                            partitionPlan.getInitialCluster());
             }
 
             // Actually run it
@@ -936,8 +960,14 @@ public class AdminRebalanceTest {
                                                           0));
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               true,
                                                               true,
@@ -953,7 +983,7 @@ public class AdminRebalanceTest {
                 if(server.getMetadataStore().getNodeId() != 3) {
                     assertEquals(server.getMetadataStore().getRebalancerState(),
                                  new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                    assertEquals(server.getMetadataStore().getServerState(),
+                    assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                                  MetadataStore.VoldemortState.NORMAL_SERVER);
                 }
                 assertEquals(server.getMetadataStore().getCluster(), cluster);
@@ -974,7 +1004,7 @@ public class AdminRebalanceTest {
                                                                           .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                                           .setKeySerializer(new SerializerDefinition("string"))
                                                                           .setValueSerializer(new SerializerDefinition("string"))
-                                                                          .setRoutingPolicy(RoutingTier.SERVER)
+                                                                          .setRoutingPolicy(RoutingTier.CLIENT)
                                                                           .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                                           .setReplicationFactor(2)
                                                                           .setPreferredReads(1)
@@ -984,8 +1014,14 @@ public class AdminRebalanceTest {
                                                                           .build()));
 
             try {
+                // // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               true,
                                                               true,
@@ -1000,7 +1036,7 @@ public class AdminRebalanceTest {
             for(VoldemortServer server: servers) {
                 assertEquals(server.getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(server.getMetadataStore().getServerState(),
+                assertEquals(server.getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
                 assertEquals(server.getMetadataStore().getCluster(), cluster);
             }
@@ -1017,8 +1053,15 @@ public class AdminRebalanceTest {
                                                                  storeDef4));
 
             // Test 3) Everything should work
+
+            // TODO pass the target storedefs
+            // ATTENTION JAY
             adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                           targetCluster,
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
                                                           plans,
                                                           true,
                                                           true,
@@ -1031,7 +1074,8 @@ public class AdminRebalanceTest {
                 nodesChecked.add(plan.getStealerId());
                 assertEquals(servers[plan.getStealerId()].getMetadataStore().getRebalancerState(),
                              new RebalancerState(Lists.newArrayList(plan)));
-                assertEquals(servers[plan.getStealerId()].getMetadataStore().getServerState(),
+                assertEquals(servers[plan.getStealerId()].getMetadataStore()
+                                                         .getServerStateUnlocked(),
                              MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
                 assertEquals(servers[plan.getStealerId()].getMetadataStore().getCluster(),
                              targetCluster);
@@ -1044,7 +1088,7 @@ public class AdminRebalanceTest {
             for(int nodeId: allNodes) {
                 assertEquals(servers[nodeId].getMetadataStore().getRebalancerState(),
                              new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-                assertEquals(servers[nodeId].getMetadataStore().getServerState(),
+                assertEquals(servers[nodeId].getMetadataStore().getServerStateUnlocked(),
                              MetadataStore.VoldemortState.NORMAL_SERVER);
                 assertEquals(servers[nodeId].getMetadataStore().getCluster(), targetCluster);
             }
@@ -1088,8 +1132,14 @@ public class AdminRebalanceTest {
             startFourNodeRW();
 
             // Test 1) Normal case where-in all are up
+            // TODO pass the target storedefs
+            // ATTENTION JAY
             adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                           targetCluster,
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
                                                           plans,
                                                           false,
                                                           false,
@@ -1128,8 +1178,14 @@ public class AdminRebalanceTest {
                                                           0));
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               false,
                                                               false,
@@ -1156,8 +1212,14 @@ public class AdminRebalanceTest {
             servers[3] = null;
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               false,
                                                               false,
@@ -1187,8 +1249,14 @@ public class AdminRebalanceTest {
             startFourNodeRW();
 
             // Test 1) Normal case where-in all are up
+            // TODO pass the target storedefs
+            // ATTENTION JAY
             adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                           targetCluster,
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
+                                                          servers[2].getMetadataStore()
+                                                                    .getStoreDefList(),
                                                           plans,
                                                           false,
                                                           true,
@@ -1230,8 +1298,14 @@ public class AdminRebalanceTest {
                                                           0));
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               false,
                                                               true,
@@ -1259,8 +1333,14 @@ public class AdminRebalanceTest {
             servers[3] = null;
 
             try {
+                // TODO pass the target storedefs
+                // ATTENTION JAY
                 adminClient.rebalanceOps.rebalanceStateChange(cluster,
                                                               targetCluster,
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
+                                                              servers[2].getMetadataStore()
+                                                                        .getStoreDefList(),
                                                               plans,
                                                               false,
                                                               true,

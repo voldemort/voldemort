@@ -108,7 +108,7 @@ public class E2ENonblockingCheckoutTest {
                                              .setType(storageConfiguration)
                                              .setKeySerializer(serDef)
                                              .setValueSerializer(serDef)
-                                             .setRoutingPolicy(RoutingTier.SERVER)
+                                             .setRoutingPolicy(RoutingTier.CLIENT)
                                              .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                              .setReplicationFactor(3)
                                              .setPreferredReads(1)

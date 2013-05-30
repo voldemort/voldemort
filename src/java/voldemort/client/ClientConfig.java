@@ -66,6 +66,14 @@ public class ClientConfig {
     private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
 
     /*
+     * Following properties are required for the Fat client wrapper to be
+     * embedded inside the CoordinatorService
+     */
+    private volatile int fatClientWrapperMaxPoolSize = 20;
+    private volatile int fatClientWrapperCorePoolSize = 20;
+    private volatile int fatClientWrapperKeepAliveInSecs = 60;
+
+    /*
      * The following are only used with a non pipe line routed, i.e non NIO
      * based client
      */
@@ -165,6 +173,9 @@ public class ClientConfig {
     public static final String ENABLE_COMPRESSION_LAYER = "enable_compression_layer";
     public static final String ENABLE_SERIALIZATION_LAYER = "enable_serialization_layer";
     public static final String ENABLE_INCONSISTENCY_RESOLVING_LAYER = "enable_inconsistency_resolving_layer";
+    public static final String FAT_CLIENT_WRAPPER_MAX_POOL_SIZE_PROPERTY = "fat_client_wrapper_max_pool_size";
+    public static final String FAT_CLIENT_WRAPPER_CORE_POOL_SIZE_PROPERTY = "fat_client_wrapper_core_pool_size";
+    public static final String FAT_CLIENT_WRAPPER_POOL_KEEPALIVE_IN_SECS = "fat_client_wrapper_pool_keepalive_in_secs";
 
     /**
      * Instantiate the client config using a properties file
@@ -378,6 +389,21 @@ public class ClientConfig {
 
         if(props.containsKey(ENABLE_INCONSISTENCY_RESOLVING_LAYER)) {
             this.setEnableInconsistencyResolvingLayer(props.getBoolean(ENABLE_INCONSISTENCY_RESOLVING_LAYER));
+        }
+
+        if(props.containsKey(FAT_CLIENT_WRAPPER_CORE_POOL_SIZE_PROPERTY)) {
+            this.setFatClientWrapperCorePoolSize(props.getInt(FAT_CLIENT_WRAPPER_CORE_POOL_SIZE_PROPERTY,
+                                                              this.fatClientWrapperCorePoolSize));
+        }
+
+        if(props.containsKey(FAT_CLIENT_WRAPPER_MAX_POOL_SIZE_PROPERTY)) {
+            this.setFatClientWrapperMaxPoolSize(props.getInt(FAT_CLIENT_WRAPPER_MAX_POOL_SIZE_PROPERTY,
+                                                             this.fatClientWrapperMaxPoolSize));
+        }
+
+        if(props.containsKey(FAT_CLIENT_WRAPPER_POOL_KEEPALIVE_IN_SECS)) {
+            this.setFatClientWrapperKeepAliveInSecs(props.getInt(FAT_CLIENT_WRAPPER_POOL_KEEPALIVE_IN_SECS,
+                                                                 this.fatClientWrapperKeepAliveInSecs));
         }
 
     }
@@ -1102,6 +1128,45 @@ public class ClientConfig {
 
     public ClientConfig setEnableInconsistencyResolvingLayer(boolean enableInconsistencyResolvingLayer) {
         this.enableInconsistencyResolvingLayer = enableInconsistencyResolvingLayer;
+        return this;
+    }
+
+    public int getFatClientWrapperMaxPoolSize() {
+        return fatClientWrapperMaxPoolSize;
+    }
+
+    /**
+     * @param fatClientWrapperMaxPoolSize Defines the Maximum pool size for the
+     *        thread pool used in the Fat client wrapper
+     */
+    public ClientConfig setFatClientWrapperMaxPoolSize(int fatClientWrapperMaxPoolSize) {
+        this.fatClientWrapperMaxPoolSize = fatClientWrapperMaxPoolSize;
+        return this;
+    }
+
+    public int getFatClientWrapperCorePoolSize() {
+        return fatClientWrapperCorePoolSize;
+    }
+
+    /**
+     * @param fatClientWrapperMaxPoolSize Defines the Core pool size for the
+     *        thread pool used in the Fat client wrapper
+     */
+    public ClientConfig setFatClientWrapperCorePoolSize(int fatClientWrapperCorePoolSize) {
+        this.fatClientWrapperCorePoolSize = fatClientWrapperCorePoolSize;
+        return this;
+    }
+
+    public int getFatClientWrapperKeepAliveInSecs() {
+        return fatClientWrapperKeepAliveInSecs;
+    }
+
+    /**
+     * @param fatClientWrapperKeepAliveInSecs Defines the Keep alive period in
+     *        seconds for the thread pool used in the Fat client wrapper
+     */
+    public ClientConfig setFatClientWrapperKeepAliveInSecs(int fatClientWrapperKeepAliveInSecs) {
+        this.fatClientWrapperKeepAliveInSecs = fatClientWrapperKeepAliveInSecs;
         return this;
     }
 

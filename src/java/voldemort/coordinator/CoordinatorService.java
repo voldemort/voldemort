@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -40,8 +41,11 @@ import org.apache.avro.util.Utf8;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.jboss.netty.bootstrap.ServerBootstrap;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
+import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.SystemStoreRepository;
@@ -52,6 +56,9 @@ import voldemort.common.service.ServiceType;
 import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.Tracked;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -63,24 +70,33 @@ import com.google.common.base.Joiner;
  * clients and invokes the corresponding Fat client API.
  * 
  */
+@JmxManaged(description = "A Coordinator Service for proxying Voldemort HTTP requests")
 public class CoordinatorService extends AbstractService {
 
-    private CoordinatorConfig config = null;
+    private CoordinatorConfig coordinatorConfig = null;
 
-    public CoordinatorService(CoordinatorConfig config) {
-        super(ServiceType.COORDINATOR);
-        this.config = config;
-    }
-
-    private static boolean noop = false;
-    private static SocketStoreClientFactory storeClientFactory = null;
-    private static AsyncMetadataVersionManager asyncMetadataManager = null;
-    private static SchedulerService schedulerService = null;
+    private boolean noop = false;
+    private SocketStoreClientFactory storeClientFactory = null;
+    private AsyncMetadataVersionManager asyncMetadataManager = null;
+    private SchedulerService schedulerService = null;
     private static final Logger logger = Logger.getLogger(CoordinatorService.class);
-    private static Map<String, FatClientWrapper> fatClientMap = null;
+    private Map<String, FatClientWrapper> fatClientMap = null;
     public final static Schema CLIENT_CONFIGS_AVRO_SCHEMA = Schema.parse("{ \"name\": \"clientConfigs\",  \"type\":\"array\","
                                                                          + "\"items\": { \"name\": \"clientConfig\", \"type\": \"map\", \"values\":\"string\" }}}");
     private static final String STORE_NAME_KEY = "store_name";
+    protected ThreadPoolExecutor workerPool = null;
+    private final CoordinatorErrorStats errorStats;
+    private final StoreStats coordinatorPerfStats;
+    private ServerBootstrap bootstrap = null;
+    private Channel nettyServerChannel = null;
+
+    public CoordinatorService(CoordinatorConfig config) {
+        super(ServiceType.COORDINATOR);
+        this.coordinatorConfig = config;
+        this.coordinatorPerfStats = new StoreStats();
+        this.errorStats = new CoordinatorErrorStats();
+        RESTErrorHandler.setErrorStatsHandler(errorStats);
+    }
 
     /**
      * Initializes all the Fat clients (1 per store) for the cluster that this
@@ -97,8 +113,8 @@ public class CoordinatorService extends AbstractService {
 
         List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml),
                                                                        false);
-        Map<String, ClientConfig> fatClientConfigMap = readClientConfig(this.config.getFatClientConfigPath(),
-                                                                        this.config.getBootstrapURLs());
+        Map<String, ClientConfig> fatClientConfigMap = readClientConfig(this.coordinatorConfig.getFatClientConfigPath(),
+                                                                        this.coordinatorConfig.getBootstrapURLs());
         // For now Simply create the map of store definition to
         // FatClientWrappers
         // TODO: After the fat client improvements is done, modify this to
@@ -111,10 +127,12 @@ public class CoordinatorService extends AbstractService {
             logger.info("Creating a Fat client wrapper for store: " + storeName);
             logger.info("Using config: " + fatClientConfigMap.get(storeName));
             fatClientMap.put(storeName, new FatClientWrapper(storeName,
-                                                             this.config,
+                                                             this.coordinatorConfig,
                                                              fatClientConfigMap.get(storeName),
                                                              storesXml,
-                                                             clusterXml));
+                                                             clusterXml,
+                                                             this.errorStats,
+                                                             this.coordinatorPerfStats));
         }
     }
 
@@ -123,7 +141,7 @@ public class CoordinatorService extends AbstractService {
 
         // Initialize the Voldemort Metadata
         ClientConfig clientConfig = new ClientConfig();
-        clientConfig.setBootstrapUrls(this.config.getBootstrapURLs());
+        clientConfig.setBootstrapUrls(this.coordinatorConfig.getBootstrapURLs());
         storeClientFactory = new SocketStoreClientFactory(clientConfig);
         initializeFatClients();
 
@@ -145,6 +163,8 @@ public class CoordinatorService extends AbstractService {
 
         };
 
+        // For now track changes in cluster.xml only
+        // TODO: Modify this to track stores.xml in the future
         asyncMetadataManager = new AsyncMetadataVersionManager(sysRepository,
                                                                rebootstrapCallback,
                                                                null);
@@ -153,18 +173,37 @@ public class CoordinatorService extends AbstractService {
         schedulerService.schedule(asyncMetadataManager.getClass().getName(),
                                   asyncMetadataManager,
                                   new Date(),
-                                  this.config.getMetadataCheckIntervalInMs());
+                                  this.coordinatorConfig.getMetadataCheckIntervalInMs());
 
         // Configure the server.
-        ServerBootstrap bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
-                                                                                          Executors.newCachedThreadPool()));
-        bootstrap.setOption("backlog", 1000);
+        this.workerPool = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+        this.bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
+                                                                               workerPool));
+        this.bootstrap.setOption("backlog", this.coordinatorConfig.getNettyServerBacklog());
+        this.bootstrap.setOption("child.tcpNoDelay", true);
+        this.bootstrap.setOption("child.keepAlive", true);
+        this.bootstrap.setOption("child.reuseAddress", true);
 
         // Set up the event pipeline factory.
-        bootstrap.setPipelineFactory(new CoordinatorPipelineFactory(fatClientMap, noop));
+        this.bootstrap.setPipelineFactory(new CoordinatorPipelineFactory(this.fatClientMap,
+                                                                         this.errorStats,
+                                                                         noop));
+
+        // Register the Mbean
+        // Netty Queue stats
+        JmxUtils.registerMbean(this,
+                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                         JmxUtils.getClassName(this.getClass())));
+
+        // Error stats Mbean
+        JmxUtils.registerMbean(this.errorStats,
+                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.errorStats.getClass()),
+                                                         JmxUtils.getClassName(this.errorStats.getClass())));
 
         // Bind and start to accept incoming connections.
-        bootstrap.bind(new InetSocketAddress(8080));
+        this.nettyServerChannel = this.bootstrap.bind(new InetSocketAddress(this.coordinatorConfig.getServerPort()));
+
+        logger.info("Coordinator service started on port " + this.coordinatorConfig.getServerPort());
     }
 
     /**
@@ -205,14 +244,14 @@ public class CoordinatorService extends AbstractService {
                         throw new Exception("Illegal Store Name !!!");
                     }
 
-                    ClientConfig config = new ClientConfig(props);
-                    config.setBootstrapUrls(bootstrapURLs)
-                          .setEnableCompressionLayer(false)
-                          .setEnableSerializationLayer(false)
-                          .enableDefaultClient(true)
-                          .setEnableLazy(false);
+                    ClientConfig fatClientConfig = new ClientConfig(props);
+                    fatClientConfig.setBootstrapUrls(bootstrapURLs)
+                                   .setEnableCompressionLayer(false)
+                                   .setEnableSerializationLayer(false)
+                                   .enableDefaultClient(true)
+                                   .setEnableLazy(false);
 
-                    storeNameConfigMap.put(storeName, config);
+                    storeNameConfigMap.put(storeName, fatClientConfig);
 
                 }
             }
@@ -231,7 +270,17 @@ public class CoordinatorService extends AbstractService {
     }
 
     @Override
-    protected void stopInner() {}
+    protected void stopInner() {
+        if(this.nettyServerChannel != null) {
+            this.nettyServerChannel.close();
+        }
+
+        JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                           JmxUtils.getClassName(this.getClass())));
+
+        JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(this.errorStats.getClass()),
+                                                           JmxUtils.getClassName(this.errorStats.getClass())));
+    }
 
     public static void main(String[] args) throws Exception {
         CoordinatorConfig config = null;
@@ -263,5 +312,60 @@ public class CoordinatorService extends AbstractService {
                     coordinator.stop();
             }
         });
+    }
+
+    @JmxGetter(name = "numberOfActiveThreads", description = "The number of active Netty worker threads.")
+    public int getNumberOfActiveThreads() {
+        return this.workerPool.getActiveCount();
+    }
+
+    @JmxGetter(name = "numberOfThreads", description = "The total number of Netty worker threads, active and idle.")
+    public int getNumberOfThreads() {
+        return this.workerPool.getPoolSize();
+    }
+
+    @JmxGetter(name = "queuedRequests", description = "Number of requests in the Netty worker queue waiting to execute.")
+    public int getQueuedRequests() {
+        return this.workerPool.getQueue().size();
+    }
+
+    @JmxGetter(name = "averageGetCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
+    public double getAverageGetCompletionTimeInMs() {
+        return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.GET);
+    }
+
+    @JmxGetter(name = "averagePutCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
+    public double getAveragePutCompletionTimeInMs() {
+        return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "averageGetAllCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
+    public double getAverageGetAllCompletionTimeInMs() {
+        return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.GET_ALL);
+    }
+
+    @JmxGetter(name = "averageDeleteCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
+    public double getAverageDeleteCompletionTimeInMs() {
+        return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.DELETE);
+    }
+
+    @JmxGetter(name = "q99GetLatencyInMs", description = "")
+    public long getQ99GetLatency() {
+        return this.coordinatorPerfStats.getQ99LatencyInMs(Tracked.GET);
+    }
+
+    @JmxGetter(name = "q99PutLatencyInMs", description = "")
+    public long getQ99PutLatency() {
+        return this.coordinatorPerfStats.getQ99LatencyInMs(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "q99GetAllLatencyInMs", description = "")
+    public long getQ99GetAllLatency() {
+        return this.coordinatorPerfStats.getQ99LatencyInMs(Tracked.GET_ALL);
+    }
+
+    @JmxGetter(name = "q99DeleteLatencyInMs", description = "")
+    public long getQ99DeleteLatency() {
+        return this.coordinatorPerfStats.getQ99LatencyInMs(Tracked.DELETE);
     }
 }

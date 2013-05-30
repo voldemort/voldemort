@@ -77,6 +77,7 @@ import voldemort.store.metadata.MetadataStoreListener;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.rebalancing.ProxyPutStats;
 import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.retention.RetentionEnforcingStore;
@@ -96,6 +97,7 @@ import voldemort.store.views.ViewStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.ConfigurationException;
+import voldemort.utils.DaemonThreadFactory;
 import voldemort.utils.DynamicThrottleLimit;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
@@ -137,6 +139,8 @@ public class StorageService extends AbstractService {
     private final FailureDetector failureDetector;
     private final StoreStats storeStats;
     private final RoutedStoreFactory routedStoreFactory;
+    private final ExecutorService proxyPutWorkerPool;
+    private final ProxyPutStats aggregatedProxyPutStats;
 
     public StorageService(StoreRepository storeRepository,
                           MetadataStore metadata,
@@ -179,6 +183,17 @@ public class StorageService extends AbstractService {
             this.dynThrottleLimit = new DynamicThrottleLimit(rate);
         } else
             this.dynThrottleLimit = null;
+
+        // create the proxy put thread pool
+        this.proxyPutWorkerPool = Executors.newFixedThreadPool(config.getMaxProxyPutThreads(),
+                                                               new DaemonThreadFactory("voldemort-proxy-put-thread"));
+        this.aggregatedProxyPutStats = new ProxyPutStats(null);
+        if(config.isJmxEnabled()) {
+            JmxUtils.registerMbean(this.aggregatedProxyPutStats,
+                                   JmxUtils.createObjectName("voldemort.store.rebalancing",
+                                                             "aggregate-proxy-puts"));
+        }
+
     }
 
     private void initStorageConfig(String configClassName) {
@@ -752,11 +767,21 @@ public class StorageService extends AbstractService {
                 }
 
                 if(voldemortConfig.isEnableRebalanceService()) {
+                    ProxyPutStats proxyPutStats = new ProxyPutStats(aggregatedProxyPutStats);
+                    if(voldemortConfig.isJmxEnabled()) {
+                        JmxUtils.registerMbean(proxyPutStats,
+                                               JmxUtils.createObjectName("voldemort.store.rebalancing",
+                                                                         engine.getName()
+                                                                                 + "-proxy-puts"));
+                    }
                     store = new RedirectingStore(store,
                                                  metadata,
                                                  storeRepository,
                                                  failureDetector,
-                                                 storeFactory);
+                                                 storeFactory,
+                                                 voldemortConfig.getProxyPutsDuringRebalance(),
+                                                 proxyPutWorkerPool,
+                                                 proxyPutStats);
                     if(voldemortConfig.isJmxEnabled()) {
                         MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
                         ObjectName name = null;
@@ -999,6 +1024,8 @@ public class StorageService extends AbstractService {
 
         logger.info("Closed client threadpool.");
 
+        storeFactory.close();
+
         if(this.failureDetector != null) {
             try {
                 this.failureDetector.destroy();
@@ -1006,8 +1033,17 @@ public class StorageService extends AbstractService {
                 lastException = e;
             }
         }
-
         logger.info("Closed failure detector.");
+
+        // shut down the proxy put thread pool
+        this.proxyPutWorkerPool.shutdown();
+        try {
+            if(!this.proxyPutWorkerPool.awaitTermination(10, TimeUnit.SECONDS))
+                this.proxyPutWorkerPool.shutdownNow();
+        } catch(InterruptedException e) {
+            this.proxyPutWorkerPool.shutdownNow();
+        }
+        logger.info("Closed proxy put thread pool.");
 
         /* If there is an exception, throw it */
         if(lastException instanceof VoldemortException)

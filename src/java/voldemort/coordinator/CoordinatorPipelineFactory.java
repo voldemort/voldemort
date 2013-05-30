@@ -36,9 +36,13 @@ public class CoordinatorPipelineFactory implements ChannelPipelineFactory {
 
     private boolean noop = false;
     private Map<String, FatClientWrapper> fatClientMap;
+    private CoordinatorErrorStats errorStats = null;
 
-    public CoordinatorPipelineFactory(Map<String, FatClientWrapper> fatClientMap, boolean noop) {
+    public CoordinatorPipelineFactory(Map<String, FatClientWrapper> fatClientMap,
+                                      CoordinatorErrorStats errorStats,
+                                      boolean noop) {
         this.fatClientMap = fatClientMap;
+        this.errorStats = errorStats;
         this.noop = noop;
     }
 
@@ -56,7 +60,8 @@ public class CoordinatorPipelineFactory implements ChannelPipelineFactory {
         if(this.noop) {
             pipeline.addLast("handler", new NoopHttpRequestHandler());
         } else {
-            pipeline.addLast("handler", new VoldemortHttpRequestHandler(this.fatClientMap));
+            pipeline.addLast("handler", new VoldemortHttpRequestHandler(this.fatClientMap,
+                                                                        this.errorStats));
         }
         return pipeline;
     }

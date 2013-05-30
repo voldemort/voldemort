@@ -27,6 +27,7 @@ import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.Store;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.PipelineRoutedStore;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -114,6 +115,7 @@ public class PerformSerialPutRequests extends
                 pipelineData.setMaster(node);
                 pipelineData.setVersionedCopy(versionedCopy);
                 pipelineData.getZoneResponses().add(node.getZoneId());
+                currentNode++;
                 break;
             } catch(Exception e) {
                 long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
@@ -124,9 +126,17 @@ public class PerformSerialPutRequests extends
                                  + (System.nanoTime() - start) + " ns" + " (keyRef: "
                                  + System.identityHashCode(key) + ")");
 
+                if(PipelineRoutedStore.isSlopableFailure(e)) {
+                    pipelineData.getSynchronizer().tryDelegateSlop(node);
+                }
                 if(handleResponseError(e, node, requestTime, pipeline, failureDetector))
                     return;
             }
+        }
+
+        if(logger.isTraceEnabled()) {
+            logger.trace("PUT {key:" + key + "} currentNode=" + currentNode + " nodes.size()="
+                         + nodes.size());
         }
 
         if(pipelineData.getSuccesses() < 1) {
@@ -137,8 +147,6 @@ public class PerformSerialPutRequests extends
             pipeline.abort();
             return;
         }
-
-        currentNode++;
 
         // There aren't any more requests to make...
         if(currentNode == nodes.size()) {

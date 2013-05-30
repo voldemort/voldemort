@@ -78,6 +78,8 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
+    public static final String REBALANCING_SOURCE_CLUSTER_XML = "rebalancing.source.cluster.xml";
+    public static final String REBALANCING_SOURCE_STORES_XML = "rebalancing.source.stores.xml";
 
     public static final Set<String> GOSSIP_KEYS = ImmutableSet.of(CLUSTER_KEY, STORES_KEY);
 
@@ -85,7 +87,9 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
     public static final Set<String> OPTIONAL_KEYS = ImmutableSet.of(SERVER_STATE_KEY,
                                                                     NODE_ID_KEY,
-                                                                    REBALANCING_STEAL_INFO);
+                                                                    REBALANCING_STEAL_INFO,
+                                                                    REBALANCING_SOURCE_CLUSTER_XML,
+                                                                    REBALANCING_SOURCE_STORES_XML);
 
     public static final Set<Object> METADATA_KEYS = ImmutableSet.builder()
                                                                 .addAll(REQUIRED_KEYS)
@@ -167,25 +171,32 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * @param value
      */
     @SuppressWarnings("unchecked")
-    public synchronized void put(String key, Versioned<Object> value) {
-        if(METADATA_KEYS.contains(key)) {
+    public void put(String key, Versioned<Object> value) {
+        // acquire write lock
+        writeLock.lock();
 
-            // try inserting into inner store first
-            putInner(key, convertObjectToString(key, value));
+        try {
+            if(METADATA_KEYS.contains(key)) {
 
-            // cache all keys if innerStore put succeeded
-            metadataCache.put(key, value);
+                // try inserting into inner store first
+                putInner(key, convertObjectToString(key, value));
 
-            // do special stuff if needed
-            if(CLUSTER_KEY.equals(key)) {
-                updateRoutingStrategies((Cluster) value.getValue(), getStoreDefList());
-            } else if(STORES_KEY.equals(key)) {
-                updateRoutingStrategies(getCluster(), (List<StoreDefinition>) value.getValue());
-            } else if(SYSTEM_STORES_KEY.equals(key))
-                throw new VoldemortException("Cannot overwrite system store definitions");
+                // cache all keys if innerStore put succeeded
+                metadataCache.put(key, value);
 
-        } else {
-            throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
+                // do special stuff if needed
+                if(CLUSTER_KEY.equals(key)) {
+                    updateRoutingStrategies((Cluster) value.getValue(), getStoreDefList());
+                } else if(STORES_KEY.equals(key)) {
+                    updateRoutingStrategies(getCluster(), (List<StoreDefinition>) value.getValue());
+                } else if(SYSTEM_STORES_KEY.equals(key))
+                    throw new VoldemortException("Cannot overwrite system store definitions");
+
+            } else {
+                throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
+            }
+        } finally {
+            writeLock.unlock();
         }
     }
 
@@ -197,13 +208,19 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * @param value
      */
     public void put(String key, Object value) {
-        if(METADATA_KEYS.contains(key)) {
-            VectorClock version = (VectorClock) get(key, null).get(0).getVersion();
-            put(key,
-                new Versioned<Object>(value, version.incremented(getNodeId(),
-                                                                 System.currentTimeMillis())));
-        } else {
-            throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
+        // acquire write lock
+        writeLock.lock();
+        try {
+            if(METADATA_KEYS.contains(key)) {
+                VectorClock version = (VectorClock) get(key, null).get(0).getVersion();
+                put(key,
+                    new Versioned<Object>(value, version.incremented(getNodeId(),
+                                                                     System.currentTimeMillis())));
+            } else {
+                throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
+            }
+        } finally {
+            writeLock.unlock();
         }
     }
 
@@ -216,16 +233,22 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * @throws VoldemortException
      */
     @Override
-    public synchronized void put(ByteArray keyBytes, Versioned<byte[]> valueBytes, byte[] transforms)
+    public void put(ByteArray keyBytes, Versioned<byte[]> valueBytes, byte[] transforms)
             throws VoldemortException {
-        String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
-        Versioned<String> value = new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
-                                                                            "UTF-8"),
-                                                        valueBytes.getVersion());
+        // acquire write lock
+        writeLock.lock();
+        try {
+            String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
+            Versioned<String> value = new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
+                                                                                "UTF-8"),
+                                                            valueBytes.getVersion());
 
-        Versioned<Object> valueObject = convertStringToObject(key, value);
+            Versioned<Object> valueObject = convertStringToObject(key, value);
 
-        this.put(key, valueObject);
+            this.put(key, valueObject);
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     @Override
@@ -245,9 +268,16 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * @throws VoldemortException
      */
     @Override
-    public synchronized List<Versioned<byte[]>> get(ByteArray keyBytes, byte[] transforms)
+    public List<Versioned<byte[]>> get(ByteArray keyBytes, byte[] transforms)
             throws VoldemortException {
+        // acquire read lock
+
+        readLock.lock();
         try {
+            // get a read lock this prevents any sort of interleaving\
+            // especially critical during reebalance when we set the new cluster
+            // and store xml
+
             String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
 
             if(METADATA_KEYS.contains(key)) {
@@ -272,72 +302,161 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                                                  + ByteUtils.getString(keyBytes.get(), "UTF-8")
                                                  + " delete config/.temp config/.version directories and restart.",
                                          e);
+        } finally {
+            readLock.unlock();
         }
 
     }
 
     public List<Versioned<byte[]>> get(String key, String transforms) throws VoldemortException {
-        return get(new ByteArray(ByteUtils.getBytes(key, "UTF-8")),
-                   transforms == null ? null : ByteUtils.getBytes(transforms, "UTF-8"));
+        // acquire read lock
+        readLock.lock();
+        try {
+            return get(new ByteArray(ByteUtils.getBytes(key, "UTF-8")),
+                       transforms == null ? null : ByteUtils.getBytes(transforms, "UTF-8"));
+        } finally {
+            readLock.unlock();
+        }
     }
 
     @JmxOperation(description = "Clean all rebalancing server/cluster states from this node.", impact = MBeanOperationInfo.ACTION)
-    public synchronized void cleanAllRebalancingState() {
-        for(String key: OPTIONAL_KEYS) {
-            if(!key.equals(NODE_ID_KEY))
-                innerStore.delete(key,
-                                  getVersions(new ByteArray(ByteUtils.getBytes(key, "UTF-8"))).get(0));
-        }
+    public void cleanAllRebalancingState() {
+        // acquire write lock
+        writeLock.lock();
+        try {
+            for(String key: OPTIONAL_KEYS) {
+                if(!key.equals(NODE_ID_KEY))
+                    innerStore.delete(key,
+                                      getVersions(new ByteArray(ByteUtils.getBytes(key, "UTF-8"))).get(0));
+            }
 
-        init(getNodeId());
+            init(getNodeId());
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     @Override
     public List<Version> getVersions(ByteArray key) {
-        List<Versioned<byte[]>> values = get(key, null);
-        List<Version> versions = new ArrayList<Version>(values.size());
-        for(Versioned<?> value: values) {
-            versions.add(value.getVersion());
+        // acquire read lock
+        readLock.lock();
+        try {
+            List<Versioned<byte[]>> values = get(key, null);
+            List<Version> versions = new ArrayList<Version>(values.size());
+            for(Versioned<?> value: values) {
+                versions.add(value.getVersion());
+            }
+            return versions;
+        } finally {
+            readLock.unlock();
         }
-        return versions;
     }
 
     public Cluster getCluster() {
-        return (Cluster) metadataCache.get(CLUSTER_KEY).getValue();
+        // acquire read lock
+        readLock.lock();
+        try {
+            return (Cluster) metadataCache.get(CLUSTER_KEY).getValue();
+        } finally {
+            readLock.unlock();
+
+        }
     }
 
     @SuppressWarnings("unchecked")
     public List<StoreDefinition> getStoreDefList() {
-        return (List<StoreDefinition>) metadataCache.get(STORES_KEY).getValue();
+        // acquire read lock
+        readLock.lock();
+        try {
+            return (List<StoreDefinition>) metadataCache.get(STORES_KEY).getValue();
+        } finally {
+            readLock.unlock();
+
+        }
     }
 
     @SuppressWarnings("unchecked")
     public List<StoreDefinition> getSystemStoreDefList() {
-        return (List<StoreDefinition>) metadataCache.get(SYSTEM_STORES_KEY).getValue();
+        // acquire read lock
+        readLock.lock();
+        try {
+            return (List<StoreDefinition>) metadataCache.get(SYSTEM_STORES_KEY).getValue();
+        } finally {
+            readLock.unlock();
+        }
     }
 
     public int getNodeId() {
-        return (Integer) (metadataCache.get(NODE_ID_KEY).getValue());
+        // acquire read lock
+        readLock.lock();
+        try {
+            return (Integer) (metadataCache.get(NODE_ID_KEY).getValue());
+        } finally {
+            readLock.unlock();
+        }
     }
 
     public StoreDefinition getStoreDef(String storeName) {
-        List<StoreDefinition> storeDefs = getStoreDefList();
-        for(StoreDefinition storeDef: storeDefs) {
-            if(storeDef.getName().equals(storeName))
-                return storeDef;
-        }
+        // acquire read lock
+        readLock.lock();
+        try {
 
-        throw new VoldemortException("Store " + storeName + " not found in MetadataStore");
+            List<StoreDefinition> storeDefs = getStoreDefList();
+            for(StoreDefinition storeDef: storeDefs) {
+                if(storeDef.getName().equals(storeName))
+                    return storeDef;
+            }
+
+            throw new VoldemortException("Store " + storeName + " not found in MetadataStore");
+        } finally {
+            readLock.unlock();
+        }
     }
 
-    public VoldemortState getServerState() {
+    public VoldemortState getServerStateLocked() {
+        // acquire read lock
+        readLock.lock();
+        try {
+            return VoldemortState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
+        } finally {
+            readLock.unlock();
+
+        }
+    }
+
+    public VoldemortState getServerStateUnlocked() {
+
         return VoldemortState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
+
     }
 
     public RebalancerState getRebalancerState() {
+        // acquire read lock
         readLock.lock();
         try {
             return (RebalancerState) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    public Cluster getRebalancingSourceCluster() {
+        // acquire read lock
+        readLock.lock();
+        try {
+            return (Cluster) metadataCache.get(REBALANCING_SOURCE_CLUSTER_XML).getValue();
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<StoreDefinition> getRebalancingSourceStores() {
+        // acquire read lock
+        readLock.lock();
+        try {
+            return (List<StoreDefinition>) metadataCache.get(REBALANCING_SOURCE_STORES_XML)
+                                                        .getValue();
         } finally {
             readLock.unlock();
         }
@@ -349,15 +468,21 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      */
     @SuppressWarnings("unchecked")
     public RoutingStrategy getRoutingStrategy(String storeName) {
-        Map<String, RoutingStrategy> routingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(ROUTING_STRATEGY_KEY)
-                                                                                                      .getValue();
-        RoutingStrategy strategy = routingStrategyMap.get(storeName);
-        if(strategy == null) {
-            Map<String, RoutingStrategy> systemRoutingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(SYSTEM_ROUTING_STRATEGY_KEY)
-                                                                                                                .getValue();
-            strategy = systemRoutingStrategyMap.get(storeName);
+        // acquire read lock
+        readLock.lock();
+        try {
+            Map<String, RoutingStrategy> routingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(ROUTING_STRATEGY_KEY)
+                                                                                                          .getValue();
+            RoutingStrategy strategy = routingStrategyMap.get(storeName);
+            if(strategy == null) {
+                Map<String, RoutingStrategy> systemRoutingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(SYSTEM_ROUTING_STRATEGY_KEY)
+                                                                                                                    .getValue();
+                strategy = systemRoutingStrategyMap.get(storeName);
+            }
+            return strategy;
+        } finally {
+            readLock.unlock();
         }
-        return strategy;
     }
 
     /**
@@ -382,33 +507,39 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * @param storeDefs The updated list of store definition
      */
     private void updateRoutingStrategies(Cluster cluster, List<StoreDefinition> storeDefs) {
-        VectorClock clock = new VectorClock();
-        if(metadataCache.containsKey(ROUTING_STRATEGY_KEY))
-            clock = (VectorClock) metadataCache.get(ROUTING_STRATEGY_KEY).getVersion();
+        // acquire write lock
+        writeLock.lock();
+        try {
+            VectorClock clock = new VectorClock();
+            if(metadataCache.containsKey(ROUTING_STRATEGY_KEY))
+                clock = (VectorClock) metadataCache.get(ROUTING_STRATEGY_KEY).getVersion();
 
-        logger.info("Updating routing strategy for all stores");
-        HashMap<String, StoreDefinition> storeDefMap = makeStoreDefinitionMap(storeDefs);
-        HashMap<String, RoutingStrategy> routingStrategyMap = createRoutingStrategyMap(cluster,
-                                                                                       storeDefMap);
-        this.metadataCache.put(ROUTING_STRATEGY_KEY,
-                               new Versioned<Object>(routingStrategyMap,
-                                                     clock.incremented(getNodeId(),
-                                                                       System.currentTimeMillis())));
+            logger.info("Updating routing strategy for all stores");
+            HashMap<String, StoreDefinition> storeDefMap = makeStoreDefinitionMap(storeDefs);
+            HashMap<String, RoutingStrategy> routingStrategyMap = createRoutingStrategyMap(cluster,
+                                                                                           storeDefMap);
+            this.metadataCache.put(ROUTING_STRATEGY_KEY,
+                                   new Versioned<Object>(routingStrategyMap,
+                                                         clock.incremented(getNodeId(),
+                                                                           System.currentTimeMillis())));
 
-        for(String storeName: storeNameTolisteners.keySet()) {
-            RoutingStrategy updatedRoutingStrategy = routingStrategyMap.get(storeName);
-            if(updatedRoutingStrategy != null) {
-                try {
-                    for(MetadataStoreListener listener: storeNameTolisteners.get(storeName)) {
-                        listener.updateRoutingStrategy(updatedRoutingStrategy);
-                        listener.updateStoreDefinition(storeDefMap.get(storeName));
+            for(String storeName: storeNameTolisteners.keySet()) {
+                RoutingStrategy updatedRoutingStrategy = routingStrategyMap.get(storeName);
+                if(updatedRoutingStrategy != null) {
+                    try {
+                        for(MetadataStoreListener listener: storeNameTolisteners.get(storeName)) {
+                            listener.updateRoutingStrategy(updatedRoutingStrategy);
+                            listener.updateStoreDefinition(storeDefMap.get(storeName));
+                        }
+                    } catch(Exception e) {
+                        if(logger.isEnabledFor(Level.WARN))
+                            logger.warn(e, e);
                     }
-                } catch(Exception e) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn(e, e);
                 }
-            }
 
+            }
+        } finally {
+            writeLock.unlock();
         }
     }
 
@@ -429,6 +560,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * @param stealInfo The steal information to add
      */
     public void addRebalancingState(final RebalancePartitionsInfo stealInfo) {
+        // acquire write lock
         writeLock.lock();
         try {
             // Move into rebalancing state
@@ -460,6 +592,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * @param stealInfo The steal information to delete
      */
     public void deleteRebalancingState(RebalancePartitionsInfo stealInfo) {
+        // acquire write lock
         writeLock.lock();
         try {
             RebalancerState rebalancerState = getRebalancerState();
@@ -514,8 +647,14 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
-        StoreUtils.assertValidKeys(keys);
-        return StoreUtils.getAll(this, keys, transforms);
+        // acquire read lock
+        readLock.lock();
+        try {
+            StoreUtils.assertValidKeys(keys);
+            return StoreUtils.getAll(this, keys, transforms);
+        } finally {
+            readLock.unlock();
+        }
     }
 
     /**
@@ -524,6 +663,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     private void init(int nodeId) {
         logger.info("metadata init().");
 
+        writeLock.lock();
         // Required keys
         initCache(CLUSTER_KEY);
         initCache(STORES_KEY);
@@ -544,9 +684,13 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         initCache(REBALANCING_STEAL_INFO,
                   new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
+        initCache(REBALANCING_SOURCE_CLUSTER_XML, null);
+        initCache(REBALANCING_SOURCE_STORES_XML, null);
 
         // set transient values
         updateRoutingStrategies(getCluster(), getStoreDefList());
+
+        writeLock.unlock();
     }
 
     private synchronized void initCache(String key) {
@@ -594,7 +738,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      */
     @SuppressWarnings("unchecked")
     private Versioned<String> convertObjectToString(String key, Versioned<Object> value) {
-        String valueStr = value.getValue().toString();
+        String valueStr = "";
 
         if(CLUSTER_KEY.equals(key)) {
             valueStr = clusterMapper.writeCluster((Cluster) value.getValue());
@@ -605,6 +749,14 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             valueStr = rebalancerState.toJsonString();
         } else if(SERVER_STATE_KEY.equals(key) || NODE_ID_KEY.equals(key)) {
             valueStr = value.getValue().toString();
+        } else if(REBALANCING_SOURCE_CLUSTER_XML.equals(key)) {
+            if(value.getValue() != null) {
+                valueStr = clusterMapper.writeCluster((Cluster) value.getValue());
+            }
+        } else if(REBALANCING_SOURCE_STORES_XML.equals(key)) {
+            if(value.getValue() != null) {
+                valueStr = storeMapper.writeStoreList((List<StoreDefinition>) value.getValue());
+            }
         } else {
             throw new VoldemortException("Unhandled key:'" + key
                                          + "' for Object to String serialization.");
@@ -640,6 +792,14 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 valueObject = RebalancerState.create(valueString);
             } else {
                 valueObject = new RebalancerState(Arrays.asList(RebalancePartitionsInfo.create(valueString)));
+            }
+        } else if(REBALANCING_SOURCE_CLUSTER_XML.equals(key)) {
+            if(value.getValue() != null && value.getValue().length() > 0) {
+                valueObject = clusterMapper.readCluster(new StringReader(value.getValue()));
+            }
+        } else if(REBALANCING_SOURCE_STORES_XML.equals(key)) {
+            if(value.getValue() != null && value.getValue().length() > 0) {
+                valueObject = storeMapper.readStoreList(new StringReader(value.getValue()));
             }
         } else {
             throw new VoldemortException("Unhandled key:'" + key

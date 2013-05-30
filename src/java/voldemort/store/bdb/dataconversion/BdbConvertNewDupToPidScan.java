@@ -55,10 +55,10 @@ public class BdbConvertNewDupToPidScan extends AbstractBdbConversion {
             }
 
             if(scanCount % 1000000 == 0)
-                logger.info("Reverted " + scanCount + "entries in "
+                logger.info("Reverted " + scanCount + " entries in "
                             + (System.currentTimeMillis() - startTime) / 1000 + " secs");
         }
-        logger.info("Converted " + scanCount + "entries and " + keyCount + " keys in "
+        logger.info("Converted " + scanCount + " entries and " + keyCount + " keys in "
                     + (System.currentTimeMillis() - startTime) / 1000 + " secs");
     }
 

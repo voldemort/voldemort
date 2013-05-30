@@ -49,6 +49,7 @@ import java.util.Set;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
+import org.apache.commons.codec.DecoderException;
 import org.apache.commons.io.FileUtils;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
@@ -100,8 +101,6 @@ import com.google.common.collect.Sets;
 public class VoldemortAdminTool {
 
     private static final String ALL_METADATA = "all";
-    private static final String STORES_VERSION_KEY = "stores.xml";
-    private static final String CLUSTER_VERSION_KEY = "cluster.xml";
 
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
@@ -169,7 +168,8 @@ public class VoldemortAdminTool {
         parser.accepts("check-metadata",
                        "retreive metadata information from all nodes and checks if they are consistent across [ "
                                + MetadataStore.CLUSTER_KEY + " | " + MetadataStore.STORES_KEY
-                               + " | " + MetadataStore.SERVER_STATE_KEY + " ]")
+                               + " | " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + " | "
+                               + MetadataStore.SERVER_STATE_KEY + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
@@ -185,13 +185,15 @@ public class VoldemortAdminTool {
         parser.accepts("set-metadata",
                        "Forceful setting of metadata [ " + MetadataStore.CLUSTER_KEY + " | "
                                + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
-                               + " | " + MetadataStore.REBALANCING_STEAL_INFO + " ]")
+                               + " | " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + " | "
+                               + MetadataStore.REBALANCING_STEAL_INFO + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
         parser.accepts("set-metadata-value",
                        "The value for the set-metadata [ " + MetadataStore.CLUSTER_KEY + " | "
                                + MetadataStore.STORES_KEY + ", "
+                               + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
                                + MetadataStore.REBALANCING_STEAL_INFO
                                + " ] - xml file location, [ " + MetadataStore.SERVER_STATE_KEY
                                + " ] - " + MetadataStore.VoldemortState.NORMAL_SERVER + ","
@@ -491,14 +493,15 @@ public class VoldemortAdminTool {
                     throw new VoldemortException("Missing set-metadata-value");
                 } else {
                     String metadataValue = (String) options.valueOf("set-metadata-value");
-                    if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0) {
+                    if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0
+                       || metadataKey.compareTo(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML) == 0) {
                         if(!Utils.isReadableFile(metadataValue))
                             throw new VoldemortException("Cluster xml file path incorrect");
                         ClusterMapper mapper = new ClusterMapper();
                         Cluster newCluster = mapper.readCluster(new File(metadataValue));
                         executeSetMetadata(nodeId,
                                            adminClient,
-                                           MetadataStore.CLUSTER_KEY,
+                                           metadataKey,
                                            mapper.writeCluster(newCluster));
                     } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
                         VoldemortState newState = VoldemortState.valueOf(metadataValue);
@@ -611,7 +614,7 @@ public class VoldemortAdminTool {
                 if(storeNames == null || storeNames.size() == 0) {
                     throw new VoldemortException("Must specify store name using --stores option");
                 }
-                executeQueryKeys(nodeId, adminClient, storeNames, keyList);
+                executeQueryKeys(nodeId, adminClient, storeNames, keyList, options.has("ascii"));
             }
             if(ops.contains("h")) {
                 if(nodeId == -1) {
@@ -763,21 +766,27 @@ public class VoldemortAdminTool {
         stream.println("\t5) Set metadata on all nodes");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata ["
                        + MetadataStore.CLUSTER_KEY + ", " + MetadataStore.SERVER_STATE_KEY + ", "
-                       + MetadataStore.STORES_KEY + ", " + MetadataStore.REBALANCING_STEAL_INFO
+                       + MetadataStore.STORES_KEY + ", "
+                       + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
+                       + MetadataStore.REBALANCING_STEAL_INFO
                        + "] --set-metadata-value [metadata-value] --url [url]");
         stream.println("\t6) Set metadata for a particular node");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata ["
                        + MetadataStore.CLUSTER_KEY + ", " + MetadataStore.SERVER_STATE_KEY + ", "
-                       + MetadataStore.STORES_KEY + ", " + MetadataStore.REBALANCING_STEAL_INFO
+                       + MetadataStore.STORES_KEY + ", "
+                       + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
+                       + MetadataStore.REBALANCING_STEAL_INFO
                        + "] --set-metadata-value [metadata-value] --url [url] --node [node-id]");
         stream.println("\t7) Check if metadata is same on all nodes");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --check-metadata ["
                        + MetadataStore.CLUSTER_KEY + ", " + MetadataStore.SERVER_STATE_KEY + ", "
                        + MetadataStore.STORES_KEY + "] --url [url]");
         stream.println("\t8) Clear rebalancing metadata [" + MetadataStore.SERVER_STATE_KEY + ", "
+                       + ", " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
                        + MetadataStore.REBALANCING_STEAL_INFO + "] on all node ");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url]");
         stream.println("\t9) Clear rebalancing metadata [" + MetadataStore.SERVER_STATE_KEY + ", "
+                       + ", " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
                        + MetadataStore.REBALANCING_STEAL_INFO + "] on a particular node ");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url] --node [node-id]");
         stream.println();
@@ -818,8 +827,10 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries --url [url] --node [node-id]");
         stream.println("\t9) Update entries for a set of stores using the output from a binary dump fetch entries");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --update-entries [folder path from output of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated list of store names]");
-        stream.println("\t10) Query stores for a set of keys on a specific node.");
+        stream.println("\t10.a) Query stores for a set of keys on a specific node, in hexstring format");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --query-keys [comma-separated list of keys] --url [url] --node [node-id] --stores [comma-separated list of store names]");
+        stream.println("\t10.b) Query stores for a set of keys on a specific node, in ascii format");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --query-keys [comma-separated list of keys] --url [url] --node [node-id] --stores [comma-separated list of store names] --ascii");
         stream.println("\t11) Mirror data from another voldemort server (possibly in another cluster) for specified stores");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --mirror-from-url [bootstrap url to mirror from] --mirror-node [node to mirror from] --url [url] --node [node-id] --stores [comma-separated-list-of-store-names]");
         stream.println("\t12) Mirror data from another voldemort server (possibly in another cluster) for all stores in current cluster");
@@ -924,7 +935,9 @@ public class VoldemortAdminTool {
                            adminClient,
                            MetadataStore.REBALANCING_STEAL_INFO,
                            state.toJsonString());
-
+        System.out.println("Cleaning up " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML
+                           + " to empty string");
+        executeSetMetadata(nodeId, adminClient, MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, "");
     }
 
     private static void executeKeyDistribution(AdminClient adminClient) {
@@ -951,7 +964,8 @@ public class VoldemortAdminTool {
                                              + " was null");
             } else {
 
-                if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0) {
+                if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0
+                   || metadataKey.compareTo(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML) == 0) {
                     metadataValues.add(new ClusterMapper().readCluster(new StringReader(versioned.getValue())));
                 } else if(metadataKey.compareTo(MetadataStore.STORES_KEY) == 0) {
                     metadataValues.add(new StoreDefinitionsMapper().readStoreList(new StringReader(versioned.getValue())));
@@ -1620,11 +1634,22 @@ public class VoldemortAdminTool {
     private static void executeQueryKeys(final Integer nodeId,
                                          AdminClient adminClient,
                                          List<String> storeNames,
-                                         List<String> keys) throws IOException {
-        Serializer<String> serializer = new StringSerializer();
+                                         List<String> keys,
+                                         boolean useAscii) throws IOException {
         List<ByteArray> listKeys = new ArrayList<ByteArray>();
+        Serializer<String> serializer = new StringSerializer();
         for(String key: keys) {
-            listKeys.add(new ByteArray(serializer.toBytes(key)));
+            try {
+                if(useAscii) {
+                    listKeys.add(new ByteArray(serializer.toBytes(key)));
+                } else {
+                    listKeys.add(new ByteArray(ByteUtils.fromHexString(key)));
+                }
+            } catch(DecoderException de) {
+                System.err.println("Error decoding key " + key);
+                de.printStackTrace();
+                return;
+            }
         }
         for(final String storeName: storeNames) {
             final Iterator<QueryKeyResult> iterator = adminClient.streamingOps.queryKeys(nodeId.intValue(),

@@ -196,7 +196,8 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         String storeName = getRequired(req, "store");
 
         if(metadataStore != null
-           && !metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+           && !metadataStore.getServerStateUnlocked()
+                            .equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             throw new ServletException("Voldemort server not in normal state");
         }
 

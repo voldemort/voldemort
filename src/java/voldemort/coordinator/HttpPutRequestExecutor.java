@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,10 +17,10 @@
 package voldemort.coordinator;
 
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
+import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.ETAG;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
+import static org.jboss.netty.handler.codec.http.HttpResponseStatus.CREATED;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.PRECONDITION_FAILED;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.REQUEST_TIMEOUT;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
@@ -33,8 +33,11 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import voldemort.VoldemortException;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.StoreTimeoutException;
+import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
+import voldemort.versioning.VectorClock;
 
 /**
  * A Runnable class that uses the specified Fat client to perform a Voldemort
@@ -48,10 +51,19 @@ public class HttpPutRequestExecutor implements Runnable {
     DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient;
     private final Logger logger = Logger.getLogger(HttpPutRequestExecutor.class);
     private final CompositeVoldemortRequest<ByteArray, byte[]> putRequestObject;
+    private final long startTimestampInNs;
+    private final StoreStats coordinatorPerfStats;
 
+    /**
+     * Dummy constructor invoked during a Noop Put operation
+     * 
+     * @param requestEvent MessageEvent used to write the response
+     */
     public HttpPutRequestExecutor(MessageEvent requestEvent) {
         this.putRequestMessageEvent = requestEvent;
         this.putRequestObject = null;
+        this.startTimestampInNs = 0;
+        this.coordinatorPerfStats = null;
     }
 
     /**
@@ -62,24 +74,43 @@ public class HttpPutRequestExecutor implements Runnable {
      *        error
      * @param storeClient Reference to the fat client for performing this Get
      *        operation
+     * @param coordinatorPerfStats Stats object used to measure the turnaround
+     *        time
+     * @param startTimestampInNs start timestamp of the request
      */
     public HttpPutRequestExecutor(CompositeVoldemortRequest<ByteArray, byte[]> putRequestObject,
                                   MessageEvent requestEvent,
-                                  DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient) {
+                                  DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient,
+                                  long startTimestampInNs,
+                                  StoreStats coordinatorPerfStats) {
         this.putRequestMessageEvent = requestEvent;
         this.storeClient = storeClient;
         this.putRequestObject = putRequestObject;
+        this.startTimestampInNs = startTimestampInNs;
+        this.coordinatorPerfStats = coordinatorPerfStats;
     }
 
-    public void writeResponse() {
+    public void writeResponse(VectorClock successfulPutVC) {
         // 1. Create the Response object
-        HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
+        HttpResponse response = new DefaultHttpResponse(HTTP_1_1, CREATED);
+
+        String eTag = CoordinatorUtils.getSerializedVectorClock(successfulPutVC);
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("ETAG : " + eTag);
+        }
 
         // 2. Set the right headers
-        response.setHeader(CONTENT_TYPE, "application/json");
-
-        // 3. Copy the data into the payload
+        response.setHeader(ETAG, eTag);
         response.setHeader(CONTENT_LENGTH, 0);
+
+        // TODO: return the Version back to the client
+
+        // Update the stats
+        if(this.coordinatorPerfStats != null) {
+            long durationInNs = System.nanoTime() - startTimestampInNs;
+            this.coordinatorPerfStats.recordTime(Tracked.PUT, durationInNs);
+        }
 
         // Write the response to the Netty Channel
         this.putRequestMessageEvent.getChannel().write(response);
@@ -89,26 +120,27 @@ public class HttpPutRequestExecutor implements Runnable {
     public void run() {
 
         try {
-            this.storeClient.putWithCustomTimeout(putRequestObject);
+            VectorClock successfulPutVC = null;
+            if(putRequestObject.getValue() != null) {
+                successfulPutVC = (VectorClock) this.storeClient.putVersionedWithCustomTimeout(putRequestObject);
+            } else {
+                successfulPutVC = (VectorClock) this.storeClient.putWithCustomTimeout(putRequestObject);
+            }
             if(logger.isDebugEnabled()) {
                 logger.debug("PUT successful !");
             }
-            writeResponse();
+            writeResponse(successfulPutVC);
 
         } catch(IllegalArgumentException illegalArgsException) {
             String errorDescription = "PUT Failed !!! Illegal Arguments : "
                                       + illegalArgsException.getMessage();
             logger.error(errorDescription);
-            RESTErrorHandler.handleError(BAD_REQUEST,
-                                         this.putRequestMessageEvent,
-                                         false,
-                                         errorDescription);
+            RESTErrorHandler.handleError(BAD_REQUEST, this.putRequestMessageEvent, errorDescription);
         } catch(ObsoleteVersionException oe) {
             String errorDescription = "PUT Failed !!! Obsolete version exception: "
                                       + oe.getMessage();
             RESTErrorHandler.handleError(PRECONDITION_FAILED,
                                          this.putRequestMessageEvent,
-                                         false,
                                          errorDescription);
 
         } catch(StoreTimeoutException timeoutException) {
@@ -116,14 +148,12 @@ public class HttpPutRequestExecutor implements Runnable {
             logger.error(errorDescription);
             RESTErrorHandler.handleError(REQUEST_TIMEOUT,
                                          this.putRequestMessageEvent,
-                                         false,
                                          errorDescription);
 
         } catch(VoldemortException ve) {
             String errorDescription = "Voldemort Exception: " + ve.getMessage();
             RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
                                          this.putRequestMessageEvent,
-                                         false,
                                          errorDescription);
         }
     }

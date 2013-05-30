@@ -57,6 +57,7 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VProto;
+import voldemort.client.protocol.pb.VProto.KeyedVersions;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -73,7 +74,6 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
@@ -854,17 +854,47 @@ public class AdminClient {
          * @param key Metadata key to update
          * @param value Value for the metadata key
          */
-        public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value) {
-            ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
-            Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
-                                                                                    "UTF-8"),
-                                                                 value.getVersion());
 
+        public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value) {
+
+            HashMap<String, Versioned<String>> keyValueMap = new HashMap<String, Versioned<String>>();
+            keyValueMap.put(key, value);
+
+            updateRemoteMetadata(remoteNodeId, keyValueMap);
+        }
+
+        /*
+         * remoteNodeId the nodeId of the server keyValueMap a Map of metadata
+         * keys to their versioned value
+         * 
+         * This method passes multiple metadata keys to the server atomic update
+         * of stores and cluster xml during rebalance
+         */
+
+        public void updateRemoteMetadata(int remoteNodeId,
+                                         HashMap<String, Versioned<String>> keyValueMap) {
+
+            ArrayList<KeyedVersions> allKeyVersions = new ArrayList<KeyedVersions>();
+            for(Entry<String, Versioned<String>> entry: keyValueMap.entrySet()) {
+                String key = entry.getKey();
+                Versioned<String> value = entry.getValue();
+                ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
+
+                Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
+                                                                                        "UTF-8"),
+                                                                     value.getVersion());
+
+                VProto.KeyedVersions.Builder keyedVersion = VProto.KeyedVersions.newBuilder()
+                                                                                .setKey(ProtoUtils.encodeBytes(keyBytes));
+                keyedVersion.addVersions(ProtoUtils.encodeVersioned(valueBytes));
+                allKeyVersions.add(keyedVersion.build());
+
+            }
             VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                          .setType(VAdminProto.AdminRequestType.UPDATE_METADATA)
                                                                                          .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
-                                                                                                                                             .setKey(ByteString.copyFrom(keyBytes.get()))
-                                                                                                                                             .setVersioned(ProtoUtils.encodeVersioned(valueBytes))
+                                                                                                                                             .addAllMetadataEntry(allKeyVersions)
+
                                                                                                                                              .build())
                                                                                          .build();
             VAdminProto.UpdateMetadataResponse.Builder response = rpcOps.sendAndReceive(remoteNodeId,
@@ -1961,6 +1991,8 @@ public class AdminClient {
 
                 SocketStore newSocketStore = null;
                 try {
+                    // Unless request format is protobuf, IGNORE_CHECKS
+                    // will not work otherwise
                     newSocketStore = clientPool.create(storeName,
                                                        node.getHost(),
                                                        node.getSocketPort(),
@@ -2118,7 +2150,8 @@ public class AdminClient {
         }
 
         /**
-         * Fetch key/value tuples belonging to a node with given key values
+         * Fetch key/value tuples from a given server, directly from storage
+         * engine
          * 
          * <p>
          * Entries are being queried synchronously
@@ -2139,7 +2172,6 @@ public class AdminClient {
 
             try {
                 store = adminStoreClient.getSocketStore(nodeId, storeName);
-
             } catch(Exception e) {
                 throw new VoldemortException(e);
             }
@@ -2391,6 +2423,8 @@ public class AdminClient {
          */
         public void rebalanceStateChange(Cluster existingCluster,
                                          Cluster transitionCluster,
+                                         List<StoreDefinition> existingStoreDefs,
+                                         List<StoreDefinition> targetStoreDefs,
                                          List<RebalancePartitionsInfo> rebalancePartitionPlanList,
                                          boolean swapRO,
                                          boolean changeClusterMetadata,
@@ -2410,6 +2444,7 @@ public class AdminClient {
                     try {
                         individualStateChange(nodeId,
                                               transitionCluster,
+                                              targetStoreDefs,
                                               stealerNodeToPlan.get(nodeId),
                                               swapRO,
                                               changeClusterMetadata,
@@ -2454,6 +2489,7 @@ public class AdminClient {
                         try {
                             individualStateChange(completedNodeId,
                                                   existingCluster,
+                                                  existingStoreDefs,
                                                   stealerNodeToPlan.get(completedNodeId),
                                                   swapRO,
                                                   changeClusterMetadata,
@@ -2493,6 +2529,7 @@ public class AdminClient {
          */
         private void individualStateChange(int nodeId,
                                            Cluster cluster,
+                                           List<StoreDefinition> storeDefs,
                                            List<RebalancePartitionsInfo> rebalancePartitionPlanList,
                                            boolean swapRO,
                                            boolean changeClusterMetadata,
@@ -2531,6 +2568,7 @@ public class AdminClient {
                                                                                                                           .setChangeRebalanceState(changeRebalanceState)
                                                                                                                           .setClusterString(clusterMapper.writeCluster(cluster))
                                                                                                                           .setRollback(rollback)
+                                                                                                                          .setStoresString(new StoreDefinitionsMapper().writeStoreList(storeDefs))
                                                                                                                           .build();
             VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                               .setRebalanceStateChange(getRebalanceStateChangeRequest)

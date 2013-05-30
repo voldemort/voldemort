@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -20,13 +20,13 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.util.CharsetUtil;
+
+import voldemort.VoldemortException;
 
 /**
  * A Generic class used to propagate the error back to the client over the Netty
@@ -35,10 +35,15 @@ import org.jboss.netty.util.CharsetUtil;
  */
 public class RESTErrorHandler {
 
-    public static void handleError(HttpResponseStatus status,
-                                   MessageEvent e,
-                                   boolean keepAlive,
-                                   String message) {
+    static CoordinatorErrorStats errorStats;
+
+    public static void setErrorStatsHandler(CoordinatorErrorStats errorStatsObj) {
+        errorStats = errorStatsObj;
+    }
+
+    public static void handleError(HttpResponseStatus status, MessageEvent e, String message) {
+        errorStats.reportException(new VoldemortException());
+
         // 1. Create the Response object
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, status);
 
@@ -47,12 +52,6 @@ public class RESTErrorHandler {
                                                         + message + "\r\n", CharsetUtil.UTF_8));
 
         // Write the response to the Netty Channel
-        ChannelFuture future = e.getChannel().write(response);
-
-        // Close the non-keep-alive connection after the write operation is
-        // done.
-        if(!keepAlive) {
-            future.addListener(ChannelFutureListener.CLOSE);
-        }
+        e.getChannel().write(response);
     }
 }

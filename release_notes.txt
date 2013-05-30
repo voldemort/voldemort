@@ -1,3 +1,8 @@
+Release 1.3.3 on 04/24/2013 
+* VoldemortBuildandPush
+  - Fixed bug with schema check
+* Streaming Client
+  - Fixed issue with redundant callback invocation
 Release 1.3.1 on 03/25/2013 
 * HDFSFetcher
   - Fixed the bug in calculating checksums when we entere a retry loop

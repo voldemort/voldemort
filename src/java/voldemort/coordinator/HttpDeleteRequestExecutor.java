@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,17 +17,13 @@
 package voldemort.coordinator;
 
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TRANSFER_ENCODING;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
+import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NO_CONTENT;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.REQUEST_TIMEOUT;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import org.apache.log4j.Logger;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponse;
@@ -35,6 +31,8 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import voldemort.VoldemortException;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.StoreTimeoutException;
+import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
 
 /**
@@ -49,6 +47,8 @@ public class HttpDeleteRequestExecutor implements Runnable {
     DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient;
     private final Logger logger = Logger.getLogger(HttpDeleteRequestExecutor.class);
     private final CompositeVoldemortRequest<ByteArray, byte[]> deleteRequestObject;
+    private final long startTimestampInNs;
+    private final StoreStats coordinatorPerfStats;
 
     /**
      * 
@@ -58,31 +58,37 @@ public class HttpDeleteRequestExecutor implements Runnable {
      *        error
      * @param storeClient Reference to the fat client for performing this Delete
      *        operation
+     * @param coordinatorPerfStats Stats object used to measure the turnaround
+     *        time
+     * @param startTimestampInNs start timestamp of the request
      */
     public HttpDeleteRequestExecutor(CompositeVoldemortRequest<ByteArray, byte[]> deleteRequestObject,
                                      MessageEvent requestEvent,
-                                     DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient) {
+                                     DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient,
+                                     long startTimestampInNs,
+                                     StoreStats coordinatorPerfStats) {
         this.deleteRequestMessageEvent = requestEvent;
         this.storeClient = storeClient;
         this.deleteRequestObject = deleteRequestObject;
+        this.startTimestampInNs = startTimestampInNs;
+        this.coordinatorPerfStats = coordinatorPerfStats;
     }
 
     public void writeResponse() {
         // 1. Create the Response object
-        HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
+        HttpResponse response = new DefaultHttpResponse(HTTP_1_1, NO_CONTENT);
 
         // 2. Set the right headers
-        response.setHeader(CONTENT_TYPE, "binary");
-        response.setHeader(CONTENT_TRANSFER_ENCODING, "binary");
         response.setHeader(CONTENT_LENGTH, "0");
 
+        // Update the stats
+        if(this.coordinatorPerfStats != null) {
+            long durationInNs = System.nanoTime() - startTimestampInNs;
+            this.coordinatorPerfStats.recordTime(Tracked.DELETE, durationInNs);
+        }
+
         // Write the response to the Netty Channel
-        ChannelFuture future = this.deleteRequestMessageEvent.getChannel().write(response);
-
-        // Close the non-keep-alive connection after the write operation is
-        // done.
-        future.addListener(ChannelFutureListener.CLOSE);
-
+        this.deleteRequestMessageEvent.getChannel().write(response);
     }
 
     @Override
@@ -94,7 +100,6 @@ public class HttpDeleteRequestExecutor implements Runnable {
             } else {
                 RESTErrorHandler.handleError(NOT_FOUND,
                                              this.deleteRequestMessageEvent,
-                                             false,
                                              "Requested Key with the specified version does not exist");
             }
 
@@ -103,14 +108,12 @@ public class HttpDeleteRequestExecutor implements Runnable {
             logger.error(errorDescription);
             RESTErrorHandler.handleError(REQUEST_TIMEOUT,
                                          this.deleteRequestMessageEvent,
-                                         false,
                                          errorDescription);
         } catch(VoldemortException ve) {
             ve.printStackTrace();
             String errorDescription = "Voldemort Exception: " + ve.getMessage();
             RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
                                          this.deleteRequestMessageEvent,
-                                         false,
                                          errorDescription);
         }
     }

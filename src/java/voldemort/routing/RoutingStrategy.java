@@ -49,6 +49,11 @@ public interface RoutingStrategy {
     /**
      * Get the partition list for the given key.
      * 
+     * TODO: The naming of this method is confusing.. it is simply a wrapper
+     * around {@link RoutingStrategy#getReplicatingPartitionList(int)} that
+     * takes a key. So, would be good to rename this also as
+     * getReplicatingPartitionList
+     * 
      * @param key The key the operation is operating on
      * @return The partition list for the given key
      */

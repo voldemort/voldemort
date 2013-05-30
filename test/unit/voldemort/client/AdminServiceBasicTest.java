@@ -883,7 +883,7 @@ public class AdminServiceBasicTest {
                                                                                              System.currentTimeMillis()));
 
         MetadataStore.VoldemortState state = getVoldemortServer(0).getMetadataStore()
-                                                                  .getServerState();
+                                                                  .getServerStateUnlocked();
         assertEquals("State should be changed correctly to rebalancing state",
                      MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
                      state);
@@ -896,7 +896,7 @@ public class AdminServiceBasicTest {
                                                                   .getVersion()).incremented(0,
                                                                                              System.currentTimeMillis()));
 
-        state = getVoldemortServer(0).getMetadataStore().getServerState();
+        state = getVoldemortServer(0).getMetadataStore().getServerStateUnlocked();
         assertEquals("State should be changed correctly to rebalancing state",
                      MetadataStore.VoldemortState.NORMAL_SERVER,
                      state);
@@ -909,7 +909,7 @@ public class AdminServiceBasicTest {
                                                                   .getVersion()).incremented(0,
                                                                                              System.currentTimeMillis()));
 
-        state = getVoldemortServer(0).getMetadataStore().getServerState();
+        state = getVoldemortServer(0).getMetadataStore().getServerStateUnlocked();
 
         assertEquals("State should be changed correctly to rebalancing state",
                      MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
@@ -922,7 +922,7 @@ public class AdminServiceBasicTest {
                                                                   .getVersion()).incremented(0,
                                                                                              System.currentTimeMillis()));
 
-        state = getVoldemortServer(0).getMetadataStore().getServerState();
+        state = getVoldemortServer(0).getMetadataStore().getServerStateUnlocked();
         assertEquals("State should be changed correctly to rebalancing state",
                      MetadataStore.VoldemortState.NORMAL_SERVER,
                      state);
