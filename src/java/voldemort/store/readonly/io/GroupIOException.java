@@ -15,7 +15,7 @@ public class GroupIOException extends IOException {
         suppressed.add(cause);
     }
 
-    public void addSuppressed(Throwable t) {
+    public void addSuppressedException(Throwable t) {
         suppressed.add(t);
     }
 
