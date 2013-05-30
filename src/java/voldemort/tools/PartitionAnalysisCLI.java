@@ -36,6 +36,11 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 
+/*
+ * Analyzes the partition layout of a cluster based on the storage definitions
+ * for that cluster and determines how well balanced the partition layout is.
+ */
+
 public class PartitionAnalysisCLI {
 
     private final static Logger logger = Logger.getLogger(PartitionAnalysisCLI.class);

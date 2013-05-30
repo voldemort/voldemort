@@ -37,6 +37,19 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 
+/*
+ * This tool accepts an existing cluster.xml and generates a new cluster.xml.
+ * 
+ * The tool reads the existing cluster.xml to understand the partition layout.
+ * It then moves the partitions around (according to some intelligent mechanism)
+ * with the goal of achieving a better balanced state. A new cluster.xml is then
+ * generated according to what the tool believes is a better partition layout.
+ * 
+ * A better balanced state might be needed for : (1) Improving balance among
+ * existing nodes (2) Cluster expansion (adding nodes to some zones) (3) Zone
+ * expansion (adding an entire new zone)
+ */
+
 public class RepartitionerCLI {
 
     private final static Logger logger = Logger.getLogger(RepartitionerCLI.class);

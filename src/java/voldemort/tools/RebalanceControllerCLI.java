@@ -39,6 +39,10 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 
+/*
+ * Executes the actual rebalance operation againt a server.
+ */
+
 public class RebalanceControllerCLI {
 
     private final static Logger logger = Logger.getLogger(RebalanceControllerCLI.class);

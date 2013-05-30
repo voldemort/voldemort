@@ -37,6 +37,12 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 
+/*
+ * This tool generates a rebalance plan based on current and final xml. The plan
+ * will contain steps on how to rebalance the server such that its layout
+ * changes from the 'current' state to the 'final' state.
+ */
+
 public class RebalancePlanCLI {
 
     private final static Logger logger = Logger.getLogger(RebalancePlanCLI.class);
@@ -75,8 +81,9 @@ public class RebalancePlanCLI {
     private static void printUsage() {
         StringBuilder help = new StringBuilder();
         help.append("RebalancePlanCLI\n");
-        help.append("  Moves partitions to achieve better balance. This can be done for shuffling (improve balance among existing nodes),"
-                    + " cluster expansion (adding nodes to some zones), and zone expansion (adding an entire new zone).\n");
+        help.append("Generates a rebalance plan based on current and final xml. The plan will "
+                    + "contain steps  on how to rebalance the server such that its layout"
+                    + "changes from current to final state");
         help.append("Options:\n");
         help.append("  Required:\n");
         help.append("    --current-cluster <clusterXML>\n");
