@@ -64,7 +64,7 @@ public abstract class BaseCloser<T> {
                 if(exc == null) {
                     exc = new GroupIOException(t);
                 } else {
-                    exc.addSuppressed(t);
+                    exc.addSuppressedException(t);
                 }
 
             }
