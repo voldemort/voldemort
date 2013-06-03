@@ -57,7 +57,6 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VProto;
-import voldemort.client.protocol.pb.VProto.KeyedVersions;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -856,45 +855,16 @@ public class AdminClient {
          */
 
         public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value) {
+            ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
+            Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
+                                                                                    "UTF-8"),
+                                                                 value.getVersion());
 
-            HashMap<String, Versioned<String>> keyValueMap = new HashMap<String, Versioned<String>>();
-            keyValueMap.put(key, value);
-
-            updateRemoteMetadata(remoteNodeId, keyValueMap);
-        }
-
-        /*
-         * remoteNodeId the nodeId of the server keyValueMap a Map of metadata
-         * keys to their versioned value
-         * 
-         * This method passes multiple metadata keys to the server atomic update
-         * of stores and cluster xml during rebalance
-         */
-
-        public void updateRemoteMetadata(int remoteNodeId,
-                                         HashMap<String, Versioned<String>> keyValueMap) {
-
-            ArrayList<KeyedVersions> allKeyVersions = new ArrayList<KeyedVersions>();
-            for(Entry<String, Versioned<String>> entry: keyValueMap.entrySet()) {
-                String key = entry.getKey();
-                Versioned<String> value = entry.getValue();
-                ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
-
-                Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
-                                                                                        "UTF-8"),
-                                                                     value.getVersion());
-
-                VProto.KeyedVersions.Builder keyedVersion = VProto.KeyedVersions.newBuilder()
-                                                                                .setKey(ProtoUtils.encodeBytes(keyBytes));
-                keyedVersion.addVersions(ProtoUtils.encodeVersioned(valueBytes));
-                allKeyVersions.add(keyedVersion.build());
-
-            }
             VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                          .setType(VAdminProto.AdminRequestType.UPDATE_METADATA)
                                                                                          .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
-                                                                                                                                             .addAllMetadataEntry(allKeyVersions)
-
+                                                                                                                                             .setKey(ByteString.copyFrom(keyBytes.get()))
+                                                                                                                                             .setVersioned(ProtoUtils.encodeVersioned(valueBytes))
                                                                                                                                              .build())
                                                                                          .build();
             VAdminProto.UpdateMetadataResponse.Builder response = rpcOps.sendAndReceive(remoteNodeId,

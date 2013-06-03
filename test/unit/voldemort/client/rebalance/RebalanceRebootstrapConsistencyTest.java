@@ -248,14 +248,16 @@ public class RebalanceRebootstrapConsistencyTest {
             VectorClock clock = (VectorClock) versionedCluster.getVersion();
             clock.incrementVersion(node.getId(), System.currentTimeMillis());
 
-            HashMap<String, Versioned<String>> keyValueMap = new HashMap<String, Versioned<String>>();
-            keyValueMap.put(MetadataStore.CLUSTER_KEY,
-                            new Versioned<String>(clusterMapper.writeCluster(newCluster), clock));
+            adminClient.metadataMgmtOps.updateRemoteMetadata(node.getId(),
+                                                             MetadataStore.STORES_KEY,
+                                                             new Versioned<String>(storeMapper.writeStoreList(newstoredefs),
+                                                                                   clock));
 
-            keyValueMap.put(MetadataStore.STORES_KEY,
-                            new Versioned<String>(storeMapper.writeStoreList(newstoredefs), clock));
+            adminClient.metadataMgmtOps.updateRemoteMetadata(node.getId(),
+                                                             MetadataStore.CLUSTER_KEY,
+                                                             new Versioned<String>(clusterMapper.writeCluster(newCluster),
+                                                                                   clock));
 
-            adminClient.metadataMgmtOps.updateRemoteMetadata(node.getId(), keyValueMap);
         }
 
         adminClient.metadataMgmtOps.updateMetadataversion(CLUSTER_VERSION_KEY);
