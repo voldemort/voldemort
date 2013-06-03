@@ -149,7 +149,7 @@ public class PartitionBalance {
                                    "AGGREGATE NARY-PARTITION COUNT (across all stores)");
         builder.append(summary.getSecond());
         this.naryMaxMin = summary.getFirst();
-
+        builder.append("Utility value " + getUtility()).append(Utils.NEWLINE);
         this.verbose = builder.toString();
     }
 
