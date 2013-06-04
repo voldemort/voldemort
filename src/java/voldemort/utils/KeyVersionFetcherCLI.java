@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeSet;
@@ -92,7 +93,17 @@ public class KeyVersionFetcherCLI {
         if(logger.isInfoEnabled()) {
             logger.info("Connecting to bootstrap server: " + url);
         }
-        this.adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+
+        Properties clientProps = new Properties();
+        clientProps.put("connection_timeout_ms", 2500);
+        clientProps.put("max_connections", keyParallelism);
+        clientProps.put("routing_timeout_ms", 10000);
+        clientProps.put("socket_timeout_ms", 10000);
+        clientProps.put("failuredetector_threshold", 10);
+
+        this.adminClient = new AdminClient(url,
+                                           new AdminClientConfig(),
+                                           new ClientConfig(clientProps));
         this.cluster = adminClient.getAdminClientCluster();
         this.storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue();
         this.storeNamesSet = new HashSet<String>();
