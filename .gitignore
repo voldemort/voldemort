@@ -15,3 +15,5 @@ server.state
 .idea
 data/
 META-INF/MANIFEST.MF
+gc.log
+voldsys$_*
