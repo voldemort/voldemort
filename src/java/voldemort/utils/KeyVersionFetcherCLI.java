@@ -95,11 +95,11 @@ public class KeyVersionFetcherCLI {
         }
 
         Properties clientProps = new Properties();
-        clientProps.put("connection_timeout_ms", 2500);
-        clientProps.put("max_connections", keyParallelism);
-        clientProps.put("routing_timeout_ms", 10000);
-        clientProps.put("socket_timeout_ms", 10000);
-        clientProps.put("failuredetector_threshold", 10);
+        clientProps.put("connection_timeout_ms", "2500");
+        clientProps.put("max_connections", Integer.toString(keyParallelism));
+        clientProps.put("routing_timeout_ms", "10000");
+        clientProps.put("socket_timeout_ms", "10000");
+        clientProps.put("failuredetector_threshold", "10");
 
         this.adminClient = new AdminClient(url,
                                            new AdminClientConfig(),
