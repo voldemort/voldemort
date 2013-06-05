@@ -88,6 +88,9 @@ public class Cluster implements Serializable {
             nodesById.put(node.getId(), node);
 
             Zone nodesZone = zonesById.get(node.getZoneId());
+            if (nodesZone == null) {
+                throw new IllegalArgumentException("No zone associated with this node exists.");
+            }
             nodesPerZone.get(nodesZone).add(node.getId());
             partitionsPerZone.get(nodesZone).addAll(node.getPartitionIds());
         }
