@@ -243,6 +243,25 @@ public class FatClientWrapper {
 
     }
 
+    /**
+     * Perform a get schemata operation without going over the wire
+     * 
+     */
+    void submitGetSchemataRequest(final MessageEvent getRequestMessageEvent) {
+        try {
+
+            this.fatClientExecutor.submit(new GetSchemataRequestExecutor(getRequestMessageEvent,
+                                                                         storeName,
+                                                                         storeClientFactory));
+            if(logger.isDebugEnabled()) {
+                logger.debug("Submitted a get schemata request");
+            }
+
+        } catch(RejectedExecutionException rej) {
+            handleRejectedException(rej, getRequestMessageEvent);
+        }
+    }
+
     // TODO: Add a custom HTTP Error status 429: Too many requests
     private void handleRejectedException(RejectedExecutionException rej, MessageEvent getRequest) {
         this.errorStats.reportException(rej);

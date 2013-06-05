@@ -106,6 +106,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final HashSet<SchedulerService> clientAsyncServiceRepo;
 
     private Cluster cluster;
+    private List<StoreDefinition> storeDefs;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.config = config;
@@ -221,8 +222,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             logger.debug("Obtained stores  metadata xml" + storesXml);
         }
 
-        List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml),
-                                                                    false);
+        storeDefs = storeMapper.readStoreList(new StringReader(storesXml), false);
         StoreDefinition storeDef = null;
         for(StoreDefinition d: storeDefs)
             if(d.getName().equals(storeName))
@@ -535,5 +535,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     protected String getClientContext() {
         return clientContextName;
+    }
+
+    public Cluster getCluster() {
+        return cluster;
+    }
+
+    public List<StoreDefinition> getStoreDefs() {
+        return storeDefs;
     }
 }

@@ -45,6 +45,7 @@ import voldemort.store.CompositePutVoldemortRequest;
 import voldemort.store.CompositeVersionedPutVoldemortRequest;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -66,6 +67,7 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
     private static final String X_VOLD_VECTOR_CLOCK = "X-VOLD-Vector-Clock";
     public static final String CUSTOM_RESOLVING_STRATEGY = "custom";
     public static final String DEFAULT_RESOLVING_STRATEGY = "timestamp";
+    public static final String SCHEMATA = "schemata";
 
     private CoordinatorErrorStats errorStats = null;
 
@@ -209,7 +211,25 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
                 String storeName = getStoreName(requestURI);
                 FatClientWrapper fatClientWrapper = null;
                 if(storeName != null) {
-                    fatClientWrapper = this.fatClientMap.get(storeName);
+                    // /schemata/<store_name>
+                    if(storeName.equalsIgnoreCase(SCHEMATA)) {
+
+                        String queryStore = ByteUtils.getString(requestObject.getKey().get(),
+                                                                "UTF-8");
+                        fatClientWrapper = this.fatClientMap.get(queryStore);
+
+                        if(queryStore == null || fatClientWrapper == null) {
+                            this.errorStats.reportException(new IllegalArgumentException());
+                            handleBadRequest(e, "Invalid store name. Critical error.");
+                            return;
+                        }
+
+                        fatClientWrapper.submitGetSchemataRequest(e);
+                        return;
+
+                    } else {
+                        fatClientWrapper = this.fatClientMap.get(storeName);
+                    }
                 }
 
                 if(storeName == null || fatClientWrapper == null) {
@@ -386,7 +406,8 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
     private String getStoreName(String requestURI) {
         String storeName = null;
         String[] parts = requestURI.split("/");
-        if(parts.length > 1 && this.fatClientMap.containsKey(parts[1])) {
+        if(parts.length > 1
+           && (this.fatClientMap.containsKey(parts[1]) || parts[1].equalsIgnoreCase(SCHEMATA))) {
             storeName = parts[1];
         }
 
