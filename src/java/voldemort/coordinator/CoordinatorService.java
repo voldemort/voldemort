@@ -53,7 +53,6 @@ import voldemort.client.scheduler.AsyncMetadataVersionManager;
 import voldemort.common.service.AbstractService;
 import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
-import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StoreStats;
@@ -286,8 +285,8 @@ public class CoordinatorService extends AbstractService {
         CoordinatorConfig config = null;
         try {
             if(args.length != 1) {
-                croak("USAGE: java " + VoldemortServer.class.getName()
-                      + " [coordinator_config_file]");
+                croak("USAGE: java " + CoordinatorService.class.getName()
+                      + " <coordinator_config_file>");
 
                 System.exit(-1);
             }

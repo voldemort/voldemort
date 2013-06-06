@@ -1,0 +1,46 @@
+Once you have a coordinator up and running against a Voldemort cluster, here is how you perform the basic operations using Curl:
+
+********************** Voldemort PUT *****************************************
+# a2V5MQ== is "key1" in base64
+$ curl -X POST http://localhost:8080/test/a2V5MQ== --data "value1"
+
+# a2V5Mg== is "key2" in base64
+$ curl -X POST http://localhost:8080/test/a2V5Mg== --data "value2"
+
+# a2V5Mw== is "key3" in base64
+$ curl -X POST http://localhost:8080/test/a2V5Mw== --data "value3"
+
+*********************** Voldemort GET ****************************************
+# retrieve key1
+$ curl http://localhost:8080/test/a2V5MQ==
+value1
+
+*********************** Voldemort GET_ALL ************************************
+# retrive all keys
+$ curl http://localhost:8080/test/a2V5MQ==,a2V5Mg==,a2V5Mw==
+------=_Part_0_1624485351.1370561996547
+Content-Location: /test/a2V5Mw==
+ETag: {"timestamp":1370561962575,"versions":[{"version":1,"nodeId":0}]}
+Content-Length: 6
+
+value3
+------=_Part_0_1624485351.1370561996547
+Content-Location: /test/a2V5Mg==
+ETag: {"timestamp":1370561938302,"versions":[{"version":1,"nodeId":0}]}
+Content-Length: 6
+
+value2
+------=_Part_0_1624485351.1370561996547
+Content-Location: /test/a2V5MQ==
+ETag: {"timestamp":1370561912292,"versions":[{"version":1,"nodeId":0}]}
+Content-Length: 6
+
+value1
+------=_Part_0_1624485351.1370561996547--
+
+************************ Voldemort DELETE ************************************
+# delete key1
+$ curl -X DELETE  http://localhost:8080/test/a2V5MQ==
+$ curl http://localhost:8080/test/a2V5MQ==
+Failure: 404 Not Found. Requested Key does not exist
+
