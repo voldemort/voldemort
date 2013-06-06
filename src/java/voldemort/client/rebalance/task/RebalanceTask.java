@@ -68,8 +68,6 @@ public abstract class RebalanceTask implements Runnable {
         this.partitionStoreCount = RebalanceUtils.countPartitionStores(stealInfos);
         this.permitAcquisitionTimeMs = -1;
         this.taskCompletionTimeMs = -1;
-
-        taskLog(toString());
     }
 
     public List<RebalancePartitionsInfo> getStealInfos() {
@@ -96,7 +94,7 @@ public abstract class RebalanceTask implements Runnable {
 
     @Override
     public String toString() {
-        return "Rebalance task " + taskId + "from batch " + batchId + " : " + getStealInfos();
+        return "Rebalance task " + taskId + " from batch " + batchId + " : " + getStealInfos();
     }
 
     /**

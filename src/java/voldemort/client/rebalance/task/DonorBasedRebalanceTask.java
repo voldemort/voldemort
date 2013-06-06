@@ -49,6 +49,8 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
 
         RebalanceUtils.assertSameDonor(stealInfos, -1);
         this.donorNodeId = stealInfos.get(0).getDonorId();
+
+        taskLog(toString());
     }
 
     @Override

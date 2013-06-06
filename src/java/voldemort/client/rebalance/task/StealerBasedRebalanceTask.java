@@ -78,6 +78,8 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
 
         this.maxTries = maxTries;
         this.stealerNodeId = stealInfo.getStealerId();
+
+        taskLog(toString());
     }
 
     private int startNodeRebalancing() {
