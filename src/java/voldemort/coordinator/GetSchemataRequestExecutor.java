@@ -6,6 +6,8 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import java.io.UnsupportedEncodingException;
+
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.log4j.Logger;
@@ -51,7 +53,11 @@ public class GetSchemataRequestExecutor implements Runnable {
 
         record.put("key-serializer", keySerializer);
         record.put("value-serializer", valueSerializer);
-        writeResponse(record.toString().getBytes());
+        try {
+            writeResponse(record.toString().getBytes("UTF-8"));
+        } catch(UnsupportedEncodingException e) {
+            logger.error(e);
+        }
     }
 
     public void writeResponse(byte[] responseValue) {

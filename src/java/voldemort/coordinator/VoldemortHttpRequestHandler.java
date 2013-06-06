@@ -218,15 +218,6 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
                                                                 "UTF-8");
                         fatClientWrapper = this.fatClientMap.get(queryStore);
 
-                        if(queryStore == null || fatClientWrapper == null) {
-                            this.errorStats.reportException(new IllegalArgumentException());
-                            handleBadRequest(e, "Invalid store name. Critical error.");
-                            return;
-                        }
-
-                        fatClientWrapper.submitGetSchemataRequest(e);
-                        return;
-
                     } else {
                         fatClientWrapper = this.fatClientMap.get(storeName);
                     }
@@ -249,6 +240,11 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
                         if(logger.isDebugEnabled()) {
                             logger.debug("Incoming get request");
                         }
+                        if(storeName.equalsIgnoreCase(SCHEMATA)) {
+                            fatClientWrapper.submitGetSchemataRequest(e);
+                            return;
+                        }
+
                         fatClientWrapper.submitGetRequest(requestObject, e, startTimeStampInNs);
                         break;
                     case VoldemortOpCode.GET_ALL_OP_CODE:
