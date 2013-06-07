@@ -126,6 +126,8 @@ public class RebalancePlan {
         zoneMoveMap = new MoveMap(interimCluster.getZoneIds());
 
         plan();
+        // write plan to file
+        RebalanceUtils.dumpPlanToFile(this.outputDir, this);
     }
 
     public RebalancePlan(final Cluster currentCluster,

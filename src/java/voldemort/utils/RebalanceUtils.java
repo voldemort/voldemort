@@ -43,6 +43,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalancePlan;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -959,6 +960,26 @@ public class RebalanceUtils {
                                             partitionBalance.toString());
             } catch(IOException e) {
                 logger.error("IOException during dumpAnalysisToFile: " + e);
+            }
+        }
+    }
+
+    /**
+     * Prints the plan to a file.
+     * 
+     * @param outputDirName
+     * @param plan
+     */
+    public static void dumpPlanToFile(String outputDirName, RebalancePlan plan) {
+        if(outputDirName != null) {
+            File outputDir = new File(outputDirName);
+            if(!outputDir.exists()) {
+                Utils.mkdirs(outputDir);
+            }
+            try {
+                FileUtils.writeStringToFile(new File(outputDirName, "plan.out"), plan.toString());
+            } catch(IOException e) {
+                logger.error("IOException during dumpPlanToFile: " + e);
             }
         }
     }
