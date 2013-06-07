@@ -88,8 +88,8 @@ public class RebalancePlanCLI {
         help.append("  Required:\n");
         help.append("    --current-cluster <clusterXML>\n");
         help.append("    --current-stores <storesXML>\n");
+        help.append("    --final-cluster <clusterXML>\n");
         help.append("  Optional:\n");
-        help.append("    --final-cluster <clusterXML> [ Needed for cluster or zone expansion ]\n");
         help.append("    --final-stores <storesXML> [ Needed for zone expansion ]\n");
         help.append("    --batch <batch> [ Number of primary partitions to move in each rebalancing batch. ]\n");
         help.append("    --output-dir <outputDir> [ Directory in which cluster metadata is dumped for each batch of the plan. ]\n");
@@ -120,7 +120,10 @@ public class RebalancePlanCLI {
             System.exit(0);
         }
 
-        Set<String> missing = CmdUtils.missing(options, "current-cluster", "current-stores");
+        Set<String> missing = CmdUtils.missing(options,
+                                               "current-cluster",
+                                               "current-stores",
+                                               "final-cluster");
         if(missing.size() > 0) {
             printUsageAndDie("Missing required arguments: " + Joiner.on(", ").join(missing));
         }
@@ -138,12 +141,9 @@ public class RebalancePlanCLI {
         // Required args
         String currentClusterXML = (String) options.valueOf("current-cluster");
         String currentStoresXML = (String) options.valueOf("current-stores");
+        String finalClusterXML = (String) options.valueOf("final-cluster");
 
         // Required args for some use cases
-        String finalClusterXML = new String(currentClusterXML);
-        if(options.has("final-cluster")) {
-            finalClusterXML = (String) options.valueOf("final-cluster");
-        }
         String finalStoresXML = new String(currentStoresXML);
         if(options.has("final-stores")) {
             finalStoresXML = (String) options.valueOf("final-stores");
