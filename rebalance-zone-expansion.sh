@@ -126,6 +126,7 @@ $vold_home/bin/run-class.sh voldemort.tools.RepartitionerCLI \
                             --current-stores $final_stores \
                             --output-dir $output_dir/step2 \
                             --enable-random-swaps \
+                            --random-swap-zoneids 2 \
                             --attempts 5 \
                             --random-swap-attempts 1000 \
 
