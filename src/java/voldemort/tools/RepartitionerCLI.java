@@ -18,6 +18,7 @@ package voldemort.tools;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -102,6 +103,12 @@ public class RepartitionerCLI {
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("num-successes");
+        parser.accepts("random-swap-zoneids",
+                       "Comma separated zone ids that you want to shuffle. [Default:Shuffle all zones.]")
+              .withRequiredArg()
+              .describedAs("zoneids-to-shuffle")
+              .withValuesSeparatedBy(',')
+              .ofType(Integer.class);
         parser.accepts("enable-greedy-swaps",
                        "Enable attempts to improve balance by greedily swapping (random) partitions within a zone. [Default: disabled]");
         parser.accepts("greedy-swap-attempts",
@@ -150,6 +157,7 @@ public class RepartitionerCLI {
         help.append("    --enable-random-swaps [ Attempt to randomly swap partitions to improve balance ] \n");
         help.append("    --random-swap-attempts num-attempts [ Number of random swaps to attempt in hopes of improving balance ] \n");
         help.append("    --random-swap-successes num-successes [ Stop after num-successes successful random swap atttempts ] \n");
+        help.append("    --random-swap-zoneids zoneId(s) [Only swaps partitions within the specified zone(s)] \n");
         help.append("    --enable-greedy-swaps [ Attempt to greedily (randomly) swap partitions to improve balance. Greedily/randomly means sample many swaps for each node and choose best swap. ] \n");
         help.append("    --greedy-swap-attempts num-attempts [ Number of greedy swap passes to attempt. Each pass can be fairly expensive. ] \n");
         help.append("    --greedy-max-partitions-per-node num-partitions [ num-partitions per node to consider in each greedy pass. Partitions selected randomly from each node.  ] \n");
@@ -238,6 +246,8 @@ public class RepartitionerCLI {
         int randomSwapSuccesses = CmdUtils.valueOf(options,
                                                    "random-swap-successes",
                                                    Repartitioner.DEFAULT_RANDOM_SWAP_SUCCESSES);
+        List<Integer> randomSwapZoneIds = CmdUtils.valuesOf(options, "random-swap-zoneids",
+                                                            Collections.<Integer>emptyList());
         boolean enableGreedySwaps = options.has("enable-greedy-swaps");
         int greedySwapAttempts = CmdUtils.valueOf(options,
                                                   "greedy-swap-attempts",
@@ -280,6 +290,7 @@ public class RepartitionerCLI {
                                   enableRandomSwaps,
                                   randomSwapAttempts,
                                   randomSwapSuccesses,
+                                  randomSwapZoneIds,
                                   enableGreedySwaps,
                                   greedyZoneIds,
                                   greedySwapAttempts,

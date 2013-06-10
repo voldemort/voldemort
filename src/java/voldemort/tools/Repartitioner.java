@@ -129,6 +129,7 @@ public class Repartitioner {
      * @param enableRandomSwaps Enables random swap optimization.
      * @param randomSwapAttempts
      * @param randomSwapSuccesses
+     * @param randomSwapZoneIds 
      * @param enableGreedySwaps Enables greedy swap optimization.
      * @param greedyZoneIds
      * @param greedySwapAttempts
@@ -150,6 +151,7 @@ public class Repartitioner {
                                       final boolean enableRandomSwaps,
                                       final int randomSwapAttempts,
                                       final int randomSwapSuccesses,
+                                      final List<Integer> randomSwapZoneIds,
                                       final boolean enableGreedySwaps,
                                       final List<Integer> greedyZoneIds,
                                       final int greedySwapAttempts,
@@ -182,6 +184,7 @@ public class Repartitioner {
                 nextCandidateCluster = randomShufflePartitions(nextCandidateCluster,
                                                                randomSwapAttempts,
                                                                randomSwapSuccesses,
+                                                               randomSwapZoneIds,
                                                                finalStoreDefs);
             }
             if(enableGreedySwaps) {
@@ -628,10 +631,17 @@ public class Repartitioner {
     public static Cluster randomShufflePartitions(final Cluster nextCandidateCluster,
                                                   final int randomSwapAttempts,
                                                   final int randomSwapSuccesses,
+                                                  final List<Integer> randomSwapZoneIds,
                                                   List<StoreDefinition> storeDefs) {
-        List<Integer> zoneIds = new ArrayList<Integer>(nextCandidateCluster.getZoneIds());
-        Cluster returnCluster = ClusterUtils.copyCluster(nextCandidateCluster);
 
+        List<Integer> zoneIds = null;
+        if (randomSwapZoneIds.isEmpty()) {
+            zoneIds = new ArrayList<Integer>(nextCandidateCluster.getZoneIds());
+        } else {
+            zoneIds = new ArrayList<Integer>(randomSwapZoneIds);
+        }
+
+        Cluster returnCluster = ClusterUtils.copyCluster(nextCandidateCluster);
         double currentUtility = new PartitionBalance(returnCluster, storeDefs).getUtility();
 
         int successes = 0;
