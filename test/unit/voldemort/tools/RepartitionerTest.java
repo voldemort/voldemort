@@ -20,8 +20,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.Test;
 
@@ -157,7 +160,7 @@ public class RepartitionerTest {
                                                                  false,
                                                                  0,
                                                                  0,
-                                                                 null, 
+                                                                 null,
                                                                  false,
                                                                  null,
                                                                  0,
@@ -240,7 +243,7 @@ public class RepartitionerTest {
                                                                  enableRandomSwaps,
                                                                  swapAttempts,
                                                                  swapSuccesses,
-                                                                 null, 
+                                                                 Collections.<Integer> emptyList(),
                                                                  false,
                                                                  null,
                                                                  0,
@@ -254,6 +257,65 @@ public class RepartitionerTest {
         // Confirm overall balance has been improved
         PartitionBalance repartitionedPb = new PartitionBalance(repartitionedCluster, currentStores);
         assertTrue(repartitionedPb.getUtility() < currentPb.getUtility());
+    }
+
+    /**
+     * Verify that random swaps within improve balance
+     * 
+     * @param currentCluster
+     * @param currentStores
+     * @param swapZoneIds
+     */
+    public void verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(Cluster currentCluster,
+                                                          List<StoreDefinition> currentStores,
+                                                          List<Integer> swapZoneIds) {
+
+        PartitionBalance currentPb = new PartitionBalance(currentCluster, currentStores);
+        // Disable basic balancing among zones & nodes
+        boolean disableNodeBalancing = true;
+        boolean disableZoneBalancing = true;
+        // Do some random swaps within zone
+        boolean enableRandomSwaps = true;
+        int swapAttempts = 100;
+        int swapSuccesses = 10;
+        Cluster repartitionedCluster = Repartitioner.repartition(currentCluster,
+                                                                 currentStores,
+                                                                 currentCluster,
+                                                                 currentStores,
+                                                                 null,
+                                                                 1,
+                                                                 disableNodeBalancing,
+                                                                 disableZoneBalancing,
+                                                                 enableRandomSwaps,
+                                                                 swapAttempts,
+                                                                 swapSuccesses,
+                                                                 swapZoneIds,
+                                                                 false,
+                                                                 null,
+                                                                 0,
+                                                                 0,
+                                                                 0,
+                                                                 0);
+        PartitionBalance repartitionedPb = new PartitionBalance(repartitionedCluster, currentStores);
+
+        Set<Integer> allNodeIds = repartitionedCluster.getNodeIds();
+        Set<Integer> swapNodeIds = null;
+        for (Integer swapZoneId: swapZoneIds) {
+            swapNodeIds = repartitionedCluster.getNodeIdsInZone(swapZoneId);
+        }
+        // Remove nodes that we don't want to verify the partition count on
+        allNodeIds.removeAll(swapNodeIds);
+        for (Integer remainingNodeId : allNodeIds) {
+            Set<Integer> beforeRepartition = new HashSet<Integer>(currentCluster
+                                                                  .getNodeById(remainingNodeId)
+                                                                  .getPartitionIds());
+            Set<Integer> afterRepartition = new HashSet<Integer>(currentCluster
+                                                                 .getNodeById(remainingNodeId)
+                                                                 .getPartitionIds());
+            assertTrue(beforeRepartition.equals(afterRepartition));
+            assertTrue(repartitionedPb.getUtility() <= currentPb.getUtility());
+        }
+
     }
 
     /**
@@ -386,6 +448,39 @@ public class RepartitionerTest {
         verifyRepartitionNoop(currentCluster, storeDefs, currentCluster, storeDefs);
         verifyRandomSwapsImproveBalance(currentCluster, storeDefs);
         verifyGreedySwapsImproveBalance(currentCluster, storeDefs);
+    }
+
+    @Test
+    public void testShuffleWithinZone() {
+        // Two zone cluster
+        Cluster currentCluster = ClusterTestUtils.getZZCluster();
+        List<StoreDefinition> storeDefs = ClusterTestUtils.getZZStoreDefsInMemory();
+        List<Integer> swapZoneIds = new ArrayList<Integer>();
+        // Only shuffle within zone 1
+        swapZoneIds.add(1);
+        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+                swapZoneIds);
+       
+        // Three zone cluster
+        currentCluster = ClusterTestUtils.getZZZCluster();
+        storeDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
+        // Shuffle only within zone 2
+        swapZoneIds.clear();
+        swapZoneIds.add(2);
+        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+                swapZoneIds);
+        // Shuffle only within zone 1, 2
+        swapZoneIds.clear();
+        swapZoneIds.add(1);
+        swapZoneIds.add(2);
+        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+                swapZoneIds);
+        // Shuffle only within zone 0, 2
+        swapZoneIds.clear();
+        swapZoneIds.add(0);
+        swapZoneIds.add(2);
+        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+                swapZoneIds);
     }
 
     @Test
