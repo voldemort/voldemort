@@ -78,6 +78,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     public static final String X_VOLD_INCONSISTENCY_RESOLVER = "X-VOLD-Inconsistency-Resolver";
     public static final String CUSTOM_RESOLVING_STRATEGY = "custom";
     public static final String DEFAULT_RESOLVING_STRATEGY = "timestamp";
+    public static final String SCHEMATA_STORE_NAME = "schemata";
 
     private static final String LAST_MODIFIED = "Last-Modified";
     private static final String MULTIPART_CONTENT_TYPE = "multipart/binary";
@@ -153,27 +154,27 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         return true;
     }
 
+    private RestResponse fetchGetResponse(RestRequestBuilder requestBuilder) throws Exception {
+        // TODO: Form a proper request based on client config
+        requestBuilder.setMethod(GET);
+        requestBuilder.setHeader("Accept", "binary");
+        requestBuilder.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, "1000");
+
+        RestRequest request = requestBuilder.build();
+        Future<RestResponse> f = client.restRequest(request);
+
+        // This will block
+        return f.get();
+    }
+
     @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
-
         List<Versioned<byte[]>> resultList = new ArrayList<Versioned<byte[]>>();
-
+        String base64Key = new String(Base64.encodeBase64(key.get()));
+        RestRequestBuilder rb = null;
         try {
-            String base64Key = new String(Base64.encodeBase64(key.get()));
-            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName()
-                                                                   + "/" + base64Key));
-
-            // TODO: Form a proper request based on client config
-            rb.setMethod(GET);
-            rb.setHeader("Accept", "binary");
-            rb.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, "1000");
-
-            RestRequest request = rb.build();
-            Future<RestResponse> f = client.restRequest(request);
-
-            // This will block
-            RestResponse response = f.get();
-
+            rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName() + "/" + base64Key));
+            RestResponse response = fetchGetResponse(rb);
             // Parse the response
             final ByteString entity = response.getEntity();
             String eTag = response.getHeader(ETAG);
@@ -183,17 +184,33 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             } else {
                 logger.error("Did not get any response!");
             }
-
         } catch(VoldemortException ve) {
-            ve.printStackTrace();
+            logger.error("Error performing get", ve);
             throw ve;
         } catch(Exception e) {
-            if(!e.getMessage().contains("status=404")) {
-                logger.error("Specified key does not exist." + e);
+            // TODO this needs to be revisited.. Not sure if we rethrow
+            // exception when its not 404
+            String errorMsg = e.getMessage();
+            if(errorMsg != null && !errorMsg.contains("status=404")) {
+                logger.error("Specified key does not exist.", e);
             }
         }
-
         return resultList;
+    }
+
+    public String getSerializerInfoXml() throws VoldemortException {
+        RestRequestBuilder rb = null;
+        try {
+            String base64Key = new String(Base64.encodeBase64(getName().getBytes("UTF-8")));
+            rb = new RestRequestBuilder(new URI(this.baseURL + "/" + SCHEMATA_STORE_NAME + "/"
+                                                + base64Key));
+            RestResponse response = fetchGetResponse(rb);
+            // Parse the response
+            return response.getEntity().asString("UTF-8");
+        } catch(Exception e) {
+            logger.error("Error in get serializer info request", e);
+            throw new VoldemortException(e);
+        }
     }
 
     @Override

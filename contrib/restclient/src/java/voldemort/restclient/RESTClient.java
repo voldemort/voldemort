@@ -20,18 +20,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import voldemort.client.RoutingTier;
+import org.apache.log4j.Logger;
+
 import voldemort.client.StoreClient;
 import voldemort.client.UpdateAction;
 import voldemort.cluster.Node;
-import voldemort.routing.RoutingStrategyType;
+import voldemort.coordinator.CoordinatorUtils;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.store.Store;
-import voldemort.store.StoreDefinition;
-import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.compress.CompressingStore;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
@@ -51,11 +52,12 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
 
     private Store<K, V, Object> clientStore = null;
     private SerializerFactory serializerFactory = new DefaultSerializerFactory();
-    private StoreDefinition storeDef;
     private String storeName;
 
+    private static Logger logger = Logger.getLogger(RESTClient.class);
+
     /**
-     * A REST ful equivalent of the DefaultStoreClient. This uses the R2Store to
+     * A RESTful equivalent of the DefaultStoreClient. This uses the R2Store to
      * interact with the RESTful Coordinator
      * 
      * @param bootstrapURL The bootstrap URL of the Voldemort cluster
@@ -63,36 +65,36 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
      */
     public RESTClient(String bootstrapURL, String storeName) {
 
+        this.storeName = storeName;
         String baseURL = "http://" + bootstrapURL.split(":")[1].substring(2) + ":8080";
         // The lowest layer : Transporting request to coordinator
-        Store<ByteArray, byte[], byte[]> store = new R2Store(baseURL, storeName);
+        R2Store r2store = new R2Store(baseURL, storeName);
 
-        // TODO
-        // Get the store definition so that we can learn the Serialization
-        // and
-        // compression properties
+        // bootstrap from the coordinator and obtain all the serialization
+        // information.
+        String serializerInfoXml = r2store.getSerializerInfoXml();
+        SerializerDefinition keySerializerDefinition = CoordinatorUtils.parseKeySerializerDefinition(serializerInfoXml);
+        SerializerDefinition valueSerializerDefinition = CoordinatorUtils.parseValueSerializerDefinition(serializerInfoXml);
 
-        // TODO
+        logger.info("Bootstrapping for " + getName() + ": Key serializer "
+                    + keySerializerDefinition);
+        logger.info("Bootstrapping for " + getName() + ": Value serializer "
+                    + valueSerializerDefinition);
+
+        // Start building the stack..
+        // First, the transport layer
+        Store<ByteArray, byte[], byte[]> store = r2store;
+
         // Add compression layer
+        if(keySerializerDefinition.hasCompression() || valueSerializerDefinition.hasCompression()) {
+            store = new CompressingStore(store,
+                                         new CompressionStrategyFactory().get(keySerializerDefinition.getCompression()),
+                                         new CompressionStrategyFactory().get(valueSerializerDefinition.getCompression()));
+        }
 
         // Add Serialization layer
-
-        // Set the following values although we don't need them
-        // TODO: Fix this, so that we only need to set the needed parameters
-        storeDef = new StoreDefinitionBuilder().setName(storeName)
-                                               .setType("bdb")
-                                               .setKeySerializer(new SerializerDefinition("string"))
-                                               .setValueSerializer(new SerializerDefinition("string"))
-                                               .setRoutingPolicy(RoutingTier.CLIENT)
-                                               .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
-                                               .setReplicationFactor(1)
-                                               .setPreferredReads(1)
-                                               .setRequiredReads(1)
-                                               .setPreferredWrites(1)
-                                               .setRequiredWrites(1)
-                                               .build();
-        Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
-        Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
+        Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(keySerializerDefinition);
+        Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(valueSerializerDefinition);
         clientStore = SerializingStore.wrap(store, keySerializer, valueSerializer, null);
 
         // Add inconsistency Resolving layer
@@ -100,8 +102,6 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
         clientStore = new InconsistencyResolvingStore<K, V, Object>(clientStore,
                                                                     new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
                                                                                                       secondaryResolver));
-
-        this.storeName = storeName;
     }
 
     @Override
@@ -236,6 +236,11 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
     }
 
     public void close() {
+        // TODO understand why the client hangs around even after close()
         this.clientStore.close();
+    }
+
+    public String getName() {
+        return this.storeName;
     }
 }

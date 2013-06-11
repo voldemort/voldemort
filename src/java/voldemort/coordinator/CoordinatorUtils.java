@@ -1,8 +1,21 @@
 package voldemort.coordinator;
 
-import org.codehaus.jackson.map.ObjectMapper;
+import java.io.IOException;
+import java.io.StringReader;
 
+import org.codehaus.jackson.map.ObjectMapper;
+import org.jdom.Document;
+import org.jdom.Element;
+import org.jdom.JDOMException;
+import org.jdom.input.SAXBuilder;
+import org.jdom.output.Format;
+import org.jdom.output.XMLOutputter;
+
+import voldemort.serialization.SerializerDefinition;
+import voldemort.store.StoreDefinition;
 import voldemort.versioning.VectorClock;
+import voldemort.xml.MappingException;
+import voldemort.xml.StoreDefinitionsMapper;
 
 public class CoordinatorUtils {
 
@@ -42,5 +55,66 @@ public class CoordinatorUtils {
         }
 
         return vc;
+    }
+
+    /**
+     * Given a storedefinition, constructs the xml string to be sent out in
+     * response to a "schemata" fetch request
+     * 
+     * @param storeDefinition
+     * @return
+     */
+    public static String constructSerializerInfoXml(StoreDefinition storeDefinition) {
+        Element store = new Element(StoreDefinitionsMapper.STORE_ELMT);
+        store.addContent(new Element(StoreDefinitionsMapper.STORE_NAME_ELMT).setText(storeDefinition.getName()));
+        Element keySerializer = new Element(StoreDefinitionsMapper.STORE_KEY_SERIALIZER_ELMT);
+        StoreDefinitionsMapper.addSerializer(keySerializer, storeDefinition.getKeySerializer());
+        store.addContent(keySerializer);
+
+        Element valueSerializer = new Element(StoreDefinitionsMapper.STORE_VALUE_SERIALIZER_ELMT);
+        StoreDefinitionsMapper.addSerializer(valueSerializer, storeDefinition.getValueSerializer());
+        store.addContent(valueSerializer);
+
+        XMLOutputter serializer = new XMLOutputter(Format.getPrettyFormat());
+        return serializer.outputString(store);
+    }
+
+    /**
+     * Given an xml string containing the store's serialization information,
+     * obtains the key serializer definition
+     * 
+     * @param serializerInfoXml
+     * @return
+     */
+    public static SerializerDefinition parseKeySerializerDefinition(String serializerInfoXml) {
+        return parseSerializerDefinition(serializerInfoXml,
+                                         StoreDefinitionsMapper.STORE_KEY_SERIALIZER_ELMT);
+    }
+
+    /**
+     * Given an xml string containing the store's serialization information,
+     * obtains the value serializer definition
+     * 
+     * @param serializerInfoXml
+     * @return
+     */
+    public static SerializerDefinition parseValueSerializerDefinition(String serializerInfoXml) {
+        return parseSerializerDefinition(serializerInfoXml,
+                                         StoreDefinitionsMapper.STORE_VALUE_SERIALIZER_ELMT);
+    }
+
+    private static SerializerDefinition parseSerializerDefinition(String serializerInfoXml,
+                                                                  String elementName) {
+        SAXBuilder builder = new SAXBuilder();
+        try {
+            Document doc = builder.build(new StringReader(serializerInfoXml));
+            Element root = doc.getRootElement();
+            Element serializerElement = root.getChild(elementName);
+            return StoreDefinitionsMapper.readSerializer(serializerElement);
+        } catch(JDOMException e) {
+            throw new MappingException(e);
+        } catch(IOException e) {
+            throw new MappingException(e);
+        }
     }
 }

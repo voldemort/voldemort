@@ -367,7 +367,7 @@ public class StoreDefinitionsMapper {
                                            .build();
     }
 
-    private SerializerDefinition readSerializer(Element elmt) {
+    public static SerializerDefinition readSerializer(Element elmt) {
         String name = elmt.getChild(STORE_SERIALIZATION_TYPE_ELMT).getText();
         boolean hasVersion = true;
         Map<Integer, String> schemaInfosByVersion = new HashMap<Integer, String>();
@@ -528,7 +528,7 @@ public class StoreDefinitionsMapper {
         return store;
     }
 
-    private void addSerializer(Element parent, SerializerDefinition def) {
+    public static void addSerializer(Element parent, SerializerDefinition def) {
         parent.addContent(new Element(STORE_SERIALIZATION_TYPE_ELMT).setText(def.getName()));
         if(def.hasSchemaInfo()) {
             for(Map.Entry<Integer, String> entry: def.getAllSchemaInfoVersions().entrySet()) {

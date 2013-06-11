@@ -8,8 +8,6 @@ import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import java.io.UnsupportedEncodingException;
 
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
 import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -46,15 +44,9 @@ public class GetSchemataRequestExecutor implements Runnable {
 
         StoreDefinition storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(storeClientFactory.getStoreDefs(),
                                                                                    storeName);
-
-        String keySerializer = storeDef.getKeySerializer().toString();
-        String valueSerializer = storeDef.getValueSerializer().toString();
-        GenericData.Record record = new GenericData.Record(Schema.parse(SCHEMATAJSON));
-
-        record.put("key-serializer", keySerializer);
-        record.put("value-serializer", valueSerializer);
+        String serializerInfoXml = CoordinatorUtils.constructSerializerInfoXml(storeDef);
         try {
-            writeResponse(record.toString().getBytes("UTF-8"));
+            writeResponse(serializerInfoXml.getBytes("UTF-8"));
         } catch(UnsupportedEncodingException e) {
             logger.error(e);
         }
