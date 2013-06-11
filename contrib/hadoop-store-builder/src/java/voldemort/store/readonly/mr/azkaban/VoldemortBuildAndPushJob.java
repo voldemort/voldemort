@@ -145,7 +145,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         
         // switch off informed utilities by default
         this.informedOn = props.getBoolean("voldemort.informed.on", false);
-        if(informedOn) {
+        if(this.informedOn) {
              this.informedResults = Lists.newArrayList();
              this.informedExecutor = Executors.newFixedThreadPool(2);
         }
