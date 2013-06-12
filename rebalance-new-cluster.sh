@@ -15,9 +15,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# This script generates a final cluster.xml for spinning up a new cluster.
+# This script generates a final-cluster.xml for spinning up a new cluster.
 # Argument = -v vold_home -c current_cluster -s current_stores -o output dir
-# The final cluster is placed in output_dir/step3
+# The final cluster is placed in output_dir/
 
 # This script uses getopts which means only single character switches are allowed.
 # Using getopt would allow for multi charcter switch names but would come at a
@@ -41,7 +41,7 @@ EOF
 exit 1
 }
 
-# initiliaze varibles to an empty string
+# initialize  varibles to an empty string
 vold_home=""
 current_cluster=""
 current_stores=""
@@ -145,4 +145,7 @@ $vold_home/bin/run-class.sh voldemort.tools.RepartitionerCLI \
                             --max-contiguous-partitions 3 \
                             --attempts 4 \
                             --output-dir $output_dir/step3/ \
+
+echo "[rebalance-new-cluster] Placing final-cluster.xml in '$output_dir'"
+cp $output_dir/step3/final-cluster.xml $output_dir/final-cluster.xml
 

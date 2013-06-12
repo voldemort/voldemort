@@ -19,7 +19,8 @@
 # Using getopt would allow for multi charcter switch names but would come at a 
 # cost of not being cross compatibility.
 
-# This script generates a cluster.xml and a plan for the zone expansion
+# This script generates a cluster.xml and a plan for the zone expansion.
+# The final cluster is placed in output_dir/
 # Argument = -v vold_home -c current_cluster -s current_stores -i interim_cluster -f final_stores
 #            -o output dir
 
@@ -172,4 +173,6 @@ $vold_home/bin/run-class.sh voldemort.tools.RebalancePlanCLI \
                              --final-stores $final_stores \
                              --output-dir $output_dir/step3/ | tee $output_dir/step3/plan.txt
                              
+echo "[rebalance-new-cluster] Placing final-cluster.xml in '$output_dir'"
+cp $output_dir/step3/final-cluster.xml $output_dir/final-cluster.xml
                              
