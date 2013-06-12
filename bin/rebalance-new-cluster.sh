@@ -34,7 +34,7 @@ usage_and_exit() {
    -v     Path to Voldemort
    -c     Current Cluster that desribes the cluster.
    -s     Current Stores that desribes the store. If you do not have info about the stores yet, use
-          'test/rebalance-scripts/test-data/dummy-stores.xml' from the gitli repo.
+          'config/tools/dummy-stores.xml' from the gitli repo.
    -o     Output dir where all interim and final files will be stored.
           The directory will be created if it does not exist yet.
 EOF
