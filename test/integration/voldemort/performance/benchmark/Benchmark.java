@@ -117,6 +117,9 @@ public class Benchmark {
     public static final String HAS_TRANSFORMS = "true";
     public static final String SAMPLE_SIZE = "sample-size";
 
+    public static final String ROUTING_TIMEOUT = "routing-timeout";
+    public static final String SOCKET_TIMEOUT = "socket-timeout";
+
     private StoreClient<Object, Object> storeClient;
     private StoreClientFactory factory;
 
@@ -329,6 +332,11 @@ public class Benchmark {
         this.ignoreNulls = benchmarkProps.getBoolean(IGNORE_NULLS, false);
         int clientZoneId = benchmarkProps.getInt(CLIENT_ZONE_ID, -1);
 
+        int routingTimeout = benchmarkProps.getInt(ROUTING_TIMEOUT, 1500);
+        int socketTimeout = benchmarkProps.getInt(SOCKET_TIMEOUT, 1500);
+
+        System.err.println("Using timeouts : " + routingTimeout + " and " + socketTimeout);
+
         if(benchmarkProps.containsKey(URL)) {
 
             // Remote benchmark
@@ -342,9 +350,9 @@ public class Benchmark {
             ClientConfig clientConfig = new ClientConfig().setMaxThreads(numThreads)
                                                           .setMaxTotalConnections(numThreads)
                                                           .setMaxConnectionsPerNode(numConnectionsPerNode)
-                                                          .setRoutingTimeout(1500,
+                                                          .setRoutingTimeout(routingTimeout,
                                                                              TimeUnit.MILLISECONDS)
-                                                          .setSocketTimeout(700,
+                                                          .setSocketTimeout(socketTimeout,
                                                                             TimeUnit.MILLISECONDS)
                                                           .setConnectionTimeout(500,
                                                                                 TimeUnit.MILLISECONDS)
@@ -614,6 +622,14 @@ public class Benchmark {
               .describedAs("zone-id")
               .ofType(Integer.class);
         parser.accepts(HELP);
+        parser.accepts(ROUTING_TIMEOUT, "Routing timeout")
+              .withRequiredArg()
+              .describedAs("routing-timeout")
+              .ofType(Integer.class);
+        parser.accepts(SOCKET_TIMEOUT, "Socket timeout")
+              .withRequiredArg()
+              .describedAs("socket-timeout")
+              .ofType(Integer.class);
 
         OptionSet options = parser.parse(args);
 
@@ -693,6 +709,8 @@ public class Benchmark {
             mainProps.put(MIXED, CmdUtils.valueOf(options, MIXED, 0));
             mainProps.put(PLUGIN_CLASS, CmdUtils.valueOf(options, PLUGIN_CLASS, ""));
             mainProps.put(SAMPLE_SIZE, CmdUtils.valueOf(options, SAMPLE_SIZE, 0));
+            mainProps.put(ROUTING_TIMEOUT, CmdUtils.valueOf(options, ROUTING_TIMEOUT, 1500));
+            mainProps.put(SOCKET_TIMEOUT, CmdUtils.valueOf(options, SOCKET_TIMEOUT, 1500));
         }
 
         // Start the benchmark
