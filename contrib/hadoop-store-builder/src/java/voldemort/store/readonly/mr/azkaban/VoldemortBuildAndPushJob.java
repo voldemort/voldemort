@@ -107,7 +107,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final String hdfsFetcherProtocol;
 
     /* Informed stuff */
-    private final String informedURL = "http://informed.corp.linkedin.com/_post";
+    private final String INFORMED_URL = "http://informed.corp.linkedin.com/_post";
     private List<Future> informedResults;
     private ExecutorService informedExecutor;
 
@@ -143,8 +143,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         this.nodeId = props.getInt("push.node", 0);
         this.log = Logger.getLogger(name);
         
-        // switch off informed utilities by default
-        this.informedOn = props.getBoolean("voldemort.informed.on", false);
+        // make informed utilities depend on default value (false by default)
+        boolean informedDefault = props.getBoolean("voldemort.informed.default", false); 
+        this.informedOn = props.getBoolean("voldemort.informed.on", informedDefault);
         if(this.informedOn) {
              this.informedResults = Lists.newArrayList();
              this.informedExecutor = Executors.newFixedThreadPool(2);
@@ -874,7 +875,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         @Override
         public void run() {
             try {
-                URL url = new URL(informedURL);
+                URL url = new URL(INFORMED_URL);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
