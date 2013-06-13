@@ -153,7 +153,7 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
 
             if(nodeStatus.getNumConsecutiveCatastrophicErrors() != 0 && successDelta > 0) {
                 nodeStatus.setNumConsecutiveCatastrophicErrors(0);
-                System.err.println("Resetting # consecutive connect errors for node : " + node);
+                logger.error("Resetting # consecutive connect errors for node : " + node);
             }
 
             if(currentTime >= nodeStatus.getStartMillis() + getConfig().getThresholdInterval()) {
@@ -175,9 +175,9 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                         logger.trace("Node " + node.getId() + " experienced catastrophic error: "
                                      + catastrophicError);
 
-                    System.err.println("Catastrophic error occurred : " + catastrophicError
-                                       + " on node : " + node + " # accumulated errors = "
-                                       + nodeStatus.getNumConsecutiveCatastrophicErrors());
+                    logger.error("Catastrophic error occurred : " + catastrophicError
+                                 + " on node : " + node + " # accumulated errors = "
+                                 + nodeStatus.getNumConsecutiveCatastrophicErrors());
 
                     nodeStatus.incrementConsecutiveCatastrophicErrors();
                     if(nodeStatus.getNumConsecutiveCatastrophicErrors() >= 10) {
