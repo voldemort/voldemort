@@ -37,8 +37,7 @@ public class SystemStoreConstants {
         voldsys$_metadata_version_persistence;
     }
 
-    // TODO: Verify that this hard coded system store works in three zones
-    // and/or extend it to have zone 2.
+    // The route to all strategy does not bother about zones or rep factor
     public static final String SYSTEM_STORE_SCHEMA = "<stores>"
                                                      + "  <store>"
                                                      + "    <name>voldsys$_client_registry</name>"
@@ -46,11 +45,7 @@ public class SystemStoreConstants {
                                                      + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
                                                      + "    <persistence>memory</persistence>"
                                                      + "    <routing>client</routing>"
-                                                     + "    <replication-factor>4</replication-factor>"
-                                                     + "    <zone-replication-factor>"
-                                                     + "      <replication-factor zone-id=\"0\">2</replication-factor>"
-                                                     + "      <replication-factor zone-id=\"1\">2</replication-factor>"
-                                                     + "    </zone-replication-factor>"
+                                                     + "    <replication-factor>1</replication-factor>"
                                                      + "    <required-reads>1</required-reads>"
                                                      + "    <required-writes>1</required-writes>"
                                                      + "    <key-serializer>"
