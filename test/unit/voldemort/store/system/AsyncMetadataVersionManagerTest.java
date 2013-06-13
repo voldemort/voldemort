@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
@@ -27,13 +28,17 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
 import voldemort.client.SystemStore;
 import voldemort.client.SystemStoreRepository;
 import voldemort.client.scheduler.AsyncMetadataVersionManager;
 import voldemort.cluster.Cluster;
 import voldemort.common.service.SchedulerService;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
+import voldemort.store.StoreDefinition;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.MetadataVersionStoreUtils;
@@ -70,17 +75,24 @@ public class AsyncMetadataVersionManagerTest {
 
     @Before
     public void setUp() throws Exception {
-        final int numServers = 2;
-        servers = new VoldemortServer[numServers];
-        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
-        cluster = ServerTestUtils.startVoldemortCluster(numServers,
-                                                        servers,
-                                                        partitionMap,
-                                                        socketStoreFactory,
-                                                        true, // useNio
-                                                        null,
-                                                        storesXmlfile,
-                                                        new Properties());
+        cluster = ClusterTestUtils.getZZZCluster();
+        servers = new VoldemortServer[cluster.getNodeIds().size()];
+
+        List<StoreDefinition> storeDefs = ClusterTestUtils.getZZZ322StoreDefs("bdb");
+        int i = 0;
+
+        for(Integer nodeId: cluster.getNodeIds()) {
+            VoldemortConfig config = ServerTestUtils.createServerConfigWithDefs(true,
+                                                                                nodeId,
+                                                                                TestUtils.createTempDir()
+                                                                                         .getAbsolutePath(),
+                                                                                cluster,
+                                                                                storeDefs,
+                                                                                new Properties());
+            VoldemortServer server = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                          config);
+            servers[i++] = server;
+        }
 
         socketUrl = servers[0].getIdentityNode().getSocketUrl().toString();
 
