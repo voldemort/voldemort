@@ -19,11 +19,9 @@ a {
 	text-decoration: none;
 }
 #header {
-	xmargin: 3em -2em 1em 0;
 	padding: 1.2em 0 1.2em 3em;
 	border-width: 0px;
 	background-color: #8b0000;
-	xwidth: 80%;
 	min-width: 900px;
 }
 .title {
@@ -46,10 +44,11 @@ a {
 	float: left;
 	font-size: 12pt;
 	color: #8b0000;
-	width: 150px;
+	width: 180px;
 }
 .lsidebar li {
 	list-style-type: none;
+  margin-bottom: 20px;
 }
 .lsidebar li a {
 	text-decoration: none;
@@ -58,7 +57,6 @@ a {
 .content {
 	width: 700px;
 	margin-left: 200px;
-	xpadding: 10px;
 	min-height: 800px;
 }
 .numeric {

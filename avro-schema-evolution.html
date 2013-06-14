@@ -1,0 +1,116 @@
+---
+layout: default
+title: Build And Push - Voldemort
+---
+
+
+<h1>Voldemort support for Avro schema evolution</h1>
+
+<h2>Introduction</h2>
+
+<p>We are introducing support for evolving schemas for people using Avro in Voldemort! This will help Voldemort users to use the data in existing stores and add new fields as their application logic changes.</p>
+<p>This project achieves this by adding a new serializer type <span style="font-weight:bold;font-style:italic">"avro-generic-versioned"</span>. ( see the voldemort.serialization.avro.versioned.AvroVersionedGenericSerializer class)</p>
+
+<h3 style="text-decoration:underline">Important Note:</h3>
+
+<p><strong>The "avro-generic-versioned" can only be used with new Voldemort stores (and not existing avro-generic stores). "avro-generic-versioned" is not backwards compatible with the old "avro-generic" format. </strong></p>
+
+<h3>Usage</h3>
+
+<p>You can define a store with the key/value serialzer type as avro-generic-versioned and then use the version numbers for the evolving schema.</p>
+
+<p>A stores.xml example of this would look like the following:</p>
+
+<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+  <pre style="margin: 0; line-height: 125%">
+&lt;value-serializer&gt;
+  &lt;type&gt;avro-generic-versioned&lt;/type&gt;
+  &lt;schema-info version="0"&gt;{
+    "type": "record",
+    "name": "myrec",
+    "fields": [{ "name": "original", "type": "string" }]}
+  &lt;/schema-info&gt;
+  &lt;schema-info version="1"&gt;{
+    "type": "record", 
+    "name": "myrec",
+    "fields": [
+      { "name": "original", "type": "string" },
+      { "name": "new-field", "type": "string", "default":"" }
+    ]}
+  &lt;/schema-info&gt;
+&lt;/value-serializer&gt;</pre>
+</div>
+<ul>
+  <li><strong>Do ALL clients that read data need to be bounced before we can start writes in new schema?</strong><br>
+Not anymore ! we have a new auto rebootstrap mechanism in Voldemort client, it will pick up the new schema from the server (This is asynchronous so the writes of objects created using the new schema may fail during this window (~5 seconds),  you can choose to   manually bounce the clients to pick up the change immediately)
+  </li>
+  <li><strong>Does the client that write the data need to immediately start writing data in new schema once Voldemort is updates &amp; client is bounced?</strong><br>The Voldemort client will always try to serialize the data with the newest schema it has. If the record you supply was created with an old schema we will serialize it using the old schema, however on a get call  we will return the objects written with old schema with defaults for the new fields in the new schema. This feature supports Rolling upgrades!
+  </li>
+  <li><strong>Should I evolve my key schema</strong><br>NO NEVER. this can cause things to break</li>
+</ul>
+<h2>How Do I Query Using a Java Program</h2>
+<p>Example:</p>
+<p>This a simple example to get you started.
+<br>
+If you have an avro object for the key you dont need to do the Jsondecoder stuff just pass the object to the get call directly. If you have a JSON String representation of the key then you need to follow this route instead.
+<br>
+The object the get call returns is a Versioned Object you can do a getValue() on this object to get the actual Avro object.</p>
+<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+<pre style="margin: 0; line-height: 125%">
+public void testAvroVersionedGet()
+{
+   // make sure this is the correct bootstrap URL
+    String bootstrapUrl = "tcp://localhost:6666";
+    StoreClientFactory factory =
+            new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
+ 
+  //make sure this is the correct store name
+   StoreClient&lt;Object, Object&gt; client = factory.getStoreClient("storeName");
+   
+   Schema keySchema = Schema.parse("int");
+   JsonDecoder decoder = new JsonDecoder(keySchema,"1234");
+   GenericDatumReader&lt;Object&gt; datumReader = null;
+   Object key = null;
+ 
+   try {
+    datumReader = new GenericDatumReader&lt;Object&gt;(keySchema);
+    key = datumReader.read(null, decoder);
+    } catch (IOException e) {
+          // probably log this in your code if you copy paste ;-)
+          e.printStackTrace();
+    }
+    if (key == null) {
+    System.err.println("Error parsing key ");
+   }
+ 
+ 
+   System.out.println("Value - " + client.get(key));
+}</pre></div>
+
+<h4>Safety Net</h4>
+<p>You should always use the admin tool to update the stores.xml to add new schema. If you want to do this on a production store the Voldemort team will do it.<br>
+If the schema change is backwards compatible the tool updates the stores.xml</p>
+<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+<pre style="margin: 0; line-height: 125%">
+[anagpal@anagpal-ld voldemort]$ ./bin/voldemort-admin-tool.sh --set-metadata stores.xml --set-metadata-value /home/anagpal/projects/stores.xml --url tcp://localhost:6666
+ 
+INFO: Added required field myrec.new-field with default value: ""
+INFO: The schema is backward compatible. Old and new clients will be able to read records serialized by one another.
+INFO: Added required field myrec.new-field with default value: ""
+INFO: The schema is backward compatible. Old and new clients will be able to read records serialized by one another.
+Setting stores.xml for localhost:0</pre></div>
+<p>Otherwise it will fail. This is to protect you from corrupting the store due to serializing data with a bad schema.</p>
+<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+<pre style="margin: 0; line-height: 125%">
+[anagpal@anagpal-ld voldemort]$ ./bin/voldemort-admin-tool.sh --set-metadata stores.xml --set-metadata-value /home/anagpal/projects/stores.xml --url tcp://localhost:6666
+ERROR: Illegal type change from STRING to INT for field myrec.original
+ERROR: The schema is not backward compatible. New clients will not be able to read existing data.
+voldemort.VoldemortException:  The schema is not backward compatible. New clients will not be able to read existing data.
+at voldemort.serialization.avro.versioned.SchemaEvolutionValidator.checkSchemaCompatibility(SchemaEvolutionValidator.java:844)
+at voldemort.VoldemortAdminTool.main(VoldemortAdminTool.java:476) The schema is not backward compatible. 
+New clients will not be able to read existing data.</pre></div>
+
+<h4>Auto Rebootstrap when updating the schema</h4>
+<p>Please use the "--stores" option when you update</p>
+<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+<pre style="margin: 0; line-height: 125%">./bin/voldemort-admin-tool.sh --set-metadata stores.xml --set-metadata-value <path to new stores.xml> --url [url] --stores <comma separated list of stores></pre></div>
