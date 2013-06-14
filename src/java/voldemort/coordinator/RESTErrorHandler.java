@@ -16,6 +16,7 @@
 
 package voldemort.coordinator;
 
+import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
@@ -50,6 +51,7 @@ public class RESTErrorHandler {
         response.setHeader(CONTENT_TYPE, "text/plain; charset=UTF-8");
         response.setContent(ChannelBuffers.copiedBuffer("Failure: " + status.toString() + ". "
                                                         + message + "\r\n", CharsetUtil.UTF_8));
+        response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
 
         // Write the response to the Netty Channel
         e.getChannel().write(response);
