@@ -16,6 +16,7 @@
 
 package voldemort.store;
 
+import voldemort.server.RequestRoutingType;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -30,10 +31,36 @@ public class CompositeVoldemortRequest<K, V> {
     private final Iterable<K> getAllIterableKeys;
     private final Versioned<V> value;
     private Version version;
-    private long routingTimeoutInMs;
     private boolean resolveConflicts;
+    private long timeoutInMs;
     private final byte operationType;
+    private long requestOriginTimeInMs = -1;
+    private RequestRoutingType routingType = RequestRoutingType.NORMAL;
 
+    // Constructor used for REST server by the extending classes
+    public CompositeVoldemortRequest(K key,
+                                     V rawValue,
+                                     Iterable<K> keys,
+                                     Versioned<V> value,
+                                     Version version,
+                                     long timeoutInMs,
+                                     boolean resolveConflicts,
+                                     byte operationType,
+                                     long requestOriginTimeInMs,
+                                     RequestRoutingType routingType) {
+        this.key = key;
+        this.rawValue = rawValue;
+        this.getAllIterableKeys = keys;
+        this.timeoutInMs = timeoutInMs;
+        this.value = value;
+        this.version = version;
+        this.resolveConflicts = resolveConflicts;
+        this.operationType = operationType;
+        this.requestOriginTimeInMs = requestOriginTimeInMs;
+        this.routingType = routingType;
+    }
+
+    // constructor used by co-ordinator
     public CompositeVoldemortRequest(K key,
                                      V rawValue,
                                      Iterable<K> keys,
@@ -45,7 +72,7 @@ public class CompositeVoldemortRequest<K, V> {
         this.key = key;
         this.rawValue = rawValue;
         this.getAllIterableKeys = keys;
-        this.routingTimeoutInMs = timeoutInMs;
+        this.timeoutInMs = timeoutInMs;
         this.value = value;
         this.version = version;
         this.resolveConflicts = resolveConflicts;
@@ -69,11 +96,11 @@ public class CompositeVoldemortRequest<K, V> {
     }
 
     public long getRoutingTimeoutInMs() {
-        return routingTimeoutInMs;
+        return timeoutInMs;
     }
 
     public void setRoutingTimeoutInMs(long timeoutInMs) {
-        this.routingTimeoutInMs = timeoutInMs;
+        this.timeoutInMs = timeoutInMs;
     }
 
     public boolean resolveConflicts() {
@@ -98,6 +125,18 @@ public class CompositeVoldemortRequest<K, V> {
 
     public void setResolveConflicts(boolean resolveConflicts) {
         this.resolveConflicts = resolveConflicts;
+    }
+
+    public long getRequestOriginTimeInMs() {
+        return requestOriginTimeInMs;
+    }
+
+    public void setRequestOriginTimeInMs(long requestOriginTimeInMs) {
+        this.requestOriginTimeInMs = requestOriginTimeInMs;
+    }
+
+    public RequestRoutingType getRoutingType() {
+        return routingType;
     }
 
 }

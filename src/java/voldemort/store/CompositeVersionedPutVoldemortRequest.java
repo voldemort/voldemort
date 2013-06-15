@@ -17,11 +17,12 @@
 package voldemort.store;
 
 import voldemort.common.VoldemortOpCode;
+import voldemort.server.RequestRoutingType;
 import voldemort.versioning.Versioned;
 
 /**
  * A class that defines a composite put request containing the key, the
- * versioned value and the timeout
+ * versioned value, the timeout, routing type and origin time
  * 
  */
 
@@ -29,6 +30,27 @@ public class CompositeVersionedPutVoldemortRequest<K, V> extends CompositeVoldem
 
     public CompositeVersionedPutVoldemortRequest(K key, Versioned<V> value, long timeoutInMs) {
         super(key, null, null, value, null, timeoutInMs, true, VoldemortOpCode.PUT_OP_CODE);
+    }
+
+    /*
+     * RestServerErrorHandler uses this constructor. Since the value is
+     * versioned, the Version parameter is null
+     */
+    public CompositeVersionedPutVoldemortRequest(K key,
+                                                 Versioned<V> value,
+                                                 long timeoutInMs,
+                                                 long originTimeInMs,
+                                                 RequestRoutingType routingType) {
+        super(key,
+              null,
+              null,
+              value,
+              null,
+              timeoutInMs,
+              false,
+              VoldemortOpCode.PUT_OP_CODE,
+              originTimeInMs,
+              routingType);
     }
 
 }

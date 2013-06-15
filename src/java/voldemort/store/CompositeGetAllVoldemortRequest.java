@@ -17,11 +17,12 @@
 package voldemort.store;
 
 import voldemort.common.VoldemortOpCode;
+import voldemort.server.RequestRoutingType;
 
 /**
  * A class that defines a composite get all request containing a reference to
  * the iterable keys, a flag to indicate if the conflicts should be resolved and
- * the timeout
+ * the timeout, routing type and origin time
  * 
  */
 public class CompositeGetAllVoldemortRequest<K, V> extends CompositeVoldemortRequest<K, V> {
@@ -39,4 +40,21 @@ public class CompositeGetAllVoldemortRequest<K, V> extends CompositeVoldemortReq
               VoldemortOpCode.GET_ALL_OP_CODE);
     }
 
+    // RestServerErrorHandler uses this constructor
+    public CompositeGetAllVoldemortRequest(Iterable<K> keys,
+                                           long timeoutInMs,
+                                           long originTimeInMs,
+                                           RequestRoutingType routingType) {
+        super(null,
+              null,
+              keys,
+              null,
+              null,
+              timeoutInMs,
+              false,
+              VoldemortOpCode.GET_ALL_OP_CODE,
+              originTimeInMs,
+              routingType);
+
+    }
 }

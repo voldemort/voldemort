@@ -17,10 +17,12 @@
 package voldemort.store;
 
 import voldemort.common.VoldemortOpCode;
+import voldemort.server.RequestRoutingType;
 
 /**
  * A class that defines a composite get request containing the key, a flag to
- * indicate whether the conflicts should be resolved and the timeout
+ * indicate whether the conflicts should be resolved, the timeout, routing type
+ * and origin time
  * 
  */
 
@@ -35,5 +37,25 @@ public class CompositeGetVoldemortRequest<K, V> extends CompositeVoldemortReques
               timeoutInMs,
               resolveConflicts,
               VoldemortOpCode.GET_OP_CODE);
+    }
+
+    /*
+     * RestServerErrorHandler uses this constructor
+     */
+    public CompositeGetVoldemortRequest(K key,
+                                        long timeoutInMs,
+                                        long originTimeInMs,
+                                        RequestRoutingType routingType) {
+        super(key,
+              null,
+              null,
+              null,
+              null,
+              timeoutInMs,
+              false,
+              VoldemortOpCode.GET_OP_CODE,
+              originTimeInMs,
+              routingType);
+
     }
 }

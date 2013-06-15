@@ -17,17 +17,35 @@
 package voldemort.store;
 
 import voldemort.common.VoldemortOpCode;
+import voldemort.server.RequestRoutingType;
 import voldemort.versioning.Version;
 
 /**
  * A class that defines a composite delete request containing the key to delete,
- * corresponding version (if present in the incoming HTTP request) and the
- * timeout
+ * corresponding version, timeout, routing type, origin time
  * 
  */
 public class CompositeDeleteVoldemortRequest<K, V> extends CompositeVoldemortRequest<K, V> {
 
     public CompositeDeleteVoldemortRequest(K key, Version version, long timeoutInMs) {
         super(key, null, null, null, version, timeoutInMs, true, VoldemortOpCode.DELETE_OP_CODE);
+    }
+
+    // RestServerErrorHandler uses this constructor
+    public CompositeDeleteVoldemortRequest(K key,
+                                           Version version,
+                                           long timeoutInMs,
+                                           long originTimeInMs,
+                                           RequestRoutingType routingType) {
+        super(key,
+              null,
+              null,
+              null,
+              version,
+              timeoutInMs,
+              false,
+              VoldemortOpCode.DELETE_OP_CODE,
+              originTimeInMs,
+              routingType);
     }
 }

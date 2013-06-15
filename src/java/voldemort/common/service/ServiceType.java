@@ -16,7 +16,8 @@ public enum ServiceType {
     ASYNC_SCHEDULER("async-scheduler"),
     GOSSIP("gossip-service"),
     REBALANCE("rebalance-service"),
-    COORDINATOR("coordinator-service");
+    COORDINATOR("coordinator-service"),
+    RESTSERVICE("rest-service");
 
     private final String display;
 

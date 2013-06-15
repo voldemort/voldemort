@@ -29,7 +29,6 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
-import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -38,7 +37,6 @@ import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
 import voldemort.common.service.VoldemortService;
 import voldemort.server.gossip.GossipService;
-import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandlerFactory;
@@ -46,6 +44,7 @@ import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
+import voldemort.server.rest.RestService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
@@ -189,13 +188,19 @@ public class VoldemortServer extends AbstractService {
         services.add(scheduler);
         services.add(asyncService);
 
-        if(voldemortConfig.isHttpServerEnabled())
-            services.add(new HttpService(this,
-                                         storageService,
-                                         storeRepository,
-                                         RequestFormatType.VOLDEMORT_V1,
-                                         voldemortConfig.getMaxThreads(),
-                                         identityNode.getHttpPort()));
+        if(voldemortConfig.isHttpServerEnabled()) {
+            /*
+             * TODO REST-Server Need to decide on replacing HttpService
+             */
+            /*
+             * services.add(new HttpService(this, storageService,
+             * storeRepository, RequestFormatType.VOLDEMORT_V1,
+             * voldemortConfig.getMaxThreads(), identityNode.getHttpPort()));
+             */
+            services.add(new RestService(voldemortConfig.getMaxThreads(),
+                                         identityNode.getHttpPort(),
+                                         storeRepository));
+        }
         if(voldemortConfig.isSocketServerEnabled()) {
             RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,
                                                                                                 this.storeRepository,
