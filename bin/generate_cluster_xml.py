@@ -1,8 +1,49 @@
 #!/usr/bin/python
 
+#
+#   Copyright 2013 LinkedIn, Inc
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+#  Python 2.7+ required
+#  This script encapsulates the cluster.xml generation for a zoned and a non-zoned 
+#  cluster. Passing --zones <num of zones> switch to the script generates a zoned cluster
+#  config. A non zoned cluster is generated otherwise.
+#  
+#  The newly generated cluster.xml file is placed in the output dir.
+#
+#  Example use for a zoned cluster :
+#  python generate_cluster_xml.py --file <file with host names, one host per line>
+#                                 --name <name of the cluster>
+#                                 --nodes <number of nodes>
+#                                 --partitions <number of partitions>
+#                                 --sock-port
+#                                 --admin-port  
+#                                 --http-port
+#                                 --seed <seed value>
+#                                 --zones <number of zones>
+#
+#  The non zoned would look similar with the exception of the absence of the --zones switch.
+#  
+
 import sys
 import random
-import argparse
+import os
+import errno
+try:
+    import argparse
+except ImportError:
+    print "Python 2.7 or higher is needed"
 
 # Get a random seed
 rseed = int(random.randint(00000000001,99999999999))
@@ -27,16 +68,30 @@ parser.add_argument('-H', '--http-port', type=int, default=6665,
 genType = parser.add_mutually_exclusive_group()
 genType.add_argument('-S', '--seed', type=int, default=rseed, dest='seed',
                     help='seed for randomizing partition distribution')
-genType.add_argument('-l', '--loops', type=int, default=1000, dest='loops',
-                    help='loop n times, using a different random seed every \
-                          time (Note: not currently supported)')
 parser.add_argument('-z', '--zones', type=int, dest='zones',
-                    help='if using zones, the number of zones you will have\
-                          (Note: you must add your own <zone> fields \
-                          manually)')
-
+                    help='the number of zones you will have')
+parser.add_argument('-o', '--output-dir', type=str, dest='output_dir',
+                    help='output directory location')
+                          
 # Parse arguments
 args = parser.parse_args()
+
+# Check if the input file exists
+try:
+   with open(args.file): pass
+except IOError:
+   print 'File does not exist'
+
+# create output-dir if it does not exist
+try:
+    os.makedirs(args.output_dir)
+except OSError as exception:
+    if exception.errno != errno.EEXIST:
+        raise
+
+# Open a new file named cluster.xml     
+filepath = os.path.join(args.output_dir, 'cluster.xml')
+fileHandle = open(filepath, 'w')
 
 # Check args
 if args.zones:
@@ -60,6 +115,7 @@ seed = args.seed
 
 # Generate the full list of partition IDs
 part_ids = range(nodes * partitions)
+
 # Generate full list of zone IDs
 if args.zones:
   zone_ids = range(zones)
@@ -70,30 +126,41 @@ random.seed(seed)
 random.shuffle(part_ids)
 
 # Printing cluster.xml
-print "<!-- Partition distribution generated using seed [%d] -->" % seed
-print "<cluster>"
-print "  <name>%s</name>" % name
+# print "<!-- Partition distribution generated using seed [%d] -->" % seed
+print >> fileHandle, "<cluster>"
+print >> fileHandle, "  <name>%s</name>" % name
+
+if args.zones:
+  for i in range(args.zones):
+    print >> fileHandle, "  <zone>"
+    print >> fileHandle, "    <zone-id>%d</zone-id>" % i
+    proximityList = list()
+    for j in range(1, len(zone_ids) ):
+      proximityList.append(zone_ids[(i+j)%len(zone_ids)])
+    print >> fileHandle, "    <proximity-list>%s</proximity-list>" % str(proximityList).strip('[]') 
+    print >> fileHandle, "  </zone>" 
 
 for i in xrange(nodes):
   node_partitions = ", ".join(str(p) for p in sorted(part_ids[i*partitions:(i+1)*partitions]))
 
-  print "  <server>"
-  print "    <id>%d</id>" % i
+  print >> fileHandle, "  <server>"
+  print >> fileHandle, "    <id>%d</id>" % i
   if args.file:
-    print "    <host>%s</host>" % hostList[i].strip()
+    print >> fileHandle, "    <host>%s</host>" % hostList[i].strip()
   else:
-    print "    <host>host%d</host>" % i
-  print "    <http-port>%d</http-port>" % http_port
-  print "    <socket-port>%d</socket-port>" % sock_port
-  print "    <admin-port>%d</admin-port>" % admin_port
-  print "    <partitions>%s</partitions>" % node_partitions
+    print >> fileHandle, "    <host>host%d</host>" % i
+  print >> fileHandle, "    <http-port>%d</http-port>" % http_port
+  print >> fileHandle, "    <socket-port>%d</socket-port>" % sock_port
+  print >> fileHandle, "    <admin-port>%d</admin-port>" % admin_port
+  print >> fileHandle, "    <partitions>%s</partitions>" % node_partitions
   # If zones are being used, assign a zone-id
   if args.zones:
-    print "    <zone-id>%d</zone-id>" % zone_id
+    print >> fileHandle, "    <zone-id>%d</zone-id>" % zone_id
     if zone_id == (zones - 1):
       zone_id = 0
     else:
       zone_id += 1
-  print "  </server>"
+  print >> fileHandle, "  </server>"
+print >> fileHandle, "</cluster>"
 
-print "</cluster>"
+fileHandle.close()
