@@ -83,7 +83,7 @@ public class VoldemortConfig implements Serializable {
     public static final String DEFAULT_KEYTAB_PATH = "/voldemrt.headless.keytab";
     private static final String DEFAULT_KERBEROS_KDC = "";
     private static final String DEFAULT_KERBEROS_REALM = "";
-    private static final boolean DEFAULT_READONLY_REST_HDFS = false;
+    private static final boolean DEFAULT_READONLY_REST_HDFS = true;
 
     private int nodeId;
     private String voldemortHome;
@@ -145,6 +145,7 @@ public class VoldemortConfig implements Serializable {
     private int fetcherBufferSize;
     private String readOnlyKeytabPath;
     private String readOnlyKerberosUser;
+    private String hadoopConfigPath;
     private String readOnlyKerberosKdc;
     private String readOnlykerberosRealm;
     private boolean enableReadOnlyRestHdfs;
@@ -331,6 +332,8 @@ public class VoldemortConfig implements Serializable {
                                                           + VoldemortConfig.DEFAULT_KEYTAB_PATH);
         this.readOnlyKerberosUser = props.getString("readonly.kerberos.user",
                                                     VoldemortConfig.DEFAULT_KERBEROS_PRINCIPAL);
+        this.setHadoopConfigPath(props.getString("readonly.hadoop.config.path",
+                                                 this.metadataDirectory + "/hadoop-conf"));
         this.readOnlyKerberosKdc = props.getString("readonly.kerberos.kdc",
                                                    VoldemortConfig.DEFAULT_KERBEROS_KDC);
         this.readOnlykerberosRealm = props.getString("readonly.kerberos.realm",
@@ -2217,6 +2220,22 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyKerberosUser = readOnlyKerberosUser;
     }
 
+    public String getHadoopConfigPath() {
+        return hadoopConfigPath;
+    }
+
+    /**
+     * Path to the hadoop config
+     * 
+     * <ul>
+     * <li>Property :"readonly.hadoop.config.path"</li>
+     * <li>Default : METADATA_DIR/hadoop-conf</li>
+     * </ul>
+     */
+    public void setHadoopConfigPath(String hadoopConfigPath) {
+        this.hadoopConfigPath = hadoopConfigPath;
+    }
+
     public int getSocketBufferSize() {
         return socketBufferSize;
     }
@@ -3092,6 +3111,18 @@ public class VoldemortConfig implements Serializable {
 
     public String getReadOnlyKerberosRealm() {
         return this.readOnlykerberosRealm;
+    }
+
+    /**
+     * Whether or not Rest-based hdfs fetcher shall be used
+     * 
+     * <ul>
+     * <li>Property :"enable.readonly.rest.hdfs"</li>
+     * <li>Default :true</li>
+     * </ul>
+     */
+    public void setEnableRestHdfs(boolean enableRestHdfs) {
+        this.enableReadOnlyRestHdfs = enableRestHdfs;
     }
 
     public boolean isRestHdfsEnabled() {

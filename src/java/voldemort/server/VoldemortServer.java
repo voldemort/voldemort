@@ -362,8 +362,8 @@ public class VoldemortServer extends AbstractService {
         try {
             RestAuthService.logout();
         } catch(RestFSException e) {
-            logger.info("Exception encounted while logging out from secured hdfs: "
-                        + e.getMessage());
+            logger.error("Exception encounted while logging out from secured hdfs: ");
+            logger.error(e);
         }
 
         if(exceptions.size() > 0)

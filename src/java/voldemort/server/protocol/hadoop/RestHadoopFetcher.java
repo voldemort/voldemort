@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.server.protocol.hadoop;
 
 import java.io.BufferedInputStream;
@@ -42,7 +58,6 @@ public class RestHadoopFetcher implements FileFetcher {
 
     private static final Logger logger = Logger.getLogger(RestHadoopFetcher.class);
     private static final AtomicInteger copyCount = new AtomicInteger(0);
-    private static final int NUM_RETRIES = 3;
 
     private final Long maxBytesPerSecond, reportingIntervalBytes;
     private EventThrottler throttler = null;
@@ -50,27 +65,16 @@ public class RestHadoopFetcher implements FileFetcher {
     private final int bufferSize;
     private AsyncOperationStatus status;
     private long minBytesPerSecond = 0;
-    private String kerberosPrincipal = VoldemortConfig.DEFAULT_KERBEROS_PRINCIPAL;
-    private String keytabPath = "";
-    private String kerberosKdc = "";
-    private String kerberosRealm = "";
-    private VoldemortConfig voldemortConfig = null;
 
     public RestHadoopFetcher(VoldemortConfig config) {
         this(null,
              null,
              config.getReadOnlyFetcherReportingIntervalBytes(),
              config.getFetcherBufferSize(),
-             config.getReadOnlyFetcherMinBytesPerSecond(),
-             config.getReadOnlyKeytabPath(),
-             config.getReadOnlyKerberosUser(),
-             config.getReadOnlyKerberosKdc(),
-             config.getReadOnlyKerberosRealm());
+             config.getReadOnlyFetcherMinBytesPerSecond());
 
-        this.voldemortConfig = config;
-
-        logger.info("Created hdfs fetcher with no dynamic throttler, buffer size " + bufferSize
-                    + ", reporting interval bytes " + reportingIntervalBytes);
+        logger.info("Created Rest-based hdfs fetcher with no dynamic throttler, buffer size "
+                    + bufferSize + ", reporting interval bytes " + reportingIntervalBytes);
     }
 
     public RestHadoopFetcher(VoldemortConfig config, DynamicThrottleLimit dynThrottleLimit) {
@@ -78,17 +82,11 @@ public class RestHadoopFetcher implements FileFetcher {
              null,
              config.getReadOnlyFetcherReportingIntervalBytes(),
              config.getFetcherBufferSize(),
-             config.getReadOnlyFetcherMinBytesPerSecond(),
-             config.getReadOnlyKeytabPath(),
-             config.getReadOnlyKerberosUser(),
-             config.getReadOnlyKerberosKdc(),
-             config.getReadOnlyKerberosRealm());
+             config.getReadOnlyFetcherMinBytesPerSecond());
 
-        this.voldemortConfig = config;
-
-        logger.info("Created hdfs fetcher with throttle rate " + dynThrottleLimit.getRate()
-                    + ", buffer size " + bufferSize + ", reporting interval bytes "
-                    + reportingIntervalBytes);
+        logger.info("Created Rest-based hdfs fetcher with throttle rate "
+                    + dynThrottleLimit.getRate() + ", buffer size " + bufferSize
+                    + ", reporting interval bytes " + reportingIntervalBytes);
     }
 
     public RestHadoopFetcher() {
@@ -98,18 +96,14 @@ public class RestHadoopFetcher implements FileFetcher {
     }
 
     public RestHadoopFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
-        this(null, maxBytesPerSecond, reportingIntervalBytes, bufferSize, 0, "", "", "", "");
+        this(null, maxBytesPerSecond, reportingIntervalBytes, bufferSize, 0);
     }
 
     public RestHadoopFetcher(DynamicThrottleLimit dynThrottleLimit,
                              Long maxBytesPerSecond,
                              Long reportingIntervalBytes,
                              int bufferSize,
-                             long minBytesPerSecond,
-                             String keytabLocation,
-                             String kerberosUser,
-                             String kerberosKdc,
-                             String kerberosRealm) {
+                             long minBytesPerSecond) {
         if(maxBytesPerSecond != null) {
             this.maxBytesPerSecond = maxBytesPerSecond;
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
@@ -125,29 +119,22 @@ public class RestHadoopFetcher implements FileFetcher {
         this.bufferSize = bufferSize;
         this.status = null;
         this.minBytesPerSecond = minBytesPerSecond;
-        this.kerberosPrincipal = kerberosUser;
-        this.keytabPath = keytabLocation;
-        this.kerberosKdc = kerberosKdc;
-        this.kerberosRealm = kerberosRealm;
     }
 
-    public File fetch(String sourceFileUrl, String destinationFile, String hadoopConfigPath)
-            throws IOException, RestFSException {
-        // authentication
-        RestHadoopAuth.loginIfNot();
-
+    @Override
+    public File fetch(String sourceFileUrl, String destinationFile) throws IOException {
         // add job to the throttler
         addThrottledJob();
-
         ObjectName jmxName = null;
         try {
-            URL sourceUrl = new URL(sourceFileUrl);
+            // authentication
+            RestHadoopAuth.loginSecuredHdfs();
 
             // instantiate RestFS
+            URL sourceUrl = new URL(sourceFileUrl);
             RestFileSystem rfs = new RestFileSystem(sourceUrl.getProtocol() + "://"
                                                     + sourceUrl.getHost() + ":"
                                                     + sourceUrl.getPort());
-
             String fullyQualifiedFileName = sourceUrl.getFile();
             CopyStats stats = new CopyStats(fullyQualifiedFileName,
                                             sizeOfPath(rfs, fullyQualifiedFileName));
@@ -168,10 +155,12 @@ public class RestHadoopFetcher implements FileFetcher {
             } else {
                 return null;
             }
-        } catch(IOException e) {
-            e.printStackTrace();
-            logger.error("Error while getting Hadoop filesystem : " + e);
-            throw new VoldemortException("Error while getting Hadoop filesystem : " + e);
+        } catch(RestFSException rfse) {
+            rfse.printStackTrace();
+            logger.error("Encountered exception while accessing hadoop via RestHdfsClient : "
+                         + rfse);
+            throw new VoldemortException("Error while accessing hadoop via RestHdfsClient : "
+                                         + rfse);
         } catch(Throwable te) {
             te.printStackTrace();
             logger.error("Error thrown while trying to get Hadoop filesystem");
@@ -182,19 +171,6 @@ public class RestHadoopFetcher implements FileFetcher {
             if(jmxName != null)
                 JmxUtils.unregisterMbean(jmxName);
         }
-    }
-
-    @Override
-    public File fetch(String source, String dest) throws IOException {
-        File file = null;
-        try {
-            file = fetch(source, dest, null);
-        } catch(RestFSException e) {
-            logger.error(e.getMessage());
-        } catch(IOException IOExceptions) {
-            throw IOExceptions;
-        }
-        return file;
     }
 
     @Override
@@ -252,97 +228,71 @@ public class RestHadoopFetcher implements FileFetcher {
         BufferedInputStream input = null;
         OutputStream output = null;
 
-        // TODO: remove the retry logic, have RestClient take care of the retry
-        // logic.
-        for(int attempt = 0; attempt < NUM_RETRIES; attempt++) {
-            boolean success = true;
-            try {
-
-                // Create a per file checksum generator
-                if(checkSumType != null) {
-                    fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
-                }
-
-                input = new BufferedInputStream(rfs.openFile(source).getInputStream());
-                output = new BufferedOutputStream(new FileOutputStream(dest));
-                byte[] buffer = new byte[bufferSize];
-                while(true) {
-                    int read = input.read(buffer);
-                    if(read < 0) {
-                        break;
-                    } else {
-                        output.write(buffer, 0, read);
-                    }
-
-                    // Update the per file checksum
-                    if(fileCheckSumGenerator != null) {
-                        fileCheckSumGenerator.update(buffer, 0, read);
-                    }
-
-                    // Check if we need to throttle the fetch
-                    if(throttler != null) {
-                        throttler.maybeThrottle(read);
-                    }
-
-                    stats.recordBytes(read);
-                    if(stats.getBytesSinceLastReport() > reportingIntervalBytes) {
-                        NumberFormat format = NumberFormat.getNumberInstance();
-                        format.setMaximumFractionDigits(2);
-                        logger.info(stats.getTotalBytesCopied() / (1024 * 1024) + " MB copied at "
-                                    + format.format(stats.getBytesPerSecond() / (1024 * 1024))
-                                    + " MB/sec - " + format.format(stats.getPercentCopied())
-                                    + " % complete, destination:" + dest);
-                        if(this.status != null) {
-                            this.status.setStatus(stats.getTotalBytesCopied()
-                                                  / (1024 * 1024)
-                                                  + " MB copied at "
-                                                  + format.format(stats.getBytesPerSecond()
-                                                                  / (1024 * 1024)) + " MB/sec - "
-                                                  + format.format(stats.getPercentCopied())
-                                                  + " % complete, destination:" + dest);
-                        }
-                        stats.reset();
-                    }
-                }
-                logger.info("Completed copy of " + source + " to " + dest);
-
-            } catch(IOException ioe) {
-                success = false;
-                logger.error("Error during copying file ", ioe);
-                ioe.printStackTrace();
-                if(attempt < NUM_RETRIES - 1) {
-                    logger.info("retrying copying");
-                } else {
-                    throw ioe;
-                }
-
-            } catch(Exception e) {
-                logger.error("Error during copying file ", e);
-                return null;
-
-            } catch(Throwable te) {
-                logger.error("Error during copying file ", te);
-                return null;
-
+        try {
+            // Create a per file checksum generator
+            if(checkSumType != null) {
+                fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
             }
-            // the finally block _always_ executes even if we have
-            // return in the catch block
 
-            finally {
-                IOUtils.closeQuietly(output);
-                IOUtils.closeQuietly(input);
-                if(success) {
+            input = new BufferedInputStream(rfs.openFile(source).getInputStream());
+            output = new BufferedOutputStream(new FileOutputStream(dest));
+            byte[] buffer = new byte[bufferSize];
+            while(true) {
+                int read = input.read(buffer);
+                if(read < 0) {
                     break;
+                } else {
+                    output.write(buffer, 0, read);
                 }
 
+                // Update the per file checksum
+                if(fileCheckSumGenerator != null) {
+                    fileCheckSumGenerator.update(buffer, 0, read);
+                }
+
+                // Check if we need to throttle the fetch
+                if(throttler != null) {
+                    throttler.maybeThrottle(read);
+                }
+
+                stats.recordBytes(read);
+                if(stats.getBytesSinceLastReport() > reportingIntervalBytes) {
+                    NumberFormat format = NumberFormat.getNumberInstance();
+                    format.setMaximumFractionDigits(2);
+                    logger.info(stats.getTotalBytesCopied() / (1024 * 1024) + " MB copied at "
+                                + format.format(stats.getBytesPerSecond() / (1024 * 1024))
+                                + " MB/sec - " + format.format(stats.getPercentCopied())
+                                + " % complete, destination:" + dest);
+                    if(this.status != null) {
+                        this.status.setStatus(stats.getTotalBytesCopied()
+                                              / (1024 * 1024)
+                                              + " MB copied at "
+                                              + format.format(stats.getBytesPerSecond()
+                                                              / (1024 * 1024)) + " MB/sec - "
+                                              + format.format(stats.getPercentCopied())
+                                              + " % complete, destination:" + dest);
+                    }
+                    stats.reset();
+                }
             }
-            logger.debug("Completed copy of " + source + " to " + dest);
+            // at this point, we are done!
+            logger.info("Completed copy of " + source + " to " + dest);
+        } catch(IOException ioe) {
+            logger.error("Error during copying file ", ioe);
+            ioe.printStackTrace();
+            throw ioe;
+        } catch(Throwable te) {
+            logger.error("Error during copying file ", te);
+            return null;
+        } finally {
+            // the finally block _always_ executes even if we have returned in
+            // the catch block
+            IOUtils.closeQuietly(output);
+            IOUtils.closeQuietly(input);
         }
         return fileCheckSumGenerator;
     }
 
-    // TODO: need method to check if a given source leads to a file or a
-    // directory
     private boolean fetch(RestFileSystem rfs, String source, File dest, CopyStats stats)
             throws IOException, RestFSException {
         boolean fetchSucceed = false;
@@ -522,6 +472,7 @@ public class RestHadoopFetcher implements FileFetcher {
      */
     public static class IndexFileLastComparator implements Comparator<RestFileStatus> {
 
+        @Override
         public int compare(RestFileStatus fs1, RestFileStatus fs2) {
             // directories before files
             if(fs1.isDir())
@@ -559,26 +510,26 @@ public class RestHadoopFetcher implements FileFetcher {
             Utils.croak("USAGE: java "
                         + RestHadoopFetcher.class.getName()
                         + " [url] [keytab location] [kerberos username] [kerberos realm] [kerberos kdc]");
+
+        long MAX_BYTES_PER_SECOND = 1024 * 1024 * 1024;
+        long REPORTING_INTERVAL_BYTES = VoldemortConfig.REPORTING_INTERVAL_BYTES;
+        int BUFFER_SIZE = VoldemortConfig.DEFAULT_BUFFER_SIZE;
+
         String url = args[0];
         String keytabLocation = args[1];
         String kerberosUser = args[2];
         String realm = args[3];
         String kdc = args[4];
-        long maxBytesPerSec = 1024 * 1024 * 1024;
 
         // login
         RestHadoopAuth restAuth = new RestHadoopAuth(realm, kdc, kerberosUser, keytabLocation);
         restAuth.start();
 
         RestHadoopFetcher fetcher = new RestHadoopFetcher(null,
-                                                          maxBytesPerSec,
-                                                          VoldemortConfig.REPORTING_INTERVAL_BYTES,
-                                                          VoldemortConfig.DEFAULT_BUFFER_SIZE,
-                                                          0,
-                                                          keytabLocation,
-                                                          kerberosUser,
-                                                          realm,
-                                                          kdc);
+                                                          MAX_BYTES_PER_SECOND,
+                                                          REPORTING_INTERVAL_BYTES,
+                                                          BUFFER_SIZE,
+                                                          0);
 
         // start file fetching
         long start = System.currentTimeMillis();
