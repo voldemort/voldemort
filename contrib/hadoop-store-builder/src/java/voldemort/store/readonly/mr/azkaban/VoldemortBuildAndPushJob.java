@@ -101,6 +101,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private static final String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
 
+    // informed mode is set to false by default
+
+    public static final boolean INFORMED_DEFAULT_MODE = false;
+
     // new properties for the push job
 
     private final String hdfsFetcherPort;
@@ -144,8 +148,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         this.log = Logger.getLogger(name);
         
         // make informed utilities depend on default value (false by default)
-        boolean informedDefault = props.getBoolean("voldemort.informed.default", false); 
-        this.informedOn = props.getBoolean("voldemort.informed.on", informedDefault);
+        this.informedOn = props.getBoolean("voldemort.informed.on", INFORMED_DEFAULT_MODE);
         if(this.informedOn) {
              this.informedResults = Lists.newArrayList();
              this.informedExecutor = Executors.newFixedThreadPool(2);
