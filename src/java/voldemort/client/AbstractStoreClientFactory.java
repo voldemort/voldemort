@@ -315,6 +315,11 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             }
         }
 
+        /*
+         * Initialize the finalstore object only once the store object itself is
+         * wrapped by a StatrackingStore seems like the finalstore object is
+         * redundant?
+         */
         Store<K, V, T> finalStore = (Store<K, V, T>) store;
 
         if(this.config.isEnableSerializationLayer()) {
