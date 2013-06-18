@@ -298,9 +298,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         store = new LoggingStore(store);
 
         if(isJmxEnabled) {
-            store = new StatTrackingStore(store, this.stats);
-            // store = statStore;
-            JmxUtils.registerMbean(new StoreStatsJmx(((StatTrackingStore) store).getStats()),
+            StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
+            store = statStore;
+            JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
                                                              store.getName()
                                                                      + JmxUtils.getJmxId(jmxId)));
