@@ -27,19 +27,22 @@
 #                                 --name <name of the cluster>
 #                                 --nodes <number of nodes>
 #                                 --partitions <number of partitions>
-#                                 --sock-port
-#                                 --admin-port  
-#                                 --http-port
-#                                 --seed <seed value>
+#                                 --sock-port <port no>
+#                                 --admin-port <port no> 
+#                                 --http-port <port no>
+#                                 --voldemort_home <vold_home>
+#                                 --current-stores <current stores.xml>
+#                                 --output-dir <output directory> 
 #                                 --zones <number of zones>
 #
 #  The non zoned would look similar with the exception of the absence of the --zones switch.
-#  
 
 import sys
 import random
 import os
 import errno
+import subprocess
+
 try:
     import argparse
 except ImportError:
@@ -55,23 +58,29 @@ parser.add_argument('-f', '--file', type=str, dest='file',
                     help='the file of the list of hosts(one per line)')
 parser.add_argument('-N', '--name', type=str, default='voldemort', dest='name',
                     help='the name you want to give the cluster')
-parser.add_argument('-n', '--nodes', type=int, default=2, dest='nodes',
+parser.add_argument('-n', '--nodes', type=int, default=5, dest='nodes',
                     help='the number of nodes in the cluster')
-parser.add_argument('-p', '--partitions', type=int, default=300,
-                    dest='partitions', help='number of partitions per node')
-parser.add_argument('-s', '--socket-port', type=int, default=6666,
+parser.add_argument('-p', '--partitions', type=int, default=1500,
+                    dest='partitions', help='number of partitions')
+parser.add_argument('-sp', '--socket-port', type=int, default=6666,
                     dest='sock_port', help='socket port number')
-parser.add_argument('-a', '--admin-port', type=int, default=6667,
+parser.add_argument('-ap', '--admin-port', type=int, default=6667,
                     dest='admin_port', help='admin port number')
-parser.add_argument('-H', '--http-port', type=int, default=6665,
+parser.add_argument('-hp', '--http-port', type=int, default=6665,
                     dest='http_port', help='http port number')
-genType = parser.add_mutually_exclusive_group()
-genType.add_argument('-S', '--seed', type=int, default=rseed, dest='seed',
-                    help='seed for randomizing partition distribution')
-parser.add_argument('-z', '--zones', type=int, dest='zones',
-                    help='the number of zones you will have')
+parser.add_argument('-v', '--voldemort-home', type=str, dest='vold_home',
+                    help='Path to voldemort home')
+parser.add_argument('-s', '--current-stores', type=str, dest='current_stores',
+                    help='Path to current stores xml. If you do not have info about the stores yet'
+                         'use config/tools/dummy-stores.xml from the root voldemort home folder.')
 parser.add_argument('-o', '--output-dir', type=str, dest='output_dir',
                     help='output directory location')
+parser.add_argument('-z', '--zones', type=int, dest='zones',
+                    help='the number of zones you will have')
+
+genType = parser.add_mutually_exclusive_group()
+genType.add_argument('--seed', type=int, default=rseed, dest='seed',
+                    help='seed for randomizing partition distribution')
                           
 # Parse arguments
 args = parser.parse_args()
@@ -90,10 +99,10 @@ except OSError as exception:
         raise
 
 # Open a new file named cluster.xml     
-filepath = os.path.join(args.output_dir, 'cluster.xml')
-fileHandle = open(filepath, 'w')
+clusterXMLFilePath = os.path.join(os.path.abspath(args.output_dir), 'cluster.xml')
+fileHandle = open(clusterXMLFilePath, 'w')
 
-# Check args
+# TODO : It would be ideal to have the script accept a list of zone ids.
 if args.zones:
   zones = args.zones
   if (args.nodes % zones) != 0:
@@ -112,9 +121,13 @@ http_port = args.http_port
 sock_port = args.sock_port
 admin_port = args.admin_port
 seed = args.seed
+current_stores = args.current_stores
+vold_home = args.vold_home
 
 # Generate the full list of partition IDs
-part_ids = range(nodes * partitions)
+part_ids = range(partitions)
+if part_ids < 1500:
+    print "Warning : The number of partitions seems to be low. Recommended value is 1500 or more"
 
 # Generate full list of zone IDs
 if args.zones:
@@ -126,7 +139,6 @@ random.seed(seed)
 random.shuffle(part_ids)
 
 # Printing cluster.xml
-# print "<!-- Partition distribution generated using seed [%d] -->" % seed
 print >> fileHandle, "<cluster>"
 print >> fileHandle, "  <name>%s</name>" % name
 
@@ -140,8 +152,12 @@ if args.zones:
     print >> fileHandle, "    <proximity-list>%s</proximity-list>" % str(proximityList).strip('[]') 
     print >> fileHandle, "  </zone>" 
 
+# TODO : Currently, random partitions are assigned to the nodes. A better approach would be to 
+# have some intelligence in the allocation such that consecutive partition-ids do not land
+# on the same node.
+
 for i in xrange(nodes):
-  node_partitions = ", ".join(str(p) for p in sorted(part_ids[i*partitions:(i+1)*partitions]))
+  node_partitions = ", ".join(str(p) for p in sorted(part_ids[i*(partitions/nodes):(i+1)*(partitions/nodes)]))
 
   print >> fileHandle, "  <server>"
   print >> fileHandle, "    <id>%d</id>" % i
@@ -164,3 +180,10 @@ for i in xrange(nodes):
 print >> fileHandle, "</cluster>"
 
 fileHandle.close()
+
+# For zones clusters call rebalance-new-cluster.sh
+if args.zones:
+    scriptPath = vold_home + '/bin/rebalance-new-cluster.sh'
+    cmd = [scriptPath, '-v', vold_home, '-c', clusterXMLFilePath, '-s', current_stores, 
+                   '-o', os.path.abspath(args.output_dir)]
+    subprocess.call(cmd)
