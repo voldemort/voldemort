@@ -106,7 +106,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final HashSet<SchedulerService> clientAsyncServiceRepo;
 
     private Cluster cluster;
-    private List<StoreDefinition> storeDefs;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.config = config;
@@ -222,7 +221,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             logger.debug("Obtained stores  metadata xml" + storesXml);
         }
 
-        storeDefs = storeMapper.readStoreList(new StringReader(storesXml), false);
+        List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml),
+                                                                    false);
         StoreDefinition storeDef = null;
         for(StoreDefinition d: storeDefs)
             if(d.getName().equals(storeName))
@@ -297,12 +297,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         store = new LoggingStore(store);
 
-        Store<K, V, T> finalStore = (Store<K, V, T>) store;
-
         if(isJmxEnabled) {
-            StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
-            store = statStore;
-            JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
+            store = new StatTrackingStore(store, this.stats);
+            // store = statStore;
+            JmxUtils.registerMbean(new StoreStatsJmx(((StatTrackingStore) store).getStats()),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
                                                              store.getName()
                                                                      + JmxUtils.getJmxId(jmxId)));
@@ -316,6 +314,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                              getCompressionStrategy(storeDef.getValueSerializer()));
             }
         }
+
+        Store<K, V, T> finalStore = (Store<K, V, T>) store;
 
         if(this.config.isEnableSerializationLayer()) {
             Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
@@ -535,13 +535,5 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     protected String getClientContext() {
         return clientContextName;
-    }
-
-    public Cluster getCluster() {
-        return cluster;
-    }
-
-    public List<StoreDefinition> getStoreDefs() {
-        return storeDefs;
     }
 }
