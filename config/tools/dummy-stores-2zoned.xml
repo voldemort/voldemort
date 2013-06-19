@@ -1,0 +1,77 @@
+<stores>
+  <store>
+    <name>dummy_322_one</name>
+    <persistence>bdb</persistence>
+    <routing-strategy>zone-routing</routing-strategy>
+    <routing>client</routing>
+    <replication-factor>6</replication-factor>
+    <zone-replication-factor>
+      <replication-factor zone-id="0">3</replication-factor>
+      <replication-factor zone-id="1">3</replication-factor>
+    </zone-replication-factor>
+    <required-reads>2</required-reads>
+    <required-writes>2</required-writes>
+    <zone-count-reads>0</zone-count-reads>
+    <zone-count-writes>0</zone-count-writes>
+    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>
+    <key-serializer>
+      <type>json</type>
+      <schema-info version="0">"string"</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>json</type>
+      <schema-info version="0">[{'opt_out_list':'string'}]</schema-info>
+    </value-serializer>
+  </store>
+  <store>
+    <name>dummy_322_two</name>
+    <persistence>bdb</persistence>
+    <routing-strategy>zone-routing</routing-strategy>
+    <routing>client</routing>
+    <replication-factor>6</replication-factor>
+    <zone-replication-factor>
+      <replication-factor zone-id="0">3</replication-factor>
+      <replication-factor zone-id="1">3</replication-factor>
+    </zone-replication-factor>
+    <required-reads>2</required-reads>
+    <required-writes>2</required-writes>
+    <zone-count-reads>0</zone-count-reads>
+    <zone-count-writes>0</zone-count-writes>
+    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>
+    <key-serializer>
+      <type>json</type>
+      <schema-info version="0">"string"</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>json</type>
+      <schema-info version="0">[{'opt_out_list':'string'}]</schema-info>
+    </value-serializer>
+  </store>
+  <store>
+    <name>dummy_211_one</name>
+    <persistence>bdb</persistence>
+    <routing-strategy>zone-routing</routing-strategy>
+    <routing>client</routing>
+    <replication-factor>4</replication-factor>
+    <zone-replication-factor>
+      <replication-factor zone-id="0">2</replication-factor>
+      <replication-factor zone-id="1">2</replication-factor>
+    </zone-replication-factor>
+    <preferred-reads>2</preferred-reads>
+    <required-reads>1</required-reads>
+    <preferred-writes>1</preferred-writes>
+    <required-writes>1</required-writes>
+    <zone-count-reads>0</zone-count-reads>
+    <zone-count-writes>0</zone-count-writes>
+    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>
+    <key-serializer>
+      <type>string</type>
+      <schema-info version="0">UTF-8</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+      <schema-info version="0">UTF-8</schema-info>
+    </value-serializer>
+    <retention-days>14</retention-days>
+  </store>
+</stores>
