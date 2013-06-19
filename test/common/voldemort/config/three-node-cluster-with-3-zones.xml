@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<cluster>
+  <name>mycluster</name>
+  <zone>
+  	<zone-id>0</zone-id>
+  	<proximity-list>1,2</proximity-list>
+  </zone>
+  <zone>
+  	<zone-id>1</zone-id>
+  	<proximity-list>0,2</proximity-list>
+  </zone>
+  <zone>
+  	<zone-id>2</zone-id>
+  	<proximity-list>0,1</proximity-list>
+  </zone>
+  <server>
+    <id>0</id>
+    <host>localhost</host>
+    <http-port>8080</http-port>
+    <socket-port>6666</socket-port>
+    <admin-port>7666</admin-port>
+    <partitions>0, 3</partitions>
+    <zone-id>0</zone-id>    
+  </server>
+  <server>
+    <id>1</id>
+    <host>localhost</host>
+    <http-port>8080</http-port>
+    <socket-port>6667</socket-port>
+    <admin-port>7667</admin-port>
+    <partitions>1, 4</partitions>
+    <zone-id>1</zone-id>    
+  </server>
+  <server>
+    <id>2</id>
+    <host>localhost</host>
+    <http-port>8080</http-port>
+    <socket-port>6668</socket-port>
+    <admin-port>7668</admin-port>
+    <partitions>2, 5</partitions>
+    <zone-id>2</zone-id>    
+  </server>
+</cluster>

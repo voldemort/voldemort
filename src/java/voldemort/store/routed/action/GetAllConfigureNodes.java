@@ -117,7 +117,11 @@ public class GetAllConfigureNodes
                 }
 
                 // Add the rest
-                nodes.addAll(zoneIdToNode.get(this.clientZone.getId()));
+                List<Node> zoneIDNodeList = zoneIdToNode.get(this.clientZone.getId());
+                if(zoneIDNodeList != null) {
+                    nodes.addAll(zoneIDNodeList);
+                }
+
                 for(int index = 0; index < proximityList.size(); index++) {
                     List<Node> zoneNodes = zoneIdToNode.get(proximityList.get(index));
                     if(zoneNodes != null)
