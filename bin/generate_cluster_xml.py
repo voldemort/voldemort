@@ -44,7 +44,8 @@
 #                                 --http-port <port no>
 #                                 --current-stores <current_stores.xml> 
 #                                 --output-dir <output directory>
-# Note the absence of the --zones switch
+#
+# Note the absence of the --zones switch for the non zoned cluster use case.
 
 import sys
 import random
@@ -169,7 +170,7 @@ if args.zones:
     print >> fileHandle, "    <proximity-list>%s</proximity-list>" % str(proximityList).strip('[]') 
     print >> fileHandle, "  </zone>" 
 
-# TODO : Currently, random partitions are assigned to the nodes in a round robine fashion. 
+# TODO : Currently, random partitions are assigned to the nodes in a round robin fashion. 
 # A better approach would be to have some intelligence in the allocation such that 
 # consecutive partition-ids do not land on the same node.
 
