@@ -26,16 +26,25 @@
 #  python generate_cluster_xml.py --file <file with host names, one host per line>
 #                                 --name <name of the cluster>
 #                                 --nodes <number of nodes>
-#                                 --partitions <number of partitions>
+#                                 --partitions <number of partitions> 
 #                                 --sock-port <port no>
 #                                 --admin-port <port no> 
 #                                 --http-port <port no>
-#                                 --voldemort_home <vold_home>
-#                                 --current-stores <current stores.xml>
+#                                 --current-stores <current_stores.xml> 
 #                                 --output-dir <output directory> 
 #                                 --zones <number of zones>
 #
-#  The non zoned would look similar with the exception of the absence of the --zones switch.
+#  For non zoned cluster use :
+#  python generate_cluster_xml.py --file <file with host names, one host per line>
+#                                 --name <name of the cluster>
+#                                 --nodes <number of nodes>
+#                                 --partitions <number of partitions> 
+#                                 --sock-port <port no>
+#                                 --admin-port <port no> 
+#                                 --http-port <port no>
+#                                 --current-stores <current_stores.xml> 
+#                                 --output-dir <output directory>
+# Note the absence of the --zones switch
 
 import sys
 import random
@@ -48,6 +57,7 @@ try:
 except ImportError:
     print "Python 2.7 or higher is needed"
 
+
 # Get a random seed
 rseed = int(random.randint(00000000001,99999999999))
 
@@ -58,7 +68,7 @@ parser.add_argument('-f', '--file', type=str, dest='file',
                     help='the file of the list of hosts(one per line)')
 parser.add_argument('-N', '--name', type=str, default='voldemort', dest='name',
                     help='the name you want to give the cluster')
-parser.add_argument('-n', '--nodes', type=int, default=5, dest='nodes',
+parser.add_argument('-n', '--nodes', type=int, default=6, dest='nodes',
                     help='the number of nodes in the cluster')
 parser.add_argument('-p', '--partitions', type=int, default=1500,
                     dest='partitions', help='number of partitions')
@@ -68,15 +78,15 @@ parser.add_argument('-ap', '--admin-port', type=int, default=6667,
                     dest='admin_port', help='admin port number')
 parser.add_argument('-hp', '--http-port', type=int, default=6665,
                     dest='http_port', help='http port number')
-parser.add_argument('-v', '--voldemort-home', type=str, dest='vold_home',
-                    help='Path to voldemort home')
-parser.add_argument('-s', '--current-stores', type=str, dest='current_stores',
+parser.add_argument('-s', '--current-stores', type=str, default= "config/tools/dummy-stores-3zoned.xml",
+                    dest='current_stores',
                     help='Path to current stores xml. If you do not have info about the stores yet'
                          'use config/tools/dummy-stores.xml from the root voldemort home folder.')
 parser.add_argument('-o', '--output-dir', type=str, dest='output_dir',
                     help='output directory location')
 parser.add_argument('-z', '--zones', type=int, dest='zones',
-                    help='the number of zones you will have')
+                    help='For non zoned clusters do not provide this argument.' 
+                         'For zoned clusters provide this argument with at least two zones.')
 
 genType = parser.add_mutually_exclusive_group()
 genType.add_argument('--seed', type=int, default=rseed, dest='seed',
@@ -105,6 +115,10 @@ fileHandle = open(clusterXMLFilePath, 'w')
 # TODO : It would be ideal to have the script accept a list of zone ids.
 if args.zones:
   zones = args.zones
+  if (zones == 1):
+      print "For non zoned clusters do not provide this argument."
+      print "For zoned clusters provide this argument with at least two zones."
+      sys.exit(1)
   if (args.nodes % zones) != 0:
     print "Number of nodes must be evenly divisible by number of zones"
     sys.exit(1)
@@ -121,14 +135,17 @@ http_port = args.http_port
 sock_port = args.sock_port
 admin_port = args.admin_port
 seed = args.seed
-current_stores = args.current_stores
-vold_home = args.vold_home
+vold_home = os.pardir
+current_stores = os.path.join(vold_home, args.current_stores);
 
 # Generate the full list of partition IDs
 part_ids = range(partitions)
 if part_ids < 1500:
-    print "Warning : The number of partitions seems to be low. Recommended value is 1500 or more"
-
+  print 'Warning : The number of partitions seems to be low. Assuming max of 3 zones and 50 nodes ' \
+        'per zone, a partition value of 1500 is recommended as it ensures an average of 10 ' \
+        'partitions per node.'
+  print 'Warning : The number of partitions seems to be low. Recommended value is 1500 or more.'
+    
 # Generate full list of zone IDs
 if args.zones:
   zone_ids = range(zones)
@@ -152,13 +169,18 @@ if args.zones:
     print >> fileHandle, "    <proximity-list>%s</proximity-list>" % str(proximityList).strip('[]') 
     print >> fileHandle, "  </zone>" 
 
-# TODO : Currently, random partitions are assigned to the nodes. A better approach would be to 
-# have some intelligence in the allocation such that consecutive partition-ids do not land
-# on the same node.
+# TODO : Currently, random partitions are assigned to the nodes in a round robine fashion. 
+# A better approach would be to have some intelligence in the allocation such that 
+# consecutive partition-ids do not land on the same node.
 
 for i in xrange(nodes):
-  node_partitions = ", ".join(str(p) for p in sorted(part_ids[i*(partitions/nodes):(i+1)*(partitions/nodes)]))
-
+  j = i
+  node_partitions = list()
+  while j < len(part_ids):
+    node_partitions.append(str(part_ids[j]))
+    j += nodes;
+  partitionslist = ", ".join(node_partitions);  
+  
   print >> fileHandle, "  <server>"
   print >> fileHandle, "    <id>%d</id>" % i
   if args.file:
@@ -168,7 +190,7 @@ for i in xrange(nodes):
   print >> fileHandle, "    <http-port>%d</http-port>" % http_port
   print >> fileHandle, "    <socket-port>%d</socket-port>" % sock_port
   print >> fileHandle, "    <admin-port>%d</admin-port>" % admin_port
-  print >> fileHandle, "    <partitions>%s</partitions>" % node_partitions
+  print >> fileHandle, "    <partitions>%s</partitions>" % partitionslist
   # If zones are being used, assign a zone-id
   if args.zones:
     print >> fileHandle, "    <zone-id>%d</zone-id>" % zone_id
@@ -181,7 +203,7 @@ print >> fileHandle, "</cluster>"
 
 fileHandle.close()
 
-# For zones clusters call rebalance-new-cluster.sh
+# For zoned clusters call rebalance-new-cluster.sh
 if args.zones:
     scriptPath = vold_home + '/bin/rebalance-new-cluster.sh'
     cmd = [scriptPath, '-v', vold_home, '-c', clusterXMLFilePath, '-s', current_stores, 
