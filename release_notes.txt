@@ -1,3 +1,16 @@
+Release 1.3.4 on 06/19/2013
+* Read Write store bug fixes
+  - Rewrite of InMemoryStorageEngine + config to control multiVersionPuts
+  - Fixed a bug in the read-repair logic which was causing unnecessary puts.
+  - Fixed put operation in PipelineRoutedStore to ensure slop is submitted
+  - Fixed VectorClock bug triggered during versioned puts
+* Rebalance improvement
+  - Made it safe to abort rebalance
+  - Proxy puts are established so that 'old' partition is updated and so an aborted rebalance can "roll back" without any data loss
+  - Proxy gets & puts are established within the zone making improving performance during rebalance
+* Coordinator
+  - Added monitoring capability in the Coordinator
+
 Release 1.3.3 on 04/24/2013 
 * VoldemortBuildandPush
   - Fixed bug with schema check
