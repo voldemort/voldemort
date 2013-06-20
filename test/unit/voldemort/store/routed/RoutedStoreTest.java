@@ -93,7 +93,6 @@ import com.google.common.collect.Sets;
 /**
  * Basic tests for RoutedStore
  * 
- * 
  */
 @RunWith(Parameterized.class)
 public class RoutedStoreTest extends AbstractByteArrayStoreTest {
@@ -107,14 +106,11 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
     private final ByteArray aKey = TestUtils.toByteArray("jay");
     private final byte[] aValue = "kreps".getBytes();
     private final byte[] aTransform = "transform".getBytes();
-    private final Class<FailureDetector> failureDetectorClass;
     private final boolean isPipelineRoutedStoreEnabled;
     private FailureDetector failureDetector;
     private ExecutorService routedStoreThreadPool;
 
-    public RoutedStoreTest(Class<FailureDetector> failureDetectorClass,
-                           boolean isPipelineRoutedStoreEnabled) {
-        this.failureDetectorClass = failureDetectorClass;
+    public RoutedStoreTest(boolean isPipelineRoutedStoreEnabled) {
         this.isPipelineRoutedStoreEnabled = isPipelineRoutedStoreEnabled;
     }
 
@@ -139,8 +135,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { BannagePeriodFailureDetector.class, true },
-                { BannagePeriodFailureDetector.class, false } });
+        return Arrays.asList(new Object[][] { { true }, { false } });
     }
 
     @Override
@@ -1359,7 +1354,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             all = routedStore.getAll(expectedValues.keySet(), null);
             fail("Should have failed");
         } catch(Exception e) {
-
+            // Expected
         }
     }
 
@@ -2297,6 +2292,18 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         assertEquals("Number of operational nodes not what was expected.", expected, found);
     }
 
+    /**
+     * Function to set the failure detector class.
+     * 
+     * Note: We set this to BannagePeriodFailureDetector which is not supported
+     * or recommended anymore because of the inefficiency in checking for
+     * liveness and the potential issue of marking all the nodes as unavailable.
+     * However, for the purpose of these tests, BannagePeriodFailureDetector is
+     * useful to deterministically set a node as available or unavailable.
+     * 
+     * @param subStores Stores used to check if node is up
+     * @throws Exception
+     */
     private void setFailureDetector(Map<Integer, Store<ByteArray, byte[], byte[]>> subStores)
             throws Exception {
         // Destroy any previous failure detector before creating the next one
@@ -2304,9 +2311,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         if(failureDetector != null)
             failureDetector.destroy();
 
-        // Bannage is not supported/recommended anymore. But makes sense for the
-        // purpose of this test.
-        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(BannagePeriodFailureDetector.class.getName())
                                                                                  .setBannagePeriod(BANNAGE_PERIOD)
                                                                                  .setCluster(cluster)
                                                                                  .setStoreVerifier(create(subStores));
