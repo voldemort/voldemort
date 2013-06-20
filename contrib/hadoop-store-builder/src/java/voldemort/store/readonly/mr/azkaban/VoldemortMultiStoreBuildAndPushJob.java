@@ -539,9 +539,8 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
 
                     }
                 } finally {
-                    if(adminClient != null) {
-                        adminClient.close();
-                    }
+                    adminClient.close();
+
                 }
             }
         } catch(Exception e) {
@@ -575,9 +574,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
 
                     }
                 } finally {
-                    if(adminClient != null) {
-                        adminClient.close();
-                    }
+                    adminClient.close();
                 }
             }
             throw e;
