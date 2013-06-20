@@ -323,6 +323,52 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
     }
 
     @Test(timeout = 600000)
+    public void testShuffleZZAndShuffleAgain() throws Exception {
+
+        logger.info("Starting testShuffleZZAndShuffleAgain");
+        // Hacky work around of TOCTOU bind Exception issues. Each test that
+        // invokes this method brings servers up & down on the same ports. The
+        // OS seems to need a rest between subsequent tests...
+        Thread.sleep(TimeUnit.SECONDS.toMillis(2));
+
+        Cluster interimCluster = RebalanceUtils.getInterimCluster(zzCurrent, zzShuffle);
+
+        // start all the servers
+        List<Integer> serverList = new ArrayList<Integer>(interimCluster.getNodeIds());
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "5");
+        interimCluster = startServers(interimCluster, zzStoresXml, serverList, configProps);
+
+        // Populate cluster with data
+        for(StoreDefinition storeDef: zzStores) {
+            populateData(zzCurrent, storeDef);
+        }
+
+        String bootstrapUrl = getBootstrapUrl(interimCluster, 0);
+        boolean stealerBased = !useDonorBased;
+
+        // Shuffle cluster
+        ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                                                      stealerBased,
+                                                                                      zzShuffle,
+                                                                                      zzStores);
+        rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, serverList);
+        checkConsistentMetadata(zzShuffle, serverList);
+
+        // Now, go from shuffled state, back to the original to ocnfirm
+        // subsequent rebalances can be invoked.
+        rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
+                                                        stealerBased,
+                                                        zzCurrent,
+                                                        zzStores);
+        rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, serverList);
+        checkConsistentMetadata(zzCurrent, serverList);
+
+        // Done.
+        stopServer(serverList);
+    }
+
+    @Test(timeout = 600000)
     public void testClusterExpansion() throws Exception {
         testZonedRebalance("TestClusterExpansionZZ",
                            zzCurrent,

@@ -143,24 +143,15 @@ public class RebalanceUtils {
     public static Versioned<Cluster> getLatestCluster(List<Integer> requiredNodes,
                                                       AdminClient adminClient) {
         Versioned<Cluster> latestCluster = new Versioned<Cluster>(adminClient.getAdminClientCluster());
-        ArrayList<Versioned<Cluster>> clusterList = new ArrayList<Versioned<Cluster>>();
-
-        clusterList.add(latestCluster);
-        for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+        Cluster cluster = latestCluster.getValue();
+        for(Node node: cluster.getNodes()) {
             try {
-                Versioned<Cluster> versionedCluster = adminClient.metadataMgmtOps.getRemoteCluster(node.getId());
-                VectorClock newClock = (VectorClock) versionedCluster.getVersion();
-                if(null != newClock && !clusterList.contains(versionedCluster)) {
-                    // check no two clocks are concurrent.
-                    checkNotConcurrent(clusterList, newClock);
-
-                    // add to clock list
-                    clusterList.add(versionedCluster);
-
-                    // update latestClock
-                    Occurred occurred = newClock.compare(latestCluster.getVersion());
-                    if(Occurred.AFTER.equals(occurred))
-                        latestCluster = versionedCluster;
+                Cluster nodesCluster = adminClient.metadataMgmtOps.getRemoteCluster(node.getId())
+                                                                  .getValue();
+                if(!nodesCluster.equals(cluster)) {
+                    throw new VoldemortException("Cluster is in inconsistent state because cluster xml on node "
+                                                 + node.getId()
+                                                 + " does not match cluster xml of adminClient.");
                 }
             } catch(Exception e) {
                 if(null != requiredNodes && requiredNodes.contains(node.getId()))
@@ -169,7 +160,6 @@ public class RebalanceUtils {
                     logger.info("Failed on node " + node.getId(), e);
             }
         }
-
         return latestCluster;
     }
 
