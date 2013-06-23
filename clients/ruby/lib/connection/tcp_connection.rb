@@ -60,6 +60,7 @@ class TCPConnection < Connection
 
   def put_from(db_name, key, value, version = nil, route = false)
     version = get_version(key) unless version
+    add_to_versions(version) # add version or increment when needed
     request = VoldemortRequest.new
     request.should_route = route
     request.store = db_name
@@ -76,7 +77,6 @@ class TCPConnection < Connection
     response = PutResponse.new.parse_from_string(raw_response)
     reconnect_when_errors_in(response)
 
-    add_to_versions(version) # add version or increment when needed
     version
   end
 
