@@ -8,6 +8,9 @@ class TCPConnection < Connection
 
   attr_accessor :socket
 
+  class ConnectionError < RuntimeError; end
+  class ObsoleteVersionError < ConnectionError; end
+
   SOCKET_TIMEOUT = 3
 
   def connect_to(host, port)
@@ -75,7 +78,15 @@ class TCPConnection < Connection
     self.send(request)          # send the request
     raw_response = self.receive # read the response
     response = PutResponse.new.parse_from_string(raw_response)
-    reconnect_when_errors_in(response)
+    if(response.error)
+      case response.error.error_code
+      when 4
+        raise ObsoleteVersionError.new(response.error.error_message)
+      else
+        reconnect!
+        raise ConnectionError.new(response.error.error_message)
+      end
+    end
 
     version
   end
