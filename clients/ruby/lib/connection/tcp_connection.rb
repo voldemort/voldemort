@@ -99,6 +99,7 @@ class TCPConnection < Connection
   end
 
   def add_to_versions(version)
+    version.timestamp = Time.new.to_i * 1000
     entry = version.entries.detect { |e| e.node_id == self.connected_node.id.to_i }
     if(entry)
       entry.version += 1
@@ -107,7 +108,6 @@ class TCPConnection < Connection
       entry.node_id = self.connected_node.id.to_i
       entry.version = 1
       version.entries << entry
-      version.timestamp = Time.new.to_i * 1000
     end
     version
   end
