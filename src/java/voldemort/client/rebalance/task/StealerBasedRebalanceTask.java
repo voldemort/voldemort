@@ -23,6 +23,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalanceBatchPlanProgressBar;
+import voldemort.client.rebalance.RebalanceController;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.store.UnreachableStoreException;
@@ -42,6 +43,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     private static final Logger logger = Logger.getLogger(StealerBasedRebalanceTask.class);
 
     private final int stealerNodeId;
+    private final int donorNodeId;
     // TODO: What is the use of maxTries for stealer-based tasks? Need to
     // validate reason for existence or remove.
     // NOTES FROM VINOTH:
@@ -61,13 +63,16 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     // done.
     private final int maxTries;
 
+    private final RebalanceController.Scheduler scheduler;
+
     public StealerBasedRebalanceTask(final int batchId,
                                      final int taskId,
                                      final RebalancePartitionsInfo stealInfo,
                                      final int maxTries,
                                      final Semaphore donorPermit,
                                      final AdminClient adminClient,
-                                     final RebalanceBatchPlanProgressBar progressBar) {
+                                     final RebalanceBatchPlanProgressBar progressBar,
+                                     final RebalanceController.Scheduler scheduler) {
         super(batchId,
               taskId,
               Lists.newArrayList(stealInfo),
@@ -78,6 +83,9 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
 
         this.maxTries = maxTries;
         this.stealerNodeId = stealInfo.getStealerId();
+        this.donorNodeId = stealInfo.getDonorId();
+
+        this.scheduler = scheduler;
 
         taskLog(toString());
     }
@@ -136,6 +144,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
         } finally {
             donorPermit.release();
             isComplete.set(true);
+            scheduler.doneTask(stealerNodeId, donorNodeId);
         }
     }
 
