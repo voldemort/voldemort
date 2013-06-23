@@ -46,11 +46,17 @@ public class PartitionBalanceTest {
 
     @Test
     public void testBasicThingsThatShouldWork() {
-        new PartitionBalance(ClusterTestUtils.getZZCluster(),
-                             ClusterTestUtils.getZZStoreDefsInMemory());
+        PartitionBalance pb = new PartitionBalance(ClusterTestUtils.getZZCluster(),
+                                                   ClusterTestUtils.getZZStoreDefsInMemory());
+        // Print out results so there is a test case that demonstrates toString
+        // method output for 2 zones
+        System.out.println(pb);
 
-        new PartitionBalance(ClusterTestUtils.getZZZCluster(),
-                             ClusterTestUtils.getZZZStoreDefsInMemory());
+        pb = new PartitionBalance(ClusterTestUtils.getZZZCluster(),
+                                  ClusterTestUtils.getZZZStoreDefsInMemory());
+        // Print out results so there is a test case that demonstrates toString
+        // method output for 3 zones
+        System.out.println(pb);
     }
 
     @Test
@@ -133,4 +139,5 @@ public class PartitionBalanceTest {
         }
         assertTrue(veCaught);
     }
+
 }

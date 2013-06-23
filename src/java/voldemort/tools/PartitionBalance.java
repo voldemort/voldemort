@@ -60,6 +60,7 @@ public class PartitionBalance {
     private final Map<Integer, Integer> primaryAggNodeIdToPartitionCount;
     private final Map<Integer, Integer> aggNodeIdToZonePrimaryCount;
     private final Map<Integer, Integer> allAggNodeIdToPartitionCount;
+    private final Map<Integer, Integer> zoneIdToPartitionStoreCount;
 
     public PartitionBalance(Cluster cluster, List<StoreDefinition> storeDefs) {
         this.cluster = cluster;
@@ -69,6 +70,7 @@ public class PartitionBalance {
 
         HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
         Set<Integer> nodeIds = cluster.getNodeIds();
+        Set<Integer> zoneIds = cluster.getZoneIds();
 
         builder.append("PARTITION DUMP\n");
         this.primaryAggNodeIdToPartitionCount = Maps.newHashMap();
@@ -84,6 +86,11 @@ public class PartitionBalance {
         this.allAggNodeIdToPartitionCount = Maps.newHashMap();
         for(Integer nodeId: nodeIds) {
             allAggNodeIdToPartitionCount.put(nodeId, 0);
+        }
+
+        this.zoneIdToPartitionStoreCount = Maps.newHashMap();
+        for(Integer zoneId: zoneIds) {
+            zoneIdToPartitionStoreCount.put(zoneId, 0);
         }
 
         for(StoreDefinition storeDefinition: uniqueStores.keySet()) {
@@ -130,7 +137,21 @@ public class PartitionBalance {
                 allAggNodeIdToPartitionCount.put(nodeId,
                                                  allAggNodeIdToPartitionCount.get(nodeId)
                                                          + (nodeIdToNaryCount.get(nodeId) * uniqueStores.get(storeDefinition)));
+
+                // Count partition-stores per-zone
+                int zoneId = cluster.getNodeById(nodeId).getZoneId();
+                zoneIdToPartitionStoreCount.put(zoneId,
+                                                zoneIdToPartitionStoreCount.get(zoneId)
+                                                        + (nodeIdToNaryCount.get(nodeId) * uniqueStores.get(storeDefinition)));
             }
+        }
+
+        builder.append(Utils.NEWLINE).append(Utils.NEWLINE);
+
+        builder.append("PARTITION-STORES PER-ZONE:").append(Utils.NEWLINE);
+        for(Integer zoneId: zoneIds) {
+            builder.append("\tZone ID: " + zoneId + " : " + zoneIdToPartitionStoreCount.get(zoneId))
+                   .append(Utils.NEWLINE);
         }
 
         builder.append(Utils.NEWLINE).append(Utils.NEWLINE);

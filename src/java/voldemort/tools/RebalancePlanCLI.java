@@ -91,7 +91,7 @@ public class RebalancePlanCLI {
         help.append("    --final-cluster <clusterXML>\n");
         help.append("  Optional:\n");
         help.append("    --final-stores <storesXML> [ Needed for zone expansion ]\n");
-        help.append("    --batch <batch> [ Number of primary partitions to move in each rebalancing batch. ]\n");
+        help.append("    --batch-size <batchSize> [ Number of primary partitions to move in each rebalancing batch. ]\n");
         help.append("    --output-dir <outputDir> [ Directory in which cluster metadata is dumped for each batch of the plan. ]\n");
 
         try {
