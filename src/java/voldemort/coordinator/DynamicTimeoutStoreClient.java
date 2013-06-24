@@ -138,13 +138,14 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
 
         // This should not happen unless there's a bug in the
         // getWithCustomTimeout
-        if((endTime - startTime) > requestWrapper.getRoutingTimeoutInMs()) {
+        long timeLeft = requestWrapper.getRoutingTimeoutInMs() - (endTime - startTime);
+        if(timeLeft <= 0) {
             throw new StoreTimeoutException("PUT request timed out");
         }
 
         return putVersionedWithCustomTimeout(new CompositeVersionedPutVoldemortRequest<K, V>(requestWrapper.getKey(),
                                                                                              versioned,
-                                                                                             (requestWrapper.getRoutingTimeoutInMs() - (endTime - startTime))));
+                                                                                             timeLeft));
     }
 
     /**
@@ -227,19 +228,18 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                 return false;
             }
 
-            long endTimeInMs = System.currentTimeMillis();
-            long diffInMs = endTimeInMs - startTimeInMs;
+            long timeLeft = deleteRequestObject.getRoutingTimeoutInMs()
+                            - (System.currentTimeMillis() - startTimeInMs);
 
             // This should not happen unless there's a bug in the
             // getWithCustomTimeout
-            if(diffInMs > deleteRequestObject.getRoutingTimeoutInMs()) {
+            if(timeLeft < 0) {
                 throw new StoreTimeoutException("DELETE request timed out");
             }
 
             // Update the version and the new timeout
             deleteRequestObject.setVersion(versioned.getVersion());
-            deleteRequestObject.setRoutingTimeoutInMs(deleteRequestObject.getRoutingTimeoutInMs()
-                                                      - diffInMs);
+            deleteRequestObject.setRoutingTimeoutInMs(timeLeft);
 
         }
 

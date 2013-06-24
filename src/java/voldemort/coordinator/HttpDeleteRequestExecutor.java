@@ -23,6 +23,7 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NO_CONTENT;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.REQUEST_TIMEOUT;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
@@ -30,10 +31,12 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 
 import voldemort.VoldemortException;
 import voldemort.store.CompositeVoldemortRequest;
+import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.StoreTimeoutException;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 
 /**
  * A Runnable class that uses the specified Fat client to perform a Voldemort
@@ -109,6 +112,24 @@ public class HttpDeleteRequestExecutor implements Runnable {
             RESTErrorHandler.handleError(REQUEST_TIMEOUT,
                                          this.deleteRequestMessageEvent,
                                          errorDescription);
+        } catch(InsufficientOperationalNodesException exception) {
+            long currentTimeInNs = System.nanoTime();
+            if(currentTimeInNs - startTimestampInNs > deleteRequestObject.getRoutingTimeoutInMs()
+                                                      * Time.NS_PER_MS) {
+                String errorDescription = "DELETE Request timed out: " + exception.getMessage();
+                if(logger.isEnabledFor(Level.ERROR)) {
+                    logger.error(errorDescription);
+                }
+                RESTErrorHandler.handleError(REQUEST_TIMEOUT,
+                                             this.deleteRequestMessageEvent,
+                                             errorDescription);
+            } else {
+                String errorDescription = "Voldemort Exception: " + exception.getMessage();
+                RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
+                                             this.deleteRequestMessageEvent,
+                                             errorDescription);
+            }
+
         } catch(VoldemortException ve) {
             ve.printStackTrace();
             String errorDescription = "Voldemort Exception: " + ve.getMessage();

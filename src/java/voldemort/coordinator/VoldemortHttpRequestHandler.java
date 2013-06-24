@@ -100,7 +100,7 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
         String timeoutValStr = this.request.getHeader(X_VOLD_REQUEST_TIMEOUT_MS);
         if(timeoutValStr != null) {
             try {
-                Long.parseLong(timeoutValStr);
+                operationTimeoutInMs = Long.parseLong(timeoutValStr);
             } catch(NumberFormatException nfe) {
                 handleBadRequest(e, "Incorrect timeout parameter. Cannot parse this to long: "
                                     + timeoutValStr + ". Details: " + nfe.getMessage());

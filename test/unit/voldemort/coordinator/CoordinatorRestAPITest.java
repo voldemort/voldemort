@@ -16,6 +16,7 @@
 
 package voldemort.coordinator;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.io.BufferedReader;
@@ -24,7 +25,9 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.commons.codec.binary.Base64;
@@ -36,14 +39,15 @@ import voldemort.ServerTestUtils;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 
 public class CoordinatorRestAPITest {
 
     private VoldemortServer[] servers;
     public static String socketUrl = "";
-    private static final String STORE_NAME = "test";
-    private static final String STORES_XML = "test/common/voldemort/config/single-store.xml";
+    private static final String STORE_NAME = "slow-store-test";
+    private static final String STORES_XML = "test/common/voldemort/config/single-slow-store.xml";
     private static final String FAT_CLIENT_CONFIG_FILE_PATH = "test/common/voldemort/config/fat-client-config.avro";
     private final SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                         10000,
@@ -87,6 +91,10 @@ public class CoordinatorRestAPITest {
         Properties props = new Properties();
         props.setProperty("storage.configs",
                           "voldemort.store.bdb.BdbStorageConfiguration,voldemort.store.slow.SlowStorageConfiguration");
+        props.setProperty("testing.slow.queueing.get.ms", "4");
+        props.setProperty("testing.slow.queueing.getall.ms", "4");
+        props.setProperty("testing.slow.queueing.put.ms", "4");
+        props.setProperty("testing.slow.queueing.delete.ms", "4");
 
         ServerTestUtils.startVoldemortCluster(numServers,
                                               servers,
@@ -125,7 +133,15 @@ public class CoordinatorRestAPITest {
     }
 
     private VectorClock doPut(String key, String payload, VectorClock vc) {
+        return doPut(key, payload, vc, null);
+    }
+
+    private VectorClock doPut(String key,
+                              String payload,
+                              VectorClock vc,
+                              Map<String, Object> options) {
         VectorClock successfulPutVC = null;
+        int expectedResponseCode = 201;
         try {
             // Create the right URL and Http connection
             HttpURLConnection conn = null;
@@ -141,6 +157,18 @@ public class CoordinatorRestAPITest {
             conn.setRequestProperty("Content-Length", "" + payload.length());
             conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS, "1000");
 
+            // options
+            if(options != null) {
+                if(options.get("timeout") != null && options.get("timeout") instanceof String) {
+                    conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS,
+                                            (String) options.get("timeout"));
+                }
+                if(options.get("responseCode") != null
+                   && options.get("responseCode") instanceof Integer) {
+                    expectedResponseCode = (Integer) options.get("responseCode");
+                }
+            }
+
             if(vc != null) {
                 String eTag = CoordinatorUtils.getSerializedVectorClock(vc);
                 conn.setRequestProperty("ETag", eTag);
@@ -152,7 +180,8 @@ public class CoordinatorRestAPITest {
             out.close();
 
             // Check for the right response code
-            if(conn.getResponseCode() != 201) {
+
+            if(conn.getResponseCode() != expectedResponseCode) {
                 System.err.println("Illegal response during PUT : " + conn.getResponseMessage());
                 fail("Incorrect response received for a HTTP put request :"
                      + conn.getResponseCode());
@@ -167,6 +196,11 @@ public class CoordinatorRestAPITest {
     }
 
     private boolean doDelete(String key) {
+        return doDelete(key, null);
+    }
+
+    private boolean doDelete(String key, Map<String, Object> options) {
+        int expectedResponseCode = 204;
         try {
 
             // Create the right URL and Http connection
@@ -180,8 +214,20 @@ public class CoordinatorRestAPITest {
             conn.setDoInput(true);
             conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS, "1000");
 
+            // options
+            if(options != null) {
+                if(options.get("timeout") != null && options.get("timeout") instanceof String) {
+                    conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS,
+                                            (String) options.get("timeout"));
+                }
+                if(options.get("responseCode") != null
+                   && options.get("responseCode") instanceof Integer) {
+                    expectedResponseCode = (Integer) options.get("responseCode");
+                }
+            }
+
             // Check for the right response code
-            if(conn.getResponseCode() != 204) {
+            if(conn.getResponseCode() != expectedResponseCode) {
                 System.err.println("Illegal response during DELETE : " + conn.getResponseMessage());
                 fail("Incorrect response received for a HTTP put request :"
                      + conn.getResponseCode());
@@ -198,8 +244,13 @@ public class CoordinatorRestAPITest {
     }
 
     private TestVersionedValue doGet(String key) {
+        return doGet(key, null);
+    }
+
+    private TestVersionedValue doGet(String key, Map<String, Object> options) {
         String response = null;
         TestVersionedValue responseObj = null;
+        int expectedResponseCode = 200;
         try {
 
             // Create the right URL and Http connection
@@ -213,15 +264,27 @@ public class CoordinatorRestAPITest {
             conn.setDoInput(true);
             conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS, "1000");
 
-            if(conn.getResponseCode() == 404) {
-                return null;
+            // options
+            if(options != null) {
+                if(options.get("timeout") != null && options.get("timeout") instanceof String) {
+                    conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS,
+                                            (String) options.get("timeout"));
+                }
+                if(options.get("responseCode") != null
+                   && options.get("responseCode") instanceof Integer) {
+                    expectedResponseCode = (Integer) options.get("responseCode");
+                }
             }
 
             // Check for the right response code
-            if(conn.getResponseCode() != 200) {
+            if(conn.getResponseCode() != expectedResponseCode) {
                 System.err.println("Illegal response during GET : " + conn.getResponseMessage());
                 fail("Incorrect response received for a HTTP put request :"
                      + conn.getResponseCode());
+            }
+
+            if(conn.getResponseCode() == 404 || conn.getResponseCode() == 408) {
+                return null;
             }
 
             // Buffer the result into a string
@@ -272,6 +335,7 @@ public class CoordinatorRestAPITest {
     public void testDelete() {
         String key = "Which_sour_beer_do_I_want_to_drink";
         String payload = "Duchesse De Bourgogne";
+        Map<String, Object> options = new HashMap<String, Object>();
 
         // 1. Do a put
         doPut(key, payload, null);
@@ -294,7 +358,8 @@ public class CoordinatorRestAPITest {
         }
 
         // 4. Do a get on the same key : this should fail
-        response = doGet(key);
+        options.put("responseCode", 404);
+        response = doGet(key, options);
         if(response != null) {
             fail("key still exists after deletion. ");
         }
@@ -310,7 +375,7 @@ public class CoordinatorRestAPITest {
         doPut(key, payload, null);
 
         // 2. Do a get on the same key
-        TestVersionedValue response = doGet(key);
+        TestVersionedValue response = doGet(key, null);
         if(response == null) {
             fail("key does not exist after a put. ");
         }
@@ -324,11 +389,52 @@ public class CoordinatorRestAPITest {
         if(newResponse == null) {
             fail("key does not exist after the versioned put. ");
         }
+        assertEquals("Returned response does not have a higer version",
+                     Occurred.AFTER,
+                     newResponse.getVc().compare(response.getVc()));
+        assertEquals("Returned response does not have a higer version",
+                     Occurred.BEFORE,
+                     response.getVc().compare(newResponse.getVc()));
 
         System.out.println("Received value after the Versioned put: " + newResponse.getValue());
         if(!newResponse.getValue().equals(newPayload)) {
             fail("Received value is incorrect ! Expected : " + newPayload + " but got : "
                  + newResponse.getValue());
+        }
+    }
+
+    @Test
+    public void testWriteWithTimeout() {
+        String key = "Which_Imperial_IPA_do_I_want_to_drink";
+        String payload = "Pliny the Younger";
+        Map<String, Object> options = new HashMap<String, Object>();
+
+        // 1. Do a put (timeout)
+        options.put("timeout", "1");
+        options.put("responseCode", 408);
+        doPut(key, payload, null, options);
+
+        // 2. Do a get on the same key
+        options.clear();
+        options.put("responseCode", 404);
+        TestVersionedValue response = doGet(key, options);
+        if(response != null) {
+            fail("key should not exist after a put. ");
+        }
+
+        // 3. Do a put
+        doPut(key, payload, null);
+
+        // 4. Do a get on the same key with timeout
+        options.clear();
+        options.put("timeout", "1");
+        options.put("responseCode", 408);
+        response = doGet(key, options);
+
+        // 5. Do a get on the same key
+        response = doGet(key);
+        if(response == null) {
+            fail("key does not exist after a put. ");
         }
     }
 }

@@ -50,10 +50,12 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 
 import voldemort.VoldemortException;
 import voldemort.store.CompositeVoldemortRequest;
+import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.StoreTimeoutException;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -202,6 +204,22 @@ public class HttpGetAllRequestExecutor implements Runnable {
             RESTErrorHandler.handleError(REQUEST_TIMEOUT,
                                          this.getRequestMessageEvent,
                                          errorDescription);
+        } catch(InsufficientOperationalNodesException exception) {
+            long nowInNs = System.nanoTime();
+            if(nowInNs - startTimestampInNs > getAllRequestObject.getRoutingTimeoutInMs()
+                                              * Time.NS_PER_MS) {
+                String errorDescription = "GET Request timed out: " + exception.getMessage();
+                logger.error(errorDescription);
+                RESTErrorHandler.handleError(REQUEST_TIMEOUT,
+                                             this.getRequestMessageEvent,
+                                             errorDescription);
+            } else {
+                String errorDescription = "Voldemort Exception: " + exception.getMessage();
+                RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
+                                             this.getRequestMessageEvent,
+                                             errorDescription);
+            }
+
         } catch(VoldemortException ve) {
             String errorDescription = "Voldemort Exception: " + ve.getMessage();
             RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
