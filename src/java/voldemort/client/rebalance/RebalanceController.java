@@ -696,7 +696,7 @@ public class RebalanceController {
         }
 
         public void run(List<StealerBasedRebalanceTask> sbTaskList) {
-            // Setup for this run.
+            // Setup mapping of stealers to work for this run.
             this.tasksByStealer = new HashMap<Integer, List<StealerBasedRebalanceTask>>();
             for(StealerBasedRebalanceTask task: sbTaskList) {
                 if(task.getStealInfos().size() != 1) {
@@ -715,6 +715,14 @@ public class RebalanceController {
                 return;
             }
 
+            // Shuffle order of each stealer's work list. This randomization
+            // helps to get rid of any "patterns" in how rebalancing tasks were
+            // added to the task list passed in.
+            for(List<StealerBasedRebalanceTask> taskList: tasksByStealer.values()) {
+                Collections.shuffle(taskList);
+            }
+
+            // Prepare to execute the rebalance
             this.numTasksExecuting = 0;
             this.nodeIdsWithWork = new HashSet<Integer>();
             doneSignal = new CountDownLatch(sbTaskList.size());
@@ -747,11 +755,9 @@ public class RebalanceController {
                 return null;
             }
 
-            // Should probably round-robin among stealerIds. But, its easier to
-            // randomly shuffle list of stealer IDs each time a new task to
-            // schedule needs to be found. In theory, either round-robin'ing or
-            // shuffling will avoid prioritizing one specific stealers work
-            // ahead of all others.
+            // Shuffle list of stealer IDs each time a new task to schedule
+            // needs to be found. Randomizing the order should avoid
+            // prioritizing one specific stealer's work ahead of all others.
             List<Integer> stealerIds = new ArrayList<Integer>(tasksByStealer.keySet());
             Collections.shuffle(stealerIds);
             for(int stealerId: stealerIds) {
