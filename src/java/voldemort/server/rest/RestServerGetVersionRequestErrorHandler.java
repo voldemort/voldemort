@@ -33,26 +33,20 @@ public class RestServerGetVersionRequestErrorHandler extends RestServerErrorHand
         if(!super.parseAndValidateRequest()) {
             return false;
         }
-
-        System.out.println("Valid request");
         return true;
     }
 
     @Override
     public CompositeVoldemortRequest<ByteArray, byte[]> constructCompositeVoldemortRequestObject() {
-        System.out.println("Proceeding to construct the req obj");
         if(parseAndValidateRequest()) {
-            if(this.parsedKeys.size() > 1) {
-                this.requestObject = new CompositeGetVersionVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
-                                                                                                this.parsedRoutingTimeoutInMs,
-                                                                                                this.parsedRequestOriginTimeInMs,
-                                                                                                this.parsedRoutingType);
+            this.requestObject = new CompositeGetVersionVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
+                                                                                            this.parsedRoutingTimeoutInMs,
+                                                                                            this.parsedRequestOriginTimeInMs,
+                                                                                            this.parsedRoutingType);
 
-            }
             return this.requestObject;
         }
         // Return null if request is not valid
-        System.out.println("req obj construction failed");
         return null;
     }
 

@@ -31,13 +31,11 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 
 import voldemort.common.VoldemortOpCode;
-import voldemort.coordinator.CoordinatorUtils;
 import voldemort.server.StoreRepository;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.Store;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ByteArray;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -95,7 +93,6 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                                                                            messageEvent,
                                                                            storeRepository);
                 } else if(httpMethod.equals(HttpMethod.HEAD)) {
-                    System.out.println("In voldemort request handler HEAD switch");
                     errorHandler = new RestServerGetVersionRequestErrorHandler(request,
                                                                                messageEvent,
                                                                                storeRepository);
@@ -187,15 +184,6 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                             }
                             try {
                                 List<Version> versions = inMemoryStore.getVersions(requestObject.getKey());
-
-                                System.out.println("Printing versions here");
-                                for(Version v: versions) {
-                                    String etag = CoordinatorUtils.getSerializedVectorClock((VectorClock) v);
-                                    System.out.println(etag);
-                                }
-                                if(versions != null) {
-                                    System.out.println("Procedding to construct response");
-                                }
                                 GetVersionResponseSender responseConstructor = new GetVersionResponseSender(messageEvent,
                                                                                                             requestObject.getKey(),
                                                                                                             versions,
