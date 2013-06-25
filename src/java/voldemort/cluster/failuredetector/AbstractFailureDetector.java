@@ -171,7 +171,9 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
             synchronized(nodeStatus) {
                 nodeStatus.setNumConsecutiveCatastrophicErrors(0);
-                System.err.println("Resetting # consecutive connect errors for node : " + node);
+                if(logger.isTraceEnabled()) {
+                    logger.trace("Resetting # consecutive connect errors for node : " + node);
+                }
                 nodeStatus.notifyAll();
             }
 
