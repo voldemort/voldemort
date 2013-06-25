@@ -84,7 +84,6 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
         this.maxTries = maxTries;
         this.stealerNodeId = stealInfo.getStealerId();
         this.donorNodeId = stealInfo.getDonorId();
-
         this.scheduler = scheduler;
 
         taskLog(toString());
@@ -94,17 +93,18 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
         int nTries = 0;
         AlreadyRebalancingException rebalanceException = null;
 
-        while(nTries < maxTries) {
+        while (nTries < maxTries) {
             nTries++;
             try {
-
-                taskLog("Trying to start async rebalance task on stealer node " + stealerNodeId);
+                taskLog("Trying to start async rebalance task on stealer node "
+                        + stealerNodeId);
                 int asyncOperationId = adminClient.rebalanceOps.rebalanceNode(stealInfos.get(0));
-                taskLog("Started async rebalance task on stealer node " + stealerNodeId);
+                taskLog("Started async rebalance task on stealer node "
+                        + stealerNodeId);
 
                 return asyncOperationId;
 
-            } catch(AlreadyRebalancingException e) {
+            } catch (AlreadyRebalancingException e) {
                 taskLog("Node " + stealerNodeId
                         + " is currently rebalancing. Waiting till completion");
                 adminClient.rpcOps.waitForCompletion(stealerNodeId,
@@ -114,8 +114,8 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
             }
         }
 
-        throw new VoldemortException("Failed to start rebalancing with plan: " + getStealInfos(),
-                                     rebalanceException);
+        throw new VoldemortException("Failed to start rebalancing with plan: "
+                + getStealInfos(), rebalanceException);
     }
 
     @Override
@@ -129,16 +129,18 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
             rebalanceAsyncId = startNodeRebalancing();
             taskStart(rebalanceAsyncId);
 
-            adminClient.rpcOps.waitForCompletion(stealerNodeId, rebalanceAsyncId);
+            adminClient.rpcOps.waitForCompletion(stealerNodeId,
+                                                 rebalanceAsyncId);
             taskDone(rebalanceAsyncId);
 
-        } catch(UnreachableStoreException e) {
+        } catch (UnreachableStoreException e) {
             exception = e;
-            logger.error("Stealer node " + stealerNodeId
+            logger.error("Stealer node "
+                                 + stealerNodeId
                                  + " is unreachable, please make sure it is up and running : "
                                  + e.getMessage(),
                          e);
-        } catch(Exception e) {
+        } catch (Exception e) {
             exception = e;
             logger.error("Rebalance failed : " + e.getMessage(), e);
         } finally {
@@ -150,7 +152,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
 
     @Override
     public String toString() {
-        return "Stealer based rebalance task on stealer node " + stealerNodeId + " : "
-               + getStealInfos();
+        return "Stealer based rebalance task on stealer node " + stealerNodeId
+                + " : " + getStealInfos();
     }
 }
