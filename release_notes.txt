@@ -1,3 +1,10 @@
+Note: This is a custom release based on top of 1.4.0 to test
+the new failure detector code. 
+
+Release 1.4.1 on 06/25/2013
+* Changed Threshold Failure detector to mark a node as unavailable
+  after a certain number of consecutive fatal exceptions
+
 Note: Server changes are not backwards compatible. To use new
 rebalancing tooling, servers must be upgraded before hand.
 
