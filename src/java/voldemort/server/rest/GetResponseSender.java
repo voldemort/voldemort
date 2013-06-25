@@ -4,7 +4,6 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGT
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LOCATION;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TRANSFER_ENCODING;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.ETAG;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
@@ -70,15 +69,15 @@ public class GetResponseSender extends RestResponseSender {
             try {
                 // Add the right headers
                 body.addHeader(CONTENT_TYPE, "application/octet-stream");
-                body.addHeader(CONTENT_LOCATION, contentLocationKey);
                 body.addHeader(CONTENT_TRANSFER_ENCODING, "binary");
                 body.addHeader(CONTENT_LENGTH, "" + responseValue.length);
-                body.addHeader(ETAG, eTag);
+                body.addHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK, eTag);
                 body.setContent(responseValue, "application/octet-stream");
 
                 multiPart.addBodyPart(body);
             } catch(MessagingException me) {
                 logger.error("Exception while constructing body part", me);
+                outputStream.close();
                 throw me;
             }
 
@@ -87,6 +86,7 @@ public class GetResponseSender extends RestResponseSender {
             multiPart.writeTo(outputStream);
         } catch(Exception e) {
             logger.error("Exception while writing multipart to output stream", e);
+            outputStream.close();
             throw e;
         }
         ChannelBuffer responseContent = ChannelBuffers.dynamicBuffer();
@@ -98,6 +98,7 @@ public class GetResponseSender extends RestResponseSender {
         // Set the right headers
         response.setHeader(CONTENT_TYPE, "multipart/binary");
         response.setHeader(CONTENT_TRANSFER_ENCODING, "binary");
+        response.setHeader(CONTENT_LOCATION, contentLocationKey);
 
         // Copy the data into the payload
         response.setContent(responseContent);
@@ -105,6 +106,8 @@ public class GetResponseSender extends RestResponseSender {
 
         // Write the response to the Netty Channel
         this.messageEvent.getChannel().write(response);
+
+        outputStream.close();
 
     }
 }

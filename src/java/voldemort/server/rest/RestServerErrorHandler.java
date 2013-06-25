@@ -219,7 +219,6 @@ public abstract class RestServerErrorHandler {
         String vectorClockHeader = this.request.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK);
         if(vectorClockHeader != null) {
             ObjectMapper mapper = new ObjectMapper();
-
             try {
                 VectorClockWrapper vcWrapper = mapper.readValue(vectorClockHeader,
                                                                 VectorClockWrapper.class);

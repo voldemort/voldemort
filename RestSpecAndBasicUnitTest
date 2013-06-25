@@ -1,0 +1,358 @@
+REST SPEC FRAMEWORK TESTS
+-------------------------
+
+common tests:
+------------
+
+
+missing routing type
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}" --header "Content-Type: text" --data "How are you doing today" http://localhost:8081/test/a2V5MQ== 
+Failure: 400 Bad Request. Missing routing type parameter.
+
+
+invalid routing type
+curl -i --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 5" http://localhost:8081/test/a2V5MQ==
+Failure: 400 Bad Request. Incorrect routing type code: 5. Details: Invalid RequestRoutingType code passed 5
+
+
+non number routing type
+curl -i -X DELETE --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: asdf" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}"  http://localhost:8081/test/a2V5MQ== 
+Failure: 400 Bad Request. Incorrect routing type parameter. Cannot parse this to long: asdf. Details: For input string: "asdf"
+
+
+missing timeout
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}" --header "Content-Type: text" --data "How are you doing today" http://localhost:8081/test/a2V5MQ== 
+Failure: 400 Bad Request. Missing timeout parameter.
+
+
+non number timeout
+curl -i --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000sdfga" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/a2V5MQ==
+Failure: 400 Bad Request. Incorrect timeout parameter. Cannot parse this to long: 10000sdfga. Details: For input string: "10000sdfga"
+
+
+missing timestamp
+curl -i -X DELETE --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 1" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}"  http://localhost:8081/test/a2V5MQ== 
+Failure: 400 Bad Request. Missing origin time parameter.
+
+
+non number timestamp
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:137dfg0912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}" --header "Content-Type: text" --data "How are you doing today" http://localhost:8081/test/a2V5MQ== 
+Failure: 400 Bad Request. Incorrect origin time parameter. Cannot parse this to long: 137dfg0912076. Details: For input string: "137dfg0912076"
+
+
+missing key
+curl -i --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/
+Failure: 400 Bad Request. Error: No key specified !
+
+
+missing store name ?
+// TODO should be tested after implementing store. For now temporarily using inMemoryStore
+
+
+include inconsistency resolverheader
+curl -i -X DELETE --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Routing-Type-Code: 1" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}" --header "X-VOLD-Inconsistency-Resolver:custom"  http://localhost:8081/test/a2V5MQ== 
+Failure: 400 Bad Request. Cannot have Inconsitence resolver header
+
+
+get tests
+---------
+
+get all tests
+-------------
+
+get version tests
+-----------------
+
+put tests
+---------
+missing vector clock
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000"  --header "X-VOLD-Routing-Type-Code: 2" --header "Content-Type: text" --data "How are you doing today" http://localhost:8081/test/a2V5MQ==
+Failure: 400 Bad Request. Missing Vector Clock
+
+
+invalid format
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{s\":[{\"version\":34,\"nodeId\":0}]}" --header "Content-Type: text" --data "How are you doing today" http://localhost:8081/test/a2V5MQ==
+Failure: 400 Bad Request. Invalid Vector Clock
+
+
+missing content type
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}" --data "How are you doing today" http://localhost:8081/test/a2V5MQ==
+This command will not error out since default values for CONTENT_TYPE will be assumed if the header is not explicitly specified
+
+
+empty content type
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}" --header "Content-Type:    " --data "How are you doing today" http://localhost:8081/test/a2V5MQ==
+Failure: 400 Bad Request. Missing Content-Type header
+
+
+invalid content type
+//TODO need to validate content types in the server side
+
+
+missing content length
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}" --header "Content-Type: text" --data "How are you doing today" http://localhost:8081/test/a2MQ==
+This command will not error out since CONTENT_LENGTH will be sent automatically by the http client if the header is not explicitly specified
+
+
+non number content length
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}" --header "Content-Type: text" --header "Content-Length: sdf" --data "How are you doing today" http://localhost:8081/test/sdf2MQ==
+curl: (52) Empty reply from server
+
+
+empty content length
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}" --header "Content-Type: text" --header "Content-Length: " --data "How are you doing today" http://localhost:8081/test/sdf2MQ==
+Failure: 400 Bad Request. Missing Content-Length header
+
+
+delete tests
+------------
+missing vector clock
+curl -i -X DELETE --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Routing-Type-Code: 1" --header "X-VOLD-Vector-Clock:"  http://localhost:8081/test/a2V5MQ==
+Failure: 400 Bad Request. Missing Vector Clock
+
+
+curl -i -X DELETE --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Routing-Type-Code: 1"   http://localhost:8081/test/a2V5MQ==
+Failure: 400 Bad Request. Missing Vector Clock
+
+
+invalid format of vector clock
+curl -i -X DELETE --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Routing-Type-Code: 1" --header "X-VOLD-Vector-Clock:{\"timest\"version\":34,\"nodeId\":0}]}"  http://localhost:8081/test/a2V5MQ==
+Failure: 400 Bad Request. Invalid Vector Clock
+
+
+get metadata tests
+------------------
+
+
+
+
+BASIC FUNCTIONALITY TESTS
+-------------------------
+1. put(Key1, value1, version1)
+2. get(key1)
+3. put(key2, value2, version2) 
+4. getall(key1, key2)  #get all values 
+5. getversion(key2) # should return single version
+6. put(key1, value2, version3) #conflicting versions
+7. getversion(key1)   #should return multiple versions
+8. getall(key1,key2)  #should return two versions for key1 and 1 versioned value for key2
+9. delete(key1, version1) 
+10. get(key1)  #should return one version now
+11. delete(key1, version3)
+12. get(key1) # should return nothing
+13. delete(key1, version1) # should error saying non exisitng key
+14. getall(key1,key2)  #should see values only for key2
+15. delete(key2, version2)
+16. getversion(key2)  #should not see any version. non existing key error
+
+
+1.put(Key1, value1, version1)
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}" --header "Content-Type: text" --data "How are you today" http://localhost:8081/test/a2V5MQ==
+HTTP/1.1 201 Created
+Content-Length: 0
+
+
+2.get(key1)
+curl -i --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/a2V5MQ==
+HTTP/1.1 200 OK
+Content-Type: multipart/binary
+Content-Transfer-Encoding: binary
+Content-Location: /test/a2V5MQ==
+Content-Length: 212
+
+------=_Part_0_133441329.1372134443257
+X-VOLD-Vector-Clock: {"timestamp":1363036572186,"versions":[{"version":34,"nodeId":0}]}
+Content-Length: 17
+
+How are you today
+------=_Part_0_133441329.1372134443257--
+
+
+
+3.put(key2, value2, version2)
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370911234" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036571234,\"versions\":[{\"version\":25,\"nodeId\":0}]}" --header "Content-Type: text" --data "Hi there" http://localhost:8081/test/a2V5
+HTTP/1.1 201 Created
+Content-Length: 0
+
+
+4.getall(key1, key2)  #get all values
+curl -i --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/a2V5MQ==,a2V5
+HTTP/1.1 200 OK
+Content-Type: multipart/binary
+Content-Transfer-Encoding: binary
+Content-Length: 653
+
+------=_Part_1_1455093129.1372134497168
+Content-Location: /test/a2V5MQ==
+Content-Length: -1
+
+------=_Part_2_206447067.1372134497168
+X-VOLD-Vector-Clock: {"timestamp":1363036572186,"versions":[{"version":34,"nodeId":0}]}
+Content-Length: 17
+
+How are you today
+------=_Part_2_206447067.1372134497168--
+
+------=_Part_1_1455093129.1372134497168
+Content-Location: /test/a2V5
+Content-Length: -1
+
+------=_Part_3_1569765164.1372134497169
+X-VOLD-Vector-Clock: {"timestamp":1363036571234,"versions":[{"version":25,"nodeId":0}]}
+Content-Length: 8
+
+Hi there
+------=_Part_3_1569765164.1372134497169--
+
+------=_Part_1_1455093129.1372134497168--
+
+
+
+
+5.getversion(key2) # should return single version
+curl -i -X HEAD --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/a2V5
+HTTP/1.1 200 OK
+Content-Transfer-Encoding: binary
+Content-Length: 0
+Content-Location: /test/a2V5
+X-VOLD-Vector-Clock: {"timestamp":1363036571234,"versions":[{"version":25,"nodeId":0}]}
+
+
+
+
+6.put(key1, value2, version2) #conflicting versions
+curl -i -X POST --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Routing-Type-Code: 2" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":36,\"nodeId\":1}]}" --header "Content-Type: text" --data "How are you today" http://localhost:8081/test/a2V5MQ==
+HTTP/1.1 201 Created
+Content-Length: 0
+
+
+
+7. getversion(key1)   #should return multiple versions
+curl -i -X HEAD --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/a2V5MQ==
+HTTP/1.1 200 OK
+Content-Transfer-Encoding: binary
+Content-Length: 0
+Content-Location: /test/a2V5MQ==
+X-VOLD-Vector-Clock: {"timestamp":1363036572186,"versions":[{"version":34,"nodeId":0}]}, {"timestamp":1363036572186,"versions":[{"version":36,"nodeId":1}]}
+
+
+
+8. getall(key1,key2)  #should return two versions for key1 and 1 versioned value for key2
+curl -i --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/a2V5MQ==,a2V5
+HTTP/1.1 200 OK
+Content-Type: multipart/binary
+Content-Transfer-Encoding: binary
+Content-Length: 823
+
+------=_Part_4_745296726.1372134642827
+Content-Location: /test/a2V5MQ==
+Content-Length: -1
+
+------=_Part_5_2077444578.1372134642827
+X-VOLD-Vector-Clock: {"timestamp":1363036572186,"versions":[{"version":34,"nodeId":0}]}
+Content-Length: 17
+
+How are you today
+------=_Part_5_2077444578.1372134642827
+X-VOLD-Vector-Clock: {"timestamp":1363036572186,"versions":[{"version":36,"nodeId":1}]}
+Content-Length: 17
+
+How are you today
+------=_Part_5_2077444578.1372134642827--
+
+------=_Part_4_745296726.1372134642827
+Content-Location: /test/a2V5
+Content-Length: -1
+
+------=_Part_6_1821889520.1372134642828
+X-VOLD-Vector-Clock: {"timestamp":1363036571234,"versions":[{"version":25,"nodeId":0}]}
+Content-Length: 8
+
+Hi there
+------=_Part_6_1821889520.1372134642828--
+
+------=_Part_4_745296726.1372134642827--
+
+
+
+9. delete(key1, version 1)
+curl -i -X DELETE --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Routing-Type-Code: 1" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}"   http://localhost:8081/test/a2V5MQ==
+HTTP/1.1 204 No Content
+Content-Length: 0
+
+
+10. get(key1)  #should return only one version now
+curl -i --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/a2V5MQ==
+HTTP/1.1 200 OK
+Content-Type: multipart/binary
+Content-Transfer-Encoding: binary
+Content-Location: /test/a2V5MQ==
+Content-Length: 214
+
+------=_Part_7_1664751480.1372134733915
+X-VOLD-Vector-Clock: {"timestamp":1363036572186,"versions":[{"version":36,"nodeId":1}]}
+Content-Length: 17
+
+How are you today
+------=_Part_7_1664751480.1372134733915--
+
+11.delete(key1, version3)
+curl -i -X DELETE --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Routing-Type-Code: 1" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":36,\"nodeId\":1}]}"   http://localhost:8081/test/a2V5MQ==
+HTTP/1.1 204 No Content
+Content-Length: 0
+
+12. get(key1)  #should return nothing
+curl -i --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/a2V5MQ==
+HTTP/1.1 404 Not Found
+Content-Type: text/plain; charset=UTF-8
+
+Failure: 404 Not Found. Either key does not exist or key is null
+
+
+
+
+13. delete(key1, version1) # should error saying non exisitng key
+curl -i -X DELETE --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Routing-Type-Code: 1" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036572186,\"versions\":[{\"version\":34,\"nodeId\":0}]}"   http://localhost:8081/test/a2V5MQ==
+HTTP/1.1 404 Not Found
+Content-Type: text/plain; charset=UTF-8
+
+Failure: 404 Not Found. Non Existing key/version. Nothing to delete
+
+
+
+14. getall(key1,key2)  #should see values only for key2
+curl -i --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/a2V5MQ==,a2V5
+HTTP/1.1 200 OK
+Content-Type: multipart/binary
+Content-Transfer-Encoding: binary
+Content-Length: 344
+
+------=_Part_9_1098710886.1372135176159
+Content-Location: /test/a2V5
+Content-Length: -1
+
+------=_Part_10_1969464096.1372135176159
+X-VOLD-Vector-Clock: {"timestamp":1363036571234,"versions":[{"version":25,"nodeId":0}]}
+Content-Length: 8
+
+Hi there
+------=_Part_10_1969464096.1372135176159--
+
+------=_Part_9_1098710886.1372135176159--
+
+
+
+
+15. delete(key2, version2)
+curl -i -X DELETE --header "X-VOLD-Request-Timeout-ms: 1000000" --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Routing-Type-Code: 1" --header "X-VOLD-Vector-Clock:{\"timestamp\":1363036571234,\"versions\":[{\"version\":25,\"nodeId\":0}]}" http://localhost:8081/test/a2V5
+HTTP/1.1 204 No Content
+Content-Length: 0
+
+
+16. getversion(key2)  #should not see any version. Non existing key error
+curl -i -X HEAD --header "X-VOLD-Request-Origin-Time-ms:1370912076" --header "X-VOLD-Request-Timeout-ms: 10000" --header "X-VOLD-Routing-Type-Code: 2" http://localhost:8081/test/a2V5
+HTTP/1.1 404 Not Found
+Content-Type: text/plain; charset=UTF-8
+
+Failure: 404 Not Found. Either key does not exist or key is null 
+

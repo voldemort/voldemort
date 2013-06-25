@@ -17,6 +17,7 @@
 package voldemort.server.rest;
 
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
+import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
 
 import java.util.List;
 import java.util.Map;
@@ -122,11 +123,23 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                             try {
                                 List<Versioned<byte[]>> versionedValues = inMemoryStore.get(requestObject.getKey(),
                                                                                             null);
-                                GetResponseSender responseConstructor = new GetResponseSender(messageEvent,
-                                                                                              requestObject.getKey(),
-                                                                                              versionedValues,
-                                                                                              inMemoryStore.getName());
-                                responseConstructor.sendResponse();
+                                // handle non existing key
+                                if(versionedValues.size() > 0) {
+                                    GetResponseSender responseConstructor = new GetResponseSender(messageEvent,
+                                                                                                  requestObject.getKey(),
+                                                                                                  versionedValues,
+                                                                                                  inMemoryStore.getName());
+                                    responseConstructor.sendResponse();
+                                } else {
+                                    /*
+                                     * TODO REST-Server Need to differentiate
+                                     * null & non existing keys
+                                     */
+                                    RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                                              NOT_FOUND,
+                                                                              "Either key does not exist or key is null");
+                                }
+
                             } catch(Exception e) {
                                 errorHandler.handleExceptions(e);
                             }
@@ -139,10 +152,29 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                             try {
                                 Map<ByteArray, List<Versioned<byte[]>>> keyValuesMap = inMemoryStore.getAll(requestObject.getIterableKeys(),
                                                                                                             null);
-                                GetAllResponseSender responseConstructor = new GetAllResponseSender(messageEvent,
-                                                                                                    keyValuesMap,
-                                                                                                    inMemoryStore.getName());
-                                responseConstructor.sendResponse();
+                                // check if there is atleast one valid key
+                                // before sending response
+                                boolean hasAtleastOneValidKey = false;
+                                for(List<Versioned<byte[]>> values: keyValuesMap.values()) {
+                                    if(values.size() > 0) {
+                                        hasAtleastOneValidKey = true;
+                                        break;
+                                    }
+                                }
+                                if(hasAtleastOneValidKey) {
+                                    GetAllResponseSender responseConstructor = new GetAllResponseSender(messageEvent,
+                                                                                                        keyValuesMap,
+                                                                                                        inMemoryStore.getName());
+                                    responseConstructor.sendResponse();
+                                } else {
+                                    /*
+                                     * TODO REST-Server Need to differentiate
+                                     * null & non existing keys
+                                     */
+                                    RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                                              NOT_FOUND,
+                                                                              "Either key does not exist or key is null");
+                                }
                             } catch(Exception e) {
                                 errorHandler.handleExceptions(e);
                             }
@@ -170,6 +202,12 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                             try {
                                 boolean result = inMemoryStore.delete(requestObject.getKey(),
                                                                       requestObject.getVersion());
+                                if(!result) {
+                                    RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                                              NOT_FOUND,
+                                                                              "Non Existing key/version. Nothing to delete");
+                                    break;
+                                }
                                 DeleteResponseSender responseConstructor = new DeleteResponseSender(messageEvent);
                                 responseConstructor.sendResponse();
                             } catch(Exception e) {
@@ -184,11 +222,24 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                             }
                             try {
                                 List<Version> versions = inMemoryStore.getVersions(requestObject.getKey());
-                                GetVersionResponseSender responseConstructor = new GetVersionResponseSender(messageEvent,
-                                                                                                            requestObject.getKey(),
-                                                                                                            versions,
-                                                                                                            inMemoryStore.getName());
-                                responseConstructor.sendResponse();
+
+                                // handle non existing key
+                                if(versions.size() > 0) {
+                                    GetVersionResponseSender responseConstructor = new GetVersionResponseSender(messageEvent,
+                                                                                                                requestObject.getKey(),
+                                                                                                                versions,
+                                                                                                                inMemoryStore.getName());
+                                    responseConstructor.sendResponse();
+
+                                } else {
+                                    /*
+                                     * TODO REST-Server Need to differentiate
+                                     * null & non existing keys
+                                     */
+                                    RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                                              NOT_FOUND,
+                                                                              "Either key does not exist or key is null");
+                                }
                             } catch(Exception e) {
                                 errorHandler.handleExceptions(e);
                             }

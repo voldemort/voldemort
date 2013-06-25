@@ -36,8 +36,8 @@ public class RestServerPutRequestErrorHandler extends RestServerErrorHandler {
             parseValue();
             if(this.parsedValue != null) {
                 requestObject = new CompositeVersionedPutVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
-                                                                                             new Versioned(this.parsedValue,
-                                                                                                           this.parsedVectorClock),
+                                                                                             new Versioned<byte[]>(this.parsedValue,
+                                                                                                                   this.parsedVectorClock),
                                                                                              this.parsedRoutingTimeoutInMs,
                                                                                              this.parsedRequestOriginTimeInMs,
                                                                                              this.parsedRoutingType);

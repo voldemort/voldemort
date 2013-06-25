@@ -4,7 +4,6 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGT
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LOCATION;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TRANSFER_ENCODING;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.ETAG;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
@@ -67,8 +66,10 @@ public class GetAllResponseSender extends RestResponseSender {
                 // Add the right headers
                 keyBody.addHeader(CONTENT_TYPE, "application/octet-stream");
                 keyBody.addHeader(CONTENT_TRANSFER_ENCODING, "binary");
+                keyBody.addHeader(CONTENT_LOCATION, contentLocationKey);
             } catch(MessagingException me) {
                 logger.error("Exception while constructing key body headers", me);
+                keysOutputStream.close();
                 throw me;
             }
             // multiPartValues is the inner multipart
@@ -86,15 +87,15 @@ public class GetAllResponseSender extends RestResponseSender {
                 try {
                     // Add the right headers
                     valueBody.addHeader(CONTENT_TYPE, "application/octet-stream");
-                    valueBody.addHeader(CONTENT_LOCATION, contentLocationKey);
                     valueBody.addHeader(CONTENT_TRANSFER_ENCODING, "binary");
                     valueBody.addHeader(CONTENT_LENGTH, "" + responseValue.length);
-                    valueBody.addHeader(ETAG, eTag);
+                    valueBody.addHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK, eTag);
                     valueBody.setContent(responseValue, "application/octet-stream");
 
                     multiPartValues.addBodyPart(valueBody);
                 } catch(MessagingException me) {
                     logger.error("Exception while constructing value body part", me);
+                    keysOutputStream.close();
                     throw me;
                 }
 
@@ -106,6 +107,7 @@ public class GetAllResponseSender extends RestResponseSender {
                 multiPartKeys.addBodyPart(keyBody);
             } catch(MessagingException me) {
                 logger.error("Exception while constructing key body part", me);
+                keysOutputStream.close();
                 throw me;
             }
 
@@ -133,5 +135,7 @@ public class GetAllResponseSender extends RestResponseSender {
 
         // Write the response to the Netty Channel
         this.messageEvent.getChannel().write(response);
+
+        keysOutputStream.close();
     }
 }
