@@ -180,7 +180,7 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                                  + nodeStatus.getNumConsecutiveCatastrophicErrors());
 
                     nodeStatus.incrementConsecutiveCatastrophicErrors();
-                    if(nodeStatus.getNumConsecutiveCatastrophicErrors() >= 10) {
+                    if(nodeStatus.getNumConsecutiveCatastrophicErrors() >= this.failureDetectorConfig.getMaximumTolerableFatalFailures()) {
                         invokeSetUnavailable = true;
                     }
                 } else if(nodeStatus.getFailure() >= getConfig().getThresholdCountMinimum()) {
