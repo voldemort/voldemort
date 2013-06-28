@@ -1,6 +1,9 @@
 Note: Server changes are not backwards compatible. To use new
 rebalancing tooling, servers must be upgraded before hand.
 
+Release 1.4.2 on 06/27/2013
+* Fixing costly StoreRoutingPlan object construction
+
 Release 1.4.0 on 06/21/2013
 * Zone expansion release
 
