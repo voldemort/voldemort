@@ -111,10 +111,10 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
         if(config != null) {
             asyncMetadataManager = scheduleAsyncMetadataVersionManager(clientId.toString(),
                                                                        config.getAsyncMetadataRefreshInMs());
+            clientRegistryRefresher = registerClient(clientId,
+                                                     config.getClientRegistryUpdateIntervalInSecs());
         }
-
-        clientRegistryRefresher = registerClient(clientId,
-                                                 config.getClientRegistryUpdateIntervalInSecs());
+        
         logger.info("Voldemort client created: " + clientId + "\n" + clientInfo);
     }
 
