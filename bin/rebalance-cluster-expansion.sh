@@ -109,7 +109,7 @@ if [ ! -e $interim_cluster ]; then
 fi
 
 
-# The final cluster.xml for new cluster is generated in two steps.
+# The final cluster.xml for cluster expansion is generated in two steps.
 # Step 1: Current cluster.xml is fed to the repartitioner along with the interim cluster xml.
 #         The repartitioner tries to balance the ring by moving the partitions around.
 # Step 2: A plan is generated on how to reach from the orignal cluster topology to
