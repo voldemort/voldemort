@@ -109,10 +109,10 @@ public class ConsistencyCheck {
         }
 
         /* confirm same number of partitions in all clusters. */
-        Integer partitionCount = null;
+        int partitionCount = 0;
         for(Entry<String, Cluster> entry: clusterMap.entrySet()) {
-            Integer currentPartitionCount = entry.getValue().getNumberOfPartitions();
-            if(partitionCount == null) {
+            int currentPartitionCount = entry.getValue().getNumberOfPartitions();
+            if (partitionCount == 0) {
                 partitionCount = currentPartitionCount;
             }
             if(partitionCount != currentPartitionCount) {
