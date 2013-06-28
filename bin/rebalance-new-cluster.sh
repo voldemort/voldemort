@@ -4,8 +4,8 @@
 #   Copyright 2013 LinkedIn, Inc
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
-#   you may not use this file except in compliance with the License.
-#   You may obtain a copy of the License at
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -33,8 +33,8 @@ usage_and_exit() {
    -h     Show this message
    -v     Path to Voldemort
    -c     Current Cluster that desribes the cluster.
-   -s     Current Stores that desribes the store. If you do not have info about the stores yet, use
-          'config/tools/dummy-stores.xml' from the gitli repo.
+   -s     Current Stores that desribes the store. If you do not have info about the stores yet, look
+          under 'voldemort_home/config/tools/' for some store examples.
    -o     Output dir where all interim and final files will be stored.
           The directory will be created if it does not exist yet.
 EOF
