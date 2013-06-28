@@ -15,14 +15,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# This script uses getopts which means only single character switches are allowed.
-# Using getopt would allow for multi charcter switch names but would come at a 
-# cost of not being cross compatibility.
-
 # This script generates a cluster.xml and a plan for the zone expansion.
 # The final cluster is placed in output_dir/
 # Argument = -v vold_home -c current_cluster -s current_stores -i interim_cluster -f final_stores
 #            -o output dir
+
+# This script uses getopts which means only single character switches are allowed.
+# Using getopt would allow for multi charcter switch names but would come at a 
+# cost of not being cross compatibility.
 
 # Function to display usage
 usage_and_exit() {

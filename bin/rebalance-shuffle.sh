@@ -102,7 +102,7 @@ if [ ! -e $current_stores ]; then
     usage_and_exit "File '$current_stores' does not exist."
 fi
 
-# The final cluster.xml for new cluster is generated in two steps.
+# The final cluster.xml after shuffling is generated in two steps.
 # Step 1: Current cluster.xml is fed to the repartitioner along with random swap
 #         attempts. The repartitioner randomly swaps the partitions 
 #         and tries to balance the ring.
