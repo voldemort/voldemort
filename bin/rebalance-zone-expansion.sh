@@ -17,7 +17,7 @@
 
 # This script generates a cluster.xml and a plan for the zone expansion.
 # The final cluster is placed in output_dir/
-# Argument = -v vold_home -c current_cluster -s current_stores -i interim_cluster -f final_stores
+# Argument = -c current_cluster -s current_stores -i interim_cluster -f final_stores
 #            -o output dir
 
 # This script uses getopts which means only single character switches are allowed.
@@ -32,7 +32,6 @@ usage_and_exit() {
   Usage: $0 options 
   OPTIONS:
    -h     Show this message
-   -v     Path to Voldemort
    -c     Current Cluster that desribes the cluster
    -s     Current Stores that desribes the store. If you do not have info about the stores yet, look
           under 'voldemort_home/config/tools/' for some store examples.
@@ -44,24 +43,23 @@ exit 1
 }
 
 # initiliaze varibles to an empty string
-vold_home=""
 current_cluster=""
 current_stores=""
 interim_cluster=""
 final_stores=""
 output_dir=""
 
+# Figure out voldemort home directory
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+vold_home="$(dirname "$dir")"
+
 # Parse options
-while getopts “hv:c:s:i:f:o:” OPTION
+while getopts “hc:s:i:f:o:” OPTION
 do
   case $OPTION in
   h)
     usage_and_exit
     exit 1
-    ;;
-  v)
-    vold_home=$OPTARG
-   echo "[rebalance-zone-expansion] Voldemort home='$vold_home' "
     ;;
   c)
     current_cluster=$OPTARG
@@ -90,17 +88,13 @@ do
      esac
 done
 
-if [[ -z $vold_home ]] || [[ -z $current_cluster ]] || [[ -z $current_stores ]] \
-    || [[ -z $interim_cluster ]] || [[ -z $final_stores ]] || [[ -z $output_dir ]]
+if  [[ -z $current_cluster ]] || [[ -z $current_stores ]] || [[ -z $interim_cluster ]] \
+    || [[ -z $final_stores ]] || [[ -z $output_dir ]]
 then
      printf "\n"
      echo "[rebalance-zone-expansion] Missing argument. Check again."
      usage_and_exit
      exit 1
-fi
-
-if [ ! -d $vold_home ]; then
-    usage_and_exit "Directory '$vold_home' does not exist."
 fi
 
 if [ ! -e $current_cluster ]; then
