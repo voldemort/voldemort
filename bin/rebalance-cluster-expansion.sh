@@ -17,7 +17,7 @@
 
 # This script generates a cluster.xml and a plan for the cluster expansion.
 # The final cluster is placed in output_dir/
-# Argument = -v vold_home -c current_cluster -s current_stores -i interim_cluster -o output dir
+# Argument = -c current_cluster -s current_stores -i interim_cluster -o output dir
 
 # This script uses getopts which means only single character switches are allowed.
 # Using getopt would allow for multi charcter switch names but would come at a 
@@ -31,7 +31,6 @@ usage_and_exit() {
   Usage: $0 options 
   OPTIONS:
    -h     Show this message
-   -v     Path to Voldemort
    -c     Current Cluster that desribes the cluster
    -s     Current Stores that desribes the store. If you do not have info about the stores yet, look
           under 'voldemort_home/config/tools/' for some store examples.
@@ -41,24 +40,23 @@ EOF
 exit 1
 }
 
-# initiliaze varibles to an empty string
-vold_home=""
+# Initiliaze varibles to an empty string
 current_cluster=""
 current_stores=""
 interim_cluster=""
 output_dir=""
 
+# Figure out voldemort home directory
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+vold_home="$(dirname "$dir")"
+
 # Parse options
-while getopts “hv:c:s:i:o:” OPTION
+while getopts “hc:s:i:o:” OPTION
 do
   case $OPTION in
   h)
     usage_and_exit
     exit 1
-    ;;
-  v)
-    vold_home=$OPTARG
-   echo "[rebalance-cluster-expansion] Voldemort home='$vold_home' "
     ;;
   c)
     current_cluster=$OPTARG
@@ -83,17 +81,13 @@ do
      esac
 done
 
-if [[ -z $vold_home ]] || [[ -z $current_cluster ]] || [[ -z $current_stores ]] \
+if [[ -z $current_cluster ]] || [[ -z $current_stores ]] \
     || [[ -z $interim_cluster ]] || [[ -z $output_dir ]]
 then
      printf "\n"
      echo "[rebalance-cluster-expansion] Missing argument. Check again."
      usage_and_exit
      exit 1
-fi
-
-if [ ! -d $vold_home ]; then
-    usage_and_exit "Directory '$vold_home' does not exist."
 fi
 
 if [ ! -e $current_cluster ]; then
@@ -115,8 +109,9 @@ fi
 # Step 2: A plan is generated on how to reach from the orignal cluster topology to
 #         the one that is generated in step 1.
 #
-swap_attempts=1000
-attempts=5
+swap_attempts=10
+attempts=2
+
 
 # Step 1
 mkdir -p $output_dir/step1/
