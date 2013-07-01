@@ -15,10 +15,19 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# This script generates a cluster.xml and a plan for the cluster expansion.
+# This script generates a final cluster.xml and a plan for the cluster expansion.
 # The final cluster is placed in output_dir/
 # Argument = -c current_cluster -s current_stores -i interim_cluster -o output dir
-
+#
+# This script steals partitions from other nodes and assigns them to the new nodes
+# in the cluster. While stealing partitions, the script doesn't make an effort to balance
+# the cluster. However, because the repartitioner is invoked multiple distinct times, 
+# the most balanced such expansion is chosen. #To further rebalance the cluster, 
+# use the rebalance-shuffle script.
+# 
+# In a typical workflow one would chain this script with the rebalance-shuffle script.
+# by running this script first and then the shuffle to achieve better balancing.
+#
 # This script uses getopts which means only single character switches are allowed.
 # Using getopt would allow for multi charcter switch names but would come at a
 # cost of not being cross compatible.
