@@ -21,7 +21,7 @@
 
 # This script uses getopts which means only single character switches are allowed.
 # Using getopt would allow for multi charcter switch names but would come at a
-# cost of not being cross compatibility.
+# cost of not being cross compatible.
 
 # Function to display usage
 usage_and_exit() {
@@ -31,8 +31,8 @@ usage_and_exit() {
   Usage: $0 options
   OPTIONS:
    -h     Show this message
-   -c     Current Cluster that desribes the cluster.
-   -s     Current Stores that desribes the store. If you do not have info about the stores yet, look
+   -c     Current cluster that describes the cluster.
+   -s     Current stores that describes the store. If you do not have info about the stores yet, look
           under 'voldemort_home/config/tools/' for some store examples.
    -o     Output dir where all interim and final files will be stored.
           The directory will be created if it does not exist yet.
@@ -40,7 +40,7 @@ EOF
 exit 1
 }
 
-# initialize  varibles to an empty string
+# initialize  variables to an empty string
 current_cluster=""
 current_stores=""
 output_dir=""
