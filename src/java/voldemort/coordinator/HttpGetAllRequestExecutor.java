@@ -29,6 +29,7 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.REQUEST_TIME
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -103,7 +104,102 @@ public class HttpGetAllRequestExecutor implements Runnable {
         this.coordinatorPerfStats = coordinatorPerfStats;
     }
 
-    public void writeResponse(Map<ByteArray, Versioned<byte[]>> responseVersioned) {
+    public void writeResponse(Map<ByteArray, List<Versioned<byte[]>>> versionedResponses)
+            throws Exception {
+        // multiPartKeys is the outer multipart
+        MimeMultipart multiPartKeys = new MimeMultipart();
+        ByteArrayOutputStream keysOutputStream = new ByteArrayOutputStream();
+
+        for(Entry<ByteArray, List<Versioned<byte[]>>> entry: versionedResponses.entrySet()) {
+            ByteArray key = entry.getKey();
+            String contentLocationKey = "/" + this.storeName + "/"
+                                        + new String(Base64.encodeBase64(key.get()));
+
+            // Create the individual body part - for each key requested
+            MimeBodyPart keyBody = new MimeBodyPart();
+            try {
+                // Add the right headers
+                keyBody.addHeader(CONTENT_TYPE, "multipart/binary");
+                keyBody.addHeader(CONTENT_TRANSFER_ENCODING, "binary");
+                keyBody.addHeader(CONTENT_LOCATION, contentLocationKey);
+            } catch(MessagingException me) {
+                logger.error("Exception while constructing key body headers", me);
+                keysOutputStream.close();
+                throw me;
+            }
+            // multiPartValues is the inner multipart
+            MimeMultipart multiPartValues = new MimeMultipart();
+            for(Versioned<byte[]> versionedValue: entry.getValue()) {
+
+                byte[] responseValue = versionedValue.getValue();
+
+                VectorClock vectorClock = (VectorClock) versionedValue.getVersion();
+                String serializedVC = CoordinatorUtils.getSerializedVectorClock(vectorClock);
+
+                // Create the individual body part - for each versioned value of
+                // a key
+                MimeBodyPart valueBody = new MimeBodyPart();
+                try {
+                    // Add the right headers
+                    valueBody.addHeader(CONTENT_TYPE, "application/octet-stream");
+                    valueBody.addHeader(CONTENT_TRANSFER_ENCODING, "binary");
+                    valueBody.addHeader(VoldemortHttpRequestHandler.X_VOLD_VECTOR_CLOCK,
+                                        serializedVC);
+                    valueBody.setContent(responseValue, "application/octet-stream");
+
+                    multiPartValues.addBodyPart(valueBody);
+                } catch(MessagingException me) {
+                    logger.error("Exception while constructing value body part", me);
+                    keysOutputStream.close();
+                    throw me;
+                }
+
+            }
+            try {
+                // Add the inner multipart as the content of the outer body part
+                keyBody.setContent(multiPartValues);
+                multiPartKeys.addBodyPart(keyBody);
+            } catch(MessagingException me) {
+                logger.error("Exception while constructing key body part", me);
+                keysOutputStream.close();
+                throw me;
+            }
+
+        }
+        try {
+            multiPartKeys.writeTo(keysOutputStream);
+        } catch(Exception e) {
+            logger.error("Exception while writing mutipart to output stream", e);
+            throw e;
+        }
+
+        ChannelBuffer responseContent = ChannelBuffers.dynamicBuffer();
+        responseContent.writeBytes(keysOutputStream.toByteArray());
+
+        // Create the Response object
+        HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
+
+        // Set the right headers
+        response.setHeader(CONTENT_TYPE, "multipart/binary");
+        response.setHeader(CONTENT_TRANSFER_ENCODING, "binary");
+
+        // Copy the data into the payload
+        response.setContent(responseContent);
+        response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
+
+        // Update the stats
+        if(this.coordinatorPerfStats != null) {
+            long durationInNs = System.nanoTime() - startTimestampInNs;
+            this.coordinatorPerfStats.recordTime(Tracked.GET_ALL, durationInNs);
+        }
+
+        // Write the response to the Netty Channel
+        this.getRequestMessageEvent.getChannel().write(response);
+
+        keysOutputStream.close();
+    }
+
+    public void writeResponseOld(Map<ByteArray, Versioned<byte[]>> responseVersioned) {
 
         // Multipart response
         MimeMultipart mp = new MimeMultipart();
@@ -186,13 +282,13 @@ public class HttpGetAllRequestExecutor implements Runnable {
     @Override
     public void run() {
         try {
-            Map<ByteArray, Versioned<byte[]>> responseVersioned = storeClient.getAllWithCustomTimeout(this.getAllRequestObject);
-            if(responseVersioned == null) {
+            Map<ByteArray, List<Versioned<byte[]>>> versionedResponses = storeClient.getAllWithCustomTimeout(this.getAllRequestObject);
+            if(versionedResponses == null || versionedResponses.entrySet().size() == 0) {
                 RESTErrorHandler.handleError(NOT_FOUND,
                                              this.getRequestMessageEvent,
                                              "Requested Key does not exist");
             }
-            writeResponse(responseVersioned);
+            writeResponse(versionedResponses);
         } catch(IllegalArgumentException illegalArgsException) {
             String errorDescription = "GETALL Failed !!! Illegal Arguments : "
                                       + illegalArgsException.getMessage();
@@ -222,6 +318,11 @@ public class HttpGetAllRequestExecutor implements Runnable {
 
         } catch(VoldemortException ve) {
             String errorDescription = "Voldemort Exception: " + ve.getMessage();
+            RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
+                                         this.getRequestMessageEvent,
+                                         errorDescription);
+        } catch(Exception e) {
+            String errorDescription = "Exception: " + e.getMessage();
             RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
                                          this.getRequestMessageEvent,
                                          errorDescription);

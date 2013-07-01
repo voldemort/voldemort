@@ -16,9 +16,11 @@
 
 package voldemort.coordinator;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
+import java.util.List;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
@@ -143,9 +145,15 @@ public class DynamicTimeoutStoreClientTest {
         }
 
         try {
-            Versioned<byte[]> versionedValue = this.dynamicTimeoutClient.getWithCustomTimeout(new CompositeGetVoldemortRequest<ByteArray, byte[]>(new ByteArray(key.getBytes()),
-                                                                                                                                                  correctTimeout,
-                                                                                                                                                  true));
+            List<Versioned<byte[]>> versionedValues = this.dynamicTimeoutClient.getWithCustomTimeout(new CompositeGetVoldemortRequest<ByteArray, byte[]>(new ByteArray(key.getBytes()),
+                                                                                                                                                         correctTimeout,
+                                                                                                                                                         true));
+            // We only expect one value in the response since resolve conflicts
+            // is set to true
+            assertTrue(versionedValues.size() == 1);
+
+            Versioned<byte[]> versionedValue = versionedValues.get(0);
+
             long endTime = System.currentTimeMillis();
             System.out.println("Total time taken = " + (endTime - startTime));
             String response = new String(versionedValue.getValue());

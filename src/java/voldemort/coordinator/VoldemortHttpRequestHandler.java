@@ -64,7 +64,7 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
     private final Logger logger = Logger.getLogger(VoldemortHttpRequestHandler.class);
     public static final String X_VOLD_REQUEST_TIMEOUT_MS = "X-VOLD-Request-Timeout-ms";
     public static final String X_VOLD_INCONSISTENCY_RESOLVER = "X-VOLD-Inconsistency-Resolver";
-    private static final String X_VOLD_VECTOR_CLOCK = "X-VOLD-Vector-Clock";
+    public static final String X_VOLD_VECTOR_CLOCK = "X-VOLD-Vector-Clock";
     public static final String CUSTOM_RESOLVING_STRATEGY = "custom";
     public static final String DEFAULT_RESOLVING_STRATEGY = "timestamp";
     public static final String SCHEMATA = "schemata";

@@ -16,6 +16,9 @@
 
 package voldemort.coordinator;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.HttpMethod;
@@ -47,7 +50,9 @@ public class NoopHttpRequestHandler extends VoldemortHttpRequestHandler {
                 Versioned<byte[]> responseVersioned = null;
                 byte[] sampleByteArray = "a".getBytes();
                 responseVersioned = new Versioned<byte[]>(sampleByteArray);
-                getExecutor.writeResponse(responseVersioned);
+                List<Versioned<byte[]>> responseList = new ArrayList<Versioned<byte[]>>();
+                responseList.add(responseVersioned);
+                getExecutor.writeResponse(responseList);
                 break;
             case VoldemortOpCode.PUT_OP_CODE:
                 HttpPutRequestExecutor putRequestExecutor = new HttpPutRequestExecutor(e);

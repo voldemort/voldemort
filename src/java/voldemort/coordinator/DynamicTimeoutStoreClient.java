@@ -18,7 +18,6 @@ package voldemort.coordinator;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
 
@@ -35,8 +34,6 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.collect.Maps;
 
 /**
  * A special store client to invoke Voldemort operations with the following new
@@ -97,12 +94,12 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
      *        / or default value) and timeout.
      * @return The Versioned value corresponding to the key
      */
-    public Versioned<V> getWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
+    public List<Versioned<V>> getWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
         validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
                 List<Versioned<V>> items = store.get(requestWrapper);
-                return getItemOrThrow(requestWrapper.getKey(), requestWrapper.getValue(), items);
+                return items;
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during get [  " + e.getMessage()
                             + " ] on store '" + storeName + "'. Rebootstrapping");
@@ -122,13 +119,15 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
      */
     public Version putWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
         validateTimeout(requestWrapper.getRoutingTimeoutInMs());
-        Versioned<V> versioned;
+        List<Versioned<V>> versionedValues;
         long startTime = System.currentTimeMillis();
 
         // We use the full timeout for doing the Get. In this, we're being
         // optimistic that the subsequent put might be faster such that all the
         // steps might finish within the alloted time
-        versioned = getWithCustomTimeout(requestWrapper);
+        requestWrapper.setResolveConflicts(true);
+        versionedValues = getWithCustomTimeout(requestWrapper);
+        Versioned<V> versioned = getItemOrThrow(requestWrapper.getKey(), null, versionedValues);
 
         long endTime = System.currentTimeMillis();
         if(versioned == null)
@@ -182,7 +181,7 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
      * 
      * @return Map of the keys to the corresponding versioned values
      */
-    public Map<K, Versioned<V>> getAllWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
+    public Map<K, List<Versioned<V>>> getAllWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
         validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         Map<K, List<Versioned<V>>> items = null;
         for(int attempts = 0;; attempts++) {
@@ -191,20 +190,13 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                              + " metadata refresh attempts failed.");
             try {
                 items = store.getAll(requestWrapper);
-                break;
+                return items;
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during getAll [  "
                             + e.getMessage() + " ] on store '" + storeName + "'. Rebootstrapping");
                 bootStrap();
             }
         }
-        Map<K, Versioned<V>> result = Maps.newHashMapWithExpectedSize(items.size());
-
-        for(Entry<K, List<Versioned<V>>> mapEntry: items.entrySet()) {
-            Versioned<V> value = getItemOrThrow(mapEntry.getKey(), null, mapEntry.getValue());
-            result.put(mapEntry.getKey(), value);
-        }
-        return result;
     }
 
     /**
@@ -215,6 +207,8 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
      * @return true if delete was successful. False otherwise
      */
     public boolean deleteWithCustomTimeout(CompositeVoldemortRequest<K, V> deleteRequestObject) {
+        List<Versioned<V>> versionedValues;
+
         validateTimeout(deleteRequestObject.getRoutingTimeoutInMs());
         if(deleteRequestObject.getVersion() == null) {
 
@@ -223,7 +217,12 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
             // We use the full timeout for doing the Get. In this, we're being
             // optimistic that the subsequent delete might be faster all the
             // steps might finish within the alloted time
-            Versioned<V> versioned = getWithCustomTimeout(deleteRequestObject);
+            deleteRequestObject.setResolveConflicts(true);
+            versionedValues = getWithCustomTimeout(deleteRequestObject);
+            Versioned<V> versioned = getItemOrThrow(deleteRequestObject.getKey(),
+                                                    null,
+                                                    versionedValues);
+
             if(versioned == null) {
                 return false;
             }

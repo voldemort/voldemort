@@ -19,7 +19,6 @@ package voldemort.coordinator;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TRANSFER_ENCODING;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.ETAG;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
@@ -27,6 +26,14 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.REQUEST_TIMEOUT;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.mail.MessagingException;
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMultipart;
+
+import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -97,31 +104,55 @@ public class HttpGetRequestExecutor implements Runnable {
         this.coordinatorPerfStats = coordinatorPerfStats;
     }
 
-    public void writeResponse(Versioned<byte[]> responseVersioned) {
+    public void writeResponse(List<Versioned<byte[]>> versionedValues) throws Exception {
 
-        byte[] value = responseVersioned.getValue();
+        MimeMultipart multiPart = new MimeMultipart();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        // Set the value as the HTTP response payload
-        byte[] responseValue = responseVersioned.getValue();
-        this.responseContent = ChannelBuffers.dynamicBuffer(responseValue.length);
-        this.responseContent.writeBytes(value);
+        for(Versioned<byte[]> versionedValue: versionedValues) {
 
-        VectorClock vc = (VectorClock) responseVersioned.getVersion();
-        String eTag = CoordinatorUtils.getSerializedVectorClock(vc);
+            byte[] responseValue = versionedValue.getValue();
 
-        if(logger.isDebugEnabled()) {
-            logger.debug("ETAG : " + eTag);
+            VectorClock vectorClock = (VectorClock) versionedValue.getVersion();
+            String serializedVectorClock = CoordinatorUtils.getSerializedVectorClock(vectorClock);
+
+            // Create the individual body part for each versioned value of the
+            // requested key
+            MimeBodyPart body = new MimeBodyPart();
+            try {
+                // Add the right headers
+                body.addHeader(CONTENT_TYPE, "application/octet-stream");
+                body.addHeader(CONTENT_TRANSFER_ENCODING, "binary");
+                body.addHeader(VoldemortHttpRequestHandler.X_VOLD_VECTOR_CLOCK,
+                               serializedVectorClock);
+                body.setContent(responseValue, "application/octet-stream");
+                body.addHeader(CONTENT_LENGTH, "" + responseValue.length);
+
+                multiPart.addBodyPart(body);
+            } catch(MessagingException me) {
+                logger.error("Exception while constructing body part", me);
+                outputStream.close();
+                throw me;
+            }
         }
+        try {
+            multiPart.writeTo(outputStream);
+        } catch(Exception e) {
+            logger.error("Exception while writing multipart to output stream", e);
+            outputStream.close();
+            throw e;
+        }
+        ChannelBuffer responseContent = ChannelBuffers.dynamicBuffer();
+        responseContent.writeBytes(outputStream.toByteArray());
 
-        // 1. Create the Response object
+        // Create the Response object
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
 
-        // 2. Set the right headers
-        response.setHeader(CONTENT_TYPE, "binary");
+        // Set the right headers
+        response.setHeader(CONTENT_TYPE, "multipart/binary");
         response.setHeader(CONTENT_TRANSFER_ENCODING, "binary");
-        response.setHeader(ETAG, eTag);
 
-        // 3. Copy the data into the payload
+        // Copy the data into the payload
         response.setContent(responseContent);
         response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
 
@@ -142,10 +173,14 @@ public class HttpGetRequestExecutor implements Runnable {
     @Override
     public void run() {
         try {
-            Versioned<byte[]> responseVersioned = storeClient.getWithCustomTimeout(this.getRequestObject);
-            if(responseVersioned == null) {
+            List<Versioned<byte[]>> versionedValues = storeClient.getWithCustomTimeout(this.getRequestObject);
+            if(versionedValues == null || versionedValues.size() == 0) {
                 if(this.getRequestObject.getValue() != null) {
-                    responseVersioned = this.getRequestObject.getValue();
+                    if(versionedValues == null) {
+                        versionedValues = new ArrayList<Versioned<byte[]>>();
+                    }
+                    versionedValues.add(this.getRequestObject.getValue());
+
                 } else {
                     RESTErrorHandler.handleError(NOT_FOUND,
                                                  this.getRequestMessageEvent,
@@ -155,7 +190,7 @@ public class HttpGetRequestExecutor implements Runnable {
                     logger.debug("GET successful !");
                 }
             }
-            writeResponse(responseVersioned);
+            writeResponse(versionedValues);
         } catch(IllegalArgumentException illegalArgsException) {
             String errorDescription = "PUT Failed !!! Illegal Arguments : "
                                       + illegalArgsException.getMessage();
@@ -185,6 +220,11 @@ public class HttpGetRequestExecutor implements Runnable {
 
         } catch(VoldemortException ve) {
             String errorDescription = "Voldemort Exception: " + ve.getMessage();
+            RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
+                                         this.getRequestMessageEvent,
+                                         errorDescription);
+        } catch(Exception ve) {
+            String errorDescription = "Exception: " + ve.getMessage();
             RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
                                          this.getRequestMessageEvent,
                                          errorDescription);

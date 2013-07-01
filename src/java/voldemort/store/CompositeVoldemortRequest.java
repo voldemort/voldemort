@@ -31,7 +31,7 @@ public class CompositeVoldemortRequest<K, V> {
     private final Versioned<V> value;
     private Version version;
     private long routingTimeoutInMs;
-    private final boolean resolveConflicts;
+    private boolean resolveConflicts;
     private final byte operationType;
 
     public CompositeVoldemortRequest(K key,
@@ -90,6 +90,14 @@ public class CompositeVoldemortRequest<K, V> {
 
     public byte getOperationType() {
         return operationType;
+    }
+
+    public boolean isResolveConflicts() {
+        return resolveConflicts;
+    }
+
+    public void setResolveConflicts(boolean resolveConflicts) {
+        this.resolveConflicts = resolveConflicts;
     }
 
 }

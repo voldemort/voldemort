@@ -19,8 +19,6 @@ package voldemort.coordinator;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -29,6 +27,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.util.ByteArrayDataSource;
 
 import org.apache.commons.codec.binary.Base64;
 import org.junit.After;
@@ -248,13 +250,13 @@ public class CoordinatorRestAPITest {
     }
 
     private TestVersionedValue doGet(String key, Map<String, Object> options) {
+        HttpURLConnection conn = null;
         String response = null;
         TestVersionedValue responseObj = null;
         int expectedResponseCode = 200;
         try {
 
             // Create the right URL and Http connection
-            HttpURLConnection conn = null;
             String base64Key = new String(Base64.encodeBase64(key.getBytes()));
             URL url = new URL(this.coordinatorURL + "/" + STORE_NAME + "/" + base64Key);
             conn = (HttpURLConnection) url.openConnection();
@@ -279,7 +281,7 @@ public class CoordinatorRestAPITest {
             // Check for the right response code
             if(conn.getResponseCode() != expectedResponseCode) {
                 System.err.println("Illegal response during GET : " + conn.getResponseMessage());
-                fail("Incorrect response received for a HTTP put request :"
+                fail("Incorrect response received for a HTTP GET request :"
                      + conn.getResponseCode());
             }
 
@@ -288,25 +290,25 @@ public class CoordinatorRestAPITest {
             }
 
             // Buffer the result into a string
-            BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while((line = rd.readLine()) != null) {
-                sb.append(line);
-            }
-            rd.close();
+            ByteArrayDataSource ds = new ByteArrayDataSource(conn.getInputStream(),
+                                                             "multipart/mixed");
+            MimeMultipart mp = new MimeMultipart(ds);
+            assertEquals("The number of body parts expected is not 1", 1, mp.getCount());
 
-            conn.disconnect();
+            MimeBodyPart part = (MimeBodyPart) mp.getBodyPart(0);
+            VectorClock vc = CoordinatorUtils.deserializeVectorClock(part.getHeader(VoldemortHttpRequestHandler.X_VOLD_VECTOR_CLOCK)[0]);
+            response = (String) part.getContent();
 
-            response = sb.toString();
-            VectorClock vc = CoordinatorUtils.deserializeVectorClock(conn.getHeaderField("ETag"));
             responseObj = new TestVersionedValue(response, vc);
 
         } catch(Exception e) {
             e.printStackTrace();
             fail("Error in sending the REST request");
+        } finally {
+            if(conn != null) {
+                conn.disconnect();
+            }
         }
-
         return responseObj;
     }
 
