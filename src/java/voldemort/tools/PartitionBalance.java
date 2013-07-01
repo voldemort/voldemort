@@ -359,6 +359,15 @@ public class PartitionBalance {
      * selecting "the best" option (e.g., greedy repartitioning algorithms for a
      * repartitioning and deciding among multiple repartitioning attempts).
      * 
+     * The current utility function can hit local minima if there are two or
+     * more nodes having the min value for a zone and two or more nodes having
+     * the max value for a zone. Such a situation means that pair-wise swaps may
+     * not be sufficient to improve utility. Could consider swapping more than
+     * two partitions at a time. Could also consider a utility method which has
+     * "low bits" of the number of nodes that have either min or max value per
+     * zone. If these low bits are greater than 2, then a partition swap which
+     * keeps high bits same, but reduces low bits should be kept.
+     * 
      * @return A measure of utility that ought to be minimized.
      */
     public double getUtility() {
@@ -447,8 +456,8 @@ public class PartitionBalance {
      * @return Pair: getFirst() is utility value to be minimized, getSecond() is
      *         pretty summary string of balance
      */
-    private Pair<Double, String> summarizeBalance(final Map<Integer, Integer> nodeIdToPartitionCount,
-                                                  String title) {
+    private Pair<Double, String>
+            summarizeBalance(final Map<Integer, Integer> nodeIdToPartitionCount, String title) {
         StringBuilder builder = new StringBuilder();
         builder.append("\n" + title + "\n");
 
