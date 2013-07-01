@@ -20,8 +20,8 @@
 # Argument = -c current_cluster -s current_stores -i interim_cluster -o output dir
 
 # This script uses getopts which means only single character switches are allowed.
-# Using getopt would allow for multi charcter switch names but would come at a 
-# cost of not being cross compatibility.
+# Using getopt would allow for multi charcter switch names but would come at a
+# cost of not being cross compatible.
 
 # Function to display usage
 usage_and_exit() {
@@ -31,8 +31,8 @@ usage_and_exit() {
   Usage: $0 options 
   OPTIONS:
    -h     Show this message
-   -c     Current Cluster that desribes the cluster
-   -s     Current Stores that desribes the store. If you do not have info about the stores yet, look
+   -c     Current cluster that describes the cluster
+   -s     Current stores that describes the store. If you do not have info about the stores yet, look
           under 'voldemort_home/config/tools/' for some store examples.
    -i     Interim Cluster that corresponds to cluster expansion.
    -o     Output dir where all interim and final files will be stored.
@@ -40,7 +40,7 @@ EOF
 exit 1
 }
 
-# Initiliaze varibles to an empty string
+# initialize  variables to an empty string
 current_cluster=""
 current_stores=""
 interim_cluster=""
@@ -106,12 +106,11 @@ fi
 # The final cluster.xml for cluster expansion is generated in two steps.
 # Step 1: Current cluster.xml is fed to the repartitioner along with the interim cluster xml.
 #         The repartitioner tries to balance the ring by moving the partitions around.
-# Step 2: A plan is generated on how to reach from the orignal cluster topology to
+# Step 2: A plan is generated on how to reach from the original cluster topology to
 #         the one that is generated in step 1.
 #
-swap_attempts=10
-attempts=2
 
+attempts=50
 
 # Step 1
 mkdir -p $output_dir/step1/

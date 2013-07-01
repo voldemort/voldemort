@@ -22,9 +22,14 @@
 # Argument = -c current_cluster -s current_stores -o output dir
 # The final cluster is placed in output_dir/
 
+# This script can be used again on its own output. That is, if first attempt only gets you half-way 
+# to where you want to go in terms of repartitioning, then take output final-cluster xml and use as 
+# input to this tool again.
+#
+
 # This script uses getopts which means only single character switches are allowed.
 # Using getopt would allow for multi charcter switch names but would come at a
-# cost of not being cross compatibility.
+# cost of not being cross compatible.
 
 # Function to display usage
 usage_and_exit() {
@@ -34,8 +39,8 @@ usage_and_exit() {
   Usage: $0 options
   OPTIONS:
    -h     Show this message
-   -c     Current Cluster that desribes the cluster.
-   -s     Current Stores that desribes the store. If you do not have info about the stores yet, look
+   -c     Current cluster that describes the cluster.
+   -s     Current stores that describes the store. If you do not have info about the stores yet, look
           under 'voldemort_home/config/tools/' for some store examples.
    -o     Output dir where all interim and final files will be stored.
           The directory will be created if it does not exist yet.
@@ -43,7 +48,7 @@ EOF
 exit 1
 }
 
-# initialize  varibles to an empty string
+# initialize  variables to an empty string
 current_cluster=""
 current_stores=""
 output_dir=""
@@ -102,8 +107,9 @@ fi
 # Step 2: A plan is generated on how to reach from the orignal cluster topology to
 #         the one that is generated in step 1.
 #
-swap_attempts=1000
-attempts=5
+swap_attempts=250
+attempts=10
+swap_successes=250
 
 # Step 1
 mkdir -p $output_dir/step1
@@ -114,6 +120,7 @@ $vold_home/bin/run-class.sh voldemort.tools.RepartitionerCLI \
                             --enable-random-swaps \
                             --attempts $attempts \
                             --random-swap-attempts $swap_attempts \
+                            --random-swap-successes $swap_successes
 
 if [ ! -e $output_dir/step1/final-cluster.xml ]; then
     usage_and_exit "File '$final-cluster.xml' does not exist."
