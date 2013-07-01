@@ -170,4 +170,6 @@ $vold_home/bin/run-class.sh voldemort.tools.RebalancePlanCLI \
                              
 echo "[rebalance-new-cluster] Placing final-cluster.xml in '$output_dir'"
 cp $output_dir/step3/final-cluster.xml $output_dir/final-cluster.xml
+echo "[rebalance-new-cluster] Placing final-cluster.xml in '$output_dir'"
+cp $output_dir/step3/final-cluster.xml $output_dir/final-cluster.xml
                              
