@@ -55,10 +55,10 @@ import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.common.VoldemortOpCode;
+import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
-import voldemort.routing.StoreRoutingPlan;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.FailingReadsStore;
@@ -1539,7 +1539,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         cluster = getNineNodeCluster();
 
         RoutedStore routedStore = getStore(cluster, 2, 2, 1, 0);
-        StoreRoutingPlan routingPlan = new StoreRoutingPlan(cluster, this.storeDef);
+        BaseStoreRoutingPlan routingPlan = new BaseStoreRoutingPlan(cluster, this.storeDef);
         List<Integer> replicatingNodes = routingPlan.getReplicationNodeList(aKey.get());
         // This is node 1
         Node primaryNode = Iterables.get(cluster.getNodes(), replicatingNodes.get(0));
@@ -1623,7 +1623,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         Store<ByteArray, byte[], byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[], byte[]>(routedStore,
                                                                                                             new VectorClockInconsistencyResolver<byte[]>());
 
-        StoreRoutingPlan routingPlan = new StoreRoutingPlan(cluster, this.storeDef);
+        BaseStoreRoutingPlan routingPlan = new BaseStoreRoutingPlan(cluster, this.storeDef);
         List<Integer> replicatingNodes = routingPlan.getReplicationNodeList(aKey.get());
 
         try {

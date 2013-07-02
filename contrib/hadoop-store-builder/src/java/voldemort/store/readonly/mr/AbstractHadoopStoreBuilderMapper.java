@@ -199,7 +199,7 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         keyCompressor = new CompressionStrategyFactory().get(keySerializerDefinition.getCompression());
         valueCompressor = new CompressionStrategyFactory().get(valueSerializerDefinition.getCompression());
 
-        routingStrategy = new ConsistentRoutingStrategy(getCluster().getNodes(),
+        routingStrategy = new ConsistentRoutingStrategy(getCluster(),
                                                         getStoreDef().getReplicationFactor());
     }
 }

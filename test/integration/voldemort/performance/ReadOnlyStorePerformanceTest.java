@@ -206,7 +206,7 @@ public class ReadOnlyStorePerformanceTest {
             JsonStoreBuilder builder = new JsonStoreBuilder(new JsonReader(r),
                                                             cluster,
                                                             storeDef,
-                                                            new ConsistentRoutingStrategy(cluster.getNodes(),
+                                                            new ConsistentRoutingStrategy(cluster,
                                                                                           1),
                                                             output,
                                                             tempDir,

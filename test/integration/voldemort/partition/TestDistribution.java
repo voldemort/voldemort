@@ -23,7 +23,7 @@ public class TestDistribution {
         int maxVal = Integer.parseInt(args[2]);
         ClusterMapper mapper = new ClusterMapper();
         Cluster cluster = mapper.readCluster(file);
-        RoutingStrategy strategy = new ConsistentRoutingStrategy(cluster.getNodes(), repFactor);
+        RoutingStrategy strategy = new ConsistentRoutingStrategy(cluster, repFactor);
         JsonTypeSerializer serializer = new JsonTypeSerializer(JsonTypeDefinition.INT32);
         int[] counts = new int[cluster.getNumberOfNodes()];
         for(int i = 0; i < maxVal; i++) {

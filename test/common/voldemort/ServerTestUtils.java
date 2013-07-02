@@ -453,12 +453,6 @@ public class ServerTestUtils {
                                                int[][] partitionMapping,
                                                int[] ports) {
 
-        if(numberOfZones > 0 && numberOfNodes > 0 && numberOfNodes % numberOfZones != 0) {
-            throw new VoldemortException("The number of nodes (" + numberOfNodes
-                                         + ") is not divisible by number of zones ("
-                                         + numberOfZones + ")");
-        }
-
         List<Node> nodes = new ArrayList<Node>();
         for(int i = 0; i < numberOfNodes; i++) {
 

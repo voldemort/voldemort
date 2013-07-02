@@ -49,7 +49,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
-import voldemort.routing.StoreRoutingPlan;
+import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.store.StoreDefinition;
 import voldemort.versioning.Versioned;
 
@@ -212,10 +212,10 @@ public class KeyVersionFetcherCLI {
 
     public class FetchKeyVersionsTask implements Callable<String> {
 
-        private final StoreRoutingPlan storeRoutingPlan;
+        private final BaseStoreRoutingPlan storeRoutingPlan;
         private final byte[] key;
 
-        FetchKeyVersionsTask(StoreRoutingPlan storeRoutingPlan, byte[] key) {
+        FetchKeyVersionsTask(BaseStoreRoutingPlan storeRoutingPlan, byte[] key) {
             this.storeRoutingPlan = storeRoutingPlan;
             this.key = key;
         }
@@ -223,8 +223,7 @@ public class KeyVersionFetcherCLI {
         @Override
         public String call() throws Exception {
             String storeName = storeRoutingPlan.getStoreDefinition().getName();
-            int masterPartitionId = storeRoutingPlan.getMasterPartitionId(key);
-            List<Integer> replicatingNodeIds = storeRoutingPlan.getReplicationNodeList(masterPartitionId);
+            List<Integer> replicatingNodeIds = storeRoutingPlan.getReplicationNodeList(key);
 
             ZoneToNaryToString zoneToNaryToString = new ZoneToNaryToString();
 
@@ -269,7 +268,7 @@ public class KeyVersionFetcherCLI {
             return true;
         }
 
-        StoreRoutingPlan storeRoutingPlan = new StoreRoutingPlan(cluster, storeDefinition);
+        BaseStoreRoutingPlan storeRoutingPlan = new BaseStoreRoutingPlan(cluster, storeDefinition);
         BufferedReader keyReader = null;
         BufferedWriter kvWriter = null;
         try {

@@ -16,12 +16,12 @@ public class RoutingStrategyFactory {
 
     public RoutingStrategy updateRoutingStrategy(StoreDefinition storeDef, Cluster cluster) {
         if(RoutingStrategyType.CONSISTENT_STRATEGY.equals(storeDef.getRoutingStrategyType())) {
-            return new ConsistentRoutingStrategy(cluster.getNodes(),
+            return new ConsistentRoutingStrategy(cluster,
                                                  storeDef.getReplicationFactor());
         } else if(RoutingStrategyType.TO_ALL_STRATEGY.equals(storeDef.getRoutingStrategyType())) {
             return new RouteToAllStrategy(cluster.getNodes());
         } else if(RoutingStrategyType.ZONE_STRATEGY.equals(storeDef.getRoutingStrategyType())) {
-            return new ZoneRoutingStrategy(cluster.getNodes(),
+            return new ZoneRoutingStrategy(cluster,
                                            storeDef.getZoneReplicationFactor(),
                                            storeDef.getReplicationFactor());
         } else if(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY.equals(storeDef.getRoutingStrategyType())) {

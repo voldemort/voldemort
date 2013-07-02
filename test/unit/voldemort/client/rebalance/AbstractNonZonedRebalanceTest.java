@@ -54,10 +54,10 @@ import voldemort.client.StoreClient;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
-import voldemort.routing.StoreRoutingPlan;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
 import voldemort.server.VoldemortServer;
@@ -1218,7 +1218,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
             }
 
-            StoreRoutingPlan storeInstance = new StoreRoutingPlan(cluster, storeDef);
+            BaseStoreRoutingPlan storeInstance = new BaseStoreRoutingPlan(cluster, storeDef);
             for(Entry<String, String> entry: testEntries.entrySet()) {
                 ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
                 List<Integer> preferenceNodes = storeInstance.getReplicationNodeList(keyBytes.get());

@@ -280,13 +280,13 @@ public class VoldemortBatchIndexJob extends AbstractHadoopJob {
                                                      conf);
 
                 _checkPercent = conf.getInt("input.data.check.percent", 0);
-                _routingStrategy = new ConsistentRoutingStrategy(_cluster.getNodes(),
+                _routingStrategy = new ConsistentRoutingStrategy(_cluster,
                                                                  _storeDef.getReplicationFactor());
                 _keySerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(_storeDef.getKeySerializer());
                 _valueSerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(_storeDef.getValueSerializer());
 
                 _version = _storeDef.getKeySerializer().getCurrentSchemaVersion();
-                _routingStrategy = new ConsistentRoutingStrategy(_cluster.getNodes(),
+                _routingStrategy = new ConsistentRoutingStrategy(_cluster,
                                                                  _storeDef.getReplicationFactor());
 
                 if(_routingStrategy == null) {

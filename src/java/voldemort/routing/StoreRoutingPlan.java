@@ -27,7 +27,6 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.store.system.SystemStoreConstants;
-import voldemort.utils.ClusterUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 
@@ -38,18 +37,45 @@ import com.google.common.collect.Lists;
  * effectively helper or util style methods for querying the routing plan that
  * will be generated for a given routing strategy upon store and cluster
  * topology information.
+ * 
+ * This object can be expensive to construct. Invocations of getters should be
+ * O(1) if possible. Lazy initialization of cached values is ideal...
  */
-public class StoreRoutingPlan extends BaseStoreRoutingPlan {
+// TODO: The name of this class should be improved. 'ClusterStoreRouter'?
+// 'FastLookupStoreRouter'? Its use case (expensive construction, fast lookups)
+// should be clearly distinguished from what is now the BaseStoreRoutingPlan.
+// TODO: The intermingling of key-based interfaces and partition-based
+// interfaces is ugly. Partition-based interfaces should be in an underlying
+// class and then key-based interfaces should wrap those up.
+// TODO: Review all objects that construct a StoreRoutingPlan to see if the
+// usage would be better served by BaseStoreRoutingPlan. The former is expensive
+// to construct (many ms) whereas the latter is cheap to construct (us).
+public class StoreRoutingPlan {
 
-    private final Map<Integer, Integer> partitionIdToNodeIdMap;
+    private final Cluster cluster;
+    private final StoreDefinition storeDefinition;
+    private final RoutingStrategy routingStrategy;
+
+    private final Node[] partitionToNode;
+    private final ArrayList<List<Integer>> partitionIdToReplicatingList;
+
     private final Map<Integer, List<Integer>> nodeIdToNaryPartitionMap;
     private final Map<Integer, List<Integer>> nodeIdToZonePrimaryMap;
 
     public StoreRoutingPlan(Cluster cluster, StoreDefinition storeDefinition) {
-        super(cluster, storeDefinition);
-        verifyClusterStoreDefinition();
+        this.cluster = cluster;
+        this.storeDefinition = storeDefinition;
+        this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
+                                                                                  cluster);
+        this.partitionToNode = cluster.getPartitionIdToNodeArray();
 
-        this.partitionIdToNodeIdMap = ClusterUtils.getCurrentPartitionMapping(cluster);
+        this.partitionIdToReplicatingList = new ArrayList<List<Integer>>(this.partitionToNode.length);
+        for(int partitionId = 0; partitionId < partitionToNode.length; ++partitionId) {
+            this.partitionIdToReplicatingList.add(partitionId,
+                                                  routingStrategy.getReplicatingPartitionList(partitionId));
+        }
+
+        verifyClusterStoreDefinition();
 
         this.nodeIdToNaryPartitionMap = new HashMap<Integer, List<Integer>>();
         this.nodeIdToZonePrimaryMap = new HashMap<Integer, List<Integer>>();
@@ -74,6 +100,15 @@ public class StoreRoutingPlan extends BaseStoreRoutingPlan {
                 }
             }
         }
+        
+    }
+
+    public Cluster getCluster() {
+        return cluster;
+    }
+
+    public StoreDefinition getStoreDefinition() {
+        return storeDefinition;
     }
 
     /**
@@ -127,7 +162,7 @@ public class StoreRoutingPlan extends BaseStoreRoutingPlan {
      * @return List of partition IDs that replicate the master partition ID.
      */
     public List<Integer> getReplicatingPartitionList(int masterPartitionId) {
-        return this.routingStrategy.getReplicatingPartitionList(masterPartitionId);
+        return partitionIdToReplicatingList.get(masterPartitionId);
     }
 
     /**
@@ -137,7 +172,7 @@ public class StoreRoutingPlan extends BaseStoreRoutingPlan {
      * @return List of partition IDs that replicate the given key
      */
     public List<Integer> getReplicatingPartitionList(final byte[] key) {
-        return this.routingStrategy.getPartitionList(key);
+        return getReplicatingPartitionList(this.routingStrategy.getMasterPartition(key));
     }
 
     /**
@@ -157,7 +192,7 @@ public class StoreRoutingPlan extends BaseStoreRoutingPlan {
      * @return
      */
     public int getNodeIdForPartitionId(int partitionId) {
-        return partitionIdToNodeIdMap.get(partitionId);
+        return partitionToNode[partitionId].getId();
     }
 
     /**

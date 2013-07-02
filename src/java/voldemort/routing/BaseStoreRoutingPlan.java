@@ -30,12 +30,20 @@ import voldemort.utils.NodeUtils;
  * effectively helper or util style methods for querying the routing plan that
  * will be generated for a given routing strategy upon store and cluster
  * topology information.
+ * 
+ * This object may be constructed in the fast path (e.g., during proxy'ing) and
+ * so this object must be fast/simple to construct. Invocations of getters to
+ * find replica lists and n-aries can be O(number of replicas).
  */
+// TODO: This name is awful. Better suggestions? 'StoreRouter'? Other?
+// TODO: The intermingling of key-based interfaces and partition-based
+// interfaces is ugly. Partition-based interfaces should be in an underlying
+// class and then key-based interfaces should wrap those up.
 public class BaseStoreRoutingPlan {
 
-    protected final Cluster cluster;
-    protected final StoreDefinition storeDefinition;
-    protected final RoutingStrategy routingStrategy;
+    private final Cluster cluster;
+    private final StoreDefinition storeDefinition;
+    private final RoutingStrategy routingStrategy;
 
     public BaseStoreRoutingPlan(Cluster cluster, StoreDefinition storeDefinition) {
         this.cluster = cluster;
@@ -50,6 +58,16 @@ public class BaseStoreRoutingPlan {
 
     public StoreDefinition getStoreDefinition() {
         return storeDefinition;
+    }
+
+    /**
+     * Determines master partition ID for the key.
+     * 
+     * @param key
+     * @return
+     */
+    public int getMasterPartitionId(final byte[] key) {
+        return this.routingStrategy.getMasterPartition(key);
     }
 
     /**

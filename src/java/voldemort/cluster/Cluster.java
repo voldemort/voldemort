@@ -49,13 +49,13 @@ public class Cluster implements Serializable {
     private static final long serialVersionUID = 1;
 
     private final String name;
-    private final int numberOfTags;
+    private final int numberOfPartitionIds;
     private final Map<Integer, Node> nodesById;
     private final Map<Integer, Zone> zonesById;
     private final Map<Zone, List<Integer>> nodesPerZone;
     private final Map<Zone, List<Integer>> partitionsPerZone;
     private final Map<Integer, Zone> partitionIdToZone;
-    private final Map<Integer, Node> partitionIdToNode;
+    private final Node[] partitionIdToNodeArray;
 
     public Cluster(String name, List<Node> nodes) {
         this(name, nodes, new ArrayList<Zone>());
@@ -66,7 +66,8 @@ public class Cluster implements Serializable {
         this.partitionsPerZone = new LinkedHashMap<Zone, List<Integer>>();
         this.nodesPerZone = new LinkedHashMap<Zone, List<Integer>>();
         this.partitionIdToZone = new HashMap<Integer, Zone>();
-        this.partitionIdToNode = new HashMap<Integer, Node>();
+
+        Map<Integer, Node> partitionIdToNodeMap = new HashMap<Integer, Node>();
 
         if(zones.size() != 0) {
             zonesById = new LinkedHashMap<Integer, Zone>(zones.size());
@@ -102,10 +103,15 @@ public class Cluster implements Serializable {
             partitionsPerZone.get(nodesZone).addAll(node.getPartitionIds());
             for(Integer partitionId: node.getPartitionIds()) {
                 this.partitionIdToZone.put(partitionId, nodesZone);
-                this.partitionIdToNode.put(partitionId, node);
+                partitionIdToNodeMap.put(partitionId, node);
             }
         }
-        this.numberOfTags = getNumberOfTags(nodes);
+        this.numberOfPartitionIds = getNumberOfTags(nodes);
+        
+        this.partitionIdToNodeArray = new Node[this.numberOfPartitionIds];
+        for(int partitionId = 0; partitionId < this.numberOfPartitionIds; partitionId++) {
+            this.partitionIdToNodeArray[partitionId] = partitionIdToNodeMap.get(partitionId);
+        }
     }
 
     private int getNumberOfTags(List<Node> nodes) {
@@ -114,7 +120,7 @@ public class Cluster implements Serializable {
             tags.addAll(node.getPartitionIds());
         }
         Collections.sort(tags);
-        for(int i = 0; i < numberOfTags; i++) {
+        for(int i = 0; i < numberOfPartitionIds; i++) {
             if(tags.get(i).intValue() != i)
                 throw new IllegalArgumentException("Invalid tag assignment.");
         }
@@ -208,7 +214,11 @@ public class Cluster implements Serializable {
     }
 
     public Node getNodeForPartitionId(int partitionId) {
-        return partitionIdToNode.get(partitionId);
+        return this.partitionIdToNodeArray[partitionId];
+    }
+
+    public Node[] getPartitionIdToNodeArray() {
+        return this.partitionIdToNodeArray;
     }
 
     public Node getNodeById(int id) {
@@ -224,7 +234,7 @@ public class Cluster implements Serializable {
     }
 
     public int getNumberOfPartitions() {
-        return numberOfTags;
+        return numberOfPartitionIds;
     }
 
     @Override

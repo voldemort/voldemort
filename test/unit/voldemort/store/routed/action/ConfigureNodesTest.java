@@ -84,7 +84,7 @@ public class ConfigureNodesTest extends AbstractActionTest {
 
     @Test
     public void testConfigureNodesWithZones() throws Exception {
-        RoutingStrategy routingStrategy = new ZoneRoutingStrategy(clusterWithZones.getNodes(),
+        RoutingStrategy routingStrategy = new ZoneRoutingStrategy(clusterWithZones,
                                                                   storeDef.getZoneReplicationFactor(),
                                                                   storeDef.getReplicationFactor());
 
