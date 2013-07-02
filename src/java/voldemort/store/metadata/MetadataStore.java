@@ -21,6 +21,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -162,6 +163,50 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     @Override
     public String getName() {
         return METADATA_STORE_NAME;
+    }
+
+    /**
+     * @param metadataKeyValueList List of metadata Key Value pairs
+     * 
+     *        Updates multiple metadatakeys "atomically" Voldemort's store
+     *        definition and cluster definition are coupled (e.g Zones and
+     *        Replication) This API *,must* be used to atomically update the
+     *        store def and cluster during rebalancing
+     */
+    public void multiAtomicPut(List<Pair<String, Object>> metadataKeyValueList) {
+        writeLock.lock();
+        try {
+            Iterator<Pair<String, Object>> iterator = metadataKeyValueList.iterator();
+            while(iterator.hasNext()) {
+                Pair<String, Object> metadataKeyValue = iterator.next();
+                String key = metadataKeyValue.getFirst();
+                Object value = metadataKeyValue.getSecond();
+                if(SYSTEM_STORES_KEY.equals(key))
+                    throw new VoldemortException("Cannot overwrite system store definitions");
+                if(METADATA_KEYS.contains(key)) {
+                    VectorClock version = (VectorClock) get(key, null).get(0).getVersion();
+                    Versioned<Object> versionedValue = new Versioned<Object>(value,
+                                                                             version.incremented(getNodeId(),
+                                                                                                 System.currentTimeMillis()));
+
+                    // try inserting into inner store first
+                    putInner(key, convertObjectToString(key, versionedValue));
+
+                    // cache all keys if innerStore put succeeded
+                    metadataCache.put(key, versionedValue);
+
+                } else {
+                    throw new VoldemortException("Unhandled Key:" + key
+                                                 + " for MetadataStore put()");
+                }
+            }
+            // updates the routing strategy and the listeners once effectively
+            updateRoutingStrategies(getCluster(), getStoreDefList());
+
+        } finally {
+            writeLock.unlock();
+        }
+
     }
 
     /**
@@ -527,9 +572,22 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 RoutingStrategy updatedRoutingStrategy = routingStrategyMap.get(storeName);
                 if(updatedRoutingStrategy != null) {
                     try {
+
+                        // a key listener is the proxyputMetadataListener
                         for(MetadataStoreListener listener: storeNameTolisteners.get(storeName)) {
                             listener.updateRoutingStrategy(updatedRoutingStrategy);
                             listener.updateStoreDefinition(storeDefMap.get(storeName));
+                            List<Pair<String, Object>> metadataKeyValueList = new ArrayList<Pair<String, Object>>();
+                            metadataKeyValueList.add(new Pair<String, Object>(CLUSTER_KEY, cluster));
+                            metadataKeyValueList.add(new Pair<String, Object>(STORES_KEY, storeDefs));
+
+                            Cluster oldCluster = getRebalancingSourceCluster();
+                            List<StoreDefinition> oldStoreDefs = this.getRebalancingSourceStores();
+                            metadataKeyValueList.add(new Pair<String, Object>(REBALANCING_SOURCE_CLUSTER_XML,
+                                                                              oldCluster));
+                            metadataKeyValueList.add(new Pair<String, Object>(REBALANCING_SOURCE_STORES_XML,
+                                                                              oldStoreDefs));
+                            listener.updateMetadataKeys(metadataKeyValueList);
                         }
                     } catch(Exception e) {
                         if(logger.isEnabledFor(Level.WARN))

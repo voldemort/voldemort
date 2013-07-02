@@ -16,6 +16,7 @@
 
 package voldemort.server.rebalance;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -37,9 +38,8 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
-import voldemort.versioning.VectorClock;
-import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 
@@ -387,18 +387,11 @@ public class Rebalancer implements Runnable {
                                         final List<StoreDefinition> storeDefs) {
         metadataStore.writeLock.lock();
         try {
-            VectorClock updatedVectorClock = ((VectorClock) metadataStore.get(clusterKey, null)
-                                                                         .get(0)
-                                                                         .getVersion()).incremented(metadataStore.getNodeId(),
-                                                                                                    System.currentTimeMillis());
-            metadataStore.put(clusterKey, Versioned.value((Object) cluster, updatedVectorClock));
 
-            // now put new stores
-            updatedVectorClock = ((VectorClock) metadataStore.get(storesKey, null)
-                                                             .get(0)
-                                                             .getVersion()).incremented(metadataStore.getNodeId(),
-                                                                                        System.currentTimeMillis());
-            metadataStore.put(storesKey, Versioned.value((Object) storeDefs, updatedVectorClock));
+            List<Pair<String, Object>> metadataKeyValueList = new ArrayList<Pair<String, Object>>();
+            metadataKeyValueList.add(new Pair<String, Object>(clusterKey, cluster));
+            metadataKeyValueList.add(new Pair<String, Object>(storesKey, storeDefs));
+            metadataStore.multiAtomicPut(metadataKeyValueList);
 
         } catch(Exception e) {
             logger.info("Error while changing cluster to " + cluster + "for key " + clusterKey);

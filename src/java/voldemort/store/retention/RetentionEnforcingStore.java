@@ -12,6 +12,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStoreListener;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Pair;
 import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -108,5 +109,11 @@ public class RetentionEnforcingStore extends DelegatingStore<ByteArray, byte[], 
         if(!storeDef.hasRetentionPeriod())
             return vals;
         return filterExpiredEntries(key, vals);
+    }
+
+    @Override
+    public void updateMetadataKeys(List<Pair<String, Object>> metadataKeyValueList) {
+        // no-op
+        return;
     }
 }

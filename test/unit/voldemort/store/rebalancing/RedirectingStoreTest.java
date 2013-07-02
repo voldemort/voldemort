@@ -71,6 +71,7 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.DaemonThreadFactory;
+import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.ClockEntry;
 import voldemort.versioning.ObsoleteVersionException;
@@ -202,6 +203,12 @@ public class RedirectingStoreTest {
                                                                        Lists.newArrayList(storeDef));
         List<RebalancePartitionsInfo> plans = Lists.newArrayList(RebalanceBatchPlan.getBatchPlan());
 
+        List<Pair<String, Object>> metadataKeyValueList = new ArrayList<Pair<String, Object>>();
+
+        metadataKeyValueList.add(new Pair<String, Object>(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
+                                                          currentCluster));
+        metadataKeyValueList.add(new Pair<String, Object>(MetadataStore.REBALANCING_SOURCE_STORES_XML,
+                                                          Lists.newArrayList(storeDef)));
         // Set into rebalancing state
         for(RebalancePartitionsInfo partitionPlan: plans) {
             servers[partitionPlan.getStealerId()].getMetadataStore()
@@ -210,14 +217,10 @@ public class RedirectingStoreTest {
             servers[partitionPlan.getStealerId()].getMetadataStore()
                                                  .put(MetadataStore.REBALANCING_STEAL_INFO,
                                                       new RebalancerState(Lists.newArrayList(partitionPlan)));
-            servers[partitionPlan.getStealerId()].getMetadataStore()
-                                                 .put(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML,
-                                                      currentCluster);
 
-            // update orginal storedefs
             servers[partitionPlan.getStealerId()].getMetadataStore()
-                                                 .put(MetadataStore.REBALANCING_SOURCE_STORES_XML,
-                                                      Lists.newArrayList(storeDef));
+                                                 .multiAtomicPut(metadataKeyValueList);
+
         }
 
         // Update the cluster metadata on all three nodes
