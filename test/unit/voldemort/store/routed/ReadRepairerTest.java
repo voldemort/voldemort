@@ -77,14 +77,11 @@ public class ReadRepairerTest {
 
     private Time time = new MockTime();
     private final Class<FailureDetector> failureDetectorClass;
-    private final boolean isPipelineRoutedStoreEnabled;
     private FailureDetector failureDetector;
     private ExecutorService routedStoreThreadPool;
 
-    public ReadRepairerTest(Class<FailureDetector> failureDetectorClass,
-                            boolean isPipelineRoutedStoreEnabled) {
+    public ReadRepairerTest(Class<FailureDetector> failureDetectorClass) {
         this.failureDetectorClass = failureDetectorClass;
-        this.isPipelineRoutedStoreEnabled = isPipelineRoutedStoreEnabled;
     }
 
     @After
@@ -98,8 +95,7 @@ public class ReadRepairerTest {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { BannagePeriodFailureDetector.class, true },
-                { BannagePeriodFailureDetector.class, false } });
+        return Arrays.asList(new Object[][] { { BannagePeriodFailureDetector.class } });
     }
 
     @Test
@@ -156,16 +152,11 @@ public class ReadRepairerTest {
 
         routedStoreThreadPool = Executors.newFixedThreadPool(1);
 
-        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
-                                                                       routedStoreThreadPool,
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreThreadPool,
                                                                        new TimeoutConfig(1000L,
                                                                                          false));
 
-        RoutedStore store = routedStoreFactory.create(cluster,
-                                                      storeDef,
-                                                      subStores,
-                                                      true,
-                                                      failureDetector);
+        RoutedStore store = routedStoreFactory.create(cluster, storeDef, subStores, failureDetector);
 
         recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
         store.put(key, new Versioned<byte[]>(value), null);

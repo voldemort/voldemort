@@ -16,6 +16,8 @@
 
 package voldemort.client;
 
+import static org.junit.Assert.fail;
+
 import java.lang.management.ManagementFactory;
 import java.net.URISyntaxException;
 
@@ -46,9 +48,6 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
 
     private static String STATS_DOMAIN = "voldemort.store.stats";
     private static String AGGREGATE_STATS_DOMAIN = "voldemort.store.stats.aggregate";
-    private static String CLIENT_DOMAIN = "voldemort.client";
-    private static String CLUSTER_FAILUREDETECTOR_DOMAIN = "voldemort.cluster.failuredetector";
-    private static String CLIENT_REQUEST_DOMAIN = "voldemort.store.socket.clientrequest";
 
     private AbstractSocketService socketService;
     private MBeanServer mbServer = null;
@@ -138,6 +137,7 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         mbServer.unregisterMBean(c2Name);
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testSameContextOnJmx() throws Exception {
         String clientContext = "clientContext";
@@ -230,6 +230,7 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         mbServer.unregisterMBean(c2Name);
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testSameContextAndFactory() throws Exception {
         String clientContext = "clientContext";
@@ -256,6 +257,7 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         mbServer.unregisterMBean(c1Name);
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testDifferentId() throws Exception {
         String clientContext = "clientContext";

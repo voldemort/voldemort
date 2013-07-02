@@ -123,9 +123,6 @@ public class RoutedStoreParallelismTest {
         int numSlowNodes = CmdUtils.valueOf(options, "num-slow-nodes", DEFAULT_NUM_SLOW_NODES);
         int delay = CmdUtils.valueOf(options, "delay", DEFAULT_DELAY);
         int numClients = CmdUtils.valueOf(options, "num-clients", DEFAULT_NUM_CLIENTS);
-        String routedStoreType = CmdUtils.valueOf(options,
-                                                  "routed-store-type",
-                                                  DEFAULT_ROUTED_STORE_TYPE);
 
         System.err.println("num-keys : " + numKeys);
         System.err.println("max-connections : " + maxConnectionsPerNode);
@@ -134,7 +131,6 @@ public class RoutedStoreParallelismTest {
         System.err.println("num-slow-nodes : " + numSlowNodes);
         System.err.println("delay : " + delay);
         System.err.println("num-clients : " + numClients);
-        System.err.println("routed-store-type : " + routedStoreType);
 
         ClientConfig clientConfig = new ClientConfig().setMaxConnectionsPerNode(maxConnectionsPerNode)
                                                       .setMaxThreads(maxThreads);
@@ -189,15 +185,12 @@ public class RoutedStoreParallelismTest {
         FailureDetector failureDetector = FailureDetectorUtils.create(failureDetectorConfig, false);
 
         ExecutorService routedStoreThreadPool = Executors.newFixedThreadPool(clientConfig.getMaxThreads());
-        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreType.trim()
-                                                                                      .equalsIgnoreCase(PIPELINE_ROUTED_STORE),
-                                                                       routedStoreThreadPool,
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreThreadPool,
                                                                        clientConfig.getTimeoutConfig());
 
         final RoutedStore routedStore = routedStoreFactory.create(cluster,
                                                                   storeDefinition,
                                                                   stores,
-                                                                  true,
                                                                   failureDetector);
 
         ExecutorService runner = Executors.newFixedThreadPool(numClients);

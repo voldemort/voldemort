@@ -64,6 +64,7 @@ import com.google.common.collect.Maps;
  * 
  * 
  */
+@Deprecated
 public class ThreadPoolRoutedStore extends RoutedStore {
 
     private final static StoreOp<Versioned<byte[]>> VERSIONED_OP = new StoreOp<Versioned<byte[]>>() {

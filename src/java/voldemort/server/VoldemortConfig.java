@@ -174,7 +174,6 @@ public class VoldemortConfig implements Serializable {
     private boolean enableSocketServer;
     private boolean enableAdminServer;
     private boolean enableJmx;
-    private boolean enablePipelineRoutedStore;
     private boolean enableVerboseLogging;
     private boolean enableStatTracking;
     private boolean enableServerRouting;
@@ -408,7 +407,6 @@ public class VoldemortConfig implements Serializable {
         this.enableSocketServer = props.getBoolean("socket.enable", true);
         this.enableAdminServer = props.getBoolean("admin.enable", true);
         this.enableJmx = props.getBoolean("jmx.enable", true);
-        this.enablePipelineRoutedStore = props.getBoolean("enable.pipeline.routed.store", true);
         this.enableSlop = props.getBoolean("slop.enable", true);
         this.enableSlopPusherJob = props.getBoolean("slop.pusher.enable", true);
         this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
@@ -1542,23 +1540,6 @@ public class VoldemortConfig implements Serializable {
      */
     public void setEnableJmx(boolean enableJmx) {
         this.enableJmx = enableJmx;
-    }
-
-    public boolean isPipelineRoutedStoreEnabled() {
-        return enablePipelineRoutedStore;
-    }
-
-    /**
-     * {@link ClientConfig#setEnablePipelineRoutedStore(boolean)}
-     * 
-     * <ul>
-     * <li>Property :"enable.pipeline.routed.store"</li>
-     * <li>Default :true</li>
-     * </ul>
-     * 
-     */
-    public void setEnablePipelineRoutedStore(boolean enablePipelineRoutedStore) {
-        this.enablePipelineRoutedStore = enablePipelineRoutedStore;
     }
 
     public String getMysqlUsername() {

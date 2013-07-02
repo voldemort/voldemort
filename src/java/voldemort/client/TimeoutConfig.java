@@ -24,9 +24,19 @@ import voldemort.common.OpTimeMap;
  */
 public class TimeoutConfig {
 
+    public static int DEFAULT_GLOBAL_TIMEOUT = 5000;
+    public static boolean DEFAULT_ALLOW_PARTIAL_GETALLS = false;
     private OpTimeMap timeoutMap;
 
     private boolean partialGetAllAllowed;
+
+    public TimeoutConfig() {
+        this(DEFAULT_GLOBAL_TIMEOUT, DEFAULT_ALLOW_PARTIAL_GETALLS);
+    }
+
+    public TimeoutConfig(long globalTimeout) {
+        this(globalTimeout, DEFAULT_ALLOW_PARTIAL_GETALLS);
+    }
 
     public TimeoutConfig(long globalTimeout, boolean allowPartialGetAlls) {
         timeoutMap = new OpTimeMap(globalTimeout);

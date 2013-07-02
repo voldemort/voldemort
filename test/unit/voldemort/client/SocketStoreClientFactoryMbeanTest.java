@@ -1,5 +1,8 @@
 package voldemort.client;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
+
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Arrays;

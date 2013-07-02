@@ -40,7 +40,6 @@ import voldemort.client.RoutingTier;
 import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
@@ -241,8 +240,7 @@ public class HintedHandoffFailureTest {
         setFailureDetector(subStores);
 
         routedStoreThreadPool = Executors.newFixedThreadPool(NUM_THREADS);
-        routedStoreFactory = new RoutedStoreFactory(true,
-                                                    routedStoreThreadPool,
+        routedStoreFactory = new RoutedStoreFactory(routedStoreThreadPool,
                                                     new TimeoutConfig(routingTimeoutInMs, false));
 
         Map<Integer, NonblockingStore> nonblockingSlopStores = Maps.newHashMap();
@@ -699,19 +697,14 @@ public class HintedHandoffFailureTest {
                                              Cluster cluster,
                                              StoreDefinition storeDef,
                                              FailureDetector failureDetector) {
-            super(storeDef.getName(),
-                  innerStores,
+            super(innerStores,
                   nonblockingStores,
                   slopStores,
                   nonblockingSlopStores,
                   cluster,
                   storeDef,
-                  false,
-                  Zone.DEFAULT_ZONE_ID,
-                  new TimeoutConfig(routingTimeoutInMs, false),
                   failureDetector,
-                  false,
-                  0);
+                  new RoutedStoreConfig().setTimeoutConfig(new TimeoutConfig(routingTimeoutInMs)));
 
         }
 

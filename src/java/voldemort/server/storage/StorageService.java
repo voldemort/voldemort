@@ -82,6 +82,7 @@ import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.retention.RetentionEnforcingStore;
 import voldemort.store.routed.RoutedStore;
+import voldemort.store.routed.RoutedStoreConfig;
 import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.socket.SocketStoreFactory;
@@ -169,9 +170,8 @@ public class StorageService extends AbstractService {
                                                                                                                                           config));
         this.failureDetector = create(failureDetectorConfig, config.isJmxEnabled());
         this.storeStats = new StoreStats();
-        this.routedStoreFactory = new RoutedStoreFactory(voldemortConfig.isPipelineRoutedStoreEnabled(),
-                                                         this.clientThreadPool,
-                                                         voldemortConfig.getTimeoutConfig());
+        this.routedStoreFactory = new RoutedStoreFactory(new RoutedStoreConfig(voldemortConfig));
+        this.routedStoreFactory.setThreadPool(this.clientThreadPool);
 
         /*
          * Initialize the dynamic throttle limit based on the per node limit
@@ -875,9 +875,6 @@ public class StorageService extends AbstractService {
                                                                                nonblockingStores,
                                                                                null,
                                                                                null,
-                                                                               true,
-                                                                               cluster.getNodeById(localNode)
-                                                                                      .getZoneId(),
                                                                                failureDetector);
 
             store = new RebootstrappingStore(metadata,

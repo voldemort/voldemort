@@ -61,8 +61,6 @@ public class ClientConfig {
     private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableLazy = true;
-
-    private volatile boolean enablePipelineRoutedStore = true;
     private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
 
     /*
@@ -112,7 +110,6 @@ public class ClientConfig {
     private volatile int sysSocketTimeoutMs = 5000;
     private volatile int sysConnectionTimeoutMs = 1500;
     private volatile boolean sysEnableJmx = false;
-    private volatile boolean sysEnablePipelineRoutedStore = true;
 
     /* Voldemort client component config */
     private volatile boolean enableJmx = true;
@@ -146,7 +143,6 @@ public class ClientConfig {
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
     public static final String REQUEST_FORMAT_PROPERTY = "request_format";
     public static final String ENABLE_JMX_PROPERTY = "enable_jmx";
-    public static final String ENABLE_PIPELINE_ROUTED_STORE_PROPERTY = "enable_pipeline_routed_store";
     public static final String ENABLE_HINTED_HANDOFF_PROPERTY = "enable_hinted_handoff";
     public static final String ENABLE_LAZY_PROPERTY = "enable-lazy";
     public static final String CLIENT_ZONE_ID = "client_zone_id";
@@ -169,7 +165,6 @@ public class ClientConfig {
     public static final String SYS_CONNECTION_TIMEOUT_MS = "sys_connection_timeout_ms";
     public static final String SYS_SOCKET_TIMEOUT_MS = "sys_socket_timeout_ms";
     public static final String SYS_ENABLE_JMX = "sys_enable_jmx";
-    public static final String SYS_ENABLE_PIPELINE_ROUTED_STORE = "sys_enable_pipeline_routed_store";
     public static final String ENABLE_COMPRESSION_LAYER = "enable_compression_layer";
     public static final String ENABLE_SERIALIZATION_LAYER = "enable_serialization_layer";
     public static final String ENABLE_INCONSISTENCY_RESOLVING_LAYER = "enable_inconsistency_resolving_layer";
@@ -292,9 +287,6 @@ public class ClientConfig {
         if(props.containsKey(ENABLE_LAZY_PROPERTY))
             this.setEnableLazy(props.getBoolean(ENABLE_LAZY_PROPERTY));
 
-        if(props.containsKey(ENABLE_PIPELINE_ROUTED_STORE_PROPERTY))
-            this.setEnablePipelineRoutedStore(props.getBoolean(ENABLE_PIPELINE_ROUTED_STORE_PROPERTY));
-
         if(props.containsKey(CLIENT_ZONE_ID))
             this.setClientZoneId(props.getInt(CLIENT_ZONE_ID));
 
@@ -373,10 +365,6 @@ public class ClientConfig {
 
         if(props.containsKey(SYS_ENABLE_JMX)) {
             this.setSysEnableJmx(props.getBoolean(SYS_ENABLE_JMX));
-        }
-
-        if(props.containsKey(SYS_ENABLE_PIPELINE_ROUTED_STORE)) {
-            this.setSysEnablePipelineRoutedStore(props.getBoolean(SYS_ENABLE_PIPELINE_ROUTED_STORE));
         }
 
         if(props.containsKey(ENABLE_COMPRESSION_LAYER)) {
@@ -492,21 +480,6 @@ public class ClientConfig {
 
     public boolean getSysEnableJmx() {
         return this.sysEnableJmx;
-    }
-
-    /**
-     * Should pipleline store be used by the system store client?
-     * 
-     * @param sysEnablePipelineRoutedStore
-     * @return
-     */
-    public ClientConfig setSysEnablePipelineRoutedStore(boolean sysEnablePipelineRoutedStore) {
-        this.sysEnablePipelineRoutedStore = sysEnablePipelineRoutedStore;
-        return this;
-    }
-
-    public boolean getSysEnablePipelineRoutedStore() {
-        return this.sysEnablePipelineRoutedStore;
     }
 
     public int getMaxConnectionsPerNode() {
@@ -882,22 +855,6 @@ public class ClientConfig {
         return this.useDefaultClient;
     }
 
-    public boolean isPipelineRoutedStoreEnabled() {
-        return enablePipelineRoutedStore;
-    }
-
-    /**
-     * Whether or not to use the Pipeline routing which is much more resource
-     * efficient by employing Java NIO to handle communication with the server
-     * 
-     * @param enablePipelineRoutedStore
-     * @return
-     */
-    public ClientConfig setEnablePipelineRoutedStore(boolean enablePipelineRoutedStore) {
-        this.enablePipelineRoutedStore = enablePipelineRoutedStore;
-        return this;
-    }
-
     public String getFailureDetectorImplementation() {
         return failureDetectorImplementation;
     }
@@ -1170,6 +1127,7 @@ public class ClientConfig {
         return this;
     }
 
+    @Override
     public String toString() {
         StringBuilder clientConfigInfo = new StringBuilder();
         clientConfigInfo.append("Max connections per node: " + this.maxConnectionsPerNode + "\n");

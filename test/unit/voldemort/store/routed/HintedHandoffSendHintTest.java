@@ -30,7 +30,6 @@ import voldemort.client.RoutingTier;
 import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
@@ -279,19 +278,14 @@ public class HintedHandoffSendHintTest {
         failureDetector = FailureDetectorUtils.create(failureDetectorConfig, false);
 
         // make routedStore
-        routedStore = new PipelineRoutedStore(STORE_NAME,
-                                              testStores,
-                                              socketTestStores,
-                                              slopStores,
-                                              socketSlopStores,
-                                              cluster,
-                                              storeDef,
-                                              false,
-                                              Zone.DEFAULT_ZONE_ID,
-                                              new TimeoutConfig(1500L, false),
-                                              failureDetector,
-                                              false,
-                                              0);
+        RoutedStoreFactory factory = new RoutedStoreFactory(null, new TimeoutConfig(1500L, false));
+        routedStore = factory.create(cluster,
+                                     storeDef,
+                                     testStores,
+                                     socketTestStores,
+                                     slopStores,
+                                     socketSlopStores,
+                                     failureDetector);
 
         // generate the keys
         for(int i = 0; i < 5; i++) {

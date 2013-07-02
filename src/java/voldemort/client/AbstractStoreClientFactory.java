@@ -50,6 +50,7 @@ import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.routed.RoutedStoreConfig;
 import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.slop.Slop;
@@ -100,10 +101,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final StoreStats stats;
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
-    private final int clientZoneId;
     private final String clientContextName;
     private final AtomicInteger clientSequencer;
     private final HashSet<SchedulerService> clientAsyncServiceRepo;
+    private final RoutedStoreConfig routedStoreConfig;
 
     private Cluster cluster;
     private List<StoreDefinition> storeDefs;
@@ -120,11 +121,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.jmxId = getNextJmxId();
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         this.stats = new StoreStats();
-        this.clientZoneId = config.getClientZoneId();
         this.clientContextName = config.getClientContextName();
-        this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
-                                                         threadPool,
-                                                         config.getTimeoutConfig());
+        this.routedStoreConfig = new RoutedStoreConfig(config);
+        this.routedStoreConfig.setJmxId(this.jmxId);
+
+        this.routedStoreFactory = new RoutedStoreFactory(this.routedStoreConfig);
+        this.routedStoreFactory.setThreadPool(this.threadPool);
 
         this.clientSequencer = new AtomicInteger(0);
         this.clientAsyncServiceRepo = new HashSet<SchedulerService>();
@@ -195,7 +197,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                 String clusterXmlString,
                                                 FailureDetector fd) {
 
-        logger.info("Client zone-id [" + clientZoneId
+        logger.info("Client zone-id [" + this.routedStoreConfig.getClientZoneId()
                     + "] Attempting to obtain metadata for store [" + storeName + "] ");
 
         if(logger.isDebugEnabled()) {
@@ -282,6 +284,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         } else {
             logger.debug("Using existing failure detector.");
         }
+        this.routedStoreConfig.setRepairReads(repairReads);
 
         Store<ByteArray, byte[], byte[]> store = routedStoreFactory.create(this.cluster,
                                                                            storeDef,
@@ -289,11 +292,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                            nonblockingStores,
                                                                            slopStores,
                                                                            nonblockingSlopStores,
-                                                                           repairReads,
-                                                                           clientZoneId,
-                                                                           failureDetectorRef,
-                                                                           isJmxEnabled,
-                                                                           this.jmxId);
+                                                                           failureDetectorRef);
 
         store = new LoggingStore(store);
 
@@ -522,6 +521,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                 JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
                                                                    JmxUtils.getClassName(threadPool.getClass())
                                                                            + JmxUtils.getJmxId(jmxId)));
+
                 JmxUtils.unregisterMbean(JmxUtils.createObjectName("voldemort.store.stats.aggregate",
                                                                    "aggregate-perf"
                                                                            + JmxUtils.getJmxId(jmxId)));

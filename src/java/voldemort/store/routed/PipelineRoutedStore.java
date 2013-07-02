@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
-import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -103,43 +102,33 @@ public class PipelineRoutedStore extends RoutedStore {
      * @param slopStores The stores for hints
      * @param cluster Cluster definition
      * @param storeDef Store definition
-     * @param repairReads Is read repair enabled?
-     * @param clientZoneId Zone the client is in
-     * @param timeoutMs Routing timeout
-     * @param failureDetector Failure detector object
-     * @param jmxEnabled is monitoring enabled
-     * @param jmxId unique ID for the factory instance
+     * @param storeConfig The PipelineRoutedStore config
      */
-    public PipelineRoutedStore(String name,
-                               Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
+    public PipelineRoutedStore(Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
                                Map<Integer, NonblockingStore> nonblockingStores,
                                Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores,
                                Map<Integer, NonblockingStore> nonblockingSlopStores,
                                Cluster cluster,
                                StoreDefinition storeDef,
-                               boolean repairReads,
-                               int clientZoneId,
-                               TimeoutConfig timeoutConfig,
                                FailureDetector failureDetector,
-                               boolean jmxEnabled,
-                               int jmxId) {
-        super(name,
+                               RoutedStoreConfig storeConfig) {
+        super(storeDef.getName(),
               innerStores,
               cluster,
               storeDef,
-              repairReads,
-              timeoutConfig,
+              storeConfig.getRepairReads(),
+              storeConfig.getTimeoutConfig(),
               failureDetector,
               SystemTime.INSTANCE);
         this.nonblockingSlopStores = nonblockingSlopStores;
-        this.clientZone = cluster.getZoneById(clientZoneId);
+        this.clientZone = cluster.getZoneById(storeConfig.getClientZoneId());
+        this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
+        this.slopStores = slopStores;
         if(storeDef.getRoutingStrategyType().compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
             zoneRoutingEnabled = true;
         } else {
             zoneRoutingEnabled = false;
         }
-        this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
-        this.slopStores = slopStores;
         if(storeDef.hasHintedHandoffStrategyType()) {
             HintedHandoffStrategyFactory factory = new HintedHandoffStrategyFactory(zoneRoutingEnabled,
                                                                                     clientZone.getId());
@@ -148,13 +137,14 @@ public class PipelineRoutedStore extends RoutedStore {
             this.handoffStrategy = null;
         }
 
-        this.jmxEnabled = jmxEnabled;
-        this.jmxId = jmxId;
+        this.jmxEnabled = storeConfig.isJmxEnabled();
+        this.jmxId = storeConfig.getJmxId();
         if(this.jmxEnabled) {
             stats = new PipelineRoutedStats();
             JmxUtils.registerMbean(stats,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(stats.getClass()),
                                                              getName()
+                                                                     + "-"
                                                                      + JmxUtils.getJmxId(this.jmxId)));
         }
     }
