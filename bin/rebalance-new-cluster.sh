@@ -4,8 +4,8 @@
 #   Copyright 2013 LinkedIn, Inc
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
-#   you may not use this file except in compliance with the License.
-#   You may obtain a copy of the License at
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -16,12 +16,12 @@
 #  limitations under the License.
 
 # This script generates a final-cluster.xml for spinning up a new cluster.
-# Argument = -v vold_home -c current_cluster -s current_stores -o output dir
+# Argument = -c current_cluster -s current_stores -o output dir
 # The final cluster is placed in output_dir/
 
 # This script uses getopts which means only single character switches are allowed.
 # Using getopt would allow for multi charcter switch names but would come at a
-# cost of not being cross compatibility.
+# cost of not being cross compatible.
 
 # Function to display usage
 usage_and_exit() {
@@ -31,33 +31,31 @@ usage_and_exit() {
   Usage: $0 options
   OPTIONS:
    -h     Show this message
-   -v     Path to Voldemort
-   -c     Current Cluster that desribes the cluster.
-   -s     Current Stores that desribes the store. If you do not have info about the stores yet, use
-          'config/tools/dummy-stores.xml' from the gitli repo.
+   -c     Current cluster that describes the cluster.
+   -s     Current stores that describes the store. If you do not have info about the stores yet, look
+          under 'voldemort_home/config/tools/' for some store examples.
    -o     Output dir where all interim and final files will be stored.
           The directory will be created if it does not exist yet.
 EOF
 exit 1
 }
 
-# initialize  varibles to an empty string
-vold_home=""
+# initialize  variables to an empty string
 current_cluster=""
 current_stores=""
 output_dir=""
 
+# Figure out voldemort home directory
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+vold_home="$(dirname "$dir")"
+
 # Parse options
-while getopts “hv:c:s:o:” OPTION
+while getopts “hc:s:o:” OPTION
 do
   case $OPTION in
   h)
     usage_and_exit
     exit 1
-    ;;
-  v)
-    vold_home=$OPTARG
-   echo "[rebalance-new-cluster] Voldemort home='$vold_home' "
     ;;
   c)
     current_cluster=$OPTARG
@@ -78,17 +76,12 @@ do
      esac
 done
 
-if [[ -z $vold_home ]] || [[ -z $current_cluster ]] || [[ -z $current_stores ]] \
-    || [[ -z $output_dir ]]
+if [[ -z $current_cluster ]] || [[ -z $current_stores ]] || [[ -z $output_dir ]]
 then
      printf "\n"
      echo "[rebalance-new-cluster] Missing argument. Check again."
      usage_and_exit
      exit 1
-fi
-
-if [ ! -d $vold_home ]; then
-    usage_and_exit "Directory '$vold_home' does not exist."
 fi
 
 if [ ! -e $current_cluster ]; then
@@ -148,4 +141,6 @@ $vold_home/bin/run-class.sh voldemort.tools.RepartitionerCLI \
 
 echo "[rebalance-new-cluster] Placing final-cluster.xml in '$output_dir'"
 cp $output_dir/step3/final-cluster.xml $output_dir/final-cluster.xml
+echo "[rebalance-new-cluster] Placing plan.out in '$output_dir'"
+cp $output_dir/step3/plan.out $output_dir/plan.out
 

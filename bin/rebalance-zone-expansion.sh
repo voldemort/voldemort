@@ -4,8 +4,8 @@
 #   Copyright 2013 LinkedIn, Inc
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
-#   you may not use this file except in compliance with the License.
-#   You may obtain a copy of the License at
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -15,14 +15,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# This script uses getopts which means only single character switches are allowed.
-# Using getopt would allow for multi charcter switch names but would come at a 
-# cost of not being cross compatibility.
-
 # This script generates a cluster.xml and a plan for the zone expansion.
 # The final cluster is placed in output_dir/
-# Argument = -v vold_home -c current_cluster -s current_stores -i interim_cluster -f final_stores
+# Argument = -c current_cluster -s current_stores -i interim_cluster -f final_stores
 #            -o output dir
+
+# This script uses getopts which means only single character switches are allowed.
+# Using getopt would allow for multi charcter switch names but would come at a
+# cost of not being cross compatible.
 
 # Function to display usage
 usage_and_exit() {
@@ -32,9 +32,9 @@ usage_and_exit() {
   Usage: $0 options 
   OPTIONS:
    -h     Show this message
-   -v     Path to Voldemort
-   -c     Current Cluster that desribes the cluster
-   -s     Current Stores that desribes the store
+   -c     Current cluster that describes the cluster
+   -s     Current stores that describes the store. If you do not have info about the stores yet, look
+          under 'voldemort_home/config/tools/' for some store examples.
    -i     Interim Cluster that corresponds to zone expansion.
    -f     Final Stores that corresponds to zone expansion.
    -o     Output dir where all interim and final files will be stored.
@@ -42,25 +42,24 @@ EOF
 exit 1
 }
 
-# initiliaze varibles to an empty string
-vold_home=""
+# initialize  variables to an empty string
 current_cluster=""
 current_stores=""
 interim_cluster=""
 final_stores=""
 output_dir=""
 
+# Figure out voldemort home directory
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+vold_home="$(dirname "$dir")"
+
 # Parse options
-while getopts “hv:c:s:i:f:o:” OPTION
+while getopts “hc:s:i:f:o:” OPTION
 do
   case $OPTION in
   h)
     usage_and_exit
     exit 1
-    ;;
-  v)
-    vold_home=$OPTARG
-   echo "[rebalance-zone-expansion] Voldemort home='$vold_home' "
     ;;
   c)
     current_cluster=$OPTARG
@@ -89,17 +88,13 @@ do
      esac
 done
 
-if [[ -z $vold_home ]] || [[ -z $current_cluster ]] || [[ -z $current_stores ]] \
-    || [[ -z $interim_cluster ]] || [[ -z $final_stores ]] || [[ -z $output_dir ]]
+if  [[ -z $current_cluster ]] || [[ -z $current_stores ]] || [[ -z $interim_cluster ]] \
+    || [[ -z $final_stores ]] || [[ -z $output_dir ]]
 then
      printf "\n"
      echo "[rebalance-zone-expansion] Missing argument. Check again."
      usage_and_exit
      exit 1
-fi
-
-if [ ! -d $vold_home ]; then
-    usage_and_exit "Directory '$vold_home' does not exist."
 fi
 
 if [ ! -e $current_cluster ]; then
@@ -171,8 +166,10 @@ $vold_home/bin/run-class.sh voldemort.tools.RebalancePlanCLI \
                              --current-stores $current_stores \
                              --final-cluster $output_dir/step2/final-cluster.xml \
                              --final-stores $final_stores \
-                             --output-dir $output_dir/step3/ | tee $output_dir/step3/plan.txt
+                             --output-dir $output_dir/step3/
                              
+echo "[rebalance-new-cluster] Placing final-cluster.xml in '$output_dir'"
+cp $output_dir/step3/final-cluster.xml $output_dir/final-cluster.xml
 echo "[rebalance-new-cluster] Placing final-cluster.xml in '$output_dir'"
 cp $output_dir/step3/final-cluster.xml $output_dir/final-cluster.xml
                              
