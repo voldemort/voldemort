@@ -62,7 +62,7 @@ public class Repartitioner {
     public final static int DEFAULT_RANDOM_SWAP_SUCCESSES = 100;
     
     /**
-     * Default setting for which zone IDs to run greedy swap algorithm. Empty implies all zones will
+     * Default setting for which zone IDs to run random swap algorithm. Empty implies all zones will
      * be considered.
      */
     public final static List<Integer> DEFAULT_RANDOM_SWAP_ZONE_IDS = Collections.<Integer> emptyList();
@@ -724,6 +724,7 @@ public class Repartitioner {
             // zone specific logic that populates nodeIdSet and add all nodes from across all zones.
             
             int zoneIdOffset = i % zoneIds.size();
+            
             Set<Integer> nodeIdSet = nextCandidateCluster.getNodeIdsInZone(zoneIds.get(zoneIdOffset));
             nodeIds = new ArrayList<Integer>(nodeIdSet);
 
@@ -748,11 +749,15 @@ public class Repartitioner {
     }
 
     /**
-     * For each node in specified zones, tries swapping some minimum number of
-     * random partitions per node with some minimum number of random partitions
-     * from other specified nodes. Chooses the best swap in each iteration.
-     * Large values of the greedSwapMaxPartitions... arguments make this method
-     * equivalent to comparing every possible swap. This may get very expensive.
+     * For each node in specified zones, tries swapping some minimum number of random partitions per
+     * node with some minimum number of random partitions from other specified nodes. Chooses the
+     * best swap in each iteration. Large values of the greedSwapMaxPartitions... arguments make
+     * this method equivalent to comparing every possible swap. This may get very expensive.
+     * 
+     * So if a node had partitions P1, P2, P3 and P4 and the other partitions set was Q1, Q2, Q3,
+     * Q4, Q5 The combinations that will be tried for swapping will be the cartesian product of the
+     * two sets. That is, {P1, Q1}, {P2, Q2}...{P2,Q1}, {P2,Q2}, in total 20 such swap pairs will
+     * be generated. The best among these swap pairs will be chosen.
      * 
      * @param nextCandidateCluster
      * @param zoneId Zone ID within which to shuffle partitions
@@ -766,8 +771,8 @@ public class Repartitioner {
                                                      final int greedySwapMaxPartitionsPerNode,
                                                      final int greedySwapMaxPartitionsPerZone,
                                                      List<StoreDefinition> storeDefs) {
-        System.out.println("GreedyRandom : nodeIds:" + nodeIds);
 
+        System.out.println("GreedyRandom : nodeIds:" + nodeIds);
         Cluster returnCluster = ClusterUtils.copyCluster(nextCandidateCluster);
         double currentUtility = new PartitionBalance(returnCluster, storeDefs).getUtility();
         int nodeIdA = -1;
@@ -775,45 +780,45 @@ public class Repartitioner {
         int partitionIdA = -1;
         int partitionIdB = -1;
 
-        for(int nodeIdEh: nodeIds) {
-            System.out.println("GreedyRandom : processing nodeId:" + nodeIdEh);
-            List<Integer> partitionIdsEh = new ArrayList<Integer>();
-            partitionIdsEh.addAll(returnCluster.getNodeById(nodeIdEh).getPartitionIds());
-            Collections.shuffle(partitionIdsEh);
+        for (int nodeIdAPrime : nodeIds) {
+            System.out.println("GreedyRandom : processing nodeId:" + nodeIdAPrime);
+            List<Integer> partitionIdsAPrime = new ArrayList<Integer>();
+            partitionIdsAPrime.addAll(returnCluster.getNodeById(nodeIdAPrime).getPartitionIds());
+            Collections.shuffle(partitionIdsAPrime);
 
-            int maxPartitionsInEh = Math.min(greedySwapMaxPartitionsPerNode, partitionIdsEh.size());
-            for(int offsetEh = 0; offsetEh < maxPartitionsInEh; ++offsetEh) {
-                Integer partitionIdEh = partitionIdsEh.get(offsetEh);
-
+            int maxPartitionsInAPrime = Math.min(greedySwapMaxPartitionsPerNode, partitionIdsAPrime.size());
+            
+            for (int offsetAPrime = 0; offsetAPrime < maxPartitionsInAPrime; offsetAPrime++) {
+                Integer partitionIdAPrime = partitionIdsAPrime.get(offsetAPrime);
                 List<Pair<Integer, Integer>> partitionIdsZone = new ArrayList<Pair<Integer, Integer>>();
-                for(int nodeIdBee: nodeIds) {
-                    if(nodeIdBee == nodeIdEh)
+                for (int nodeIdBPrime : nodeIds) {
+                    if (nodeIdBPrime == nodeIdAPrime)
                         continue;
-                    for(Integer partitionIdBee: returnCluster.getNodeById(nodeIdBee)
-                                                             .getPartitionIds()) {
-                        partitionIdsZone.add(new Pair<Integer, Integer>(nodeIdBee, partitionIdBee));
+                    for (Integer partitionIdBPrime : returnCluster.getNodeById(nodeIdBPrime)
+                                                                  .getPartitionIds()) {
+                        partitionIdsZone.add(new Pair<Integer, Integer>(nodeIdBPrime, partitionIdBPrime));
                     }
                 }
 
                 Collections.shuffle(partitionIdsZone);
                 int maxPartitionsInZone = Math.min(greedySwapMaxPartitionsPerZone,
                                                    partitionIdsZone.size());
-                for(int offsetZone = 0; offsetZone < maxPartitionsInZone; offsetZone++) {
-                    Integer nodeIdBee = partitionIdsZone.get(offsetZone).getFirst();
-                    Integer partitionIdBee = partitionIdsZone.get(offsetZone).getSecond();
+                for (int offsetZone = 0; offsetZone < maxPartitionsInZone; offsetZone++) {
+                    Integer nodeIdBPrime = partitionIdsZone.get(offsetZone).getFirst();
+                    Integer partitionIdBPrime = partitionIdsZone.get(offsetZone).getSecond();
                     Cluster swapResult = swapPartitions(returnCluster,
-                                                        nodeIdEh,
-                                                        partitionIdEh,
-                                                        nodeIdBee,
-                                                        partitionIdBee);
+                                                        nodeIdAPrime,
+                                                        partitionIdAPrime,
+                                                        nodeIdBPrime,
+                                                        partitionIdBPrime);
                     double swapUtility = new PartitionBalance(swapResult, storeDefs).getUtility();
-                    if(swapUtility < currentUtility) {
+                    if (swapUtility < currentUtility) {
                         currentUtility = swapUtility;
                         System.out.println(" -> " + currentUtility);
-                        nodeIdA = nodeIdEh;
-                        partitionIdA = partitionIdEh;
-                        nodeIdB = nodeIdBee;
-                        partitionIdB = partitionIdBee;
+                        nodeIdA = nodeIdAPrime;
+                        partitionIdA = partitionIdAPrime;
+                        nodeIdB = nodeIdBPrime;
+                        partitionIdB = partitionIdBPrime;
                     }
                 }
             }
@@ -872,17 +877,17 @@ public class Repartitioner {
 
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
             Cluster shuffleResults = swapGreedyRandomPartitions(returnCluster,
-                                                                    nodeIds,
-                                                                    greedySwapMaxPartitionsPerNode,
-                                                                    greedySwapMaxPartitionsPerZone,
-                                                                    storeDefs);
+                                                                nodeIds,
+                                                                greedySwapMaxPartitionsPerNode,
+                                                                greedySwapMaxPartitionsPerZone,
+                                                                storeDefs);
 
             double nextUtility = new PartitionBalance(shuffleResults, storeDefs).getUtility();
             System.out.println("Swap improved max-min ratio: " + currentUtility + " -> "
                                 + nextUtility + " (swap attempt " + i + " in zone " + zoneIds.get(zoneIdOffset)
                                 + ")");
-                returnCluster = shuffleResults;
-                currentUtility = nextUtility;
+            returnCluster = shuffleResults;
+            currentUtility = nextUtility;
         }
         return returnCluster;
     }
