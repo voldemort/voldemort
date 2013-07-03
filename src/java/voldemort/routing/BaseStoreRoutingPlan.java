@@ -34,11 +34,18 @@ import voldemort.utils.NodeUtils;
  * This object may be constructed in the fast path (e.g., during proxy'ing) and
  * so this object must be fast/simple to construct. Invocations of getters to
  * find replica lists and n-aries can be O(number of replicas).
+ * 
+ * The intermingling of key-based interfaces and partition-based interfaces is
+ * ugly in this class. Partition-based interfaces should be in an underlying
+ * class and then key-based interfaces should wrap those up. Or, all of these
+ * types of class should implement the getMasterPartition(byte[]) interface from
+ * RoutingStrategy. Then the caller always does translation from key to
+ * partition ID, and the *StoreRouting* classes only offer partition-based
+ * interfaces.
  */
-// TODO: This name is awful. Better suggestions? 'StoreRouter'? Other?
-// TODO: The intermingling of key-based interfaces and partition-based
-// interfaces is ugly. Partition-based interfaces should be in an underlying
-// class and then key-based interfaces should wrap those up.
+// TODO: Should find a better name for this class. Need to do same for what is
+// currently StoreRoutingPlan. Suggestions thus far for this class:
+// ProxyRoutingPlan, ProxyStoreRouter, SimpleStoreRouter, ...
 public class BaseStoreRoutingPlan {
 
     private final Cluster cluster;

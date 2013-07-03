@@ -184,7 +184,8 @@ public class StoreRoutingPlanPerf {
         srpp.perfTest(2, 50, 500);
         srpp.perfTest(2, 50, 2500);
         srpp.perfTest(2, 250, 2500);
-        // srpt.perfTest(10, 50, 500);
-        // srpt.perfTest(10, 250, 2500);
+        srpp.perfTest(5, 50, 500);
+        srpp.perfTest(5, 50, 2500);
+        srpp.perfTest(5, 250, 2500);
     }
 }

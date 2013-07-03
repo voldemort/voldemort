@@ -80,6 +80,9 @@ import com.google.common.collect.Multimap;
  * :) :) :)
  * 
  */
+// TODO: Incorporate "metadata listener" mechanism:
+// https://github.com/abh1nay/voldemort/commit/2a78d6201e8f2bb56b8f4c55022ae2532f26338c
+// https://github.com/abh1nay/voldemort/compare/proxy-put-metadata-listener
 public class RedirectingStore extends
         DelegatingStore<ByteArray, byte[], byte[]> {
 

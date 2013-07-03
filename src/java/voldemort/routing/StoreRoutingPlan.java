@@ -40,13 +40,22 @@ import com.google.common.collect.Lists;
  * 
  * This object can be expensive to construct. Invocations of getters should be
  * O(1) if possible. Lazy initialization of cached values is ideal...
+ * 
+ * The intermingling of key-based interfaces and partition-based interfaces is
+ * ugly in this class. Partition-based interfaces should be in an underlying
+ * class and then key-based interfaces should wrap those up. Or, all of these
+ * types of class should implement the getMasterPartition(byte[]) interface from
+ * RoutingStrategy. Then the caller always does translation from key to
+ * partition ID, and the *StoreRouting* classes only offer partition-based
+ * interfaces.
  */
-// TODO: The name of this class should be improved. 'ClusterStoreRouter'?
-// 'FastLookupStoreRouter'? Its use case (expensive construction, fast lookups)
-// should be clearly distinguished from what is now the BaseStoreRoutingPlan.
-// TODO: The intermingling of key-based interfaces and partition-based
-// interfaces is ugly. Partition-based interfaces should be in an underlying
-// class and then key-based interfaces should wrap those up.
+// TODO: Should find a better name for this class. Need to do same for what is
+// currently BaseStoreRoutingPlan. Suggestions thus far for this class:
+// RoutingInfoHelper, ComplicatedStoreRoutingPlan, ClusterStoreRouter,
+// ClusterStoreRoutingPlan. Ideally, the name makes this classes use case
+// (expensive construction, fast lookups) clear, and distinct from the use case
+// for what is now the BaseStoreRoutingPlan.
+
 // TODO: Review all objects that construct a StoreRoutingPlan to see if the
 // usage would be better served by BaseStoreRoutingPlan. The former is expensive
 // to construct (many ms) whereas the latter is cheap to construct (us).
