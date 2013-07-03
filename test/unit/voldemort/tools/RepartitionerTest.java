@@ -115,12 +115,12 @@ public class RepartitionerTest {
                                                                  false,
                                                                  0,
                                                                  0,
-                                                                 null,
+                                                                 Collections.<Integer> emptyList(),
                                                                  false,
-                                                                 null,
                                                                  0,
                                                                  0,
                                                                  0,
+                                                                 Collections.<Integer> emptyList(),
                                                                  0);
         assertTrue(verifyNodesBalancedInEachZone(repartitionedCluster));
         assertTrue(verifyZonesBalanced(repartitionedCluster));
@@ -160,12 +160,12 @@ public class RepartitionerTest {
                                                                  false,
                                                                  0,
                                                                  0,
-                                                                 null,
+                                                                 Collections.<Integer> emptyList(),
                                                                  false,
-                                                                 null,
                                                                  0,
                                                                  0,
                                                                  0,
+                                                                 Collections.<Integer> emptyList(),
                                                                  0);
         assertTrue(verifyNodesBalancedInEachZone(repartitionedCluster));
         assertFalse(verifyZonesBalanced(repartitionedCluster));
@@ -202,12 +202,12 @@ public class RepartitionerTest {
                                                                  false,
                                                                  0,
                                                                  0,
-                                                                 null,
+                                                                 Collections.<Integer> emptyList(),
                                                                  false,
-                                                                 null,
                                                                  0,
                                                                  0,
                                                                  0,
+                                                                 Collections.<Integer> emptyList(),
                                                                  0);
         assertTrue(repartitionedCluster.equals(interimCluster));
     }
@@ -245,10 +245,10 @@ public class RepartitionerTest {
                                                                  swapSuccesses,
                                                                  Collections.<Integer> emptyList(),
                                                                  false,
-                                                                 null,
                                                                  0,
                                                                  0,
                                                                  0,
+                                                                 Collections.<Integer> emptyList(),
                                                                  0);
         // Confirm repartitioned cluster is still imbalanced on all fronts
         assertFalse(verifyNodesBalancedInEachZone(repartitionedCluster));
@@ -291,10 +291,10 @@ public class RepartitionerTest {
                                                                  swapSuccesses,
                                                                  swapZoneIds,
                                                                  false,
-                                                                 null,
                                                                  0,
                                                                  0,
                                                                  0,
+                                                                 Collections.<Integer> emptyList(),
                                                                  0);
         PartitionBalance repartitionedPb = new PartitionBalance(repartitionedCluster, currentStores);
 
@@ -355,10 +355,10 @@ public class RepartitionerTest {
                                                                  0,
                                                                  null,
                                                                  enableGreedySwaps,
-                                                                 greedyZones,
                                                                  swapAttempts,
                                                                  swapsPerNode,
                                                                  swapsPerZone,
+                                                                 greedyZones,
                                                                  0);
         // Confirm repartitioned cluster is still imbalanced on all fronts
         assertFalse(verifyNodesBalancedInEachZone(repartitionedCluster));
@@ -385,10 +385,10 @@ public class RepartitionerTest {
                                                          0,
                                                          null,
                                                          enableGreedySwaps,
-                                                         greedyZones,
                                                          swapAttempts,
                                                          swapsPerNode,
                                                          swapsPerZone,
+                                                         greedyZones,
                                                          0);
         // Confirm repartitioned cluster is still imbalanced on all fronts
         assertFalse(verifyNodesBalancedInEachZone(repartitionedCluster));
@@ -415,10 +415,10 @@ public class RepartitionerTest {
                                                          0,
                                                          null,
                                                          enableGreedySwaps,
-                                                         greedyZones,
                                                          swapAttempts,
                                                          swapsPerNode,
                                                          swapsPerZone,
+                                                         greedyZones,
                                                          0);
         // Confirm repartitioned cluster is still imbalanced on all fronts
         assertFalse(verifyNodesBalancedInEachZone(repartitionedCluster));
@@ -583,10 +583,10 @@ public class RepartitionerTest {
                                                          0,
                                                          null,
                                                          false,
-                                                         null,
                                                          0,
                                                          0,
                                                          0,
+                                                         Collections.<Integer> emptyList(),
                                                          maxContigRun);
         assertTrue(verifyNoncontiguousPartitions(repartitionedCluster, maxContigRun + 1));
     }

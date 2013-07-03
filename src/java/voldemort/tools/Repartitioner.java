@@ -60,6 +60,13 @@ public class Repartitioner {
      * balance) after which reparitioning stops, if random swaps are enabled.
      */
     public final static int DEFAULT_RANDOM_SWAP_SUCCESSES = 100;
+    
+    /**
+     * Default setting for which zone IDs to run greedy swap algorithm. Empty implies all zones will
+     * be considered.
+     */
+    public final static List<Integer> DEFAULT_RANDOM_SWAP_ZONE_IDS = Collections.<Integer> emptyList();
+    
     /**
      * Default number of greedy partition ID swaps to perform, if greedy swaps
      * are enabled. Each greedy partition ID swaps considers (some number of
@@ -67,11 +74,12 @@ public class Repartitioner {
      * and selects the best such swap.
      */
     public final static int DEFAULT_GREEDY_SWAP_ATTEMPTS = 5;
+    
     /**
-     * Default setting for which zone IDs to run greedy swap algorithm. null
-     * implies greedily swapping across all zones.
+     * Default setting for which zone IDs to run greedy swap algorithm. Empty implies all zones will
+     * be considered.
      */
-    public final static List<Integer> DEFAULT_GREEDY_ZONE_IDS = null;
+    public final static List<Integer> DEFAULT_GREEDY_SWAP_ZONE_IDS = Collections.<Integer> emptyList();;
     /**
      * Default (max) number of partition IDs per node to consider, if greedy
      * swaps are enabled.
@@ -132,10 +140,10 @@ public class Repartitioner {
      * @param randomSwapSuccesses
      * @param randomSwapZoneIds
      * @param enableGreedySwaps Enables greedy swap optimization.
-     * @param greedyZoneIds
      * @param greedySwapAttempts
      * @param greedySwapMaxPartitionsPerNode
      * @param greedySwapMaxPartitionsPerZone
+     * @param greedySwapZoneIds
      * @param maxContiguousPartitionsPerZone
      * @return "final cluster" that has had all specified balancing algorithms
      *         run against it. The number of zones and number of nodes will
@@ -154,10 +162,10 @@ public class Repartitioner {
                                       final int randomSwapSuccesses,
                                       final List<Integer> randomSwapZoneIds,
                                       final boolean enableGreedySwaps,
-                                      final List<Integer> greedyZoneIds,
                                       final int greedySwapAttempts,
                                       final int greedySwapMaxPartitionsPerNode,
                                       final int greedySwapMaxPartitionsPerZone,
+                                      final List<Integer> greedySwapZoneIds,
                                       final int maxContiguousPartitionsPerZone) {
         PartitionBalance partitionBalance = new PartitionBalance(currentCluster, currentStoreDefs);
         RebalanceUtils.dumpAnalysisToFile(outputDir,
@@ -182,23 +190,18 @@ public class Repartitioner {
             }
 
             if(enableRandomSwaps) {
-                // TODO: Percolate 'interZoneSwapping' flag 'up' to
-                // RepartionerCLI. Or, decide that we want to use only one of
-                // these algorithms (inter vs intra).
-                boolean interZoneSwapping = true;
                 nextCandidateCluster = randomShufflePartitions(nextCandidateCluster,
                                                                randomSwapAttempts,
                                                                randomSwapSuccesses,
                                                                randomSwapZoneIds,
-                                                               finalStoreDefs,
-                                                               interZoneSwapping);
+                                                               finalStoreDefs);
             }
             if(enableGreedySwaps) {
                 nextCandidateCluster = greedyShufflePartitions(nextCandidateCluster,
                                                                greedySwapAttempts,
                                                                greedySwapMaxPartitionsPerNode,
                                                                greedySwapMaxPartitionsPerZone,
-                                                               new ArrayList<Integer>(interimCluster.getZoneIds()),
+                                                               greedySwapZoneIds,
                                                                finalStoreDefs);
             }
             RebalanceUtils.validateCurrentFinalCluster(currentCluster, nextCandidateCluster);
@@ -687,56 +690,46 @@ public class Repartitioner {
                               donorPartitionId);
     }
 
-    // TODO: Decide whether to keep interZoneSwapping or not.
     /**
      * Randomly shuffle partitions between nodes within every zone.
      * 
      * @param nextCandidateCluster cluster object.
      * @param randomSwapAttempts See RebalanceCLI.
      * @param randomSwapSuccesses See RebalanceCLI.
+     * @param zoneIds The set of zoneIds to consider. Each zone is done independently.
      * @param storeDefs List of store definitions
-     * @param interZoneSwapping true means swap among nodes in all zones, false
-     *        means swap only among nodes within same zone.
      * @return updated cluster
      */
     public static Cluster randomShufflePartitions(final Cluster nextCandidateCluster,
                                                   final int randomSwapAttempts,
                                                   final int randomSwapSuccesses,
                                                   final List<Integer> randomSwapZoneIds,
-                                                  List<StoreDefinition> storeDefs,
-                                                  boolean interZoneSwapping) {
-
+                                                  List<StoreDefinition> storeDefs) {
         List<Integer> zoneIds = null;
-        if(randomSwapZoneIds.isEmpty()) {
+        if (randomSwapZoneIds.isEmpty()) {
             zoneIds = new ArrayList<Integer>(nextCandidateCluster.getZoneIds());
         } else {
             zoneIds = new ArrayList<Integer>(randomSwapZoneIds);
         }
 
         List<Integer> nodeIds = new ArrayList<Integer>();
-        // Add all node ids from specified zones for inter-zone swapping
-        if(interZoneSwapping) {
-            for(int zoneId: zoneIds) {
-                nodeIds.addAll(nextCandidateCluster.getNodeIdsInZone(zoneId));
-            }
-        }
-
         Cluster returnCluster = ClusterUtils.copyCluster(nextCandidateCluster);
         double currentUtility = new PartitionBalance(returnCluster, storeDefs).getUtility();
 
         int successes = 0;
         for(int i = 0; i < randomSwapAttempts; i++) {
-            if(!interZoneSwapping) {
-                // iterate over zone ids to decide which node ids to include for
-                // intra-zone swapping.
-                int zoneIdOffset = i % randomSwapZoneIds.size();
-                Set<Integer> nodeIdSet = nextCandidateCluster.getNodeIdsInZone(randomSwapZoneIds.get(zoneIdOffset));
-                nodeIds = new ArrayList<Integer>(nodeIdSet);
-            }
+
+            // Iterate over zone ids to decide which node ids to include for intra-zone swapping.
+            // In future, if there is a need to support inter-zone swapping, then just remove the 
+            // zone specific logic that populates nodeIdSet and add all nodes from across all zones.
+            
+            int zoneIdOffset = i % zoneIds.size();
+            Set<Integer> nodeIdSet = nextCandidateCluster.getNodeIdsInZone(zoneIds.get(zoneIdOffset));
+            nodeIds = new ArrayList<Integer>(nodeIdSet);
 
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
-
             Cluster shuffleResults = swapRandomPartitionsAmongNodes(returnCluster, nodeIds);
+
             double nextUtility = new PartitionBalance(shuffleResults, storeDefs).getUtility();
             if(nextUtility < currentUtility) {
                 System.out.println("Swap improved max-min ratio: " + currentUtility + " -> "
@@ -746,12 +739,11 @@ public class Repartitioner {
                 returnCluster = shuffleResults;
                 currentUtility = nextUtility;
             }
-            if(successes >= randomSwapSuccesses) {
+            if (successes >= randomSwapSuccesses) {
                 // Enough successes, move on.
                 break;
             }
         }
-
         return returnCluster;
     }
 
@@ -834,11 +826,10 @@ public class Repartitioner {
     }
 
     /**
-     * Within a single zone, tries swapping some minimum number of random
-     * partitions per node with some minimum number of random partitions from
-     * other nodes within the zone. Chooses the best swap in each iteration.
-     * Large values of the greedSwapMaxPartitions... arguments make this method
-     * equivalent to comparing every possible swap. This is very expensive.
+     * Within a single zone, tries swapping some minimum number of random partitions per node with
+     * some minimum number of random partitions from other nodes within the zone. Chooses the best
+     * swap in each iteration. Large values of the greedSwapMaxPartitions... arguments make this
+     * method equivalent to comparing every possible swap. This is very expensive.
      * 
      * Normal case should be :
      * 
@@ -848,8 +839,7 @@ public class Repartitioner {
      * @param greedyAttempts See RebalanceCLI.
      * @param greedySwapMaxPartitionsPerNode See RebalanceCLI.
      * @param greedySwapMaxPartitionsPerZone See RebalanceCLI.
-     * @param zoneIds The set of zoneIds to do. Each zone is done independently.
-     *        null will consider all nodes in entire cluster at once.
+     * @param zoneIds The set of zoneIds to consider. Each zone is done independently.
      * @param storeDefs
      * @return
      */
@@ -857,55 +847,43 @@ public class Repartitioner {
                                                   final int greedyAttempts,
                                                   final int greedySwapMaxPartitionsPerNode,
                                                   final int greedySwapMaxPartitionsPerZone,
-                                                  List<Integer> zoneIds,
+                                                  List<Integer> greedySwapZoneIds,
                                                   List<StoreDefinition> storeDefs) {
-        final int specialZoneId = -1;
-        if(zoneIds == null) {
-            zoneIds = new ArrayList<Integer>();
-            zoneIds.add(specialZoneId);
+        List<Integer> zoneIds = null;
+        if (greedySwapZoneIds.isEmpty()) {
+            zoneIds = new ArrayList<Integer>(nextCandidateCluster.getZoneIds());
+        } else {
+            zoneIds = new ArrayList<Integer>(greedySwapZoneIds);
         }
+        
+        List<Integer> nodeIds = new ArrayList<Integer>();
         Cluster returnCluster = ClusterUtils.copyCluster(nextCandidateCluster);
-        if(zoneIds.isEmpty()) {
-            logger.warn("greedyShufflePartitions invoked with empty list of zone IDs.");
-            return returnCluster;
-        }
-
         double currentUtility = new PartitionBalance(returnCluster, storeDefs).getUtility();
 
-        for(int i = 0; i < greedyAttempts; i++) {
+        for (int i = 0; i < greedyAttempts; i++) {
+            
+            // Iterate over zone ids to decide which node ids to include for intra-zone swapping.
+            // In future, if there is a need to support inter-zone swapping, then just remove the 
+            // zone specific logic that populates nodeIdSet and add all nodes from across all zones.
+            
+            int zoneIdOffset = i % zoneIds.size();
+            Set<Integer> nodeIdSet = nextCandidateCluster.getNodeIdsInZone(zoneIds.get(zoneIdOffset));
+            nodeIds = new ArrayList<Integer>(nodeIdSet);
+
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
-            for(Integer zoneId: zoneIds) {
-                System.out.println("Greedy swap attempt: zone " + zoneId + " , attempt " + i
-                                   + " of " + greedyAttempts);
-
-                List<Integer> nodeIds;
-                if(zoneId == specialZoneId) {
-                    nodeIds = new ArrayList<Integer>(nextCandidateCluster.getNodeIds());
-                } else {
-                    nodeIds = new ArrayList<Integer>(nextCandidateCluster.getNodeIdsInZone(zoneId));
-                }
-
-                Cluster shuffleResults = swapGreedyRandomPartitions(returnCluster,
+            Cluster shuffleResults = swapGreedyRandomPartitions(returnCluster,
                                                                     nodeIds,
                                                                     greedySwapMaxPartitionsPerNode,
                                                                     greedySwapMaxPartitionsPerZone,
                                                                     storeDefs);
-                double nextUtility = new PartitionBalance(shuffleResults, storeDefs).getUtility();
 
-                if(nextUtility == currentUtility) {
-                    System.out.println("Not improving for zone: " + zoneId);
-                } else {
-                    System.out.println("Swap improved max-min ratio: " + currentUtility + " -> "
-                                       + nextUtility + " (swap attempt " + i + " in zone " + zoneId
-                                       + ")");
-
-                    returnCluster = shuffleResults;
-                    currentUtility = nextUtility;
-                }
-            }
+            double nextUtility = new PartitionBalance(shuffleResults, storeDefs).getUtility();
+            System.out.println("Swap improved max-min ratio: " + currentUtility + " -> "
+                                + nextUtility + " (swap attempt " + i + " in zone " + zoneIds.get(zoneIdOffset)
+                                + ")");
+                returnCluster = shuffleResults;
+                currentUtility = nextUtility;
         }
-
         return returnCluster;
     }
-
 }

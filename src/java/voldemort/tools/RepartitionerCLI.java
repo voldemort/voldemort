@@ -18,7 +18,6 @@ package voldemort.tools;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -106,7 +105,7 @@ public class RepartitionerCLI {
         parser.accepts("random-swap-zoneids",
                        "Comma separated zone ids that you want to shuffle. [Default:Shuffle all zones.]")
               .withRequiredArg()
-              .describedAs("zoneids-to-shuffle")
+              .describedAs("random-zoneids-to-shuffle")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
         parser.accepts("enable-greedy-swaps",
@@ -129,6 +128,12 @@ public class RepartitionerCLI {
               .withRequiredArg()
               .ofType(Integer.class)
               .describedAs("max-partitions-per-zone");
+        parser.accepts("greedy-swap-zoneids",
+                       "Comma separated zone ids that you want to shuffle. [Default:Shuffle all zones.]")
+              .withRequiredArg()
+              .describedAs("greedy-zoneids-to-shuffle")
+              .withValuesSeparatedBy(',')
+              .ofType(Integer.class);
         parser.accepts("max-contiguous-partitions",
                        "Limit the number of contiguous partition IDs allowed within a zone. [Default:"
                                + Repartitioner.DEFAULT_MAX_CONTIGUOUS_PARTITIONS
@@ -162,6 +167,7 @@ public class RepartitionerCLI {
         help.append("    --greedy-swap-attempts num-attempts [ Number of greedy swap passes to attempt. Each pass can be fairly expensive. ] \n");
         help.append("    --greedy-max-partitions-per-node num-partitions [ num-partitions per node to consider in each greedy pass. Partitions selected randomly from each node.  ] \n");
         help.append("    --greedy-max-partitions-per-zone num-partitions [ num-partitions per zone to consider in each greedy pass. Partitions selected randomly from all partitions in zone not on node being considered. ] \n");
+        help.append("    --greedy-swap-zoneids zoneId(s) [Only swaps partitions within the specified zone(s)] \n");
         help.append("    --max-contiguous-partitions num-contiguous [ Max allowed contiguous partition IDs within a zone ] \n");
 
         try {
@@ -247,7 +253,7 @@ public class RepartitionerCLI {
                                                    "random-swap-successes",
                                                    Repartitioner.DEFAULT_RANDOM_SWAP_SUCCESSES);
         List<Integer> randomSwapZoneIds = CmdUtils.valuesOf(options, "random-swap-zoneids",
-                                                            Collections.<Integer>emptyList());
+                                                            Repartitioner.DEFAULT_RANDOM_SWAP_ZONE_IDS);
         boolean enableGreedySwaps = options.has("enable-greedy-swaps");
         int greedySwapAttempts = CmdUtils.valueOf(options,
                                                   "greedy-swap-attempts",
@@ -258,10 +264,12 @@ public class RepartitionerCLI {
         int greedyMaxPartitionsPerZone = CmdUtils.valueOf(options,
                                                           "greedy-max-partitions-per-zone",
                                                           Repartitioner.DEFAULT_GREEDY_MAX_PARTITIONS_PER_ZONE);
+        List<Integer> greedySwapZoneIds = CmdUtils.valuesOf(options, "greedy-swap-zoneids",
+                                                            Repartitioner.DEFAULT_GREEDY_SWAP_ZONE_IDS);
         int maxContiguousPartitionsPerZone = CmdUtils.valueOf(options,
                                                               "max-contiguous-partitions",
                                                               Repartitioner.DEFAULT_MAX_CONTIGUOUS_PARTITIONS);
-
+        
         // Sanity check optional repartitioning args
         if(disableNodeBalancing && !enableRandomSwaps && !enableGreedySwaps
            && maxContiguousPartitionsPerZone == 0) {
@@ -275,9 +283,6 @@ public class RepartitionerCLI {
            && !enableGreedySwaps) {
             printUsageAndDie("Provided arguments for generate greedy swaps but did not enable the feature");
         }
-        // In the future, can add options to choose each zone in cluster, all
-        // nodes across cluster, or a list of zone IDs.
-        List<Integer> greedyZoneIds = Repartitioner.DEFAULT_GREEDY_ZONE_IDS;
 
         Repartitioner.repartition(currentCluster,
                                   currentStoreDefs,
@@ -292,10 +297,10 @@ public class RepartitionerCLI {
                                   randomSwapSuccesses,
                                   randomSwapZoneIds,
                                   enableGreedySwaps,
-                                  greedyZoneIds,
                                   greedySwapAttempts,
                                   greedyMaxPartitionsPerNode,
                                   greedyMaxPartitionsPerZone,
+                                  greedySwapZoneIds,
                                   maxContiguousPartitionsPerZone);
 
     }
