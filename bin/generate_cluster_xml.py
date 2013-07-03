@@ -206,7 +206,7 @@ fileHandle.close()
 
 # For zoned clusters call rebalance-new-cluster.sh
 if args.zones:
-    scriptPath = vold_home + '/bin/rebalance-new-cluster.sh'
+    scriptPath = vold_home + '/bin/rebalance-new-zoned-cluster.sh'
     cmd = [scriptPath, '-v', vold_home, '-c', clusterXMLFilePath, '-s', current_stores, 
                    '-o', os.path.abspath(args.output_dir)]
     subprocess.call(cmd)
