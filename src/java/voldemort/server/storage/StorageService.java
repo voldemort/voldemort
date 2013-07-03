@@ -77,7 +77,7 @@ import voldemort.store.metadata.MetadataStoreListener;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
-import voldemort.store.rebalancing.ProxyPutMetadataListenerManager;
+import voldemort.store.rebalancing.ProxyMetadataListenerManager;
 import voldemort.store.rebalancing.ProxyPutStats;
 import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
@@ -375,7 +375,7 @@ public class StorageService extends AbstractService {
         // register with ProxyPutMetadataListenerManager
         for(StoreDefinition def: storeDefs) {
             if(!def.isView()) {
-                ProxyPutMetadataListenerManager.addListener(def.getName(), metadata);
+                ProxyMetadataListenerManager.addListener(def.getName(), metadata);
             }
         }
 

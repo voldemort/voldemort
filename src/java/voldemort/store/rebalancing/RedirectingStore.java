@@ -480,7 +480,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         Integer zoneId = currentRoutingPlan.getCluster().getNodeById(nodeId).getZoneId();
 
         // Use the old store definition to get the routing object
-        BaseStoreRoutingPlan oldRoutingPlan = ProxyPutMetadataListenerManager.getListenerForStore(getName())
+        BaseStoreRoutingPlan oldRoutingPlan = ProxyMetadataListenerManager.getListenerForStore(getName())
                                                                              .getOldRoutingPlan();
         // Check the current node's relationship to the key.
         int zoneNAry = currentRoutingPlan.getZoneNAry(zoneId, nodeId, key);
@@ -519,8 +519,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         // TODO Ideally, this object construction should be done only when
         // metadata changes using a listener mechanism
 
-        BaseStoreRoutingPlan currentRoutingPlan = ProxyPutMetadataListenerManager.getListenerForStore(getName())
-                                                                                 .getNewRoutingPlan();
+        BaseStoreRoutingPlan currentRoutingPlan = ProxyMetadataListenerManager.getListenerForStore(getName())
+                                                                                 .getCurrentRoutingPlan();
         return getProxyNode(currentRoutingPlan, storeDef, key);
     }
 

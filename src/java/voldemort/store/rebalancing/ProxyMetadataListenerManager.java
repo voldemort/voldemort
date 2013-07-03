@@ -5,17 +5,17 @@ import java.util.Map;
 
 import voldemort.store.metadata.MetadataStore;
 
-public class ProxyPutMetadataListenerManager {
+public class ProxyMetadataListenerManager {
 
-    static Map<String, ProxyPutMetadataListener> storeToListeners = new HashMap<String, ProxyPutMetadataListener>();
+    static Map<String, ProxyMetadataListener> storeToListeners = new HashMap<String, ProxyMetadataListener>();
 
     static public void addListener(String storeName, MetadataStore metadata) {
-        ProxyPutMetadataListener listener = new ProxyPutMetadataListener(storeName);
+        ProxyMetadataListener listener = new ProxyMetadataListener(storeName);
         metadata.addMetadataStoreListener(storeName, listener);
         storeToListeners.put(storeName, listener);
     }
 
-    static public ProxyPutMetadataListener getListenerForStore(String storeName) {
+    static public ProxyMetadataListener getListenerForStore(String storeName) {
         return storeToListeners.get(storeName);
     }
 }
