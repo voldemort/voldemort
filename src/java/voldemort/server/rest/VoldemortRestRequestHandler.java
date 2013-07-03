@@ -17,34 +17,27 @@
 package voldemort.server.rest;
 
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
-
-import java.util.List;
-import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
-import voldemort.common.VoldemortOpCode;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.Store;
-import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ByteArray;
-import voldemort.versioning.Version;
-import voldemort.versioning.Versioned;
 
 /**
  * Class to handle a REST request and send response back to the client
  * 
- * TODO REST-Server 1.Implement Get metadata 2. HAndle store appropriately -
- * currently its a hack 3. Debug GET Version
  */
 public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
 
@@ -52,9 +45,6 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
     private boolean readingChunks;
     private StoreRepository storeRepository;
     private final Logger logger = Logger.getLogger(VoldemortRestRequestHandler.class);
-    // TODO - REST-Server Just a hack to mock store. Need to change this
-    // later
-    private final static Store<ByteArray, byte[], byte[]> inMemoryStore = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test");
 
     // Implicit constructor defined for the derived classes
     public VoldemortRestRequestHandler() {}
@@ -66,7 +56,7 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent messageEvent)
             throws Exception {
-        RestServerErrorHandler errorHandler;
+        RestServerRequestValidator requestValidator;
         if(!readingChunks) {
 
             // Construct the Request from messageEvent
@@ -82,21 +72,21 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                 // Instantiate the appropriate error handler
                 HttpMethod httpMethod = request.getMethod();
                 if(httpMethod.equals(HttpMethod.GET)) {
-                    errorHandler = new RestServerGetRequestErrorHandler(request,
-                                                                        messageEvent,
-                                                                        storeRepository);
+                    requestValidator = new RestServerGetRequestValidator(request,
+                                                                         messageEvent,
+                                                                         storeRepository);
                 } else if(httpMethod.equals(HttpMethod.POST)) {
-                    errorHandler = new RestServerPutRequestErrorHandler(request,
-                                                                        messageEvent,
-                                                                        storeRepository);
+                    requestValidator = new RestServerPutRequestValidator(request,
+                                                                         messageEvent,
+                                                                         storeRepository);
                 } else if(httpMethod.equals(HttpMethod.DELETE)) {
-                    errorHandler = new RestServerDeleteRequestErrorHandler(request,
-                                                                           messageEvent,
-                                                                           storeRepository);
+                    requestValidator = new RestServerDeleteRequestValidator(request,
+                                                                            messageEvent,
+                                                                            storeRepository);
                 } else if(httpMethod.equals(HttpMethod.HEAD)) {
-                    errorHandler = new RestServerGetVersionRequestErrorHandler(request,
-                                                                               messageEvent,
-                                                                               storeRepository);
+                    requestValidator = new RestServerGetVersionRequestValidator(request,
+                                                                                messageEvent,
+                                                                                storeRepository);
                 } else {
                     String errorMessage = "Illegal Http request.";
                     logger.error(errorMessage);
@@ -109,147 +99,21 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                 // At this point we know the request is valid and we have a
                 // error handler. So we construct the composite Voldemort
                 // request object.
-                CompositeVoldemortRequest<ByteArray, byte[]> requestObject = errorHandler.constructCompositeVoldemortRequestObject();
-
+                CompositeVoldemortRequest<ByteArray, byte[]> requestObject = requestValidator.constructCompositeVoldemortRequestObject();
                 if(requestObject != null) {
+                    Store store = getStore(requestValidator.getStoreName(),
+                                           requestValidator.getParsedRoutingType());
+                    if(store != null) {
+                        VoldemortStoreRequest voldemortStoreRequest = new VoldemortStoreRequest(requestObject,
+                                                                                                store);
+                        Channels.fireMessageReceived(ctx, voldemortStoreRequest);
+                    } else {
+                        RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                                  HttpResponseStatus.BAD_REQUEST,
+                                                                  "Non Existing store name. Critical error.");
+                        return;
 
-                    // Issue the requests to store and handle exceptions
-                    // accordingly or send back response to the client
-                    switch(requestObject.getOperationType()) {
-                        case VoldemortOpCode.GET_OP_CODE:
-                            if(logger.isDebugEnabled()) {
-                                logger.debug("Incoming get request");
-                            }
-                            try {
-                                List<Versioned<byte[]>> versionedValues = inMemoryStore.get(requestObject.getKey(),
-                                                                                            null);
-                                // handle non existing key
-                                if(versionedValues.size() > 0) {
-                                    GetResponseSender responseConstructor = new GetResponseSender(messageEvent,
-                                                                                                  requestObject.getKey(),
-                                                                                                  versionedValues,
-                                                                                                  inMemoryStore.getName());
-                                    responseConstructor.sendResponse();
-                                } else {
-                                    /*
-                                     * TODO REST-Server Need to differentiate
-                                     * null & non existing keys
-                                     */
-                                    RestServerErrorHandler.writeErrorResponse(messageEvent,
-                                                                              NOT_FOUND,
-                                                                              "Either key does not exist or key is null");
-                                }
-
-                            } catch(Exception e) {
-                                errorHandler.handleExceptions(e);
-                            }
-                            break;
-
-                        case VoldemortOpCode.GET_ALL_OP_CODE:
-                            if(logger.isDebugEnabled()) {
-                                logger.debug("Incoming get all request");
-                            }
-                            try {
-                                Map<ByteArray, List<Versioned<byte[]>>> keyValuesMap = inMemoryStore.getAll(requestObject.getIterableKeys(),
-                                                                                                            null);
-                                // check if there is atleast one valid key
-                                // before sending response
-                                boolean hasAtleastOneValidKey = false;
-                                for(List<Versioned<byte[]>> values: keyValuesMap.values()) {
-                                    if(values.size() > 0) {
-                                        hasAtleastOneValidKey = true;
-                                        break;
-                                    }
-                                }
-                                if(hasAtleastOneValidKey) {
-                                    GetAllResponseSender responseConstructor = new GetAllResponseSender(messageEvent,
-                                                                                                        keyValuesMap,
-                                                                                                        inMemoryStore.getName());
-                                    responseConstructor.sendResponse();
-                                } else {
-                                    /*
-                                     * TODO REST-Server Need to differentiate
-                                     * null & non existing keys
-                                     */
-                                    RestServerErrorHandler.writeErrorResponse(messageEvent,
-                                                                              NOT_FOUND,
-                                                                              "Either key does not exist or key is null");
-                                }
-                            } catch(Exception e) {
-                                errorHandler.handleExceptions(e);
-                            }
-                            break;
-
-                        case VoldemortOpCode.PUT_OP_CODE:
-                            if(logger.isDebugEnabled()) {
-                                logger.debug("Incoming put request");
-                            }
-                            try {
-                                inMemoryStore.put(requestObject.getKey(),
-                                                  requestObject.getValue(),
-                                                  null);
-                                PutResponseSender responseConstructor = new PutResponseSender(messageEvent);
-                                responseConstructor.sendResponse();
-                            } catch(Exception e) {
-                                errorHandler.handleExceptions(e);
-                            }
-                            break;
-
-                        case VoldemortOpCode.DELETE_OP_CODE:
-                            if(logger.isDebugEnabled()) {
-                                logger.debug("Incoming delete request");
-                            }
-                            try {
-                                boolean result = inMemoryStore.delete(requestObject.getKey(),
-                                                                      requestObject.getVersion());
-                                if(!result) {
-                                    RestServerErrorHandler.writeErrorResponse(messageEvent,
-                                                                              NOT_FOUND,
-                                                                              "Non Existing key/version. Nothing to delete");
-                                    break;
-                                }
-                                DeleteResponseSender responseConstructor = new DeleteResponseSender(messageEvent);
-                                responseConstructor.sendResponse();
-                            } catch(Exception e) {
-                                errorHandler.handleExceptions(e);
-                            }
-                            break;
-
-                        case VoldemortOpCode.GET_VERSION_OP_CODE:
-
-                            if(logger.isDebugEnabled()) {
-                                logger.debug("Incoming get version request");
-                            }
-                            try {
-                                List<Version> versions = inMemoryStore.getVersions(requestObject.getKey());
-
-                                // handle non existing key
-                                if(versions.size() > 0) {
-                                    GetVersionResponseSender responseConstructor = new GetVersionResponseSender(messageEvent,
-                                                                                                                requestObject.getKey(),
-                                                                                                                versions,
-                                                                                                                inMemoryStore.getName());
-                                    responseConstructor.sendResponse();
-
-                                } else {
-                                    /*
-                                     * TODO REST-Server Need to differentiate
-                                     * null & non existing keys
-                                     */
-                                    RestServerErrorHandler.writeErrorResponse(messageEvent,
-                                                                              NOT_FOUND,
-                                                                              "Either key does not exist or key is null");
-                                }
-                            } catch(Exception e) {
-                                errorHandler.handleExceptions(e);
-                            }
-                            break;
-                        default:
-                            // Since we dont add any other operations than the 5
-                            // above, the code stops here.
-                            return;
                     }
-
                 }
             }
         } else {
@@ -264,5 +128,27 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
         e.getCause().printStackTrace();
         e.getChannel().close();
+    }
+
+    /**
+     * Gets the store for the store name and routing type. At this point we
+     * already know that the routing type is valid . So we dont throw Voldemort
+     * Exception for unknown routing type.
+     * 
+     * @param name - store name
+     * @param type - routing type from the request
+     * @return
+     */
+    protected Store<ByteArray, byte[], byte[]> getStore(String name, RequestRoutingType type) {
+
+        switch(type) {
+            case ROUTED:
+                return this.storeRepository.getRoutedStore(name);
+            case NORMAL:
+                return this.storeRepository.getLocalStore(name);
+            case IGNORE_CHECKS:
+                return this.storeRepository.getStorageEngine(name);
+        }
+        return null;
     }
 }

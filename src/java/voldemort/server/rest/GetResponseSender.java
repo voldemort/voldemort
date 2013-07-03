@@ -70,10 +70,8 @@ public class GetResponseSender extends RestResponseSender {
                 // Add the right headers
                 body.addHeader(CONTENT_TYPE, "application/octet-stream");
                 body.addHeader(CONTENT_TRANSFER_ENCODING, "binary");
-                body.addHeader(CONTENT_LENGTH, "" + responseValue.length);
                 body.addHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK, eTag);
                 body.setContent(responseValue, "application/octet-stream");
-
                 multiPart.addBodyPart(body);
             } catch(MessagingException me) {
                 logger.error("Exception while constructing body part", me);

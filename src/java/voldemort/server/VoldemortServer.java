@@ -190,14 +190,16 @@ public class VoldemortServer extends AbstractService {
 
         if(voldemortConfig.isHttpServerEnabled()) {
             /*
-             * TODO REST-Server Need to decide on replacing HttpService
+             * TODO REST-Server 1. Need to decide on replacing HttpService 2.
+             * Need to decide on the number of threads. This needs to be
+             * configurable
              */
             /*
              * services.add(new HttpService(this, storageService,
              * storeRepository, RequestFormatType.VOLDEMORT_V1,
              * voldemortConfig.getMaxThreads(), identityNode.getHttpPort()));
              */
-            services.add(new RestService(voldemortConfig.getMaxThreads(),
+            services.add(new RestService(voldemortConfig,
                                          identityNode.getHttpPort(),
                                          storeRepository));
         }

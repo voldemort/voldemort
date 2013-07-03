@@ -88,7 +88,6 @@ public class GetAllResponseSender extends RestResponseSender {
                     // Add the right headers
                     valueBody.addHeader(CONTENT_TYPE, "application/octet-stream");
                     valueBody.addHeader(CONTENT_TRANSFER_ENCODING, "binary");
-                    valueBody.addHeader(CONTENT_LENGTH, "" + responseValue.length);
                     valueBody.addHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK, eTag);
                     valueBody.setContent(responseValue, "application/octet-stream");
 
@@ -103,7 +102,6 @@ public class GetAllResponseSender extends RestResponseSender {
             try {
                 // Add the inner multipart as the content of the outer body part
                 keyBody.setContent(multiPartValues);
-                keyBody.addHeader(CONTENT_LENGTH, "" + keyBody.getSize());
                 multiPartKeys.addBodyPart(keyBody);
             } catch(MessagingException me) {
                 logger.error("Exception while constructing key body part", me);

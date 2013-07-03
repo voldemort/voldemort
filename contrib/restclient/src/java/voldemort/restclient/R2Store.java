@@ -87,7 +87,6 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     public static final String CUSTOM_RESOLVING_STRATEGY = "custom";
     public static final String DEFAULT_RESOLVING_STRATEGY = "timestamp";
     public static final String SCHEMATA_STORE_NAME = "schemata";
-
     private static final String MULTIPART_CONTENT_TYPE = "multipart/binary";
     private static final String FETCH_SCHEMA_TIMEOUT_MS = "50000";
 
@@ -97,8 +96,6 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     private String baseURL;
     private ObjectMapper mapper;
     private RESTClientConfig config;
-
-    // TODO: Pass this as a parameter in R2Store Constructor
     private String routingTypeCode = null;
 
     public R2Store(String storeName,
@@ -119,6 +116,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         this.baseURL = baseURL;
         this.mapper = new ObjectMapper();
         this.routingTypeCode = routingCodeStr;
+
     }
 
     @Override
@@ -139,12 +137,10 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         try {
-
             // Create the REST request with this byte array
             String base64Key = new String(Base64.encodeBase64(key.get()));
             RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName()
                                                                    + "/" + base64Key));
-
             // Create a HTTP POST request
             rb.setMethod(DELETE);
             rb.setHeader(CONTENT_LENGTH, "0");
@@ -154,6 +150,23 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             rb.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS, String.valueOf(System.currentTimeMillis()));
             if(this.routingTypeCode != null) {
                 rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+            }
+            // Serialize the Vector clock
+            VectorClock vc = (VectorClock) version;
+
+            // If the given Vector clock is empty, we'll let the receiver of
+            // this request fetch the existing vector clock and increment
+            // before
+            // doing the put.
+            if(vc != null && vc.getEntries().size() != 0) {
+                String serializedVC = null;
+                if(!vc.getEntries().isEmpty()) {
+                    serializedVC = CoordinatorUtils.getSerializedVectorClock(vc);
+                }
+
+                if(serializedVC != null && serializedVC.length() > 0) {
+                    rb.setHeader(X_VOLD_VECTOR_CLOCK, serializedVC);
+                }
             }
 
             RestRequest request = rb.build();
@@ -167,6 +180,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                     logger.debug("Empty response !");
                 }
             }
+
         } catch(ExecutionException e) {
             if(e.getCause() instanceof RestException) {
                 RestException exception = (RestException) e.getCause();
@@ -180,7 +194,6 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 throw new VoldemortException("Unknown HTTP request execution exception: "
                                              + e.getMessage(), e);
             }
-
         } catch(InterruptedException e) {
             if(logger.isDebugEnabled()) {
                 logger.debug("Operation interrupted : " + e.getMessage());
@@ -189,7 +202,6 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         } catch(URISyntaxException e) {
             throw new VoldemortException("Illegal HTTP URL" + e.getMessage(), e);
         }
-
         return true;
     }
 
@@ -202,10 +214,8 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         if(this.routingTypeCode != null) {
             requestBuilder.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
         }
-
         RestRequest request = requestBuilder.build();
         Future<RestResponse> f = client.restRequest(request);
-
         // This will block
         return f.get();
     }
@@ -236,6 +246,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 if(logger.isDebugEnabled()) {
                     logger.debug("REST EXCEPTION STATUS : " + exception.getResponse().getStatus());
                 }
+
             } else {
                 throw new VoldemortException("Unknown HTTP request execution exception: "
                                              + e.getMessage(), e);
@@ -340,7 +351,6 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transform)
             throws VoldemortException {
-
         RestResponse response = null;
 
         try {
@@ -474,9 +484,11 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
 
             // Parse the response
             final ByteString entity = response.getEntity();
+
             String contentType = response.getHeader(CONTENT_TYPE);
             if(entity != null) {
                 if(contentType.equalsIgnoreCase(MULTIPART_CONTENT_TYPE)) {
+
                     resultMap = parseGetAllResults(entity);
                 } else {
                     if(logger.isDebugEnabled()) {
@@ -592,4 +604,5 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         // TODO Auto-generated method stub
         return null;
     }
+
 }

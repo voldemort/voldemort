@@ -229,6 +229,11 @@ public class VoldemortConfig implements Serializable {
     // Should be removed once the proxy put implementation is stable.
     private boolean proxyPutsDuringRebalance;
 
+    private int numRestServiceBossThreads;
+    private int numRestServiceWorkerThreads;
+    private int numRestServiceStorageThreads;
+    private int restServiceStorageThreadPoolQueueSize;
+
     public VoldemortConfig(Properties props) {
         this(new Props(props));
     }
@@ -501,6 +506,12 @@ public class VoldemortConfig implements Serializable {
         // network class loader disable by default.
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
 
+        // TODO: REST-Server decide on the numbers
+        this.numRestServiceBossThreads = props.getInt("num.rest.service.boss.threads", 1);
+        this.numRestServiceWorkerThreads = props.getInt("num.rest.service.worker.threads", 10);
+        this.numRestServiceStorageThreads = props.getInt("num.rest.service.storage.threads", 50);
+        this.restServiceStorageThreadPoolQueueSize = props.getInt("rest.service.storage.thread.pool.queue.size",
+                                                                  numRestServiceStorageThreads);
         validateParams();
     }
 
@@ -2798,5 +2809,66 @@ public class VoldemortConfig implements Serializable {
      */
     public void setGossipInterval(int gossipIntervalMs) {
         this.gossipIntervalMs = gossipIntervalMs;
+    }
+
+    public int getNumRestServiceBossThreads() {
+        return numRestServiceBossThreads;
+    }
+
+    /**
+     * The number of threads in the REST server Netty Boss thread pool.
+     * <ul>
+     * <li>Property :"num.rest.service.boss.threads"</li>
+     * <li>Default :1</li>
+     * </ul>
+     */
+
+    public void setNumRestServiceBossThreads(int numRestServiceBossThreads) {
+        this.numRestServiceBossThreads = numRestServiceBossThreads;
+    }
+
+    public int getNumRestServiceWorkerThreads() {
+        return numRestServiceWorkerThreads;
+    }
+
+    /**
+     * The number of threads in the REST server Netty worker thread pool.
+     * <ul>
+     * <li>Property :"num.rest.service.worker.threads"</li>
+     * <li>Default :10</li>
+     * </ul>
+     */
+    public void setNumRestServiceWorkerThreads(int numRestServiceWorkerThreads) {
+        this.numRestServiceWorkerThreads = numRestServiceWorkerThreads;
+    }
+
+    public int getNumRestServiceStorageThreads() {
+        return numRestServiceStorageThreads;
+    }
+
+    /**
+     * The number of threads in the REST server storage thread pool.
+     * <ul>
+     * <li>Property :"num.rest.service.storage.threads"</li>
+     * <li>Default :50</li>
+     * </ul>
+     */
+    public void setNumRestServiceStorageThreads(int numRestServiceStorageThreads) {
+        this.numRestServiceStorageThreads = numRestServiceStorageThreads;
+    }
+
+    public int getRestServiceStorageThreadPoolQueueSize() {
+        return restServiceStorageThreadPoolQueueSize;
+    }
+
+    /**
+     * The capacity of the REST server storage thread pool queue.
+     * <ul>
+     * <li>Property :"rest.service.storage.thread.pool.queue.size"</li>
+     * <li>Default :numRestServiceStorageThreads</li>
+     * </ul>
+     */
+    public void setRestServiceStorageThreadPoolQueueSize(int restServiceStorageThreadPoolQueueSize) {
+        this.restServiceStorageThreadPoolQueueSize = restServiceStorageThreadPoolQueueSize;
     }
 }

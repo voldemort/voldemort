@@ -2,8 +2,12 @@ package voldemort.coordinator;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -55,6 +59,55 @@ public class CoordinatorUtils {
         }
 
         return vc;
+    }
+
+    /**
+     * Function to serialize the given list of Vector clocks into a string. If
+     * something goes wrong, it returns an empty string.
+     * 
+     * @param vectorClocks The Vector clock list to serialize
+     * @return The string (JSON) version of the specified Vector clock
+     */
+    public static String getSerializedVectorClocks(List<VectorClock> vectorClocks) {
+        List<VectorClockWrapper> vectorClockWrappers = new ArrayList<VectorClockWrapper>();
+        for(VectorClock vc: vectorClocks) {
+            vectorClockWrappers.add(new VectorClockWrapper(vc));
+        }
+        ObjectMapper mapper = new ObjectMapper();
+        String serializedVC = "";
+        try {
+            serializedVC = mapper.writeValueAsString(vectorClockWrappers);
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+        return serializedVC;
+    }
+
+    public static List<VectorClock> deserializeVectorClocks(String serializedVC) {
+        Set<VectorClockWrapper> vectorClockWrappers = null;
+        List<VectorClock> vectorClocks = null;
+
+        if(serializedVC == null) {
+            return null;
+        }
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        try {
+            vectorClockWrappers = mapper.readValue(serializedVC,
+                                                   new TypeReference<Set<VectorClockWrapper>>() {});
+            if(vectorClockWrappers.size() > 0) {
+                vectorClocks = new ArrayList<VectorClock>();
+            }
+            for(VectorClockWrapper vectorClockWrapper: vectorClockWrappers) {
+                vectorClocks.add(new VectorClock(vectorClockWrapper.getVersions(),
+                                                 vectorClockWrapper.getTimestamp()));
+            }
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+
+        return vectorClocks;
     }
 
     /**
@@ -117,4 +170,5 @@ public class CoordinatorUtils {
             throw new MappingException(e);
         }
     }
+
 }

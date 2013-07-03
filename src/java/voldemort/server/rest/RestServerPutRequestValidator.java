@@ -5,15 +5,10 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
-import voldemort.VoldemortUnsupportedOperationalException;
 import voldemort.server.StoreRepository;
 import voldemort.store.CompositeVersionedPutVoldemortRequest;
 import voldemort.store.CompositeVoldemortRequest;
-import voldemort.store.InvalidMetadataException;
-import voldemort.store.PersistenceFailureException;
-import voldemort.store.rebalancing.ProxyUnreachableException;
 import voldemort.utils.ByteArray;
-import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
 /**
@@ -21,11 +16,11 @@ import voldemort.versioning.Versioned;
  * REST Request and constructs a CompositeVoldemortRequestObject. Also Handles
  * exceptions specific to put operation.
  */
-public class RestServerPutRequestErrorHandler extends RestServerErrorHandler {
+public class RestServerPutRequestValidator extends RestServerRequestValidator {
 
-    public RestServerPutRequestErrorHandler(HttpRequest request,
-                                            MessageEvent messageEvent,
-                                            StoreRepository storeRepository) {
+    public RestServerPutRequestValidator(HttpRequest request,
+                                         MessageEvent messageEvent,
+                                         StoreRepository storeRepository) {
         super(request, messageEvent, storeRepository);
     }
 
@@ -42,45 +37,14 @@ public class RestServerPutRequestErrorHandler extends RestServerErrorHandler {
                                                                                              this.parsedRequestOriginTimeInMs,
                                                                                              this.parsedRoutingType);
                 return requestObject;
+            } else {
+                RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                          HttpResponseStatus.BAD_REQUEST,
+                                                          "Value cannot be null");
             }
         }
         // Return null if request is not valid
         return null;
-    }
-
-    /**
-     * Handle exceptions thrown by the storage. Exceptions specific to PUT go
-     * here. Pass other exceptions to the parent class
-     * 
-     * TODO REST-Server Add a new exception for this condition - server busy
-     * with pending requests. queue is full
-     */
-    @Override
-    public void handleExceptions(Exception exception) {
-
-        if(exception instanceof InvalidMetadataException) {
-            writeErrorResponse(this.messageEvent,
-                               HttpResponseStatus.REQUESTED_RANGE_NOT_SATISFIABLE,
-                               "The requested key does not exist in this partition");
-        } else if(exception instanceof PersistenceFailureException) {
-            writeErrorResponse(this.messageEvent,
-                               HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                               "TOperation failed");
-        } else if(exception instanceof ProxyUnreachableException) {
-            writeErrorResponse(this.messageEvent,
-                               HttpResponseStatus.SERVICE_UNAVAILABLE,
-                               "The proxy is unreachable");
-        } else if(exception instanceof VoldemortUnsupportedOperationalException) {
-            writeErrorResponse(this.messageEvent,
-                               HttpResponseStatus.METHOD_NOT_ALLOWED,
-                               "operation not supported in read-only store");
-        } else if(exception instanceof ObsoleteVersionException) {
-            writeErrorResponse(this.messageEvent,
-                               HttpResponseStatus.PRECONDITION_FAILED,
-                               "A put request resulted in an ObsoleteVersionException");
-        } else {
-            super.handleExceptions(exception);
-        }
     }
 
     /**
@@ -111,15 +75,16 @@ public class RestServerPutRequestErrorHandler extends RestServerErrorHandler {
                 Long.parseLong(contentLength);
                 result = true;
             } catch(NumberFormatException nfe) {
-                writeErrorResponse(this.messageEvent,
-                                   HttpResponseStatus.BAD_REQUEST,
-                                   "Incorrect content length parameter. Cannot parse this to long: "
-                                           + contentLength + ". Details: " + nfe.getMessage());
+                RestServerErrorHandler.writeErrorResponse(this.messageEvent,
+                                                          HttpResponseStatus.BAD_REQUEST,
+                                                          "Incorrect content length parameter. Cannot parse this to long: "
+                                                                  + contentLength + ". Details: "
+                                                                  + nfe.getMessage());
             }
         } else
-            writeErrorResponse(this.messageEvent,
-                               HttpResponseStatus.BAD_REQUEST,
-                               "Missing Content-Length header");
+            RestServerErrorHandler.writeErrorResponse(this.messageEvent,
+                                                      HttpResponseStatus.BAD_REQUEST,
+                                                      "Missing Content-Length header");
 
         return result;
     }
@@ -139,9 +104,9 @@ public class RestServerPutRequestErrorHandler extends RestServerErrorHandler {
         if(this.request.getHeader(RestMessageHeaders.CONTENT_TYPE) != null) {
             result = true;
         } else {
-            writeErrorResponse(this.messageEvent,
-                               HttpResponseStatus.BAD_REQUEST,
-                               "Missing Content-Type header");
+            RestServerErrorHandler.writeErrorResponse(this.messageEvent,
+                                                      HttpResponseStatus.BAD_REQUEST,
+                                                      "Missing Content-Type header");
         }
         return result;
     }
@@ -149,7 +114,7 @@ public class RestServerPutRequestErrorHandler extends RestServerErrorHandler {
     /**
      * Retrieve the value from the REST request body.
      * 
-     * TODO REST-Server Is null/empty allowed for a value?
+     * TODO: REST-Server value cannot be null ( null/empty string ?)
      */
     private void parseValue() {
         ChannelBuffer content = this.request.getContent();

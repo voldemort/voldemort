@@ -3,12 +3,16 @@ package voldemort.server.rest;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LOCATION;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TRANSFER_ENCODING;
+import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.codec.binary.Base64;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponse;
@@ -36,34 +40,35 @@ public class GetVersionResponseSender extends RestResponseSender {
 
     @Override
     public void sendResponse() throws Exception {
+
         String contentLocationKey = "/" + this.storeName + "/"
                                     + new String(Base64.encodeBase64(key.get()));
-        // construct the list of versions
-        StringBuilder eTags = new StringBuilder();
-        boolean firstETag = true;
-        for(Version versionedValue: versionedValues) {
 
-            VectorClock vectorClock = (VectorClock) versionedValue;
-            String eTag = CoordinatorUtils.getSerializedVectorClock(vectorClock);
-            if(firstETag) {
-                eTags.append(eTag);
-                firstETag = false;
-            } else {
-                eTags.append(", " + eTag);
-            }
+        List<VectorClock> vectorClocks = new ArrayList<VectorClock>();
+        for(Version versionedValue: versionedValues) {
+            vectorClocks.add((VectorClock) versionedValue);
         }
+
+        String eTags = CoordinatorUtils.getSerializedVectorClocks(vectorClocks);
+        byte[] responseContent = eTags.getBytes();
+        ChannelBuffer responseContentBuffer = ChannelBuffers.dynamicBuffer(responseContent.length);
+        responseContentBuffer.writeBytes(responseContent);
 
         // Create the Response object
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
 
         // Set the right headers
+        response.setHeader(CONTENT_TYPE, "binary");
         response.setHeader(CONTENT_TRANSFER_ENCODING, "binary");
-        response.setHeader(CONTENT_LENGTH, 0);
         response.setHeader(CONTENT_LOCATION, contentLocationKey);
-        response.setHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK, eTags.toString());
+
+        // Copy the data into the payload
+        response.setContent(responseContentBuffer);
+        response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
 
         // Write the response to the Netty Channel
         this.messageEvent.getChannel().write(response);
 
     }
+
 }
