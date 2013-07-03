@@ -1,5 +1,45 @@
+Pending release notes:
+
 Note: Server changes are not backwards compatible. To use new
 rebalancing tooling, servers must be upgraded before hand.
+
+* Rebalance features
+  - Proxying / abortable rebalance
+    - added proxy puts which rebalance safely abortable
+    - improved proxy gets to check locally first and only fetch remote
+      if not yet local
+  - Repartitioning: improved algorithms to optimize partition layout
+  - Plan: avoids cross-zone data movement in most rebalance cases. Only
+    expanding into a new zone requires data movement across zones.
+  - Controller 
+    - better / more accurate progress monitoring.
+    - 'proxy pause' before rebalancing. Ensures clients pick up new
+      metadata and allows performance with proxy'ing to be observed
+      before servers start rebalancing.
+  - NOTE: Donor-based rebalance is currently broken by these changes.
+* Rebalance tooling
+  - PartitionBalanceCLI: more nuanced and verbose analysis of cluster
+    balance
+  - RepartitionerCLI: Stand alone tool to determine repartitioning
+  - Stand alone 'repartitioning' scripts for key use cases: new cluster,
+    shuffle (existing cluster), cluster expansion, and zone expansion.
+  - RebalancePlanCLI: Stand alone plan tool to determine cost of a
+    specific rebalance
+  - RebalanceControllerCLI: Stand-alone tool for executing a specific
+    rebalance (plan)
+* Administrivia
+  - java 7 compilation
+  - moved to Guava from Google Collections
+  - better unit test coverage of zoned clusters
+  - added example prod configuration
+  - added tools directory
+  - .gitignore improvements
+* Bug fixes
+  - fixed concurrency bugs in metadata store
+  - fixed vector clock comparisons
+  - fixed many NPEs
+  - write slops in more cases when they are needed
+  - KeySampler/Fetcher handle larger working sets with OOME
 
 Release 1.4.2 on 06/27/2013
 * Fixing costly StoreRoutingPlan object construction
