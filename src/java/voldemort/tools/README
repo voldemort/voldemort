@@ -1,0 +1,58 @@
+This is a short README file summarizing what the tools do and how to use them.
+
+PartitionAnalysisCLI : Analyzes the partition layout of a cluster based on the
+storage definitions for that cluster and determines how well balanced the
+partition layout is.
+
+Eg. use : 
+
+voldemort.tools.PartitionAnalysisCLI --cluster <current-cluster> --stores <current-stores>
+
+RepartitionerCLI : This tool can be used in two flavors (described below). The
+inputs differ slightly on the use case.
+
+Use case 1  : Shuffle the partitions around : The tool accepts an existing
+cluster.xml, and generates a new final-cluster.xml. There are two choices on the
+exact mechanism on how the repartition should be executed : random swapping or
+greedy swapping. The tool also allows the flexibility on what zones can be
+chosen for random shuffle.
+
+Eg use :
+
+voldemort.tools.RepartitionerCLI --current-cluster <current-cluster>
+                                 --current-stores <current_stores>
+                                 --output-dir <output_dir>
+                                 --enable-random-swaps
+                                 --random-swap-zoneids <zoneid>
+                                 --random-swap-attempts <swap_attempts>
+
+
+Use case 2 : Cluster expansion/Zone expansion : In this use case, apart from
+the current cluster.xml the tool also needs as an input "interim-cluster.xml"
+file. "Interim-cluster" contains the extra information about the nodes in the
+"expanded" cluster or the new zone. The partition list associated with these
+nodes, however is empty.
+
+So for a zone expansion use case, the interim cluster would have information on
+the new zone, nodes within that zone but will have an empty partition list.
+
+When used in this scenario the tool generates a final-cluster.xml with a new
+partition layout for the nodes. In short, it steals partitions from other zones
+and moves it to the nodes in the new zone.
+
+Eg. use :
+
+voldemort.tools.RepartitionerCLI --current-cluster <current-cluster>
+                                 --current-stores <current_stores>
+	                             --interim-cluster <interim-cluster>
+	                             --final-stores <final_stores>
+                                 --output-dir <output_dir>
+                                 
+
+RebalancePlanCLI : This tool takes as input two cluster.xml's (the current and
+the final) and generates a plan on how to get from the current cluster topology
+to the final one.
+
+RebalanceControllerCLI : This tool executes the actual rebalance operation
+against a server. Internally it uses the planner to generate a plan and then
+executes on that plan.
