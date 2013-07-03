@@ -87,16 +87,16 @@ public class StreamingClient {
     ExecutorService streamingresults;
 
     // Every batch size we commit
-    private static int CHECKPOINT_COMMIT_SIZE;
+    protected static int CHECKPOINT_COMMIT_SIZE;
 
     // we have to throttle to a certain qps
     private static int THROTTLE_QPS;
-    private int entriesProcessed;
+    protected int entriesProcessed;
 
     // In case a Recovery callback fails we got to stop it from getting any
     // worse
     // so we mark the session as bad and dont take any more requests
-    private static boolean MARKED_BAD = false;
+    protected static boolean MARKED_BAD = false;
 
     protected EventThrottler throttler;
 
@@ -108,11 +108,11 @@ public class StreamingClient {
     // Data structures for the streaming maps from Pair<Store, Node Id> to
     // Resource
 
-    private HashMap<String, RoutingStrategy> storeToRoutingStrategy;
-    private HashMap<Pair<String, Integer>, Boolean> nodeIdStoreInitialized;
+    protected HashMap<String, RoutingStrategy> storeToRoutingStrategy;
+    protected HashMap<Pair<String, Integer>, Boolean> nodeIdStoreInitialized;
 
     private HashMap<Pair<String, Integer>, SocketDestination> nodeIdStoreToSocketRequest;
-    private HashMap<Pair<String, Integer>, DataOutputStream> nodeIdStoreToOutputStreamRequest;
+    protected HashMap<Pair<String, Integer>, DataOutputStream> nodeIdStoreToOutputStreamRequest;
     private HashMap<Pair<String, Integer>, DataInputStream> nodeIdStoreToInputStreamRequest;
 
     private HashMap<Pair<String, Integer>, SocketAndStreams> nodeIdStoreToSocketAndStreams;
@@ -120,7 +120,7 @@ public class StreamingClient {
     private List<String> storeNames;
 
     private List<Node> nodesToStream;
-    private List<Integer> blackListedNodes;
+    protected List<Integer> blackListedNodes;
 
     private final static int MAX_STORES_PER_SESSION = 100;
 
@@ -354,7 +354,7 @@ public class StreamingClient {
      * @param store: the name of the store to stream to
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private void addStoreToSession(String store) {
+    protected void addStoreToSession(String store) {
 
         storeNames.add(store);
 
