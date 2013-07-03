@@ -129,7 +129,7 @@ public class RepartitionerCLI {
               .ofType(Integer.class)
               .describedAs("max-partitions-per-zone");
         parser.accepts("greedy-swap-zoneids",
-                       "Comma separated zone ids that you want to shuffle. [Default:Shuffle all zones.]")
+                       "Comma separated zone ids that you want to shuffle. [Default: Shuffle each zone.]")
               .withRequiredArg()
               .describedAs("greedy-zoneids-to-shuffle")
               .withValuesSeparatedBy(',')
@@ -252,7 +252,8 @@ public class RepartitionerCLI {
         int randomSwapSuccesses = CmdUtils.valueOf(options,
                                                    "random-swap-successes",
                                                    Repartitioner.DEFAULT_RANDOM_SWAP_SUCCESSES);
-        List<Integer> randomSwapZoneIds = CmdUtils.valuesOf(options, "random-swap-zoneids",
+        List<Integer> randomSwapZoneIds = CmdUtils.valuesOf(options,
+                                                            "random-swap-zoneids",
                                                             Repartitioner.DEFAULT_RANDOM_SWAP_ZONE_IDS);
         boolean enableGreedySwaps = options.has("enable-greedy-swaps");
         int greedySwapAttempts = CmdUtils.valueOf(options,
@@ -264,12 +265,13 @@ public class RepartitionerCLI {
         int greedyMaxPartitionsPerZone = CmdUtils.valueOf(options,
                                                           "greedy-max-partitions-per-zone",
                                                           Repartitioner.DEFAULT_GREEDY_MAX_PARTITIONS_PER_ZONE);
-        List<Integer> greedySwapZoneIds = CmdUtils.valuesOf(options, "greedy-swap-zoneids",
+        List<Integer> greedySwapZoneIds = CmdUtils.valuesOf(options,
+                                                            "greedy-swap-zoneids",
                                                             Repartitioner.DEFAULT_GREEDY_SWAP_ZONE_IDS);
         int maxContiguousPartitionsPerZone = CmdUtils.valueOf(options,
                                                               "max-contiguous-partitions",
                                                               Repartitioner.DEFAULT_MAX_CONTIGUOUS_PARTITIONS);
-        
+
         // Sanity check optional repartitioning args
         if(disableNodeBalancing && !enableRandomSwaps && !enableGreedySwaps
            && maxContiguousPartitionsPerZone == 0) {
