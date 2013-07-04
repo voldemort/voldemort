@@ -146,3 +146,5 @@ echo "[rebalance-cluster-expansion] Placing final-cluster.xml in '$output_dir'"
 cp $output_dir/step2/final-cluster.xml $output_dir/final-cluster.xml
 echo "[rebalance-cluster-expansion] Placing plan.out in '$output_dir'"
 cp $output_dir/step2/plan.out $output_dir/plan.out
+echo "[rebalance-cluster-expansion] Placing final-cluster.xml.analysis in '$output_dir'"
+cp $output_dir/step1/final-cluster.xml.analysis $output_dir/final-cluster.xml.analysis

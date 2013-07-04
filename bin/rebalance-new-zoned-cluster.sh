@@ -59,16 +59,16 @@ do
     ;;
   c)
     current_cluster=$OPTARG
-    echo "[rebalance-new-cluster] Will rebalance on the cluster described in '$current_cluster'."
+    echo "[rebalance-new-zoned-cluster] Will rebalance on the cluster described in '$current_cluster'."
     ;;
   s)
     current_stores=$OPTARG
-    echo "[rebalance-new-cluster] Will rebalance on the stores described in '$current_stores'."
+    echo "[rebalance-new-zoned-cluster] Will rebalance on the stores described in '$current_stores'."
     ;;
   o)
     output_dir=$OPTARG
     mkdir -p $output_dir
-    echo "[rebalance-new-cluster] Using '$output_dir' for all interim and final files generated."
+    echo "[rebalance-new-zoned-cluster] Using '$output_dir' for all interim and final files generated."
     ;;
   ?)
     usage_and_exit
@@ -79,7 +79,7 @@ done
 if [[ -z $current_cluster ]] || [[ -z $current_stores ]] || [[ -z $output_dir ]]
 then
      printf "\n"
-     echo "[rebalance-new-cluster] Missing argument. Check again."
+     echo "[rebalance-new-zoned-cluster] Missing argument. Check again."
      usage_and_exit
      exit 1
 fi
@@ -139,8 +139,7 @@ $vold_home/bin/run-class.sh voldemort.tools.RepartitionerCLI \
                             --attempts 4 \
                             --output-dir $output_dir/step3/ \
 
-echo "[rebalance-new-cluster] Placing final-cluster.xml in '$output_dir'"
+echo "[rebalance-new-zoned-cluster] Placing final-cluster.xml in '$output_dir'"
 cp $output_dir/step3/final-cluster.xml $output_dir/final-cluster.xml
-echo "[rebalance-new-cluster] Placing plan.out in '$output_dir'"
-cp $output_dir/step3/plan.out $output_dir/plan.out
-
+echo "[rebalance-new-zoned-cluster] Placing final-cluster.xml.analysis in '$output_dir'"
+cp $output_dir/step2/final-cluster.xml.analysis $output_dir/final-cluster.xml.analysis
