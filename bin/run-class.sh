@@ -52,8 +52,9 @@ if [ -z "$VOLD_OPTS" ]; then
   VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote "
 fi
 
-# add '-Dlog4j.debug ' to debug log4j issues.
-LOG4JPROPERTIES="-Dlog4j.configuration=file:///${base_dir}/src/java/log4j.properties"
+if [ -z "${VOLD_LOG4J+_}" ]; then
+  # add '-Dlog4j.debug ' to debug log4j issues.
+  VOLD_LOG4J="-Dlog4j.configuration=file:///${base_dir}/src/java/log4j.properties"
+fi
 
-export CLASSPATH
-java $LOG4JPROPERTIES $VOLD_OPTS -cp $CLASSPATH $@
+java $VOLD_LOG4J $VOLD_OPTS -cp $CLASSPATH $@
