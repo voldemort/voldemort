@@ -1,5 +1,11 @@
-Pending release notes:
+Release 1.4.4 on 07/08/2013
 
+Changes made since 1.4.3
+* Change Repartioner to swap among nodes from all specified zones
+* Added rebalance shuffle, cluster expansion scripts
+
+Release 1.4.3 on 07/03/2013
+ 
 Note: Server changes are not backwards compatible. To use new
 rebalancing tooling, servers must be upgraded before hand.
 
@@ -40,6 +46,10 @@ rebalancing tooling, servers must be upgraded before hand.
   - fixed many NPEs
   - write slops in more cases when they are needed
   - KeySampler/Fetcher handle larger working sets with OOME
+
+Changes made since 1.4.2
+* Minor code fixes
+* Faster creation of BaseStoreRoutingPlan objects in the fast rebalancing path
 
 Release 1.4.2 on 06/27/2013
 * Fixing costly StoreRoutingPlan object construction
