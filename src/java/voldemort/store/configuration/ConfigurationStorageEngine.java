@@ -189,7 +189,7 @@ public class ConfigurationStorageEngine extends AbstractStorageEngine<String, St
             File versionFile = new File(getVersionDirectory(), key);
             if(!versionFile.exists()) {
                 // bootstrap file save default clock as version.
-                VectorClock clock = new VectorClock();
+                VectorClock clock = new VectorClock(0);
                 writeVersion(key, clock);
                 return clock;
             } else {
