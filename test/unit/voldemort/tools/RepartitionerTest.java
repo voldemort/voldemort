@@ -400,7 +400,7 @@ public class RepartitionerTest {
 
         // Greedy test 3: Greedy overall nodes in cluster (rather than
         // zone-by-zone)
-        greedyZones = null;
+        greedyZones = Collections.<Integer> emptyList();
 
         repartitionedCluster = Repartitioner.repartition(currentCluster,
                                                          currentStores,
