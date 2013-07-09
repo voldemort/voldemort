@@ -38,7 +38,7 @@ public class SampleRESTClient {
         RESTClientConfig config = new RESTClientConfig();
         config.setHttpBootstrapURL("http://localhost:8080")
               .setTimeoutMs(1500, TimeUnit.MILLISECONDS)
-              .setMaxR2PoolSize(100);
+              .setMaxR2ConnectionPoolSize(100);
 
         RESTClientFactory factory = new RESTClientFactory(config);
         StoreClient<String, String> clientStore = factory.getStoreClient("test");

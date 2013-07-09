@@ -67,7 +67,7 @@ public class RESTClientFactory implements StoreClientFactory {
         this._clientFactory = new HttpClientFactory();
         Map<String, String> properties = new HashMap<String, String>();
         properties.put(HttpClientFactory.POOL_SIZE_KEY,
-                       Integer.toString(this.config.getMaxR2PoolSize()));
+                       Integer.toString(this.config.getMaxR2ConnectionPoolSize()));
         transportClient = _clientFactory.getClient(properties);
 
     }

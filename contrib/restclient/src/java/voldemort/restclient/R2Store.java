@@ -99,10 +99,18 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     private RESTClientConfig config;
 
     // TODO: Pass this as a parameter in R2Store Constructor
-    private final String routingTypeCode = "2";
+    private String routingTypeCode = null;
 
     public R2Store(String storeName,
                    String baseURL,
+                   final TransportClient transportClient,
+                   final RESTClientConfig config) {
+        this(storeName, baseURL, null, transportClient, config);
+    }
+
+    public R2Store(String storeName,
+                   String baseURL,
+                   String routingCodeStr,
                    final TransportClient transportClient,
                    final RESTClientConfig config) {
         super(storeName);
@@ -110,6 +118,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         this.config = config;
         this.baseURL = baseURL;
         this.mapper = new ObjectMapper();
+        this.routingTypeCode = routingCodeStr;
     }
 
     @Override
@@ -142,8 +151,10 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.DELETE_OP_CODE));
             rb.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-            rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             rb.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS, String.valueOf(System.currentTimeMillis()));
+            if(this.routingTypeCode != null) {
+                rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+            }
 
             RestRequest request = rb.build();
             Future<RestResponse> f = client.restRequest(request);
@@ -186,9 +197,11 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             throws InterruptedException, ExecutionException {
         requestBuilder.setMethod(GET);
         requestBuilder.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-        requestBuilder.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
         requestBuilder.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS,
                                  String.valueOf(System.currentTimeMillis()));
+        if(this.routingTypeCode != null) {
+            requestBuilder.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+        }
 
         RestRequest request = requestBuilder.build();
         Future<RestResponse> f = client.restRequest(request);
@@ -207,7 +220,6 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.GET_OP_CODE));
             rb.setHeader("Accept", MULTIPART_CONTENT_TYPE);
-            rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
 
             RestResponse response = fetchGetResponse(rb, timeoutStr);
             final ByteString entity = response.getEntity();
@@ -294,8 +306,10 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             rb = new RestRequestBuilder(new URI(this.baseURL + "/" + SCHEMATA_STORE_NAME + "/"
                                                 + base64Key));
             rb.setHeader("Accept", "binary");
-            rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             rb.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS, String.valueOf(System.currentTimeMillis()));
+            if(this.routingTypeCode != null) {
+                rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+            }
 
             RestResponse response = fetchGetResponse(rb, FETCH_SCHEMA_TIMEOUT_MS);
             return response.getEntity().asString("UTF-8");
@@ -345,8 +359,10 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.PUT_OP_CODE));
             rb.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-            rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             rb.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS, String.valueOf(System.currentTimeMillis()));
+            if(this.routingTypeCode != null) {
+                rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+            }
 
             // Serialize the Vector clock
             VectorClock vc = (VectorClock) value.getVersion();
@@ -445,8 +461,10 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE));
             rb.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-            rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             rb.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS, String.valueOf(System.currentTimeMillis()));
+            if(this.routingTypeCode != null) {
+                rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+            }
 
             RestRequest request = rb.build();
             Future<RestResponse> f = client.restRequest(request);

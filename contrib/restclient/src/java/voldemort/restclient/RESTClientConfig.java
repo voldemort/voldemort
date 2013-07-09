@@ -23,11 +23,11 @@ import voldemort.utils.Props;
  */
 public class RESTClientConfig {
 
-    private volatile String httpBootstrapURL = null;
-    private volatile int maxR2PoolSize = 100;
-    private volatile long timeoutMs = 5000;
-    private volatile TimeoutConfig timeoutConfig = new TimeoutConfig(timeoutMs, false);
-    private volatile boolean enableJmx = true;
+    private String httpBootstrapURL = null;
+    private int maxR2ConnectionPoolSize = 100;
+    private long timeoutMs = 5000;
+    private TimeoutConfig timeoutConfig = new TimeoutConfig(timeoutMs, false);
+    private boolean enableJmx = true;
 
     /**
      * Instantiate the RESTClient config using a properties file
@@ -87,8 +87,8 @@ public class RESTClientConfig {
         }
 
         if(props.containsKey(ClientConfig.MAX_TOTAL_CONNECTIONS_PROPERTY)) {
-            setMaxR2PoolSize(props.getInt(ClientConfig.MAX_TOTAL_CONNECTIONS_PROPERTY,
-                                          maxR2PoolSize));
+            setMaxR2ConnectionPoolSize(props.getInt(ClientConfig.MAX_TOTAL_CONNECTIONS_PROPERTY,
+                                                    maxR2ConnectionPoolSize));
         }
 
         if(props.containsKey(ClientConfig.ROUTING_TIMEOUT_MS_PROPERTY))
@@ -145,8 +145,8 @@ public class RESTClientConfig {
         return this;
     }
 
-    public int getMaxR2PoolSize() {
-        return maxR2PoolSize;
+    public int getMaxR2ConnectionPoolSize() {
+        return maxR2ConnectionPoolSize;
     }
 
     /**
@@ -159,8 +159,8 @@ public class RESTClientConfig {
      * </ul>
      * 
      */
-    public RESTClientConfig setMaxR2PoolSize(int maxR2PoolSize) {
-        this.maxR2PoolSize = maxR2PoolSize;
+    public RESTClientConfig setMaxR2ConnectionPoolSize(int maxR2PoolSize) {
+        this.maxR2ConnectionPoolSize = maxR2PoolSize;
         return this;
     }
 
