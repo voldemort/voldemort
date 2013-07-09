@@ -48,6 +48,7 @@ import voldemort.VoldemortException;
 import voldemort.common.VoldemortOpCode;
 import voldemort.coordinator.CoordinatorUtils;
 import voldemort.coordinator.VectorClockWrapper;
+import voldemort.server.rest.RestMessageHeaders;
 import voldemort.store.AbstractStore;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.utils.ByteArray;
@@ -77,13 +78,8 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     private static final String GET = "GET";
     private static final String POST = "POST";
     private static final String DELETE = "DELETE";
-    public static final String X_VOLD_VECTOR_CLOCK = "X-VOLD-Vector-Clock";
     public static final String CONTENT_TYPE = "Content-Type";
     public static final String CONTENT_LENGTH = "Content-Length";
-    public static final String X_VOLD_REQUEST_TIMEOUT_MS = "X-VOLD-Request-Timeout-ms";
-    public static final String X_VOLD_ROUTING_TYPE_CODE = "X-VOLD-Routing-Type-Code";
-    private static final String X_VOLD_REQUEST_ORIGIN_TIME_MS = "X-VOLD-Request-Origin-Time-Ms";
-    public static final String X_VOLD_INCONSISTENCY_RESOLVER = "X-VOLD-Inconsistency-Resolver";
     public static final String CUSTOM_RESOLVING_STRATEGY = "custom";
     public static final String DEFAULT_RESOLVING_STRATEGY = "timestamp";
     public static final String SCHEMATA_STORE_NAME = "schemata";
@@ -145,10 +141,11 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             rb.setHeader(CONTENT_LENGTH, "0");
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.DELETE_OP_CODE));
-            rb.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-            rb.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS, String.valueOf(System.currentTimeMillis()));
+            rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
+            rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
+                         String.valueOf(System.currentTimeMillis()));
             if(this.routingTypeCode != null) {
-                rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+                rb.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             }
             // Serialize the Vector clock
             VectorClock vc = (VectorClock) version;
@@ -164,7 +161,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 }
 
                 if(serializedVC != null && serializedVC.length() > 0) {
-                    rb.setHeader(X_VOLD_VECTOR_CLOCK, serializedVC);
+                    rb.setHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK, serializedVC);
                 }
             }
 
@@ -207,11 +204,12 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     private RestResponse fetchGetResponse(RestRequestBuilder requestBuilder, String timeoutStr)
             throws InterruptedException, ExecutionException {
         requestBuilder.setMethod(GET);
-        requestBuilder.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-        requestBuilder.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS,
+        requestBuilder.setHeader(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
+        requestBuilder.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
                                  String.valueOf(System.currentTimeMillis()));
         if(this.routingTypeCode != null) {
-            requestBuilder.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+            requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE,
+                                     this.routingTypeCode);
         }
         RestRequest request = requestBuilder.build();
         Future<RestResponse> f = client.restRequest(request);
@@ -274,7 +272,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             MimeMultipart mp = new MimeMultipart(ds);
             for(int i = 0; i < mp.getCount(); i++) {
                 MimeBodyPart part = (MimeBodyPart) mp.getBodyPart(i);
-                String serializedVC = part.getHeader(X_VOLD_VECTOR_CLOCK)[0];
+                String serializedVC = part.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK)[0];
 
                 if(logger.isDebugEnabled()) {
                     logger.debug("Received VC : " + serializedVC);
@@ -316,9 +314,10 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             rb = new RestRequestBuilder(new URI(this.baseURL + "/" + SCHEMATA_STORE_NAME + "/"
                                                 + base64Key));
             rb.setHeader("Accept", "binary");
-            rb.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS, String.valueOf(System.currentTimeMillis()));
+            rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
+                         String.valueOf(System.currentTimeMillis()));
             if(this.routingTypeCode != null) {
-                rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+                rb.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             }
 
             RestResponse response = fetchGetResponse(rb, FETCH_SCHEMA_TIMEOUT_MS);
@@ -367,10 +366,11 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             rb.setHeader(CONTENT_LENGTH, "" + payload.length);
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.PUT_OP_CODE));
-            rb.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-            rb.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS, String.valueOf(System.currentTimeMillis()));
+            rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
+            rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
+                         String.valueOf(System.currentTimeMillis()));
             if(this.routingTypeCode != null) {
-                rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+                rb.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             }
 
             // Serialize the Vector clock
@@ -386,7 +386,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 }
 
                 if(serializedVC != null && serializedVC.length() > 0) {
-                    rb.setHeader(X_VOLD_VECTOR_CLOCK, serializedVC);
+                    rb.setHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK, serializedVC);
                 }
             }
 
@@ -396,7 +396,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             // This will block
             response = f.get();
 
-            String serializedUpdatedVC = response.getHeader(X_VOLD_VECTOR_CLOCK);
+            String serializedUpdatedVC = response.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK);
             if(serializedUpdatedVC == null || serializedUpdatedVC.length() == 0) {
                 if(logger.isDebugEnabled()) {
                     logger.debug("Received empty vector clock in the response");
@@ -469,10 +469,11 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             rb.setHeader("Accept", MULTIPART_CONTENT_TYPE);
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE));
-            rb.setHeader(X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-            rb.setHeader(X_VOLD_REQUEST_ORIGIN_TIME_MS, String.valueOf(System.currentTimeMillis()));
+            rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
+            rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
+                         String.valueOf(System.currentTimeMillis()));
             if(this.routingTypeCode != null) {
-                rb.setHeader(X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+                rb.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             }
 
             RestRequest request = rb.build();
@@ -561,7 +562,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 for(int valueId = 0; valueId < valueParts.getCount(); valueId++) {
 
                     MimeBodyPart valuePart = (MimeBodyPart) valueParts.getBodyPart(valueId);
-                    String serializedVC = valuePart.getHeader(X_VOLD_VECTOR_CLOCK)[0];
+                    String serializedVC = valuePart.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK)[0];
                     if(logger.isDebugEnabled()) {
                         logger.debug("Received serialized Vector Clock : " + serializedVC);
                     }

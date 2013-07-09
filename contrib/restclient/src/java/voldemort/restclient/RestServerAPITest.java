@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 import org.junit.After;
@@ -23,6 +24,9 @@ import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
+import com.linkedin.r2.transport.common.bridge.client.TransportClient;
+import com.linkedin.r2.transport.http.client.HttpClientFactory;
+
 public class RestServerAPITest {
 
     private static final Logger logger = Logger.getLogger(RestServerAPITest.class);
@@ -32,9 +36,12 @@ public class RestServerAPITest {
      * should be formally obtained from stores.xml and cluster.xml
      */
 
-    private final static R2Store r2store = new R2Store("http://localhost:8081", "test", "2");
-    private final static Store<ByteArray, byte[], byte[]> store = r2store;
-    private static VoldemortConfig config = null;
+    private static R2Store r2store;
+    private static RESTClientConfig restClientConfig;
+    private static Store<ByteArray, byte[], byte[]> store;
+    private static HttpClientFactory clientFactory;
+    private static TransportClient transportClient;
+    private static VoldemortConfig voldemortConfig = null;
     private static VoldemortServer server;
 
     private static ByteArray key;
@@ -44,16 +51,33 @@ public class RestServerAPITest {
 
     @BeforeClass
     public static void oneTimeSetUp() {
-        config = VoldemortConfig.loadFromVoldemortHome("config/single_node_rest_server/");
+        voldemortConfig = VoldemortConfig.loadFromVoldemortHome("config/single_node_rest_server/");
         key = new ByteArray("key1".getBytes());
         vectorClock = new VectorClock();
-        vectorClock.incrementVersion(config.getNodeId(), System.currentTimeMillis());
+        vectorClock.incrementVersion(voldemortConfig.getNodeId(), System.currentTimeMillis());
         value = new Versioned<byte[]>("value1".getBytes(), vectorClock);
-        server = new VoldemortServer(config);
+        server = new VoldemortServer(voldemortConfig);
         if(!server.isStarted())
             server.start();
         logger.info("********************Starting REST Server********************");
+
+        restClientConfig = new RESTClientConfig();
+        restClientConfig.setHttpBootstrapURL("http://localhost:8081")
+                        .setTimeoutMs(1500, TimeUnit.MILLISECONDS)
+                        .setMaxR2ConnectionPoolSize(100);
+        clientFactory = new HttpClientFactory();
+        Map<String, String> properties = new HashMap<String, String>();
+        properties.put(HttpClientFactory.POOL_SIZE_KEY,
+                       Integer.toString(restClientConfig.getMaxR2ConnectionPoolSize()));
+        transportClient = clientFactory.getClient(properties);
+        r2store = new R2Store("test",
+                              restClientConfig.getHttpBootstrapURL(),
+                              "2",
+                              transportClient,
+                              restClientConfig);
+        store = r2store;
         deleteCreatedKeys(key);
+
     }
 
     @AfterClass
@@ -102,13 +126,13 @@ public class RestServerAPITest {
 
         logger.info("\n\n********************  Testing Get All *******************\n\n");
         VectorClock vectorClock1 = new VectorClock();
-        vectorClock1.incrementVersion(config.getNodeId(), System.currentTimeMillis());
+        vectorClock1.incrementVersion(voldemortConfig.getNodeId(), System.currentTimeMillis());
         ByteArray key2 = new ByteArray("key2".getBytes());
         Versioned<byte[]> value2 = new Versioned<byte[]>("value2".getBytes(), vectorClock1);
         store.put(key2, value2, null);
 
         vectorClock1 = new VectorClock();
-        vectorClock1.incrementVersion(config.getNodeId(), System.currentTimeMillis());
+        vectorClock1.incrementVersion(voldemortConfig.getNodeId(), System.currentTimeMillis());
         ByteArray key3 = new ByteArray("key3".getBytes());
         Versioned<byte[]> value3 = new Versioned<byte[]>("value3".getBytes(), vectorClock1);
         store.put(key3, value3, null);
@@ -142,7 +166,7 @@ public class RestServerAPITest {
         List<Versioned<byte[]>> valuesList2 = new ArrayList<Versioned<byte[]>>();
 
         VectorClock vectorClock1 = new VectorClock();
-        vectorClock1.incrementVersion(config.getNodeId(), System.currentTimeMillis());
+        vectorClock1.incrementVersion(voldemortConfig.getNodeId(), System.currentTimeMillis());
         ByteArray key2 = new ByteArray("key22".getBytes());
         Versioned<byte[]> value1 = new Versioned<byte[]>("value22".getBytes(), vectorClock1);
         store.put(key2, value1, null);
@@ -157,7 +181,7 @@ public class RestServerAPITest {
 
         List<Versioned<byte[]>> valuesList3 = new ArrayList<Versioned<byte[]>>();
         VectorClock vectorClock3 = new VectorClock();
-        vectorClock3.incrementVersion(config.getNodeId(), System.currentTimeMillis());
+        vectorClock3.incrementVersion(voldemortConfig.getNodeId(), System.currentTimeMillis());
         ByteArray key3 = new ByteArray("key23".getBytes());
         Versioned<byte[]> value3 = new Versioned<byte[]>("value43".getBytes(), vectorClock3);
         store.put(key3, value3, null);
@@ -211,7 +235,7 @@ public class RestServerAPITest {
         resultList = store.get(key, null);
 
         VectorClock vectorClock2 = new VectorClock();
-        vectorClock2.incrementVersion(config.getNodeId() + 1, System.currentTimeMillis());
+        vectorClock2.incrementVersion(voldemortConfig.getNodeId() + 1, System.currentTimeMillis());
         Versioned<byte[]> value2 = new Versioned<byte[]>("value32".getBytes(), vectorClock2);
         store.put(key, value2, null);
         previousResultList = resultList;
