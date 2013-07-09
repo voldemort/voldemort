@@ -1,12 +1,12 @@
 /*
  * Copyright 2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -23,8 +23,8 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalanceBatchPlanProgressBar;
-import voldemort.client.rebalance.RebalanceController;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceScheduler;
 import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
@@ -35,7 +35,7 @@ import com.google.common.collect.Lists;
 /**
  * Immutable class that executes a {@link RebalancePartitionsInfo} instance on
  * the rebalance client side.
- * 
+ *
  * This is run from the stealer nodes perspective
  */
 public class StealerBasedRebalanceTask extends RebalanceTask {
@@ -63,7 +63,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     // done.
     private final int maxTries;
 
-    private final RebalanceController.Scheduler scheduler;
+    private final RebalanceScheduler scheduler;
 
     public StealerBasedRebalanceTask(final int batchId,
                                      final int taskId,
@@ -72,7 +72,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
                                      final Semaphore donorPermit,
                                      final AdminClient adminClient,
                                      final RebalanceBatchPlanProgressBar progressBar,
-                                     final RebalanceController.Scheduler scheduler) {
+                                     final RebalanceScheduler scheduler) {
         super(batchId,
               taskId,
               Lists.newArrayList(stealInfo),

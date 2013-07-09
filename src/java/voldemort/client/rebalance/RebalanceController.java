@@ -17,17 +17,10 @@
 package voldemort.client.rebalance;
 
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -729,194 +722,6 @@ public class RebalanceController {
         }
     }
 
-    // TODO: (refactor) Move RebalanceController scheduler into its own class.
-    // TODO: Add unit tests for RebalanceController.scheduler.
-    // TODO: This scheduler deprecates the need for donor permits. Consider
-    // removing them.
-    /**
-     * Scheduler for rebalancing tasks. There is at most one rebalancing task
-     * per stealer-donor pair. This scheduler ensures the following invariant is
-     * obeyed:
-     * 
-     * A node works on no more than one rebalancing task at a time.
-     * 
-     * Note that a node working on a rebalancing task may be either a stealer or
-     * a donor. This invariant should somewhat isolate the foreground workload
-     * against the work a server must do for rebalancing. Because of this
-     * isolation, it is safe to attempt "infinite" parallelism since no more
-     * than floor(number of nodes / 2) rebalancing tasks can possibly be
-     * scheduled to execute while obeying the invariant.
-     * 
-     * The order of tasks are randomized within this class. The intent is to
-     * "spread" rebalancing work smoothly out over the cluster and avoid
-     * "long tails" of straggler rebalancing tasks. Only experience will tell us
-     * if we need to do anything smarter.
-     */
-    public class Scheduler {
-
-        final private ExecutorService service;
-
-        private Map<Integer, List<StealerBasedRebalanceTask>> tasksByStealer;
-        private int numTasksExecuting;
-        private Set<Integer> nodeIdsWithWork;
-        private CountDownLatch doneSignal;
-
-        Scheduler(ExecutorService service) {
-            this.service = service;
-        }
-
-        /**
-         * Set up scheduling structures and then start scheduling tasks to
-         * execute. Blocks until all tasks have been scheduled. (For all tasks
-         * to be scheduled, most tasks must have completed.)
-         * 
-         * @param sbTaskList
-         *            List of all stealer-based rebalancing tasks to be
-         *            scheduled.
-         */
-        public void run(List<StealerBasedRebalanceTask> sbTaskList) {
-            // Setup mapping of stealers to work for this run.
-            this.tasksByStealer = new HashMap<Integer, List<StealerBasedRebalanceTask>>();
-            for (StealerBasedRebalanceTask task : sbTaskList) {
-                if (task.getStealInfos().size() != 1) {
-                    throw new VoldemortException("StealerBasedRebalanceTasks should have a list of RebalancePartitionsInfo of length 1.");
-                }
-
-                RebalancePartitionsInfo stealInfo = task.getStealInfos().get(0);
-                int stealerId = stealInfo.getStealerId();
-                if (!this.tasksByStealer.containsKey(stealerId)) {
-                    this.tasksByStealer.put(stealerId,
-                                            new ArrayList<StealerBasedRebalanceTask>());
-                }
-                this.tasksByStealer.get(stealerId).add(task);
-            }
-
-            if (tasksByStealer.isEmpty()) {
-                return;
-            }
-
-            // Shuffle order of each stealer's work list. This randomization
-            // helps to get rid of any "patterns" in how rebalancing tasks were
-            // added to the task list passed in.
-            for (List<StealerBasedRebalanceTask> taskList : tasksByStealer.values()) {
-                Collections.shuffle(taskList);
-            }
-
-            // Prepare to execute the rebalance
-            this.numTasksExecuting = 0;
-            this.nodeIdsWithWork = new HashSet<Integer>();
-            doneSignal = new CountDownLatch(sbTaskList.size());
-
-            // Start scheduling tasks to execute!
-            scheduleMoreTasks();
-
-            try {
-                doneSignal.await();
-            } catch (InterruptedException e) {
-                logger.error("RebalancController scheduler interrupted while waiting for rebalance tasks to be scheduled.",
-                             e);
-                throw new VoldemortRebalancingException("RebalancController scheduler interrupted while waiting for rebalance tasks to be scheduled.");
-
-            }
-        }
-
-        /**
-         * Schedule as many tasks as possible.
-         * 
-         * To schedule a task is to make it available to the executor service to
-         * run.
-         * 
-         * "As many tasks as possible" is limited by (i) the parallelism level
-         * permitted and (ii) the invariant that a node shall be part of at most
-         * one rebalancing task at a time (as either stealer or donor).
-         */
-        private synchronized void scheduleMoreTasks() {
-            RebalanceTask scheduledTask = scheduleNextTask();
-            while (scheduledTask != null) {
-                scheduledTask = scheduleNextTask();
-            }
-        }
-
-        /**
-         * Schedule at most one task.
-         * 
-         * The scheduled task *must* invoke 'doneTask()' upon
-         * completion/termination.
-         * 
-         * @return The task scheduled or null if not possible to schedule a task
-         *         at this time.
-         */
-        private synchronized StealerBasedRebalanceTask scheduleNextTask() {
-            // Make sure there is work left to do.
-            if (doneSignal.getCount() == 0) {
-                return null;
-            }
-
-            // Limit number of tasks outstanding.
-            if (this.numTasksExecuting == maxParallelRebalancing) {
-                return null;
-            }
-
-            // Shuffle list of stealer IDs each time a new task to schedule
-            // needs to be found. Randomizing the order should avoid
-            // prioritizing one specific stealer's work ahead of all others.
-            List<Integer> stealerIds = new ArrayList<Integer>(tasksByStealer.keySet());
-            Collections.shuffle(stealerIds);
-            for (int stealerId : stealerIds) {
-                if (nodeIdsWithWork.contains(stealerId)) {
-                    continue;
-                }
-                for (StealerBasedRebalanceTask sbTask : tasksByStealer.get(stealerId)) {
-                    int donorId = sbTask.getStealInfos().get(0).getDonorId();
-                    if (nodeIdsWithWork.contains(donorId)) {
-                        continue;
-                    }
-
-                    // Bookkeeping for task about to execute:
-                    nodeIdsWithWork.add(stealerId);
-                    nodeIdsWithWork.add(donorId);
-                    numTasksExecuting++;
-                    // Remove this task from list thus destroying list
-                    // being iterated over. This is safe because returning
-                    // directly out of this branch.
-                    tasksByStealer.get(stealerId).remove(sbTask);
-
-                    try {
-                        service.execute(sbTask);
-                    } catch (RejectedExecutionException ree) {
-                        logger.error("Rebalancing task rejected by executor service.",
-                                     ree);
-                        throw new VoldemortRebalancingException("Rebalancing task rejected by executor service.");
-                    }
-
-                    return sbTask;
-                }
-            }
-
-            return null;
-        }
-
-        /**
-         * Method must be invoked upon completion of a rebalancing task. It is
-         * the task's responsibility to do so.
-         * 
-         * @param stealerId
-         * @param donorId
-         */
-        public synchronized void doneTask(int stealerId, int donorId) {
-            // Bookkeeping for completed task :
-            nodeIdsWithWork.remove(stealerId);
-            nodeIdsWithWork.remove(donorId);
-            numTasksExecuting--;
-
-            doneSignal.countDown();
-
-            // Try and schedule more tasks now that resources may be available
-            // to do so.
-            scheduleMoreTasks();
-        }
-    }
-
     private List<RebalanceTask>
             executeTasks(final int batchId,
                          RebalanceBatchPlanProgressBar progressBar,
@@ -926,7 +731,7 @@ public class RebalanceController {
         List<RebalanceTask> taskList = Lists.newArrayList();
         int taskId = 0;
         if (stealerBasedRebalancing) {
-            Scheduler scheduler = new Scheduler(service);
+            RebalanceScheduler scheduler = new RebalanceScheduler(service, maxParallelRebalancing);
             List<StealerBasedRebalanceTask> sbTaskList = Lists.newArrayList();
             for (RebalancePartitionsInfo partitionsInfo : rebalancePartitionPlanList) {
                 StealerBasedRebalanceTask rebalanceTask = new StealerBasedRebalanceTask(batchId,
