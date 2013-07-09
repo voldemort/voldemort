@@ -25,83 +25,34 @@ import org.apache.log4j.Logger;
 import voldemort.client.StoreClient;
 import voldemort.client.UpdateAction;
 import voldemort.cluster.Node;
-import voldemort.coordinator.CoordinatorUtils;
-import voldemort.serialization.DefaultSerializerFactory;
-import voldemort.serialization.Serializer;
-import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.SerializerFactory;
 import voldemort.store.Store;
-import voldemort.store.compress.CompressingStore;
-import voldemort.store.compress.CompressionStrategyFactory;
-import voldemort.store.serialized.SerializingStore;
-import voldemort.store.versioned.InconsistencyResolvingStore;
-import voldemort.utils.ByteArray;
-import voldemort.versioning.ChainedResolver;
-import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.InconsistentDataException;
 import voldemort.versioning.ObsoleteVersionException;
-import voldemort.versioning.TimeBasedInconsistencyResolver;
-import voldemort.versioning.VectorClock;
-import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Maps;
 
+/**
+ * A RESTful equivalent of the DefaultStoreClient. This uses the R2Store to
+ * interact with the RESTful Coordinator
+ * 
+ */
 public class RESTClient<K, V> implements StoreClient<K, V> {
 
     private Store<K, V, Object> clientStore = null;
-    private SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private String storeName;
 
     private static Logger logger = Logger.getLogger(RESTClient.class);
 
     /**
-     * A RESTful equivalent of the DefaultStoreClient. This uses the R2Store to
-     * interact with the RESTful Coordinator
      * 
-     * @param bootstrapURL The bootstrap URL of the Voldemort cluster
-     * @param storeName Name of the store to interact with
+     * @param storeName Name of the store to operate against
+     * @param store The store used to perform Voldemort operations
      */
-    public RESTClient(String bootstrapURL, String storeName) {
-
+    public RESTClient(String storeName, Store<K, V, Object> store) {
+        this.clientStore = store;
         this.storeName = storeName;
-        String baseURL = "http://" + bootstrapURL.split(":")[1].substring(2) + ":8080";
-        // The lowest layer : Transporting request to coordinator
-        R2Store r2store = new R2Store(baseURL, storeName);
-
-        // bootstrap from the coordinator and obtain all the serialization
-        // information.
-        String serializerInfoXml = r2store.getSerializerInfoXml();
-        SerializerDefinition keySerializerDefinition = CoordinatorUtils.parseKeySerializerDefinition(serializerInfoXml);
-        SerializerDefinition valueSerializerDefinition = CoordinatorUtils.parseValueSerializerDefinition(serializerInfoXml);
-
-        logger.info("Bootstrapping for " + getName() + ": Key serializer "
-                    + keySerializerDefinition);
-        logger.info("Bootstrapping for " + getName() + ": Value serializer "
-                    + valueSerializerDefinition);
-
-        // Start building the stack..
-        // First, the transport layer
-        Store<ByteArray, byte[], byte[]> store = r2store;
-
-        // Add compression layer
-        if(keySerializerDefinition.hasCompression() || valueSerializerDefinition.hasCompression()) {
-            store = new CompressingStore(store,
-                                         new CompressionStrategyFactory().get(keySerializerDefinition.getCompression()),
-                                         new CompressionStrategyFactory().get(valueSerializerDefinition.getCompression()));
-        }
-
-        // Add Serialization layer
-        Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(keySerializerDefinition);
-        Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(valueSerializerDefinition);
-        clientStore = SerializingStore.wrap(store, keySerializer, valueSerializer, null);
-
-        // Add inconsistency Resolving layer
-        InconsistencyResolver<Versioned<V>> secondaryResolver = new TimeBasedInconsistencyResolver();
-        clientStore = new InconsistencyResolvingStore<K, V, Object>(clientStore,
-                                                                    new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
-                                                                                                      secondaryResolver));
     }
 
     @Override
@@ -112,7 +63,11 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
     @Override
     public V getValue(K key, V defaultValue) {
         Versioned<V> retVal = get(key);
-        return retVal.getValue();
+        if(retVal == null) {
+            return defaultValue;
+        } else {
+            return retVal.getValue();
+        }
     }
 
     @Override
@@ -122,7 +77,14 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
 
     @Override
     public Versioned<V> get(K key, Object transforms) {
-        return this.clientStore.get(key, null).get(0);
+        List<Versioned<V>> resultList = this.clientStore.get(key, null);
+        return getItemOrThrow(key, null, resultList);
+    }
+
+    @Override
+    public Versioned<V> get(K key, Versioned<V> defaultValue) {
+        List<Versioned<V>> resultList = this.clientStore.get(key, null);
+        return getItemOrThrow(key, defaultValue, resultList);
     }
 
     protected Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
@@ -137,6 +99,11 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
 
     @Override
     public Map<K, Versioned<V>> getAll(Iterable<K> keys) {
+        return getAll(keys, null);
+    }
+
+    @Override
+    public Map<K, Versioned<V>> getAll(Iterable<K> keys, Map<K, Object> transforms) {
         Map<K, List<Versioned<V>>> items = null;
         items = this.clientStore.getAll(keys, null);
         Map<K, Versioned<V>> result = Maps.newHashMapWithExpectedSize(items.size());
@@ -148,24 +115,14 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
         return result;
     }
 
-    @Override
-    public Map<K, Versioned<V>> getAll(Iterable<K> keys, Map<K, Object> transforms) {
-        return null;
-    }
-
-    @Override
-    public Versioned<V> get(K key, Versioned<V> defaultValue) {
-        List<Versioned<V>> resultList = this.clientStore.get(key, null);
-        if(resultList.size() == 0) {
-            return null;
-        }
-        return resultList.get(0);
-    }
-
+    /**
+     * An empty Versioned<V> value object is created and passed on to the actual
+     * put operation. It defers the task of obtaining the existing Vector clock
+     * to the Receiver of this request.
+     */
     @Override
     public Version put(K key, V value) {
-        clientStore.put(key, new Versioned<V>(value), null);
-        return new VectorClock();
+        return put(key, new Versioned<V>(value));
     }
 
     @Override
@@ -176,7 +133,7 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
     @Override
     public Version put(K key, Versioned<V> versioned) throws ObsoleteVersionException {
         clientStore.put(key, versioned, null);
-        return new VectorClock();
+        return versioned.getVersion();
     }
 
     @Override
@@ -236,7 +193,6 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
     }
 
     public void close() {
-        // TODO understand why the client hangs around even after close()
         this.clientStore.close();
     }
 

@@ -17,7 +17,6 @@
 package voldemort.coordinator;
 
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.ETAG;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.CREATED;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
@@ -96,14 +95,14 @@ public class HttpPutRequestExecutor implements Runnable {
         // 1. Create the Response object
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, CREATED);
 
-        String eTag = CoordinatorUtils.getSerializedVectorClock(successfulPutVC);
+        String serializedVC = CoordinatorUtils.getSerializedVectorClock(successfulPutVC);
 
         if(logger.isDebugEnabled()) {
-            logger.debug("ETAG : " + eTag);
+            logger.debug("X-VOLD-Vector-Clock : " + serializedVC);
         }
 
         // 2. Set the right headers
-        response.setHeader(ETAG, eTag);
+        response.setHeader(VoldemortHttpRequestHandler.X_VOLD_VECTOR_CLOCK, serializedVC);
         response.setHeader(CONTENT_LENGTH, 0);
 
         // TODO: return the Version back to the client
@@ -124,10 +123,11 @@ public class HttpPutRequestExecutor implements Runnable {
         try {
             VectorClock successfulPutVC = null;
             if(putRequestObject.getValue() != null) {
-                successfulPutVC = (VectorClock) this.storeClient.putVersionedWithCustomTimeout(putRequestObject);
+                successfulPutVC = ((VectorClock) this.storeClient.putVersionedWithCustomTimeout(putRequestObject)).clone();
             } else {
-                successfulPutVC = (VectorClock) this.storeClient.putWithCustomTimeout(putRequestObject);
+                successfulPutVC = ((VectorClock) this.storeClient.putWithCustomTimeout(putRequestObject)).clone();
             }
+
             if(logger.isDebugEnabled()) {
                 logger.debug("PUT successful !");
             }

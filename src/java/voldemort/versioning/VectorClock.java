@@ -357,4 +357,19 @@ public class VectorClock implements Version, Serializable {
         }
         return Collections.unmodifiableList(clocks);
     }
+
+    /**
+     * Function to copy values from another VectorClock. This is used for
+     * in-place updates during a Voldemort put operation.
+     * 
+     * @param vc The VectorClock object from which the inner values are to be
+     *        copied.
+     */
+    public void copyFromVectorClock(VectorClock vc) {
+        this.versionMap.clear();
+        this.timestamp = vc.getTimestamp();
+        for(ClockEntry clockEntry: vc.getEntries()) {
+            this.versionMap.put(clockEntry.getNodeId(), clockEntry.getVersion());
+        }
+    }
 }
