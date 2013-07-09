@@ -23,8 +23,8 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
 
     /**
      * TODO REST-Server 1. Using a normal thread pool 2. using core pool size =
-     * max pool size = 40 arbitrarily 3. Bounded blocking queue wth cpacity 40.
-     * queue capacity is also arbitrary
+     * max pool size = 40 arbitrarily 3. Bounded blocking queue with capacity
+     * 40. queue capacity is also arbitrary
      */
     ThreadFactory threadFactory = new DaemonThreadFactory("Voldemort-REST-Server-Storage-Thread");
     private final ThreadPoolExecutor threadPoolExecutor;

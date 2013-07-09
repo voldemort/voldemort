@@ -108,6 +108,7 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                                                                                                 store);
                         Channels.fireMessageReceived(ctx, voldemortStoreRequest);
                     } else {
+                        logger.error("Error when getting store. Non Existing store name.");
                         RestServerErrorHandler.writeErrorResponse(messageEvent,
                                                                   HttpResponseStatus.BAD_REQUEST,
                                                                   "Non Existing store name. Critical error.");

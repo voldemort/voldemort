@@ -38,6 +38,7 @@ public class RestServerPutRequestValidator extends RestServerRequestValidator {
                                                                                              this.parsedRoutingType);
                 return requestObject;
             } else {
+                logger.error("Error when parsing value. Value cannot be null.");
                 RestServerErrorHandler.writeErrorResponse(messageEvent,
                                                           HttpResponseStatus.BAD_REQUEST,
                                                           "Value cannot be null");
@@ -75,16 +76,21 @@ public class RestServerPutRequestValidator extends RestServerRequestValidator {
                 Long.parseLong(contentLength);
                 result = true;
             } catch(NumberFormatException nfe) {
+                logger.error("Exception when validating put request. Incorrect content length parameter. Cannot parse this to long: "
+                                     + contentLength + ". Details: " + nfe.getMessage(),
+                             nfe);
                 RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                           HttpResponseStatus.BAD_REQUEST,
                                                           "Incorrect content length parameter. Cannot parse this to long: "
                                                                   + contentLength + ". Details: "
                                                                   + nfe.getMessage());
             }
-        } else
+        } else {
+            logger.error("Error when validating put request. Missing Content-Length header.");
             RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                       HttpResponseStatus.BAD_REQUEST,
                                                       "Missing Content-Length header");
+        }
 
         return result;
     }
@@ -104,6 +110,7 @@ public class RestServerPutRequestValidator extends RestServerRequestValidator {
         if(this.request.getHeader(RestMessageHeaders.CONTENT_TYPE) != null) {
             result = true;
         } else {
+            logger.error("Error when validating put request. Missing Content-Type header.");
             RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                       HttpResponseStatus.BAD_REQUEST,
                                                       "Missing Content-Type header");

@@ -21,14 +21,19 @@ public class RestServerDeleteErrorHandler extends RestServerErrorHandler {
     public void handleExceptions(MessageEvent messageEvent, Exception exception) {
 
         if(exception instanceof InvalidMetadataException) {
+            logger.error("Exception when deleting. The requested key does not exist in this partition",
+                         exception);
             writeErrorResponse(messageEvent,
                                HttpResponseStatus.REQUESTED_RANGE_NOT_SATISFIABLE,
                                "The requested key does not exist in this partition");
         } else if(exception instanceof PersistenceFailureException) {
+            logger.error("Exception when deleting. Operation failed", exception);
             writeErrorResponse(messageEvent,
                                HttpResponseStatus.INTERNAL_SERVER_ERROR,
                                "Operation failed");
         } else if(exception instanceof UnsupportedOperationException) {
+            logger.error("Exception when deleting. Operation not supported in read-only store ",
+                         exception);
             writeErrorResponse(messageEvent,
                                HttpResponseStatus.METHOD_NOT_ALLOWED,
                                "Operation not supported in read-only store");

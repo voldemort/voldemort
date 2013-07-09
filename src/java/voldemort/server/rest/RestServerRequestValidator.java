@@ -36,7 +36,7 @@ public abstract class RestServerRequestValidator {
     protected MessageEvent messageEvent;
     protected HttpRequest request;
     protected StoreRepository storeRepository;
-    private final static Logger logger = Logger.getLogger(RestServerRequestValidator.class);
+    protected final Logger logger = Logger.getLogger(getClass());
 
     public RestServerRequestValidator(HttpRequest request,
                                       MessageEvent messageEvent,
@@ -80,12 +80,16 @@ public abstract class RestServerRequestValidator {
                 this.parsedRoutingTimeoutInMs = Long.parseLong(timeoutValStr);
                 result = true;
             } catch(NumberFormatException nfe) {
+                logger.error("Exception when validating request. Incorrect timeout parameter. Cannot parse this to long: "
+                                     + timeoutValStr,
+                             nfe);
                 RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                           HttpResponseStatus.BAD_REQUEST,
                                                           "Incorrect timeout parameter. Cannot parse this to long: "
                                                                   + timeoutValStr);
             }
         } else {
+            logger.error("Error when validating request. Missing timeout parameter.");
             RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                       HttpResponseStatus.BAD_REQUEST,
                                                       "Missing timeout parameter.");
@@ -112,16 +116,22 @@ public abstract class RestServerRequestValidator {
                 this.parsedRoutingType = RequestRoutingType.getRequestRoutingType(routingTypeCode);
                 result = true;
             } catch(NumberFormatException nfe) {
+                logger.error("Exception when validating request. Incorrect routing type parameter. Cannot parse this to long: "
+                                     + rtCode,
+                             nfe);
                 RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                           HttpResponseStatus.BAD_REQUEST,
                                                           "Incorrect routing type parameter. Cannot parse this to long: "
                                                                   + rtCode);
             } catch(VoldemortException ve) {
+                logger.error("Exception when validating request. Incorrect routing type code: "
+                             + rtCode, ve);
                 RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                           HttpResponseStatus.BAD_REQUEST,
                                                           "Incorrect routing type code: " + rtCode);
             }
         } else {
+            logger.error("Error when validating request. Missing routing type parameter.");
             RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                       HttpResponseStatus.BAD_REQUEST,
                                                       "Missing routing type parameter.");
@@ -146,12 +156,16 @@ public abstract class RestServerRequestValidator {
                 this.parsedRequestOriginTimeInMs = Long.parseLong(originTime);
                 result = true;
             } catch(NumberFormatException nfe) {
+                logger.error("Exception when validating request. Incorrect origin time parameter. Cannot parse this to long: "
+                                     + originTime,
+                             nfe);
                 RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                           HttpResponseStatus.BAD_REQUEST,
                                                           "Incorrect origin time parameter. Cannot parse this to long: "
                                                                   + originTime);
             }
         } else {
+            logger.error("Error when validating request. Missing origin time parameter.");
             RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                       HttpResponseStatus.BAD_REQUEST,
                                                       "Missing origin time parameter.");
@@ -183,6 +197,7 @@ public abstract class RestServerRequestValidator {
                                                           "Invalid Vector Clock");
             }
         } else {
+            logger.error("Error when validating request. Missing Vector Clock");
             RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                       HttpResponseStatus.BAD_REQUEST,
                                                       "Missing Vector Clock");
@@ -203,6 +218,7 @@ public abstract class RestServerRequestValidator {
         if(this.parsedKeys != null) {
             result = true;
         } else {
+            logger.error("Error when validating request. No key specified.");
             RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                       HttpResponseStatus.BAD_REQUEST,
                                                       "Error: No key specified !");
@@ -250,6 +266,7 @@ public abstract class RestServerRequestValidator {
         if(storeName != null) {
             result = true;
         } else {
+            logger.error("Error when validatig request. Missing store name.");
             RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                       HttpResponseStatus.BAD_REQUEST,
                                                       "Missing store name. Critical error.");

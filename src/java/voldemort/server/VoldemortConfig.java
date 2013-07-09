@@ -229,8 +229,8 @@ public class VoldemortConfig implements Serializable {
     // Should be removed once the proxy put implementation is stable.
     private boolean proxyPutsDuringRebalance;
 
-    private int numRestServiceBossThreads;
-    private int numRestServiceWorkerThreads;
+    private int numRestServiceNettyBossThreads;
+    private int numRestServiceNettyWorkerThreads;
     private int numRestServiceStorageThreads;
     private int restServiceStorageThreadPoolQueueSize;
 
@@ -507,8 +507,9 @@ public class VoldemortConfig implements Serializable {
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
 
         // TODO: REST-Server decide on the numbers
-        this.numRestServiceBossThreads = props.getInt("num.rest.service.boss.threads", 1);
-        this.numRestServiceWorkerThreads = props.getInt("num.rest.service.worker.threads", 10);
+        this.numRestServiceNettyBossThreads = props.getInt("num.rest.service.netty.boss.threads", 1);
+        this.numRestServiceNettyWorkerThreads = props.getInt("num.rest.service.netty.worker.threads",
+                                                             10);
         this.numRestServiceStorageThreads = props.getInt("num.rest.service.storage.threads", 50);
         this.restServiceStorageThreadPoolQueueSize = props.getInt("rest.service.storage.thread.pool.queue.size",
                                                                   numRestServiceStorageThreads);
@@ -2811,8 +2812,8 @@ public class VoldemortConfig implements Serializable {
         this.gossipIntervalMs = gossipIntervalMs;
     }
 
-    public int getNumRestServiceBossThreads() {
-        return numRestServiceBossThreads;
+    public int getNumRestServiceNettyBossThreads() {
+        return numRestServiceNettyBossThreads;
     }
 
     /**
@@ -2823,12 +2824,12 @@ public class VoldemortConfig implements Serializable {
      * </ul>
      */
 
-    public void setNumRestServiceBossThreads(int numRestServiceBossThreads) {
-        this.numRestServiceBossThreads = numRestServiceBossThreads;
+    public void setNumRestServiceNettyBossThreads(int numRestServiceNettyBossThreads) {
+        this.numRestServiceNettyBossThreads = numRestServiceNettyBossThreads;
     }
 
-    public int getNumRestServiceWorkerThreads() {
-        return numRestServiceWorkerThreads;
+    public int getNumRestServiceNettyWorkerThreads() {
+        return numRestServiceNettyWorkerThreads;
     }
 
     /**
@@ -2838,8 +2839,8 @@ public class VoldemortConfig implements Serializable {
      * <li>Default :10</li>
      * </ul>
      */
-    public void setNumRestServiceWorkerThreads(int numRestServiceWorkerThreads) {
-        this.numRestServiceWorkerThreads = numRestServiceWorkerThreads;
+    public void setNumRestServiceNettyWorkerThreads(int numRestServiceNettyWorkerThreads) {
+        this.numRestServiceNettyWorkerThreads = numRestServiceNettyWorkerThreads;
     }
 
     public int getNumRestServiceStorageThreads() {

@@ -89,7 +89,6 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     public static final String SCHEMATA_STORE_NAME = "schemata";
     private static final String MULTIPART_CONTENT_TYPE = "multipart/binary";
     private static final String FETCH_SCHEMA_TIMEOUT_MS = "50000";
-
     private final Logger logger = Logger.getLogger(R2Store.class);
 
     private Client client = null;

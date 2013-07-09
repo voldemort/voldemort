@@ -4,6 +4,7 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGT
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
@@ -13,6 +14,8 @@ import org.jboss.netty.util.CharsetUtil;
 
 public class RestServerErrorHandler {
 
+    protected final Logger logger = Logger.getLogger(getClass());
+
     /**
      * Exceptions specific to each operation is handled in the corresponding
      * subclass. At this point we don't know the reason behind this exception.
@@ -20,6 +23,7 @@ public class RestServerErrorHandler {
      * @param exception
      */
     protected void handleExceptions(MessageEvent messageEvent, Exception exception) {
+        logger.error("Unknown exception. Internal Server Error.", exception);
         writeErrorResponse(messageEvent,
                            HttpResponseStatus.INTERNAL_SERVER_ERROR,
                            "Internal Server Error");

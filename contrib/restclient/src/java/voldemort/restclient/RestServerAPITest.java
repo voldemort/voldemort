@@ -25,14 +25,14 @@ import voldemort.versioning.Versioned;
 
 public class RestServerAPITest {
 
-    private final Logger logger = Logger.getLogger(RestServerAPITest.class);
+    private static final Logger logger = Logger.getLogger(RestServerAPITest.class);
 
     /*
      * TODO REST-Server temporaily hard coded the store name and port. This
      * should be formally obtained from stores.xml and cluster.xml
      */
 
-    private final static R2Store r2store = new R2Store("http://localhost:8081", "test");
+    private final static R2Store r2store = new R2Store("http://localhost:8081", "test", "2");
     private final static Store<ByteArray, byte[], byte[]> store = r2store;
     private static VoldemortConfig config = null;
     private static VoldemortServer server;
@@ -44,7 +44,7 @@ public class RestServerAPITest {
 
     @BeforeClass
     public static void oneTimeSetUp() {
-        config = VoldemortConfig.loadFromVoldemortHome("config/single_node_cluster/");
+        config = VoldemortConfig.loadFromVoldemortHome("config/single_node_rest_server/");
         key = new ByteArray("key1".getBytes());
         vectorClock = new VectorClock();
         vectorClock.incrementVersion(config.getNodeId(), System.currentTimeMillis());
@@ -52,7 +52,7 @@ public class RestServerAPITest {
         server = new VoldemortServer(config);
         if(!server.isStarted())
             server.start();
-        System.out.println("********************Starting REST Server********************");
+        logger.info("********************Starting REST Server********************");
         deleteCreatedKeys(key);
     }
 

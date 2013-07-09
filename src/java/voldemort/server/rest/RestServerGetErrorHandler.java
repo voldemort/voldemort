@@ -20,14 +20,19 @@ public class RestServerGetErrorHandler extends RestServerErrorHandler {
     public void handleExceptions(MessageEvent messageEvent, Exception exception) {
 
         if(exception instanceof InvalidMetadataException) {
+            logger.error("Exception when doing get operations. The requested key does not exist in this partition. ",
+                         exception);
             writeErrorResponse(messageEvent,
                                HttpResponseStatus.REQUESTED_RANGE_NOT_SATISFIABLE,
                                "The requested key does not exist in this partition");
         } else if(exception instanceof PersistenceFailureException) {
+            logger.error("Exception when doing get operations. Operation failed.", exception);
             writeErrorResponse(messageEvent,
                                HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                               "TOperation failed");
+                               "Operation failed");
         } else if(exception instanceof ProxyUnreachableException) {
+            logger.error("Exception when doing get operations. The proxy is unreachable.",
+                         exception);
             writeErrorResponse(messageEvent,
                                HttpResponseStatus.SERVICE_UNAVAILABLE,
                                "The proxy is unreachable");

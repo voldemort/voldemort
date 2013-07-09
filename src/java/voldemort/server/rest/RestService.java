@@ -40,8 +40,8 @@ public class RestService extends AbstractService {
     protected void startInner() {
 
         // Configure the server.
-        this.workerPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(config.getNumRestServiceWorkerThreads());
-        this.bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newFixedThreadPool(config.getNumRestServiceBossThreads()),
+        this.workerPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(config.getNumRestServiceNettyWorkerThreads());
+        this.bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newFixedThreadPool(config.getNumRestServiceNettyBossThreads()),
                                                                                workerPool));
         /*
          * TODO REST-Server Need to add a server parameter for netty backlog

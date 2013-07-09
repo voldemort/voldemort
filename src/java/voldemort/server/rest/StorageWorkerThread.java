@@ -55,6 +55,7 @@ public class StorageWorkerThread implements Runnable {
                                                                                           store.getName());
                             responseConstructor.sendResponse();
                         } else {
+                            logger.error("Error when doing get. Key does not exist");
                             RestServerErrorHandler.writeErrorResponse(messageEvent,
                                                                       NOT_FOUND,
                                                                       "Key does not exist");
@@ -87,6 +88,7 @@ public class StorageWorkerThread implements Runnable {
                                                                                                 store.getName());
                             responseConstructor.sendResponse();
                         } else {
+                            logger.error("Error when doing getall. Key does not exist or key is null");
                             RestServerErrorHandler.writeErrorResponse(messageEvent,
                                                                       NOT_FOUND,
                                                                       "Key does not exist or key is null");
@@ -117,6 +119,7 @@ public class StorageWorkerThread implements Runnable {
                         boolean result = store.delete(requestObject.getKey(),
                                                       requestObject.getVersion());
                         if(!result) {
+                            logger.error("Error when doing delete. Non Existing key/version. Nothing to delete");
                             RestServerErrorHandler.writeErrorResponse(messageEvent,
                                                                       NOT_FOUND,
                                                                       "Non Existing key/version. Nothing to delete");
@@ -146,6 +149,7 @@ public class StorageWorkerThread implements Runnable {
                             responseConstructor.sendResponse();
 
                         } else {
+                            logger.error("Error when doing getversion. Key does not exist or key is null");
                             RestServerErrorHandler.writeErrorResponse(messageEvent,
                                                                       NOT_FOUND,
                                                                       "Key does not exist or key is null");
