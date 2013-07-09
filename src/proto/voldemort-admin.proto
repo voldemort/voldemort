@@ -106,7 +106,7 @@ message InitiateFetchAndUpdateRequest {
   optional VoldemortFilter filter = 3;
   repeated int32 partition_ids = 4;
   optional string initial_cluster = 5;
-  optional bool optimize = 6;
+  optional bool OBSOLETE__DO_NOT_USE__optimize = 6;
 }
 
 message AsyncOperationStatusRequest {

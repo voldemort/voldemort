@@ -158,8 +158,7 @@ public class AdminTest {
                                                               storeName,
                                                               partitionIds,
                                                               null,
-                                                              null,
-                                                              false);
+                                                              null);
                 }
 
             }, 1);

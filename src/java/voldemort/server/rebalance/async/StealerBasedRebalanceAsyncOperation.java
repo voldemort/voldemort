@@ -187,8 +187,7 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
                                                                     storeName,
                                                                     stealInfo.getPartitionIds(storeName),
                                                                     null,
-                                                                    stealInfo.getInitialCluster(),
-                                                                    true);
+                                                                    stealInfo.getInitialCluster());
             rebalanceStatusList.add(asyncId);
 
             if(logger.isDebugEnabled()) {

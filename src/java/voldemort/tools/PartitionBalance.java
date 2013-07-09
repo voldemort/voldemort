@@ -27,8 +27,8 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ClusterUtils;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 

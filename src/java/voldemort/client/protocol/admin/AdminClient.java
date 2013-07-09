@@ -89,7 +89,6 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
-import voldemort.utils.ClusterUtils;
 import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
@@ -463,6 +462,7 @@ public class AdminClient {
                                                 int zoneId,
                                                 Cluster cluster,
                                                 StoreDefinition storeDef) {
+
             Map<Integer, Integer> partitionToNodeId = ClusterUtils.getCurrentPartitionMapping(cluster);
             int nodeId = -1;
             int partitionId = -1;
@@ -543,7 +543,9 @@ public class AdminClient {
      */
     public class RPCOperations {
 
-        private <T extends Message.Builder> T sendAndReceive(int nodeId, Message message, T builder) {
+        private <T extends Message.Builder>
+                T
+                sendAndReceive(int nodeId, Message message, T builder) {
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
@@ -1185,8 +1187,7 @@ public class AdminClient {
                                      storeName,
                                      stealPartitionList,
                                      filter,
-                                     null,
-                                     false);
+                                     null);
         }
 
         /**
@@ -1210,11 +1211,6 @@ public class AdminClient {
          * @param initialCluster The cluster metadata to use for making the
          *        decision if the key belongs to these partitions. If not
          *        specified, falls back to the metadata stored on the box
-         * @param optimize We can run an optimization at this level where-in we
-         *        try avoid copying of data which already exists ( in the form
-         *        of a replica ). We do need to disable this when we're trying
-         *        to recover a node which was completely damaged ( restore from
-         *        replica ).
          * @return The value of the
          *         {@link voldemort.server.protocol.admin.AsyncOperation}
          *         created on stealer node which is performing the operation.
@@ -1224,8 +1220,7 @@ public class AdminClient {
                                      String storeName,
                                      List<Integer> partitionIds,
                                      VoldemortFilter filter,
-                                     Cluster initialCluster,
-                                     boolean optimize) {
+                                     Cluster initialCluster) {
             VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest = VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                                                                                                                                        .setNodeId(donorNodeId)
                                                                                                                                        .addAllPartitionIds(partitionIds)
@@ -1242,7 +1237,6 @@ public class AdminClient {
             if(initialCluster != null) {
                 initiateFetchAndUpdateRequest.setInitialCluster(new ClusterMapper().writeCluster(initialCluster));
             }
-            initiateFetchAndUpdateRequest.setOptimize(optimize);
 
             VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                               .setInitiateFetchAndUpdate(initiateFetchAndUpdateRequest)
@@ -1322,8 +1316,8 @@ public class AdminClient {
                                      Cluster initialCluster,
                                      VoldemortFilter filter) {
             VAdminProto.DeletePartitionEntriesRequest.Builder deleteRequest = VAdminProto.DeletePartitionEntriesRequest.newBuilder()
-                                                                                                                        .addAllPartitionIds(partitionIds) 
-                                                                                                                        .setStore(storeName);
+                                                                                                                       .addAllPartitionIds(partitionIds)
+                                                                                                                       .setStore(storeName);
 
             try {
                 if(filter != null) {
@@ -1476,13 +1470,15 @@ public class AdminClient {
                                           Cluster initialCluster,
                                           long recordsPerPartition) throws IOException {
             // TODO (Sid): Commenting this for removing replica type.
-            // HashMap<Integer, List<Integer>> filteredReplicaToPartitionList = Maps.newHashMap();
+            // HashMap<Integer, List<Integer>> filteredReplicaToPartitionList =
+            // Maps.newHashMap();
             // if(fetchMasterEntries) {
             // if(!replicaToPartitionList.containsKey(0)) {
             // throw new
             // VoldemortException("Could not find any partitions for primary replica type");
             // } else {
-            // filteredReplicaToPartitionList.put(0, replicaToPartitionList.get(0));
+            // filteredReplicaToPartitionList.put(0,
+            // replicaToPartitionList.get(0));
             // }
             // } else {
             // filteredReplicaToPartitionList.putAll(replicaToPartitionList);
@@ -1514,9 +1510,8 @@ public class AdminClient {
 
         }
 
-        private VAdminProto.FetchPartitionEntriesResponse responseFromStream(DataInputStream inputStream,
-                                                                             int size)
-                throws IOException {
+        private VAdminProto.FetchPartitionEntriesResponse
+                responseFromStream(DataInputStream inputStream, int size) throws IOException {
             byte[] input = new byte[size];
             ByteUtils.read(inputStream, input);
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
@@ -1638,11 +1633,12 @@ public class AdminClient {
          * @return An iterator which allows entries to be streamed as they're
          *         being iterated over.
          */
-        public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
-                                                                         String storeName,
-                                                                         List<Integer> partitionList,
-                                                                         VoldemortFilter filter,
-                                                                         boolean fetchMasterEntries) {
+        public Iterator<Pair<ByteArray, Versioned<byte[]>>>
+                fetchEntries(int nodeId,
+                             String storeName,
+                             List<Integer> partitionList,
+                             VoldemortFilter filter,
+                             boolean fetchMasterEntries) {
             return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
         }
 
@@ -2316,22 +2312,21 @@ public class AdminClient {
         public int rebalanceNode(RebalanceTaskInfo stealInfo) {
             VAdminProto.RebalanceTaskInfoMap rebalanceTaskInfoMap = ProtoUtils.encodeRebalanceTaskInfoMap(stealInfo);
             VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest
-                                                                            .newBuilder()
-                                                                            .setRebalanceTaskInfo(rebalanceTaskInfoMap)
-                                                                            .build();
-                                                                         
-                                                                                                                 
+                                                                                                                    .newBuilder()
+                                                                                                                    .setRebalanceTaskInfo(rebalanceTaskInfoMap)
+                                                                                                                    .build();
+
             VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest
-                                                                        .newBuilder()
-                                                                        .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
-                                                                        .setInitiateRebalanceNode(rebalanceNodeRequest)
-                                                                        .build();
+                                                                                              .newBuilder()
+                                                                                              .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
+                                                                                              .setInitiateRebalanceNode(rebalanceNodeRequest)
+                                                                                              .build();
 
             VAdminProto.AsyncOperationStatusResponse.Builder response = rpcOps.sendAndReceive(stealInfo.getStealerId(),
                                                                                               adminRequest,
                                                                                               VAdminProto.AsyncOperationStatusResponse.newBuilder());
 
-            if (response.hasError())
+            if(response.hasError())
                 helperOps.throwException(response.getError());
 
             return response.getRequestId();
@@ -2450,7 +2445,7 @@ public class AdminClient {
                                          boolean rollback,
                                          boolean failEarly) {
             HashMap<Integer, List<RebalanceTaskInfo>> stealerNodeToRebalanceTasks = RebalanceUtils.groupPartitionsTaskByNode(rebalanceTaskPlanList,
-                                                                                                                         true);
+                                                                                                                             true);
             Set<Integer> completedNodeIds = Sets.newHashSet();
 
             HashMap<Integer, Exception> exceptions = Maps.newHashMap();
@@ -2520,8 +2515,8 @@ public class AdminClient {
                                  + " while changing state");
                 }
                 throw new VoldemortRebalancingException("Got exceptions from nodes "
-                                                                + exceptions.keySet()
-                                                                + " while changing state",
+                                                        + exceptions.keySet()
+                                                        + " while changing state",
                                                         Lists.newArrayList(exceptions.values()));
             }
 
@@ -2568,9 +2563,9 @@ public class AdminClient {
 
             VAdminProto.RebalanceStateChangeRequest.Builder getRebalanceStateChangeRequestBuilder = VAdminProto.RebalanceStateChangeRequest.newBuilder();
 
-            if (rebalanceTaskPlanList != null) {
+            if(rebalanceTaskPlanList != null) {
                 List<RebalanceTaskInfoMap> map = Lists.newArrayList();
-                for (RebalanceTaskInfo stealInfo : rebalanceTaskPlanList) {
+                for(RebalanceTaskInfo stealInfo: rebalanceTaskPlanList) {
                     RebalanceTaskInfoMap infoMap = ProtoUtils.encodeRebalanceTaskInfoMap(stealInfo);
                     map.add(infoMap);
                 }
@@ -2634,7 +2629,8 @@ public class AdminClient {
                                                                      new ThreadFactory() {
 
                                                                          @Override
-                                                                         public Thread newThread(Runnable r) {
+                                                                         public Thread
+                                                                                 newThread(Runnable r) {
                                                                              Thread thread = new Thread(r);
                                                                              thread.setName("restore-data-thread");
                                                                              return thread;
@@ -2695,10 +2691,10 @@ public class AdminClient {
 
             Map<Integer, List<Integer>> restoreMapping = helperOps.getReplicationMapping(restoringNodeId,
                                                                                          cluster,
-                                                                                         storeDef, 
+                                                                                         storeDef,
                                                                                          zoneId);
             // migrate partition
-            for (final Entry<Integer, List<Integer>> replicationEntry : restoreMapping.entrySet()) {
+            for(final Entry<Integer, List<Integer>> replicationEntry: restoreMapping.entrySet()) {
                 final int donorNodeId = replicationEntry.getKey();
                 executorService.submit(new Runnable() {
 
@@ -2715,8 +2711,7 @@ public class AdminClient {
                                                                                storeDef.getName(),
                                                                                replicationEntry.getValue(),
                                                                                null,
-                                                                               null,
-                                                                               false);
+                                                                               null);
 
                             rpcOps.waitForCompletion(restoringNodeId,
                                                      migrateAsyncId,
@@ -2793,7 +2788,8 @@ public class AdminClient {
                                                                      new ThreadFactory() {
 
                                                                          @Override
-                                                                         public Thread newThread(Runnable r) {
+                                                                         public Thread
+                                                                                 newThread(Runnable r) {
                                                                              Thread thread = new Thread(r);
                                                                              thread.setName("mirror-data-thread");
                                                                              return thread;
@@ -3179,12 +3175,12 @@ public class AdminClient {
                 }
 
                 VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto
-                                                                                   .FetchPartitionFilesRequest
-                                                                                   .newBuilder()
-                                                                                   .setStoreName(storeName)
-                                                                                   .addAllPartitionIds(partitionIds)
-                                                                                   .build();
-                
+                        .FetchPartitionFilesRequest
+                                                   .newBuilder()
+                                                   .setStoreName(storeName)
+                                                   .addAllPartitionIds(partitionIds)
+                                                   .build();
+
                 VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                              .setFetchPartitionFiles(fetchPartitionFileRequest)
                                                                                              .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_FILES)

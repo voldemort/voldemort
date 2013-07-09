@@ -932,8 +932,9 @@ public class AdminServiceBasicTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void generateAndFetchFiles(int numChunks, long versionId, long indexSize, long dataSize)
-            throws IOException {
+    private void
+            generateAndFetchFiles(int numChunks, long versionId, long indexSize, long dataSize)
+                    throws IOException {
         Map<Integer, Set<Pair<Integer, Integer>>> buckets = RebalanceUtils.getNodeIdToAllPartitions(cluster,
                                                                                                     StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
                                                                                                                                                     "test-readonly-fetchfiles"),
@@ -1640,8 +1641,7 @@ public class AdminServiceBasicTest {
                                                       "test-recovery-data",
                                                       combinedLists,
                                                       null,
-                                                      cluster,
-                                                      false);
+                                                      cluster);
         client.rpcOps.waitForCompletion(1, id, 120, TimeUnit.SECONDS);
 
         // Check the values

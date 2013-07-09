@@ -222,7 +222,6 @@ public class VoldemortConfig implements Serializable {
     private boolean deleteExpiredValuesOnRead;
     private long rebalancingTimeoutSec;
     private int maxParallelStoresRebalancing;
-    private boolean rebalancingOptimization;
     private boolean usePartitionScanForRebalance;
     private int maxProxyPutThreads;
     @Deprecated
@@ -471,12 +470,11 @@ public class VoldemortConfig implements Serializable {
         // rebalancing parameters
         this.rebalancingTimeoutSec = props.getLong("rebalancing.timeout.seconds", 10 * 24 * 60 * 60);
         this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 3);
-        this.rebalancingOptimization = props.getBoolean("rebalancing.optimization", true);
         this.usePartitionScanForRebalance = props.getBoolean("use.partition.scan.for.rebalance",
                                                              true);
-        this.maxProxyPutThreads = props.getInt("max.proxy.put.threads", 1);
-        this.proxyPutsDuringRebalance = props.getBoolean("proxy.puts.during.rebalance", true);
-
+        this.maxProxyPutThreads = props.getInt("max.proxy.put.threads",
+                                               Math.max(8, Runtime.getRuntime()
+                                                                  .availableProcessors()));
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
                                                              FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
 
@@ -2339,7 +2337,8 @@ public class VoldemortConfig implements Serializable {
      * <li>Default :FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES</li>
      * </ul>
      */
-    public void setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
+    public void
+            setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
         this.failureDetectorCatastrophicErrorTypes = failureDetectorCatastrophicErrorTypes;
     }
 
@@ -2355,7 +2354,8 @@ public class VoldemortConfig implements Serializable {
      * <li>Default :same as socket timeout</li>
      * </ul>
      */
-    public void setFailureDetectorRequestLengthThreshold(long failureDetectorRequestLengthThreshold) {
+    public void
+            setFailureDetectorRequestLengthThreshold(long failureDetectorRequestLengthThreshold) {
         this.failureDetectorRequestLengthThreshold = failureDetectorRequestLengthThreshold;
     }
 
@@ -2666,24 +2666,6 @@ public class VoldemortConfig implements Serializable {
         this.maxParallelStoresRebalancing = maxParallelStoresRebalancing;
     }
 
-    public boolean getRebalancingOptimization() {
-        return rebalancingOptimization;
-    }
-
-    /**
-     * Prevents the some unnecessary data movement during rebalancing. For
-     * example, If a secondary were to become the primary of the partition, no
-     * data will be copied from the old primary.
-     * 
-     * <ul>
-     * <li>Property :"rebalancing.optimization"</li>
-     * <li>Default :true</li>
-     * </ul>
-     */
-    public void setRebalancingOptimization(boolean rebalancingOptimization) {
-        this.rebalancingOptimization = rebalancingOptimization;
-    }
-
     public boolean usePartitionScanForRebalance() {
         return usePartitionScanForRebalance;
     }
@@ -2702,24 +2684,6 @@ public class VoldemortConfig implements Serializable {
 
     public int getMaxProxyPutThreads() {
         return this.maxProxyPutThreads;
-    }
-
-    /**
-     * If set to true, the puts to the new replicas will be relayed back to the
-     * original donor nodes, such that they exist if rebalance were to abort in
-     * the middle for some reason.
-     * 
-     * <ul>
-     * <li>Property :"proxy.puts.during.rebalance"</li>
-     * <li>Default :false</li>
-     * </ul>
-     */
-    public void setProxyPutsDuringRebalance(boolean proxyPutsDuringRebalance) {
-        this.proxyPutsDuringRebalance = proxyPutsDuringRebalance;
-    }
-
-    public boolean getProxyPutsDuringRebalance() {
-        return this.proxyPutsDuringRebalance;
     }
 
     /**
