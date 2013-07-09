@@ -17,13 +17,16 @@
 package voldemort.utils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import voldemort.VoldemortException;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 public class StoreDefinitionUtils {
 
@@ -77,11 +80,72 @@ public class StoreDefinitionUtils {
                 break;
             }
         }
-    
+
         if(def == null) {
             throw new VoldemortException("Could not find store " + storeName);
         }
         return def;
+    }
+
+    /**
+     * Given a list of store definitions, find out and return a map of similar
+     * store definitions + count of them
+     * 
+     * @param storeDefs All store definitions
+     * @return Map of a unique store definition + counts
+     */
+    public static HashMap<StoreDefinition, Integer>
+            getUniqueStoreDefinitionsWithCounts(List<StoreDefinition> storeDefs) {
+
+        HashMap<StoreDefinition, Integer> uniqueStoreDefs = Maps.newHashMap();
+        for(StoreDefinition storeDef: storeDefs) {
+            if(uniqueStoreDefs.isEmpty()) {
+                uniqueStoreDefs.put(storeDef, 1);
+            } else {
+                StoreDefinition sameStore = null;
+
+                // Go over all the other stores to find if this is unique
+                for(StoreDefinition uniqueStoreDef: uniqueStoreDefs.keySet()) {
+                    if(uniqueStoreDef.getReplicationFactor() == storeDef.getReplicationFactor()
+                       && uniqueStoreDef.getRoutingStrategyType()
+                                        .compareTo(storeDef.getRoutingStrategyType()) == 0) {
+
+                        // Further check for the zone routing case
+                        if(uniqueStoreDef.getRoutingStrategyType()
+                                         .compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
+                            boolean zonesSame = true;
+                            for(int zoneId: uniqueStoreDef.getZoneReplicationFactor().keySet()) {
+                                if(storeDef.getZoneReplicationFactor().get(zoneId) == null
+                                   || storeDef.getZoneReplicationFactor().get(zoneId) != uniqueStoreDef.getZoneReplicationFactor()
+                                                                                                       .get(zoneId)) {
+                                    zonesSame = false;
+                                    break;
+                                }
+                            }
+                            if(zonesSame) {
+                                sameStore = uniqueStoreDef;
+                            }
+                        } else {
+                            sameStore = uniqueStoreDef;
+                        }
+
+                        if(sameStore != null) {
+                            // Bump up the count
+                            int currentCount = uniqueStoreDefs.get(sameStore);
+                            uniqueStoreDefs.put(sameStore, currentCount + 1);
+                            break;
+                        }
+                    }
+                }
+
+                if(sameStore == null) {
+                    // New store
+                    uniqueStoreDefs.put(storeDef, 1);
+                }
+            }
+        }
+
+        return uniqueStoreDefs;
     }
 
 }
