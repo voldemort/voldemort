@@ -78,7 +78,6 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.KeyDistributionGenerator;
 import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
@@ -201,7 +200,6 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("metadata-value")
               .ofType(String.class);
-        parser.accepts("key-distribution", "Prints the current key distribution of the cluster");
         parser.accepts("clear-rebalancing-metadata", "Remove the metadata related to rebalancing");
         parser.accepts("async",
                        "a) Get a list of async job ids [get] b) Stop async job ids [stop] ")
@@ -281,7 +279,7 @@ public class VoldemortAdminTool {
             if(!(missing.equals(ImmutableSet.of("node"))
                  && (options.has("add-stores") || options.has("delete-store")
                      || options.has("ro-metadata") || options.has("set-metadata")
-                     || options.has("get-metadata") || options.has("check-metadata") || options.has("key-distribution"))
+                     || options.has("get-metadata") || options.has("check-metadata"))
                  || options.has("truncate") || options.has("clear-rebalancing-metadata")
                  || options.has("async") || options.has("native-backup") || options.has("rollback")
                  || options.has("verify-metadata-version") || options.has("reserve-memory"))) {
@@ -385,17 +383,13 @@ public class VoldemortAdminTool {
             ops += "v";
         }
 
-        if(options.has("key-distribution")) {
-            ops += "y";
-        }
-
         if(options.has("synchronize-metadata-version")) {
             ops += "z";
         }
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
-                        + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async, "
+                        + "set-metadata, check-metadata, clear-rebalancing-metadata, async, "
                         + "repair-job, native-backup, rollback, reserve-memory, mirror-url, verify-metadata-version) must be specified");
         }
 
@@ -569,9 +563,6 @@ public class VoldemortAdminTool {
                     }
                 }
 
-            }
-            if(ops.contains("y")) {
-                executeKeyDistribution(adminClient);
             }
             if(ops.contains("i")) {
                 executeClearRebalancing(nodeId, adminClient);
@@ -859,14 +850,12 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --restore --url [url] --node [node-id]");
         stream.println("\t2) Restore a particular node completely from its replicas ( with increased parallelism - 10 ) ");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --restore 10 --url [url] --node [node-id]");
-        stream.println("\t3) Generates the key distribution on a per node basis [ both store wise and overall ]");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --key-distribution --url [url]");
-        stream.println("\t4) Clean a node after rebalancing is done");
+        stream.println("\t3) Clean a node after rebalancing is done");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --repair-job --url [url] --node [node-id]");
-        stream.println("\t5) Backup bdb data natively");
+        stream.println("\t4) Backup bdb data natively");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --native-backup [store] --backup-dir [outdir] "
                        + "--backup-timeout [mins] [--backup-verify] [--backup-incremental] --url [url] --node [node-id]");
-        stream.println("\t6) Rollback a read-only store to the specified push version");
+        stream.println("\t5) Rollback a read-only store to the specified push version");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --rollback [store-name] --url [url] --node [node-id] --version [version-num] ");
 
         parser.printHelpOn(stream);
@@ -938,18 +927,6 @@ public class VoldemortAdminTool {
         System.out.println("Cleaning up " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML
                            + " to empty string");
         executeSetMetadata(nodeId, adminClient, MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, "");
-    }
-
-    private static void executeKeyDistribution(AdminClient adminClient) {
-        List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
-        System.out.println(KeyDistributionGenerator.printStoreWiseDistribution(adminClient.getAdminClientCluster(),
-                                                                               adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
-                                                                                                          .getValue(),
-                                                                               keys));
-        System.out.println(KeyDistributionGenerator.printOverallDistribution(adminClient.getAdminClientCluster(),
-                                                                             adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
-                                                                                                        .getValue(),
-                                                                             keys));
     }
 
     private static void executeCheckMetadata(AdminClient adminClient, String metadataKey) {

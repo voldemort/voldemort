@@ -1152,7 +1152,7 @@ public class RebalanceUtils {
         StringBuilder sb = new StringBuilder();
         sb.append("Dump of invalid metadata rates per zone").append(Utils.NEWLINE);
 
-        HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(currentStoreDefs);
+        HashMap<StoreDefinition, Integer> uniqueStores = StoreDefinitionUtils.getUniqueStoreDefinitionsWithCounts(currentStoreDefs);
 
         for(StoreDefinition currentStoreDef: uniqueStores.keySet()) {
             sb.append("Store exemplar: " + currentStoreDef.getName())

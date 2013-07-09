@@ -28,9 +28,9 @@ import voldemort.cluster.Node;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ClusterUtils;
-import voldemort.utils.KeyDistributionGenerator;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.Maps;
@@ -68,7 +68,7 @@ public class PartitionBalance {
         StringBuilder builder = new StringBuilder();
         builder.append(ClusterUtils.verboseClusterDump(cluster));
 
-        HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
+        HashMap<StoreDefinition, Integer> uniqueStores = StoreDefinitionUtils.getUniqueStoreDefinitionsWithCounts(storeDefs);
         Set<Integer> nodeIds = cluster.getNodeIds();
         Set<Integer> zoneIds = cluster.getZoneIds();
 
