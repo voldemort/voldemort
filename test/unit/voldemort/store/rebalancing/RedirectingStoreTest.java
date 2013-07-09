@@ -270,7 +270,6 @@ public class RedirectingStoreTest {
                                     servers[nodeId].getStoreRepository(),
                                     new NoopFailureDetector(),
                                     storeFactory,
-                                    true,
                                     Executors.newFixedThreadPool(1,
                                                                  new DaemonThreadFactory("voldemort-proxy-put-thread")),
                                     new ProxyPutStats(null));

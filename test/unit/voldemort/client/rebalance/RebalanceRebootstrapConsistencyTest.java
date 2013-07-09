@@ -216,8 +216,7 @@ public class RebalanceRebootstrapConsistencyTest {
                                                             testStoreNameRW,
                                                             replicaToPartitionList,
                                                             null,
-                                                            null,
-                                                            false);
+                                                            null);
         adminClient.rpcOps.waitForCompletion(1, req, 5, TimeUnit.SECONDS);
         Versioned<Cluster> versionedCluster = adminClient.metadataMgmtOps.getRemoteCluster(0);
 

@@ -368,9 +368,8 @@ public class AdminClient {
          * @return Map of node id to map of replica type and corresponding
          *         partition list
          */
-        public Map<Integer, HashMap<Integer, List<Integer>>> getReplicationMapping(int restoringNode,
-                                                                                   Cluster cluster,
-                                                                                   StoreDefinition storeDef) {
+        public Map<Integer, HashMap<Integer, List<Integer>>>
+                getReplicationMapping(int restoringNode, Cluster cluster, StoreDefinition storeDef) {
             return getReplicationMapping(restoringNode, cluster, storeDef, -1);
         }
 
@@ -387,10 +386,11 @@ public class AdminClient {
          * @return Map of node id to map of replica type and corresponding
          *         partition list
          */
-        public Map<Integer, HashMap<Integer, List<Integer>>> getReplicationMapping(int restoringNode,
-                                                                                   Cluster cluster,
-                                                                                   StoreDefinition storeDef,
-                                                                                   int zoneId) {
+        public Map<Integer, HashMap<Integer, List<Integer>>>
+                getReplicationMapping(int restoringNode,
+                                      Cluster cluster,
+                                      StoreDefinition storeDef,
+                                      int zoneId) {
 
             Map<Integer, HashMap<Integer, List<Integer>>> returnMap = Maps.newHashMap();
 
@@ -450,12 +450,13 @@ public class AdminClient {
          * @param storeDef The store to be restored
          * @return
          */
-        private void addDonorWithZonePreference(List<Integer> remainderPartitions,
-                                                List<Integer> originalPartitions,
-                                                Map<Integer, HashMap<Integer, List<Integer>>> donorMap,
-                                                int zoneId,
-                                                Cluster cluster,
-                                                StoreDefinition storeDef) {
+        private void
+                addDonorWithZonePreference(List<Integer> remainderPartitions,
+                                           List<Integer> originalPartitions,
+                                           Map<Integer, HashMap<Integer, List<Integer>>> donorMap,
+                                           int zoneId,
+                                           Cluster cluster,
+                                           StoreDefinition storeDef) {
             Map<Integer, Integer> partitionToNodeId = ClusterUtils.getCurrentPartitionMapping(cluster);
             int nodeId = -1;
             int replicaType = -1;
@@ -549,7 +550,9 @@ public class AdminClient {
      */
     public class RPCOperations {
 
-        private <T extends Message.Builder> T sendAndReceive(int nodeId, Message message, T builder) {
+        private <T extends Message.Builder>
+                T
+                sendAndReceive(int nodeId, Message message, T builder) {
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
@@ -1193,8 +1196,7 @@ public class AdminClient {
                                                                         storeName,
                                                                         stealPartitionList),
                                      filter,
-                                     null,
-                                     false);
+                                     null);
         }
 
         /**
@@ -1218,11 +1220,6 @@ public class AdminClient {
          * @param initialCluster The cluster metadata to use for making the
          *        decision if the key belongs to these partitions. If not
          *        specified, falls back to the metadata stored on the box
-         * @param optimize We can run an optimization at this level where-in we
-         *        try avoid copying of data which already exists ( in the form
-         *        of a replica ). We do need to disable this when we're trying
-         *        to recover a node which was completely damaged ( restore from
-         *        replica ).
          * @return The value of the
          *         {@link voldemort.server.protocol.admin.AsyncOperation}
          *         created on stealer node which is performing the operation.
@@ -1232,8 +1229,7 @@ public class AdminClient {
                                      String storeName,
                                      HashMap<Integer, List<Integer>> replicaToPartitionList,
                                      VoldemortFilter filter,
-                                     Cluster initialCluster,
-                                     boolean optimize) {
+                                     Cluster initialCluster) {
             VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest = VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                                                                                                                                        .setNodeId(donorNodeId)
                                                                                                                                        .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
@@ -1250,7 +1246,6 @@ public class AdminClient {
             if(initialCluster != null) {
                 initiateFetchAndUpdateRequest.setInitialCluster(new ClusterMapper().writeCluster(initialCluster));
             }
-            initiateFetchAndUpdateRequest.setOptimize(optimize);
 
             VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                               .setInitiateFetchAndUpdate(initiateFetchAndUpdateRequest)
@@ -1522,9 +1517,8 @@ public class AdminClient {
 
         }
 
-        private VAdminProto.FetchPartitionEntriesResponse responseFromStream(DataInputStream inputStream,
-                                                                             int size)
-                throws IOException {
+        private VAdminProto.FetchPartitionEntriesResponse
+                responseFromStream(DataInputStream inputStream, int size) throws IOException {
             byte[] input = new byte[size];
             ByteUtils.read(inputStream, input);
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
@@ -1617,12 +1611,13 @@ public class AdminClient {
          * @return An iterator which allows entries to be streamed as they're
          *         being iterated over.
          */
-        public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
-                                                                         String storeName,
-                                                                         List<Integer> partitionList,
-                                                                         VoldemortFilter filter,
-                                                                         boolean fetchMasterEntries,
-                                                                         long recordsPerPartition) {
+        public Iterator<Pair<ByteArray, Versioned<byte[]>>>
+                fetchEntries(int nodeId,
+                             String storeName,
+                             List<Integer> partitionList,
+                             VoldemortFilter filter,
+                             boolean fetchMasterEntries,
+                             long recordsPerPartition) {
             return fetchEntries(nodeId,
                                 storeName,
                                 helperOps.getReplicaToPartitionMap(nodeId, storeName, partitionList),
@@ -1646,11 +1641,12 @@ public class AdminClient {
          * @return An iterator which allows entries to be streamed as they're
          *         being iterated over.
          */
-        public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
-                                                                         String storeName,
-                                                                         List<Integer> partitionList,
-                                                                         VoldemortFilter filter,
-                                                                         boolean fetchMasterEntries) {
+        public Iterator<Pair<ByteArray, Versioned<byte[]>>>
+                fetchEntries(int nodeId,
+                             String storeName,
+                             List<Integer> partitionList,
+                             VoldemortFilter filter,
+                             boolean fetchMasterEntries) {
             return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
         }
 
@@ -1691,13 +1687,14 @@ public class AdminClient {
          * @return An iterator which allows entries to be streamed as they're
          *         being iterated over.
          */
-        public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
-                                                                         String storeName,
-                                                                         HashMap<Integer, List<Integer>> replicaToPartitionList,
-                                                                         VoldemortFilter filter,
-                                                                         boolean fetchMasterEntries,
-                                                                         Cluster initialCluster,
-                                                                         long recordsPerPartition) {
+        public Iterator<Pair<ByteArray, Versioned<byte[]>>>
+                fetchEntries(int nodeId,
+                             String storeName,
+                             HashMap<Integer, List<Integer>> replicaToPartitionList,
+                             VoldemortFilter filter,
+                             boolean fetchMasterEntries,
+                             Cluster initialCluster,
+                             long recordsPerPartition) {
 
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
             final SocketDestination destination = new SocketDestination(node.getHost(),
@@ -1887,13 +1884,14 @@ public class AdminClient {
          *        use the default metadata from the metadata store
          * @return Returns an iterator of the keys
          */
-        public Iterator<ByteArray> fetchKeys(int nodeId,
-                                             String storeName,
-                                             HashMap<Integer, List<Integer>> replicaToPartitionList,
-                                             VoldemortFilter filter,
-                                             boolean fetchMasterEntries,
-                                             Cluster initialCluster,
-                                             long recordsPerPartition) {
+        public Iterator<ByteArray>
+                fetchKeys(int nodeId,
+                          String storeName,
+                          HashMap<Integer, List<Integer>> replicaToPartitionList,
+                          VoldemortFilter filter,
+                          boolean fetchMasterEntries,
+                          Cluster initialCluster,
+                          long recordsPerPartition) {
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
             final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                         node.getAdminPort(),
@@ -2544,14 +2542,15 @@ public class AdminClient {
          *        rebalancing state
          * @param rollback Are we doing a rollback or a normal state?
          */
-        private void individualStateChange(int nodeId,
-                                           Cluster cluster,
-                                           List<StoreDefinition> storeDefs,
-                                           List<RebalancePartitionsInfo> rebalancePartitionPlanList,
-                                           boolean swapRO,
-                                           boolean changeClusterMetadata,
-                                           boolean changeRebalanceState,
-                                           boolean rollback) {
+        private void
+                individualStateChange(int nodeId,
+                                      Cluster cluster,
+                                      List<StoreDefinition> storeDefs,
+                                      List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                      boolean swapRO,
+                                      boolean changeClusterMetadata,
+                                      boolean changeRebalanceState,
+                                      boolean rollback) {
 
             // If we do not want to change the metadata and are not one of the
             // stealer nodes, nothing to do
@@ -2637,7 +2636,8 @@ public class AdminClient {
                                                                      new ThreadFactory() {
 
                                                                          @Override
-                                                                         public Thread newThread(Runnable r) {
+                                                                         public Thread
+                                                                                 newThread(Runnable r) {
                                                                              Thread thread = new Thread(r);
                                                                              thread.setName("restore-data-thread");
                                                                              return thread;
@@ -2718,8 +2718,7 @@ public class AdminClient {
                                                                                storeDef.getName(),
                                                                                replicationEntry.getValue(),
                                                                                null,
-                                                                               null,
-                                                                               false);
+                                                                               null);
 
                             rpcOps.waitForCompletion(restoringNodeId,
                                                      migrateAsyncId,
@@ -2796,7 +2795,8 @@ public class AdminClient {
                                                                      new ThreadFactory() {
 
                                                                          @Override
-                                                                         public Thread newThread(Runnable r) {
+                                                                         public Thread
+                                                                                 newThread(Runnable r) {
                                                                              Thread thread = new Thread(r);
                                                                              thread.setName("mirror-data-thread");
                                                                              return thread;

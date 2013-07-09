@@ -112,8 +112,7 @@ public class RebootstrappingStoreTest {
                                                             STORE_NAME,
                                                             replicaToPartitionList,
                                                             null,
-                                                            null,
-                                                            false);
+                                                            null);
         adminClient.rpcOps.waitForCompletion(1, req, 5, TimeUnit.SECONDS);
         Versioned<Cluster> versionedCluster = adminClient.metadataMgmtOps.getRemoteCluster(0);
         Node node0 = versionedCluster.getValue().getNodeById(0);

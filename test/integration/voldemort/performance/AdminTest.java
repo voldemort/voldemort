@@ -159,8 +159,7 @@ public class AdminTest {
                                                               storeName,
                                                               replicaToPartitionList,
                                                               null,
-                                                              null,
-                                                              false);
+                                                              null);
                 }
 
             }, 1);
