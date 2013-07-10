@@ -50,13 +50,6 @@ public class RebalanceControllerCLI {
         parser.accepts("url", "Url to bootstrap from ").withRequiredArg().describedAs("url");
         parser.accepts("donor-based", "Execute donor-based rebalancing.");
         parser.accepts("stealer-based", "Execute stealer-based rebalancing (default).");
-        // TODO: Can this option be deprecated?
-        parser.accepts("tries",
-                       "Tries during stealer-based rebalance [ Default: "
-                               + RebalanceController.MAX_TRIES_REBALANCING + " ]")
-              .withRequiredArg()
-              .ofType(Integer.class)
-              .describedAs("num-tries");
         parser.accepts("parallelism",
                        "Number of servers running stealer- or donor-based tasks in parallel [ Default:"
                                + RebalanceController.MAX_PARALLEL_REBALANCING + " ]")
@@ -103,7 +96,6 @@ public class RebalanceControllerCLI {
         help.append("    --final-stores <storesXML> [ Needed for zone expansion ]\n");
         help.append("    --parallelism <parallelism> [ Number of rebalancing tasks to run in parallel ]");
         help.append("    --proxy-pause <proxyPauseSec> [ Seconds to pause between cluster change and server-side rebalancing tasks ]");
-        help.append("    --tries <tries> [ Number of times to try starting an async rebalancing task on a node ");
         help.append("    --output-dir [ Output directory in which plan is stored ]\n");
         help.append("    --batch <batch> [ Number of primary partitions to move in each rebalancing batch. ]\n");
         help.append("    --output-dir <outputDir> [ Directory in which cluster metadata is dumped for each batch of the plan. ]\n");
@@ -161,11 +153,6 @@ public class RebalanceControllerCLI {
             parallelism = (Integer) options.valueOf("parallelism");
         }
 
-        int tries = RebalanceController.MAX_TRIES_REBALANCING;
-        if(options.has("tries")) {
-            tries = (Integer) options.valueOf("tries");
-        }
-
         long proxyPauseSec = RebalanceController.PROXY_PAUSE_IN_SECONDS;
         if(options.has("proxy-pause")) {
             proxyPauseSec = (Long) options.valueOf("proxy-pause");
@@ -173,7 +160,6 @@ public class RebalanceControllerCLI {
 
         RebalanceController rebalanceController = new RebalanceController(bootstrapURL,
                                                                           parallelism,
-                                                                          tries,
                                                                           stealerBased,
                                                                           proxyPauseSec);
 
