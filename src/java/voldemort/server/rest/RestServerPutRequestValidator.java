@@ -33,7 +33,7 @@ public class RestServerPutRequestValidator extends RestServerRequestValidator {
                 requestObject = new CompositeVersionedPutVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
                                                                                              new Versioned<byte[]>(this.parsedValue,
                                                                                                                    this.parsedVectorClock),
-                                                                                             this.parsedRoutingTimeoutInMs,
+                                                                                             this.parsedTimeoutInMs,
                                                                                              this.parsedRequestOriginTimeInMs,
                                                                                              this.parsedRoutingType);
                 return requestObject;

@@ -29,7 +29,7 @@ public abstract class RestServerRequestValidator {
     protected List<ByteArray> parsedKeys;
     protected byte[] parsedValue = null;
     protected VectorClock parsedVectorClock;
-    protected long parsedRoutingTimeoutInMs;
+    protected long parsedTimeoutInMs;
     protected byte parsedOperationType;
     protected long parsedRequestOriginTimeInMs;
     protected RequestRoutingType parsedRoutingType = null;
@@ -77,8 +77,15 @@ public abstract class RestServerRequestValidator {
         String timeoutValStr = this.request.getHeader(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS);
         if(timeoutValStr != null) {
             try {
-                this.parsedRoutingTimeoutInMs = Long.parseLong(timeoutValStr);
-                result = true;
+                this.parsedTimeoutInMs = Long.parseLong(timeoutValStr);
+                if(this.parsedTimeoutInMs < 0) {
+                    RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                              HttpResponseStatus.BAD_REQUEST,
+                                                              "Time out cannot be negative ");
+
+                } else {
+                    result = true;
+                }
             } catch(NumberFormatException nfe) {
                 logger.error("Exception when validating request. Incorrect timeout parameter. Cannot parse this to long: "
                                      + timeoutValStr,
@@ -154,7 +161,14 @@ public abstract class RestServerRequestValidator {
         if(originTime != null) {
             try {
                 this.parsedRequestOriginTimeInMs = Long.parseLong(originTime);
-                result = true;
+                if(this.parsedRequestOriginTimeInMs < 0) {
+                    RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                              HttpResponseStatus.BAD_REQUEST,
+                                                              "Origin time cannot be negative ");
+
+                } else {
+                    result = true;
+                }
             } catch(NumberFormatException nfe) {
                 logger.error("Exception when validating request. Incorrect origin time parameter. Cannot parse this to long: "
                                      + originTime,

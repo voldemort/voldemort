@@ -26,7 +26,7 @@ public class RestServerDeleteRequestValidator extends RestServerRequestValidator
         if(parseAndValidateRequest()) {
             this.requestObject = new CompositeDeleteVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
                                                                                         this.parsedVectorClock,
-                                                                                        this.parsedRoutingTimeoutInMs,
+                                                                                        this.parsedTimeoutInMs,
                                                                                         this.parsedRequestOriginTimeInMs,
                                                                                         this.parsedRoutingType);
             return this.requestObject;

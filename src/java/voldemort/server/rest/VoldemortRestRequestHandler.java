@@ -83,10 +83,6 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                     requestValidator = new RestServerDeleteRequestValidator(request,
                                                                             messageEvent,
                                                                             storeRepository);
-                } else if(httpMethod.equals(HttpMethod.HEAD)) {
-                    requestValidator = new RestServerGetVersionRequestValidator(request,
-                                                                                messageEvent,
-                                                                                storeRepository);
                 } else {
                     String errorMessage = "Illegal Http request.";
                     logger.error(errorMessage);
