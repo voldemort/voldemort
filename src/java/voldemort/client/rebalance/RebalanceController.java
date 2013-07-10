@@ -59,12 +59,6 @@ import com.google.common.collect.Lists;
  */
 public class RebalanceController {
 
-    // TODO: Remove server side "optimization" that does not bother to steal
-    // partition-stores it already hosts. That code will be unnecessary. This
-    // also affects AdminClient that has an override of this option. Do not
-    // complete this work until the atomic metadata update is merged with this
-    // branch. Otherwise, there will be conflicts on .proto changes.
-
     private static final Logger logger = Logger.getLogger(RebalanceController.class);
 
     private static final DecimalFormat decimalFormatter = new DecimalFormat("#.##");
@@ -74,18 +68,15 @@ public class RebalanceController {
     private final List<StoreDefinition> currentStoreDefs;
 
     public final static int MAX_PARALLEL_REBALANCING = Integer.MAX_VALUE;
-    public final static int MAX_TRIES_REBALANCING = 2;
     public final static boolean STEALER_BASED_REBALANCING = true;
     public final static long PROXY_PAUSE_IN_SECONDS = TimeUnit.MINUTES.toSeconds(5);
 
     private final int maxParallelRebalancing;
-    private final int maxTriesRebalancing;
     private final boolean stealerBasedRebalancing;
     private final long proxyPauseSec;
 
     public RebalanceController(String bootstrapUrl,
                                int maxParallelRebalancing,
-                               int maxTriesRebalancing,
                                boolean stealerBased,
                                long proxyPauseSec) {
         this.adminClient = new AdminClient(bootstrapUrl,
@@ -96,7 +87,6 @@ public class RebalanceController {
         this.currentStoreDefs = pair.getSecond();
 
         this.maxParallelRebalancing = maxParallelRebalancing;
-        this.maxTriesRebalancing = maxTriesRebalancing;
         this.stealerBasedRebalancing = stealerBased;
         this.proxyPauseSec = proxyPauseSec;
     }
@@ -932,7 +922,6 @@ public class RebalanceController {
                 StealerBasedRebalanceTask rebalanceTask = new StealerBasedRebalanceTask(batchId,
                                                                                         taskId,
                                                                                         partitionsInfo,
-                                                                                        maxTriesRebalancing,
                                                                                         donorPermits[partitionsInfo.getDonorId()],
                                                                                         adminClient,
                                                                                         progressBar,

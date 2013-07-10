@@ -665,13 +665,11 @@ public class ClusterTestUtils {
 
     public static RebalanceKit getRebalanceKit(String bootstrapUrl,
                                                int maxParallel,
-                                               int maxTries,
                                                boolean stealerBased,
                                                long proxyPauseS,
                                                Cluster finalCluster) {
         RebalanceController rebalanceController = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
-                                                                          maxTries,
                                                                           stealerBased,
                                                                           proxyPauseS);
         RebalancePlan rebalancePlan = rebalanceController.getPlan(finalCluster,
@@ -685,7 +683,6 @@ public class ClusterTestUtils {
                                                Cluster finalCluster) {
         return getRebalanceKit(bootstrapUrl,
                                RebalanceController.MAX_PARALLEL_REBALANCING,
-                               RebalanceController.MAX_TRIES_REBALANCING,
                                stealerBased,
                                REBALANCE_CONTROLLER_TEST_PROXY_PAUSE_IN_SECONDS,
                                finalCluster);
@@ -697,7 +694,6 @@ public class ClusterTestUtils {
                                                Cluster finalCluster) {
         return getRebalanceKit(bootstrapUrl,
                                maxParallel,
-                               RebalanceController.MAX_TRIES_REBALANCING,
                                stealerBased,
                                REBALANCE_CONTROLLER_TEST_PROXY_PAUSE_IN_SECONDS,
                                finalCluster);
@@ -709,7 +705,6 @@ public class ClusterTestUtils {
                                                List<StoreDefinition> finalStoreDefs) {
         RebalanceController rebalanceController = new RebalanceController(bootstrapUrl,
                                                                           RebalanceController.MAX_PARALLEL_REBALANCING,
-                                                                          RebalanceController.MAX_TRIES_REBALANCING,
                                                                           stealerBased,
                                                                           REBALANCE_CONTROLLER_TEST_PROXY_PAUSE_IN_SECONDS);
         RebalancePlan rebalancePlan = rebalanceController.getPlan(finalCluster,
