@@ -45,6 +45,7 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.routed.RoutedStore;
+import voldemort.store.routed.RoutedStoreConfig;
 import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -185,13 +186,14 @@ public class RoutedStoreParallelismTest {
         FailureDetector failureDetector = FailureDetectorUtils.create(failureDetectorConfig, false);
 
         ExecutorService routedStoreThreadPool = Executors.newFixedThreadPool(clientConfig.getMaxThreads());
-        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreThreadPool,
-                                                                       clientConfig.getTimeoutConfig());
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreThreadPool);
+        RoutedStoreConfig routedStoreConfig = new RoutedStoreConfig(clientConfig);
 
         final RoutedStore routedStore = routedStoreFactory.create(cluster,
                                                                   storeDefinition,
                                                                   stores,
-                                                                  failureDetector);
+                                                                  failureDetector,
+                                                                  routedStoreConfig);
 
         ExecutorService runner = Executors.newFixedThreadPool(numClients);
         long start = System.nanoTime();

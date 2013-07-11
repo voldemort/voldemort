@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
+import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -111,17 +112,21 @@ public class PipelineRoutedStore extends RoutedStore {
                                Cluster cluster,
                                StoreDefinition storeDef,
                                FailureDetector failureDetector,
-                               RoutedStoreConfig storeConfig) {
+                               boolean repairReads,
+                               TimeoutConfig timeoutConfig,
+                               int clientZoneId,
+                               boolean isJmxEnabled,
+                               int jmxId) {
         super(storeDef.getName(),
               innerStores,
               cluster,
               storeDef,
-              storeConfig.getRepairReads(),
-              storeConfig.getTimeoutConfig(),
+              repairReads,
+              timeoutConfig,
               failureDetector,
               SystemTime.INSTANCE);
         this.nonblockingSlopStores = nonblockingSlopStores;
-        this.clientZone = cluster.getZoneById(storeConfig.getClientZoneId());
+        this.clientZone = cluster.getZoneById(clientZoneId);
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.slopStores = slopStores;
         if(storeDef.getRoutingStrategyType().compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
@@ -137,8 +142,8 @@ public class PipelineRoutedStore extends RoutedStore {
             this.handoffStrategy = null;
         }
 
-        this.jmxEnabled = storeConfig.isJmxEnabled();
-        this.jmxId = storeConfig.getJmxId();
+        this.jmxEnabled = isJmxEnabled;
+        this.jmxId = jmxId;
         if(this.jmxEnabled) {
             stats = new PipelineRoutedStats();
             JmxUtils.registerMbean(stats,

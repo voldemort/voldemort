@@ -24,36 +24,36 @@ import voldemort.common.OpTimeMap;
  */
 public class TimeoutConfig {
 
-    public static int DEFAULT_GLOBAL_TIMEOUT = 5000;
+    public static int DEFAULT_GLOBAL_TIMEOUT_MS = 5000;
     public static boolean DEFAULT_ALLOW_PARTIAL_GETALLS = false;
     private OpTimeMap timeoutMap;
 
     private boolean partialGetAllAllowed;
 
     public TimeoutConfig() {
-        this(DEFAULT_GLOBAL_TIMEOUT, DEFAULT_ALLOW_PARTIAL_GETALLS);
+        this(DEFAULT_GLOBAL_TIMEOUT_MS, DEFAULT_ALLOW_PARTIAL_GETALLS);
     }
 
-    public TimeoutConfig(long globalTimeout) {
-        this(globalTimeout, DEFAULT_ALLOW_PARTIAL_GETALLS);
+    public TimeoutConfig(long globalTimeoutMs) {
+        this(globalTimeoutMs, DEFAULT_ALLOW_PARTIAL_GETALLS);
     }
 
-    public TimeoutConfig(long globalTimeout, boolean allowPartialGetAlls) {
-        timeoutMap = new OpTimeMap(globalTimeout);
+    public TimeoutConfig(long globalTimeoutMs, boolean allowPartialGetAlls) {
+        timeoutMap = new OpTimeMap(globalTimeoutMs);
         setPartialGetAllAllowed(allowPartialGetAlls);
     }
 
-    public TimeoutConfig(long getTimeout,
-                         long putTimeout,
-                         long deleteTimeout,
-                         long getAllTimeout,
-                         long getVersionsTimeout,
+    public TimeoutConfig(long getTimeoutMs,
+                         long putTimeoutMs,
+                         long deleteTimeoutMs,
+                         long getAllTimeoutMs,
+                         long getVersionsTimeoutMs,
                          boolean allowPartialGetAlls) {
-        timeoutMap = new OpTimeMap(getTimeout,
-                                   putTimeout,
-                                   deleteTimeout,
-                                   getAllTimeout,
-                                   getVersionsTimeout);
+        timeoutMap = new OpTimeMap(getTimeoutMs,
+                                   putTimeoutMs,
+                                   deleteTimeoutMs,
+                                   getAllTimeoutMs,
+                                   getVersionsTimeoutMs);
         setPartialGetAllAllowed(allowPartialGetAlls);
     }
 

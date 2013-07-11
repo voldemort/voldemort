@@ -278,14 +278,16 @@ public class HintedHandoffSendHintTest {
         failureDetector = FailureDetectorUtils.create(failureDetectorConfig, false);
 
         // make routedStore
-        RoutedStoreFactory factory = new RoutedStoreFactory(null, new TimeoutConfig(1500L, false));
+        RoutedStoreFactory factory = new RoutedStoreFactory();
         routedStore = factory.create(cluster,
                                      storeDef,
                                      testStores,
                                      socketTestStores,
                                      slopStores,
                                      socketSlopStores,
-                                     failureDetector);
+                                     failureDetector,
+                                     new RoutedStoreConfig().setTimeoutConfig(new TimeoutConfig(1500L,
+                                                                                                false)));
 
         // generate the keys
         for(int i = 0; i < 5; i++) {

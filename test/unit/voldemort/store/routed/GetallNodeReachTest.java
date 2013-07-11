@@ -48,11 +48,13 @@ public class GetallNodeReachTest {
             Store<ByteArray, byte[], byte[]> subStore = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test");
             subStores.put(n.getId(), subStore);
         }
-        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(Executors.newFixedThreadPool(2),
-                                                                       new TimeoutConfig(1000L,
-                                                                                         false));
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(Executors.newFixedThreadPool(2));
 
-        store = routedStoreFactory.create(cluster, storeDef, subStores, new NoopFailureDetector());
+        store = routedStoreFactory.create(cluster,
+                                          storeDef,
+                                          subStores,
+                                          new NoopFailureDetector(),
+                                          new RoutedStoreConfig().setTimeoutConfig(new TimeoutConfig(1000L)));
     }
 
     @Test

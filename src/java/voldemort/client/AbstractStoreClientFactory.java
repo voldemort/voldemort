@@ -125,7 +125,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.routedStoreConfig = new RoutedStoreConfig(config);
         this.routedStoreConfig.setJmxId(this.jmxId);
 
-        this.routedStoreFactory = new RoutedStoreFactory(this.routedStoreConfig);
+        this.routedStoreFactory = new RoutedStoreFactory();
         this.routedStoreFactory.setThreadPool(this.threadPool);
 
         this.clientSequencer = new AtomicInteger(0);
@@ -292,7 +292,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                            nonblockingStores,
                                                                            slopStores,
                                                                            nonblockingSlopStores,
-                                                                           failureDetectorRef);
+                                                                           failureDetectorRef,
+                                                                           this.routedStoreConfig);
 
         store = new LoggingStore(store);
 

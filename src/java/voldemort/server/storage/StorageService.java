@@ -140,6 +140,7 @@ public class StorageService extends AbstractService {
     private final FailureDetector failureDetector;
     private final StoreStats storeStats;
     private final RoutedStoreFactory routedStoreFactory;
+    private final RoutedStoreConfig routedStoreConfig;
     private final ExecutorService proxyPutWorkerPool;
     private final ProxyPutStats aggregatedProxyPutStats;
 
@@ -170,8 +171,9 @@ public class StorageService extends AbstractService {
                                                                                                                                           config));
         this.failureDetector = create(failureDetectorConfig, config.isJmxEnabled());
         this.storeStats = new StoreStats();
-        this.routedStoreFactory = new RoutedStoreFactory(new RoutedStoreConfig(voldemortConfig));
+        this.routedStoreFactory = new RoutedStoreFactory();
         this.routedStoreFactory.setThreadPool(this.clientThreadPool);
+        this.routedStoreConfig = new RoutedStoreConfig(voldemortConfig);
 
         /*
          * Initialize the dynamic throttle limit based on the per node limit
@@ -875,7 +877,8 @@ public class StorageService extends AbstractService {
                                                                                nonblockingStores,
                                                                                null,
                                                                                null,
-                                                                               failureDetector);
+                                                                               failureDetector,
+                                                                               routedStoreConfig);
 
             store = new RebootstrappingStore(metadata,
                                              storeRepository,

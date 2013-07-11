@@ -152,11 +152,14 @@ public class ReadRepairerTest {
 
         routedStoreThreadPool = Executors.newFixedThreadPool(1);
 
-        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreThreadPool,
-                                                                       new TimeoutConfig(1000L,
-                                                                                         false));
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreThreadPool);
 
-        RoutedStore store = routedStoreFactory.create(cluster, storeDef, subStores, failureDetector);
+        RoutedStore store = routedStoreFactory.create(cluster,
+                                                      storeDef,
+                                                      subStores,
+                                                      failureDetector,
+                                                      new RoutedStoreConfig().setTimeoutConfig(new TimeoutConfig(1000L,
+                                                                                                                 false)));
 
         recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
         store.put(key, new Versioned<byte[]>(value), null);

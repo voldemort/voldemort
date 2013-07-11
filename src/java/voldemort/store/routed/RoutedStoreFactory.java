@@ -7,7 +7,6 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
@@ -23,20 +22,19 @@ public class RoutedStoreFactory {
 
     private ExecutorService threadPool;
 
-    private final RoutedStoreConfig routedStoreConfig;
-
     private final Logger logger = Logger.getLogger(getClass());
 
-    public RoutedStoreFactory(RoutedStoreConfig routedStoreConfig) {
-        this.routedStoreConfig = routedStoreConfig;
+    public RoutedStoreFactory() {
         this.threadPool = null;
     }
 
+    // TODO using threadPool to simulate nonblocking store isn't a good way and
+    // should be deprecated
+    // There are a few tests stilling using this path and should be cleaned up
+    // They can be identified by examining the call Hierarchy of this method
     @Deprecated
-    public RoutedStoreFactory(ExecutorService threadPool, TimeoutConfig timeoutConfig) {
+    public RoutedStoreFactory(ExecutorService threadPool) {
         this.threadPool = threadPool;
-        this.routedStoreConfig = new RoutedStoreConfig();
-        routedStoreConfig.setTimeoutConfig(timeoutConfig);
     }
 
     public NonblockingStore toNonblockingStore(Store<ByteArray, byte[], byte[]> store) {
@@ -60,7 +58,8 @@ public class RoutedStoreFactory {
     public RoutedStore create(Cluster cluster,
                               StoreDefinition storeDefinition,
                               Map<Integer, Store<ByteArray, byte[], byte[]>> nodeStores,
-                              FailureDetector failureDetector) {
+                              FailureDetector failureDetector,
+                              RoutedStoreConfig routedStoreConfig) {
         Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
 
         for(Map.Entry<Integer, Store<ByteArray, byte[], byte[]>> entry: nodeStores.entrySet())
@@ -72,7 +71,8 @@ public class RoutedStoreFactory {
                       nonblockingStores,
                       null,
                       null,
-                      failureDetector);
+                      failureDetector,
+                      routedStoreConfig);
     }
 
     public RoutedStore create(Cluster cluster,
@@ -81,8 +81,8 @@ public class RoutedStoreFactory {
                               Map<Integer, NonblockingStore> nonblockingStores,
                               Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores,
                               Map<Integer, NonblockingStore> nonblockingSlopStores,
-                              FailureDetector failureDetector) {
-
+                              FailureDetector failureDetector,
+                              RoutedStoreConfig routedStoreConfig) {
         return new PipelineRoutedStore(nodeStores,
                                        nonblockingStores,
                                        slopStores,
@@ -90,6 +90,10 @@ public class RoutedStoreFactory {
                                        cluster,
                                        storeDefinition,
                                        failureDetector,
-                                       routedStoreConfig);
+                                       routedStoreConfig.getRepairReads(),
+                                       routedStoreConfig.getTimeoutConfig(),
+                                       routedStoreConfig.getClientZoneId(),
+                                       routedStoreConfig.isJmxEnabled(),
+                                       routedStoreConfig.getJmxId());
     }
 }
