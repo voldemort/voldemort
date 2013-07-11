@@ -38,6 +38,7 @@ import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.RoutingTier;
 import voldemort.client.TimeoutConfig;
+import voldemort.client.ZoneAffinity;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -708,7 +709,8 @@ public class HintedHandoffFailureTest {
                   new TimeoutConfig(routingTimeoutInMs),
                   Zone.DEFAULT_ZONE_ID,
                   false,
-                  0);
+                  0,
+                  new ZoneAffinity());
 
         }
 

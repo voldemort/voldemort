@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
 import voldemort.client.TimeoutConfig;
+import voldemort.client.ZoneAffinity;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -45,6 +46,7 @@ import voldemort.store.routed.action.ConfigureNodesByZone;
 import voldemort.store.routed.action.ConfigureNodesDefault;
 import voldemort.store.routed.action.ConfigureNodesLocalHost;
 import voldemort.store.routed.action.ConfigureNodesLocalHostByZone;
+import voldemort.store.routed.action.ConfigureNodesLocalZoneOnly;
 import voldemort.store.routed.action.GetAllConfigureNodes;
 import voldemort.store.routed.action.GetAllReadRepair;
 import voldemort.store.routed.action.IncrementClock;
@@ -86,12 +88,14 @@ public class PipelineRoutedStore extends RoutedStore {
     private PipelineRoutedStats stats;
     private boolean jmxEnabled;
     private int jmxId;
+    private ZoneAffinity zoneAffinity;
 
     private enum ConfigureNodesType {
         DEFAULT,
         BYZONE,
         DEFAULT_LOCAL,
-        BYZONE_LOCAL
+        BYZONE_LOCAL,
+        LOCAL_ZONE_ONLY
     }
 
     /**
@@ -116,7 +120,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                TimeoutConfig timeoutConfig,
                                int clientZoneId,
                                boolean isJmxEnabled,
-                               int jmxId) {
+                               int jmxId,
+                               ZoneAffinity zoneAffinity) {
         super(storeDef.getName(),
               innerStores,
               cluster,
@@ -152,9 +157,18 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                      + "-"
                                                                      + JmxUtils.getJmxId(this.jmxId)));
         }
+        if(zoneAffinity != null) {
+            this.zoneAffinity = zoneAffinity;
+        } else {
+            this.zoneAffinity = new ZoneAffinity();
+        }
     }
 
-    private ConfigureNodesType obtainNodeConfigurationType(Integer zonesRequired) {
+    private ConfigureNodesType obtainNodeConfigurationType(Integer zonesRequired,
+                                                           Operation operation) {
+        if(operation == Operation.GET && zoneAffinity.getGetOpZoneAffinity()) {
+            return ConfigureNodesType.LOCAL_ZONE_ONLY;
+        }
 
         if(zonesRequired != null) {
             if(routingStrategy.getType().equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY)) {
@@ -173,7 +187,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
     private AbstractConfigureNodes<ByteArray, List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>> makeNodeConfigurationForGet(BasicPipelineData<List<Versioned<byte[]>>> pipelineData,
                                                                                                                                                ByteArray key) {
-        switch(obtainNodeConfigurationType(pipelineData.getZonesRequired())) {
+        switch(obtainNodeConfigurationType(pipelineData.getZonesRequired(), Operation.GET)) {
             case DEFAULT:
                 return new ConfigureNodesDefault<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                                       Event.CONFIGURED,
@@ -204,6 +218,15 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                               routingStrategy,
                                                                                                                               key,
                                                                                                                               clientZone);
+            case LOCAL_ZONE_ONLY:
+                return new ConfigureNodesLocalZoneOnly<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
+                                                                                                                            Event.CONFIGURED,
+                                                                                                                            failureDetector,
+                                                                                                                            storeDef.getRequiredReads(),
+                                                                                                                            routingStrategy,
+                                                                                                                            key,
+                                                                                                                            clientZone);
+
             default:
                 return null;
         }
@@ -694,7 +717,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
     private AbstractConfigureNodes<ByteArray, Void, PutPipelineData> makeNodeConfigurationForPut(PutPipelineData pipelineData,
                                                                                                  ByteArray key) {
-        switch(obtainNodeConfigurationType(pipelineData.getZonesRequired())) {
+        switch(obtainNodeConfigurationType(pipelineData.getZonesRequired(), Operation.PUT)) {
             case DEFAULT:
                 return new ConfigureNodesDefault<Void, PutPipelineData>(pipelineData,
                                                                         Event.CONFIGURED,

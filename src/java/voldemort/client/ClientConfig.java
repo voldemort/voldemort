@@ -116,6 +116,9 @@ public class ClientConfig {
     private volatile boolean enableCompressionLayer = true;
     private volatile boolean enableSerializationLayer = true;
     private volatile boolean enableInconsistencyResolvingLayer = true;
+    private volatile boolean isGetOpZoneAffinityEnabled = false;
+    private volatile boolean isGetAllOpZoneAffinityEnabled = false;
+    private volatile boolean isPutOpZoneAffinityEnabled = false;
 
     public ClientConfig() {}
 
@@ -171,6 +174,9 @@ public class ClientConfig {
     public static final String FAT_CLIENT_WRAPPER_MAX_POOL_SIZE_PROPERTY = "fat_client_wrapper_max_pool_size";
     public static final String FAT_CLIENT_WRAPPER_CORE_POOL_SIZE_PROPERTY = "fat_client_wrapper_core_pool_size";
     public static final String FAT_CLIENT_WRAPPER_POOL_KEEPALIVE_IN_SECS = "fat_client_wrapper_pool_keepalive_in_secs";
+    public static final String GET_OP_ZONE_AFFINITY = "get_op_zone_affinity";
+    public static final String GETALL_OP_ZONE_AFFINITY = "getall_op_zone_affinity";
+    public static final String PUT_OP_ZONE_AFFINITY = "put_op_zone_affinity";
 
     /**
      * Instantiate the client config using a properties file
@@ -392,6 +398,18 @@ public class ClientConfig {
         if(props.containsKey(FAT_CLIENT_WRAPPER_POOL_KEEPALIVE_IN_SECS)) {
             this.setFatClientWrapperKeepAliveInSecs(props.getInt(FAT_CLIENT_WRAPPER_POOL_KEEPALIVE_IN_SECS,
                                                                  this.fatClientWrapperKeepAliveInSecs));
+        }
+
+        if(props.containsKey(GET_OP_ZONE_AFFINITY)) {
+            this.setEnableGetOpZoneAffinity(props.getBoolean(GET_OP_ZONE_AFFINITY));
+        }
+
+        if(props.containsKey(GETALL_OP_ZONE_AFFINITY)) {
+            this.setEnableGetAllOpZoneAffinity(props.getBoolean(GETALL_OP_ZONE_AFFINITY));
+        }
+
+        if(props.containsKey(PUT_OP_ZONE_AFFINITY)) {
+            this.setEnablePutOpZoneAffinity(props.getBoolean(PUT_OP_ZONE_AFFINITY));
         }
 
     }
@@ -1085,6 +1103,42 @@ public class ClientConfig {
 
     public ClientConfig setEnableInconsistencyResolvingLayer(boolean enableInconsistencyResolvingLayer) {
         this.enableInconsistencyResolvingLayer = enableInconsistencyResolvingLayer;
+        return this;
+    }
+
+    public boolean isEnableGetOpZoneAffinity() {
+        return this.isGetOpZoneAffinityEnabled;
+    }
+
+    /**
+     * @param enabled Defines if Zone Affinity is enabled for Get Operation
+     */
+    public ClientConfig setEnableGetOpZoneAffinity(boolean enabled) {
+        this.isGetOpZoneAffinityEnabled = enabled;
+        return this;
+    }
+
+    public boolean isEnableGetAllOpZoneAffinity() {
+        return this.isGetAllOpZoneAffinityEnabled;
+    }
+
+    /**
+     * @param enabled Defines if Zone Affinity is enabled for GetAll Operation
+     */
+    public ClientConfig setEnableGetAllOpZoneAffinity(boolean enabled) {
+        this.isGetAllOpZoneAffinityEnabled = enabled;
+        return this;
+    }
+
+    public boolean isEnablePutOpZoneAffinity() {
+        return this.isPutOpZoneAffinityEnabled;
+    }
+
+    /**
+     * @param enabled Defines if Zone Affinity is enabled for Put Operation
+     */
+    public ClientConfig setEnablePutOpZoneAffinity(boolean enabled) {
+        this.isPutOpZoneAffinityEnabled = enabled;
         return this;
     }
 

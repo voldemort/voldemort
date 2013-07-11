@@ -34,30 +34,6 @@ import voldemort.versioning.Versioned;
 
 public class ZoneAffinityGetTest {
 
-    // setup: two zone cluster
-    // store: 3-2-2
-    // local zone nodes: value 1(version 1); all down
-    // remote zone nodes: value 2(version 2); all up
-    // should throw exceptions
-
-    // setup: two zone cluster
-    // store: 3-2-2
-    // local zone nodes: value 1(version 1); all up
-    // remote zone nodes: value 2(version 2); all up
-    // should get version 1
-
-    // setup: two zone cluster
-    // store: 3-2-2
-    // local zone nodes: value 1(version 1); one up
-    // remote zone nodes: value 2(version 2); all up
-    // should throw exceptions
-
-    // setup: two zone cluster
-    // store: 3-2-2
-    // local zone nodes: value 1(version 1); two up
-    // remote zone nodes: value 2(version 2); all up
-    // should get version 1
-
     private Store<String, String, byte[]> client;
     private Map<Integer, VoldemortServer> vservers = new HashMap<Integer, VoldemortServer>();
     private Cluster cluster;
@@ -71,6 +47,7 @@ public class ZoneAffinityGetTest {
         cluster = ClusterTestUtils.getZZCluster();
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setBootstrapUrls(cluster.getNodeById(0).getSocketUrl().toString());
+        clientConfig.setEnableGetOpZoneAffinity(true);
         SocketStoreClientFactory socketStoreClientFactory = new SocketStoreClientFactory(clientConfig);
         for(Integer nodeId: cluster.getNodeIds()) {
             SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,

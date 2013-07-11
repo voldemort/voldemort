@@ -17,6 +17,7 @@ package voldemort.store.routed;
 
 import voldemort.client.ClientConfig;
 import voldemort.client.TimeoutConfig;
+import voldemort.client.ZoneAffinity;
 import voldemort.cluster.Zone;
 import voldemort.server.VoldemortConfig;
 
@@ -27,6 +28,7 @@ public class RoutedStoreConfig {
     private boolean isJmxEnabled = false;
     private int jmxId = 0;
     private int clientZoneId = Zone.DEFAULT_ZONE_ID;
+    private ZoneAffinity zoneAffinity = new ZoneAffinity();
 
     public RoutedStoreConfig() {}
 
@@ -34,6 +36,9 @@ public class RoutedStoreConfig {
         this.isJmxEnabled = clientConfig.isJmxEnabled();
         this.clientZoneId = clientConfig.getClientZoneId();
         this.timeoutConfig = clientConfig.getTimeoutConfig();
+        this.zoneAffinity = new ZoneAffinity(clientConfig.isEnableGetOpZoneAffinity(),
+                                             clientConfig.isEnableGetAllOpZoneAffinity(),
+                                             clientConfig.isEnablePutOpZoneAffinity());
     }
 
     public RoutedStoreConfig(VoldemortConfig voldemortConfig) {
@@ -83,6 +88,15 @@ public class RoutedStoreConfig {
 
     public RoutedStoreConfig setJmxId(int jmxId) {
         this.jmxId = jmxId;
+        return this;
+    }
+
+    public ZoneAffinity getZoneAffinity() {
+        return zoneAffinity;
+    }
+
+    public RoutedStoreConfig setZoneAffinity(ZoneAffinity zoneAffinity) {
+        this.zoneAffinity = zoneAffinity;
         return this;
     }
 }
