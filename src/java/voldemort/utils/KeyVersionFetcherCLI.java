@@ -79,6 +79,7 @@ public class KeyVersionFetcherCLI {
     private final ExecutorService kvFetcherService;
     private final int progressPeriodOps;
     private final int outputBatchSize;
+    private final boolean details;
 
     private final long startTimeMs;
     private static AtomicInteger fetches = new AtomicInteger(0);
@@ -89,7 +90,8 @@ public class KeyVersionFetcherCLI {
                                 List<String> storeNames,
                                 int keyParallelism,
                                 int progressPeriodOps,
-                                int outputBatchSize) {
+                                int outputBatchSize,
+                                boolean details) {
         if(logger.isInfoEnabled()) {
             logger.info("Connecting to bootstrap server: " + url);
         }
@@ -135,11 +137,10 @@ public class KeyVersionFetcherCLI {
 
         this.inDir = inDir;
         this.outDir = outDir;
-
         this.kvFetcherService = Executors.newFixedThreadPool(keyParallelism);
-
         this.progressPeriodOps = progressPeriodOps;
         this.outputBatchSize = outputBatchSize;
+        this.details = details;
         this.startTimeMs = System.currentTimeMillis();
     }
 
@@ -241,6 +242,20 @@ public class KeyVersionFetcherCLI {
                 sb.append(ByteUtils.toHexString(key));
                 for(Versioned<byte[]> value: values) {
                     sb.append(" : ").append(value.getVersion().toString());
+                }
+
+                if(details) {
+                    sb.append(" : ")
+                      .append("PartitionId:")
+                      .append(masterPartitionId)
+                      .append(" : ")
+                      .append("NodeId:")
+                      .append(replicatingNodeId)
+                      .append(" : ")
+                      .append("host:")
+                      .append(storeRoutingPlan.getCluster()
+                                              .getNodeById(replicatingNodeId)
+                                              .getHost());
                 }
 
                 zoneToNaryToString.addZoneNaryString(zoneId, zoneNAry, sb.toString());
@@ -389,6 +404,8 @@ public class KeyVersionFetcherCLI {
               .withRequiredArg()
               .describedAs("outputBatchSize")
               .ofType(Integer.class);
+        parser.accepts("details",
+                       "print details of each key-version: partition ID, node ID, & hostname");
         return parser;
     }
 
@@ -409,6 +426,7 @@ public class KeyVersionFetcherCLI {
         help.append("    --parallelism <keyParallelism>\n");
         help.append("    --progress-period-ops <progressPeriodOps>\n");
         help.append("    --output-batch-size <operationsInOutputBatch>\n");
+        help.append("    --details\n");
         help.append("    --help\n");
         System.out.print(help.toString());
     }
@@ -435,7 +453,7 @@ public class KeyVersionFetcherCLI {
         }
 
         /* validate options */
-        if(options.hasArgument("help")) {
+        if(options.has("help")) {
             parser.printHelpOn(System.out);
             printUsage();
             return;
@@ -477,6 +495,8 @@ public class KeyVersionFetcherCLI {
             outputBatchSize = (Integer) options.valueOf("output-batch-size");
         }
 
+        boolean details = options.has("details");
+
         try {
             KeyVersionFetcherCLI sampler = new KeyVersionFetcherCLI(url,
                                                                     inDir,
@@ -484,7 +504,8 @@ public class KeyVersionFetcherCLI {
                                                                     storeNames,
                                                                     keyParallelism,
                                                                     progressPeriodOps,
-                                                                    outputBatchSize);
+                                                                    outputBatchSize,
+                                                                    details);
 
             try {
                 if(!sampler.sampleStores()) {
