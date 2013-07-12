@@ -51,6 +51,7 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.store.StoreDefinition;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
@@ -237,10 +238,17 @@ public class KeyVersionFetcherCLI {
                                              .getZoneId();
                 int zoneNAry = storeRoutingPlan.getZoneNAry(zoneId, replicatingNodeId, key);
 
+                // Sort the versions so that on-disk order of concurrent
+                // versions is not visible.
+                TreeSet<Version> sortedVersions = new TreeSet<Version>();
+                for(Versioned<byte[]> value: values) {
+                    sortedVersions.add(value.getVersion());
+                }
+
                 StringBuilder sb = new StringBuilder();
                 sb.append(ByteUtils.toHexString(key));
-                for(Versioned<byte[]> value: values) {
-                    sb.append(" : ").append(value.getVersion().toString());
+                for(Version version: sortedVersions) {
+                    sb.append(" : ").append(version.toString());
                 }
 
                 if(details) {
