@@ -584,24 +584,33 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public StreamRequestHandler handleUpdatePartitionEntries(VAdminProto.UpdatePartitionEntriesRequest request) {
         StorageEngine<ByteArray, byte[], byte[]> storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                                                              request.getStore());
-        if(!voldemortConfig.getMultiVersionStreamingPutsEnabled()
-           || storageEngine instanceof MysqlStorageEngine) {
-            // TODO This check is ugly. Need some generic capability to check
-            // which storage engine supports which operations.
-            return new UpdatePartitionEntriesStreamRequestHandler(request,
-                                                                  errorCodeMapper,
-                                                                  voldemortConfig,
-                                                                  storageEngine,
-                                                                  storeRepository,
-                                                                  networkClassLoader);
-        } else {
+        if(doesStorageEngineSupportMultiVersionPuts(storageEngine)) {
             return new BufferedUpdatePartitionEntriesStreamRequestHandler(request,
                                                                           errorCodeMapper,
                                                                           voldemortConfig,
                                                                           storageEngine,
                                                                           storeRepository,
                                                                           networkClassLoader);
+
+        } else {
+            return new UpdatePartitionEntriesStreamRequestHandler(request,
+                                                                  errorCodeMapper,
+                                                                  voldemortConfig,
+                                                                  storageEngine,
+                                                                  storeRepository,
+                                                                  networkClassLoader);
+
         }
+    }
+
+    private boolean doesStorageEngineSupportMultiVersionPuts(StorageEngine<ByteArray, byte[], byte[]> storageEngine) {
+        if(!voldemortConfig.getMultiVersionStreamingPutsEnabled()
+           || storageEngine instanceof MysqlStorageEngine
+           || storageEngine instanceof SlopStorageEngine) {
+            return false;
+        }
+
+        return true;
     }
 
     public VAdminProto.AsyncOperationListResponse handleAsyncOperationList(VAdminProto.AsyncOperationListRequest request) {

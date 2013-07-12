@@ -59,8 +59,32 @@ public class InMemoryPutAssertionStorageEngine<K, V, T> extends InMemoryStorageE
         // try to delete from assertion
         // do real put if has not been asserted
         Boolean result = assertionMap.remove(key);
+
         if(result == null) {
+
+            logger.info("PUT key: " + key + " (never asserted) assertionMap size: "
+                        + assertionMap.size());
             super.put(key, value, transforms);
+            if(logger.isTraceEnabled()) {
+                logger.trace("PUT key: " + key + " (never asserted) assertionMap size: "
+                             + assertionMap.size());
+            }
+        } else {
+            logger.info("PUT key: " + key
+                        + " (found and fulfills put assertion) assertionMap size: "
+                        + assertionMap.size());
+            if(logger.isDebugEnabled()) {
+                logger.debug("PUT key: " + key
+                             + " (found and fulfills put assertion) assertionMap size: "
+                             + assertionMap.size());
+            }
+        }
+    }
+
+    @Override
+    public synchronized List<Versioned<V>> multiVersionPut(K key, final List<Versioned<V>> values) {
+        Boolean result = assertionMap.remove(key);
+        if(result == null) {
             if(logger.isTraceEnabled()) {
                 logger.trace("PUT key: " + key + " (never asserted) assertionMap size: "
                              + assertionMap.size());
@@ -72,6 +96,8 @@ public class InMemoryPutAssertionStorageEngine<K, V, T> extends InMemoryStorageE
                              + assertionMap.size());
             }
         }
+        List<Versioned<V>> obsoleteVals = super.multiVersionPut(key, values);
+        return obsoleteVals;
     }
 
     public Set<K> getFailedAssertions() {

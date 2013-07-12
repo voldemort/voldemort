@@ -42,6 +42,7 @@ import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.StoreDefinition;
 import voldemort.store.socket.SocketDestination;
 import voldemort.utils.ByteArray;
@@ -75,7 +76,7 @@ public class StreamingClient {
     private Callable recoveryCallback = null;
     private boolean allowMerge = false;
 
-    private SocketPool streamingSocketPool;
+    protected SocketPool streamingSocketPool;
 
     List<StoreDefinition> remoteStoreDefs;
     protected RoutingStrategy routingStrategy;
@@ -100,7 +101,7 @@ public class StreamingClient {
 
     protected EventThrottler throttler;
 
-    private AdminClient adminClient;
+    protected AdminClient adminClient;
     private AdminClientConfig adminClientConfig;
 
     String bootstrapURL;
@@ -119,8 +120,10 @@ public class StreamingClient {
 
     private List<String> storeNames;
 
-    private List<Node> nodesToStream;
-    protected List<Integer> blackListedNodes;
+    protected List<Node> nodesToStream;
+    private List<Integer> blackListedNodes;
+
+    protected List<Integer> faultyNodes;
 
     private final static int MAX_STORES_PER_SESSION = 100;
 
@@ -132,10 +135,15 @@ public class StreamingClient {
         THROTTLE_QPS = config.getThrottleQPS();
         adminClientConfig = new AdminClientConfig();
         adminClient = new AdminClient(bootstrapURL, adminClientConfig, new ClientConfig());
+        faultyNodes = new ArrayList<Integer>();
     }
 
     public AdminClient getAdminClient() {
         return adminClient;
+    }
+
+    public List<Integer> getFaultyNodes() {
+        return faultyNodes;
     }
 
     public synchronized void updateThrottleLimit(int throttleQPS) {
@@ -220,7 +228,7 @@ public class StreamingClient {
 
     }
 
-    private void close(Socket socket) {
+    protected void close(Socket socket) {
         try {
             socket.close();
         } catch(IOException e) {
@@ -262,7 +270,7 @@ public class StreamingClient {
                                                    Callable recoveryCallback,
                                                    boolean allowMerge) {
 
-        initStreamingSessions(stores, checkpointCallback, recoveryCallback, allowMerge, null);
+        this.initStreamingSessions(stores, checkpointCallback, recoveryCallback, allowMerge, null);
 
     }
 
@@ -356,16 +364,20 @@ public class StreamingClient {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected void addStoreToSession(String store) {
 
+        Exception initializationException = null;
+
         storeNames.add(store);
 
         for(Node node: nodesToStream) {
 
-            SocketDestination destination = new SocketDestination(node.getHost(),
-                                                                  node.getAdminPort(),
-                                                                  RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            SocketAndStreams sands = streamingSocketPool.checkout(destination);
+            SocketDestination destination = null;
+            SocketAndStreams sands = null;
 
             try {
+                destination = new SocketDestination(node.getHost(),
+                                                    node.getAdminPort(),
+                                                    RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+                sands = streamingSocketPool.checkout(destination);
                 DataOutputStream outputStream = sands.getOutputStream();
                 DataInputStream inputStream = sands.getInputStream();
 
@@ -379,12 +391,26 @@ public class StreamingClient {
                                                              .getValue();
 
             } catch(Exception e) {
-                close(sands.getSocket());
-                streamingSocketPool.checkin(destination, sands);
-                throw new VoldemortException(e);
+                logger.error(e);
+                try {
+                    close(sands.getSocket());
+                    streamingSocketPool.checkin(destination, sands);
+                } catch(Exception ioE) {
+                    logger.error(ioE);
+                }
+
+                if(!faultyNodes.contains(node.getId()))
+                    faultyNodes.add(node.getId());
+                initializationException = e;
             }
 
         }
+
+        if(initializationException != null)
+            throw new VoldemortException(initializationException);
+
+        if(store.equals("slop"))
+            return;
 
         boolean foundStore = false;
 
@@ -395,6 +421,7 @@ public class StreamingClient {
                                                                                      adminClient.getAdminClientCluster());
 
                 storeToRoutingStrategy.put(store, storeRoutingStrategy);
+                validateSufficientNodesAvailable(blackListedNodes, remoteStoreDef);
                 foundStore = true;
                 break;
             }
@@ -405,6 +432,22 @@ public class StreamingClient {
 
         }
 
+    }
+
+    private void validateSufficientNodesAvailable(List<Integer> blackListedNodes,
+                                                  StoreDefinition remoteStoreDef) {
+
+        int faultyNodes = 0;
+        if(blackListedNodes != null && blackListedNodes.size() > 0) {
+            faultyNodes = blackListedNodes.size();
+        }
+        int repFactor = remoteStoreDef.getReplicationFactor();
+        int numNodes = repFactor - faultyNodes;
+        if(numNodes < remoteStoreDef.getRequiredWrites())
+            throw new InsufficientOperationalNodesException("Only " + numNodes
+                                                            + " nodes in preference list, but "
+                                                            + remoteStoreDef.getRequiredWrites()
+                                                            + " writes required.");
     }
 
     /**
@@ -455,6 +498,7 @@ public class StreamingClient {
 
         List<Node> nodeList = storeToRoutingStrategy.get(storeName).routeRequest(key.get());
 
+        int nodesWithException = 0;
         // sent the k/v pair to the nodes
         for(Node node: nodeList) {
 
@@ -489,35 +533,40 @@ public class StreamingClient {
 
                 }
 
-                entriesProcessed++;
-
             } catch(IOException e) {
-                logger.warn("Invoking the Recovery Callback");
-                Future future = streamingresults.submit(recoveryCallback);
-                try {
-                    future.get();
-
-                } catch(InterruptedException e1) {
-                    MARKED_BAD = true;
-                    logger.error("Recovery Callback failed", e1);
-                    throw new VoldemortException("Recovery Callback failed");
-                } catch(ExecutionException e1) {
-                    MARKED_BAD = true;
-                    logger.error("Recovery Callback failed during execution", e1);
-                    throw new VoldemortException("Recovery Callback failed during execution");
-                }
-
                 e.printStackTrace();
+                nodesWithException++;
+                if(!faultyNodes.contains(node.getId()))
+                    faultyNodes.add(node.getId());
             }
 
         }
 
-        if(entriesProcessed == CHECKPOINT_COMMIT_SIZE) {
-            entriesProcessed = 0;
-            commitToVoldemort();
-        }
+        if(nodesWithException > 0) {
+            logger.warn("Invoking the Recovery Callback");
+            Future future = streamingresults.submit(recoveryCallback);
+            try {
+                future.get();
 
-        throttler.maybeThrottle(1);
+            } catch(InterruptedException e1) {
+                MARKED_BAD = true;
+                logger.error("Recovery Callback failed", e1);
+                throw new VoldemortException("Recovery Callback failed");
+            } catch(ExecutionException e1) {
+                MARKED_BAD = true;
+                logger.error("Recovery Callback failed during execution", e1);
+                throw new VoldemortException("Recovery Callback failed during execution");
+            }
+
+        } else {
+            entriesProcessed++;
+            if(entriesProcessed == CHECKPOINT_COMMIT_SIZE) {
+                entriesProcessed = 0;
+                commitToVoldemort();
+            }
+
+            throttler.maybeThrottle(1);
+        }
 
     }
 
@@ -564,10 +613,15 @@ public class StreamingClient {
         }
 
         for(String store: storeNames) {
-            SocketAndStreams sands = nodeIdStoreToSocketAndStreams.get(new Pair(store, nodeId));
-            close(sands.getSocket());
-            SocketDestination destination = nodeIdStoreToSocketRequest.get(new Pair(store, nodeId));
-            streamingSocketPool.checkin(destination, sands);
+            try {
+                SocketAndStreams sands = nodeIdStoreToSocketAndStreams.get(new Pair(store, nodeId));
+                close(sands.getSocket());
+                SocketDestination destination = nodeIdStoreToSocketRequest.get(new Pair(store,
+                                                                                        nodeId));
+                streamingSocketPool.checkin(destination, sands);
+            } catch(Exception ioE) {
+                logger.error(ioE);
+            }
         }
     }
 
@@ -613,6 +667,8 @@ public class StreamingClient {
                 } catch(IOException e) {
                     logger.error("Exception during commit", e);
                     hasError = true;
+                    if(!faultyNodes.contains(node.getId()))
+                        faultyNodes.add(node.getId());
                 }
             }
 
@@ -712,13 +768,16 @@ public class StreamingClient {
         for(String store: storeNamesToCleanUp) {
 
             for(Node node: nodesToStream) {
-
-                SocketAndStreams sands = nodeIdStoreToSocketAndStreams.get(new Pair(store,
-                                                                                    node.getId()));
-                close(sands.getSocket());
-                SocketDestination destination = nodeIdStoreToSocketRequest.get(new Pair(store,
+                try {
+                    SocketAndStreams sands = nodeIdStoreToSocketAndStreams.get(new Pair(store,
                                                                                         node.getId()));
-                streamingSocketPool.checkin(destination, sands);
+                    close(sands.getSocket());
+                    SocketDestination destination = nodeIdStoreToSocketRequest.get(new Pair(store,
+                                                                                            node.getId()));
+                    streamingSocketPool.checkin(destination, sands);
+                } catch(Exception ioE) {
+                    logger.error(ioE);
+                }
             }
 
         }

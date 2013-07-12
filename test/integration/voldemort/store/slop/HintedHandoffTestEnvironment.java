@@ -53,28 +53,28 @@ public class HintedHandoffTestEnvironment implements Runnable {
 
     private final Logger logger = Logger.getLogger(HintedHandoffTestEnvironment.class);
     // basic configurations
-    private final static String STORE_NAME = "test-store";
+    protected final static String STORE_NAME = "test-store";
     private final static SerializerDefinition SEL_DEF = new SerializerDefinition("identity");
-    private final static Integer NUM_NODES_TOTAL = 8;
+    protected final static Integer NUM_NODES_TOTAL = 8;
     private final static Integer DEFAULT_REPLICATION_FACTOR = 3;
     private final static Integer DEFAULT_P_WRITES = 1;
     private final static Integer DEFAULT_R_WRITES = 1;
     private final static HintedHandoffStrategyType DEFAULT_HINT_ROUTING_STRATEGY = HintedHandoffStrategyType.PROXIMITY_STRATEGY;
-    private int minNodesAvailable = 1;
+    protected int minNodesAvailable = 1;
 
     // cluster and servers
-    private Cluster cluster = null;
+    protected Cluster cluster = null;
     private final Map<Integer, VoldemortServer> voldemortServers = new HashMap<Integer, VoldemortServer>();
-    private final CountDownLatch startFinishLatch = new CountDownLatch(1);
-    private final CountDownLatch wrapUpRequestLatch = new CountDownLatch(1);
-    private final CountDownLatch wrapUpFinishLatch = new CountDownLatch(1);
+    protected final CountDownLatch startFinishLatch = new CountDownLatch(1);
+    protected final CountDownLatch wrapUpRequestLatch = new CountDownLatch(1);
+    protected final CountDownLatch wrapUpFinishLatch = new CountDownLatch(1);
 
     // basic store
-    private StoreDefinitionBuilder storeDefBuilder = new StoreDefinitionBuilder();
-    private StoreDefinition storeDef = null;
+    protected StoreDefinitionBuilder storeDefBuilder = new StoreDefinitionBuilder();
+    protected StoreDefinition storeDef = null;
 
     // stores
-    private final Map<Integer, Store<ByteArray, byte[], byte[]>> realStores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
+    protected final Map<Integer, Store<ByteArray, byte[], byte[]>> realStores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
     private final Map<Integer, ForceFailStore<ByteArray, byte[], byte[]>> forceFailStores = new HashMap<Integer, ForceFailStore<ByteArray, byte[], byte[]>>();
     private final Map<Integer, SleepyStore<ByteArray, byte[], byte[]>> sleepyStores = new HashMap<Integer, SleepyStore<ByteArray, byte[], byte[]>>();
     private final Map<Integer, SlopStorageEngine> slopStorageEngines = new HashMap<Integer, SlopStorageEngine>();
@@ -85,14 +85,14 @@ public class HintedHandoffTestEnvironment implements Runnable {
     // failures
     private final static Integer DEFAULT_REFRESH_INTERVAL_S = 8;
     private final static Integer DEFAULT_ASYNC_RECOVERY_INTERVAL_S = 5;
-    private Integer statusRefreshIntervalSecond = DEFAULT_REFRESH_INTERVAL_S;
-    private Map<Integer, NodeStatus> nodesStatus = new HashMap<Integer, NodeStatus>();
+    protected Integer statusRefreshIntervalSecond = DEFAULT_REFRESH_INTERVAL_S;
+    protected Map<Integer, NodeStatus> nodesStatus = new HashMap<Integer, NodeStatus>();
 
     // running thread
     private final Thread thread;
 
     // client and routing
-    private StoreClientFactory factory;
+    protected StoreClientFactory factory;
     private RoutingStrategy routingStrategy = null;
 
     public static enum NodeStatus {
