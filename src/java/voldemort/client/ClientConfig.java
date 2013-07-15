@@ -116,9 +116,7 @@ public class ClientConfig {
     private volatile boolean enableCompressionLayer = true;
     private volatile boolean enableSerializationLayer = true;
     private volatile boolean enableInconsistencyResolvingLayer = true;
-    private volatile boolean isGetOpZoneAffinityEnabled = false;
-    private volatile boolean isGetAllOpZoneAffinityEnabled = false;
-    private volatile boolean isPutOpZoneAffinityEnabled = false;
+    private volatile ZoneAffinity zoneAffinity = new ZoneAffinity();
 
     public ClientConfig() {}
 
@@ -401,15 +399,18 @@ public class ClientConfig {
         }
 
         if(props.containsKey(GET_OP_ZONE_AFFINITY)) {
-            this.setEnableGetOpZoneAffinity(props.getBoolean(GET_OP_ZONE_AFFINITY));
+            this.getZoneAffinity()
+                .setEnableGetOpZoneAffinity(props.getBoolean(GET_OP_ZONE_AFFINITY));
         }
 
         if(props.containsKey(GETALL_OP_ZONE_AFFINITY)) {
-            this.setEnableGetAllOpZoneAffinity(props.getBoolean(GETALL_OP_ZONE_AFFINITY));
+            this.getZoneAffinity()
+                .setEnableGetAllOpZoneAffinity(props.getBoolean(GETALL_OP_ZONE_AFFINITY));
         }
 
         if(props.containsKey(PUT_OP_ZONE_AFFINITY)) {
-            this.setEnablePutOpZoneAffinity(props.getBoolean(PUT_OP_ZONE_AFFINITY));
+            this.getZoneAffinity()
+                .setEnablePutOpZoneAffinity(props.getBoolean(PUT_OP_ZONE_AFFINITY));
         }
 
     }
@@ -1106,40 +1107,8 @@ public class ClientConfig {
         return this;
     }
 
-    public boolean isEnableGetOpZoneAffinity() {
-        return this.isGetOpZoneAffinityEnabled;
-    }
-
-    /**
-     * @param enabled Defines if Zone Affinity is enabled for Get Operation
-     */
-    public ClientConfig setEnableGetOpZoneAffinity(boolean enabled) {
-        this.isGetOpZoneAffinityEnabled = enabled;
-        return this;
-    }
-
-    public boolean isEnableGetAllOpZoneAffinity() {
-        return this.isGetAllOpZoneAffinityEnabled;
-    }
-
-    /**
-     * @param enabled Defines if Zone Affinity is enabled for GetAll Operation
-     */
-    public ClientConfig setEnableGetAllOpZoneAffinity(boolean enabled) {
-        this.isGetAllOpZoneAffinityEnabled = enabled;
-        return this;
-    }
-
-    public boolean isEnablePutOpZoneAffinity() {
-        return this.isPutOpZoneAffinityEnabled;
-    }
-
-    /**
-     * @param enabled Defines if Zone Affinity is enabled for Put Operation
-     */
-    public ClientConfig setEnablePutOpZoneAffinity(boolean enabled) {
-        this.isPutOpZoneAffinityEnabled = enabled;
-        return this;
+    public ZoneAffinity getZoneAffinity() {
+        return this.zoneAffinity;
     }
 
     public int getFatClientWrapperMaxPoolSize() {

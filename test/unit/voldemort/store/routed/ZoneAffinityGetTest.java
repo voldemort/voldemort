@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +15,8 @@ import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
@@ -32,22 +36,34 @@ import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
+@RunWith(Parameterized.class)
 public class ZoneAffinityGetTest {
 
     private Store<String, String, byte[]> client;
     private Map<Integer, VoldemortServer> vservers = new HashMap<Integer, VoldemortServer>();
     private Cluster cluster;
+    private final Integer clientZoneId;
+
+    public ZoneAffinityGetTest(Integer clientZoneId) {
+        this.clientZoneId = clientZoneId;
+    }
+
+    @Parameterized.Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { 0 }, { 1 }, { 2 } });
+    }
 
     @Before
     public void setup() throws IOException {
         byte[] bytes1 = { (byte) 'A', (byte) 'B' };
         byte[] bytes2 = { (byte) 'C', (byte) 'D' };
-        List<StoreDefinition> stores = ClusterTestUtils.getZZ322StoreDefs("memory");
+        List<StoreDefinition> stores = ClusterTestUtils.getZZZ322StoreDefs("memory");
         StoreDefinition storeDef = stores.get(0);
-        cluster = ClusterTestUtils.getZZCluster();
+        cluster = ClusterTestUtils.getZZZCluster();
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setBootstrapUrls(cluster.getNodeById(0).getSocketUrl().toString());
-        clientConfig.setEnableGetOpZoneAffinity(true);
+        clientConfig.getZoneAffinity().setEnableGetOpZoneAffinity(true);
+        clientConfig.setClientZoneId(clientZoneId);
         SocketStoreClientFactory socketStoreClientFactory = new SocketStoreClientFactory(clientConfig);
         for(Integer nodeId: cluster.getNodeIds()) {
             SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
@@ -73,9 +89,9 @@ public class ZoneAffinityGetTest {
             version1.incrementVersion(0, System.currentTimeMillis());
             VectorClock version2 = version1.incremented(0, System.currentTimeMillis());
 
-            if(node.getZoneId() == 0) {
+            if(node.getZoneId() == clientZoneId) {
                 store.put(new ByteArray(bytes1), new Versioned<byte[]>(bytes1, version1), null);
-            } else if(node.getZoneId() == 1) {
+            } else {
                 store.put(new ByteArray(bytes1), new Versioned<byte[]>(bytes2, version2), null);
             }
         }
@@ -101,8 +117,8 @@ public class ZoneAffinityGetTest {
     }
 
     @Test
-    public void testZone0Down() {
-        for(Integer nodeId: cluster.getNodeIdsInZone(0)) {
+    public void testLocalZoneDown() {
+        for(Integer nodeId: cluster.getNodeIdsInZone(clientZoneId)) {
             this.vservers.get(nodeId).stop();
         }
         try {
@@ -114,8 +130,8 @@ public class ZoneAffinityGetTest {
     }
 
     @Test
-    public void testZone0PartialDownSuffcientReads() {
-        this.vservers.get(cluster.getNodeIdsInZone(0).iterator().next()).stop();
+    public void testLocalZonePartialDownSuffcientReads() {
+        this.vservers.get(cluster.getNodeIdsInZone(clientZoneId).iterator().next()).stop();
         try {
             client.get("AB", null);
         } catch(InsufficientOperationalNodesException e) {
@@ -124,8 +140,8 @@ public class ZoneAffinityGetTest {
     }
 
     @Test
-    public void testZone0PartialDownInSuffcientReads() {
-        Set<Integer> nodeIds = cluster.getNodeIdsInZone(0);
+    public void testLocalZonePartialDownInSuffcientReads() {
+        Set<Integer> nodeIds = cluster.getNodeIdsInZone(clientZoneId);
         nodeIds.remove(nodeIds.iterator().next());
         for(Integer nodeId: nodeIds) {
             this.vservers.get(nodeId).stop();

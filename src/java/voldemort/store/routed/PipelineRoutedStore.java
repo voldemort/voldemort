@@ -166,7 +166,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
     private ConfigureNodesType obtainNodeConfigurationType(Integer zonesRequired,
                                                            Operation operation) {
-        if(operation == Operation.GET && zoneAffinity.getGetOpZoneAffinity()) {
+        if(operation == Operation.GET && zoneAffinity.isGetOpZoneAffinityEnabled()) {
             return ConfigureNodesType.LOCAL_ZONE_ONLY;
         }
 

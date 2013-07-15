@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,7 +17,8 @@
 package voldemort.client;
 
 /**
- * Encapsulates the timeouts, in ms, for various Voldemort operations
+ * Encapsulates the zone affinity configuiration for various Voldemort
+ * operations
  * 
  */
 public class ZoneAffinity {
@@ -35,22 +36,46 @@ public class ZoneAffinity {
     }
 
     public ZoneAffinity(boolean getOpZoneAffinity,
-                              boolean getAllOpZoneAffinity,
-                              boolean putOpZoneAffinity) {
+                        boolean getAllOpZoneAffinity,
+                        boolean putOpZoneAffinity) {
         this.getOpZoneAffinity = getOpZoneAffinity;
         this.getAllOpZoneAffinity = getAllOpZoneAffinity;
         this.putOpZoneAffinity = putOpZoneAffinity;
     }
 
-    public boolean getGetOpZoneAffinity() {
+    public boolean isGetOpZoneAffinityEnabled() {
         return getOpZoneAffinity;
     }
 
-    public boolean getGetAllOpZoneAffinity() {
+    public boolean isGetAllOpZoneAffinityEnabled() {
         return getAllOpZoneAffinity;
     }
 
-    public boolean getPutOpZoneAffinity() {
+    public boolean isPutOpZoneAffinityEnabled() {
         return putOpZoneAffinity;
+    }
+
+    /**
+     * @param enabled Defines if zone affinity is applied for GET operation
+     */
+    public ZoneAffinity setEnableGetOpZoneAffinity(boolean enabled) {
+        getOpZoneAffinity = enabled;
+        return this;
+    }
+
+    /**
+     * @param enabled Defines if zone affinity is applied for GETALL operation
+     */
+    public ZoneAffinity setEnableGetAllOpZoneAffinity(boolean enabled) {
+        getAllOpZoneAffinity = enabled;
+        return this;
+    }
+
+    /**
+     * @param enabled Defines if zone affinity is applied for PUT operation
+     */
+    public ZoneAffinity setEnablePutOpZoneAffinity(boolean enabled) {
+        putOpZoneAffinity = enabled;
+        return this;
     }
 }

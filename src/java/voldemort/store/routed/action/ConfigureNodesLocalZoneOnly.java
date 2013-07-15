@@ -27,7 +27,6 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
-import voldemort.store.routed.Pipeline.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 
@@ -55,7 +54,8 @@ public class ConfigureNodesLocalZoneOnly<V, PD extends BasicPipelineData<V>> ext
         this.clientZone = clientZone;
     }
 
-    public List<Node> getNodes(ByteArray key, Operation op) {
+    @Override
+    protected List<Node> getNodes(ByteArray key) {
         List<Node> originalNodes = null;
         List<Node> nodes = new ArrayList<Node>();
         try {
@@ -81,7 +81,7 @@ public class ConfigureNodesLocalZoneOnly<V, PD extends BasicPipelineData<V>> ext
     public void execute(Pipeline pipeline) {
         List<Node> nodes = null;
 
-        nodes = getNodes(key, pipeline.getOperation());
+        nodes = getNodes(key);
         if(nodes == null) {
             pipeline.abort();
             return;

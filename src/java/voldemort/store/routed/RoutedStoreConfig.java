@@ -36,9 +36,7 @@ public class RoutedStoreConfig {
         this.isJmxEnabled = clientConfig.isJmxEnabled();
         this.clientZoneId = clientConfig.getClientZoneId();
         this.timeoutConfig = clientConfig.getTimeoutConfig();
-        this.zoneAffinity = new ZoneAffinity(clientConfig.isEnableGetOpZoneAffinity(),
-                                             clientConfig.isEnableGetAllOpZoneAffinity(),
-                                             clientConfig.isEnablePutOpZoneAffinity());
+        this.zoneAffinity = clientConfig.getZoneAffinity();
     }
 
     public RoutedStoreConfig(VoldemortConfig voldemortConfig) {
