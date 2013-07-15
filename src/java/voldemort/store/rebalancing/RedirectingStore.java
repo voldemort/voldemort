@@ -445,7 +445,9 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
 
         // TODO a better design would be to get these state changes from
         // metadata listener callbacks, so we need not allocate these objects
-        // all the time
+        // all the time. This has been implemented, but not integration tested,
+        // on the following branch:
+        // https://github.com/voldemort/voldemort/compare/proxy-put-metadata-listener
         Cluster sourceCluster = metadata.getRebalancingSourceCluster();
 
         // Logic to get the old storedef
