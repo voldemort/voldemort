@@ -355,9 +355,9 @@ public class ServerTestUtils {
             LinkedList<Integer> proximityList = Lists.newLinkedList();
             int zoneId = i + 1;
             for(int j = 0; j < numberOfZones; j++) {
-                if(zoneId % numberOfZones == i)
-                    break;
-                proximityList.add(zoneId % numberOfZones);
+                if(zoneId % numberOfZones != i) {
+                    proximityList.add(zoneId % numberOfZones);
+                }
                 zoneId++;
             }
             zones.add(new Zone(i, proximityList));
@@ -415,7 +415,9 @@ public class ServerTestUtils {
                 LinkedList<Integer> proximityList = Lists.newLinkedList();
                 int zoneId = i + 1;
                 for(int j = 0; j < numberOfZones; j++) {
-                    proximityList.add(zoneId % numberOfZones);
+                    if(zoneId % numberOfZones != i) {
+                        proximityList.add(zoneId % numberOfZones);
+                    }
                     zoneId++;
                 }
                 zones.add(new Zone(i, proximityList));
@@ -476,7 +478,9 @@ public class ServerTestUtils {
             LinkedList<Integer> proximityList = Lists.newLinkedList();
             int zoneId = i + 1;
             for(int j = 0; j < numberOfZones - 1; j++) {
-                proximityList.add(zoneId % numberOfZones);
+                if(zoneId % numberOfZones != i) {
+                    proximityList.add(zoneId % numberOfZones);
+                }
                 zoneId++;
             }
             zones.add(new Zone(i, proximityList));
@@ -612,7 +616,9 @@ public class ServerTestUtils {
             LinkedList<Integer> proximityList = Lists.newLinkedList();
             int zoneId = i + 1;
             for(int j = 0; j < numberOfZones; j++) {
-                proximityList.add(zoneId % numberOfZones);
+                if(zoneId % numberOfZones != i) {
+                    proximityList.add(zoneId % numberOfZones);
+                }
                 zoneId++;
             }
             zones.add(new Zone(i, proximityList));

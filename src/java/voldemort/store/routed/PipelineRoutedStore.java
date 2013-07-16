@@ -130,6 +130,21 @@ public class PipelineRoutedStore extends RoutedStore {
               timeoutConfig,
               failureDetector,
               SystemTime.INSTANCE);
+        if(zoneAffinity != null && storeDef.getZoneCountReads() != null
+           && storeDef.getZoneCountReads() > 0) {
+            if(zoneAffinity.isGetOpZoneAffinityEnabled()) {
+                throw new IllegalArgumentException("storeDef.getZoneCountReads() is non-zero while zoneAffinityGet is enabled");
+            }
+            if(zoneAffinity.isGetAllOpZoneAffinityEnabled()) {
+                throw new IllegalArgumentException("storeDef.getZoneCountReads() is non-zero while zoneAffinityGetAll is enabled");
+            }
+        }
+        if(zoneAffinity != null && storeDef.getZoneCountWrites() != null
+           && storeDef.getZoneCountWrites() > 0) {
+            if(zoneAffinity.isPutOpZoneAffinityEnabled()) {
+                throw new IllegalArgumentException("storeDef.getZoneCountReads() is non-zero while zoneAffinityPut is enabled");
+            }
+        }
         this.nonblockingSlopStores = nonblockingSlopStores;
         this.clientZone = cluster.getZoneById(clientZoneId);
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
@@ -415,7 +430,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                          routingStrategy,
                                                          keys,
                                                          transforms,
-                                                         clientZone));
+                                                         clientZone,
+                                                         zoneAffinity));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelGetAllRequests(pipelineData,
                                                                   Event.INSUFFICIENT_SUCCESSES,

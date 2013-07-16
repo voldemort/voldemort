@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import voldemort.VoldemortException;
+import voldemort.client.ZoneAffinity;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -48,6 +49,8 @@ public class GetAllConfigureNodes
 
     private final Map<ByteArray, byte[]> transforms;
 
+    private final ZoneAffinity zoneAffinity;
+
     public GetAllConfigureNodes(GetAllPipelineData pipelineData,
                                 Event completeEvent,
                                 FailureDetector failureDetector,
@@ -56,12 +59,14 @@ public class GetAllConfigureNodes
                                 RoutingStrategy routingStrategy,
                                 Iterable<ByteArray> keys,
                                 Map<ByteArray, byte[]> transforms,
-                                Zone clientZone) {
+                                Zone clientZone,
+                                ZoneAffinity zoneAffinity) {
         super(pipelineData, completeEvent, failureDetector, required, routingStrategy);
         this.preferred = preferred;
         this.keys = keys;
         this.transforms = transforms;
         this.clientZone = clientZone;
+        this.zoneAffinity = zoneAffinity;
     }
 
     public void execute(Pipeline pipeline) {
@@ -70,9 +75,10 @@ public class GetAllConfigureNodes
 
         for(ByteArray key: keys) {
             List<Node> nodes = null;
+            List<Node> originalNodes = null;
 
             try {
-                nodes = getNodes(key);
+                originalNodes = getNodes(key);
             } catch(VoldemortException e) {
                 pipelineData.setFatalError(e);
                 pipeline.addEvent(Event.ERROR);
@@ -81,6 +87,17 @@ public class GetAllConfigureNodes
 
             List<Node> preferredNodes = Lists.newArrayListWithCapacity(preferred);
             List<Node> extraNodes = Lists.newArrayListWithCapacity(3);
+
+            if(zoneAffinity != null && zoneAffinity.isGetAllOpZoneAffinityEnabled()) {
+                nodes = new ArrayList<Node>();
+                for(Node node: originalNodes) {
+                    if(node.getZoneId() == clientZone.getId()) {
+                        nodes.add(node);
+                    }
+                }
+            } else {
+                nodes = originalNodes;
+            }
 
             if(pipelineData.getZonesRequired() != null) {
 
