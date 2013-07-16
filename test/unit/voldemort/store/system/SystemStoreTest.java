@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -33,6 +33,7 @@ import voldemort.client.AbstractStoreClientFactory;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.SystemStore;
+import voldemort.client.SystemStoreClientFactory;
 import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
@@ -107,9 +108,11 @@ public class SystemStoreTest {
     @Test
     public void testBasicStore() {
         try {
-            SystemStore<String, String> sysVersionStore = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
-                                                                                          bootStrapUrls,
-                                                                                          this.CLIENT_ZONE_ID);
+            ClientConfig clientConfig = new ClientConfig();
+            clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.CLIENT_ZONE_ID);
+            SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
+            SystemStore<String, String> sysVersionStore = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
+
             long storesVersion = 1;
             sysVersionStore.putSysStore("stores.xml", Long.toString(storesVersion));
             long version = Long.parseLong(sysVersionStore.getValueSysStore("stores.xml"));
@@ -124,11 +127,13 @@ public class SystemStoreTest {
     @Test
     public void testCustomClusterXmlStore() {
         try {
-            SystemStore<String, String> sysVersionStore = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
-                                                                                          bootStrapUrls,
-                                                                                          this.CLIENT_ZONE_ID,
-                                                                                          this.clusterXml,
-                                                                                          null);
+            ClientConfig clientConfig = new ClientConfig();
+            clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.CLIENT_ZONE_ID);
+            SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
+            SystemStore<String, String> sysVersionStore = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                                                               this.clusterXml,
+                                                                                               null);
+
             long storesVersion = 1;
             sysVersionStore.putSysStore("stores.xml", Long.toString(storesVersion));
             long version = Long.parseLong(sysVersionStore.getValueSysStore("stores.xml"));
@@ -143,12 +148,13 @@ public class SystemStoreTest {
     @Test
     public void testIllegalSystemStore() {
         try {
-            @SuppressWarnings("unused")
-            SystemStore<String, Long> sysVersionStore = new SystemStore<String, Long>("test-store",
-                                                                                      bootStrapUrls,
-                                                                                      this.CLIENT_ZONE_ID,
-                                                                                      this.clusterXml,
-                                                                                      null);
+            ClientConfig clientConfig = new ClientConfig();
+            clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.CLIENT_ZONE_ID);
+            SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
+            SystemStore sysVersionStore = systemStoreFactory.createSystemStore("test-store",
+                                                                               this.clusterXml,
+                                                                               null);
+
             fail("Should not execute this. We can only connect to system store with a 'voldsys$' prefix.");
         } catch(Exception e) {
             // This is fine.

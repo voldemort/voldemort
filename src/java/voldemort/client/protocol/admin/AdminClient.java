@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -51,6 +51,7 @@ import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.SystemStore;
+import voldemort.client.SystemStoreClientFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
@@ -150,6 +151,7 @@ public class AdminClient {
     private SystemStore<String, String> sysStoreVersion = null;
     private String[] cachedBootstrapURLs = null;
     private int cachedZoneID = -1;
+    private SystemStoreClientFactory<String, String> systemStoreFactory = null;
 
     final public AdminClient.HelperOperations helperOps;
     final public AdminClient.RPCOperations rpcOps;
@@ -317,9 +319,14 @@ public class AdminClient {
         private void initSystemStoreClient() {
             if(AdminClient.this.cachedBootstrapURLs != null && AdminClient.this.cachedZoneID >= 0) {
                 try {
-                    sysStoreVersion = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
-                                                                      AdminClient.this.cachedBootstrapURLs,
-                                                                      AdminClient.this.cachedZoneID);
+                    if(systemStoreFactory == null) {
+                        ClientConfig clientConfig = new ClientConfig();
+                        clientConfig.setBootstrapUrls(AdminClient.this.cachedBootstrapURLs);
+                        clientConfig.setClientZoneId(AdminClient.this.cachedZoneID);
+                        systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
+                    }
+
+                    sysStoreVersion = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
                 } catch(Exception e) {
                     logger.debug("Error while creating a system store client for metadata version store.");
                 }

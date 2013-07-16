@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -107,12 +107,11 @@ public class EndToEndRebootstrapTest {
                                                          0,
                                                          clientConfig,
                                                          service);
-        sysStoreVersion = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
-                                                          bootStrapUrls,
-                                                          0);
-        clientRegistryStore = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                              bootStrapUrls,
-                                                              0);
+
+        SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
+
+        sysStoreVersion = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
+        clientRegistryStore = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name());
 
     }
 

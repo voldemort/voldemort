@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -33,6 +33,7 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
 import voldemort.client.SystemStore;
+import voldemort.client.SystemStoreClientFactory;
 import voldemort.client.SystemStoreRepository;
 import voldemort.client.scheduler.AsyncMetadataVersionManager;
 import voldemort.cluster.Cluster;
@@ -99,11 +100,10 @@ public class AsyncMetadataVersionManagerTest {
 
         bootStrapUrls = new String[1];
         bootStrapUrls[0] = socketUrl;
-        sysVersionStore = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
-                                                          bootStrapUrls,
-                                                          this.CLIENT_ZONE_ID);
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.CLIENT_ZONE_ID);
+        SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
+        sysVersionStore = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
         repository = new SystemStoreRepository(clientConfig);
 
         repository.addSystemStore(sysVersionStore,

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2012 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,12 +17,10 @@
 package voldemort.client;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.versioning.InconsistentDataException;
@@ -47,104 +45,22 @@ public class SystemStore<K, V> {
     private volatile Store<K, V, Object> sysStore;
 
     /**
-     * Wrapper for the actual SystemStore constructor. Used when we dont have
-     * custom Cluster XML, failure detector or a base Voldemort Client config to
-     * be used with this system store client.
+     * Constructor that creates a system store client which can be used to
+     * interact with the system stores managed by the cluster
      * 
      * @param storeName Name of the system store
-     * @param bootstrapUrls Bootstrap URLs used to connect to
-     * @param clientZoneID Primary zone ID for this system store client
-     *        (determines routing strategy)
+     * @param systemStore The socket store used to interact with the system
+     *        stores on the individual server nodes
      */
-    public SystemStore(String storeName, String[] bootstrapUrls, int clientZoneID) {
-        this(storeName, bootstrapUrls, clientZoneID, null, null, new ClientConfig(), null);
-    }
-
-    /**
-     * Wrapper for the actual SystemStore constructor. Used when we dont have
-     * custom Cluster XML or failure detector to be used with this system store
-     * client.
-     * 
-     * @param storeName Name of the system store
-     * @param bootstrapUrls Bootstrap URLs used to connect to
-     * @param clientZoneID Primary zone ID for this system store client
-     *        (determines routing strategy)
-     * @param baseConfig Base Voldemort Client config which specifies properties
-     *        for this system store client
-     */
-    public SystemStore(String storeName,
-                       String[] bootstrapUrls,
-                       int clientZoneID,
-                       ClientConfig baseConfig) {
-        this(storeName, bootstrapUrls, clientZoneID, null, null, baseConfig, null);
-    }
-
-    /**
-     * SystemStore Constructor wrapper for the actual constructor. Used when we
-     * dont want to specify a base Voldemort Client Config.
-     * 
-     * @param storeName Name of the system store
-     * @param bootstrapUrls Bootstrap URLs used to connect to
-     * @param clientZoneID Primary zone ID for this system store client
-     *        (determines routing strategy)
-     * @param clusterXml Custom ClusterXml to be used for this system store
-     *        client
-     * @param fd Failure Detector to be used with this system store client
-     */
-    public SystemStore(String storeName,
-                       String[] bootstrapUrls,
-                       int clientZoneID,
-                       String clusterXml,
-                       FailureDetector fd) {
-        this(storeName, bootstrapUrls, clientZoneID, clusterXml, fd, new ClientConfig(), null);
-    }
-
-    /**
-     * SystemStore Constructor that creates a system store client which can be
-     * used to interact with the system stores managed by the cluster
-     * 
-     * @param storeName Name of the system store
-     * @param bootstrapUrls Bootstrap URLs used to connect to
-     * @param clientZoneID Primary zone ID for this system store client
-     *        (determines routing strategy)
-     * @param clusterXml Custom ClusterXml to be used for this system store
-     *        client
-     * @param fd Failure Detector to be used with this system store client
-     * @param baseConfig Base Voldemort Client config which specifies properties
-     *        for this system store client
-     */
-    public SystemStore(String storeName,
-                       String[] bootstrapUrls,
-                       int clientZoneID,
-                       String clusterXml,
-                       FailureDetector fd,
-                       ClientConfig baseConfig,
-                       SocketStoreClientFactory factory) {
+    public SystemStore(String storeName, Store<K, V, Object> systemStore) {
         String prefix = storeName.substring(0, SystemStoreConstants.NAME_PREFIX.length());
-        if(!SystemStoreConstants.NAME_PREFIX.equals(prefix))
+        if(!SystemStoreConstants.NAME_PREFIX.equals(prefix)) {
             throw new VoldemortException("Illegal system store : " + storeName);
-
-        SocketStoreClientFactory socketStoreFactory = null;
-
-        if(factory == null) {
-            ClientConfig config = new ClientConfig();
-            config.setSelectors(1)
-                  .setBootstrapUrls(bootstrapUrls)
-                  .setMaxConnectionsPerNode(baseConfig.getSysMaxConnectionsPerNode())
-                  .setConnectionTimeout(baseConfig.getSysConnectionTimeout(), TimeUnit.MILLISECONDS)
-                  .setSocketTimeout(baseConfig.getSysSocketTimeout(), TimeUnit.MILLISECONDS)
-                  .setRoutingTimeout(baseConfig.getSysRoutingTimeout(), TimeUnit.MILLISECONDS)
-                  .setEnableJmx(baseConfig.getSysEnableJmx())
-                  .setEnablePipelineRoutedStore(baseConfig.getSysEnablePipelineRoutedStore())
-                  .setClientZoneId(clientZoneID);
-            socketStoreFactory = new SocketStoreClientFactory(config);
-        } else {
-            socketStoreFactory = factory;
         }
 
         this.storeName = storeName;
         try {
-            this.sysStore = socketStoreFactory.getSystemStore(this.storeName, clusterXml, fd);
+            this.sysStore = systemStore;
         } catch(Exception e) {
             logger.debug("Error while creating a system store client for store : " + this.storeName);
         }

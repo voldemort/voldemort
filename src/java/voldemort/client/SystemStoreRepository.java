@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,7 +17,6 @@
 package voldemort.client;
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.system.SystemStoreConstants;
@@ -31,24 +30,11 @@ import voldemort.store.system.SystemStoreConstants;
 public class SystemStoreRepository {
 
     private ConcurrentHashMap<String, SystemStore> sysStoreMap;
-    private final SocketStoreClientFactory socketStoreFactory;
+    private final SystemStoreClientFactory systemStoreFactory;
 
     public SystemStoreRepository(ClientConfig clientConfig) {
         sysStoreMap = new ConcurrentHashMap<String, SystemStore>();
-        ClientConfig systemStoreConfig = new ClientConfig();
-        systemStoreConfig.setSelectors(1)
-                         .setBootstrapUrls(clientConfig.getBootstrapUrls())
-                         .setMaxConnectionsPerNode(clientConfig.getSysMaxConnectionsPerNode())
-                         .setConnectionTimeout(clientConfig.getSysConnectionTimeout(),
-                                               TimeUnit.MILLISECONDS)
-                         .setSocketTimeout(clientConfig.getSysSocketTimeout(),
-                                           TimeUnit.MILLISECONDS)
-                         .setRoutingTimeout(clientConfig.getSysRoutingTimeout(),
-                                            TimeUnit.MILLISECONDS)
-                         .setEnableJmx(clientConfig.getSysEnableJmx())
-                         .setEnablePipelineRoutedStore(clientConfig.getSysEnablePipelineRoutedStore())
-                         .setClientZoneId(clientConfig.getClientZoneId());
-        this.socketStoreFactory = new SocketStoreClientFactory(systemStoreConfig);
+        this.systemStoreFactory = new SystemStoreClientFactory(clientConfig);
     }
 
     public void addSystemStore(SystemStore newSysStore, String storeName) {
@@ -57,13 +43,9 @@ public class SystemStoreRepository {
 
     public void createSystemStores(ClientConfig config, String clusterXml, FailureDetector fd) {
         for(SystemStoreConstants.SystemStoreName storeName: SystemStoreConstants.SystemStoreName.values()) {
-            SystemStore sysStore = new SystemStore(storeName.name(),
-                                                   config.getBootstrapUrls(),
-                                                   config.getClientZoneId(),
-                                                   clusterXml,
-                                                   fd,
-                                                   config,
-                                                   this.socketStoreFactory);
+            SystemStore sysStore = this.systemStoreFactory.createSystemStore(storeName.name(),
+                                                                             clusterXml,
+                                                                             fd);
             this.sysStoreMap.put(storeName.name(), sysStore);
         }
     }
