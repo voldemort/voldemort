@@ -137,7 +137,7 @@ public class StreamingClientTest {
         property.put("streaming.platform.bootstrapURL", SERVER_LOCAL_URL + serverPorts[0]);
         StreamingClientConfig config = new StreamingClientConfig(property);
 
-        StreamingClient streamer = new StreamingClient(config);
+        BaseStreamingClient streamer = new BaseStreamingClient(config);
 
         streamer.initStreamingSession(TEST_STORE_NAME, new Callable<Object>() {
 

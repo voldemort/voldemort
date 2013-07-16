@@ -13,7 +13,7 @@ import org.junit.Test;
 
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
-import voldemort.client.protocol.admin.SlopWrappingStreamingClient;
+import voldemort.client.protocol.admin.StreamingClient;
 import voldemort.cluster.Node;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
@@ -32,7 +32,7 @@ public class SlopStreamingTest {
     private static final Integer KEY_LENGTH = 16;
     private static final Integer VALUE_LENGTH = 32;
     private SlopStreamingTestEnvironment testEnv;
-    SlopWrappingStreamingClient streamer;
+    StreamingClient streamer;
 
     @After
     public void tearDown() {

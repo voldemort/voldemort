@@ -15,7 +15,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortTestConstants;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
-import voldemort.client.protocol.admin.SlopWrappingStreamingClient;
+import voldemort.client.protocol.admin.StreamingClient;
 import voldemort.client.protocol.admin.StreamingClientConfig;
 import voldemort.store.Store;
 import voldemort.store.memory.InMemoryPutAssertionStorageEngine;
@@ -39,11 +39,11 @@ public class SlopStreamingTestEnvironment extends HintedHandoffTestEnvironment {
         this.throwIntermittentException = throwIntermittentException;
     }
 
-    public SlopWrappingStreamingClient makeSlopStreamingClient() throws InterruptedException {
+    public StreamingClient makeSlopStreamingClient() throws InterruptedException {
         return makeSlopStreamingClient(false);
     }
 
-    public SlopWrappingStreamingClient makeSlopStreamingClient(boolean wrapException)
+    public StreamingClient makeSlopStreamingClient(boolean wrapException)
             throws InterruptedException {
 
         startFinishLatch.await();
@@ -52,7 +52,7 @@ public class SlopStreamingTestEnvironment extends HintedHandoffTestEnvironment {
         Props property = new Props();
         property.put("streaming.platform.bootstrapURL", bootstrapUrl);
         StreamingClientConfig config = new StreamingClientConfig(property);
-        SlopWrappingStreamingClient streamer = new SlopWrappingStreamingClient(config);
+        StreamingClient streamer = new StreamingClient(config);
 
         Callable<Integer> cpCallable = new CheckpointCallable();
         Callable<Integer> rbCallable = new RollbackCallable();

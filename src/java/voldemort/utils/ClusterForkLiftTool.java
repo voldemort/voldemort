@@ -24,7 +24,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
-import voldemort.client.protocol.admin.StreamingClient;
+import voldemort.client.protocol.admin.BaseStreamingClient;
 import voldemort.client.protocol.admin.StreamingClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -128,7 +128,7 @@ public class ClusterForkLiftTool implements Runnable {
     private static final int DEFAULT_WORKER_POOL_SHUTDOWN_WAIT_MINS = 5;
 
     private final AdminClient srcAdminClient;
-    private final StreamingClient dstStreamingClient;
+    private final BaseStreamingClient dstStreamingClient;
     private final List<String> storesList;
     private final ExecutorService workerPool;
     private final int progressOps;
@@ -154,7 +154,7 @@ public class ClusterForkLiftTool implements Runnable {
         props.put("streaming.platform.bootstrapURL", dstBootstrapUrl);
         props.put("streaming.platform.throttle.qps", maxPutsPerSecond);
         StreamingClientConfig config = new StreamingClientConfig(props);
-        this.dstStreamingClient = new StreamingClient(config);
+        this.dstStreamingClient = new BaseStreamingClient(config);
         this.mode = mode;
 
         // determine and verify final list of stores to be forklifted over

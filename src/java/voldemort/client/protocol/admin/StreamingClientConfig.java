@@ -13,8 +13,12 @@ public class StreamingClientConfig implements Serializable {
     private static final int DEFAULT_BATCH_SIZE = 10000;
     private static final int DEFAULT_THROTTLE_QPS = 3000;
 
+    private static final int DEFAULT_MAX_FAULTY_NODES = 1;
+
     private int batchSize;
     private int throttleQPS;
+
+    private int failedNodesTolerated;
 
     private String bootstrapURL;
 
@@ -26,6 +30,9 @@ public class StreamingClientConfig implements Serializable {
 
         this.batchSize = props.getInt("streaming.platform.commit.batch", DEFAULT_BATCH_SIZE);
         this.throttleQPS = props.getInt("streaming.platform.throttle.qps", DEFAULT_THROTTLE_QPS);
+
+        this.setFailedNodesTolerated(props.getInt("streaming.platform.max.failed.nodes",
+                                                  DEFAULT_MAX_FAULTY_NODES));
 
         try {
             this.bootstrapURL = props.getString("streaming.platform.bootstrapURL");
@@ -69,5 +76,13 @@ public class StreamingClientConfig implements Serializable {
         if(throttleQPS < 0)
             throw new IllegalArgumentException("streaming.platform.throttle.qps cannot be less than 1");
 
+    }
+
+    public int getFailedNodesTolerated() {
+        return failedNodesTolerated;
+    }
+
+    public void setFailedNodesTolerated(int failedNodesTolerated) {
+        this.failedNodesTolerated = failedNodesTolerated;
     }
 }
