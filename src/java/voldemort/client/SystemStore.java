@@ -43,7 +43,6 @@ import voldemort.versioning.Versioned;
 public class SystemStore<K, V> {
 
     private final Logger logger = Logger.getLogger(SystemStore.class);
-    private final SocketStoreClientFactory socketStoreFactory;
     private final String storeName;
     private volatile Store<K, V, Object> sysStore;
 
@@ -58,7 +57,7 @@ public class SystemStore<K, V> {
      *        (determines routing strategy)
      */
     public SystemStore(String storeName, String[] bootstrapUrls, int clientZoneID) {
-        this(storeName, bootstrapUrls, clientZoneID, null, null, new ClientConfig());
+        this(storeName, bootstrapUrls, clientZoneID, null, null, new ClientConfig(), null);
     }
 
     /**
@@ -77,7 +76,7 @@ public class SystemStore<K, V> {
                        String[] bootstrapUrls,
                        int clientZoneID,
                        ClientConfig baseConfig) {
-        this(storeName, bootstrapUrls, clientZoneID, null, null, baseConfig);
+        this(storeName, bootstrapUrls, clientZoneID, null, null, baseConfig, null);
     }
 
     /**
@@ -97,7 +96,7 @@ public class SystemStore<K, V> {
                        int clientZoneID,
                        String clusterXml,
                        FailureDetector fd) {
-        this(storeName, bootstrapUrls, clientZoneID, clusterXml, fd, new ClientConfig());
+        this(storeName, bootstrapUrls, clientZoneID, clusterXml, fd, new ClientConfig(), null);
     }
 
     /**
@@ -119,25 +118,33 @@ public class SystemStore<K, V> {
                        int clientZoneID,
                        String clusterXml,
                        FailureDetector fd,
-                       ClientConfig baseConfig) {
+                       ClientConfig baseConfig,
+                       SocketStoreClientFactory factory) {
         String prefix = storeName.substring(0, SystemStoreConstants.NAME_PREFIX.length());
         if(!SystemStoreConstants.NAME_PREFIX.equals(prefix))
             throw new VoldemortException("Illegal system store : " + storeName);
 
-        ClientConfig config = new ClientConfig();
-        config.setSelectors(1)
-              .setBootstrapUrls(bootstrapUrls)
-              .setMaxConnectionsPerNode(baseConfig.getSysMaxConnectionsPerNode())
-              .setConnectionTimeout(baseConfig.getSysConnectionTimeout(), TimeUnit.MILLISECONDS)
-              .setSocketTimeout(baseConfig.getSysSocketTimeout(), TimeUnit.MILLISECONDS)
-              .setRoutingTimeout(baseConfig.getSysRoutingTimeout(), TimeUnit.MILLISECONDS)
-              .setEnableJmx(baseConfig.getSysEnableJmx())
-              .setEnablePipelineRoutedStore(baseConfig.getSysEnablePipelineRoutedStore())
-              .setClientZoneId(clientZoneID);
-        this.socketStoreFactory = new SocketStoreClientFactory(config);
+        SocketStoreClientFactory socketStoreFactory = null;
+
+        if(factory == null) {
+            ClientConfig config = new ClientConfig();
+            config.setSelectors(1)
+                  .setBootstrapUrls(bootstrapUrls)
+                  .setMaxConnectionsPerNode(baseConfig.getSysMaxConnectionsPerNode())
+                  .setConnectionTimeout(baseConfig.getSysConnectionTimeout(), TimeUnit.MILLISECONDS)
+                  .setSocketTimeout(baseConfig.getSysSocketTimeout(), TimeUnit.MILLISECONDS)
+                  .setRoutingTimeout(baseConfig.getSysRoutingTimeout(), TimeUnit.MILLISECONDS)
+                  .setEnableJmx(baseConfig.getSysEnableJmx())
+                  .setEnablePipelineRoutedStore(baseConfig.getSysEnablePipelineRoutedStore())
+                  .setClientZoneId(clientZoneID);
+            socketStoreFactory = new SocketStoreClientFactory(config);
+        } else {
+            socketStoreFactory = factory;
+        }
+
         this.storeName = storeName;
         try {
-            this.sysStore = this.socketStoreFactory.getSystemStore(this.storeName, clusterXml, fd);
+            this.sysStore = socketStoreFactory.getSystemStore(this.storeName, clusterXml, fd);
         } catch(Exception e) {
             logger.debug("Error while creating a system store client for store : " + this.storeName);
         }

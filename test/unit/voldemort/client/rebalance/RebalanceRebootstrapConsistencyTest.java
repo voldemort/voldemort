@@ -19,6 +19,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
+import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.SystemStore;
 import voldemort.client.SystemStoreRepository;
@@ -161,7 +162,9 @@ public class RebalanceRebootstrapConsistencyTest {
         sysVersionStore = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
                                                           bootStrapUrls,
                                                           this.CLIENT_ZONE_ID);
-        repository = new SystemStoreRepository();
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.CLIENT_ZONE_ID);
+        repository = new SystemStoreRepository(clientConfig);
         repository.addSystemStore(sysVersionStore,
                                   SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
         this.scheduler = new SchedulerService(2, SystemTime.INSTANCE, true);

@@ -17,6 +17,7 @@
 package voldemort.client;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.system.SystemStoreConstants;
@@ -30,9 +31,24 @@ import voldemort.store.system.SystemStoreConstants;
 public class SystemStoreRepository {
 
     private ConcurrentHashMap<String, SystemStore> sysStoreMap;
+    private final SocketStoreClientFactory socketStoreFactory;
 
-    public SystemStoreRepository() {
+    public SystemStoreRepository(ClientConfig clientConfig) {
         sysStoreMap = new ConcurrentHashMap<String, SystemStore>();
+        ClientConfig systemStoreConfig = new ClientConfig();
+        systemStoreConfig.setSelectors(1)
+                         .setBootstrapUrls(clientConfig.getBootstrapUrls())
+                         .setMaxConnectionsPerNode(clientConfig.getSysMaxConnectionsPerNode())
+                         .setConnectionTimeout(clientConfig.getSysConnectionTimeout(),
+                                               TimeUnit.MILLISECONDS)
+                         .setSocketTimeout(clientConfig.getSysSocketTimeout(),
+                                           TimeUnit.MILLISECONDS)
+                         .setRoutingTimeout(clientConfig.getSysRoutingTimeout(),
+                                            TimeUnit.MILLISECONDS)
+                         .setEnableJmx(clientConfig.getSysEnableJmx())
+                         .setEnablePipelineRoutedStore(clientConfig.getSysEnablePipelineRoutedStore())
+                         .setClientZoneId(clientConfig.getClientZoneId());
+        this.socketStoreFactory = new SocketStoreClientFactory(systemStoreConfig);
     }
 
     public void addSystemStore(SystemStore newSysStore, String storeName) {
@@ -46,7 +62,8 @@ public class SystemStoreRepository {
                                                    config.getClientZoneId(),
                                                    clusterXml,
                                                    fd,
-                                                   config);
+                                                   config,
+                                                   this.socketStoreFactory);
             this.sysStoreMap.put(storeName.name(), sysStore);
         }
     }

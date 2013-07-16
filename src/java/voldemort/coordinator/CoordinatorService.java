@@ -145,7 +145,7 @@ public class CoordinatorService extends AbstractService {
         initializeFatClients();
 
         // Setup the Async Metadata checker
-        SystemStoreRepository sysRepository = new SystemStoreRepository();
+        SystemStoreRepository sysRepository = new SystemStoreRepository(clientConfig);
         String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
 
         sysRepository.createSystemStores(clientConfig,

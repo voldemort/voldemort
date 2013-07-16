@@ -95,7 +95,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                          config);
         this.clientId = generateClientId(clientInfo);
         this.config = config;
-        this.sysRepository = new SystemStoreRepository();
+        this.sysRepository = new SystemStoreRepository(config);
         this.scheduler = scheduler;
 
         // Registering self to be able to bootstrap client dynamically via JMX
@@ -114,7 +114,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
             clientRegistryRefresher = registerClient(clientId,
                                                      config.getClientRegistryUpdateIntervalInSecs());
         }
-        
+
         logger.info("Voldemort client created: " + clientId + "\n" + clientInfo);
     }
 
