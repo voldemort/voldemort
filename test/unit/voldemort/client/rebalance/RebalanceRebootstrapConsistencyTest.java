@@ -37,7 +37,7 @@ import org.junit.Test;
 import voldemort.ServerTestUtils;
 import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
-import voldemort.client.SystemStore;
+import voldemort.client.SystemStoreClient;
 import voldemort.client.SystemStoreClientFactory;
 import voldemort.client.SystemStoreRepository;
 import voldemort.client.protocol.admin.AdminClient;
@@ -85,7 +85,7 @@ public class RebalanceRebootstrapConsistencyTest {
     public static String socketUrl = "";
     protected final int CLIENT_ZONE_ID = 0;
 
-    private SystemStore<String, String> sysVersionStore;
+    private SystemStoreClient<String, String> sysVersionStore;
     private SystemStoreRepository repository;
     private SchedulerService scheduler;
     private AsyncMetadataVersionManager asyncCheckMetadata;

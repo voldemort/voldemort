@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 LinkedIn, Inc
+ * Copyright 2012-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -38,9 +38,9 @@ import voldemort.versioning.Versioned;
  * @param <K> Type of Key
  * @param <V> Type of Value
  */
-public class SystemStore<K, V> {
+public class SystemStoreClient<K, V> {
 
-    private final Logger logger = Logger.getLogger(SystemStore.class);
+    private final Logger logger = Logger.getLogger(SystemStoreClient.class);
     private final String storeName;
     private volatile Store<K, V, Object> sysStore;
 
@@ -52,7 +52,7 @@ public class SystemStore<K, V> {
      * @param systemStore The socket store used to interact with the system
      *        stores on the individual server nodes
      */
-    public SystemStore(String storeName, Store<K, V, Object> systemStore) {
+    public SystemStoreClient(String storeName, Store<K, V, Object> systemStore) {
         String prefix = storeName.substring(0, SystemStoreConstants.NAME_PREFIX.length());
         if(!SystemStoreConstants.NAME_PREFIX.equals(prefix)) {
             throw new VoldemortException("Illegal system store : " + storeName);

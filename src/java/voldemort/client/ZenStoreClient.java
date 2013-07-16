@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 LinkedIn, Inc
+ * Copyright 2012-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -155,7 +155,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
     private AsyncMetadataVersionManager scheduleAsyncMetadataVersionManager(String jobId,
                                                                             long interval) {
         AsyncMetadataVersionManager asyncMetadataManager = null;
-        SystemStore<String, String> versionStore = this.sysRepository.getMetadataVersionStore();
+        SystemStoreClient<String, String> versionStore = this.sysRepository.getMetadataVersionStore();
         if(versionStore == null) {
             logger.warn("Metadata version system store not found. Cannot run Metadata version check thread.");
         } else {

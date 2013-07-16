@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 LinkedIn, Inc
+ * Copyright 2012-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -32,7 +32,7 @@ import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
-import voldemort.client.SystemStore;
+import voldemort.client.SystemStoreClient;
 import voldemort.client.SystemStoreClientFactory;
 import voldemort.client.SystemStoreRepository;
 import voldemort.client.scheduler.AsyncMetadataVersionManager;
@@ -67,7 +67,7 @@ public class AsyncMetadataVersionManagerTest {
     protected final int CLIENT_ZONE_ID = 0;
     private long newVersion = 0;
 
-    private SystemStore<String, String> sysVersionStore;
+    private SystemStoreClient<String, String> sysVersionStore;
     private SystemStoreRepository repository;
     private SchedulerService scheduler;
     private AsyncMetadataVersionManager asyncCheckMetadata;

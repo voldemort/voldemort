@@ -25,6 +25,9 @@ import voldemort.store.Store;
  * Helper Factory to create System Stores. These are used to interact with the
  * metadata stores managed by the cluster.
  * 
+ * It acts as a centralized way of specifying the config for the System Store.
+ * It also limits the #selectors to 1 for conserving network resources.
+ * 
  * @param <K> Key serializer for the system store
  * @param <V> Value serializer for the system store
  */
@@ -50,18 +53,18 @@ public class SystemStoreClientFactory<K, V> {
         this.socketStoreFactory = new SocketStoreClientFactory(systemStoreConfig);
     }
 
-    public SystemStore<K, V> createSystemStore(String storeName,
+    public SystemStoreClient<K, V> createSystemStore(String storeName,
                                                String clusterXml,
                                                FailureDetector fd) {
         Store<K, V, Object> sysStore = this.socketStoreFactory.getSystemStore(storeName,
                                                                               clusterXml,
                                                                               fd);
-        return new SystemStore<K, V>(storeName, sysStore);
+        return new SystemStoreClient<K, V>(storeName, sysStore);
     }
 
-    public SystemStore<K, V> createSystemStore(String storeName) {
+    public SystemStoreClient<K, V> createSystemStore(String storeName) {
         Store<K, V, Object> sysStore = this.socketStoreFactory.getSystemStore(storeName, null, null);
-        return new SystemStore<K, V>(storeName, sysStore);
+        return new SystemStoreClient<K, V>(storeName, sysStore);
     }
 
 }

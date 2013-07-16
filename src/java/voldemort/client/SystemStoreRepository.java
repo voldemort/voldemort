@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 LinkedIn, Inc
+ * Copyright 2012-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -29,36 +29,36 @@ import voldemort.store.system.SystemStoreConstants;
 
 public class SystemStoreRepository {
 
-    private ConcurrentHashMap<String, SystemStore> sysStoreMap;
+    private ConcurrentHashMap<String, SystemStoreClient> sysStoreMap;
     private final SystemStoreClientFactory systemStoreFactory;
 
     public SystemStoreRepository(ClientConfig clientConfig) {
-        sysStoreMap = new ConcurrentHashMap<String, SystemStore>();
+        sysStoreMap = new ConcurrentHashMap<String, SystemStoreClient>();
         this.systemStoreFactory = new SystemStoreClientFactory(clientConfig);
     }
 
-    public void addSystemStore(SystemStore newSysStore, String storeName) {
+    public void addSystemStore(SystemStoreClient newSysStore, String storeName) {
         this.sysStoreMap.put(storeName, newSysStore);
     }
 
     public void createSystemStores(ClientConfig config, String clusterXml, FailureDetector fd) {
         for(SystemStoreConstants.SystemStoreName storeName: SystemStoreConstants.SystemStoreName.values()) {
-            SystemStore sysStore = this.systemStoreFactory.createSystemStore(storeName.name(),
+            SystemStoreClient sysStore = this.systemStoreFactory.createSystemStore(storeName.name(),
                                                                              clusterXml,
                                                                              fd);
             this.sysStoreMap.put(storeName.name(), sysStore);
         }
     }
 
-    public SystemStore<String, String> getClientRegistryStore() {
+    public SystemStoreClient<String, String> getClientRegistryStore() {
         String name = SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name();
-        SystemStore<String, String> sysRegistryStore = sysStoreMap.get(name);
+        SystemStoreClient<String, String> sysRegistryStore = sysStoreMap.get(name);
         return sysRegistryStore;
     }
 
-    public SystemStore<String, String> getMetadataVersionStore() {
+    public SystemStoreClient<String, String> getMetadataVersionStore() {
         String name = SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name();
-        SystemStore<String, String> sysVersionStore = sysStoreMap.get(name);
+        SystemStoreClient<String, String> sysVersionStore = sysStoreMap.get(name);
         return sysVersionStore;
     }
 }

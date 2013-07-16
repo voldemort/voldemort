@@ -21,7 +21,7 @@ import java.util.Properties;
 
 import org.apache.log4j.Logger;
 
-import voldemort.client.SystemStore;
+import voldemort.client.SystemStoreClient;
 
 /**
  * A Utils class that facilitates conversion between the string containing
@@ -43,7 +43,7 @@ public class MetadataVersionStoreUtils {
      * @return Properties object containing all the
      *         'property_name=property_value' values
      */
-    public static Properties getProperties(SystemStore<String, String> versionStore) {
+    public static Properties getProperties(SystemStoreClient<String, String> versionStore) {
         Properties props = null;
         try {
             String versionList = versionStore.getSysStore(VERSIONS_METADATA_KEY).getValue();
@@ -66,7 +66,7 @@ public class MetadataVersionStoreUtils {
      *        versions
      * @param props The Properties object to write to the System store
      */
-    public static void setProperties(SystemStore<String, String> versionStore, Properties props) {
+    public static void setProperties(SystemStoreClient<String, String> versionStore, Properties props) {
         if(props == null) {
             return;
         }

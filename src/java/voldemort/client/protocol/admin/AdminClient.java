@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -50,7 +50,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
-import voldemort.client.SystemStore;
+import voldemort.client.SystemStoreClient;
 import voldemort.client.SystemStoreClientFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
@@ -148,7 +148,7 @@ public class AdminClient {
     private final NetworkClassLoader networkClassLoader;
     private final AdminClientConfig adminClientConfig;
     private Cluster currentCluster;
-    private SystemStore<String, String> sysStoreVersion = null;
+    private SystemStoreClient<String, String> sysStoreVersion = null;
     private String[] cachedBootstrapURLs = null;
     private int cachedZoneID = -1;
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
