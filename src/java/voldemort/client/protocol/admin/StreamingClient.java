@@ -20,6 +20,7 @@ import voldemort.cluster.Node;
 import voldemort.serialization.SlopSerializer;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.slop.Slop;
+import voldemort.store.slop.strategy.HandoffToAnyStrategy;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
@@ -48,7 +49,7 @@ public class StreamingClient extends BaseStreamingClient {
 
     private static final Logger logger = Logger.getLogger(StreamingClient.class);
 
-    private static int MAX_FAULTY_NODES = 1;
+    private int MAX_FAULTY_NODES = 1;
 
     private static final String SLOP_STORE = "slop";
 
@@ -74,6 +75,7 @@ public class StreamingClient extends BaseStreamingClient {
     public StreamingClient(StreamingClientConfig config) {
         super(config);
         MAX_FAULTY_NODES = config.getFailedNodesTolerated();
+        System.out.println("MAX_FAULTY_NODES is set to : " + MAX_FAULTY_NODES);
         streamingSlopResults = Executors.newFixedThreadPool(1);
 
     }
@@ -89,6 +91,7 @@ public class StreamingClient extends BaseStreamingClient {
         this.stores = stores;
         stubCheckpointCallback = checkpointCallback;
         stubRecoveryCallback = recoveryCallback;
+        this.blackListedNodes = blackListedNodes;
 
         initializeWithFailedNodes();
     }
@@ -152,14 +155,12 @@ public class StreamingClient extends BaseStreamingClient {
         Versioned<byte[]> slopValue = new Versioned<byte[]>(slopSerializer.toBytes(slop),
                                                             value.getVersion());
 
-        int totalNodes = storeToRoutingStrategy.get(storeName).getNodes().size();
-
-        int slopDestination = generator.nextInt(totalNodes);
-
-        // Make sure we do not route back the slop to the faulty node :-)
-        while(failedNodeId == slopDestination) {
-            slopDestination = generator.nextInt(totalNodes);
-        }
+        Node failedNode = adminClient.getAdminClientCluster().getNodeById(failedNodeId);
+        HandoffToAnyStrategy slopRoutingStrategy = new HandoffToAnyStrategy(adminClient.getAdminClientCluster(),
+                                                                            true,
+                                                                            failedNode.getZoneId());
+        // node Id which will recieve the slop
+        int slopDestination = slopRoutingStrategy.routeHint(failedNode).get(0).getId();
 
         VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
                                                                               .setKey(ProtoUtils.encodeBytes(slopKey))
@@ -194,7 +195,13 @@ public class StreamingClient extends BaseStreamingClient {
 
         // we only support single node failures
 
-        if(blackListedNodes != null && blackListedNodes.size() == MAX_FAULTY_NODES) {
+        if(blackListedNodes == null || blackListedNodes.size() == 0) {
+            super.initStreamingSessions(stores,
+                                        stubCheckpointCallback,
+                                        stubRecoveryCallback,
+                                        allowMerge,
+                                        null);
+        } else if(blackListedNodes != null && blackListedNodes.size() <= MAX_FAULTY_NODES) {
             super.initStreamingSessions(stores,
                                         stubCheckpointCallback,
                                         stubRecoveryCallback,
@@ -202,13 +209,6 @@ public class StreamingClient extends BaseStreamingClient {
                                         blackListedNodes);
 
             super.addStoreToSession("slop");
-
-        } else if(blackListedNodes == null || blackListedNodes.size() == 0) {
-            super.initStreamingSessions(stores,
-                                        stubCheckpointCallback,
-                                        stubRecoveryCallback,
-                                        allowMerge,
-                                        null);
 
         } else {
             throw new InsufficientOperationalNodesException("More than " + MAX_FAULTY_NODES
