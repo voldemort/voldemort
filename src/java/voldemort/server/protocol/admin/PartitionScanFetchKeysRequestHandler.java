@@ -58,7 +58,7 @@ public class PartitionScanFetchKeysRequestHandler extends PartitionScanFetchStre
               networkClassLoader,
               Operation.FETCH_KEYS);
         logger.info("Starting fetch keys for store '" + storageEngine.getName()
-                    + "' with replica to partition mapping " + replicaToPartitionList);
+                    + "' with replica to partition mapping " + partitionIds);
 
         keysPartitionIterator = null;
     }

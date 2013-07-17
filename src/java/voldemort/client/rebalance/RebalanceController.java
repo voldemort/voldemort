@@ -17,9 +17,7 @@
 package voldemort.client.rebalance;
 
 import java.text.DecimalFormat;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +28,6 @@ import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.rebalance.task.DonorBasedRebalanceTask;
 import voldemort.client.rebalance.task.RebalanceTask;
 import voldemort.client.rebalance.task.StealerBasedRebalanceTask;
 import voldemort.cluster.Cluster;
@@ -318,9 +315,9 @@ public class RebalanceController {
         final List<StoreDefinition> batchFinalStoreDefs = batchPlan.getFinalStoreDefs();
 
         try {
-            final List<RebalancePartitionsInfo> rebalancePartitionsInfoList = batchPlan.getBatchPlan();
+            final List<RebalanceTaskInfo> rebalanceTaskInfoList = batchPlan.getBatchPlan();
 
-            if (rebalancePartitionsInfoList.isEmpty()) {
+            if (rebalanceTaskInfoList.isEmpty()) {
                 RebalanceUtils.printBatchLog(batchId, logger, "Skipping batch "
                         + batchId + " since it is empty.");
                 // Even though there is no rebalancing work to do, cluster
@@ -330,7 +327,7 @@ public class RebalanceController {
                                                               batchFinalCluster,
                                                               batchCurrentStoreDefs,
                                                               batchFinalStoreDefs,
-                                                              rebalancePartitionsInfoList,
+                                                              rebalanceTaskInfoList,
                                                               false,
                                                               true,
                                                               false,
@@ -354,7 +351,7 @@ public class RebalanceController {
 
             // STEP 1 - Cluster state change
             boolean finishedReadOnlyPhase = false;
-            List<RebalancePartitionsInfo> filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionsInfoList,
+            List<RebalanceTaskInfo> filteredRebalancePartitionPlanList = RebalanceUtils.filterTaskPlanWithStores(rebalanceTaskInfoList,
                                                                                                                             readOnlyStoreDefs);
 
             rebalanceStateChange(batchId,
@@ -382,8 +379,7 @@ public class RebalanceController {
 
             // STEP 3 - Cluster change state
             finishedReadOnlyPhase = true;
-            filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionsInfoList,
-                                                                                              readWriteStoreDefs);
+            filteredRebalancePartitionPlanList = RebalanceUtils.filterTaskPlanWithStores(rebalanceTaskInfoList, readWriteStoreDefs);
 
             rebalanceStateChange(batchId,
                                  batchCurrentCluster,
@@ -478,7 +474,7 @@ public class RebalanceController {
                                  List<StoreDefinition> batchCurrentStoreDefs,
                                  Cluster batchFinalCluster,
                                  List<StoreDefinition> batchFinalStoreDefs,
-                                 List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                 List<RebalanceTaskInfo> rebalanceTaskPlanList,
                                  boolean hasReadOnlyStores,
                                  boolean hasReadWriteStores,
                                  boolean finishedReadOnlyStores) {
@@ -502,7 +498,7 @@ public class RebalanceController {
                                                               batchFinalCluster,
                                                               batchCurrentStoreDefs,
                                                               batchFinalStoreDefs,
-                                                              rebalancePartitionPlanList,
+                                                              rebalanceTaskPlanList,
                                                               false,
                                                               true,
                                                               true,
@@ -517,7 +513,7 @@ public class RebalanceController {
                                                               batchFinalCluster,
                                                               batchCurrentStoreDefs,
                                                               batchFinalStoreDefs,
-                                                              rebalancePartitionPlanList,
+                                                              rebalanceTaskPlanList,
                                                               false,
                                                               false,
                                                               true,
@@ -533,7 +529,7 @@ public class RebalanceController {
                                                               batchFinalCluster,
                                                               batchCurrentStoreDefs,
                                                               batchFinalStoreDefs,
-                                                              rebalancePartitionPlanList,
+                                                              rebalanceTaskPlanList,
                                                               true,
                                                               true,
                                                               false,
@@ -548,7 +544,7 @@ public class RebalanceController {
                                                               batchFinalCluster,
                                                               batchCurrentStoreDefs,
                                                               batchFinalStoreDefs,
-                                                              rebalancePartitionPlanList,
+                                                              rebalanceTaskPlanList,
                                                               true,
                                                               true,
                                                               true,
@@ -609,7 +605,7 @@ public class RebalanceController {
                             RebalanceBatchPlanProgressBar progressBar,
                             final Cluster batchRollbackCluster,
                             final List<StoreDefinition> batchRollbackStoreDefs,
-                            final List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                            final List<RebalanceTaskInfo> rebalanceTaskPlanList,
                             boolean hasReadOnlyStores,
                             boolean hasReadWriteStores,
                             boolean finishedReadOnlyStores) {
@@ -635,7 +631,7 @@ public class RebalanceController {
             List<RebalanceTask> allTasks = executeTasks(batchId,
                                                         progressBar,
                                                         service,
-                                                        rebalancePartitionPlanList,
+                                                        rebalanceTaskPlanList,
                                                         donorPermits);
             RebalanceUtils.printBatchLog(batchId,
                                          logger,
@@ -726,19 +722,19 @@ public class RebalanceController {
             executeTasks(final int batchId,
                          RebalanceBatchPlanProgressBar progressBar,
                          final ExecutorService service,
-                         List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                         List<RebalanceTaskInfo> rebalanceTaskPlanList,
                          Semaphore[] donorPermits) {
         List<RebalanceTask> taskList = Lists.newArrayList();
         int taskId = 0;
         if (stealerBasedRebalancing) {
             RebalanceScheduler scheduler = new RebalanceScheduler(service, maxParallelRebalancing);
             List<StealerBasedRebalanceTask> sbTaskList = Lists.newArrayList();
-            for (RebalancePartitionsInfo partitionsInfo : rebalancePartitionPlanList) {
+            for (RebalanceTaskInfo taskInfo : rebalanceTaskPlanList) {
                 StealerBasedRebalanceTask rebalanceTask = new StealerBasedRebalanceTask(batchId,
                                                                                         taskId,
-                                                                                        partitionsInfo,
+                                                                                        taskInfo,
                                                                                         maxTriesRebalancing,
-                                                                                        donorPermits[partitionsInfo.getDonorId()],
+                                                                                        donorPermits[taskInfo.getDonorId()],
                                                                                         adminClient,
                                                                                         progressBar,
                                                                                         scheduler);
@@ -748,24 +744,26 @@ public class RebalanceController {
                 taskId++;
             }
             scheduler.run(sbTaskList);
-        } else {
-            // Group by donor nodes
-            HashMap<Integer, List<RebalancePartitionsInfo>> donorNodeBasedPartitionsInfo = RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
-                                                                                                                                    false);
-            for (Entry<Integer, List<RebalancePartitionsInfo>> entries : donorNodeBasedPartitionsInfo.entrySet()) {
-                DonorBasedRebalanceTask rebalanceTask = new DonorBasedRebalanceTask(batchId,
-                                                                                    taskId,
-                                                                                    entries.getValue(),
-                                                                                    donorPermits[entries.getValue()
-                                                                                                        .get(0)
-                                                                                                        .getDonorId()],
-                                                                                    adminClient,
-                                                                                    progressBar);
-                taskList.add(rebalanceTask);
-                service.execute(rebalanceTask);
-                taskId++;
-            }
         }
+        // TODO (Sid) : Comment this for replica type cleanup. Decide later.
+//        } else {
+//            // Group by donor nodes
+//            HashMap<Integer, List<RebalancePartitionsInfo>> donorNodeBasedPartitionsInfo = RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
+//                                                                                                                                    false);
+//            for (Entry<Integer, List<RebalancePartitionsInfo>> entries : donorNodeBasedPartitionsInfo.entrySet()) {
+//                DonorBasedRebalanceTask rebalanceTask = new DonorBasedRebalanceTask(batchId,
+//                                                                                    taskId,
+//                                                                                    entries.getValue(),
+//                                                                                    donorPermits[entries.getValue()
+//                                                                                                        .get(0)
+//                                                                                                        .getDonorId()],
+//                                                                                    adminClient,
+//                                                                                    progressBar);
+//                taskList.add(rebalanceTask);
+//                service.execute(rebalanceTask);
+//                taskId++;
+//            }
+//        }
         return taskList;
     }
 

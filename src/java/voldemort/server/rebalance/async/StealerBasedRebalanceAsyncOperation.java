@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.VoldemortRebalancingException;
@@ -42,14 +42,14 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
 
     private List<Integer> rebalanceStatusList;
 
-    private final RebalancePartitionsInfo stealInfo;
+    private final RebalanceTaskInfo stealInfo;
     private final int partitionStoreCount;
 
     public StealerBasedRebalanceAsyncOperation(Rebalancer rebalancer,
                                                VoldemortConfig voldemortConfig,
                                                MetadataStore metadataStore,
                                                int requestId,
-                                               RebalancePartitionsInfo stealInfo) {
+                                               RebalanceTaskInfo stealInfo) {
         super(rebalancer,
               voldemortConfig,
               metadataStore,
@@ -70,11 +70,11 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
         final List<Exception> failures = new ArrayList<Exception>();
         final ConcurrentLinkedQueue<String> storesRebalancing = new ConcurrentLinkedQueue<String>();
         final AtomicInteger completedStoresCount = new AtomicInteger(0);
-        final int totalStoresCount = stealInfo.getUnbalancedStoreList().size();
+        final int totalStoresCount = stealInfo.getPartitionStores().size();
 
         try {
 
-            for(final String storeName: ImmutableList.copyOf(stealInfo.getUnbalancedStoreList())) {
+            for (final String storeName : ImmutableList.copyOf(stealInfo.getPartitionStores())) {
 
                 executors.submit(new Runnable() {
 
@@ -121,7 +121,7 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
             waitForShutdown();
 
             // If empty, clean state
-            List<String> unbalancedStores = Lists.newArrayList(stealInfo.getUnbalancedStoreList());
+            List<String> unbalancedStores = Lists.newArrayList(stealInfo.getPartitionStores());
             if(unbalancedStores.isEmpty()) {
                 logger.info(getHeader(stealInfo) + "Rebalance of " + stealInfo
                             + " completed successfully for all " + totalStoresCount + " stores");
@@ -160,7 +160,7 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
         executors.shutdownNow();
     }
 
-    private String getHeader(RebalancePartitionsInfo stealInfo) {
+    private String getHeader(RebalanceTaskInfo stealInfo) {
         return "Stealer " + stealInfo.getStealerId() + ", Donor " + stealInfo.getDonorId() + "] ";
     }
 
@@ -174,11 +174,10 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
      */
     private void rebalanceStore(String storeName,
                                 final AdminClient adminClient,
-                                RebalancePartitionsInfo stealInfo,
+                                RebalanceTaskInfo stealInfo,
                                 boolean isReadOnlyStore) {
         // Move partitions
-        if(stealInfo.getReplicaToAddPartitionList(storeName) != null
-           && stealInfo.getReplicaToAddPartitionList(storeName).size() > 0) {
+        if (stealInfo.getPartitionIds(storeName) != null && stealInfo.getPartitionIds(storeName).size() > 0) {
 
             logger.info(getHeader(stealInfo) + "Starting partitions migration for store "
                         + storeName + " from donor node " + stealInfo.getDonorId());
@@ -186,7 +185,7 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
             int asyncId = adminClient.storeMntOps.migratePartitions(stealInfo.getDonorId(),
                                                                     metadataStore.getNodeId(),
                                                                     storeName,
-                                                                    stealInfo.getReplicaToAddPartitionList(storeName),
+                                                                    stealInfo.getPartitionIds(storeName),
                                                                     null,
                                                                     stealInfo.getInitialCluster(),
                                                                     true);

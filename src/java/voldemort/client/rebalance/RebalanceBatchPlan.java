@@ -54,7 +54,7 @@ public class RebalanceBatchPlan {
     private final Cluster finalCluster;
     private final List<StoreDefinition> finalStoreDefs;
 
-    protected final List<RebalancePartitionsInfo> batchPlan;
+    protected final List<RebalanceTaskInfo> batchPlan;
 
     /**
      * Develops a batch plan to go from current cluster/stores to final
@@ -111,7 +111,7 @@ public class RebalanceBatchPlan {
         return finalStoreDefs;
     }
 
-    public List<RebalancePartitionsInfo> getBatchPlan() {
+    public List<RebalanceTaskInfo> getBatchPlan() {
         return batchPlan;
     }
 
@@ -122,7 +122,7 @@ public class RebalanceBatchPlan {
     public MoveMap getZoneMoveMap() {
         MoveMap moveMap = new MoveMap(finalCluster.getZoneIds());
 
-        for(RebalancePartitionsInfo info: batchPlan) {
+        for (RebalanceTaskInfo info : batchPlan) {
             int fromZoneId = finalCluster.getNodeById(info.getDonorId()).getZoneId();
             int toZoneId = finalCluster.getNodeById(info.getStealerId()).getZoneId();
             moveMap.add(fromZoneId, toZoneId, info.getPartitionStoreMoves());
@@ -134,7 +134,7 @@ public class RebalanceBatchPlan {
     public MoveMap getNodeMoveMap() {
         MoveMap moveMap = new MoveMap(finalCluster.getNodeIds());
 
-        for(RebalancePartitionsInfo info: batchPlan) {
+        for (RebalanceTaskInfo info : batchPlan) {
             moveMap.add(info.getDonorId(), info.getStealerId(), info.getPartitionStoreMoves());
         }
 
@@ -148,7 +148,7 @@ public class RebalanceBatchPlan {
      */
     public int getCrossZonePartitionStoreMoves() {
         int xzonePartitionStoreMoves = 0;
-        for(RebalancePartitionsInfo info: batchPlan) {
+        for (RebalanceTaskInfo info : batchPlan) {
             Node donorNode = finalCluster.getNodeById(info.getDonorId());
             Node stealerNode = finalCluster.getNodeById(info.getStealerId());
 
@@ -168,7 +168,7 @@ public class RebalanceBatchPlan {
     public int getPartitionStoreMoves() {
         int partitionStoreMoves = 0;
 
-        for(RebalancePartitionsInfo info: batchPlan) {
+        for (RebalanceTaskInfo info : batchPlan) {
             partitionStoreMoves += info.getPartitionStoreMoves();
         }
 
@@ -182,6 +182,49 @@ public class RebalanceBatchPlan {
      */
     public int getTaskCount() {
         return batchPlan.size();
+    }
+    
+    /**
+     * Gathers all of the state necessary to build a
+     * List<RebalancePartitionsInfo> which is effectively a (batch) plan.
+     */
+    private class RebalanceTaskInfoBuilder {
+
+        final HashMap<Pair<Integer, Integer>, HashMap<String, List<Integer>>> stealerDonorToStoreToStealPartition;
+
+        RebalanceTaskInfoBuilder() {
+            stealerDonorToStoreToStealPartition = Maps.newHashMap();
+        }
+
+        public void addPartitionStoreMove(int stealerNodeId,
+                                          int donorNodeId,
+                                          String storeName) {
+            Pair<Integer, Integer> stealerDonor = new Pair<Integer, Integer>(stealerNodeId,
+                                                                             donorNodeId);
+            if (!stealerDonorToStoreToStealPartition.containsKey(stealerDonor)) {
+                stealerDonorToStoreToStealPartition.put(stealerDonor,
+                                                        new HashMap<String, List<Integer>>());
+            }
+
+            HashMap<String, List<Integer>> storeToStealPartition = stealerDonorToStoreToStealPartition.get(stealerDonor);
+            if (!storeToStealPartition.containsKey(storeName)) {
+                storeToStealPartition.put(storeName, new ArrayList<Integer>());
+            }
+            List<Integer> partitionIds = storeToStealPartition.get(storeName);
+
+        }
+
+        public List<RebalanceTaskInfo> buildRebalanceTaskInfos() {
+            final List<RebalanceTaskInfo> result = new ArrayList<RebalanceTaskInfo>();
+
+            for(Pair<Integer, Integer> stealerDonor: stealerDonorToStoreToStealPartition.keySet()) {
+                result.add(new RebalanceTaskInfo(stealerDonor.getFirst(),
+                                                 stealerDonor.getSecond(),
+                                                 stealerDonorToStoreToStealPartition.get(stealerDonor),
+                                                 currentCluster));
+            }
+            return result;
+        }
     }
 
     // TODO: (replicaType) As part of dropping replicaType and
@@ -252,7 +295,7 @@ public class RebalanceBatchPlan {
      * 
      * @return the batch plan
      */
-    private List<RebalancePartitionsInfo> constructBatchPlan() {
+    private List<RebalanceTaskInfo> constructBatchPlan() {
         // Construct all store routing plans once.
         HashMap<String, StoreRoutingPlan> currentStoreRoutingPlans = new HashMap<String, StoreRoutingPlan>();
         for(StoreDefinition storeDef: currentStoreDefs) {
@@ -265,7 +308,7 @@ public class RebalanceBatchPlan {
                                                                                 storeDef));
         }
 
-        RebalancePartitionsInfoBuilder rpiBuilder = new RebalancePartitionsInfoBuilder();
+        RebalanceTaskInfoBuilder rpiBuilder = new RebalanceTaskInfoBuilder();
         // For every node in the final cluster ...
         for(Node stealerNode: finalCluster.getNodes()) {
             int stealerZoneId = stealerNode.getZoneId();
@@ -299,14 +342,12 @@ public class RebalanceBatchPlan {
                                                                      stealerPartitionId);
                     rpiBuilder.addPartitionStoreMove(stealerNodeId,
                                                      donorNodeId,
-                                                     storeDef.getName(),
-                                                     donorReplicaType,
-                                                     stealerPartitionId);
+                                                     storeDef.getName());
                 }
             }
         }
 
-        return rpiBuilder.buildRebalancePartitionsInfos();
+        return rpiBuilder.buildRebalanceTaskInfos();
     }
 
     /**
@@ -388,7 +429,7 @@ public class RebalanceBatchPlan {
 
         StringBuilder builder = new StringBuilder();
         builder.append("Rebalancing Batch Plan : ").append(Utils.NEWLINE);
-        builder.append(RebalancePartitionsInfo.taskListToString(batchPlan));
+        builder.append(RebalanceTaskInfo.taskListToString(batchPlan));
 
         return builder.toString();
     }

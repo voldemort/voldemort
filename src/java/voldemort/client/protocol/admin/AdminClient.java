@@ -28,6 +28,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -56,10 +57,11 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
-import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
+import voldemort.client.protocol.pb.VAdminProto.RebalanceTaskInfoMap;
 import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -375,9 +377,9 @@ public class AdminClient {
          * @return Map of node id to map of replica type and corresponding
          *         partition list
          */
-        public Map<Integer, HashMap<Integer, List<Integer>>> getReplicationMapping(int restoringNode,
-                                                                                   Cluster cluster,
-                                                                                   StoreDefinition storeDef) {
+        public Map<Integer, List<Integer>> getReplicationMapping(int restoringNode,
+                                                                 Cluster cluster,
+                                                                 StoreDefinition storeDef) {
             return getReplicationMapping(restoringNode, cluster, storeDef, -1);
         }
 
@@ -394,12 +396,12 @@ public class AdminClient {
          * @return Map of node id to map of replica type and corresponding
          *         partition list
          */
-        public Map<Integer, HashMap<Integer, List<Integer>>> getReplicationMapping(int restoringNode,
-                                                                                   Cluster cluster,
-                                                                                   StoreDefinition storeDef,
-                                                                                   int zoneId) {
+        public Map<Integer, List<Integer>> getReplicationMapping(int restoringNode,
+                                                                 Cluster cluster,
+                                                                 StoreDefinition storeDef,
+                                                                 int zoneId) {
 
-            Map<Integer, HashMap<Integer, List<Integer>>> returnMap = Maps.newHashMap();
+            Map<Integer, List<Integer>> returnMap = Maps.newHashMap();
 
             RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                           cluster);
@@ -459,7 +461,7 @@ public class AdminClient {
          */
         private void addDonorWithZonePreference(List<Integer> remainderPartitions,
                                                 List<Integer> originalPartitions,
-                                                Map<Integer, HashMap<Integer, List<Integer>>> donorMap,
+                                                Map<Integer, List<Integer>> donorMap,
                                                 int zoneId,
                                                 Cluster cluster,
                                                 StoreDefinition storeDef) {
@@ -487,22 +489,23 @@ public class AdminClient {
             }
 
             partition = originalPartitions.get(0);
-            HashMap<Integer, List<Integer>> replicaToPartitionList = null;
+            List<Integer> partitionIds = null;
             if(donorMap.containsKey(nodeId)) {
-                replicaToPartitionList = donorMap.get(nodeId);
+                partitionIds = donorMap.get(nodeId);
             } else {
-                replicaToPartitionList = Maps.newHashMap();
-                donorMap.put(nodeId, replicaToPartitionList);
+                partitionIds = Collections.emptyList();
+                donorMap.put(nodeId, partitionIds);
             }
-
-            List<Integer> partitions = null;
-            if(replicaToPartitionList.containsKey(replicaType)) {
-                partitions = replicaToPartitionList.get(replicaType);
-            } else {
-                partitions = Lists.newArrayList();
-                replicaToPartitionList.put(replicaType, partitions);
-            }
-            partitions.add(partition);
+            
+            // TODO (Sid): Commenting this for removing replica type.
+            // List<Integer> partitions = null;
+            // if(replicaToPartitionList.containsKey(replicaType)) {
+            // partitions = replicaToPartitionList.get(replicaType);
+            // } else {
+            // partitions = Lists.newArrayList();
+            // replicaToPartitionList.put(replicaType, partitions);
+            // }
+            // partitions.add(partition);
         }
 
         public void throwException(VProto.Error error) {
@@ -1196,9 +1199,7 @@ public class AdminClient {
             return migratePartitions(donorNodeId,
                                      stealerNodeId,
                                      storeName,
-                                     helperOps.getReplicaToPartitionMap(donorNodeId,
-                                                                        storeName,
-                                                                        stealPartitionList),
+                                     stealPartitionList,
                                      filter,
                                      null,
                                      false);
@@ -1237,13 +1238,13 @@ public class AdminClient {
         public int migratePartitions(int donorNodeId,
                                      int stealerNodeId,
                                      String storeName,
-                                     HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                     List<Integer> partitionIds,
                                      VoldemortFilter filter,
                                      Cluster initialCluster,
                                      boolean optimize) {
             VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest = VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                                                                                                                                        .setNodeId(donorNodeId)
-                                                                                                                                       .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
+                                                                                                                                       .addAllPartitionIds(partitionIds)
                                                                                                                                        .setStore(storeName);
 
             try {
@@ -1315,9 +1316,7 @@ public class AdminClient {
                                      VoldemortFilter filter) {
             return deletePartitions(nodeId,
                                     storeName,
-                                    helperOps.getReplicaToPartitionMap(nodeId,
-                                                                       storeName,
-                                                                       partitionList),
+                                    partitionList,
                                     null,
                                     filter);
         }
@@ -1335,12 +1334,12 @@ public class AdminClient {
          */
         public long deletePartitions(int nodeId,
                                      String storeName,
-                                     HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                     List<Integer> partitionIds,
                                      Cluster initialCluster,
                                      VoldemortFilter filter) {
             VAdminProto.DeletePartitionEntriesRequest.Builder deleteRequest = VAdminProto.DeletePartitionEntriesRequest.newBuilder()
-                                                                                                                       .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
-                                                                                                                       .setStore(storeName);
+                                                                                                                        .addAllPartitionIds(partitionIds) 
+                                                                                                                        .setStore(storeName);
 
             try {
                 if(filter != null) {
@@ -1486,25 +1485,27 @@ public class AdminClient {
 
         private void initiateFetchRequest(DataOutputStream outputStream,
                                           String storeName,
-                                          HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                          List<Integer> partitionIds,
                                           VoldemortFilter filter,
                                           boolean fetchValues,
                                           boolean fetchMasterEntries,
                                           Cluster initialCluster,
                                           long recordsPerPartition) throws IOException {
-            HashMap<Integer, List<Integer>> filteredReplicaToPartitionList = Maps.newHashMap();
-            if(fetchMasterEntries) {
-                if(!replicaToPartitionList.containsKey(0)) {
-                    throw new VoldemortException("Could not find any partitions for primary replica type");
-                } else {
-                    filteredReplicaToPartitionList.put(0, replicaToPartitionList.get(0));
-                }
-            } else {
-                filteredReplicaToPartitionList.putAll(replicaToPartitionList);
-            }
+            // TODO (Sid): Commenting this for removing replica type.
+            // HashMap<Integer, List<Integer>> filteredReplicaToPartitionList = Maps.newHashMap();
+            // if(fetchMasterEntries) {
+            // if(!replicaToPartitionList.containsKey(0)) {
+            // throw new
+            // VoldemortException("Could not find any partitions for primary replica type");
+            // } else {
+            // filteredReplicaToPartitionList.put(0, replicaToPartitionList.get(0));
+            // }
+            // } else {
+            // filteredReplicaToPartitionList.putAll(replicaToPartitionList);
+            // }
             VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest = VAdminProto.FetchPartitionEntriesRequest.newBuilder()
                                                                                                                     .setFetchValues(fetchValues)
-                                                                                                                    .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(filteredReplicaToPartitionList))
+                                                                                                                    .addAllPartitionIds(partitionIds)
                                                                                                                     .setStore(storeName)
                                                                                                                     .setRecordsPerPartition(recordsPerPartition);
 
@@ -1626,13 +1627,13 @@ public class AdminClient {
          */
         public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
                                                                          String storeName,
-                                                                         List<Integer> partitionList,
+                                                                         List<Integer> partitionIds,
                                                                          VoldemortFilter filter,
                                                                          boolean fetchMasterEntries,
                                                                          long recordsPerPartition) {
             return fetchEntries(nodeId,
                                 storeName,
-                                helperOps.getReplicaToPartitionMap(nodeId, storeName, partitionList),
+                                partitionIds,
                                 filter,
                                 fetchMasterEntries,
                                 null,
@@ -1700,7 +1701,7 @@ public class AdminClient {
          */
         public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
                                                                          String storeName,
-                                                                         HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                                                         List<Integer> partitionIds,
                                                                          VoldemortFilter filter,
                                                                          boolean fetchMasterEntries,
                                                                          Cluster initialCluster,
@@ -1717,7 +1718,7 @@ public class AdminClient {
             try {
                 initiateFetchRequest(outputStream,
                                      storeName,
-                                     replicaToPartitionList,
+                                     partitionIds,
                                      filter,
                                      true,
                                      fetchMasterEntries,
@@ -1845,13 +1846,13 @@ public class AdminClient {
          */
         public Iterator<ByteArray> fetchKeys(int nodeId,
                                              String storeName,
-                                             List<Integer> partitionList,
+                                             List<Integer> partitionIds,
                                              VoldemortFilter filter,
                                              boolean fetchMasterEntries,
                                              long recordsPerPartition) {
             return fetchKeys(nodeId,
                              storeName,
-                             helperOps.getReplicaToPartitionMap(nodeId, storeName, partitionList),
+                             partitionIds,
                              filter,
                              fetchMasterEntries,
                              null,
@@ -1896,7 +1897,7 @@ public class AdminClient {
          */
         public Iterator<ByteArray> fetchKeys(int nodeId,
                                              String storeName,
-                                             HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                             List<Integer> partitionIds,
                                              VoldemortFilter filter,
                                              boolean fetchMasterEntries,
                                              Cluster initialCluster,
@@ -1912,7 +1913,7 @@ public class AdminClient {
             try {
                 initiateFetchRequest(outputStream,
                                      storeName,
-                                     replicaToPartitionList,
+                                     partitionIds,
                                      filter,
                                      false,
                                      fetchMasterEntries,
@@ -2328,20 +2329,25 @@ public class AdminClient {
          * @param stealInfo Partition steal information
          * @return The request id of the async operation
          */
-        public int rebalanceNode(RebalancePartitionsInfo stealInfo) {
-            VAdminProto.RebalancePartitionInfoMap rebalancePartitionInfoMap = ProtoUtils.encodeRebalancePartitionInfoMap(stealInfo);
-            VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
-                                                                                                                    .setRebalancePartitionInfo(rebalancePartitionInfoMap)
-                                                                                                                    .build();
-            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                              .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
-                                                                                              .setInitiateRebalanceNode(rebalanceNodeRequest)
-                                                                                              .build();
+        public int rebalanceNode(RebalanceTaskInfo stealInfo) {
+            VAdminProto.RebalanceTaskInfoMap rebalanceTaskInfoMap = ProtoUtils.encodeRebalanceTaskInfoMap(stealInfo);
+            VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest
+                                                                            .newBuilder()
+                                                                            .setRebalanceTaskInfo(rebalanceTaskInfoMap)
+                                                                            .build();
+                                                                         
+                                                                                                                 
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest
+                                                                        .newBuilder()
+                                                                        .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
+                                                                        .setInitiateRebalanceNode(rebalanceNodeRequest)
+                                                                        .build();
+
             VAdminProto.AsyncOperationStatusResponse.Builder response = rpcOps.sendAndReceive(stealInfo.getStealerId(),
                                                                                               adminRequest,
                                                                                               VAdminProto.AsyncOperationStatusResponse.newBuilder());
 
-            if(response.hasError())
+            if (response.hasError())
                 helperOps.throwException(response.getError());
 
             return response.getRequestId();
@@ -2453,13 +2459,13 @@ public class AdminClient {
                                          Cluster transitionCluster,
                                          List<StoreDefinition> existingStoreDefs,
                                          List<StoreDefinition> targetStoreDefs,
-                                         List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                         List<RebalanceTaskInfo> rebalanceTaskPlanList,
                                          boolean swapRO,
                                          boolean changeClusterMetadata,
                                          boolean changeRebalanceState,
                                          boolean rollback,
                                          boolean failEarly) {
-            HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
+            HashMap<Integer, List<RebalanceTaskInfo>> stealerNodeToPlan = RebalanceUtils.groupPartitionsTaskByNode(rebalanceTaskPlanList,
                                                                                                                          true);
             Set<Integer> completedNodeIds = Sets.newHashSet();
 
@@ -2554,7 +2560,7 @@ public class AdminClient {
         private void individualStateChange(int nodeId,
                                            Cluster cluster,
                                            List<StoreDefinition> storeDefs,
-                                           List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                           List<RebalanceTaskInfo> rebalanceTaskPlanList,
                                            boolean swapRO,
                                            boolean changeClusterMetadata,
                                            boolean changeRebalanceState,
@@ -2562,7 +2568,7 @@ public class AdminClient {
 
             // If we do not want to change the metadata and are not one of the
             // stealer nodes, nothing to do
-            if(!changeClusterMetadata && rebalancePartitionPlanList == null) {
+            if(!changeClusterMetadata && rebalanceTaskPlanList == null) {
                 return;
             }
 
@@ -2574,17 +2580,17 @@ public class AdminClient {
                         + (swapRO ? "<swap RO>" : "")
                         + (changeClusterMetadata ? "<change cluster - " + cluster + ">" : "")
                         + (changeRebalanceState ? "<change rebalance state - "
-                                                  + rebalancePartitionPlanList + ">" : ""));
+                                                  + rebalanceTaskPlanList + ">" : ""));
 
             VAdminProto.RebalanceStateChangeRequest.Builder getRebalanceStateChangeRequestBuilder = VAdminProto.RebalanceStateChangeRequest.newBuilder();
 
-            if(rebalancePartitionPlanList != null) {
-                List<RebalancePartitionInfoMap> map = Lists.newArrayList();
-                for(RebalancePartitionsInfo stealInfo: rebalancePartitionPlanList) {
-                    RebalancePartitionInfoMap infoMap = ProtoUtils.encodeRebalancePartitionInfoMap(stealInfo);
+            if (rebalanceTaskPlanList != null) {
+                List<RebalanceTaskInfoMap> map = Lists.newArrayList();
+                for (RebalanceTaskInfo stealInfo : rebalanceTaskPlanList) {
+                    RebalanceTaskInfoMap infoMap = ProtoUtils.encodeRebalanceTaskInfoMap(stealInfo);
                     map.add(infoMap);
                 }
-                getRebalanceStateChangeRequestBuilder.addAllRebalancePartitionInfoList(map);
+                getRebalanceStateChangeRequestBuilder.addAllRebalancePartitionTaskList(map);
             }
 
             VAdminProto.RebalanceStateChangeRequest getRebalanceStateChangeRequest = getRebalanceStateChangeRequestBuilder.setSwapRo(swapRO)
@@ -2703,12 +2709,12 @@ public class AdminClient {
             logger.info("Restoring data for store " + storeDef.getName() + " on node "
                         + restoringNodeId);
 
-            Map<Integer, HashMap<Integer, List<Integer>>> restoreMapping = helperOps.getReplicationMapping(restoringNodeId,
-                                                                                                           cluster,
-                                                                                                           storeDef,
-                                                                                                           zoneId);
+            Map<Integer, List<Integer>> restoreMapping = helperOps.getReplicationMapping(restoringNodeId,
+                                                                                         cluster,
+                                                                                         storeDef, 
+                                                                                         zoneId);
             // migrate partition
-            for(final Entry<Integer, HashMap<Integer, List<Integer>>> replicationEntry: restoreMapping.entrySet()) {
+            for (final Entry<Integer, List<Integer>> replicationEntry : restoreMapping.entrySet()) {
                 final int donorNodeId = replicationEntry.getKey();
                 executorService.submit(new Runnable() {
 
@@ -3157,7 +3163,7 @@ public class AdminClient {
          */
         public void fetchPartitionFiles(int nodeId,
                                         String storeName,
-                                        HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                        List<Integer> partitionIds,
                                         String destinationDirPath,
                                         Set<Object> notAcceptedBuckets,
                                         AtomicBoolean running) {
@@ -3188,10 +3194,13 @@ public class AdminClient {
                     FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
                 }
 
-                VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto.FetchPartitionFilesRequest.newBuilder()
-                                                                                                                         .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
-                                                                                                                         .setStore(storeName)
-                                                                                                                         .build();
+                VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto
+                                                                                   .FetchPartitionFilesRequest
+                                                                                   .newBuilder()
+                                                                                   .setStoreName(storeName)
+                                                                                   .addAllPartitionIds(partitionIds)
+                                                                                   .build();
+                
                 VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                              .setFetchPartitionFiles(fetchPartitionFileRequest)
                                                                                              .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_FILES)

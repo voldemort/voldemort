@@ -92,7 +92,7 @@ public class RebalanceScheduler {
                 throw new VoldemortException("StealerBasedRebalanceTasks should have a list of RebalancePartitionsInfo of length 1.");
             }
 
-            RebalancePartitionsInfo stealInfo = task.getStealInfos().get(0);
+            RebalanceTaskInfo stealInfo = task.getStealInfos().get(0);
             int stealerId = stealInfo.getStealerId();
             if (!this.tasksByStealer.containsKey(stealerId)) {
                 this.tasksByStealer.put(stealerId, new ArrayList<StealerBasedRebalanceTask>());

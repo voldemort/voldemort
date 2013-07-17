@@ -53,7 +53,7 @@ public class FullScanFetchKeysRequestHandler extends FullScanFetchStreamRequestH
               networkClassLoader,
               Operation.FETCH_KEYS);
         logger.info("Starting fetch keys for store '" + storageEngine.getName()
-                    + "' with replica to partition mapping " + replicaToPartitionList);
+                    + "' partitions " + partitionIds);
     }
 
     @Override

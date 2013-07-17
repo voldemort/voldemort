@@ -26,6 +26,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -148,7 +149,7 @@ public class Rebalancer implements Runnable {
      */
     public void rebalanceStateChange(Cluster cluster,
                                      List<StoreDefinition> storeDefs,
-                                     List<RebalancePartitionsInfo> rebalancePartitionsInfo,
+                                     List<RebalanceTaskInfo> rebalanceTaskInfo,
                                      boolean swapRO,
                                      boolean changeClusterAndStoresMetadata,
                                      boolean changeRebalanceState,
@@ -162,7 +163,7 @@ public class Rebalancer implements Runnable {
                     + " ], [ rollback - " + rollback + " ]");
 
         // Variables to track what has completed
-        List<RebalancePartitionsInfo> completedRebalancePartitionsInfo = Lists.newArrayList();
+        List<RebalanceTaskInfo> completedRebalanceTaskInfo = Lists.newArrayList();
         List<String> swappedStoreNames = Lists.newArrayList();
         boolean completedClusterAndStoresChange = false;
         boolean completedRebalanceSourceClusterChange = false;
@@ -214,9 +215,9 @@ public class Rebalancer implements Runnable {
 
                         completedRebalanceSourceClusterChange = true;
 
-                        for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
+                        for (RebalanceTaskInfo info : rebalanceTaskInfo) {
                             metadataStore.addRebalancingState(info);
-                            completedRebalancePartitionsInfo.add(info);
+                            completedRebalanceTaskInfo.add(info);
                         }
                     } else {
                         // Reset the rebalancing source cluster back to null
@@ -228,9 +229,9 @@ public class Rebalancer implements Runnable {
 
                         completedRebalanceSourceClusterChange = true;
 
-                        for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
+                        for (RebalanceTaskInfo info : rebalanceTaskInfo) {
                             metadataStore.deleteRebalancingState(info);
-                            completedRebalancePartitionsInfo.add(info);
+                            completedRebalanceTaskInfo.add(info);
                         }
                     }
                 } catch(Exception e) {
@@ -286,9 +287,9 @@ public class Rebalancer implements Runnable {
             }
 
             // CHANGE BACK ALL REBALANCING STATES FOR COMPLETED ONES
-            if(completedRebalancePartitionsInfo.size() > 0) {
+            if (completedRebalanceTaskInfo.size() > 0) {
                 if(!rollback) {
-                    for(RebalancePartitionsInfo info: completedRebalancePartitionsInfo) {
+                    for (RebalanceTaskInfo info : completedRebalanceTaskInfo) {
                         try {
                             metadataStore.deleteRebalancingState(info);
                         } catch(Exception exception) {
@@ -298,7 +299,7 @@ public class Rebalancer implements Runnable {
                         }
                     }
                 } else {
-                    for(RebalancePartitionsInfo info: completedRebalancePartitionsInfo) {
+                    for (RebalanceTaskInfo info : completedRebalanceTaskInfo) {
                         try {
                             metadataStore.addRebalancingState(info);
                         } catch(Exception exception) {
@@ -502,9 +503,9 @@ public class Rebalancer implements Runnable {
      * @param stealInfo Partition info to steal
      * @return Returns a id identifying the async operation
      */
-    public int rebalanceNode(final RebalancePartitionsInfo stealInfo) {
+    public int rebalanceNode(final RebalanceTaskInfo stealInfo) {
 
-        final RebalancePartitionsInfo info = metadataStore.getRebalancerState()
+        final RebalanceTaskInfo info = metadataStore.getRebalancerState()
                                                           .find(stealInfo.getDonorId());
 
         // Do we have the plan in the state?

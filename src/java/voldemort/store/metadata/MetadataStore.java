@@ -36,7 +36,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
@@ -559,7 +559,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * 
      * @param stealInfo The steal information to add
      */
-    public void addRebalancingState(final RebalancePartitionsInfo stealInfo) {
+    public void addRebalancingState(final RebalanceTaskInfo stealInfo) {
         // acquire write lock
         writeLock.lock();
         try {
@@ -591,7 +591,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * 
      * @param stealInfo The steal information to delete
      */
-    public void deleteRebalancingState(RebalancePartitionsInfo stealInfo) {
+    public void deleteRebalancingState(RebalanceTaskInfo stealInfo) {
         // acquire write lock
         writeLock.lock();
         try {
@@ -681,8 +681,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                                        + " (Did you copy config directory ? try deleting .temp .version in config dir to force clean) aborting ...");
 
         // Initialize with default if not present
-        initCache(REBALANCING_STEAL_INFO,
-                  new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
+        initCache(REBALANCING_STEAL_INFO, new RebalancerState(new ArrayList<RebalanceTaskInfo>()));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
         initCache(REBALANCING_SOURCE_CLUSTER_XML, null);
         initCache(REBALANCING_SOURCE_STORES_XML, null);
@@ -791,7 +790,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             if(valueString.startsWith("[")) {
                 valueObject = RebalancerState.create(valueString);
             } else {
-                valueObject = new RebalancerState(Arrays.asList(RebalancePartitionsInfo.create(valueString)));
+                valueObject = new RebalancerState(Arrays.asList(RebalanceTaskInfo.create(valueString)));
             }
         } else if(REBALANCING_SOURCE_CLUSTER_XML.equals(key)) {
             if(value.getValue() != null && value.getValue().length() > 0) {

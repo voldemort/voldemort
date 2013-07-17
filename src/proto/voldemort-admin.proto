@@ -67,12 +67,12 @@ message UpdateSlopEntriesResponse {
   optional Error error = 1;
 }
 message FetchPartitionFilesRequest {
-  required string store = 1;
-  repeated PartitionTuple replica_to_partition = 2;
+   required string store_name = 1;
+   repeated int32 partition_ids = 2;
 }
 
 message FetchPartitionEntriesRequest {
-  repeated PartitionTuple replica_to_partition = 1;
+  repeated int32 partition_ids = 1;
   required string store = 2;
   optional VoldemortFilter filter = 3;
   optional bool fetch_values = 4;
@@ -90,7 +90,7 @@ message FetchPartitionEntriesResponse {
 
 message DeletePartitionEntriesRequest {
   required string store = 1;
-  repeated PartitionTuple replica_to_partition = 2;
+  repeated int32 partition_ids = 2;
   optional VoldemortFilter filter = 3; 
   optional string initial_cluster = 4;
 }
@@ -104,7 +104,7 @@ message InitiateFetchAndUpdateRequest {
   required int32 node_id = 1;
   required string store = 2;
   optional VoldemortFilter filter = 3;
-  repeated PartitionTuple replica_to_partition = 4;
+  repeated int32 partition_ids = 4;
   optional string initial_cluster = 5;
   optional bool optimize = 6;
 }
@@ -149,8 +149,20 @@ message RebalancePartitionInfoMap {
   required string initial_cluster = 6;
 }
 
+message StoreToPartitionsTuple {
+  required string store_name = 1;
+  repeated int32 partition_ids = 2;
+}
+
+message RebalanceTaskInfoMap {
+  required int32 stealer_id = 1;
+  required int32 donor_id = 2;
+  repeated StoreToPartitionsTuple per_store_partitions = 3;
+  required string initial_cluster = 4;
+}
+
 message InitiateRebalanceNodeRequest {
-  required RebalancePartitionInfoMap rebalance_partition_info = 1;
+  required RebalanceTaskInfoMap rebalance_task_info = 1;
 }
 
 message InitiateRebalanceNodeOnDonorRequest {
@@ -264,7 +276,7 @@ message FailedFetchStoreResponse {
 }
 
 message RebalanceStateChangeRequest {
-  repeated RebalancePartitionInfoMap rebalance_partition_info_list = 1;
+  repeated RebalanceTaskInfoMap rebalance_partition_task_list = 1;
   required string cluster_string = 2;
   required string stores_string = 3;
   required bool swap_ro = 4;

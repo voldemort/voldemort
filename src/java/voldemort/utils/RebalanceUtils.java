@@ -44,6 +44,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.client.rebalance.RebalancePlan;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -122,6 +123,38 @@ public class RebalanceUtils {
         return optimizedReplicaToPartitionList;
 
     }
+    
+    /**
+     * Given the current replica to partition list, try to check if the donor
+     * node would already contain that partition and if yes, ignore it
+     * 
+     * @param stealerNodeId Stealer node id
+     * @param cluster Cluster metadata
+     * @param storeDef Store definition
+     * @param currentReplicaToPartitionList Current replica to partition list
+     * @return Optimized replica to partition list
+     */
+    public static List<Integer> getOptimizedPartitionIds(int stealerNodeId, 
+                                                         Cluster cluster, 
+                                                         StoreDefinition storeDef, 
+                                                         List<Integer> partitionIds) {
+
+        List<Integer> optimizedPartitionIds = Lists.newArrayList();
+        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
+        List<Integer> partitionList = Lists.newArrayList();
+        for (Integer partition : partitionIds) {
+            List<Integer> preferenceList = strategy.getReplicatingPartitionList(partition);
+            // If this node was already in the preference list before, a copy of the data will
+            // already exist - Don't copy it!
+            if (!ClusterUtils.containsPreferenceList(cluster, preferenceList, stealerNodeId)) {
+                partitionList.add(partition);
+            }
+        }
+        if (partitionList.size() > 0) {
+            optimizedPartitionIds.addAll(partitionList);
+        }
+        return optimizedPartitionIds;
+    }
 
     // TODO: (refactor) Either move all methods that take an AdminClient
     // somewhere else. Either (i) into a name space of AdminClient or (ii)
@@ -182,10 +215,10 @@ public class RebalanceUtils {
      * @param expectedDonorId Expected donor node id ( If -1, then just checks
      *        if all are same )
      */
-    public static void assertSameDonor(List<RebalancePartitionsInfo> partitionInfos,
+    public static void assertSameDonor(List<RebalancePartitionsInfo> partitionsInfo,
                                        int expectedDonorId) {
-        int donorId = (expectedDonorId < 0) ? partitionInfos.get(0).getDonorId() : expectedDonorId;
-        for(RebalancePartitionsInfo info: partitionInfos) {
+        int donorId = (expectedDonorId < 0) ? partitionsInfo.get(0).getDonorId() : expectedDonorId;
+        for (RebalancePartitionsInfo info : partitionsInfo) {
             if(info.getDonorId() != donorId) {
                 throw new VoldemortException("Found a stealer information " + info
                                              + " having a different donor node from others ( "
@@ -997,7 +1030,15 @@ public class RebalanceUtils {
 
     public static int countPartitionStores(List<RebalancePartitionsInfo> infos) {
         int count = 0;
-        for(RebalancePartitionsInfo info: infos) {
+        for (RebalancePartitionsInfo info : infos) {
+            count += info.getPartitionStoreCount();
+        }
+        return count;
+    }
+
+    public static int countTaskStores(List<RebalanceTaskInfo> infos) {
+        int count = 0;
+        for (RebalanceTaskInfo info : infos) {
             count += info.getPartitionStoreCount();
         }
         return count;
@@ -1074,6 +1115,36 @@ public class RebalanceUtils {
     }
 
     /**
+     * Given a list of partition plans and a set of stores, copies the store names to every
+     * individual plan and creates a new list
+     * 
+     * @param existingPlanList Existing partition plan list
+     * @param storeDefs List of store names we are rebalancing
+     * @return List of updated partition plan
+     */
+    public static List<RebalanceTaskInfo> filterTaskPlanWithStores(List<RebalanceTaskInfo> existingPlanList, 
+                                                                   List<StoreDefinition> storeDefs) {
+        List<RebalanceTaskInfo> plans = Lists.newArrayList();
+        List<String> storeNames = StoreDefinitionUtils.getStoreNames(storeDefs);
+
+        for (RebalanceTaskInfo existingPlan : existingPlanList) {
+            RebalanceTaskInfo info = RebalanceTaskInfo.create(existingPlan.toJsonString());
+
+            // Filter the plans only for stores given
+            HashMap<String, List<Integer>> storeToPartitions = info.getStoreToPartitionIds();
+
+            HashMap<String, List<Integer>> newStoreToPartitions = Maps.newHashMap();
+            for (String storeName : storeNames) {
+                if (storeToPartitions.containsKey(storeName))
+                    newStoreToPartitions.put(storeName, storeToPartitions.get(storeName));
+            }
+            info.setStoreToPartitionList(newStoreToPartitions);
+            plans.add(info);
+        }
+        return plans;
+    }
+
+    /**
      * Given a list of partition infos, generates a map of stealer / donor node
      * to list of partition infos
      * 
@@ -1098,6 +1169,33 @@ public class RebalanceUtils {
             }
         }
         return nodeToPartitionsInfo;
+    }
+    
+    /**
+     * Given a list of partition infos, generates a map of stealer / donor node
+     * to list of partition infos
+     * 
+     * @param rebalancePartitionPlanList Complete list of partition plans
+     * @param groupByStealerNode Boolean indicating if we want to group by
+     *        stealer node ( or donor node )
+     * @return Flattens it into a map on a per node basis
+     */
+    public static HashMap<Integer, List<RebalanceTaskInfo>> groupPartitionsTaskByNode(List<RebalanceTaskInfo> rebalanceTaskPlanList,
+                                                                                            boolean groupByStealerNode) {
+        HashMap<Integer, List<RebalanceTaskInfo>> nodeToTaskInfo = Maps.newHashMap();
+        if(rebalanceTaskPlanList != null) {
+            for(RebalanceTaskInfo partitionInfo: rebalanceTaskPlanList) {
+                int nodeId = groupByStealerNode ? partitionInfo.getStealerId()
+                                               : partitionInfo.getDonorId();
+                List<RebalanceTaskInfo> taskInfos = nodeToTaskInfo.get(nodeId);
+                if(taskInfos == null) {
+                    taskInfos = Lists.newArrayList();
+                    nodeToTaskInfo.put(nodeId, taskInfos);
+                }
+                taskInfos.add(partitionInfo);
+            }
+        }
+        return nodeToTaskInfo;
     }
 
     /**

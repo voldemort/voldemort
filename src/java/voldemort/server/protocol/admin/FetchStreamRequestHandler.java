@@ -19,7 +19,6 @@ package voldemort.server.protocol.admin;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.HashMap;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -62,7 +61,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected final EventThrottler throttler;
 
-    protected HashMap<Integer, List<Integer>> replicaToPartitionList;
+    protected List<Integer> partitionIds;
 
     protected final VoldemortFilter filter;
 
@@ -102,8 +101,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         this.nodeId = metadataStore.getNodeId();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
-        if(request.getReplicaToPartitionList() != null)
-            this.replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
+        if (request.getPartitionIdsList() != null)
+            this.partitionIds = request.getPartitionIdsList();
         this.storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                          request.getStore());
         if(voldemortConfig.isJmxEnabled()) {
@@ -188,8 +187,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
             long totalTimeS = (System.currentTimeMillis() - startTimeMs) / Time.MS_PER_SECOND;
 
             logger.info(tag + " : scanned " + scanned + " and fetched " + fetched + " for store '"
-                        + storageEngine.getName() + "' replicaToPartitionList:"
-                        + replicaToPartitionList + " in " + totalTimeS + " s");
+                        + storageEngine.getName() + "' partitionIds:"
+                        + partitionIds + " in " + totalTimeS + " s");
         }
     }
 

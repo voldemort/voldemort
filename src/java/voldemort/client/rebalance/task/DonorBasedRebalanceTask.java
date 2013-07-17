@@ -24,8 +24,8 @@ import org.apache.log4j.Logger;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalanceBatchPlanProgressBar;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.store.UnreachableStoreException;
-import voldemort.utils.RebalanceUtils;
 
 /**
  * Immutable class that executes a {@link RebalancePartitionsInfo} instance on
@@ -41,13 +41,14 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
 
     public DonorBasedRebalanceTask(final int batchId,
                                    final int taskId,
-                                   final List<RebalancePartitionsInfo> stealInfos,
+                                   final List<RebalanceTaskInfo> stealInfos,
                                    final Semaphore donorPermit,
                                    final AdminClient adminClient,
                                    final RebalanceBatchPlanProgressBar progressBar) {
         super(batchId, taskId, stealInfos, donorPermit, adminClient, progressBar, logger);
 
-        RebalanceUtils.assertSameDonor(stealInfos, -1);
+        // TODO (Sid) : Comment this for replica type cleanup. Decide on donor based later.
+        // RebalanceUtils.assertSameDonor(stealInfos, -1);
         this.donorNodeId = stealInfos.get(0).getDonorId();
 
         taskLog(toString());
@@ -59,13 +60,13 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
 
         try {
             acquirePermit(donorNodeId);
-
+            // TODO (Sid) : Comment this for replica type cleanup. Decide on donor based later.
             // Start rebalance task and then wait.
-            rebalanceAsyncId = adminClient.rebalanceOps.rebalanceNode(stealInfos);
-            taskStart(rebalanceAsyncId);
-
-            adminClient.rpcOps.waitForCompletion(donorNodeId, rebalanceAsyncId);
-            taskDone(rebalanceAsyncId);
+            // rebalanceAsyncId = adminClient.rebalanceOps.rebalanceNode(stealInfos);
+            // taskStart(rebalanceAsyncId);
+            //
+            // adminClient.rpcOps.waitForCompletion(donorNodeId, rebalanceAsyncId);
+            // taskDone(rebalanceAsyncId);
 
         } catch(UnreachableStoreException e) {
             exception = e;

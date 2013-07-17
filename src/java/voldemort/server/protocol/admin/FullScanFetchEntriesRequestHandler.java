@@ -58,7 +58,7 @@ public class FullScanFetchEntriesRequestHandler extends FullScanFetchStreamReque
               networkClassLoader,
               Operation.FETCH_ENTRIES);
         logger.info("Starting fetch entries for store '" + storageEngine.getName()
-                    + "' with replica to partition mapping " + replicaToPartitionList);
+                    + "' with partitions" + partitionIds);
     }
 
     @Override

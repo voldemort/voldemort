@@ -64,15 +64,17 @@ public abstract class PartitionScanFetchStreamRequestHandler extends FetchStream
         replicaTypeList = new ArrayList<Integer>();
         partitionList = new ArrayList<Integer>();
 
+        partitionList = partitionIds;
+        // TODO (Sid) : Confirm if this can be safely removed
         // flatten the replicatype to partition map
-        for(Integer replicaType: replicaToPartitionList.keySet()) {
-            if(replicaToPartitionList.get(replicaType) != null) {
-                for(Integer partitionId: replicaToPartitionList.get(replicaType)) {
-                    partitionList.add(partitionId);
-                    replicaTypeList.add(replicaType);
-                }
-            }
-        }
+        // for(Integer replicaType: replicaToPartitionList.keySet()) {
+        // if(replicaToPartitionList.get(replicaType) != null) {
+        // for(Integer partitionId: replicaToPartitionList.get(replicaType)) {
+        // partitionList.add(partitionId);
+        // replicaTypeList.add(replicaType);
+        // }
+        // }
+        // }
 
         currentIndex = 0;
         currentPartition = null;

@@ -1,4 +1,5 @@
 /*
+
  * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -36,9 +37,10 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
-import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
+import voldemort.client.protocol.pb.VAdminProto.RebalanceTaskInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.common.nio.ByteBufferBackedInputStream;
 import voldemort.routing.StoreRoutingPlan;
@@ -279,13 +281,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 logger.info("Removing rebalancing state for donor node " + nodeId + " and store "
                             + storeName + " from stealer node " + metadataStore.getNodeId());
-                RebalancePartitionsInfo info = metadataStore.getRebalancerState().find(nodeId);
+                RebalanceTaskInfo info = metadataStore.getRebalancerState().find(nodeId);
                 if(info == null) {
                     throw new VoldemortException("Could not find state for donor node " + nodeId);
                 }
 
-                HashMap<Integer, List<Integer>> replicaToPartition = info.getReplicaToAddPartitionList(storeName);
-                if(replicaToPartition == null) {
+                List<Integer> partitionIds = info.getPartitionIds(storeName);
+                if (partitionIds.size() == 0) {
                     throw new VoldemortException("Could not find state for donor node " + nodeId
                                                  + " and store " + storeName);
                 }
@@ -294,7 +296,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 logger.info("Removed rebalancing state for donor node " + nodeId + " and store "
                             + storeName + " from stealer node " + metadataStore.getNodeId());
 
-                if(info.getUnbalancedStoreList().isEmpty()) {
+                if (info.getPartitionStores().isEmpty()) {
                     metadataStore.deleteRebalancingState(info);
                     logger.info("Removed entire rebalancing state for donor node " + nodeId
                                 + " from stealer node " + metadataStore.getNodeId());
@@ -315,9 +317,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
         synchronized(rebalancer) {
             try {
                 // Retrieve all values first
-                List<RebalancePartitionsInfo> rebalancePartitionsInfo = Lists.newArrayList();
-                for(RebalancePartitionInfoMap map: request.getRebalancePartitionInfoListList()) {
-                    rebalancePartitionsInfo.add(ProtoUtils.decodeRebalancePartitionInfoMap(map));
+                List<RebalanceTaskInfo> rebalanceTaskInfo = Lists.newArrayList();
+                for (RebalanceTaskInfoMap map : request.getRebalancePartitionTaskListList()) {
+                    rebalanceTaskInfo.add(ProtoUtils.decodeRebalanceTaskInfoMap(map));
                 }
 
                 Cluster cluster = new ClusterMapper().readCluster(new StringReader(request.getClusterString()));
@@ -330,7 +332,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 rebalancer.rebalanceStateChange(cluster,
                                                 storeDefs,
-                                                rebalancePartitionsInfo,
+                                                rebalanceTaskInfo,
                                                 swapRO,
                                                 changeClusterMetadata,
                                                 changeRebalanceState,
@@ -390,7 +392,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 return response.build();
             }
 
-            RebalancePartitionsInfo rebalanceStealInfo = ProtoUtils.decodeRebalancePartitionInfoMap(request.getRebalancePartitionInfo());
+            RebalanceTaskInfo rebalanceStealInfo = ProtoUtils.decodeRebalanceTaskInfoMap(request.getRebalanceTaskInfo());
 
             int requestId = rebalancer.rebalanceNode(rebalanceStealInfo);
 
@@ -888,7 +890,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.AsyncOperationStatusResponse handleFetchAndUpdate(VAdminProto.InitiateFetchAndUpdateRequest request) {
         final int nodeId = request.getNodeId();
-        final HashMap<Integer, List<Integer>> replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
+        final List<Integer> partitionIds = request.getPartitionIdsList();
         final VoldemortFilter filter = request.hasFilter() ? getFilterFromRequest(request.getFilter(),
                                                                                   voldemortConfig,
                                                                                   networkClassLoader)
@@ -920,7 +922,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 public void stop() {
                     running.set(false);
                     logger.info("Stopping fetch and update for store " + storeName + " from node "
-                                + nodeId + "( " + replicaToPartitionList + " )");
+                                + nodeId + "( " + partitionIds + " )");
                 }
 
                 @Override
@@ -938,10 +940,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             ReadOnlyStorageEngine readOnlyStorageEngine = ((ReadOnlyStorageEngine) storageEngine);
                             String destinationDir = readOnlyStorageEngine.getCurrentDirPath();
                             logger.info("Fetching files for RO store '" + storeName
-                                        + "' from node " + nodeId + " ( " + replicaToPartitionList
+                                        + "' from node " + nodeId + " ( " + partitionIds
                                         + " )");
                             updateStatus("Fetching files for RO store '" + storeName
-                                         + "' from node " + nodeId + " ( " + replicaToPartitionList
+                                         + "' from node " + nodeId + " ( " + partitionIds
                                          + " )");
 
                             // TODO: Optimization to get rid of redundant
@@ -953,7 +955,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                             adminClient.readonlyOps.fetchPartitionFiles(nodeId,
                                                                         storeName,
-                                                                        replicaToPartitionList,
+                                                                        partitionIds,
                                                                         destinationDir,
                                                                         readOnlyStorageEngine.getChunkedFileSet()
                                                                                              .getChunkIdToNumChunks()
@@ -962,43 +964,43 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                         } else {
                             logger.info("Fetching entries for RW store '" + storeName
-                                        + "' from node " + nodeId + " ( " + replicaToPartitionList
+                                        + "' from node " + nodeId + " ( " + partitionIds
                                         + " )");
                             updateStatus("Fetching entries for RW store '" + storeName
-                                         + "' from node " + nodeId + " ( " + replicaToPartitionList
+                                         + "' from node " + nodeId + " ( " + partitionIds
                                          + " ) ");
 
                             // Optimization to get rid of redundant copying of
                             // data which already exists on this node
-                            HashMap<Integer, List<Integer>> optimizedReplicaToPartitionList = Maps.newHashMap();
+                            List<Integer> optimizedPartitionIds = Lists.newArrayList();
                             if(initialCluster != null && optimize
                                && !storageEngine.isPartitionAware()
                                && voldemortConfig.getRebalancingOptimization()) {
 
-                                optimizedReplicaToPartitionList.putAll(RebalanceUtils.getOptimizedReplicaToPartitionList(metadataStore.getNodeId(),
+                                optimizedPartitionIds.addAll(RebalanceUtils.getOptimizedPartitionIds(metadataStore.getNodeId(),
                                                                                                                          initialCluster,
                                                                                                                          storeDef,
-                                                                                                                         replicaToPartitionList));
+                                                                                                                         partitionIds));
                                 logger.info("After running RW level optimization - Fetching entries for RW store '"
                                             + storeName
                                             + "' from node "
                                             + nodeId
                                             + " ( "
-                                            + optimizedReplicaToPartitionList + " )");
+                                            + optimizedPartitionIds + " )");
                                 updateStatus("After running RW level optimization - Fetching entries for RW store '"
                                              + storeName
                                              + "' from node "
                                              + nodeId
                                              + " ( "
-                                             + optimizedReplicaToPartitionList + " )");
+                                             + optimizedPartitionIds + " )");
                             } else {
-                                optimizedReplicaToPartitionList.putAll(replicaToPartitionList);
+                                optimizedPartitionIds.addAll(partitionIds);
                             }
 
-                            if(optimizedReplicaToPartitionList.size() > 0) {
+                            if (optimizedPartitionIds.size() > 0) {
                                 Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.bulkFetchOps.fetchEntries(nodeId,
                                                                                                                                      storeName,
-                                                                                                                                     optimizedReplicaToPartitionList,
+                                                                                                                                     optimizedPartitionIds,
                                                                                                                                      filter,
                                                                                                                                      false,
                                                                                                                                      initialCluster,
@@ -1081,12 +1083,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
+    // TODO : Add ability to use partition scans
     public VAdminProto.DeletePartitionEntriesResponse handleDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest request) {
         VAdminProto.DeletePartitionEntriesResponse.Builder response = VAdminProto.DeletePartitionEntriesResponse.newBuilder();
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
         try {
             String storeName = request.getStore();
-            final HashMap<Integer, List<Integer>> replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
+            final List<Integer> partitionsIds = request.getPartitionIdsList();
 
             final boolean isReadWriteStore = metadataStore.getStoreDef(storeName)
                                                           .getType()
@@ -1108,7 +1111,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             iterator = storageEngine.entries();
             long deleteSuccess = 0;
             logger.info("Deleting entries for RW store " + storeName + " from node "
-                        + metadataStore.getNodeId() + " ( " + replicaToPartitionList + " )");
+                        + metadataStore.getNodeId() + " ( " + storeName + " )");
 
             while(iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
@@ -1116,9 +1119,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ByteArray key = entry.getFirst();
                 Versioned<byte[]> value = entry.getSecond();
                 throttler.maybeThrottle(key.length() + valueSize(value));
-                if(StoreRoutingPlan.checkKeyBelongsToPartition(metadataStore.getNodeId(),
+                if (StoreRoutingPlan.checkKeyBelongsToPartitionIds(metadataStore.getNodeId(),
                                                                key.get(),
-                                                               replicaToPartitionList,
                                                                request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
                                                                                           : metadataStore.getCluster(),
                                                                metadataStore.getStoreDef(storeName))
@@ -1134,7 +1136,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             }
 
             logger.info("Completed deletion of entries for RW store " + storeName + " from node "
-                        + metadataStore.getNodeId() + " ( " + replicaToPartitionList + " )");
+                        + metadataStore.getNodeId() + " ( " + partitionsIds + " )");
 
             response.setCount(deleteSuccess);
         } catch(VoldemortException e) {

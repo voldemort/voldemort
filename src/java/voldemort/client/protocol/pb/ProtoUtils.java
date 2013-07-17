@@ -31,8 +31,11 @@ import voldemort.client.protocol.pb.VAdminProto.PartitionTuple;
 import voldemort.client.protocol.pb.VAdminProto.PerStorePartitionTuple;
 import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
 import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
+import voldemort.client.protocol.pb.VAdminProto.RebalanceTaskInfoMap;
+import voldemort.client.protocol.pb.VAdminProto.StoreToPartitionsTuple;
 import voldemort.client.protocol.pb.VProto.KeyedVersions;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ClockEntry;
@@ -56,6 +59,10 @@ import com.google.protobuf.Message;
  */
 public class ProtoUtils {
 
+    /*
+     * Begin decode RebalancePartitionInfoMap methods
+     */
+
     /**
      * Given a list protobuf rebalance-partition info, converts it into a list
      * of our rebalance-partition info
@@ -71,22 +78,7 @@ public class ProtoUtils {
         }
         return infos;
     }
-
-    /**
-     * Given a list of rebalance-partition info, convert it into a list of
-     * protobuf equivalent
-     * 
-     * @param stealInfos List of rebalance partition info
-     * @return Protobuff equivalent of the same
-     */
-    public static List<RebalancePartitionInfoMap> encodeRebalancePartitionInfoMap(List<RebalancePartitionsInfo> stealInfos) {
-        List<RebalancePartitionInfoMap> maps = Lists.newArrayList();
-        for(RebalancePartitionsInfo info: stealInfos) {
-            maps.add(encodeRebalancePartitionInfoMap(info));
-        }
-        return maps;
-    }
-
+    
     /**
      * Given a protobuf rebalance-partition info, converts it into our
      * rebalance-partition info
@@ -101,6 +93,95 @@ public class ProtoUtils {
                                                                                  decodePerStorePartitionTuple(rebalancePartitionInfoMap.getReplicaToAddPartitionList()),
                                                                                  new ClusterMapper().readCluster(new StringReader(rebalancePartitionInfoMap.getInitialCluster())));
         return rebalanceStealInfo;
+    }
+    
+    public static HashMap<String, HashMap<Integer, List<Integer>>> decodePerStorePartitionTuple(List<PerStorePartitionTuple> perStorePartitionTuples) {
+        HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList = Maps.newHashMap();
+        for (PerStorePartitionTuple tuple : perStorePartitionTuples) {
+            storeToReplicaToPartitionList.put(tuple.getStoreName(), decodePartitionTuple(tuple.getReplicaToPartitionList()));
+        }
+        return storeToReplicaToPartitionList;
+    }
+
+    /**
+     * 
+     * @param partitionTuples
+     * @return HashMap of replica type (Integer) to list of partition IDs (Integer)
+     */
+    public static HashMap<Integer, List<Integer>> decodePartitionTuple(List<PartitionTuple> partitionTuples) {
+        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
+        for (PartitionTuple tuple : partitionTuples) {
+            replicaToPartitionList.put(tuple.getReplicaType(), tuple.getPartitionsList());
+        }
+        return replicaToPartitionList;
+    }
+
+    /*
+     * End decode RebalancePartitionInfoMap methods
+     */
+
+    /*
+     * Begin decode RebalanceTaskInfoMap methods
+     */
+    /**
+     * Given a list protobuf rebalance-partition info, converts it into a list of our rebalance-task
+     * info
+     * 
+     * @param rebalanceTaskInfoMaps List of protobuff version of rebalance-task-info
+     * @return List of our Rebalance-task-info
+     */
+    public static List<RebalanceTaskInfo> decodeRebalanceTaskInfoMap(List<VAdminProto.RebalanceTaskInfoMap> rebalanceTaskInfoMaps) {
+        List<RebalanceTaskInfo> infos = Lists.newArrayList();
+        for (RebalanceTaskInfoMap map : rebalanceTaskInfoMaps) {
+            infos.add(decodeRebalanceTaskInfoMap(map));
+        }
+        return infos;
+    }
+
+    /**
+     * Given a protobuf rebalance-partition info, converts it into our rebalance-partition info
+     * 
+     * @param rebalancePartitionInfoMap Proto-buff version of rebalance-partition-info
+     * @return Rebalance-partition-info
+     */
+    public static RebalanceTaskInfo decodeRebalanceTaskInfoMap(VAdminProto.RebalanceTaskInfoMap rebalanceTaskInfoMap) {
+        RebalanceTaskInfo rebalanceTaskInfo = new RebalanceTaskInfo(
+                                                             rebalanceTaskInfoMap.getStealerId(), 
+                                                             rebalanceTaskInfoMap.getDonorId(), 
+                                                             decodeStoreToPartitionsTuple(rebalanceTaskInfoMap.getPerStorePartitionsList()), 
+                                                             new ClusterMapper().readCluster(new StringReader(rebalanceTaskInfoMap.getInitialCluster())));
+        return rebalanceTaskInfo;
+    }
+
+    public static HashMap<String, List<Integer>> decodeStoreToPartitionsTuple(List<StoreToPartitionsTuple> storeToPartitionTuples) {
+        HashMap<String, List<Integer>> storeToPartitionList = Maps.newHashMap();
+        for (StoreToPartitionsTuple tuple : storeToPartitionTuples) {
+            storeToPartitionList.put(tuple.getStoreName(), tuple.getPartitionIdsList());
+        }
+        return storeToPartitionList;
+    }
+
+    /*
+     * End decode RebalanceTaskInfoMap methods
+     */
+
+    /*
+     * Begin encode RebalancePartitionInfoMap methods
+     */
+
+    /**
+     * Given a list of rebalance-partition info, convert it into a list of
+     * protobuf equivalent
+     * 
+     * @param stealInfos List of rebalance partition info
+     * @return Protobuff equivalent of the same
+     */
+    public static List<RebalancePartitionInfoMap> encodeRebalancePartitionInfoMap(List<RebalancePartitionsInfo> stealInfos) {
+        List<RebalancePartitionInfoMap> maps = Lists.newArrayList();
+        for (RebalancePartitionsInfo info : stealInfos) {
+            maps.add(encodeRebalancePartitionInfoMap(info));
+        }
+        return maps;
     }
 
     /**
@@ -117,13 +198,16 @@ public class ProtoUtils {
                                         .setInitialCluster(new ClusterMapper().writeCluster(stealInfo.getInitialCluster()))
                                         .build();
     }
-
-    public static Map<String, String> encodeROMap(List<ROStoreVersionDirMap> metadataMap) {
-        Map<String, String> storeToValue = Maps.newHashMap();
-        for(ROStoreVersionDirMap currentStore: metadataMap) {
-            storeToValue.put(currentStore.getStoreName(), currentStore.getStoreDir());
+    
+    public static List<PerStorePartitionTuple> encodePerStorePartitionTuple(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList) {
+        List<PerStorePartitionTuple> perStorePartitionTuples = Lists.newArrayList();
+        for (Entry<String, HashMap<Integer, List<Integer>>> entry : storeToReplicaToPartitionList.entrySet()) {
+            PerStorePartitionTuple.Builder tupleBuilder = PerStorePartitionTuple.newBuilder();
+            tupleBuilder.setStoreName(entry.getKey());
+            tupleBuilder.addAllReplicaToPartition(encodePartitionTuple(entry.getValue()));
+            perStorePartitionTuples.add(tupleBuilder.build());
         }
-        return storeToValue;
+        return perStorePartitionTuples;
     }
 
     /**
@@ -144,38 +228,50 @@ public class ProtoUtils {
         return tuples;
     }
 
-    /**
-     * 
-     * @param partitionTuples
-     * @return HashMap of replica type (Integer) to list of partition IDs
-     *         (Integer)
+    /*
+     * End encode RebalancePartitionInfoMap methods
      */
-    public static HashMap<Integer, List<Integer>> decodePartitionTuple(List<PartitionTuple> partitionTuples) {
-        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
-        for(PartitionTuple tuple: partitionTuples) {
-            replicaToPartitionList.put(tuple.getReplicaType(), tuple.getPartitionsList());
-        }
-        return replicaToPartitionList;
-    }
 
-    public static List<PerStorePartitionTuple> encodePerStorePartitionTuple(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList) {
-        List<PerStorePartitionTuple> perStorePartitionTuples = Lists.newArrayList();
-        for(Entry<String, HashMap<Integer, List<Integer>>> entry: storeToReplicaToPartitionList.entrySet()) {
-            PerStorePartitionTuple.Builder tupleBuilder = PerStorePartitionTuple.newBuilder();
+    /*
+     * Begin encode RebalanceTaskInfo methods
+     */
+
+    /**
+     * Given a rebalance-task info, convert it into the protobuf equivalent
+     * 
+     * @param stealInfo Rebalance task info
+     * @return Protobuff equivalent of the same
+     */
+    public static RebalanceTaskInfoMap encodeRebalanceTaskInfoMap(RebalanceTaskInfo stealInfo) {
+        return RebalanceTaskInfoMap.newBuilder()
+                                        .setStealerId(stealInfo.getStealerId())
+                                        .setDonorId(stealInfo.getDonorId())
+                                        .addAllPerStorePartitions(ProtoUtils.encodeStoreToPartitionsTuple(stealInfo.getStoreToPartitionIds()))
+                                        .setInitialCluster(new ClusterMapper().writeCluster(stealInfo.getInitialCluster()))
+                                        .build();
+    }
+    
+    public static List<StoreToPartitionsTuple> encodeStoreToPartitionsTuple(HashMap<String, List<Integer>> storeToPartitionIds) {
+        List<StoreToPartitionsTuple> perStorePartitionTuples = Lists.newArrayList();
+        for (Entry<String, List<Integer>> entry : storeToPartitionIds.entrySet()) {
+            StoreToPartitionsTuple.Builder tupleBuilder = StoreToPartitionsTuple.newBuilder();
             tupleBuilder.setStoreName(entry.getKey());
-            tupleBuilder.addAllReplicaToPartition(encodePartitionTuple(entry.getValue()));
+            tupleBuilder.addAllPartitionIds(entry.getValue());
             perStorePartitionTuples.add(tupleBuilder.build());
         }
         return perStorePartitionTuples;
     }
 
-    public static HashMap<String, HashMap<Integer, List<Integer>>> decodePerStorePartitionTuple(List<PerStorePartitionTuple> perStorePartitionTuples) {
-        HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList = Maps.newHashMap();
-        for(PerStorePartitionTuple tuple: perStorePartitionTuples) {
-            storeToReplicaToPartitionList.put(tuple.getStoreName(),
-                                              decodePartitionTuple(tuple.getReplicaToPartitionList()));
+    /*
+     * End encode RebalanceTaskInfo methods
+     */
+
+    public static Map<String, String> encodeROMap(List<ROStoreVersionDirMap> metadataMap) {
+        Map<String, String> storeToValue = Maps.newHashMap();
+        for (ROStoreVersionDirMap currentStore : metadataMap) {
+            storeToValue.put(currentStore.getStoreName(), currentStore.getStoreDir());
         }
-        return storeToReplicaToPartitionList;
+        return storeToValue;
     }
 
     public static VProto.Error.Builder encodeError(ErrorCodeMapper mapper, VoldemortException e) {

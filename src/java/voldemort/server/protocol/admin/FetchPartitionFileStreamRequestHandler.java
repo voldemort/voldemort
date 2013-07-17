@@ -13,13 +13,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
@@ -31,7 +31,6 @@ import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 
 public class FetchPartitionFileStreamRequestHandler implements StreamRequestHandler {
 
@@ -47,7 +46,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private final StreamingStats streamStats;
 
-    private final Iterator<Pair<Integer, Integer>> partitionIterator;
+    private final Iterator<Integer> partitionIterator;
 
     private FetchStatus fetchStatus;
 
@@ -63,11 +62,13 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private ChunkedFileWriter chunkedFileWriter;
 
-    private final Set<Pair<Integer, Integer>> replicaToPartitionTuples;
+    private final List<Integer> partitionIds;
 
     private final HashMap<Object, Integer> bucketToNumChunks;
 
     private final boolean nioEnabled;
+
+    private final MetadataStore metadataStore;
 
     private enum FetchStatus {
         NEXT_PARTITION,
@@ -80,18 +81,25 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                                                      VoldemortConfig voldemortConfig,
                                                      StoreRepository storeRepository) {
         this.request = request;
-        StoreDefinition storeDef = metadataStore.getStoreDef(request.getStore());
+        // TODO (Sid) : Confirm if keeping metadatastore as a class property is the best
+        // way to do this. metadataStore is used later in the handleNextPartition() to create
+        // a storeRouting object plan.
+        this.metadataStore = metadataStore;
+
+        StoreDefinition storeDef = metadataStore.getStoreDef(request.getStoreName());
         boolean isReadOnly = storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
         if(!isReadOnly) {
             throw new VoldemortException("Should be fetching partition files only for read-only stores");
         }
-
-        HashMap<Integer, List<Integer>> replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
-        this.replicaToPartitionTuples = RebalanceUtils.flattenPartitionTuples(replicaToPartitionList);
+        
+        List<Integer> partitionIds =  request.getPartitionIdsList();
+        this.partitionIds = partitionIds;
+        // TODO (Sid) : Comment this for removing replica type. Confirm if this is needed
+        //this.replicaToPartitionTuples = RebalanceUtils.flattenPartitionTuples(replicaToPartitionList);
 
         ReadOnlyStorageEngine storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
                                                                                                   storeRepository,
-                                                                                                  request.getStore());
+                                                                                                  request.getStoreName());
         this.bucketToNumChunks = storageEngine.getChunkedFileSet().getChunkIdToNumChunks();
         this.blockSize = voldemortConfig.getAllProps()
                                         .getLong("partition.buffer.size.bytes",
@@ -103,7 +111,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
         } else {
             this.streamStats = null;
         }
-        this.partitionIterator = Collections.unmodifiableSet(replicaToPartitionTuples).iterator();
+        this.partitionIterator = Collections.unmodifiableList(partitionIds).iterator();
         this.fetchStatus = FetchStatus.NEXT_PARTITION;
         this.currentChunkId = 0;
         this.indexFile = null;
@@ -114,20 +122,24 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
         this.nioEnabled = voldemortConfig.getUseNioConnector();
     }
 
+    @Override
     public StreamRequestDirection getDirection() {
         return StreamRequestDirection.WRITING;
     }
 
+    @Override
     public final void close(DataOutputStream outputStream) throws IOException {
         ProtoUtils.writeEndOfStream(outputStream);
     }
 
+    @Override
     public final void handleError(DataOutputStream outputStream, VoldemortException e)
             throws IOException {
         logger.error("handleFetchPartitionFilesEntries failed for request(" + request.toString()
                      + ")", e);
     }
 
+    @Override
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
@@ -211,37 +223,36 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
     }
 
     private StreamRequestHandlerState handleNextPartition() {
-
         StreamRequestHandlerState handlerState = StreamRequestHandlerState.WRITING;
-
-        if(partitionIterator.hasNext()) {
-
+        if (partitionIterator.hasNext()) {
             // Start a new partition
-            currentPair = partitionIterator.next();
+            Integer partitionId = partitionIterator.next();
+            int nodeId = metadataStore.getNodeId();
+            int zoneId = metadataStore.getCluster().getNodeById(nodeId).getZoneId();
+            
+            StoreDefinition storeDef = metadataStore.getStoreDef(request.getStoreName());
+            StoreRoutingPlan storeRoutingPlan = new StoreRoutingPlan(metadataStore.getCluster(), storeDef);
+            int getZoneNary = storeRoutingPlan.getZoneNaryForNodesPartition(zoneId, nodeId, partitionId);
+
             currentChunkId = 0;
 
             // First check if bucket exists
-            if(!bucketToNumChunks.containsKey(Pair.create(currentPair.getSecond(),
-                                                          currentPair.getFirst()))) {
-                throw new VoldemortException("Bucket [ partition = " + currentPair.getSecond()
-                                             + ", replica = " + currentPair.getFirst()
-                                             + " ] does not exist for store " + request.getStore());
+            if (!bucketToNumChunks.containsKey(Pair.create(partitionId, getZoneNary))) {
+                throw new VoldemortException("Bucket [ partition = " + partitionId
+                                             + ", replica = " + getZoneNary
+                                             + " ] does not exist for store " + request.getStoreName());
             }
-
-            numChunks = bucketToNumChunks.get(Pair.create(currentPair.getSecond(),
-                                                          currentPair.getFirst()));
+            numChunks = bucketToNumChunks.get(Pair.create(partitionId, getZoneNary));
             dataFile = indexFile = null;
             fetchStatus = FetchStatus.SEND_DATA_FILE;
-
         } else {
 
             // We are done since we have gone through the entire
             // partition list
             logger.info("Finished streaming files for partitions tuples "
-                        + replicaToPartitionTuples);
+                        + partitionIds);
             handlerState = StreamRequestHandlerState.COMPLETE;
         }
-
         return handlerState;
     }
 

@@ -25,14 +25,14 @@ import org.apache.log4j.Logger;
 
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalanceBatchPlanProgressBar;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.utils.RebalanceUtils;
 
 public abstract class RebalanceTask implements Runnable {
 
     protected final int batchId;
     protected final int taskId;
-    protected final List<RebalancePartitionsInfo> stealInfos;
+    protected final List<RebalanceTaskInfo> stealInfos;
     protected final Semaphore donorPermit;
     protected final AdminClient adminClient;
     protected final RebalanceBatchPlanProgressBar progressBar;
@@ -49,7 +49,7 @@ public abstract class RebalanceTask implements Runnable {
 
     public RebalanceTask(final int batchId,
                          final int taskId,
-                         final List<RebalancePartitionsInfo> stealInfos,
+                         final List<RebalanceTaskInfo> stealInfos,
                          final Semaphore donorPermit,
                          final AdminClient adminClient,
                          final RebalanceBatchPlanProgressBar progressBar,
@@ -65,12 +65,12 @@ public abstract class RebalanceTask implements Runnable {
         this.exception = null;
         this.isComplete = new AtomicBoolean(false);
 
-        this.partitionStoreCount = RebalanceUtils.countPartitionStores(stealInfos);
+        this.partitionStoreCount = RebalanceUtils.countTaskStores(stealInfos);
         this.permitAcquisitionTimeMs = -1;
         this.taskCompletionTimeMs = -1;
     }
 
-    public List<RebalancePartitionsInfo> getStealInfos() {
+    public List<RebalanceTaskInfo> getStealInfos() {
         return this.stealInfos;
     }
 

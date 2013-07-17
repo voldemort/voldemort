@@ -25,6 +25,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalanceBatchPlanProgressBar;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.client.rebalance.RebalanceScheduler;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
@@ -67,7 +68,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
 
     public StealerBasedRebalanceTask(final int batchId,
                                      final int taskId,
-                                     final RebalancePartitionsInfo stealInfo,
+                                     final RebalanceTaskInfo stealInfo,
                                      final int maxTries,
                                      final Semaphore donorPermit,
                                      final AdminClient adminClient,

@@ -66,14 +66,15 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
         this.keyIterator = storageEngine.keys();
 
         this.partitionFetches = new HashMap<Integer, Long>();
-        for(Integer replicaType: replicaToPartitionList.keySet()) {
-            if(replicaToPartitionList.get(replicaType) != null) {
-                for(Integer partitionId: replicaToPartitionList.get(replicaType)) {
-                    this.partitionFetches.put(partitionId, new Long(0));
-                }
-            }
-        }
-        this.partitionsToFetch = new HashSet<Integer>(partitionFetches.keySet());
+        // TODO (Sid) : Confirm if this can be removed safely
+        // for(Integer replicaType: replicaToPartitionList.keySet()) {
+        // if(replicaToPartitionList.get(replicaType) != null) {
+        // for(Integer partitionId: replicaToPartitionList.get(replicaType)) {
+        // this.partitionFetches.put(partitionId, new Long(0));
+        // }
+        // }
+        // }
+        this.partitionsToFetch = new HashSet<Integer>(partitionIds);
     }
 
     /**
@@ -102,9 +103,9 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
      * @return true iff key is needed.
      */
     protected boolean isKeyNeeded(byte[] key) {
-        if(!StoreRoutingPlan.checkKeyBelongsToPartition(nodeId,
+        if (!StoreRoutingPlan.checkKeyBelongsToPartitionIds(nodeId,
                                                      key,
-                                                     replicaToPartitionList,
+                                                     //partitionIds,
                                                      initialCluster,
                                                      storeDef)) {
             return false;
@@ -204,7 +205,7 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
             return StreamRequestHandlerState.WRITING;
         } else {
             logger.info("Finished fetch " + itemTag + " for store '" + storageEngine.getName()
-                        + "' with replica to partition mapping " + replicaToPartitionList);
+                    + "' with partitions  " + partitionIds);
             progressInfoMessage("Fetch " + itemTag + " (end of scan)");
 
             return StreamRequestHandlerState.COMPLETE;
