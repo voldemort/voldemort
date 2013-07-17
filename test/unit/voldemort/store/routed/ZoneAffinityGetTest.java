@@ -130,7 +130,9 @@ public class ZoneAffinityGetTest {
     }
 
     @Test
-    public void testLocalZonePartialDownSuffcientReads() {
+    public void testLocalZonePartialDownSufficientReads() {
+        // turn off one node in same zone as client so that reads can still
+        // complete
         this.vservers.get(cluster.getNodeIdsInZone(clientZoneId).iterator().next()).stop();
         try {
             client.get("AB", null);
@@ -140,7 +142,9 @@ public class ZoneAffinityGetTest {
     }
 
     @Test
-    public void testLocalZonePartialDownInSuffcientReads() {
+    public void testLocalZonePartialDownInSufficientReads() {
+        // Stop all but one node in same zone as client. This is not sufficient
+        // for zone reads.
         Set<Integer> nodeIds = cluster.getNodeIdsInZone(clientZoneId);
         nodeIds.remove(nodeIds.iterator().next());
         for(Integer nodeId: nodeIds) {

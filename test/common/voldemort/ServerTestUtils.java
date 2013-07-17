@@ -410,18 +410,7 @@ public class ServerTestUtils {
 
         // Generate zones
         if(numberOfZones > 1) {
-            List<Zone> zones = Lists.newArrayList();
-            for(int i = 0; i < numberOfZones; i++) {
-                LinkedList<Integer> proximityList = Lists.newLinkedList();
-                int zoneId = i + 1;
-                for(int j = 0; j < numberOfZones; j++) {
-                    if(zoneId % numberOfZones != i) {
-                        proximityList.add(zoneId % numberOfZones);
-                    }
-                    zoneId++;
-                }
-                zones.add(new Zone(i, proximityList));
-            }
+            List<Zone> zones = getZones(numberOfZones);
             return new Cluster("cluster", nodes, zones);
         } else {
             return new Cluster("cluster", nodes);
@@ -473,18 +462,7 @@ public class ServerTestUtils {
         }
 
         // Generate zones
-        List<Zone> zones = Lists.newArrayList();
-        for(int i = 0; i < numberOfZones; i++) {
-            LinkedList<Integer> proximityList = Lists.newLinkedList();
-            int zoneId = i + 1;
-            for(int j = 0; j < numberOfZones - 1; j++) {
-                if(zoneId % numberOfZones != i) {
-                    proximityList.add(zoneId % numberOfZones);
-                }
-                zoneId++;
-            }
-            zones.add(new Zone(i, proximityList));
-        }
+        List<Zone> zones = getZones(numberOfZones);
         return new Cluster("cluster", nodes, zones);
     }
 
@@ -611,18 +589,7 @@ public class ServerTestUtils {
             }
         }
 
-        List<Zone> zones = Lists.newArrayList();
-        for(int i = 0; i < numberOfZones; i++) {
-            LinkedList<Integer> proximityList = Lists.newLinkedList();
-            int zoneId = i + 1;
-            for(int j = 0; j < numberOfZones; j++) {
-                if(zoneId % numberOfZones != i) {
-                    proximityList.add(zoneId % numberOfZones);
-                }
-                zoneId++;
-            }
-            zones.add(new Zone(i, proximityList));
-        }
+        List<Zone> zones = getZones(numberOfZones);
         return new Cluster("cluster", nodes, zones);
     }
 
