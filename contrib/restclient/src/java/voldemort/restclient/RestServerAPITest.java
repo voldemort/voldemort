@@ -62,7 +62,7 @@ public class RestServerAPITest {
         logger.info("********************Starting REST Server********************");
 
         restClientConfig = new RESTClientConfig();
-        restClientConfig.setHttpBootstrapURL("http://localhost:8081")
+        restClientConfig.setHttpBootstrapURL("http://localhost:8085")
                         .setTimeoutMs(1500, TimeUnit.MILLISECONDS)
                         .setMaxR2ConnectionPoolSize(100);
         clientFactory = new HttpClientFactory();

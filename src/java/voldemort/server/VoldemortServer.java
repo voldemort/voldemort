@@ -29,6 +29,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -37,6 +38,7 @@ import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
 import voldemort.common.service.VoldemortService;
 import voldemort.server.gossip.GossipService;
+import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandlerFactory;
@@ -190,18 +192,23 @@ public class VoldemortServer extends AbstractService {
 
         if(voldemortConfig.isHttpServerEnabled()) {
             /*
-             * TODO REST-Server 1. Need to decide on replacing HttpService 2.
-             * Need to decide on the number of threads. This needs to be
-             * configurable
+             * TODO REST-Server 1. Need to decide on replacing HttpService
              */
+            services.add(new HttpService(this,
+                                         storageService,
+                                         storeRepository,
+                                         RequestFormatType.VOLDEMORT_V1,
+                                         voldemortConfig.getMaxThreads(),
+                                         identityNode.getHttpPort()));
+
+        }
+        if(voldemortConfig.isRestServiceEnabled()) {
             /*
-             * services.add(new HttpService(this, storageService,
-             * storeRepository, RequestFormatType.VOLDEMORT_V1,
-             * voldemortConfig.getMaxThreads(), identityNode.getHttpPort()));
+             * TODO REST-Server 1. Need to decide on the number of threads. This
+             * needs to be configurable 2. Need to configure the Rest Service
+             * port instead of hard coding
              */
-            services.add(new RestService(voldemortConfig,
-                                         identityNode.getHttpPort(),
-                                         storeRepository));
+            services.add(new RestService(voldemortConfig, 8085, storeRepository));
         }
         if(voldemortConfig.isSocketServerEnabled()) {
             RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,

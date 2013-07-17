@@ -36,6 +36,7 @@ import voldemort.common.service.SchedulerService;
 import voldemort.server.http.HttpService;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.admin.AsyncOperation;
+import voldemort.server.rest.RestService;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
@@ -229,6 +230,7 @@ public class VoldemortConfig implements Serializable {
     // Should be removed once the proxy put implementation is stable.
     private boolean proxyPutsDuringRebalance;
 
+    private boolean enableRestService;
     private int numRestServiceNettyBossThreads;
     private int numRestServiceNettyWorkerThreads;
     private int numRestServiceStorageThreads;
@@ -507,6 +509,7 @@ public class VoldemortConfig implements Serializable {
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
 
         // TODO: REST-Server decide on the numbers
+        this.enableRestService = props.getBoolean("rest.enable", false);
         this.numRestServiceNettyBossThreads = props.getInt("num.rest.service.netty.boss.threads", 1);
         this.numRestServiceNettyWorkerThreads = props.getInt("num.rest.service.netty.worker.threads",
                                                              10);
@@ -2812,6 +2815,22 @@ public class VoldemortConfig implements Serializable {
         this.gossipIntervalMs = gossipIntervalMs;
     }
 
+    public boolean isRestServiceEnabled() {
+        return enableRestService;
+    }
+
+    /**
+     * Whether or not the {@link RestService} is enabled
+     * <ul>
+     * <li>Property :"rest.enable"</li>
+     * <li>Default :false</li>
+     * </ul>
+     * 
+     */
+    public void setEnableRestService(boolean enableRestService) {
+        this.enableRestService = enableRestService;
+    }
+
     public int getNumRestServiceNettyBossThreads() {
         return numRestServiceNettyBossThreads;
     }
@@ -2872,4 +2891,5 @@ public class VoldemortConfig implements Serializable {
     public void setRestServiceStorageThreadPoolQueueSize(int restServiceStorageThreadPoolQueueSize) {
         this.restServiceStorageThreadPoolQueueSize = restServiceStorageThreadPoolQueueSize;
     }
+
 }

@@ -44,7 +44,7 @@ public class RestServerProtocolTests {
     @BeforeClass
     public static void oneTimeSetUp() {
         storeNameStr = "test";
-        urlStr = "http://localhost:8081/";
+        urlStr = "http://localhost:8085/";
         config = VoldemortConfig.loadFromVoldemortHome("config/single_node_rest_server/");
         key1 = "The longest key ";
         vectorClock = new VectorClock();
