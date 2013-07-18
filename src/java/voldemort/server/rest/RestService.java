@@ -9,11 +9,15 @@ import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
+import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxManaged;
 import voldemort.common.service.AbstractService;
 import voldemort.common.service.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.utils.JmxUtils;
 
+@JmxManaged(description = "Rest Service to serve Http requests")
 public class RestService extends AbstractService {
 
     // TODO REST-Server
@@ -58,6 +62,11 @@ public class RestService extends AbstractService {
         // Bind and start to accept incoming connections.
         this.nettyServerChannel = this.bootstrap.bind(new InetSocketAddress(this.port));
         logger.info("REST service started on port " + this.port);
+
+        // Register MBeans for Netty worker pool stats
+        JmxUtils.registerMbean(this,
+                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                         JmxUtils.getClassName(this.getClass())));
     }
 
     /**
@@ -74,6 +83,21 @@ public class RestService extends AbstractService {
             this.nettyServerChannel.close();
         }
         this.bootstrap.releaseExternalResources();
+    }
+
+    @JmxGetter(name = "ActiveNettyWorkerThreads", description = "The number of active Netty worker threads.")
+    public int getActiveThreadsInWorkerPool() {
+        return this.workerPool.getActiveCount();
+    }
+
+    @JmxGetter(name = "TotalNettyWorkerThreads", description = "The total number of Netty worker threads, active and idle.")
+    public int getAllThreadInWorkerPool() {
+        return this.workerPool.getPoolSize();
+    }
+
+    @JmxGetter(name = "QueuedNetworkRequests", description = "Number of requests in the Netty worker queue waiting to execute.")
+    public int getQueuedRequests() {
+        return this.workerPool.getQueue().size();
     }
 
 }

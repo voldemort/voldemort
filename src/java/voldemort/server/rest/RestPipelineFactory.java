@@ -16,6 +16,7 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
 import voldemort.server.StoreRepository;
 import voldemort.utils.DaemonThreadFactory;
+import voldemort.utils.JmxUtils;
 
 public class RestPipelineFactory implements ChannelPipelineFactory {
 
@@ -29,6 +30,8 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
     ThreadFactory threadFactory = new DaemonThreadFactory("Voldemort-REST-Server-Storage-Thread");
     private final ThreadPoolExecutor threadPoolExecutor;
     private final StorageExecutionHandler storageExecutionHandler;
+    private final ConnectionStats connectionStats;
+    private final ConnectionStatsHandler connectionStatsHandler;
 
     public RestPipelineFactory(StoreRepository storeRepository,
                                int numStorageThreads,
@@ -41,6 +44,17 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
                                                          new LinkedBlockingQueue<Runnable>(threadPoolQueueSize),
                                                          threadFactory);
         storageExecutionHandler = new StorageExecutionHandler(threadPoolExecutor);
+        connectionStats = new ConnectionStats();
+        connectionStatsHandler = new ConnectionStatsHandler(connectionStats);
+
+        // Register MBeans for Storage pool stats
+        JmxUtils.registerMbean(this.storageExecutionHandler,
+                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.storageExecutionHandler.getClass()),
+                                                         JmxUtils.getClassName(this.storageExecutionHandler.getClass())));
+        // Register MBeans for connection stats
+        JmxUtils.registerMbean(this.connectionStats,
+                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.connectionStats.getClass()),
+                                                         JmxUtils.getClassName(this.connectionStats.getClass())));
     }
 
     @Override
@@ -48,6 +62,7 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
         // Create a default pipeline implementation.
         ChannelPipeline pipeline = pipeline();
 
+        pipeline.addLast("connectionStats", connectionStatsHandler);
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("aggregator", new HttpChunkAggregator(1048576));
         pipeline.addLast("encoder", new HttpResponseEncoder());
