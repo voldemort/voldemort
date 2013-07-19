@@ -35,7 +35,8 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
 
     public RestPipelineFactory(StoreRepository storeRepository,
                                int numStorageThreads,
-                               int threadPoolQueueSize) {
+                               int threadPoolQueueSize,
+                               boolean jmxEnabled) {
         this.storeRepository = storeRepository;
         this.threadPoolExecutor = new ThreadPoolExecutor(numStorageThreads,
                                                          numStorageThreads,
@@ -47,14 +48,16 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
         connectionStats = new ConnectionStats();
         connectionStatsHandler = new ConnectionStatsHandler(connectionStats);
 
-        // Register MBeans for Storage pool stats
-        JmxUtils.registerMbean(this.storageExecutionHandler,
-                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.storageExecutionHandler.getClass()),
-                                                         JmxUtils.getClassName(this.storageExecutionHandler.getClass())));
-        // Register MBeans for connection stats
-        JmxUtils.registerMbean(this.connectionStats,
-                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.connectionStats.getClass()),
-                                                         JmxUtils.getClassName(this.connectionStats.getClass())));
+        if(jmxEnabled) {
+            // Register MBeans for Storage pool stats
+            JmxUtils.registerMbean(this.storageExecutionHandler,
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.storageExecutionHandler.getClass()),
+                                                             JmxUtils.getClassName(this.storageExecutionHandler.getClass())));
+            // Register MBeans for connection stats
+            JmxUtils.registerMbean(this.connectionStats,
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.connectionStats.getClass()),
+                                                             JmxUtils.getClassName(this.connectionStats.getClass())));
+        }
     }
 
     @Override

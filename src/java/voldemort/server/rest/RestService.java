@@ -57,16 +57,19 @@ public class RestService extends AbstractService {
         this.bootstrap.setOption("child.reuseAddress", true);
         this.bootstrap.setPipelineFactory(new RestPipelineFactory(storeRepository,
                                                                   config.getNumRestServiceStorageThreads(),
-                                                                  config.getRestServiceStorageThreadPoolQueueSize()));
+                                                                  config.getRestServiceStorageThreadPoolQueueSize(),
+                                                                  config.isJmxEnabled()));
 
         // Bind and start to accept incoming connections.
         this.nettyServerChannel = this.bootstrap.bind(new InetSocketAddress(this.port));
         logger.info("REST service started on port " + this.port);
 
         // Register MBeans for Netty worker pool stats
-        JmxUtils.registerMbean(this,
-                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                         JmxUtils.getClassName(this.getClass())));
+        if(config.isJmxEnabled()) {
+            JmxUtils.registerMbean(this,
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                             JmxUtils.getClassName(this.getClass())));
+        }
     }
 
     /**

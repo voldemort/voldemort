@@ -9,8 +9,7 @@ public class ConnectionStats {
     AtomicLong activeNumberOfConnections;
 
     public ConnectionStats() {
-        this.activeNumberOfConnections = new AtomicLong();
-        this.activeNumberOfConnections.set(0);
+        this.activeNumberOfConnections = new AtomicLong(0);
     }
 
     @JmxGetter(name = "GetActiveConnections", description = "The total nunber of active channels open and connected")
@@ -26,7 +25,4 @@ public class ConnectionStats {
         this.activeNumberOfConnections.decrementAndGet();
     }
 
-    public void resetNumberOfConnections() {
-        this.activeNumberOfConnections.set(0);
-    }
 }
