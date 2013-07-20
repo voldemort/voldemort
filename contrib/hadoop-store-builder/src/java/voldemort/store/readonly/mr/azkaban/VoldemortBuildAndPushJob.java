@@ -90,6 +90,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final String valueField;
 
     private final boolean isAvroVersioned;
+    
+    private final boolean informedOn;
 
     private static final String AVRO_GENERIC_TYPE_NAME = "avro-generic";
 
@@ -99,14 +101,18 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private static final String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
 
+    // informed mode is set to false by default
+
+    public static final boolean INFORMED_DEFAULT_MODE = false;
+
     // new properties for the push job
 
     private final String hdfsFetcherPort;
     private final String hdfsFetcherProtocol;
 
     /* Informed stuff */
-    private final String informedURL = "http://informed.corp.linkedin.com/_post";
-    private final List<Future> informedResults;
+    private final String INFORMED_URL = "http://informed.corp.linkedin.com/_post";
+    private List<Future> informedResults;
     private ExecutorService informedExecutor;
 
     private String jsonKeyField;
@@ -140,8 +146,13 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         this.nodeId = props.getInt("push.node", 0);
         this.log = Logger.getLogger(name);
-        this.informedResults = Lists.newArrayList();
-        this.informedExecutor = Executors.newFixedThreadPool(2);
+        
+        // make informed utilities depend on default value (false by default)
+        this.informedOn = props.getBoolean("voldemort.informed.on", INFORMED_DEFAULT_MODE);
+        if(this.informedOn) {
+             this.informedResults = Lists.newArrayList();
+             this.informedExecutor = Executors.newFixedThreadPool(2);
+        }
 
         this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
         this.hdfsFetcherPort = props.getString("voldemort.fetcher.port", "50070");
@@ -214,9 +225,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 if(push) {
                     if(log.isDebugEnabled())
                         log.debug("Informing about push start ...");
-                    informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+
+                    if(informedOn) {
+                         informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
                                                                                         "Running",
                                                                                         this.getId())));
+                    }
 
                     runPushStore(props, url, buildOutputDir);
                 }
@@ -235,18 +249,22 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
                 if(log.isDebugEnabled())
                     log.debug("Informing about push finish ...");
-                informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                    "Finished",
-                                                                                    this.getId())));
 
-                for(Future result: informedResults) {
-                    try {
-                        result.get();
-                    } catch(Exception e) {
-                        this.log.error("Exception in consumer", e);
+                if(informedOn) {
+                    informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                                                                                     "Finished",
+                                                                                     this.getId())));
+
+                    for(Future result: informedResults) {
+                       try {
+                           result.get();
+                       } catch(Exception e) {
+                           this.log.error("Exception in consumer", e);
+                       }
                     }
+
+                    this.informedExecutor.shutdownNow();
                 }
-                this.informedExecutor.shutdownNow();
             } catch(Exception e) {
                 log.error("Exception during build and push for url " + url, e);
                 exceptions.put(url, e);
@@ -860,7 +878,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         @Override
         public void run() {
             try {
-                URL url = new URL(informedURL);
+                URL url = new URL(INFORMED_URL);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
