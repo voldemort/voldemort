@@ -1,3 +1,13 @@
+Release 1.4.5 on 07/22/2013
+
+This is a special release based off of release 1.1.6, created in order to
+solve the client connection issues seen in case of a very high QPS workload
+(10K and above). The problem seems to be related to async connection
+checkouts added in the later version of the client.
+
+Changes made since 1.1.6
+* Backported the read-repairer fix
+
 Release 1.1.6 on 12/12/2012
 
 This is a special release based off of release 0.96.li7. Its purpose is to 
