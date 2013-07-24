@@ -116,6 +116,10 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Boolean.toString(config.getBdbProactiveBackgroundMigration()));
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_BYTES_INTERVAL,
                                          Long.toString(config.getBdbCleanerBytesInterval()));
+        environmentConfig.setConfigParam(EnvironmentConfig.TREE_MAX_DELTA,
+                                         Integer.toString(config.getBdbMaxDelta()));
+        environmentConfig.setConfigParam(EnvironmentConfig.TREE_BIN_DELTA,
+                                         Integer.toString(config.getBdbBinDelta()));
 
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
         if(config.getBdbCacheModeEvictLN()) {

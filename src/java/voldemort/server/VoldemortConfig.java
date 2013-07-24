@@ -117,6 +117,8 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbLevelBasedEviction;
     private boolean bdbProactiveBackgroundMigration;
     private boolean bdbCheckpointerOffForBatchWrites;
+    private int bdbMaxDelta;
+    private int bdbBinDelta;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -283,6 +285,8 @@ public class VoldemortConfig implements Serializable {
                                                                 false);
         this.bdbCheckpointerOffForBatchWrites = props.getBoolean("bdb.checkpointer.off.batch.writes",
                                                                  false);
+        this.bdbMaxDelta = props.getInt("bdb.max.delta", 100);
+        this.bdbBinDelta = props.getInt("bdb.bin.delta", 75); 
 
         this.numReadOnlyVersions = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -1248,6 +1252,42 @@ public class VoldemortConfig implements Serializable {
 
     public int getCoreThreads() {
         return coreThreads;
+    }
+
+
+
+    /**
+     * Exposes BDB JE EnvironmentConfig.TREE_MAX_DELTA.
+     *
+     * <ul>
+     * <li>Property : "bdb.max.delta"</li>
+     * <li>Default : 100</li>
+     * </ul>
+     *
+     */
+    public void setBdbMaxDelta(int maxDelta) {
+        this.bdbMaxDelta = maxDelta;
+    }
+
+    public int getBdbMaxDelta() {
+        return this.bdbMaxDelta;
+    }
+
+    /**
+     * Exposes BDB JE EnvironmentConfig.TREE_BIN_DELTA.
+     *
+     * <ul>
+     * <li>Property : "bdb.bin.delta"</li>
+     * <li>Default : 75</li>
+     * </ul>
+     *
+     */
+    public void setBdbBinDelta(int binDelta) {
+        this.bdbBinDelta = binDelta;
+    }
+
+    public int getBdbBinDelta() {
+        return this.bdbBinDelta;
     }
 
     /**
