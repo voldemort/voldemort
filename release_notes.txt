@@ -1,3 +1,11 @@
+Release 1.4.6 on 07/24/2013
+
+Changes
+* Cleanup of R2Store to work with the REST server
+* Modified ZenStoreClient to avoid creating SystemStores during each
+* re-bootstrap
+* Added slop streaming functionality
+
 Release 1.4.4 on 07/08/2013
 
 Changes made since 1.4.3
