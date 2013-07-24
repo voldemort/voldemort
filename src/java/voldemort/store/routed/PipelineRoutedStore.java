@@ -139,12 +139,6 @@ public class PipelineRoutedStore extends RoutedStore {
                 throw new IllegalArgumentException("storeDef.getZoneCountReads() is non-zero while zoneAffinityGetAll is enabled");
             }
         }
-        if(zoneAffinity != null && storeDef.getZoneCountWrites() != null
-           && storeDef.getZoneCountWrites() > 0) {
-            if(zoneAffinity.isPutOpZoneAffinityEnabled()) {
-                throw new IllegalArgumentException("storeDef.getZoneCountReads() is non-zero while zoneAffinityPut is enabled");
-            }
-        }
         this.nonblockingSlopStores = nonblockingSlopStores;
         this.clientZone = cluster.getZoneById(clientZoneId);
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
@@ -535,14 +529,25 @@ public class PipelineRoutedStore extends RoutedStore {
 
         };
 
-        pipeline.addEventAction(Event.STARTED,
-                                new ConfigureNodes<List<Version>, BasicPipelineData<List<Version>>>(pipelineData,
-                                                                                                    Event.CONFIGURED,
-                                                                                                    failureDetector,
-                                                                                                    storeDef.getRequiredReads(),
-                                                                                                    routingStrategy,
-                                                                                                    key,
-                                                                                                    clientZone));
+        if(zoneAffinity.isGetVersionsOpZoneAffinityEnabled()) {
+            pipeline.addEventAction(Event.STARTED,
+                                    new ConfigureNodesLocalZoneOnly<List<Version>, BasicPipelineData<List<Version>>>(pipelineData,
+                                                                                                                     Event.CONFIGURED,
+                                                                                                                     failureDetector,
+                                                                                                                     storeDef.getRequiredReads(),
+                                                                                                                     routingStrategy,
+                                                                                                                     key,
+                                                                                                                     clientZone));
+        } else {
+            pipeline.addEventAction(Event.STARTED,
+                                    new ConfigureNodes<List<Version>, BasicPipelineData<List<Version>>>(pipelineData,
+                                                                                                        Event.CONFIGURED,
+                                                                                                        failureDetector,
+                                                                                                        storeDef.getRequiredReads(),
+                                                                                                        routingStrategy,
+                                                                                                        key,
+                                                                                                        clientZone));
+        }
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<List<Version>, BasicPipelineData<List<Version>>>(pipelineData,
                                                                                                              Event.COMPLETED,

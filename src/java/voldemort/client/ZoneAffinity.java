@@ -25,7 +25,7 @@ public class ZoneAffinity {
 
     private boolean getOpZoneAffinity;
     private boolean getAllOpZoneAffinity;
-    private boolean putOpZoneAffinity;
+    private boolean getVersionsOpZoneAffinity;
 
     public ZoneAffinity() {
         this(false, false, false);
@@ -37,10 +37,10 @@ public class ZoneAffinity {
 
     public ZoneAffinity(boolean getOpZoneAffinity,
                         boolean getAllOpZoneAffinity,
-                        boolean putOpZoneAffinity) {
+                        boolean getVersionsOpZoneAffinity) {
         this.getOpZoneAffinity = getOpZoneAffinity;
         this.getAllOpZoneAffinity = getAllOpZoneAffinity;
-        this.putOpZoneAffinity = putOpZoneAffinity;
+        this.getVersionsOpZoneAffinity = getVersionsOpZoneAffinity;
     }
 
     public boolean isGetOpZoneAffinityEnabled() {
@@ -51,8 +51,8 @@ public class ZoneAffinity {
         return getAllOpZoneAffinity;
     }
 
-    public boolean isPutOpZoneAffinityEnabled() {
-        return putOpZoneAffinity;
+    public boolean isGetVersionsOpZoneAffinityEnabled() {
+        return getVersionsOpZoneAffinity;
     }
 
     /**
@@ -74,8 +74,8 @@ public class ZoneAffinity {
     /**
      * @param enabled Defines if zone affinity is applied for PUT operation
      */
-    public ZoneAffinity setEnablePutOpZoneAffinity(boolean enabled) {
-        putOpZoneAffinity = enabled;
+    public ZoneAffinity setEnableGetVersionsOpZoneAffinity(boolean enabled) {
+        getVersionsOpZoneAffinity = enabled;
         return this;
     }
 }

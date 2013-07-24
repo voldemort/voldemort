@@ -174,7 +174,7 @@ public class ClientConfig {
     public static final String FAT_CLIENT_WRAPPER_POOL_KEEPALIVE_IN_SECS = "fat_client_wrapper_pool_keepalive_in_secs";
     public static final String GET_OP_ZONE_AFFINITY = "get_op_zone_affinity";
     public static final String GETALL_OP_ZONE_AFFINITY = "getall_op_zone_affinity";
-    public static final String PUT_OP_ZONE_AFFINITY = "put_op_zone_affinity";
+    public static final String GETVERSIONS_OP_ZONE_AFFINITY = "getversions_op_zone_affinity";
 
     /**
      * Instantiate the client config using a properties file
@@ -408,9 +408,9 @@ public class ClientConfig {
                 .setEnableGetAllOpZoneAffinity(props.getBoolean(GETALL_OP_ZONE_AFFINITY));
         }
 
-        if(props.containsKey(PUT_OP_ZONE_AFFINITY)) {
+        if(props.containsKey(GETVERSIONS_OP_ZONE_AFFINITY)) {
             this.getZoneAffinity()
-                .setEnablePutOpZoneAffinity(props.getBoolean(PUT_OP_ZONE_AFFINITY));
+                .setEnableGetVersionsOpZoneAffinity(props.getBoolean(GETVERSIONS_OP_ZONE_AFFINITY));
         }
 
     }
