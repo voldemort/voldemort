@@ -18,6 +18,8 @@ import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
 import voldemort.coordinator.CoordinatorUtils;
+import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
@@ -39,7 +41,9 @@ public class GetVersionResponseSender extends RestResponseSender {
     }
 
     @Override
-    public void sendResponse() throws Exception {
+    public void sendResponse(StoreStats performanceStats,
+                             boolean isFromLocalZone,
+                             long startTimeInMs) throws Exception {
 
         String contentLocationKey = "/" + this.storeName + "/"
                                     + new String(Base64.encodeBase64(key.get()));
@@ -65,6 +69,14 @@ public class GetVersionResponseSender extends RestResponseSender {
         // Copy the data into the payload
         response.setContent(responseContentBuffer);
         response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
+
+        /*
+         * TODO REST-Server Should we track get version?
+         */
+        if(performanceStats != null && isFromLocalZone) {
+            long duration = System.currentTimeMillis() - startTimeInMs;
+            performanceStats.recordTime(Tracked.GET, duration * toNanoSeconds);
+        }
 
         // Write the response to the Netty Channel
         this.messageEvent.getChannel().write(response);

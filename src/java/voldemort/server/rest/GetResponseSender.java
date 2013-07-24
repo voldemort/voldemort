@@ -7,6 +7,7 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import java.io.IOException;
 import java.util.List;
 
 import javax.mail.MessagingException;
@@ -23,6 +24,8 @@ import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
 import voldemort.coordinator.CoordinatorUtils;
+import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -47,9 +50,14 @@ public class GetResponseSender extends RestResponseSender {
     /**
      * Sends a multipart response. Each body part represents a versioned value
      * of the given key.
+     * 
+     * @throws IOException
+     * @throws MessagingException
      */
     @Override
-    public void sendResponse() throws Exception {
+    public void sendResponse(StoreStats performanceStats,
+                             boolean isFromLocalZone,
+                             long startTimeInMs) throws Exception {
 
         MimeMultipart multiPart = new MimeMultipart();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -101,6 +109,11 @@ public class GetResponseSender extends RestResponseSender {
         // Copy the data into the payload
         response.setContent(responseContent);
         response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
+
+        if(performanceStats != null && isFromLocalZone) {
+            long duration = System.currentTimeMillis() - startTimeInMs;
+            performanceStats.recordTime(Tracked.GET, duration * toNanoSeconds);
+        }
 
         // Write the response to the Netty Channel
         this.messageEvent.getChannel().write(response);

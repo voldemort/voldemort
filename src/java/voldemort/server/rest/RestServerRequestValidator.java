@@ -66,9 +66,6 @@ public abstract class RestServerRequestValidator {
      * Retrieve and validate the timeout value from the REST request.
      * "X_VOLD_REQUEST_TIMEOUT_MS" is the timeout header.
      * 
-     * TODO REST-Server 1. check for negative/zero values ? 2. Use timeout
-     * header to filter expired requests
-     * 
      * @return true if present, false if missing
      */
     protected boolean hasTimeOutHeader() {
@@ -150,8 +147,7 @@ public abstract class RestServerRequestValidator {
      * Retrieve and validate the timestamp value from the REST request.
      * "X_VOLD_REQUEST_ORIGIN_TIME_MS" is timestamp header
      * 
-     * TODO REST-Server 1. Change Time stamp header to a better name. 2. Check
-     * for zero/negative value?
+     * TODO REST-Server 1. Change Time stamp header to a better name.
      * 
      * @return true if present, false if missing
      */

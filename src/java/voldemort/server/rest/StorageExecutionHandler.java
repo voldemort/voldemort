@@ -9,25 +9,32 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.execution.ExecutionHandler;
 
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.store.stats.StoreStats;
 
 public class StorageExecutionHandler extends ExecutionHandler {
 
     private final ThreadPoolExecutor threadPoolExecutor;
+    private final StoreStats performanceStats;
+    private final int localZoneId;
 
-    public StorageExecutionHandler(Executor executor) {
+    public StorageExecutionHandler(Executor executor, StoreStats performanceStats, int localZoneId) {
         super(executor);
         if(executor instanceof ThreadPoolExecutor) {
             threadPoolExecutor = (ThreadPoolExecutor) executor;
         } else {
             threadPoolExecutor = null;
         }
+        this.performanceStats = performanceStats;
+        this.localZoneId = localZoneId;
     }
 
     @Override
     public void handleUpstream(ChannelHandlerContext context, ChannelEvent channelEvent)
             throws Exception {
         if(channelEvent instanceof MessageEvent) {
-            getExecutor().execute(new StorageWorkerThread((MessageEvent) channelEvent));
+            getExecutor().execute(new StorageWorkerThread((MessageEvent) channelEvent,
+                                                          performanceStats,
+                                                          localZoneId));
         }
     }
 

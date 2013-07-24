@@ -28,7 +28,7 @@ public class RestServerProtocolTests {
     private static String urlStr;
     private static String value1;
     private static String contentType;
-    private static long timeOut, originTime;
+    private static long timeOut;
     private static int routingType;
     private static VectorClock vectorClock;
     private static String eTag;
@@ -51,9 +51,8 @@ public class RestServerProtocolTests {
         vectorClock.incrementVersion(config.getNodeId(), System.currentTimeMillis());
         eTag = CoordinatorUtils.getSerializedVectorClock(vectorClock);
         value1 = "The longest value";
-        timeOut = 1000L;
+        timeOut = 10000L;
         contentType = "text";
-        originTime = System.currentTimeMillis();
         routingType = 2;
         server = new VoldemortServer(config);
         if(!server.isStarted())
@@ -219,7 +218,7 @@ public class RestServerProtocolTests {
                          key1,
                          value1,
                          storeNameStr,
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          String.valueOf(timeOut),
                          null,
                          eTag,
@@ -245,7 +244,7 @@ public class RestServerProtocolTests {
             conn = doGet(urlStr,
                          key1,
                          storeNameStr,
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          String.valueOf(timeOut),
                          String.valueOf(6));
 
@@ -268,7 +267,7 @@ public class RestServerProtocolTests {
             conn = doDelete(urlStr,
                             key1,
                             storeNameStr,
-                            String.valueOf(originTime),
+                            String.valueOf(System.currentTimeMillis()),
                             String.valueOf(timeOut),
                             "asdfa",
                             eTag);
@@ -293,7 +292,7 @@ public class RestServerProtocolTests {
                          key1,
                          value1,
                          storeNameStr,
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          null,
                          String.valueOf(routingType),
                          eTag,
@@ -318,7 +317,7 @@ public class RestServerProtocolTests {
             conn = doGet(urlStr,
                          key1,
                          storeNameStr,
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          "asdfasdf",
                          String.valueOf(routingType));
             responseCode = conn.getResponseCode();
@@ -389,7 +388,7 @@ public class RestServerProtocolTests {
             conn = doGet(urlStr,
                          null,
                          storeNameStr,
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          String.valueOf(timeOut),
                          String.valueOf(routingType));
             responseCode = conn.getResponseCode();
@@ -411,7 +410,7 @@ public class RestServerProtocolTests {
             conn = doDelete(urlStr,
                             key1,
                             null,
-                            String.valueOf(originTime),
+                            String.valueOf(System.currentTimeMillis()),
                             String.valueOf(timeOut),
                             String.valueOf(routingType),
                             eTag);
@@ -434,7 +433,7 @@ public class RestServerProtocolTests {
             conn = doGet(urlStr,
                          key1,
                          "blahblah",
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          String.valueOf(timeOut),
                          String.valueOf(routingType));
             responseCode = conn.getResponseCode();
@@ -457,7 +456,7 @@ public class RestServerProtocolTests {
                          key1,
                          value1,
                          storeNameStr,
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          String.valueOf(timeOut),
                          String.valueOf(routingType),
                          null,
@@ -482,7 +481,7 @@ public class RestServerProtocolTests {
             conn = doDelete(urlStr,
                             key1,
                             storeNameStr,
-                            String.valueOf(originTime),
+                            String.valueOf(System.currentTimeMillis()),
                             String.valueOf(timeOut),
                             String.valueOf(routingType),
                             "gvkjhgvlj");
@@ -505,7 +504,7 @@ public class RestServerProtocolTests {
             conn = doGet(urlStr,
                          "non existing key",
                          storeNameStr,
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          String.valueOf(timeOut),
                          String.valueOf(routingType));
             responseCode = conn.getResponseCode();
@@ -527,7 +526,7 @@ public class RestServerProtocolTests {
             conn = doGet(urlStr,
                          "non existing key1, non existing key2",
                          storeNameStr,
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          String.valueOf(timeOut),
                          String.valueOf(routingType));
             responseCode = conn.getResponseCode();
@@ -554,7 +553,7 @@ public class RestServerProtocolTests {
                          key1,
                          value1,
                          storeNameStr,
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          String.valueOf(timeOut),
                          String.valueOf(routingType),
                          eTag,
@@ -570,7 +569,7 @@ public class RestServerProtocolTests {
                              key1,
                              value1,
                              storeNameStr,
-                             String.valueOf(originTime),
+                             String.valueOf(System.currentTimeMillis()),
                              String.valueOf(timeOut),
                              String.valueOf(routingType),
                              eTag,
@@ -600,7 +599,7 @@ public class RestServerProtocolTests {
             conn = doDelete(urlStr,
                             "non existing key",
                             storeNameStr,
-                            String.valueOf(originTime),
+                            String.valueOf(System.currentTimeMillis()),
                             String.valueOf(timeOut),
                             String.valueOf(routingType),
                             eTag);
@@ -629,7 +628,7 @@ public class RestServerProtocolTests {
                          key1,
                          value1,
                          storeNameStr,
-                         String.valueOf(originTime),
+                         String.valueOf(System.currentTimeMillis()),
                          String.valueOf(timeOut),
                          String.valueOf(routingType),
                          eTag,
@@ -649,7 +648,7 @@ public class RestServerProtocolTests {
                              key1,
                              value2,
                              storeNameStr,
-                             String.valueOf(originTime),
+                             String.valueOf(System.currentTimeMillis()),
                              String.valueOf(timeOut),
                              String.valueOf(routingType),
                              eTag2,
@@ -665,7 +664,7 @@ public class RestServerProtocolTests {
                     conn = doDelete(urlStr,
                                     key1,
                                     storeNameStr,
-                                    String.valueOf(originTime),
+                                    String.valueOf(System.currentTimeMillis()),
                                     String.valueOf(timeOut),
                                     String.valueOf(routingType),
                                     eTag);
@@ -693,7 +692,7 @@ public class RestServerProtocolTests {
         conn = doDelete(urlStr,
                         key,
                         storeNameStr,
-                        String.valueOf(originTime),
+                        String.valueOf(System.currentTimeMillis()),
                         String.valueOf(timeOut),
                         String.valueOf(routingType),
                         eTag);

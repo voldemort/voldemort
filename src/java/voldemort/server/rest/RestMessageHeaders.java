@@ -13,6 +13,7 @@ public class RestMessageHeaders {
     public static final String X_VOLD_REQUEST_ORIGIN_TIME_MS = "X-VOLD-Request-Origin-Time-ms";
     public static final String X_VOLD_ROUTING_TYPE_CODE = "X-VOLD-Routing-Type-Code";
     public static final String X_VOLD_GET_VERSION = "X-VOLD-Get-Version";
+    public static final String X_VOLD_ZONE_ID = "X-VOLD-Zone-Id";
     public static final String CONTENT_LENGTH = "Content-Length";
     public static final String CONTENT_TYPE = "Content-Type";
 }

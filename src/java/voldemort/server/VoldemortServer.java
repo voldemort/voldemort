@@ -208,7 +208,11 @@ public class VoldemortServer extends AbstractService {
              * needs to be configurable 2. Need to configure the Rest Service
              * port instead of hard coding
              */
-            services.add(new RestService(voldemortConfig, 8085, storeRepository));
+
+            services.add(new RestService(voldemortConfig,
+                                         8085,
+                                         storeRepository,
+                                         identityNode.getZoneId()));
         }
         if(voldemortConfig.isSocketServerEnabled()) {
             RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,

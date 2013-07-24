@@ -25,6 +25,8 @@ import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
 import voldemort.coordinator.CoordinatorUtils;
+import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -49,7 +51,9 @@ public class GetAllResponseSender extends RestResponseSender {
      */
 
     @Override
-    public void sendResponse() throws Exception {
+    public void sendResponse(StoreStats performanceStats,
+                             boolean isFromLocalZone,
+                             long startTimeInMs) throws Exception {
 
         // multiPartKeys is the outer multipart
         MimeMultipart multiPartKeys = new MimeMultipart();
@@ -130,6 +134,11 @@ public class GetAllResponseSender extends RestResponseSender {
         // Copy the data into the payload
         response.setContent(responseContent);
         response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
+
+        if(performanceStats != null && isFromLocalZone) {
+            long duration = System.currentTimeMillis() - startTimeInMs;
+            performanceStats.recordTime(Tracked.GET_ALL, duration * toNanoSeconds);
+        }
 
         // Write the response to the Netty Channel
         this.messageEvent.getChannel().write(response);

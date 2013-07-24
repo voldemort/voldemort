@@ -74,7 +74,8 @@ public class RestServerAPITest {
                               restClientConfig.getHttpBootstrapURL(),
                               "2",
                               transportClient,
-                              restClientConfig);
+                              restClientConfig,
+                              0);
         store = r2store;
         deleteCreatedKeys(key);
 

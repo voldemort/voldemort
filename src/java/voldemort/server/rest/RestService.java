@@ -32,12 +32,17 @@ public class RestService extends AbstractService {
     private Channel nettyServerChannel;
     private final StoreRepository storeRepository;
     private final VoldemortConfig config;
+    private int localZoneId;
 
-    public RestService(VoldemortConfig config, int httpPort, StoreRepository storeRepository) {
+    public RestService(VoldemortConfig config,
+                       int httpPort,
+                       StoreRepository storeRepository,
+                       int zoneId) {
         super(ServiceType.RESTSERVICE);
         this.config = config;
         this.port = httpPort;
         this.storeRepository = storeRepository;
+        localZoneId = zoneId;
     }
 
     @Override
@@ -58,7 +63,8 @@ public class RestService extends AbstractService {
         this.bootstrap.setPipelineFactory(new RestPipelineFactory(storeRepository,
                                                                   config.getNumRestServiceStorageThreads(),
                                                                   config.getRestServiceStorageThreadPoolQueueSize(),
-                                                                  config.isJmxEnabled()));
+                                                                  config.isJmxEnabled(),
+                                                                  localZoneId));
 
         // Bind and start to accept incoming connections.
         this.nettyServerChannel = this.bootstrap.bind(new InetSocketAddress(this.port));

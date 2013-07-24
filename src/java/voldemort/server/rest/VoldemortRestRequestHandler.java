@@ -97,19 +97,36 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                 // request object.
                 CompositeVoldemortRequest<ByteArray, byte[]> requestObject = requestValidator.constructCompositeVoldemortRequestObject();
                 if(requestObject != null) {
-                    Store store = getStore(requestValidator.getStoreName(),
-                                           requestValidator.getParsedRoutingType());
-                    if(store != null) {
-                        VoldemortStoreRequest voldemortStoreRequest = new VoldemortStoreRequest(requestObject,
-                                                                                                store);
-                        Channels.fireMessageReceived(ctx, voldemortStoreRequest);
-                    } else {
-                        logger.error("Error when getting store. Non Existing store name.");
-                        RestServerErrorHandler.writeErrorResponse(messageEvent,
-                                                                  HttpResponseStatus.BAD_REQUEST,
-                                                                  "Non Existing store name. Critical error.");
-                        return;
 
+                    // Dropping dead requests from going to next handler
+                    long now = System.currentTimeMillis();
+                    if(requestObject.getRequestOriginTimeInMs()
+                       + requestObject.getRoutingTimeoutInMs() <= now) {
+                        RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                                  HttpResponseStatus.REQUEST_TIMEOUT,
+                                                                  "current time: "
+                                                                          + now
+                                                                          + "\torigin time: "
+                                                                          + requestObject.getRequestOriginTimeInMs()
+                                                                          + "\ttimeout in ms: "
+                                                                          + requestObject.getRoutingTimeoutInMs());
+                        return;
+                    } else {
+                        Store store = getStore(requestValidator.getStoreName(),
+                                               requestValidator.getParsedRoutingType());
+                        if(store != null) {
+                            VoldemortStoreRequest voldemortStoreRequest = new VoldemortStoreRequest(requestObject,
+                                                                                                    store,
+                                                                                                    parseZoneId());
+                            Channels.fireMessageReceived(ctx, voldemortStoreRequest);
+                        } else {
+                            logger.error("Error when getting store. Non Existing store name.");
+                            RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                                      HttpResponseStatus.BAD_REQUEST,
+                                                                      "Non Existing store name. Critical error.");
+                            return;
+
+                        }
                     }
                 }
             }
@@ -147,5 +164,31 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                 return this.storeRepository.getStorageEngine(name);
         }
         return null;
+    }
+
+    /**
+     * Retrieve and validate the zone id value from the REST request.
+     * "X-VOLD-Zone-Id" is the zone id header.
+     * 
+     * @return valid zone id or -1 if there is no/invalid zone id
+     */
+    protected int parseZoneId() {
+        int result = -1;
+        String zoneIdStr = this.request.getHeader(RestMessageHeaders.X_VOLD_ZONE_ID);
+        if(zoneIdStr != null) {
+            try {
+                int zoneId = Integer.parseInt(zoneIdStr);
+                if(zoneId < 0) {
+                    logger.error("ZoneId cannot be negative. Assuming the default zone id.");
+                } else {
+                    result = zoneId;
+                }
+            } catch(NumberFormatException nfe) {
+                logger.error("Exception when validating request. Incorrect zone id parameter. Cannot parse this to int: "
+                                     + zoneIdStr,
+                             nfe);
+            }
+        }
+        return result;
     }
 }
