@@ -79,6 +79,7 @@ do
     ;;
   o)
     output_dir=$OPTARG
+    output_dir=$(readlink -m $output_dir)
     mkdir -p $output_dir
     echo "[rebalance-zone-expansion] Using '$output_dir' for all interim and final files generated."
     ;;
@@ -143,15 +144,17 @@ do
 done
 
 #find the run with the best (minimal) utility value 
-bestUtil=$(grep "Utility" $output_dir/step1/*/final-cluster.xml.analysis | sort -nk 3 | cut -f4 -d / | head -n 1)
+bestUtil="$(grep "Utility" $output_dir/step1/*/final-cluster.xml.analysis | sort -nk 3 | head -n 1 | cut -f1 -d ' ')"
+remove=".analysis:Utility"
+path_to_bestUtil=${bestUtil%%$remove}
 
-if [ ! -e $output_dir/step1/$bestUtil/final-cluster.xml ]; then
+if [ ! -e $path_to_bestUtil ]; then
     usage_and_exit "final cluster.xml from step1 does not exist"
 fi
 
 # Step 2
 $vold_home/bin/run-class.sh voldemort.tools.RepartitionerCLI \
-                            --current-cluster $output_dir/step1/$bestUtil/final-cluster.xml \
+                            --current-cluster $path_to_bestUtil \
                             --current-stores $final_stores \
                             --output-dir $output_dir/step2 \
                             --enable-random-swaps \
