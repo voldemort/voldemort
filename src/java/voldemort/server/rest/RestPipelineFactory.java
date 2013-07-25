@@ -36,8 +36,8 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
     ThreadFactory threadFactory = new DaemonThreadFactory("Voldemort-REST-Server-Storage-Thread");
     private final ThreadPoolExecutor threadPoolExecutor;
     private final StorageExecutionHandler storageExecutionHandler;
-    private final ConnectionStats connectionStats;
-    private final ConnectionStatsHandler connectionStatsHandler;
+    private final NettyConnectionStats connectionStats;
+    private final NettyConnectionStatsHandler connectionStatsHandler;
     private final StoreStats performanceStats;
 
     public RestPipelineFactory(StoreRepository storeRepository,
@@ -56,8 +56,8 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
         storageExecutionHandler = new StorageExecutionHandler(threadPoolExecutor,
                                                               performanceStats,
                                                               localZoneId);
-        connectionStats = new ConnectionStats();
-        connectionStatsHandler = new ConnectionStatsHandler(connectionStats);
+        connectionStats = new NettyConnectionStats();
+        connectionStatsHandler = new NettyConnectionStatsHandler(connectionStats);
 
         if(jmxEnabled) {
             // Register MBeans for Storage pool stats

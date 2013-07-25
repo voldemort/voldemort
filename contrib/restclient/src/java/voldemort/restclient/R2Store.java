@@ -85,7 +85,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     public static final String SCHEMATA_STORE_NAME = "schemata";
     private static final String MULTIPART_CONTENT_TYPE = "multipart/binary";
     private static final String FETCH_SCHEMA_TIMEOUT_MS = "50000";
-    private static final int defaultZoneId = -1;
+    private static final int INVALID_ZONE_ID = -1;
     private final Logger logger = Logger.getLogger(R2Store.class);
 
     private Client client = null;
@@ -99,7 +99,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                    String baseURL,
                    final TransportClient transportClient,
                    final RESTClientConfig config) {
-        this(storeName, baseURL, null, transportClient, config, defaultZoneId);
+        this(storeName, baseURL, null, transportClient, config, INVALID_ZONE_ID);
     }
 
     public R2Store(String storeName,
@@ -151,7 +151,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             if(this.routingTypeCode != null) {
                 rb.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             }
-            if(this.zoneId != defaultZoneId) {
+            if(this.zoneId != INVALID_ZONE_ID) {
                 rb.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID, String.valueOf(this.zoneId));
             }
             // Serialize the Vector clock
@@ -218,7 +218,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE,
                                      this.routingTypeCode);
         }
-        if(this.zoneId != defaultZoneId) {
+        if(this.zoneId != INVALID_ZONE_ID) {
             requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID, String.valueOf(this.zoneId));
         }
         RestRequest request = requestBuilder.build();
@@ -329,7 +329,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             if(this.routingTypeCode != null) {
                 rb.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             }
-            if(this.zoneId != defaultZoneId) {
+            if(this.zoneId != INVALID_ZONE_ID) {
                 rb.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID, String.valueOf(this.zoneId));
             }
 
@@ -385,7 +385,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             if(this.routingTypeCode != null) {
                 rb.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             }
-            if(this.zoneId != defaultZoneId) {
+            if(this.zoneId != INVALID_ZONE_ID) {
                 rb.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID, String.valueOf(this.zoneId));
             }
 
@@ -491,7 +491,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             if(this.routingTypeCode != null) {
                 rb.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
             }
-            if(this.zoneId != defaultZoneId) {
+            if(this.zoneId != INVALID_ZONE_ID) {
                 rb.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID, String.valueOf(this.zoneId));
             }
 

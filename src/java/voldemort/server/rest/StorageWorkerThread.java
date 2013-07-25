@@ -199,7 +199,7 @@ public class StorageWorkerThread implements Runnable {
         }
     }
 
-    public boolean isLocalZoneId(int requestZoneId) {
+    private boolean isLocalZoneId(int requestZoneId) {
         if(requestZoneId == this.localZoneId) {
             return true;
         } else {

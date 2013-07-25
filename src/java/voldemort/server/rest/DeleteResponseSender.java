@@ -27,12 +27,11 @@ public class DeleteResponseSender extends RestResponseSender {
         // Set the right headers
         response.setHeader(CONTENT_LENGTH, "0");
 
-        if(performanceStats != null && isFromLocalZone) {
-            long duration = System.currentTimeMillis() - startTimeInMs;
-            performanceStats.recordTime(Tracked.DELETE, duration * toNanoSeconds);
-        }
-
         // Write the response to the Netty Channel
         this.messageEvent.getChannel().write(response);
+
+        if(performanceStats != null && isFromLocalZone) {
+            recordStats(performanceStats, startTimeInMs, Tracked.DELETE);
+        }
     }
 }

@@ -8,11 +8,11 @@ import org.jboss.netty.channel.SimpleChannelHandler;
  * Handler that monitors active connections to the Voldemort Rest Service
  * 
  */
-public class ConnectionStatsHandler extends SimpleChannelHandler {
+public class NettyConnectionStatsHandler extends SimpleChannelHandler {
 
-    private final ConnectionStats connectionStats;
+    private final NettyConnectionStats connectionStats;
 
-    public ConnectionStatsHandler(ConnectionStats connectionStats) {
+    public NettyConnectionStatsHandler(NettyConnectionStats connectionStats) {
         this.connectionStats = connectionStats;
     }
 

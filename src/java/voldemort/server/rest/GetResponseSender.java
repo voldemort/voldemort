@@ -110,13 +110,12 @@ public class GetResponseSender extends RestResponseSender {
         response.setContent(responseContent);
         response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
 
-        if(performanceStats != null && isFromLocalZone) {
-            long duration = System.currentTimeMillis() - startTimeInMs;
-            performanceStats.recordTime(Tracked.GET, duration * toNanoSeconds);
-        }
-
         // Write the response to the Netty Channel
         this.messageEvent.getChannel().write(response);
+
+        if(performanceStats != null && isFromLocalZone) {
+            recordStats(performanceStats, startTimeInMs, Tracked.GET);
+        }
 
         outputStream.close();
 

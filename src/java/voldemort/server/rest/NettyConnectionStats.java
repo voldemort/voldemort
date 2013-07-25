@@ -4,11 +4,11 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import voldemort.annotations.jmx.JmxGetter;
 
-public class ConnectionStats {
+public class NettyConnectionStats {
 
     AtomicLong activeNumberOfConnections;
 
-    public ConnectionStats() {
+    public NettyConnectionStats() {
         this.activeNumberOfConnections = new AtomicLong(0);
     }
 
