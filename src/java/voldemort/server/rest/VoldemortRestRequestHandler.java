@@ -72,17 +72,11 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                 // Instantiate the appropriate error handler
                 HttpMethod httpMethod = request.getMethod();
                 if(httpMethod.equals(HttpMethod.GET)) {
-                    requestValidator = new RestServerGetRequestValidator(request,
-                                                                         messageEvent,
-                                                                         storeRepository);
+                    requestValidator = new RestServerGetRequestValidator(request, messageEvent);
                 } else if(httpMethod.equals(HttpMethod.POST)) {
-                    requestValidator = new RestServerPutRequestValidator(request,
-                                                                         messageEvent,
-                                                                         storeRepository);
+                    requestValidator = new RestServerPutRequestValidator(request, messageEvent);
                 } else if(httpMethod.equals(HttpMethod.DELETE)) {
-                    requestValidator = new RestServerDeleteRequestValidator(request,
-                                                                            messageEvent,
-                                                                            storeRepository);
+                    requestValidator = new RestServerDeleteRequestValidator(request, messageEvent);
                 } else {
                     String errorMessage = "Illegal Http request.";
                     logger.error(errorMessage);
@@ -92,48 +86,63 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                     return;
                 }
 
-                // At this point we know the request is valid and we have a
-                // error handler. So we construct the composite Voldemort
-                // request object.
-                CompositeVoldemortRequest<ByteArray, byte[]> requestObject = requestValidator.constructCompositeVoldemortRequestObject();
-                if(requestObject != null) {
-
-                    // Dropping dead requests from going to next handler
-                    long now = System.currentTimeMillis();
-                    if(requestObject.getRequestOriginTimeInMs()
-                       + requestObject.getRoutingTimeoutInMs() <= now) {
-                        RestServerErrorHandler.writeErrorResponse(messageEvent,
-                                                                  HttpResponseStatus.REQUEST_TIMEOUT,
-                                                                  "current time: "
-                                                                          + now
-                                                                          + "\torigin time: "
-                                                                          + requestObject.getRequestOriginTimeInMs()
-                                                                          + "\ttimeout in ms: "
-                                                                          + requestObject.getRoutingTimeoutInMs());
-                        return;
-                    } else {
-                        Store store = getStore(requestValidator.getStoreName(),
-                                               requestValidator.getParsedRoutingType());
-                        if(store != null) {
-                            VoldemortStoreRequest voldemortStoreRequest = new VoldemortStoreRequest(requestObject,
-                                                                                                    store,
-                                                                                                    parseZoneId());
-                            Channels.fireMessageReceived(ctx, voldemortStoreRequest);
-                        } else {
-                            logger.error("Error when getting store. Non Existing store name.");
-                            RestServerErrorHandler.writeErrorResponse(messageEvent,
-                                                                      HttpResponseStatus.BAD_REQUEST,
-                                                                      "Non Existing store name. Critical error.");
-                            return;
-
-                        }
-                    }
-                }
+                registerRequest(requestValidator, ctx, messageEvent);
             }
         } else {
             HttpChunk chunk = (HttpChunk) messageEvent.getMessage();
             if(chunk.isLast()) {
                 readingChunks = false;
+            }
+        }
+    }
+
+    /**
+     * Constructs a valid request and passes it on to the next handler. It also
+     * creates the 'Store' object corresponding to the store name specified in
+     * the REST request.
+     * 
+     * @param requestValidator The Validator object used to construct the
+     *        request object
+     * @param ctx Context of the Netty channel
+     * @param messageEvent Message Event used to write the response / exception
+     */
+    protected void registerRequest(RestServerRequestValidator requestValidator,
+                                   ChannelHandlerContext ctx,
+                                   MessageEvent messageEvent) {
+        // At this point we know the request is valid and we have a
+        // error handler. So we construct the composite Voldemort
+        // request object.
+        CompositeVoldemortRequest<ByteArray, byte[]> requestObject = requestValidator.constructCompositeVoldemortRequestObject();
+        if(requestObject != null) {
+
+            // Dropping dead requests from going to next handler
+            long now = System.currentTimeMillis();
+            if(requestObject.getRequestOriginTimeInMs() + requestObject.getRoutingTimeoutInMs() <= now) {
+                RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                          HttpResponseStatus.REQUEST_TIMEOUT,
+                                                          "current time: "
+                                                                  + now
+                                                                  + "\torigin time: "
+                                                                  + requestObject.getRequestOriginTimeInMs()
+                                                                  + "\ttimeout in ms: "
+                                                                  + requestObject.getRoutingTimeoutInMs());
+                return;
+            } else {
+                Store store = getStore(requestValidator.getStoreName(),
+                                       requestValidator.getParsedRoutingType());
+                if(store != null) {
+                    VoldemortStoreRequest voldemortStoreRequest = new VoldemortStoreRequest(requestObject,
+                                                                                            store,
+                                                                                            parseZoneId());
+                    Channels.fireMessageReceived(ctx, voldemortStoreRequest);
+                } else {
+                    logger.error("Error when getting store. Non Existing store name.");
+                    RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                              HttpResponseStatus.BAD_REQUEST,
+                                                              "Non Existing store name. Critical error.");
+                    return;
+
+                }
             }
         }
     }

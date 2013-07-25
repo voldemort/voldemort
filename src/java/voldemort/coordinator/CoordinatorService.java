@@ -57,6 +57,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.Tracked;
+import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
@@ -79,7 +80,7 @@ public class CoordinatorService extends AbstractService {
     private AsyncMetadataVersionManager asyncMetadataManager = null;
     private SchedulerService schedulerService = null;
     private static final Logger logger = Logger.getLogger(CoordinatorService.class);
-    private Map<String, FatClientWrapper> fatClientMap = null;
+    private Map<String, DynamicTimeoutStoreClient<ByteArray, byte[]>> fatClientMap = null;
     public final static Schema CLIENT_CONFIGS_AVRO_SCHEMA = Schema.parse("{ \"name\": \"clientConfigs\",  \"type\":\"array\","
                                                                          + "\"items\": { \"name\": \"clientConfig\", \"type\": \"map\", \"values\":\"string\" }}}");
     private static final String STORE_NAME_KEY = "store_name";
@@ -114,24 +115,26 @@ public class CoordinatorService extends AbstractService {
                                                                        false);
         Map<String, ClientConfig> fatClientConfigMap = readClientConfig(this.coordinatorConfig.getFatClientConfigPath(),
                                                                         this.coordinatorConfig.getBootstrapURLs());
-        // For now Simply create the map of store definition to
-        // FatClientWrappers
-        // TODO: After the fat client improvements is done, modify this to
-        // - Fetch cluster.xml and stores.xml
-        // - Pass these on to each FatClientWrapper
-        // - Set up AsyncMetadataVersionManager
-        fatClientMap = new HashMap<String, FatClientWrapper>();
+
+        // Do not recreate map if it already exists.
+        // This function might be called by the AsyncMetadataVersionManager if
+        // there is a metadata update on the server side
+        if(this.fatClientMap == null) {
+            this.fatClientMap = new HashMap<String, DynamicTimeoutStoreClient<ByteArray, byte[]>>();
+        }
+
         for(StoreDefinition storeDef: storeDefList) {
             String storeName = storeDef.getName();
-            logger.info("Creating a Fat client wrapper for store: " + storeName);
+            logger.info("Creating a Fat client for store: " + storeName);
             logger.info("Using config: " + fatClientConfigMap.get(storeName));
-            fatClientMap.put(storeName, new FatClientWrapper(storeName,
-                                                             this.coordinatorConfig,
-                                                             fatClientConfigMap.get(storeName),
-                                                             storesXml,
-                                                             clusterXml,
-                                                             this.errorStats,
-                                                             this.coordinatorPerfStats));
+
+            DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = new DynamicTimeoutStoreClient<ByteArray, byte[]>(storeName,
+                                                                                                                        this.storeClientFactory,
+                                                                                                                        1,
+                                                                                                                        storesXml,
+                                                                                                                        clusterXml);
+
+            fatClientMap.put(storeName, storeClient);
         }
     }
 
@@ -151,6 +154,7 @@ public class CoordinatorService extends AbstractService {
         sysRepository.createSystemStores(clientConfig,
                                          clusterXml,
                                          storeClientFactory.getFailureDetector());
+
         // Create a callback for re-bootstrapping the client
         Callable<Void> rebootstrapCallback = new Callable<Void>() {
 
@@ -185,19 +189,18 @@ public class CoordinatorService extends AbstractService {
 
         // Set up the event pipeline factory.
         this.bootstrap.setPipelineFactory(new CoordinatorPipelineFactory(this.fatClientMap,
-                                                                         this.errorStats,
-                                                                         noop));
+                                                                         this.coordinatorConfig,
+                                                                         this.errorStats));
 
-        // Register the Mbean
-        // Netty Queue stats
-        JmxUtils.registerMbean(this,
-                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                         JmxUtils.getClassName(this.getClass())));
+        if(clientConfig.isJmxEnabled()) {
+            JmxUtils.registerMbean(this,
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                             JmxUtils.getClassName(this.getClass())));
 
-        // Error stats Mbean
-        JmxUtils.registerMbean(this.errorStats,
-                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.errorStats.getClass()),
-                                                         JmxUtils.getClassName(this.errorStats.getClass())));
+            JmxUtils.registerMbean(this.errorStats,
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.errorStats.getClass()),
+                                                             JmxUtils.getClassName(this.errorStats.getClass())));
+        }
 
         // Bind and start to accept incoming connections.
         this.nettyServerChannel = this.bootstrap.bind(new InetSocketAddress(this.coordinatorConfig.getServerPort()));

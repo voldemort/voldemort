@@ -4,7 +4,6 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
-import voldemort.server.StoreRepository;
 import voldemort.store.CompositeGetAllVoldemortRequest;
 import voldemort.store.CompositeGetVersionVoldemortRequest;
 import voldemort.store.CompositeGetVoldemortRequest;
@@ -20,10 +19,8 @@ public class RestServerGetRequestValidator extends RestServerRequestValidator {
 
     protected boolean isGetVersionRequest = false;
 
-    public RestServerGetRequestValidator(HttpRequest request,
-                                         MessageEvent messageEvent,
-                                         StoreRepository storeRepository) {
-        super(request, messageEvent, storeRepository);
+    public RestServerGetRequestValidator(HttpRequest request, MessageEvent messageEvent) {
+        super(request, messageEvent);
     }
 
     /**

@@ -3,7 +3,6 @@ package voldemort.server.rest;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 
-import voldemort.server.StoreRepository;
 import voldemort.store.CompositeDeleteVoldemortRequest;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.ByteArray;
@@ -15,10 +14,8 @@ import voldemort.utils.ByteArray;
  */
 public class RestServerDeleteRequestValidator extends RestServerRequestValidator {
 
-    public RestServerDeleteRequestValidator(HttpRequest request,
-                                            MessageEvent messageEvent,
-                                            StoreRepository storeRepository) {
-        super(request, messageEvent, storeRepository);
+    public RestServerDeleteRequestValidator(HttpRequest request, MessageEvent messageEvent) {
+        super(request, messageEvent);
     }
 
     @Override

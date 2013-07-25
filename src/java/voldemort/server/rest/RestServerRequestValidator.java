@@ -13,7 +13,6 @@ import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import voldemort.VoldemortException;
 import voldemort.coordinator.VectorClockWrapper;
 import voldemort.server.RequestRoutingType;
-import voldemort.server.StoreRepository;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
@@ -35,15 +34,12 @@ public abstract class RestServerRequestValidator {
     protected RequestRoutingType parsedRoutingType = null;
     protected MessageEvent messageEvent;
     protected HttpRequest request;
-    protected StoreRepository storeRepository;
     protected final Logger logger = Logger.getLogger(getClass());
 
-    public RestServerRequestValidator(HttpRequest request,
-                                      MessageEvent messageEvent,
-                                      StoreRepository storeRepository) {
+    public RestServerRequestValidator(HttpRequest request, MessageEvent messageEvent) {
         this.request = request;
         this.messageEvent = messageEvent;
-        this.storeRepository = storeRepository;
+        this.parsedRoutingType = RequestRoutingType.NORMAL;
     }
 
     public abstract CompositeVoldemortRequest<ByteArray, byte[]> constructCompositeVoldemortRequestObject();
@@ -54,10 +50,12 @@ public abstract class RestServerRequestValidator {
      * @return true if request is valid else false
      */
     protected boolean parseAndValidateRequest() {
-        if(!hasKey() || !hasTimeOutHeader() || !hasRoutingCodeHeader() || !hasTimeStampHeader()
-           || !isStoreValid()) {
+        if(!hasKey() || !hasTimeOutHeader() || !hasTimeStampHeader() || !isStoreValid()) {
             return false;
         }
+
+        // Retrieve the routing code from the header
+        parseRoutingCodeHeader();
 
         return true;
     }
@@ -102,23 +100,22 @@ public abstract class RestServerRequestValidator {
     }
 
     /**
-     * Retrieve and validate the routing type value from the REST request.
+     * Retrieve the routing type value from the REST request.
      * "X_VOLD_ROUTING_TYPE_CODE" is the routing type header.
+     * 
+     * By default, the routing code is set to NORMAL
      * 
      * TODO REST-Server 1. Change the header name to a better name. 2. Assumes
      * that integer is passed in the header
      * 
-     * @return true if present, false if missing
      */
-    protected boolean hasRoutingCodeHeader() {
+    protected void parseRoutingCodeHeader() {
 
         String rtCode = this.request.getHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE);
-        boolean result = false;
         if(rtCode != null) {
             try {
                 int routingTypeCode = Integer.parseInt(rtCode);
                 this.parsedRoutingType = RequestRoutingType.getRequestRoutingType(routingTypeCode);
-                result = true;
             } catch(NumberFormatException nfe) {
                 logger.error("Exception when validating request. Incorrect routing type parameter. Cannot parse this to long: "
                                      + rtCode,
@@ -134,13 +131,7 @@ public abstract class RestServerRequestValidator {
                                                           HttpResponseStatus.BAD_REQUEST,
                                                           "Incorrect routing type code: " + rtCode);
             }
-        } else {
-            logger.error("Error when validating request. Missing routing type parameter.");
-            RestServerErrorHandler.writeErrorResponse(this.messageEvent,
-                                                      HttpResponseStatus.BAD_REQUEST,
-                                                      "Missing routing type parameter.");
         }
-        return result;
     }
 
     /**

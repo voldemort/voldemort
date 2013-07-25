@@ -5,7 +5,6 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
-import voldemort.server.StoreRepository;
 import voldemort.store.CompositeVersionedPutVoldemortRequest;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.ByteArray;
@@ -18,10 +17,8 @@ import voldemort.versioning.Versioned;
  */
 public class RestServerPutRequestValidator extends RestServerRequestValidator {
 
-    public RestServerPutRequestValidator(HttpRequest request,
-                                         MessageEvent messageEvent,
-                                         StoreRepository storeRepository) {
-        super(request, messageEvent, storeRepository);
+    public RestServerPutRequestValidator(HttpRequest request, MessageEvent messageEvent) {
+        super(request, messageEvent);
     }
 
     @Override

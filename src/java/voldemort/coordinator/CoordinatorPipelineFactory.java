@@ -19,6 +19,10 @@ package voldemort.coordinator;
 import static org.jboss.netty.channel.Channels.pipeline;
 
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
@@ -27,6 +31,9 @@ import org.jboss.netty.handler.codec.http.HttpContentCompressor;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
+import voldemort.utils.ByteArray;
+import voldemort.utils.DaemonThreadFactory;
+
 /**
  * A PipelineFactory implementation to setup the Netty Pipeline in the
  * Coordinator
@@ -34,16 +41,27 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
  */
 public class CoordinatorPipelineFactory implements ChannelPipelineFactory {
 
-    private boolean noop = false;
-    private Map<String, FatClientWrapper> fatClientMap;
+    private Map<String, DynamicTimeoutStoreClient<ByteArray, byte[]>> fatClientMap;
+
+    // TODO: Fix in the next pass
     private CoordinatorErrorStats errorStats = null;
 
-    public CoordinatorPipelineFactory(Map<String, FatClientWrapper> fatClientMap,
-                                      CoordinatorErrorStats errorStats,
-                                      boolean noop) {
+    ThreadFactory threadFactory = new DaemonThreadFactory("Voldemort-Coordinator-Thread");
+    private final ThreadPoolExecutor threadPoolExecutor;
+    private final CoordinatorExecutionHandler coordinatorExecutionHandler;
+
+    public CoordinatorPipelineFactory(Map<String, DynamicTimeoutStoreClient<ByteArray, byte[]>> fatClientMap,
+                                      CoordinatorConfig coordinatorConfig,
+                                      CoordinatorErrorStats errorStats) {
         this.fatClientMap = fatClientMap;
         this.errorStats = errorStats;
-        this.noop = noop;
+        this.threadPoolExecutor = new ThreadPoolExecutor(coordinatorConfig.getCoordinatorCoreThreads(),
+                                                         coordinatorConfig.getCoordinatorMaxThreads(),
+                                                         0L,
+                                                         TimeUnit.MILLISECONDS,
+                                                         new LinkedBlockingQueue<Runnable>(coordinatorConfig.getCoordinatorQueuedRequestsSize()),
+                                                         threadFactory);
+        coordinatorExecutionHandler = new CoordinatorExecutionHandler(threadPoolExecutor);
     }
 
     @Override
@@ -54,15 +72,9 @@ public class CoordinatorPipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("aggregator", new HttpChunkAggregator(1048576));
         pipeline.addLast("encoder", new HttpResponseEncoder());
-        // Remove the following line if you don't want automatic content
-        // compression.
         pipeline.addLast("deflater", new HttpContentCompressor());
-        if(this.noop) {
-            pipeline.addLast("handler", new NoopHttpRequestHandler());
-        } else {
-            pipeline.addLast("handler", new VoldemortHttpRequestHandler(this.fatClientMap,
-                                                                        this.errorStats));
-        }
+        pipeline.addLast("handler", new CoordinatorRestRequestHandler(fatClientMap));
+        pipeline.addLast("storageExecutionHandler", coordinatorExecutionHandler);
         return pipeline;
     }
 }

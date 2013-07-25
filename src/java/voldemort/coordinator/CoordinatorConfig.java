@@ -37,6 +37,9 @@ public class CoordinatorConfig {
     private volatile int metadataCheckIntervalInMs = 5000;
     private volatile int nettyServerPort = 8080;
     private volatile int nettyServerBacklog = 1000;
+    private volatile int coordinatorCoreThreads = 100;
+    private volatile int coordinatorMaxThreads = 200;
+    private volatile int numCoordinatorQueuedRequests = 1000;
 
     /* Propery names for propery-based configuration */
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
@@ -44,6 +47,9 @@ public class CoordinatorConfig {
     public static final String METADATA_CHECK_INTERVAL_IN_MS = "metadata_check_interval_in_ms";
     public static final String NETTY_SERVER_PORT = "netty_server_port";
     public static final String NETTY_SERVER_BACKLOG = "netty_server_backlog";
+    public static final String COORDINATOR_CORE_THREADS = "num_coordinator_core_threads";
+    public static final String COORDINATOR_MAX_THREADS = "num_coordinator_max_threads";
+    public static final String COORDINATOR_QUEUED_REQUESTS = "num_coordinator_queued_requests";
 
     /**
      * Instantiate the coordinator config using a properties file
@@ -108,6 +114,22 @@ public class CoordinatorConfig {
         if(props.containsKey(NETTY_SERVER_BACKLOG)) {
             setMetadataCheckIntervalInMs(props.getInt(NETTY_SERVER_BACKLOG, this.nettyServerBacklog));
         }
+
+        if(props.containsKey(COORDINATOR_CORE_THREADS)) {
+            setCoordinatorCoreThreads(props.getInt(COORDINATOR_CORE_THREADS,
+                                                   this.coordinatorCoreThreads));
+        }
+
+        if(props.containsKey(COORDINATOR_MAX_THREADS)) {
+            setCoordinatorMaxThreads(props.getInt(COORDINATOR_MAX_THREADS,
+                                                  this.coordinatorMaxThreads));
+        }
+
+        if(props.containsKey(COORDINATOR_QUEUED_REQUESTS)) {
+            setCoordinatorQueuedRequestsSize(props.getInt(COORDINATOR_QUEUED_REQUESTS,
+                                                          this.numCoordinatorQueuedRequests));
+        }
+
     }
 
     public String[] getBootstrapURLs() {
@@ -181,6 +203,41 @@ public class CoordinatorConfig {
      */
     public void setNettyServerBacklog(int nettyServerBacklog) {
         this.nettyServerBacklog = nettyServerBacklog;
+    }
+
+    public int getCoordinatorCoreThreads() {
+        return coordinatorCoreThreads;
+    }
+
+    /**
+     * @param coordinatorCoreThreads Specifies the # core request executor
+     *        threads
+     */
+    public void setCoordinatorCoreThreads(int coordinatorCoreThreads) {
+        this.coordinatorCoreThreads = coordinatorCoreThreads;
+    }
+
+    public int getCoordinatorMaxThreads() {
+        return coordinatorMaxThreads;
+    }
+
+    /**
+     * @param coordinatorMaxThreads Specifies the # max request executor threads
+     */
+    public void setCoordinatorMaxThreads(int coordinatorMaxThreads) {
+        this.coordinatorMaxThreads = coordinatorMaxThreads;
+    }
+
+    public int getCoordinatorQueuedRequestsSize() {
+        return numCoordinatorQueuedRequests;
+    }
+
+    /**
+     * @param coordinatorQueuedRequestsSize Defines the max # requests that can
+     *        be queued for processing
+     */
+    public void setCoordinatorQueuedRequestsSize(int coordinatorQueuedRequestsSize) {
+        this.numCoordinatorQueuedRequests = coordinatorQueuedRequestsSize;
     }
 
 }
