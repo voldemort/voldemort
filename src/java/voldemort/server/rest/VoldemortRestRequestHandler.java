@@ -45,12 +45,17 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
     private boolean readingChunks;
     private StoreRepository storeRepository;
     private final Logger logger = Logger.getLogger(VoldemortRestRequestHandler.class);
+    private final boolean isVectorClockOptional;
 
     // Implicit constructor defined for the derived classes
-    public VoldemortRestRequestHandler() {}
+    public VoldemortRestRequestHandler() {
+        this.isVectorClockOptional = true;
+    }
 
-    public VoldemortRestRequestHandler(StoreRepository storeRepository) {
+    public VoldemortRestRequestHandler(StoreRepository storeRepository,
+                                       boolean isVectorClockOptional) {
         this.storeRepository = storeRepository;
+        this.isVectorClockOptional = isVectorClockOptional;
     }
 
     @Override
@@ -74,9 +79,13 @@ public class VoldemortRestRequestHandler extends SimpleChannelUpstreamHandler {
                 if(httpMethod.equals(HttpMethod.GET)) {
                     requestValidator = new RestServerGetRequestValidator(request, messageEvent);
                 } else if(httpMethod.equals(HttpMethod.POST)) {
-                    requestValidator = new RestServerPutRequestValidator(request, messageEvent);
+                    requestValidator = new RestServerPutRequestValidator(request,
+                                                                         messageEvent,
+                                                                         this.isVectorClockOptional);
                 } else if(httpMethod.equals(HttpMethod.DELETE)) {
-                    requestValidator = new RestServerDeleteRequestValidator(request, messageEvent);
+                    requestValidator = new RestServerDeleteRequestValidator(request,
+                                                                            messageEvent,
+                                                                            this.isVectorClockOptional);
                 } else {
                     String errorMessage = "Illegal Http request.";
                     logger.error(errorMessage);

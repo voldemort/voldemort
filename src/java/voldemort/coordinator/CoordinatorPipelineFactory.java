@@ -49,8 +49,10 @@ public class CoordinatorPipelineFactory implements ChannelPipelineFactory {
     ThreadFactory threadFactory = new DaemonThreadFactory("Voldemort-Coordinator-Thread");
     private final ThreadPoolExecutor threadPoolExecutor;
     private final CoordinatorExecutionHandler coordinatorExecutionHandler;
+    private final CoordinatorMetadata coordinatorMetadata;
 
     public CoordinatorPipelineFactory(Map<String, DynamicTimeoutStoreClient<ByteArray, byte[]>> fatClientMap,
+                                      CoordinatorMetadata coordinatorMetadata,
                                       CoordinatorConfig coordinatorConfig,
                                       CoordinatorErrorStats errorStats) {
         this.fatClientMap = fatClientMap;
@@ -61,7 +63,9 @@ public class CoordinatorPipelineFactory implements ChannelPipelineFactory {
                                                          TimeUnit.MILLISECONDS,
                                                          new LinkedBlockingQueue<Runnable>(coordinatorConfig.getCoordinatorQueuedRequestsSize()),
                                                          threadFactory);
-        coordinatorExecutionHandler = new CoordinatorExecutionHandler(threadPoolExecutor);
+        this.coordinatorMetadata = coordinatorMetadata;
+        coordinatorExecutionHandler = new CoordinatorExecutionHandler(threadPoolExecutor,
+                                                                      this.coordinatorMetadata);
     }
 
     @Override

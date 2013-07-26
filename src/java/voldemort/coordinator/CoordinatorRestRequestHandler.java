@@ -9,6 +9,8 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
+import voldemort.common.VoldemortOpCode;
+import voldemort.server.rest.RestMessageHeaders;
 import voldemort.server.rest.RestServerErrorHandler;
 import voldemort.server.rest.RestServerRequestValidator;
 import voldemort.server.rest.VoldemortRestRequestHandler;
@@ -46,20 +48,27 @@ public class CoordinatorRestRequestHandler extends VoldemortRestRequestHandler i
         CompositeVoldemortRequest<ByteArray, byte[]> requestObject = requestValidator.constructCompositeVoldemortRequestObject();
 
         if(requestObject != null) {
-            // TODO: Change this after getting rid of FatClientWrapper
-            DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = this.fatClientMap.get(requestValidator.getStoreName());
-            if(storeClient != null) {
-                CoordinatorStoreClientRequest coordinatorRequest = new CoordinatorStoreClientRequest(requestObject,
-                                                                                                     storeClient);
-                Channels.fireMessageReceived(ctx, coordinatorRequest);
-            } else {
-                logger.error("Error when getting store. Non Existing store client.");
-                RestServerErrorHandler.writeErrorResponse(messageEvent,
-                                                          HttpResponseStatus.BAD_REQUEST,
-                                                          "Non Existing store client. Critical error.");
-                return;
 
+            DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = null;
+
+            if(!requestValidator.getStoreName().equalsIgnoreCase(RestMessageHeaders.SCHEMATA_STORE)) {
+
+                storeClient = this.fatClientMap.get(requestValidator.getStoreName());
+                if(storeClient == null) {
+                    logger.error("Error when getting store. Non Existing store client.");
+                    RestServerErrorHandler.writeErrorResponse(messageEvent,
+                                                              HttpResponseStatus.BAD_REQUEST,
+                                                              "Non Existing store client. Critical error.");
+                    return;
+                }
+            } else {
+                requestObject.setOperationType(VoldemortOpCode.GET_METADATA_OP_CODE);
             }
+
+            CoordinatorStoreClientRequest coordinatorRequest = new CoordinatorStoreClientRequest(requestObject,
+                                                                                                 storeClient);
+            Channels.fireMessageReceived(ctx, coordinatorRequest);
+
         }
     }
 }

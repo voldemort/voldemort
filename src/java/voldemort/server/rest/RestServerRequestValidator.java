@@ -180,8 +180,9 @@ public abstract class RestServerRequestValidator {
      * 
      * @return true if present, false if missing
      */
-    protected boolean hasVectorClock() {
+    protected boolean hasVectorClock(boolean isVectorClockOptional) {
         boolean result = false;
+
         String vectorClockHeader = this.request.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK);
         if(vectorClockHeader != null) {
             ObjectMapper mapper = new ObjectMapper();
@@ -197,12 +198,15 @@ public abstract class RestServerRequestValidator {
                                                           HttpResponseStatus.BAD_REQUEST,
                                                           "Invalid Vector Clock");
             }
-        } else {
+        } else if(!isVectorClockOptional) {
             logger.error("Error when validating request. Missing Vector Clock");
             RestServerErrorHandler.writeErrorResponse(this.messageEvent,
                                                       HttpResponseStatus.BAD_REQUEST,
                                                       "Missing Vector Clock");
+        } else {
+            result = true;
         }
+
         return result;
     }
 

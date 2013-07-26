@@ -16,4 +16,7 @@ public class RestMessageHeaders {
     public static final String X_VOLD_ZONE_ID = "X-VOLD-Zone-Id";
     public static final String CONTENT_LENGTH = "Content-Length";
     public static final String CONTENT_TYPE = "Content-Type";
+
+    // Other headers specific to Voldemort protocol
+    public static final String SCHEMATA_STORE = "schemata";
 }

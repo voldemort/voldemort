@@ -17,6 +17,7 @@
 package voldemort.store;
 
 import voldemort.common.VoldemortOpCode;
+import voldemort.server.RequestRoutingType;
 
 /**
  * A class that defines a composite put request containing the key, the value
@@ -27,5 +28,22 @@ public class CompositePutVoldemortRequest<K, V> extends CompositeVoldemortReques
 
     public CompositePutVoldemortRequest(K key, V rawValue, long timeoutInMs) {
         super(key, rawValue, null, null, null, timeoutInMs, true, VoldemortOpCode.PUT_OP_CODE);
+    }
+
+    public CompositePutVoldemortRequest(K key,
+                                        V rawValue,
+                                        long timeoutInMs,
+                                        long originTimeInMs,
+                                        RequestRoutingType routingType) {
+        super(key,
+              rawValue,
+              null,
+              null,
+              null,
+              timeoutInMs,
+              true,
+              VoldemortOpCode.PUT_OP_CODE,
+              originTimeInMs,
+              routingType);
     }
 }

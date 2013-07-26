@@ -32,10 +32,6 @@ public class CompositeVersionedPutVoldemortRequest<K, V> extends CompositeVoldem
         super(key, null, null, value, null, timeoutInMs, true, VoldemortOpCode.PUT_OP_CODE);
     }
 
-    /*
-     * RestServerErrorHandler uses this constructor. Since the value is
-     * versioned, the Version parameter is null
-     */
     public CompositeVersionedPutVoldemortRequest(K key,
                                                  Versioned<V> value,
                                                  long timeoutInMs,

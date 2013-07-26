@@ -5,6 +5,7 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
+import voldemort.store.CompositePutVoldemortRequest;
 import voldemort.store.CompositeVersionedPutVoldemortRequest;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.ByteArray;
@@ -17,8 +18,13 @@ import voldemort.versioning.Versioned;
  */
 public class RestServerPutRequestValidator extends RestServerRequestValidator {
 
-    public RestServerPutRequestValidator(HttpRequest request, MessageEvent messageEvent) {
+    private final boolean isVectorClockOptional;
+
+    public RestServerPutRequestValidator(HttpRequest request,
+                                         MessageEvent messageEvent,
+                                         boolean isVectorClockOptional) {
         super(request, messageEvent);
+        this.isVectorClockOptional = isVectorClockOptional;
     }
 
     @Override
@@ -27,13 +33,27 @@ public class RestServerPutRequestValidator extends RestServerRequestValidator {
         if(parseAndValidateRequest()) {
             parseValue();
             if(this.parsedValue != null) {
-                requestObject = new CompositeVersionedPutVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
-                                                                                             new Versioned<byte[]>(this.parsedValue,
-                                                                                                                   this.parsedVectorClock),
-                                                                                             this.parsedTimeoutInMs,
-                                                                                             this.parsedRequestOriginTimeInMs,
-                                                                                             this.parsedRoutingType);
+
+                // Check if we have a valid vector clock
+                if(this.parsedVectorClock == null
+                   || this.parsedVectorClock.getEntries().size() == 0) {
+                    requestObject = new CompositePutVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
+                                                                                        this.parsedValue,
+                                                                                        this.parsedTimeoutInMs,
+                                                                                        this.parsedRequestOriginTimeInMs,
+                                                                                        this.parsedRoutingType);
+                } else {
+
+                    requestObject = new CompositeVersionedPutVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
+                                                                                                 new Versioned<byte[]>(this.parsedValue,
+                                                                                                                       this.parsedVectorClock),
+                                                                                                 this.parsedTimeoutInMs,
+                                                                                                 this.parsedRequestOriginTimeInMs,
+                                                                                                 this.parsedRoutingType);
+                }
+
                 return requestObject;
+
             } else {
                 logger.error("Error when parsing value. Value cannot be null.");
                 RestServerErrorHandler.writeErrorResponse(messageEvent,
@@ -51,11 +71,12 @@ public class RestServerPutRequestValidator extends RestServerRequestValidator {
     @Override
     public boolean parseAndValidateRequest() {
         boolean result = false;
-        if(!super.parseAndValidateRequest() || !hasVectorClock() || !hasContentLength()
-           || !hasContentType()) {
+        if(!super.parseAndValidateRequest() || !hasVectorClock(this.isVectorClockOptional)
+           || !hasContentLength() || !hasContentType()) {
             result = false;
-        } else
+        } else {
             result = true;
+        }
 
         return result;
     }

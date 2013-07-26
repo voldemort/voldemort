@@ -33,7 +33,7 @@ public class CompositeVoldemortRequest<K, V> {
     private Version version;
     private boolean resolveConflicts;
     private long timeoutInMs;
-    private final byte operationType;
+    private byte operationType;
     private long requestOriginTimeInMs = -1;
     private RequestRoutingType routingType = RequestRoutingType.NORMAL;
 
@@ -139,4 +139,7 @@ public class CompositeVoldemortRequest<K, V> {
         return routingType;
     }
 
+    public void setOperationType(byte opType) {
+        this.operationType = opType;
+    }
 }

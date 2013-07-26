@@ -96,7 +96,7 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("aggregator", new HttpChunkAggregator(1048576));
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast("deflater", new HttpContentCompressor());
-        pipeline.addLast("handler", new VoldemortRestRequestHandler(storeRepository));
+        pipeline.addLast("handler", new VoldemortRestRequestHandler(storeRepository, false));
         pipeline.addLast("storageExecutionHandler", storageExecutionHandler);
         return pipeline;
     }

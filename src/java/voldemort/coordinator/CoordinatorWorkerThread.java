@@ -10,13 +10,19 @@ import org.apache.log4j.Logger;
 import org.jboss.netty.channel.MessageEvent;
 
 import voldemort.common.VoldemortOpCode;
+import voldemort.server.rest.GetAllResponseSender;
+import voldemort.server.rest.GetMetadataResponseSender;
 import voldemort.server.rest.GetResponseSender;
+import voldemort.server.rest.PutResponseSender;
 import voldemort.server.rest.RestServerDeleteErrorHandler;
 import voldemort.server.rest.RestServerGetErrorHandler;
 import voldemort.server.rest.RestServerGetVersionErrorHandler;
 import voldemort.server.rest.RestServerPutErrorHandler;
 import voldemort.store.CompositeVoldemortRequest;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -30,13 +36,17 @@ public class CoordinatorWorkerThread implements Runnable {
     private MessageEvent messageEvent;
     CompositeVoldemortRequest<ByteArray, byte[]> requestObject;
     private DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = null;
+    private final CoordinatorMetadata coordinatorMetadata;
     private final Logger logger = Logger.getLogger(getClass());
 
-    public CoordinatorWorkerThread(MessageEvent channelEvent) {
+    public CoordinatorWorkerThread(MessageEvent channelEvent,
+                                   CoordinatorMetadata coordinatorMetadata) {
         this.messageEvent = channelEvent;
+        this.coordinatorMetadata = coordinatorMetadata;
     }
 
     @Override
+    // TODO: Add perf stats in the next iteration
     public void run() {
         Object message = messageEvent.getMessage();
         if(message instanceof CoordinatorStoreClientRequest) {
@@ -45,9 +55,34 @@ public class CoordinatorWorkerThread implements Runnable {
             this.storeClient = storeClientRequestObject.getStoreClient();
 
             // This shouldn't ideally happen.
-            if(this.requestObject != null && this.storeClient != null) {
+            if(this.requestObject != null) {
 
                 switch(requestObject.getOperationType()) {
+                    case VoldemortOpCode.GET_METADATA_OP_CODE:
+                        if(logger.isDebugEnabled()) {
+                            logger.debug("GET Metadata request received.");
+                        }
+
+                        try {
+
+                            String queryStoreName = ByteUtils.getString(this.requestObject.getKey()
+                                                                                          .get(),
+                                                                        "UTF-8");
+                            StoreDefinition storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(this.coordinatorMetadata.getStoresDefs(),
+                                                                                                       queryStoreName);
+                            String serializerInfoXml = CoordinatorUtils.constructSerializerInfoXml(storeDef);
+                            GetMetadataResponseSender metadataResponseSender = new GetMetadataResponseSender(messageEvent,
+                                                                                                             serializerInfoXml.getBytes());
+
+                            metadataResponseSender.sendResponse();
+                            if(logger.isDebugEnabled()) {
+                                logger.debug("GET Metadata successful !");
+                            }
+                        } catch(Exception e) {
+                            getErrorHandler.handleExceptions(messageEvent, e);
+                        }
+                        break;
+
                     case VoldemortOpCode.GET_OP_CODE:
                         if(logger.isDebugEnabled()) {
                             logger.debug("GET request received.");
@@ -105,7 +140,11 @@ public class CoordinatorWorkerThread implements Runnable {
                                                              this.messageEvent,
                                                              "Error when doing getall. Keys do not exist.");
                             } else {
-                                // writeResponse(versionedResponses);
+                                GetAllResponseSender responseConstructor = new GetAllResponseSender(messageEvent,
+                                                                                                    versionedResponses,
+                                                                                                    this.storeClient.getStoreName());
+                                responseConstructor.sendResponse();
+
                                 if(logger.isDebugEnabled()) {
                                     logger.debug("GET ALL successful !");
                                 }
@@ -117,7 +156,7 @@ public class CoordinatorWorkerThread implements Runnable {
                         }
                         break;
 
-                    // TODO: Implment this in the next pass
+                    // TODO: Implement this in the next pass
                     case VoldemortOpCode.GET_VERSION_OP_CODE:
 
                         if(logger.isDebugEnabled()) {
@@ -142,17 +181,16 @@ public class CoordinatorWorkerThread implements Runnable {
 
                         try {
                             VectorClock successfulPutVC = null;
+
                             if(this.requestObject.getValue() != null) {
                                 successfulPutVC = ((VectorClock) this.storeClient.putVersionedWithCustomTimeout(this.requestObject)).clone();
                             } else {
                                 successfulPutVC = ((VectorClock) this.storeClient.putWithCustomTimeout(this.requestObject)).clone();
                             }
 
-                            // Still using the old way here, until the
-                            // PutResponseSender is fixed (return a VectorClock
-                            // back to the caller)
-                            HttpPutRequestExecutor putRequestExecutor = new HttpPutRequestExecutor(this.messageEvent);
-                            putRequestExecutor.writeResponse(new VectorClock());
+                            PutResponseSender responseConstructor = new PutResponseSender(messageEvent,
+                                                                                          successfulPutVC);
+                            responseConstructor.sendResponse();
 
                             if(logger.isDebugEnabled()) {
                                 logger.debug("PUT successful !");

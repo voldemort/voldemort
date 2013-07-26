@@ -78,6 +78,7 @@ public class CoordinatorService extends AbstractService {
     private boolean noop = false;
     private SocketStoreClientFactory storeClientFactory = null;
     private AsyncMetadataVersionManager asyncMetadataManager = null;
+    private final CoordinatorMetadata coordinatorMetadata;
     private SchedulerService schedulerService = null;
     private static final Logger logger = Logger.getLogger(CoordinatorService.class);
     private Map<String, DynamicTimeoutStoreClient<ByteArray, byte[]>> fatClientMap = null;
@@ -96,6 +97,7 @@ public class CoordinatorService extends AbstractService {
         this.coordinatorPerfStats = new StoreStats();
         this.errorStats = new CoordinatorErrorStats();
         RESTErrorHandler.setErrorStatsHandler(errorStats);
+        this.coordinatorMetadata = new CoordinatorMetadata();
     }
 
     /**
@@ -110,11 +112,14 @@ public class CoordinatorService extends AbstractService {
         // Fetch the state once and use this to initialize all the Fat clients
         String storesXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.STORES_KEY);
         String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-
         List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml),
                                                                        false);
-        Map<String, ClientConfig> fatClientConfigMap = readClientConfig(this.coordinatorConfig.getFatClientConfigPath(),
-                                                                        this.coordinatorConfig.getBootstrapURLs());
+
+        // Update the Coordinator Metadata
+        this.coordinatorMetadata.setMetadata(clusterXml, storeDefList);
+
+        Map<String, SocketStoreClientFactory> fatClientFactoryMap = readClientConfig(this.coordinatorConfig.getFatClientConfigPath(),
+                                                                                     this.coordinatorConfig.getBootstrapURLs());
 
         // Do not recreate map if it already exists.
         // This function might be called by the AsyncMetadataVersionManager if
@@ -125,11 +130,9 @@ public class CoordinatorService extends AbstractService {
 
         for(StoreDefinition storeDef: storeDefList) {
             String storeName = storeDef.getName();
-            logger.info("Creating a Fat client for store: " + storeName);
-            logger.info("Using config: " + fatClientConfigMap.get(storeName));
 
             DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = new DynamicTimeoutStoreClient<ByteArray, byte[]>(storeName,
-                                                                                                                        this.storeClientFactory,
+                                                                                                                        fatClientFactoryMap.get(storeName),
                                                                                                                         1,
                                                                                                                         storesXml,
                                                                                                                         clusterXml);
@@ -189,6 +192,7 @@ public class CoordinatorService extends AbstractService {
 
         // Set up the event pipeline factory.
         this.bootstrap.setPipelineFactory(new CoordinatorPipelineFactory(this.fatClientMap,
+                                                                         this.coordinatorMetadata,
                                                                          this.coordinatorConfig,
                                                                          this.errorStats));
 
@@ -217,10 +221,10 @@ public class CoordinatorService extends AbstractService {
      * @return Map of store name to the corresponding fat client config
      */
     @SuppressWarnings("unchecked")
-    private static Map<String, ClientConfig> readClientConfig(String configFilePath,
-                                                              String[] bootstrapURLs) {
+    private static Map<String, SocketStoreClientFactory> readClientConfig(String configFilePath,
+                                                                          String[] bootstrapURLs) {
         String line;
-        Map<String, ClientConfig> storeNameConfigMap = new HashMap<String, ClientConfig>();
+        Map<String, SocketStoreClientFactory> storeFactoryMap = new HashMap<String, SocketStoreClientFactory>();
         try {
             line = Joiner.on(" ")
                          .join(IOUtils.readLines(new FileReader(new File(configFilePath))))
@@ -253,7 +257,10 @@ public class CoordinatorService extends AbstractService {
                                    .enableDefaultClient(true)
                                    .setEnableLazy(false);
 
-                    storeNameConfigMap.put(storeName, fatClientConfig);
+                    logger.info("Creating a Fat client for store: " + storeName);
+                    logger.info("Using config: " + fatClientConfig);
+
+                    storeFactoryMap.put(storeName, new SocketStoreClientFactory(fatClientConfig));
 
                 }
             }
@@ -268,7 +275,7 @@ public class CoordinatorService extends AbstractService {
             e.printStackTrace();
         }
 
-        return storeNameConfigMap;
+        return storeFactoryMap;
     }
 
     @Override

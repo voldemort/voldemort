@@ -14,8 +14,13 @@ import voldemort.utils.ByteArray;
  */
 public class RestServerDeleteRequestValidator extends RestServerRequestValidator {
 
-    public RestServerDeleteRequestValidator(HttpRequest request, MessageEvent messageEvent) {
+    private final boolean isVectorClockOptional;
+
+    public RestServerDeleteRequestValidator(HttpRequest request,
+                                            MessageEvent messageEvent,
+                                            boolean isVectorClockOptional) {
         super(request, messageEvent);
+        this.isVectorClockOptional = isVectorClockOptional;
     }
 
     @Override
@@ -37,7 +42,7 @@ public class RestServerDeleteRequestValidator extends RestServerRequestValidator
      */
     @Override
     public boolean parseAndValidateRequest() {
-        if(!super.parseAndValidateRequest() || !hasVectorClock()) {
+        if(!super.parseAndValidateRequest() || !hasVectorClock(this.isVectorClockOptional)) {
             return false;
         }
 

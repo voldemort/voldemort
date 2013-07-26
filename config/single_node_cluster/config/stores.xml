@@ -15,5 +15,6 @@
     <value-serializer>
       <type>string</type>
     </value-serializer>
+    <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>    
   </store>
 </stores>

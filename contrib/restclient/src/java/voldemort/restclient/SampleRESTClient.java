@@ -59,9 +59,9 @@ public class SampleRESTClient {
             // Do a versioned put operation:
             System.out.println("First versioned put");
             versionedValue.setObject("New Value !!!");
-            System.err.println("************* original version : " + versionedValue.getVersion());
+            System.out.println("************* original version : " + versionedValue.getVersion());
             Version putVersion = clientStore.put("a", versionedValue);
-            System.err.println("************* Updated version : " + putVersion);
+            System.out.println("************* Updated version : " + putVersion);
 
             // Obsolete version put
             System.out.println("Obsolete put");
@@ -71,7 +71,7 @@ public class SampleRESTClient {
                 clientStore.put("a", obsoleteVersionedValue);
                 System.err.println(" **************** Should not reach this point **************** ");
             } catch(Exception e) {
-                e.printStackTrace();
+                System.out.println("Exception occured as expected: " + e.getMessage());
             }
 
             // Do a get again on the last versioned put operation:
