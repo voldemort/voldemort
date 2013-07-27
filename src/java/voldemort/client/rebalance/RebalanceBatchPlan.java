@@ -198,7 +198,8 @@ public class RebalanceBatchPlan {
 
         public void addPartitionStoreMove(int stealerNodeId,
                                           int donorNodeId,
-                                          String storeName) {
+                                          String storeName,
+                                          int partitionId) {
             Pair<Integer, Integer> stealerDonor = new Pair<Integer, Integer>(stealerNodeId,
                                                                              donorNodeId);
             if (!stealerDonorToStoreToStealPartition.containsKey(stealerDonor)) {
@@ -211,7 +212,7 @@ public class RebalanceBatchPlan {
                 storeToStealPartition.put(storeName, new ArrayList<Integer>());
             }
             List<Integer> partitionIds = storeToStealPartition.get(storeName);
-
+            partitionIds.add(partitionId);
         }
 
         public List<RebalanceTaskInfo> buildRebalanceTaskInfos() {
@@ -342,7 +343,8 @@ public class RebalanceBatchPlan {
                                                                      stealerPartitionId);
                     rpiBuilder.addPartitionStoreMove(stealerNodeId,
                                                      donorNodeId,
-                                                     storeDef.getName());
+                                                     storeDef.getName(),
+                                                     stealerPartitionId);
                 }
             }
         }

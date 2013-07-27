@@ -63,7 +63,7 @@ public class ZonedRebalanceBatchPlanTest {
 
     @Test
     public void testNoop() {
-        List<RebalancePartitionsInfo> batchPlan;
+        List<RebalanceTaskInfo> batchPlan;
 
         // Two zones
         batchPlan = ClusterTestUtils.getBatchPlan(zzCurrent, zzCurrent, zzStores);
@@ -76,7 +76,7 @@ public class ZonedRebalanceBatchPlanTest {
 
     @Test
     public void testShuffle() {
-        List<RebalancePartitionsInfo> batchPlan;
+        List<RebalanceTaskInfo> batchPlan;
 
         // Two zones
         batchPlan = ClusterTestUtils.getBatchPlan(zzCurrent, zzShuffle, zzStores);
@@ -89,7 +89,7 @@ public class ZonedRebalanceBatchPlanTest {
 
     @Test
     public void testClusterExpansion() {
-        List<RebalancePartitionsInfo> batchPlan;
+        List<RebalanceTaskInfo> batchPlan;
 
         // Two zones
         batchPlan = ClusterTestUtils.getBatchPlan(zzClusterExpansionNN,
@@ -106,7 +106,7 @@ public class ZonedRebalanceBatchPlanTest {
 
     @Test
     public void testZoneExpansion() {
-        List<RebalancePartitionsInfo> batchPlan;
+        List<RebalanceTaskInfo> batchPlan;
 
         // Two-to-three zones (i)
         batchPlan = ClusterTestUtils.getBatchPlan(zzeZoneExpansion, zzzZoneExpansionXXP, zzzStores);

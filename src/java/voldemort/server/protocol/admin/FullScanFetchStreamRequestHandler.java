@@ -13,6 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+
 package voldemort.server.protocol.admin;
 
 import java.io.DataOutputStream;
@@ -35,8 +36,7 @@ import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Utils;
 
 /**
- * Base class for key/entry stream fetching handlers that do an unordered full
- * scan to fetch items.
+ * Base class for key/entry stream fetching handlers that do an unordered full scan to fetch items.
  * 
  */
 public abstract class FullScanFetchStreamRequestHandler extends FetchStreamRequestHandler {
@@ -45,6 +45,7 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
 
     // PartitionId to count of fetches on that partition.
     protected Map<Integer, Long> partitionFetches;
+
     // PartitionIds of partitions that still need more fetched...
     protected Set<Integer> partitionsToFetch;
 
@@ -61,39 +62,41 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
               voldemortConfig,
               storeRepository,
               networkClassLoader,
-              operation);
-
+                operation);
         this.keyIterator = storageEngine.keys();
-
         this.partitionFetches = new HashMap<Integer, Long>();
-        // TODO (Sid) : Confirm if this can be removed safely
-        // for(Integer replicaType: replicaToPartitionList.keySet()) {
-        // if(replicaToPartitionList.get(replicaType) != null) {
-        // for(Integer partitionId: replicaToPartitionList.get(replicaType)) {
-        // this.partitionFetches.put(partitionId, new Long(0));
-        // }
-        // }
-        // }
+        for (Integer partitionId : partitionIds) {
+            this.partitionFetches.put(partitionId, new Long(0));
+        }
         this.partitionsToFetch = new HashSet<Integer>(partitionIds);
     }
 
     /**
-     * Given the key, figures out which partition on the local node hosts the
-     * key.
+     * Given the key, figures out which partition on the local node hosts the key.
      * 
      * @param key
      * @return
      */
     private Integer getKeyPartitionId(byte[] key) {
         Integer keyPartitionId = storeInstance.getNodesPartitionIdForKey(nodeId, key);
+
         Utils.notNull(keyPartitionId);
         return keyPartitionId;
     }
 
     /**
-     * Determines if the key is needed. To be 'needed', a key must (i) belong to
-     * a partition being requested and (ii) be necessary to meet
-     * recordsPerPartition constraint, if any.
+     * Given the key, figures out the master partition id
+     * 
+     * @param key
+     * @return
+     */
+    private Integer getMasterPartitionId(byte[] key) {
+        return storeInstance.getMasterPartitionId(key);
+    }
+
+    /**
+     * Determines if the key is needed. To be 'needed', a key must (i) belong to a partition being
+     * requested and (ii) be necessary to meet recordsPerPartition constraint, if any.
      * 
      * @param nodeId
      * @param key
@@ -103,39 +106,31 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
      * @return true iff key is needed.
      */
     protected boolean isKeyNeeded(byte[] key) {
-        if (!StoreRoutingPlan.checkKeyBelongsToPartitionIds(nodeId,
-                                                     key,
-                                                     //partitionIds,
-                                                     initialCluster,
-                                                     storeDef)) {
+        // Exit early if the master partition corresponding to the key is not in the toFetch list
+        if (!partitionsToFetch.contains(getMasterPartitionId(key))) {
             return false;
         }
-
-        if(recordsPerPartition <= 0) {
+        if (recordsPerPartition <= 0) {
             return true;
         }
-        if(partitionsToFetch.contains(getKeyPartitionId(key))) {
-            return true;
-        }
-        return false;
+        return true;
     }
 
     /**
-     * Determines if entry is accepted. For normal usage, this means confirming
-     * that the key is needed. For orphan usage, this simply means confirming
-     * the key belongs to the node.
+     * Determines if entry is accepted. For normal usage, this means confirming that the key is
+     * needed. For orphan usage, this simply means confirming the key belongs to the node.
      * 
      * @param key
      * @return
      */
     protected boolean isItemAccepted(byte[] key) {
         boolean entryAccepted = false;
-        if(!fetchOrphaned) {
-            if(isKeyNeeded(key)) {
+        if (!fetchOrphaned) {
+            if (isKeyNeeded(key)) {
                 entryAccepted = true;
             }
         } else {
-            if(!StoreRoutingPlan.checkKeyBelongsToNode(key, nodeId, initialCluster, storeDef)) {
+            if (!StoreRoutingPlan.checkKeyBelongsToNode(key, nodeId, initialCluster, storeDef)) {
                 entryAccepted = true;
             }
         }
@@ -149,11 +144,11 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
      */
     protected void accountForFetchedKey(byte[] key) {
         fetched++;
-        if(streamStats != null) {
+        if (streamStats != null) {
             streamStats.reportStreamingFetch(operation);
         }
 
-        if(recordsPerPartition <= 0) {
+        if (recordsPerPartition <= 0) {
             return;
         }
 
@@ -163,31 +158,31 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
         partitionFetch++;
 
         partitionFetches.put(keyPartitionId, partitionFetch);
-        if(partitionFetch == recordsPerPartition) {
-            if(partitionsToFetch.contains(keyPartitionId)) {
+        if (partitionFetch == recordsPerPartition) {
+            if (partitionsToFetch.contains(keyPartitionId)) {
                 partitionsToFetch.remove(keyPartitionId);
             } else {
                 logger.warn("Partitions to fetch did not contain expected partition ID: "
-                            + keyPartitionId);
+                        + keyPartitionId);
             }
-        } else if(partitionFetch > recordsPerPartition) {
+        } else if (partitionFetch > recordsPerPartition) {
             logger.warn("Partition fetch count larger than expected for partition ID "
-                        + keyPartitionId + " : " + partitionFetch);
+                    + keyPartitionId + " : " + partitionFetch);
         }
     }
 
     /**
-     * True iff enough items have been fetched for all partitions, where
-     * 'enough' is relative to recordsPerPartition value.
+     * True iff enough items have been fetched for all partitions, where 'enough' is relative to
+     * recordsPerPartition value.
      * 
      * @return
      */
     protected boolean fetchedEnoughForAllPartitions() {
-        if(recordsPerPartition <= 0) {
+        if (recordsPerPartition <= 0) {
             return false;
         }
 
-        if(partitionsToFetch.size() > 0) {
+        if (partitionsToFetch.size() > 0) {
             return false;
         }
         return true;
@@ -201,7 +196,7 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
      */
     protected StreamRequestHandlerState determineRequestHandlerState(String itemTag) {
 
-        if(keyIterator.hasNext() && !fetchedEnoughForAllPartitions()) {
+        if (keyIterator.hasNext() && !fetchedEnoughForAllPartitions()) {
             return StreamRequestHandlerState.WRITING;
         } else {
             logger.info("Finished fetch " + itemTag + " for store '" + storageEngine.getName()
@@ -214,7 +209,7 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
 
     @Override
     public final void close(DataOutputStream outputStream) throws IOException {
-        if(null != keyIterator)
+        if (null != keyIterator)
             keyIterator.close();
         super.close(outputStream);
     }

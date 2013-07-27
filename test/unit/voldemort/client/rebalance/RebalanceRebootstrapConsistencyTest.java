@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
@@ -65,7 +64,6 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /**
  * 
@@ -230,12 +228,11 @@ public class RebalanceRebootstrapConsistencyTest {
 
         VoldemortConfig config = servers.get(0).getVoldemortConfig();
         adminClient = RebalanceUtils.createTempAdminClient(config, cluster, 4);
-        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
-        replicaToPartitionList.put(0, ImmutableList.of(0, 1));
+        List<Integer> partitionIds = ImmutableList.of(0, 1);
         int req = adminClient.storeMntOps.migratePartitions(0,
                                                             1,
                                                             testStoreNameRW,
-                                                            replicaToPartitionList,
+                                                            partitionIds,
                                                             null,
                                                             null,
                                                             false);

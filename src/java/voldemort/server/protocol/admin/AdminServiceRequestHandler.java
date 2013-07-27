@@ -147,6 +147,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         }
     }
 
+    @Override
     public StreamRequestHandler handleRequest(final DataInputStream inputStream,
                                               final DataOutputStream outputStream)
             throws IOException {
@@ -1119,11 +1120,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ByteArray key = entry.getFirst();
                 Versioned<byte[]> value = entry.getSecond();
                 throttler.maybeThrottle(key.length() + valueSize(value));
-                if (StoreRoutingPlan.checkKeyBelongsToPartitionIds(metadataStore.getNodeId(),
-                                                               key.get(),
-                                                               request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
-                                                                                          : metadataStore.getCluster(),
-                                                               metadataStore.getStoreDef(storeName))
+                if (StoreRoutingPlan.checkKeyBelongsToNode(key.get(),
+                                                           metadataStore.getNodeId(),
+                                                           request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
+                                                                                        : metadataStore.getCluster(),
+                                                           metadataStore.getStoreDef(storeName))
                    && filter.accept(key, value)) {
                     if(storageEngine.delete(key, value.getVersion())) {
                         deleteSuccess++;

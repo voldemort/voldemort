@@ -113,7 +113,7 @@ public class PartitionBalance {
             builder.append(dumpZoneNAryDetails(storeRoutingPlan));
             builder.append(Utils.NEWLINE);
 
-            builder.append(dumpReplicaTypeDetails(cluster, storeDefinition));
+            //builder.append(dumpReplicaTypeDetails(cluster, storeDefinition));
             builder.append(Utils.NEWLINE);
 
             // Per-node counts of various partition types (primary,
@@ -235,53 +235,53 @@ public class PartitionBalance {
      * @param storeDefinition
      * @return pretty printed string of detailed replica type dump.
      */
-    @Deprecated
-    private String dumpReplicaTypeDetails(Cluster cluster, StoreDefinition storeDefinition) {
-        StringBuilder sb = new StringBuilder();
-        Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = RebalanceUtils.getNodeIdToAllPartitions(cluster,
-                                                                                                                  storeDefinition,
-                                                                                                                  true);
-        sb.append("\tDetailed Dump (Replica Types):").append(Utils.NEWLINE);
-        for(Integer nodeId: cluster.getNodeIds()) {
-            sb.append("\tNode ID: " + nodeId + " in zone "
-                      + cluster.getNodeById(nodeId).getZoneId()).append(Utils.NEWLINE);
-            Set<Pair<Integer, Integer>> partitionPairs = nodeIdToAllPartitions.get(nodeId);
-
-            int replicaType = 0;
-            while(partitionPairs.size() > 0) {
-                List<Pair<Integer, Integer>> replicaPairs = new ArrayList<Pair<Integer, Integer>>();
-                for(Pair<Integer, Integer> pair: partitionPairs) {
-                    if(pair.getFirst() == replicaType) {
-                        replicaPairs.add(pair);
-                    }
-                }
-                List<Integer> partitions = new ArrayList<Integer>();
-                for(Pair<Integer, Integer> pair: replicaPairs) {
-                    partitionPairs.remove(pair);
-                    partitions.add(pair.getSecond());
-                }
-                java.util.Collections.sort(partitions);
-
-                sb.append("\t\t" + replicaType);
-                for(int zoneId: cluster.getZoneIds()) {
-                    sb.append(" : z" + zoneId + " : ");
-                    List<Integer> zonePartitions = new ArrayList<Integer>();
-                    for(int partitionId: partitions) {
-                        if(cluster.getPartitionIdsInZone(zoneId).contains(partitionId)) {
-                            zonePartitions.add(partitionId);
-                        }
-                    }
-                    sb.append(zonePartitions.toString());
-
-                }
-                sb.append(Utils.NEWLINE);
-
-                replicaType++;
-            }
-        }
-
-        return sb.toString();
-    }
+//    @Deprecated
+//    private String dumpReplicaTypeDetails(Cluster cluster, StoreDefinition storeDefinition) {
+//        StringBuilder sb = new StringBuilder();
+//        Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = RebalanceUtils.getNodeIdToAllPartitions(cluster,
+//                                                                                                                  storeDefinition,
+//                                                                                                                  true);
+//        sb.append("\tDetailed Dump (Replica Types):").append(Utils.NEWLINE);
+//        for(Integer nodeId: cluster.getNodeIds()) {
+//            sb.append("\tNode ID: " + nodeId + " in zone "
+//                      + cluster.getNodeById(nodeId).getZoneId()).append(Utils.NEWLINE);
+//            Set<Pair<Integer, Integer>> partitionPairs = nodeIdToAllPartitions.get(nodeId);
+//
+//            int replicaType = 0;
+//            while(partitionPairs.size() > 0) {
+//                List<Pair<Integer, Integer>> replicaPairs = new ArrayList<Pair<Integer, Integer>>();
+//                for(Pair<Integer, Integer> pair: partitionPairs) {
+//                    if(pair.getFirst() == replicaType) {
+//                        replicaPairs.add(pair);
+//                    }
+//                }
+//                List<Integer> partitions = new ArrayList<Integer>();
+//                for(Pair<Integer, Integer> pair: replicaPairs) {
+//                    partitionPairs.remove(pair);
+//                    partitions.add(pair.getSecond());
+//                }
+//                java.util.Collections.sort(partitions);
+//
+//                sb.append("\t\t" + replicaType);
+//                for(int zoneId: cluster.getZoneIds()) {
+//                    sb.append(" : z" + zoneId + " : ");
+//                    List<Integer> zonePartitions = new ArrayList<Integer>();
+//                    for(int partitionId: partitions) {
+//                        if(cluster.getPartitionIdsInZone(zoneId).contains(partitionId)) {
+//                            zonePartitions.add(partitionId);
+//                        }
+//                    }
+//                    sb.append(zonePartitions.toString());
+//
+//                }
+//                sb.append(Utils.NEWLINE);
+//
+//                replicaType++;
+//            }
+//        }
+//
+//        return sb.toString();
+//    }
 
     /**
      * Dumps the partition IDs per node in terms of zone n-ary type.

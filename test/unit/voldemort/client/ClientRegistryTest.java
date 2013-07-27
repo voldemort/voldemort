@@ -23,6 +23,7 @@ import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
@@ -35,6 +36,7 @@ import org.junit.Test;
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
+import voldemort.routing.RouteToAllStrategy;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
@@ -115,7 +117,7 @@ public class ClientRegistryTest {
      */
     @Test
     public void testHappyPath() {
-        List<Integer> emptyPartitionList = Lists.newArrayList();
+        List<Integer> routeToAllPartitionList = Arrays.asList(0);
         ClientConfig clientConfig = new ClientConfig().setMaxThreads(4)
                                                       .setMaxTotalConnections(4)
                                                       .setMaxConnectionsPerNode(4)
@@ -130,7 +132,7 @@ public class ClientRegistryTest {
         client1.put("k", "v");
         Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(0,
                                                                                                 SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                                emptyPartitionList,
+                                                                                                routeToAllPartitionList,
                                                                                                 null,
                                                                                                 false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
@@ -145,7 +147,7 @@ public class ClientRegistryTest {
 
         it = adminClient.bulkFetchOps.fetchEntries(1,
                                                    SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                   emptyPartitionList,
+                                                   routeToAllPartitionList,
                                                    null,
                                                    false);
         infoList = getClientRegistryContent(it);
@@ -164,7 +166,7 @@ public class ClientRegistryTest {
         // the bootstrap time
         it = adminClient.bulkFetchOps.fetchEntries(1,
                                                    SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                   emptyPartitionList,
+                                                   routeToAllPartitionList,
                                                    null,
                                                    false);
         infoList = getClientRegistryContent(it);
@@ -182,7 +184,7 @@ public class ClientRegistryTest {
      */
     @Test
     public void testTwoClients() {
-        List<Integer> emptyPartitionList = Lists.newArrayList();
+        List<Integer> routeToAllPartitionList = Arrays.asList(0);
         ClientConfig clientConfig = new ClientConfig().setMaxThreads(4)
                                                       .setMaxTotalConnections(4)
                                                       .setMaxConnectionsPerNode(4)
@@ -201,7 +203,7 @@ public class ClientRegistryTest {
 
         Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(0,
                                                                                                 SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                                emptyPartitionList,
+                                                                                                routeToAllPartitionList,
                                                                                                 null,
                                                                                                 false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
@@ -224,7 +226,7 @@ public class ClientRegistryTest {
 
         it = adminClient.bulkFetchOps.fetchEntries(1,
                                                    SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                   emptyPartitionList,
+                                                   routeToAllPartitionList,
                                                    null,
                                                    false);
         infoList = getClientRegistryContent(it);
@@ -253,7 +255,7 @@ public class ClientRegistryTest {
         // the bootstrap time
         it = adminClient.bulkFetchOps.fetchEntries(1,
                                                    SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                   emptyPartitionList,
+                                                   routeToAllPartitionList,
                                                    null,
                                                    false);
         infoList = getClientRegistryContent(it);
@@ -271,7 +273,7 @@ public class ClientRegistryTest {
      */
     @Test
     public void testTwoStores() {
-        List<Integer> emptyPartitionList = Lists.newArrayList();
+        List<Integer> routeToAllPartitionList = Arrays.asList(0);
         ClientConfig clientConfig = new ClientConfig().setMaxThreads(4)
                                                       .setMaxTotalConnections(4)
                                                       .setMaxConnectionsPerNode(4)
@@ -290,7 +292,7 @@ public class ClientRegistryTest {
 
         Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(0,
                                                                                                 SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                                emptyPartitionList,
+                                                                                                routeToAllPartitionList,
                                                                                                 null,
                                                                                                 false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
@@ -322,7 +324,7 @@ public class ClientRegistryTest {
 
         it = adminClient.bulkFetchOps.fetchEntries(1,
                                                    SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                   emptyPartitionList,
+                                                   routeToAllPartitionList,
                                                    null,
                                                    false);
         infoList = getClientRegistryContent(it);
@@ -359,7 +361,7 @@ public class ClientRegistryTest {
         // the bootstrap time
         it = adminClient.bulkFetchOps.fetchEntries(1,
                                                    SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                   emptyPartitionList,
+                                                   routeToAllPartitionList,
                                                    null,
                                                    false);
         infoList = getClientRegistryContent(it);
@@ -377,7 +379,7 @@ public class ClientRegistryTest {
      */
     @Test
     public void testTwoFactories() {
-        List<Integer> emptyPartitionList = Lists.newArrayList();
+        List<Integer> routeToAllPartitionList = Arrays.asList(0);
         ClientConfig clientConfig = new ClientConfig().setMaxThreads(4)
                                                       .setMaxTotalConnections(4)
                                                       .setMaxConnectionsPerNode(4)
@@ -408,7 +410,7 @@ public class ClientRegistryTest {
 
         Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(0,
                                                                                                 SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                                emptyPartitionList,
+                                                                                                routeToAllPartitionList,
                                                                                                 null,
                                                                                                 false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
@@ -450,7 +452,7 @@ public class ClientRegistryTest {
 
         it = adminClient.bulkFetchOps.fetchEntries(1,
                                                    SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                   emptyPartitionList,
+                                                   routeToAllPartitionList,
                                                    null,
                                                    false);
         infoList = getClientRegistryContent(it);
@@ -497,7 +499,7 @@ public class ClientRegistryTest {
         // the bootstrap time
         it = adminClient.bulkFetchOps.fetchEntries(1,
                                                    SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                   emptyPartitionList,
+                                                   routeToAllPartitionList,
                                                    null,
                                                    false);
         infoList = getClientRegistryContent(it);
@@ -518,7 +520,7 @@ public class ClientRegistryTest {
         // bring down one server before starting up the clients
         servers[0].stop();
 
-        List<Integer> emptyPartitionList = Lists.newArrayList();
+        List<Integer> routeToAllPartitionList = Arrays.asList(0);
         ClientConfig clientConfig = new ClientConfig().setMaxThreads(4)
                                                       .setMaxTotalConnections(4)
                                                       .setMaxConnectionsPerNode(4)
@@ -549,7 +551,7 @@ public class ClientRegistryTest {
 
         Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(1,
                                                                                                 SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                                emptyPartitionList,
+                                                                                                routeToAllPartitionList,
                                                                                                 null,
                                                                                                 false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
@@ -596,7 +598,7 @@ public class ClientRegistryTest {
         // the bootstrap time
         it = adminClient.bulkFetchOps.fetchEntries(1,
                                                    SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                   emptyPartitionList,
+                                                   routeToAllPartitionList,
                                                    null,
                                                    false);
         infoList = getClientRegistryContent(it);
@@ -615,7 +617,7 @@ public class ClientRegistryTest {
     @Test
     public void testRepeatRegistrationSameFactory() {
 
-        List<Integer> emptyPartitionList = Lists.newArrayList();
+        List<Integer> routeToAllPartitionList = Arrays.asList(0);
         ClientConfig clientConfig = new ClientConfig().setMaxThreads(4)
                                                       .setMaxTotalConnections(4)
                                                       .setMaxConnectionsPerNode(4)
@@ -650,7 +652,7 @@ public class ClientRegistryTest {
 
         Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(1,
                                                                                                 SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                                emptyPartitionList,
+                                                                                                routeToAllPartitionList,
                                                                                                 null,
                                                                                                 false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
@@ -670,7 +672,7 @@ public class ClientRegistryTest {
         long client2LastBootstrapTime = 0;
         for(int i = 0; i < 3; i++) {
 
-            List<Integer> emptyPartitionList = Lists.newArrayList();
+            List<Integer> routeToAllPartitionList = Arrays.asList(0);
             ClientConfig clientConfig = new ClientConfig().setMaxThreads(4)
                                                           .setMaxTotalConnections(4)
                                                           .setMaxConnectionsPerNode(4)
@@ -701,7 +703,7 @@ public class ClientRegistryTest {
 
             Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.bulkFetchOps.fetchEntries(1,
                                                                                                     SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                                                                    emptyPartitionList,
+                                                                                                    routeToAllPartitionList,
                                                                                                     null,
                                                                                                     false);
             ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
@@ -751,7 +753,7 @@ public class ClientRegistryTest {
             // the bootstrap time
             it = adminClient.bulkFetchOps.fetchEntries(1,
                                                        SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
-                                                       emptyPartitionList,
+                                                       routeToAllPartitionList,
                                                        null,
                                                        false);
             infoList = getClientRegistryContent(it);
@@ -776,6 +778,7 @@ public class ClientRegistryTest {
 
     private ArrayList<ClientInfo> getClientRegistryContent(Iterator<Pair<ByteArray, Versioned<byte[]>>> it) {
         ArrayList<ClientInfo> infoList = Lists.newArrayList();
+       
         while(it.hasNext()) {
             String clientInfoString = (String) valueSerializer.toObject(it.next()
                                                                           .getSecond()

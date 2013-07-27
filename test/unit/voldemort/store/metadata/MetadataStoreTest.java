@@ -29,7 +29,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -86,16 +86,15 @@ public class MetadataStoreTest {
                 partition.add((int) Math.random() * 10);
             }
 
-            HashMap<Integer, List<Integer>> replicaToPartition = Maps.newHashMap();
-            replicaToPartition.put(0, partition);
+            List<Integer> partitionIds = partition;
 
-            HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList = Maps.newHashMap();
-            storeToReplicaToPartitionList.put("test", replicaToPartition);
+            HashMap<String, List<Integer>> storeToReplicaToPartitionList = Maps.newHashMap();
+            storeToReplicaToPartitionList.put("test", partitionIds);
 
-            return ByteUtils.getBytes(new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
-                                                                                                    (int) Math.random() * 5,
-                                                                                                    storeToReplicaToPartitionList,
-                                                                                                    ServerTestUtils.getLocalCluster(1)))).toJsonString(),
+            return ByteUtils.getBytes(new RebalancerState(Arrays.asList(new RebalanceTaskInfo(0,
+                                                                                              (int) Math.random() * 5,
+                                                                                              storeToReplicaToPartitionList,
+                                                                                              ServerTestUtils.getLocalCluster(1)))).toJsonString(),
                                       "UTF-8");
         }
 
@@ -218,7 +217,7 @@ public class MetadataStoreTest {
         assertEquals("should return the last saved version", value.getVersion(), list.get(0)
                                                                                      .getVersion());
         assertEquals("should return the last saved value (key:"
-                             + ByteUtils.getString(key.get(), "UTF-8") + ")",
+                     + ByteUtils.getString(key.get(), "UTF-8") + ")",
                      new String(value.getValue()),
                      new String(list.get(0).getValue()));
     }

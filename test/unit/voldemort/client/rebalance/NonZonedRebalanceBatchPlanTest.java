@@ -110,9 +110,9 @@ public class NonZonedRebalanceBatchPlanTest {
         finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 1, 2, 3 }, { 4, 5, 6, 7, 0 } });
 
-        List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                finalCluster,
-                                                                                test211StoreDef);
+        List<RebalanceTaskInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                          finalCluster,
+                                                                          test211StoreDef);
 
         assertTrue("Batch plan should be empty.", batchPlan.isEmpty());
     }
@@ -131,9 +131,9 @@ public class NonZonedRebalanceBatchPlanTest {
         finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 1, 2, 3 }, { 4, 5, 6, 7 }, { 0 } });
 
-        List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                finalCluster,
-                                                                                test211StoreDef);
+        List<RebalanceTaskInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                          finalCluster,
+                                                                          test211StoreDef);
         // data should only move from node 0 to node 2 for node 2 to host
         // everything needed. no other movement should occur.
         assertEquals("There should be one move in this plan.", 1, batchPlan.size());
@@ -142,20 +142,18 @@ public class NonZonedRebalanceBatchPlanTest {
                      getUniqueNodeCount(batchPlan, false));
         assertEquals("Stealer 2 should have 1 entry",
                      1,
-                     getStealerNodePartitionInfoCount(2, batchPlan));
+                     getStealerNodePartitionTaskCount(2, batchPlan));
 
         // Partitions to move
-        HashMap<Integer, List<Integer>> partitionsToMove = Maps.newHashMap();
-        partitionsToMove.put(0, Lists.newArrayList(0));
-        partitionsToMove.put(1, Lists.newArrayList(4, 5, 6, 7));
-        HashMap<String, HashMap<Integer, List<Integer>>> storeToPartitionsToMove = Maps.newHashMap();
-        storeToPartitionsToMove.put("test", partitionsToMove);
+        
+        HashMap<String, List<Integer>> storeToPartitionsToMove = Maps.newHashMap();
+        storeToPartitionsToMove.put("test", Lists.newArrayList(0, 4, 5, 6, 7));
 
-        checkAllRebalanceInfoPresent(getStealerNodePartitionInfoList(2, batchPlan),
-                                     Arrays.asList(new RebalancePartitionsInfo(2,
-                                                                               0,
-                                                                               storeToPartitionsToMove,
-                                                                               currentCluster)));
+        checkAllRebalanceInfoPresent(getStealerNodePartitionTaskList(2, batchPlan),
+                                     Arrays.asList(new RebalanceTaskInfo(2,
+                                                                         0,
+                                                                         storeToPartitionsToMove,
+                                                                         currentCluster)));
     }
 
     /**
@@ -172,34 +170,29 @@ public class NonZonedRebalanceBatchPlanTest {
         finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 0, 3, 6, 9, 12, 15 }, { 1, 4, 7, 10, 13, 16 }, { 2, 5, 8, 11, 14, 17 }, {} });
 
-        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                                        finalCluster,
-                                                                                                        storeDefList2);
+        List<RebalanceTaskInfo> orderedRebalanceTaskInfoList = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                                              finalCluster,
+                                                                                              storeDefList2);
         assertEquals("There should have exactly 1 rebalancing node",
                      1,
-                     getUniqueNodeCount(orderedRebalancePartitionInfoList, false));
+                     getUniqueNodeCount(orderedRebalanceTaskInfoList, false));
         assertEquals("There should be exactly 1 rebalancing partition info",
                      1,
-                     orderedRebalancePartitionInfoList.size());
+                     orderedRebalanceTaskInfoList.size());
 
         assertEquals("Stealer 0 should have 1 entry",
                      1,
-                     getStealerNodePartitionInfoCount(0, orderedRebalancePartitionInfoList));
+                     getStealerNodePartitionTaskCount(0, orderedRebalanceTaskInfoList));
 
-        HashMap<Integer, List<Integer>> partitionsToMove = Maps.newHashMap();
-        partitionsToMove.clear();
-        partitionsToMove.put(0, Lists.newArrayList(0));
-        partitionsToMove.put(1, Lists.newArrayList(17));
-        partitionsToMove.put(2, Lists.newArrayList(16));
-        HashMap<String, HashMap<Integer, List<Integer>>> storeToPartitionsToMove = Maps.newHashMap();
-        storeToPartitionsToMove.put("test", partitionsToMove);
+        HashMap<String, List<Integer>> storeToPartitionsToMove = Maps.newHashMap();
+        storeToPartitionsToMove.put("test", Lists.newArrayList(0, 16, 17));
 
-        checkAllRebalanceInfoPresent(getStealerNodePartitionInfoList(0,
-                                                                     orderedRebalancePartitionInfoList),
-                                     Arrays.asList(new RebalancePartitionsInfo(0,
-                                                                               3,
-                                                                               storeToPartitionsToMove,
-                                                                               currentCluster)));
+        checkAllRebalanceInfoPresent(getStealerNodePartitionTaskList(0,
+                                                                     orderedRebalanceTaskInfoList),
+                                     Arrays.asList(new RebalanceTaskInfo(0,
+                                                                         3,
+                                                                         storeToPartitionsToMove,
+                                                                         currentCluster)));
     }
 
     /**
@@ -217,9 +210,9 @@ public class NonZonedRebalanceBatchPlanTest {
                 { 0, 1, 5 }, { 2, 6 }, { 3, 7 } });
 
         // PHASE 1 - move partition 0 off of node 0 to node 1
-        List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                finalCluster,
-                                                                                storeDefList2);
+        List<RebalanceTaskInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                          finalCluster,
+                                                                          storeDefList2);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
 
@@ -237,10 +230,10 @@ public class NonZonedRebalanceBatchPlanTest {
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
         assertFalse("Batch plan for server 2 should not be empty.",
-                    getStealerNodePartitionInfoList(2, batchPlan).isEmpty());
+                    getStealerNodePartitionTaskList(2, batchPlan).isEmpty());
         boolean hasTheMove = false;
         // Confirm partition 4 is moved from server 0 to server 2
-        for(RebalancePartitionsInfo info: getStealerNodePartitionInfoList(2, batchPlan)) {
+        for(RebalanceTaskInfo info: getStealerNodePartitionTaskList(2, batchPlan)) {
             assertTrue(info.getStealerId() == 2);
             if(info.getDonorId() == 0) {
                 hasTheMove = true;
@@ -263,16 +256,16 @@ public class NonZonedRebalanceBatchPlanTest {
         finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 0, 4 },
                 { 2, 1, 5 }, { 6 }, { 3, 7 } });
 
-        List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                finalCluster,
-                                                                                storeDefList2);
+        List<RebalanceTaskInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                          finalCluster,
+                                                                          storeDefList2);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
         assertFalse("Batch plan for server 1 should not be empty.",
-                    getStealerNodePartitionInfoList(1, batchPlan).isEmpty());
+                    getStealerNodePartitionTaskList(1, batchPlan).isEmpty());
         boolean hasTheMove = false;
         // Confirm partition 2 is moved from server 2 to server 1
-        for(RebalancePartitionsInfo info: getStealerNodePartitionInfoList(1, batchPlan)) {
+        for(RebalanceTaskInfo info: getStealerNodePartitionTaskList(1, batchPlan)) {
             assertTrue(info.getStealerId() == 1);
             if(info.getDonorId() == 2) {
                 hasTheMove = true;
@@ -309,17 +302,17 @@ public class NonZonedRebalanceBatchPlanTest {
         finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] {
                 { 0, 2, 3 }, { 4, 6 }, { 7, 8, 9 }, { 1, 5 } });
 
-        List<RebalancePartitionsInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                finalCluster,
-                                                                                storeDefList);
+        List<RebalanceTaskInfo> batchPlan = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                          finalCluster,
+                                                                          storeDefList);
 
         assertFalse("Batch plan should not be empty.", batchPlan.isEmpty());
         assertFalse("Batch plan for server 3 should not be empty.",
-                    getStealerNodePartitionInfoList(3, batchPlan).isEmpty());
+                getStealerNodePartitionTaskList(3, batchPlan).isEmpty());
 
         boolean hasTheMove = false;
         // Confirm partition 1 is moved from server 0 to server 3
-        for(RebalancePartitionsInfo info: getStealerNodePartitionInfoList(3, batchPlan)) {
+        for(RebalanceTaskInfo info: getStealerNodePartitionTaskList(3, batchPlan)) {
             assertTrue(info.getStealerId() == 3);
             if(info.getDonorId() == 0) {
                 hasTheMove = true;
@@ -332,7 +325,7 @@ public class NonZonedRebalanceBatchPlanTest {
 
         hasTheMove = false;
         // Confirm partition 5 is moved from server 1 to server 3
-        for(RebalancePartitionsInfo info: getStealerNodePartitionInfoList(3, batchPlan)) {
+        for(RebalanceTaskInfo info: getStealerNodePartitionTaskList(3, batchPlan)) {
             assertTrue(info.getStealerId() == 3);
             if(info.getDonorId() == 1) {
                 hasTheMove = true;
@@ -358,46 +351,41 @@ public class NonZonedRebalanceBatchPlanTest {
         finalCluster = ServerTestUtils.getLocalCluster(numServers, ports, new int[][] { { 4 },
                 { 2, 3 }, { 1, 5 }, { 0 } });
 
-        List<RebalancePartitionsInfo> orderedRebalancePartitionInfoList = ClusterTestUtils.getBatchPlan(currentCluster,
-                                                                                                        finalCluster,
-                                                                                                        storeDefList2);
+        List<RebalanceTaskInfo> orderedRebalanceTaskInfoList = ClusterTestUtils.getBatchPlan(currentCluster,
+                                                                                                  finalCluster,
+                                                                                                  storeDefList2);
 
         assertEquals("There should have exactly 1 rebalancing node",
                      1,
-                     this.getUniqueNodeCount(orderedRebalancePartitionInfoList, false));
+                     this.getUniqueNodeCount(orderedRebalanceTaskInfoList, false));
         assertEquals("There should have exactly 2 rebalancing partition info",
                      2,
-                     orderedRebalancePartitionInfoList.size());
+                     orderedRebalanceTaskInfoList.size());
         assertEquals("Stealer 3 should have 2 entry",
                      2,
-                     this.getStealerNodePartitionInfoCount(3, orderedRebalancePartitionInfoList));
+                     this.getStealerNodePartitionTaskCount(3, orderedRebalanceTaskInfoList));
 
-        HashMap<Integer, List<Integer>> partitionsToMove1 = Maps.newHashMap(), partitionsToMove2 = Maps.newHashMap();
-        partitionsToMove1.put(0, Lists.newArrayList(0));
-        partitionsToMove1.put(1, Lists.newArrayList(5));
-        partitionsToMove2.put(2, Lists.newArrayList(4));
+        HashMap<String, List<Integer>> storeToPartitionsToMove1 = Maps.newHashMap();
+        storeToPartitionsToMove1.put("test", Lists.newArrayList(0, 5));
+        HashMap<String, List<Integer>> storeToPartitionsToMove2 = Maps.newHashMap();
+        storeToPartitionsToMove2.put("test", Lists.newArrayList(4));
 
-        HashMap<String, HashMap<Integer, List<Integer>>> storeToPartitionsToMove1 = Maps.newHashMap();
-        storeToPartitionsToMove1.put("test", partitionsToMove1);
-        HashMap<String, HashMap<Integer, List<Integer>>> storeToPartitionsToMove2 = Maps.newHashMap();
-        storeToPartitionsToMove2.put("test", partitionsToMove2);
-
-        checkAllRebalanceInfoPresent(this.getStealerNodePartitionInfoList(3,
-                                                                          orderedRebalancePartitionInfoList),
-                                     Arrays.asList(new RebalancePartitionsInfo(3,
-                                                                               0,
-                                                                               storeToPartitionsToMove1,
-                                                                               currentCluster),
-                                                   new RebalancePartitionsInfo(3,
-                                                                               1,
-                                                                               storeToPartitionsToMove2,
-                                                                               currentCluster)));
+        checkAllRebalanceInfoPresent(this.getStealerNodePartitionTaskList(3,
+                                                                          orderedRebalanceTaskInfoList),
+                                     Arrays.asList(new RebalanceTaskInfo(3,
+                                                                         0,
+                                                                         storeToPartitionsToMove1,
+                                                                         currentCluster),
+                                                   new RebalanceTaskInfo(3,
+                                                                         1,
+                                                                         storeToPartitionsToMove2,
+                                                                         currentCluster)));
     }
 
-    private int getUniqueNodeCount(List<RebalancePartitionsInfo> rebalanceInfoList,
+    private int getUniqueNodeCount(List<RebalanceTaskInfo> rebalanceInfoList,
                                    boolean isDonorBased) {
         HashSet<Integer> uniqueNodeSet = Sets.newHashSet();
-        for(RebalancePartitionsInfo partitionInfo: rebalanceInfoList) {
+        for(RebalanceTaskInfo partitionInfo: rebalanceInfoList) {
             int nodeId;
             if(isDonorBased) {
                 nodeId = partitionInfo.getDonorId();
@@ -411,11 +399,11 @@ public class NonZonedRebalanceBatchPlanTest {
         return uniqueNodeSet.size();
     }
 
-    private int getStealerNodePartitionInfoCount(int stealerId,
-                                                 List<RebalancePartitionsInfo> rebalanceInfoList) {
+    private int getStealerNodePartitionTaskCount(int stealerId,
+                                                 List<RebalanceTaskInfo> rebalanceInfoList) {
         int count = 0;
 
-        for(RebalancePartitionsInfo partitionInfo: rebalanceInfoList) {
+        for(RebalanceTaskInfo partitionInfo: rebalanceInfoList) {
             if(partitionInfo.getStealerId() == stealerId) {
                 count++;
             }
@@ -423,11 +411,11 @@ public class NonZonedRebalanceBatchPlanTest {
         return count;
     }
 
-    private List<RebalancePartitionsInfo> getStealerNodePartitionInfoList(int stealerId,
-                                                                          List<RebalancePartitionsInfo> rebalanceInfoList) {
-        ArrayList<RebalancePartitionsInfo> partitionList = Lists.newArrayList();
+    private List<RebalanceTaskInfo> getStealerNodePartitionTaskList(int stealerId,
+                                                                    List<RebalanceTaskInfo> rebalanceTaskList) {
+        ArrayList<RebalanceTaskInfo> partitionList = Lists.newArrayList();
 
-        for(RebalancePartitionsInfo partitionInfo: rebalanceInfoList) {
+        for(RebalanceTaskInfo partitionInfo: rebalanceTaskList) {
             if(partitionInfo.getStealerId() == stealerId) {
                 partitionList.add(partitionInfo);
             }
@@ -435,36 +423,35 @@ public class NonZonedRebalanceBatchPlanTest {
         return partitionList;
     }
 
-    private void checkAllRebalanceInfoPresent(List<RebalancePartitionsInfo> toCheckRebalanceInfoList,
-                                              List<RebalancePartitionsInfo> rebalanceInfoList) {
-        for(RebalancePartitionsInfo rebalanceInfo: rebalanceInfoList) {
+    private void checkAllRebalanceInfoPresent(List<RebalanceTaskInfo> toCheckRebalanceTaskInfoList,
+                                              List<RebalanceTaskInfo> rebalanceTaskInfoList) {
+        for(RebalanceTaskInfo rebalanceInfo: rebalanceTaskInfoList) {
             boolean match = false;
-            for(RebalancePartitionsInfo nodeRebalanceInfo: toCheckRebalanceInfoList) {
-                if(rebalanceInfo.getDonorId() == nodeRebalanceInfo.getDonorId()) {
+            for(RebalanceTaskInfo nodeRebalanceTaskInfo: toCheckRebalanceTaskInfoList) {
+                if(rebalanceInfo.getDonorId() == nodeRebalanceTaskInfo.getDonorId()) {
                     assertEquals("Store lists should match",
-                                 rebalanceInfo.getUnbalancedStoreList(),
-                                 nodeRebalanceInfo.getUnbalancedStoreList());
+                                 rebalanceInfo.getPartitionStores(),
+                                 nodeRebalanceTaskInfo.getPartitionStores());
 
                     assertEquals("Clusters to be same",
                                  rebalanceInfo.getInitialCluster(),
-                                 nodeRebalanceInfo.getInitialCluster());
+                                 nodeRebalanceTaskInfo.getInitialCluster());
 
-                    for(String storeName: rebalanceInfo.getUnbalancedStoreList()) {
+                    for(String storeName: rebalanceInfo.getPartitionStores()) {
                         assertEquals("add partition mapping for store " + storeName
-                                             + " should be same ",
-                                     rebalanceInfo.getReplicaToAddPartitionList(storeName),
-                                     nodeRebalanceInfo.getReplicaToAddPartitionList(storeName));
+                                     + " should be same ",
+                                     rebalanceInfo.getPartitionIds(storeName),
+                                     nodeRebalanceTaskInfo.getPartitionIds(storeName));
                     }
                     match = true;
                 }
             }
 
             assertNotSame("rebalancePartition Info " + rebalanceInfo
-                                  + " should be present in the nodePlan "
-                                  + toCheckRebalanceInfoList,
+                          + " should be present in the nodePlan "
+                          + toCheckRebalanceTaskInfoList,
                           false,
                           match);
         }
     }
-
 }

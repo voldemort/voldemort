@@ -622,20 +622,20 @@ public class RebalanceUtils {
      *        the new partition tuples at the end of this function )
      * @param newPartitionTuples New partition tuples
      */
-    public static void combinePartitionTuples(Map<Integer, Set<Pair<Integer, Integer>>> existingPartitionTuples,
-                                              Map<Integer, Set<Pair<Integer, Integer>>> newPartitionTuples) {
-
-        for(int nodeId: newPartitionTuples.keySet()) {
-            Set<Pair<Integer, Integer>> tuples = null;
-            if(existingPartitionTuples.containsKey(nodeId)) {
-                tuples = existingPartitionTuples.get(nodeId);
-            } else {
-                tuples = Sets.newHashSet();
-                existingPartitionTuples.put(nodeId, tuples);
-            }
-            tuples.addAll(newPartitionTuples.get(nodeId));
-        }
-    }
+//    public static void combinePartitionTuples(Map<Integer, Set<Pair<Integer, Integer>>> existingPartitionTuples,
+//                                              Map<Integer, Set<Pair<Integer, Integer>>> newPartitionTuples) {
+//
+//        for(int nodeId: newPartitionTuples.keySet()) {
+//            Set<Pair<Integer, Integer>> tuples = null;
+//            if(existingPartitionTuples.containsKey(nodeId)) {
+//                tuples = existingPartitionTuples.get(nodeId);
+//            } else {
+//                tuples = Sets.newHashSet();
+//                existingPartitionTuples.put(nodeId, tuples);
+//            }
+//            tuples.addAll(newPartitionTuples.get(nodeId));
+//        }
+//    }
 
     /**
      * For a particular cluster creates a mapping of node id to their

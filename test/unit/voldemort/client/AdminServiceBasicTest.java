@@ -98,20 +98,30 @@ import com.google.common.collect.Maps;
 public class AdminServiceBasicTest {
 
     private static int NUM_RUNS = 100;
+
     private static int TEST_STREAM_KEYS_SIZE = 10000;
+
     private static String testStoreName = "test-replication-memory";
+
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
+
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                   10000,
                                                                                   100000,
                                                                                   32 * 1024);
+
     private static AtomicBoolean running = new AtomicBoolean(true);
+
     private List<StoreDefinition> storeDefs;
+
     private VoldemortServer[] servers;
+
     private Cluster cluster;
+
     private AdminClient adminClient;
 
     private final boolean useNio;
+
     private final boolean onlineRetention;
 
     public AdminServiceBasicTest(boolean useNio, boolean onlineRetention) {
@@ -121,15 +131,30 @@ public class AdminServiceBasicTest {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true, false }, { true, true }, { false, false },
-                { false, true } });
+        return Arrays.asList(new Object[][] {
+                {
+                        true, false
+        }, {
+                true, true
+        }, {
+                false, false
+        }, {
+                false, true
+        }
+        });
     }
 
     @Before
     public void setUp() throws IOException {
         int numServers = 2;
         servers = new VoldemortServer[numServers];
-        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
+        int partitionMap[][] = {
+                {
+                        0, 1, 2, 3
+        }, {
+                4, 5, 6, 7
+        }
+        };
         Properties serverProperties = new Properties();
         serverProperties.setProperty("client.max.connections.per.node", "20");
         serverProperties.setProperty("enforce.retention.policy.on.read",
@@ -324,20 +349,14 @@ public class AdminServiceBasicTest {
                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         // On node 0
-        Map<Integer, HashMap<Integer, List<Integer>>> replicationMapping = adminClient.helperOps.getReplicationMapping(0,
-                                                                                                                       newCluster,
-                                                                                                                       storeDef);
+        Map<Integer, List<Integer>> replicationMapping = adminClient.helperOps.getReplicationMapping(0,
+                                                                                                     newCluster,
+                                                                                                     storeDef);
         {
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.clear();
-            partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(1, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(3, partitionTuple2);
-            // {1={1=[0, 4, 8]}, 3={0=[3, 7, 11]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(1, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(3,  Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
         }
 
         {
@@ -345,15 +364,10 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(1,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(0, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(1, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(2, partitionTuple2);
-            // {0={0=[0, 4, 8]}, 2={1=[1, 5, 9]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer,List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(0, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(2, Lists.newArrayList(1, 5, 9));
+            assertEquals(expectedMapping, replicationMapping);
         }
 
         {
@@ -361,35 +375,25 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(2,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(1, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(1, Lists.newArrayList(2, 6, 10));
-            expectedMapping.put(3, partitionTuple2);
-            // {1={0=[1, 5, 9]}, 3={1=[2, 6, 10]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(1, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(3, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
         }
         {
             // On node 3
             replicationMapping = adminClient.helperOps.getReplicationMapping(3,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(1, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(0, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(2, 6, 10));
-            expectedMapping.put(2, partitionTuple2);
-            // {0={1=[3, 7, 11]}, 2={0=[2, 6, 10]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(0, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(2, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
         }
 
         // Test 2 - With zone routing strategy
         HashMap<Integer, Integer> zoneReplicationFactors = Maps.newHashMap();
-        for(int zoneIds = 0; zoneIds < 2; zoneIds++) {
+        for (int zoneIds = 0; zoneIds < 2; zoneIds++) {
             zoneReplicationFactors.put(zoneIds, 1);
         }
         storeDef = ServerTestUtils.getStoreDef("zone",
@@ -409,28 +413,19 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(0,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(2, 6, 10));
-            partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(2, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(3, partitionTuple2);
-            // {2={0=[2, 6, 10], 1=[0, 4, 8]}, 3={0=[3, 7, 11]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(2, Lists.newArrayList(0, 4, 8, 2, 6, 10));
+            expectedMapping.put(3, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
         }
         {
             // On node 1
             replicationMapping = adminClient.helperOps.getReplicationMapping(1,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(2, partitionTuple);
-            // {2={1=[1, 5, 9]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(2, Lists.newArrayList(1, 5, 9));
+            assertEquals(expectedMapping, replicationMapping);
         }
 
         {
@@ -438,16 +433,10 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(2,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
-            partitionTuple.put(1, Lists.newArrayList(2, 6, 10));
-            expectedMapping.put(0, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(1, partitionTuple2);
-            // {0={0=[0, 4, 8], 1=[2, 6, 10]}, 1={0=[1, 5, 9]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(0, Lists.newArrayList(0, 4, 8, 2, 6, 10));
+            expectedMapping.put(1, Lists.newArrayList(1, 5, 9));
+            assertEquals(expectedMapping, replicationMapping);
         }
 
         {
@@ -455,12 +444,9 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(3,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(1, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(0, partitionTuple);
-            // {0={1=[3, 7, 11]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(0, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
         }
 
         // Test 3 - Consistent with rep factor 3
@@ -477,18 +463,11 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(0,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(1, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(3, partitionTuple2);
-            HashMap<Integer, List<Integer>> partitionTuple3 = Maps.newHashMap();
-            partitionTuple3.put(0, Lists.newArrayList(2, 6, 10));
-            expectedMapping.put(2, partitionTuple3);
-            // {1={1=[0, 4, 8]}, 2={0=[2, 6, 10]}, 3={0=[3, 7, 11]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(1, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(3, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(2, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
 
         }
 
@@ -496,36 +475,22 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(1,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(0, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(3, partitionTuple2);
-            HashMap<Integer, List<Integer>> partitionTuple3 = Maps.newHashMap();
-            partitionTuple3.put(1, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(2, partitionTuple3);
-            // {0={0=[0, 4, 8]}, 2={1=[1, 5, 9]}, 3={0=[3, 7, 11]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(0, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(3, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(2, Lists.newArrayList(1, 5, 9));
+            assertEquals(expectedMapping, replicationMapping);
         }
 
         {
             replicationMapping = adminClient.helperOps.getReplicationMapping(2,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(0, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(1, partitionTuple2);
-            HashMap<Integer, List<Integer>> partitionTuple3 = Maps.newHashMap();
-            partitionTuple3.put(1, Lists.newArrayList(2, 6, 10));
-            expectedMapping.put(3, partitionTuple3);
-            // {0={0=[0, 4, 8]}, 1={0=[1, 5, 9]}, 3={1=[2, 6, 10]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(0, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(1, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(3, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
 
         }
 
@@ -533,18 +498,11 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(3,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(1, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(0, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(1, partitionTuple2);
-            HashMap<Integer, List<Integer>> partitionTuple3 = Maps.newHashMap();
-            partitionTuple3.put(0, Lists.newArrayList(2, 6, 10));
-            expectedMapping.put(2, partitionTuple3);
-            // {0={1=[3, 7, 11]}, 1={0=[1, 5, 9]}, 2={0=[2, 6, 10]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(0, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(1, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(2, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
 
         }
 
@@ -568,20 +526,11 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(0,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(1, 5, 9));
-            partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(1, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(2, 6, 10));
-            expectedMapping.put(2, partitionTuple2);
-            HashMap<Integer, List<Integer>> partitionTuple3 = Maps.newHashMap();
-            partitionTuple3.put(0, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(3, partitionTuple3);
-            // {1={0=[1, 5, 9], 1=[0, 4, 8]}, 2={0=[2, 6, 10]}, 3={0=[3, 7,
-            // 11]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(1, Lists.newArrayList(0, 4, 8, 1, 5, 9));
+            expectedMapping.put(2, Lists.newArrayList(2, 6, 10));
+            expectedMapping.put(3, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
 
         }
 
@@ -589,20 +538,11 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(1,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(0, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(2, 6, 10));
-            partitionTuple2.put(1, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(2, partitionTuple2);
-            HashMap<Integer, List<Integer>> partitionTuple3 = Maps.newHashMap();
-            partitionTuple3.put(0, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(3, partitionTuple3);
-            // {0={0=[0, 4, 8]}, 2={0=[2, 6, 10], 1=[1, 5, 9]}, 3={0=[3, 7,
-            // 11]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(0, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(2, Lists.newArrayList(1, 5, 9, 2, 6, 10));
+            expectedMapping.put(3, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
 
         }
 
@@ -610,20 +550,11 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(2,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(0, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(1, partitionTuple2);
-            HashMap<Integer, List<Integer>> partitionTuple3 = Maps.newHashMap();
-            partitionTuple3.put(0, Lists.newArrayList(3, 7, 11));
-            partitionTuple3.put(1, Lists.newArrayList(2, 6, 10));
-            expectedMapping.put(3, partitionTuple3);
-            // {0={0=[0, 4, 8]}, 1={0=[1, 5, 9]}, 3={0=[3, 7, 11], 1=[2, 6,
-            // 10]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(0, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(1, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(3, Lists.newArrayList(2, 6, 10, 3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
 
         }
 
@@ -631,20 +562,11 @@ public class AdminServiceBasicTest {
             replicationMapping = adminClient.helperOps.getReplicationMapping(3,
                                                                              newCluster,
                                                                              storeDef);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
-            partitionTuple.put(1, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(0, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(1, partitionTuple2);
-            HashMap<Integer, List<Integer>> partitionTuple3 = Maps.newHashMap();
-            partitionTuple3.put(0, Lists.newArrayList(2, 6, 10));
-            expectedMapping.put(2, partitionTuple3);
-            // {0={0=[0, 4, 8], 1=[3, 7, 11]}, 1={0=[1, 5, 9]}, 2={0=[2, 6,
-            // 10]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(0, Lists.newArrayList(0, 4, 8, 3, 7, 11));
+            expectedMapping.put(1, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(2, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
         }
     }
 
@@ -698,37 +620,26 @@ public class AdminServiceBasicTest {
                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         // On node 0; zone id 1
-        Map<Integer, HashMap<Integer, List<Integer>>> replicationMapping = adminClient.helperOps.getReplicationMapping(0,
-                                                                                                                       newCluster,
-                                                                                                                       storeDef,
-                                                                                                                       1);
+        Map<Integer, List<Integer>> replicationMapping = adminClient.helperOps.getReplicationMapping(0,
+                                                                                                     newCluster,
+                                                                                                     storeDef,
+                                                                                                     1);
         {
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(2, 6, 10));
-            partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
-            partitionTuple.put(2, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(2, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(3, partitionTuple2);
-            // {2={0=[2, 6, 10], 1=[1, 5, 9], 2=[0, 4, 8]}, 3={0=[3, 7, 11]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(2,  Lists.newArrayList(0, 4, 8, 1, 5, 9, 2, 6, 10));
+            expectedMapping.put(3, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
         }
 
         // On node 0; zone id 0
         replicationMapping = adminClient.helperOps.getReplicationMapping(0, newCluster, storeDef, 0);
         {
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.clear();
-            partitionTuple.put(0, Lists.newArrayList(1, 5, 9));
-            partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
-            partitionTuple.put(2, Lists.newArrayList(3, 7, 11));
-            partitionTuple.put(3, Lists.newArrayList(2, 6, 10));
-            expectedMapping.put(1, partitionTuple);
-            // {1={0=[1, 5, 9], 1=[0, 4, 8]}, 2=[3, 7, 11], 3=[2, 6, 10]}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            //partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
+            //partitionTuple.put(2, Lists.newArrayList(3, 7, 11));
+            //partitionTuple.put(3, Lists.newArrayList(2, 6, 10));
+            expectedMapping.put(1, Lists.newArrayList(0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
         }
 
         // Test 2 - With zone routing strategy, and zone replication factor 1
@@ -766,16 +677,10 @@ public class AdminServiceBasicTest {
                                                                              newCluster,
                                                                              storeDef,
                                                                              1);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(0, Lists.newArrayList(2, 6, 10));
-            partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
-            expectedMapping.put(2, partitionTuple);
-            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
-            partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
-            expectedMapping.put(3, partitionTuple2);
-            // {2={0=[2, 6, 10], 1=[0, 4, 8]}, 3={0=[3, 7, 11]}}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(2, Lists.newArrayList(0, 4, 8, 2, 6, 10));
+            expectedMapping.put(3, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
         }
 
         {
@@ -784,12 +689,9 @@ public class AdminServiceBasicTest {
                                                                              newCluster,
                                                                              storeDef,
                                                                              1);
-            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
-            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
-            partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
-            expectedMapping.put(2, partitionTuple);
-            // {2={1=[1, 5, 9]}}
-            assertEquals(replicationMapping, expectedMapping);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(2, Lists.newArrayList(1, 5, 9));
+            assertEquals(expectedMapping, replicationMapping);
         }
     }
 
@@ -823,15 +725,13 @@ public class AdminServiceBasicTest {
         // delete the store
         assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
                                                 .getValue()
-                                                .contains(definition),
-                     true);
+                                                .contains(definition), true);
         adminClient.storeMgmtOps.deleteStore("deleteTest");
         assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue().size(),
                      numStores - 1);
         assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
                                                 .getValue()
-                                                .contains(definition),
-                     false);
+                                                .contains(definition), false);
 
         // test with deleted store
         try {
@@ -946,9 +846,8 @@ public class AdminServiceBasicTest {
         store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             if(isKeyPartition(entry.getKey(), 0, testStoreName, deletePartitionsList)) {
-                assertEquals("deleted partitions should be missing.",
-                             0,
-                             store.get(entry.getKey(), null).size());
+                assertEquals("deleted partitions should be missing.", 0, store.get(entry.getKey(),
+                                                                                   null).size());
             }
         }
     }
@@ -1087,7 +986,7 @@ public class AdminServiceBasicTest {
             try {
                 getAdminClient().readonlyOps.fetchPartitionFiles(node.getId(),
                                                                  "test-readonly-fetchfiles",
-                                                                 dumbMap,
+                                                                 Lists.newArrayList(100),
                                                                  tempDir.getAbsolutePath(),
                                                                  null,
                                                                  running);
@@ -1099,7 +998,7 @@ public class AdminServiceBasicTest {
 
             getAdminClient().readonlyOps.fetchPartitionFiles(node.getId(),
                                                              "test-readonly-fetchfiles",
-                                                             primaryNodeBuckets,
+                                                             primaryNodeBuckets.get(0),
                                                              tempDir.getAbsolutePath(),
                                                              null,
                                                              running);
@@ -1133,13 +1032,15 @@ public class AdminServiceBasicTest {
 
             // Test 2) Fetch all the replica partitions...
             tempDir = TestUtils.createTempDir();
-
-            getAdminClient().readonlyOps.fetchPartitionFiles(node.getId(),
-                                                             "test-readonly-fetchfiles",
-                                                             replicaNodeBuckets,
-                                                             tempDir.getAbsolutePath(),
-                                                             null,
-                                                             running);
+            
+            for (Entry<Integer, List<Integer>> entry : replicaNodeBuckets.entrySet()) {
+                getAdminClient().readonlyOps.fetchPartitionFiles(node.getId(),
+                                                                 "test-readonly-fetchfiles",
+                                                                 entry.getValue(),
+                                                                 tempDir.getAbsolutePath(),
+                                                                 null,
+                                                                 running);
+            }
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * replicaPartitions * numChunks + 1);
@@ -1169,12 +1070,14 @@ public class AdminServiceBasicTest {
 
             // Test 3) Fetch all the partitions...
             tempDir = TestUtils.createTempDir();
-            getAdminClient().readonlyOps.fetchPartitionFiles(node.getId(),
-                                                             "test-readonly-fetchfiles",
-                                                             nodeBuckets,
-                                                             tempDir.getAbsolutePath(),
-                                                             null,
-                                                             running);
+            for (Entry<Integer, List<Integer>> entry: nodeBuckets.entrySet()) {
+                getAdminClient().readonlyOps.fetchPartitionFiles(node.getId(),
+                                                                 "test-readonly-fetchfiles",
+                                                                 entry.getValue(),
+                                                                 tempDir.getAbsolutePath(),
+                                                                 null,
+                                                                 running);
+            }
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * (primaryPartitions + replicaPartitions)
@@ -1525,8 +1428,9 @@ public class AdminServiceBasicTest {
             assertNotNull("This key should exist in the results: " + key, entries.get(key));
             assertEquals("Two byte[] should be equal for key: " + key,
                          0,
-                         ByteUtils.compare(belongToAndInsideServer1.get(key),
-                                           entries.get(key).get(0).getValue()));
+                         ByteUtils.compare(belongToAndInsideServer1.get(key), entries.get(key)
+                                                                                     .get(0)
+                                                                                     .getValue()));
         }
 
         // test multiple keys, mixed situation
@@ -1643,9 +1547,8 @@ public class AdminServiceBasicTest {
             Store<ByteArray, byte[], byte[]> store = getStore(0, nextSlop.getStoreName());
 
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store",
-                              0,
-                              store.get(nextSlop.getKey(), null).size());
+                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
+                                                                               null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -1698,13 +1601,11 @@ public class AdminServiceBasicTest {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> primaryMoved = Arrays.asList(0, 2);
         List<Integer> secondaryMoved = Arrays.asList(1, 4);
+        List<Integer> combinedLists =  Arrays.asList(0, 1, 2, 4);
 
         Cluster targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 1, primaryMoved);
-        HashMap<Integer, List<Integer>> replicaToPartitions = Maps.newHashMap();
-        replicaToPartitions.put(0, primaryMoved);
-        replicaToPartitions.put(1, secondaryMoved);
 
-        HashMap<ByteArray, byte[]> keysMoved = Maps.newHashMap();
+        HashMap<ByteArray, byte[]> keysMovedWith0AsSecondary = Maps.newHashMap();
 
         // insert it into server-0 store
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
@@ -1720,7 +1621,7 @@ public class AdminServiceBasicTest {
                || (secondaryMoved.contains(partitions.get(0)) && cluster.getNodeById(0)
                                                                         .getPartitionIds()
                                                                         .contains(partitions.get(1)))) {
-                keysMoved.put(entry.getKey(), entry.getValue());
+                keysMovedWith0AsSecondary.put(entry.getKey(), entry.getValue());
             }
         }
 
@@ -1737,17 +1638,16 @@ public class AdminServiceBasicTest {
         int id = client.storeMntOps.migratePartitions(0,
                                                       1,
                                                       "test-recovery-data",
-                                                      replicaToPartitions,
+                                                      combinedLists,
                                                       null,
                                                       cluster,
                                                       false);
         client.rpcOps.waitForCompletion(1, id, 120, TimeUnit.SECONDS);
 
         // Check the values
-        for(Entry<ByteArray, byte[]> entry: keysMoved.entrySet()) {
-            assertEquals("server1 store should contain fetchAndupdated partitions.",
-                         1,
-                         store1.get(entry.getKey(), null).size());
+        for (Entry<ByteArray, byte[]> entry: keysMovedWith0AsSecondary.entrySet()) {
+            assertEquals("server1 store should contain fetchAndupdated partitions.", 1,
+                          store1.get(entry.getKey(), null).size());
             assertEquals("entry value should match",
                          new String(entry.getValue()),
                          new String(store1.get(entry.getKey(), null).get(0).getValue()));

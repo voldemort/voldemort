@@ -25,8 +25,8 @@ import java.util.List;
 import voldemort.client.RoutingTier;
 import voldemort.client.rebalance.RebalanceBatchPlan;
 import voldemort.client.rebalance.RebalanceController;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.client.rebalance.RebalancePlan;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -592,9 +592,9 @@ public class ClusterTestUtils {
      * @param storeDef List of store definitions
      * @return list of tasks for this batch plan
      */
-    public static List<RebalancePartitionsInfo> getBatchPlan(Cluster currentCluster,
-                                                             Cluster finalCluster,
-                                                             List<StoreDefinition> storeDef) {
+    public static List<RebalanceTaskInfo> getBatchPlan(Cluster currentCluster,
+                                                       Cluster finalCluster,
+                                                       List<StoreDefinition> storeDef) {
         RebalanceBatchPlan rebalancePlan = new RebalanceBatchPlan(currentCluster,
                                                                   finalCluster,
                                                                   storeDef);
@@ -611,10 +611,10 @@ public class ClusterTestUtils {
      * @param finalStoreDefs
      * @return list of tasks for this batch plan
      */
-    public static List<RebalancePartitionsInfo> getBatchPlan(Cluster currentCluster,
-                                                             List<StoreDefinition> currentStoreDefs,
-                                                             Cluster finalCluster,
-                                                             List<StoreDefinition> finalStoreDefs) {
+    public static List<RebalanceTaskInfo> getBatchPlan(Cluster currentCluster,
+                                                       List<StoreDefinition> currentStoreDefs,
+                                                       Cluster finalCluster,
+                                                       List<StoreDefinition> finalStoreDefs) {
         RebalanceBatchPlan rebalancePlan = new RebalanceBatchPlan(currentCluster,
                                                                   currentStoreDefs,
                                                                   finalCluster,

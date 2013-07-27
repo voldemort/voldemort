@@ -3,7 +3,6 @@ package voldemort.performance;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -20,7 +19,6 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 
 public class AdminTest {
@@ -129,6 +127,7 @@ public class AdminTest {
                                + nodePartitions.get(node) + ": \n");
             measureFunction(new Measurable() {
 
+                @Override
                 public long apply() {
                     long i = 0;
                     Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.bulkFetchOps.fetchEntries(node,
@@ -151,13 +150,13 @@ public class AdminTest {
         for(final Integer node: from.keySet()) {
             timeFunction(new Timed() {
 
+                @Override
                 public void apply() {
-                    HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
-                    replicaToPartitionList.put(0, Lists.newArrayList(from.get(node)));
+                    List<Integer> partitionIds = Lists.newArrayList(from.get(node));
                     adminClient.storeMntOps.migratePartitions(node,
                                                               to,
                                                               storeName,
-                                                              replicaToPartitionList,
+                                                              partitionIds,
                                                               null,
                                                               null,
                                                               false);

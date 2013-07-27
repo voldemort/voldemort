@@ -79,16 +79,13 @@ public class PartitionScanFetchKeysRequestHandler extends PartitionScanFetchStre
             boolean found = false;
             while(!found && (currentIndex < partitionList.size())) {
                 currentPartition = partitionList.get(currentIndex);
-                currentReplicaType = replicaTypeList.get(currentIndex);
-
-                // Check the current node contains the partition as the
-                // requested replicatype
+                
+                // Check the current node contains the partition as the requested replicatype
                 if(!fetchedPartitions.contains(currentPartition)
                    && StoreRoutingPlan.checkPartitionBelongsToNode(currentPartition,
-                                                                currentReplicaType,
-                                                                nodeId,
-                                                                initialCluster,
-                                                                storeDef)) {
+                                                                   nodeId,
+                                                                   initialCluster,
+                                                                   storeDef)) {
                     found = true;
                     completedFetchingCurrentPartition();
                     keysPartitionIterator = storageEngine.keys(currentPartition);

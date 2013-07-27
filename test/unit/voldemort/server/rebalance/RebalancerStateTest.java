@@ -25,7 +25,7 @@ import java.util.List;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -37,27 +37,21 @@ public class RebalancerStateTest {
 
     @Test
     public void testToJson() {
-        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
-        replicaToPartitionList.put(0, Lists.newArrayList(0, 1, 2));
 
-        HashMap<Integer, List<Integer>> replicaToPartitionList2 = Maps.newHashMap();
-        replicaToPartitionList2.put(1, Lists.newArrayList(3, 4));
-        replicaToPartitionList2.put(3, Lists.newArrayList(5, 6));
+        HashMap<String, List<Integer>> storeToPartitionIds = Maps.newHashMap();
+        storeToPartitionIds.put("test1", Lists.newArrayList(0, 1, 2));
+        storeToPartitionIds.put("test2", Lists.newArrayList(3, 4, 5, 6));
 
-        HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitionList = Maps.newHashMap();
-        storeToReplicaToAddPartitionList.put("test1", replicaToPartitionList);
-        storeToReplicaToAddPartitionList.put("test2", replicaToPartitionList2);
+        List<RebalanceTaskInfo> rebalanceTaskInfos = Arrays.asList(new RebalanceTaskInfo(2,
+                                                                                         0,
+                                                                                         storeToPartitionIds,
+                                                                                         ServerTestUtils.getLocalCluster(1)),
+                                                                   new RebalanceTaskInfo(3,
+                                                                                         1,
+                                                                                         storeToPartitionIds,
+                                                                                         ServerTestUtils.getLocalCluster(2)));
 
-        List<RebalancePartitionsInfo> rebalancePartitionsInfos = Arrays.asList(new RebalancePartitionsInfo(2,
-                                                                                                           0,
-                                                                                                           storeToReplicaToAddPartitionList,
-                                                                                                           ServerTestUtils.getLocalCluster(1)),
-                                                                               new RebalancePartitionsInfo(3,
-                                                                                                           1,
-                                                                                                           storeToReplicaToAddPartitionList,
-                                                                                                           ServerTestUtils.getLocalCluster(2)));
-
-        RebalancerState in = new RebalancerState(rebalancePartitionsInfos);
+        RebalancerState in = new RebalancerState(rebalanceTaskInfos);
         String jsonIn = in.toJsonString();
         RebalancerState out = RebalancerState.create(jsonIn);
         assertEquals(in, out);

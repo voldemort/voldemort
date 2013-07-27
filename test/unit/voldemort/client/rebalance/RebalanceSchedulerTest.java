@@ -44,6 +44,7 @@ public class RebalanceSchedulerTest {
     private final RebalanceBatchPlanProgressBar progressBar = new RebalanceBatchPlanProgressBar(0,
                                                                                                 1,
                                                                                                 1);
+
     @Test
     public void test() {
 
@@ -51,19 +52,16 @@ public class RebalanceSchedulerTest {
         Cluster zzCurrent = ClusterTestUtils.getZZCluster();
         adminClient = ServerTestUtils.getAdminClient(zzCurrent);
 
-        Map<String, HashMap<Integer, List<Integer>>> outerMap = new HashMap<String, HashMap<Integer, List<Integer>>>();
-        Map<Integer, List<Integer>> innerMap = new HashMap<Integer, List<Integer>>();
-
+        Map<String, List<Integer>> outerMap = new HashMap<String, List<Integer>>();
         List<Integer> someList = Arrays.asList(0, 1, 2);
-        innerMap.put(0, someList);
-        outerMap.put("storeA", (HashMap<Integer, List<Integer>>) innerMap);
+        outerMap.put("storeA", someList);
         int stealerId = 0;
         int donorId = 1;
 
-        RebalancePartitionsInfo partitionsInfo = new RebalancePartitionsInfo(stealerId,
-                                                                             donorId,
-                                                                             (HashMap<String, HashMap<Integer, List<Integer>>>) outerMap,
-                                                                             zzCurrent);
+        RebalanceTaskInfo partitionsInfo = new RebalanceTaskInfo(stealerId,
+                                                                 donorId,
+                                                                 (HashMap<String, List<Integer>>) outerMap,
+                                                                 zzCurrent);
 
         StealerBasedRebalanceTask sbTask = new StealerBasedRebalanceTask(0,
                                                                          0,
@@ -82,15 +80,18 @@ public class RebalanceSchedulerTest {
         mockedScheduler.initializeLatch(sbTaskList.size());
         mockedScheduler.populateTasksByStealer(sbTaskList);
 
-        // In the beginning both stealer and donor are idle so scheduler should return the scheduled 
+        // In the beginning both stealer and donor are idle so scheduler should
+        // return the scheduled
         // task
         StealerBasedRebalanceTask scheduledTask = mockedScheduler.scheduleNextTask(false);
         org.junit.Assert.assertNotNull(sbTask);
         org.junit.Assert.assertEquals(sbTask, scheduledTask);
         mockedScheduler.removeNodesFromWorkerList(Arrays.asList(stealerId, donorId));
 
-        // Now lets remove the donor from the worker list so that the donor is idle and add the 
-        // stealer to the worker list. The scheduler should return null as it won't be able to 
+        // Now lets remove the donor from the worker list so that the donor is
+        // idle and add the
+        // stealer to the worker list. The scheduler should return null as it
+        // won't be able to
         // schedule the task.
         mockedScheduler.addNodesToWorkerList(Arrays.asList(stealerId));
         mockedScheduler.removeNodesFromWorkerList(Arrays.asList(donorId));
@@ -112,6 +113,5 @@ public class RebalanceSchedulerTest {
         org.junit.Assert.assertNotNull(sbTask);
         org.junit.Assert.assertEquals(sbTask, nextscheduledTask);
 
-     
     }
 }

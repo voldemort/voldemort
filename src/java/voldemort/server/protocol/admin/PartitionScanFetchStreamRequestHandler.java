@@ -37,7 +37,7 @@ import voldemort.utils.NetworkClassLoader;
 public abstract class PartitionScanFetchStreamRequestHandler extends FetchStreamRequestHandler {
 
     protected Set<Integer> fetchedPartitions;
-    protected List<Integer> replicaTypeList;
+    // protected List<Integer> replicaTypeList;
     protected List<Integer> partitionList;
 
     protected Integer currentIndex;
@@ -61,7 +61,7 @@ public abstract class PartitionScanFetchStreamRequestHandler extends FetchStream
               operation);
 
         fetchedPartitions = new HashSet<Integer>();
-        replicaTypeList = new ArrayList<Integer>();
+        // replicaTypeList = new ArrayList<Integer>();
         partitionList = new ArrayList<Integer>();
 
         partitionList = partitionIds;

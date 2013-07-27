@@ -233,16 +233,18 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             StoreDefinition storeDef = metadataStore.getStoreDef(request.getStoreName());
             StoreRoutingPlan storeRoutingPlan = new StoreRoutingPlan(metadataStore.getCluster(), storeDef);
             int getZoneNary = storeRoutingPlan.getZoneNaryForNodesPartition(zoneId, nodeId, partitionId);
-
+           
+            currentPair = Pair.create(getZoneNary,partitionId);
             currentChunkId = 0;
 
             // First check if bucket exists
-            if (!bucketToNumChunks.containsKey(Pair.create(partitionId, getZoneNary))) {
-                throw new VoldemortException("Bucket [ partition = " + partitionId
-                                             + ", replica = " + getZoneNary
+            if (!bucketToNumChunks.containsKey(Pair.create(currentPair.getSecond(), currentPair.getFirst()))) {
+                throw new VoldemortException("Bucket [ partition = " + currentPair.getSecond()
+                                             + ", replica = " + currentPair.getFirst()
                                              + " ] does not exist for store " + request.getStoreName());
             }
-            numChunks = bucketToNumChunks.get(Pair.create(partitionId, getZoneNary));
+            numChunks = bucketToNumChunks.get(Pair.create(currentPair.getSecond(), currentPair.getFirst()));
+          
             dataFile = indexFile = null;
             fetchStatus = FetchStatus.SEND_DATA_FILE;
         } else {

@@ -467,13 +467,11 @@ public class AdminClient {
                                                 StoreDefinition storeDef) {
             Map<Integer, Integer> partitionToNodeId = ClusterUtils.getCurrentPartitionMapping(cluster);
             int nodeId = -1;
-            int replicaType = -1;
             int partition = -1;
             boolean found = false;
             int index = 0;
 
             while(!found && index < remainderPartitions.size()) {
-                replicaType = originalPartitions.indexOf(remainderPartitions.get(index));
                 nodeId = partitionToNodeId.get(remainderPartitions.get(index));
                 if(-1 == zoneId || cluster.getNodeById(nodeId).getZoneId() == zoneId) {
                     found = true;
@@ -481,31 +479,19 @@ public class AdminClient {
                     index++;
                 }
             }
-
             if(!found) {
                 throw new VoldemortException("unable to find a node to fetch partition "
-                                             + partition + " of replica type " + replicaType
-                                             + " for store " + storeDef.getName());
+                                             + partition + " for store " + storeDef.getName());
             }
-
             partition = originalPartitions.get(0);
             List<Integer> partitionIds = null;
             if(donorMap.containsKey(nodeId)) {
                 partitionIds = donorMap.get(nodeId);
             } else {
-                partitionIds = Collections.emptyList();
+                partitionIds = new ArrayList<Integer>();
                 donorMap.put(nodeId, partitionIds);
             }
-            
-            // TODO (Sid): Commenting this for removing replica type.
-            // List<Integer> partitions = null;
-            // if(replicaToPartitionList.containsKey(replicaType)) {
-            // partitions = replicaToPartitionList.get(replicaType);
-            // } else {
-            // partitions = Lists.newArrayList();
-            // replicaToPartitionList.put(replicaType, partitions);
-            // }
-            // partitions.add(partition);
+            partitionIds.add(partition);
         }
 
         public void throwException(VProto.Error error) {
