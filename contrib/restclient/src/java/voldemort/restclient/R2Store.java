@@ -46,9 +46,9 @@ import org.codehaus.jackson.map.ObjectMapper;
 
 import voldemort.VoldemortException;
 import voldemort.common.VoldemortOpCode;
-import voldemort.coordinator.CoordinatorUtils;
-import voldemort.coordinator.VectorClockWrapper;
-import voldemort.server.rest.RestMessageHeaders;
+import voldemort.rest.RestUtils;
+import voldemort.rest.RestMessageHeaders;
+import voldemort.rest.VectorClockWrapper;
 import voldemort.store.AbstractStore;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.utils.ByteArray;
@@ -164,7 +164,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             if(vc != null && vc.getEntries().size() != 0) {
                 String serializedVC = null;
                 if(!vc.getEntries().isEmpty()) {
-                    serializedVC = CoordinatorUtils.getSerializedVectorClock(vc);
+                    serializedVC = RestUtils.getSerializedVectorClock(vc);
                 }
 
                 if(serializedVC != null && serializedVC.length() > 0) {
@@ -398,7 +398,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             if(vc != null) {
                 String serializedVC = null;
                 if(!vc.getEntries().isEmpty()) {
-                    serializedVC = CoordinatorUtils.getSerializedVectorClock(vc);
+                    serializedVC = RestUtils.getSerializedVectorClock(vc);
                 }
 
                 if(serializedVC != null && serializedVC.length() > 0) {
@@ -418,7 +418,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                     logger.debug("Received empty vector clock in the response");
                 }
             } else {
-                VectorClock updatedVC = CoordinatorUtils.deserializeVectorClock(serializedUpdatedVC);
+                VectorClock updatedVC = RestUtils.deserializeVectorClock(serializedUpdatedVC);
                 VectorClock originalVC = (VectorClock) value.getVersion();
                 originalVC.copyFromVectorClock(updatedVC);
             }

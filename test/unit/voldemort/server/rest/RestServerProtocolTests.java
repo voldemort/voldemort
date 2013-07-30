@@ -16,7 +16,8 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import voldemort.coordinator.CoordinatorUtils;
+import voldemort.rest.RestUtils;
+import voldemort.rest.RestMessageHeaders;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.versioning.VectorClock;
@@ -49,7 +50,7 @@ public class RestServerProtocolTests {
         key1 = "The longest key ";
         vectorClock = new VectorClock();
         vectorClock.incrementVersion(config.getNodeId(), System.currentTimeMillis());
-        eTag = CoordinatorUtils.getSerializedVectorClock(vectorClock);
+        eTag = RestUtils.getSerializedVectorClock(vectorClock);
         value1 = "The longest value";
         timeOut = 10000L;
         contentType = "text";
@@ -642,7 +643,7 @@ public class RestServerProtocolTests {
             } else {
                 VectorClock vc = vectorClock.incremented(config.getNodeId(),
                                                          System.currentTimeMillis());
-                eTag2 = CoordinatorUtils.getSerializedVectorClock(vc);
+                eTag2 = RestUtils.getSerializedVectorClock(vc);
                 String value2 = "The next longest value";
                 conn = doPut(urlStr,
                              key1,

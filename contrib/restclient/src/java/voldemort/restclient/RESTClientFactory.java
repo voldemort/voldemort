@@ -11,7 +11,7 @@ import org.apache.log4j.Logger;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.coordinator.CoordinatorUtils;
+import voldemort.rest.RestUtils;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -116,8 +116,8 @@ public class RESTClientFactory implements StoreClientFactory {
         // bootstrap from the coordinator and obtain all the serialization
         // information.
         String serializerInfoXml = r2store.getSerializerInfoXml();
-        SerializerDefinition keySerializerDefinition = CoordinatorUtils.parseKeySerializerDefinition(serializerInfoXml);
-        SerializerDefinition valueSerializerDefinition = CoordinatorUtils.parseValueSerializerDefinition(serializerInfoXml);
+        SerializerDefinition keySerializerDefinition = RestUtils.parseKeySerializerDefinition(serializerInfoXml);
+        SerializerDefinition valueSerializerDefinition = RestUtils.parseValueSerializerDefinition(serializerInfoXml);
 
         if(logger.isDebugEnabled()) {
             logger.debug("Bootstrapping for " + storeName + ": Key serializer "

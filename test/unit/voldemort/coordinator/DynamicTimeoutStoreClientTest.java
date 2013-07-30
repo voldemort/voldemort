@@ -32,6 +32,7 @@ import voldemort.ServerTestUtils;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.cluster.Cluster;
+import voldemort.rest.coordinator.DynamicTimeoutStoreClient;
 import voldemort.server.VoldemortServer;
 import voldemort.store.CompositeGetVoldemortRequest;
 import voldemort.store.CompositePutVoldemortRequest;

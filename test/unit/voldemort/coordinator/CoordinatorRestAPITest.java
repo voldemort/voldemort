@@ -38,6 +38,10 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
+import voldemort.rest.RestMessageHeaders;
+import voldemort.rest.RestUtils;
+import voldemort.rest.coordinator.CoordinatorConfig;
+import voldemort.rest.coordinator.CoordinatorService;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -157,12 +161,14 @@ public class CoordinatorRestAPITest {
             conn.setDoInput(true);
             conn.setRequestProperty("Content-Type", "binary");
             conn.setRequestProperty("Content-Length", "" + payload.length());
-            conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS, "1000");
+            conn.setRequestProperty(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, "1000");
+            conn.setRequestProperty(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
+                                    Long.toString(System.currentTimeMillis()));
 
             // options
             if(options != null) {
                 if(options.get("timeout") != null && options.get("timeout") instanceof String) {
-                    conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS,
+                    conn.setRequestProperty(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS,
                                             (String) options.get("timeout"));
                 }
                 if(options.get("responseCode") != null
@@ -172,7 +178,7 @@ public class CoordinatorRestAPITest {
             }
 
             if(vc != null) {
-                String eTag = CoordinatorUtils.getSerializedVectorClock(vc);
+                String eTag = RestUtils.getSerializedVectorClock(vc);
                 conn.setRequestProperty("ETag", eTag);
             }
 
@@ -214,12 +220,14 @@ public class CoordinatorRestAPITest {
             // Set the right headers
             conn.setRequestMethod("DELETE");
             conn.setDoInput(true);
-            conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS, "1000");
+            conn.setRequestProperty(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, "1000");
+            conn.setRequestProperty(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
+                                    Long.toString(System.currentTimeMillis()));
 
             // options
             if(options != null) {
                 if(options.get("timeout") != null && options.get("timeout") instanceof String) {
-                    conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS,
+                    conn.setRequestProperty(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS,
                                             (String) options.get("timeout"));
                 }
                 if(options.get("responseCode") != null
@@ -264,12 +272,14 @@ public class CoordinatorRestAPITest {
             // Set the right headers
             conn.setRequestMethod("GET");
             conn.setDoInput(true);
-            conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS, "1000");
+            conn.setRequestProperty(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, "1000");
+            conn.setRequestProperty(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
+                                    Long.toString(System.currentTimeMillis()));
 
             // options
             if(options != null) {
                 if(options.get("timeout") != null && options.get("timeout") instanceof String) {
-                    conn.setRequestProperty(VoldemortHttpRequestHandler.X_VOLD_REQUEST_TIMEOUT_MS,
+                    conn.setRequestProperty(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS,
                                             (String) options.get("timeout"));
                 }
                 if(options.get("responseCode") != null
@@ -296,7 +306,7 @@ public class CoordinatorRestAPITest {
             assertEquals("The number of body parts expected is not 1", 1, mp.getCount());
 
             MimeBodyPart part = (MimeBodyPart) mp.getBodyPart(0);
-            VectorClock vc = CoordinatorUtils.deserializeVectorClock(part.getHeader(VoldemortHttpRequestHandler.X_VOLD_VECTOR_CLOCK)[0]);
+            VectorClock vc = RestUtils.deserializeVectorClock(part.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK)[0]);
             response = (String) part.getContent();
 
             responseObj = new TestVersionedValue(response, vc);
