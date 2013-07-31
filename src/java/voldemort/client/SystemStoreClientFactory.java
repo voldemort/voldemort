@@ -48,14 +48,13 @@ public class SystemStoreClientFactory<K, V> {
                          .setRoutingTimeout(clientConfig.getSysRoutingTimeout(),
                                             TimeUnit.MILLISECONDS)
                          .setEnableJmx(clientConfig.getSysEnableJmx())
-                         .setEnablePipelineRoutedStore(clientConfig.getSysEnablePipelineRoutedStore())
                          .setClientZoneId(clientConfig.getClientZoneId());
         this.socketStoreFactory = new SocketStoreClientFactory(systemStoreConfig);
     }
 
     public SystemStoreClient<K, V> createSystemStore(String storeName,
-                                               String clusterXml,
-                                               FailureDetector fd) {
+                                                     String clusterXml,
+                                                     FailureDetector fd) {
         Store<K, V, Object> sysStore = this.socketStoreFactory.getSystemStore(storeName,
                                                                               clusterXml,
                                                                               fd);
