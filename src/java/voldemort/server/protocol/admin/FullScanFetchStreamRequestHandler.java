@@ -106,6 +106,10 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
      * @return true iff key is needed.
      */
     protected boolean isKeyNeeded(byte[] key) {
+        // Empty partitions list has a special meaning in that all keys should be returned
+        if (partitionsToFetch.isEmpty()) {
+            return true;
+        }
         // Exit early if the master partition corresponding to the key is not in the toFetch list
         if (!partitionsToFetch.contains(getMasterPartitionId(key))) {
             return false;
