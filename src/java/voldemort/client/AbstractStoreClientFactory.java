@@ -184,7 +184,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return client;
     }
 
-    @SuppressWarnings("unchecked")
+    @Override
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver) {
         return getRawStore(storeName, resolver, null, null, null);
