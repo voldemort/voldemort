@@ -319,7 +319,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             try {
                 // Retrieve all values first
                 List<RebalanceTaskInfo> rebalanceTaskInfo = Lists.newArrayList();
-                for (RebalanceTaskInfoMap map : request.getRebalancePartitionTaskListList()) {
+                for (RebalanceTaskInfoMap map : request.getRebalanceTaskListList()) {
                     rebalanceTaskInfo.add(ProtoUtils.decodeRebalanceTaskInfoMap(map));
                 }
 

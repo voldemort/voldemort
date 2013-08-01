@@ -393,8 +393,7 @@ public class AdminClient {
          * @param storeDef The store definition to use
          * @param zoneId zone from which nodes are chosen, -1 means no zone
          *        preference
-         * @return Map of node id to map of replica type and corresponding
-         *         partition list
+         * @return Map of node id to corresponding partition list
          */
         public Map<Integer, List<Integer>> getReplicationMapping(int restoringNode,
                                                                  Cluster cluster,
@@ -467,7 +466,7 @@ public class AdminClient {
                                                 StoreDefinition storeDef) {
             Map<Integer, Integer> partitionToNodeId = ClusterUtils.getCurrentPartitionMapping(cluster);
             int nodeId = -1;
-            int partition = -1;
+            int partitionId = -1;
             boolean found = false;
             int index = 0;
 
@@ -481,9 +480,9 @@ public class AdminClient {
             }
             if(!found) {
                 throw new VoldemortException("unable to find a node to fetch partition "
-                                             + partition + " for store " + storeDef.getName());
+                                             + partitionId + " for store " + storeDef.getName());
             }
-            partition = originalPartitions.get(0);
+            partitionId = originalPartitions.get(0);
             List<Integer> partitionIds = null;
             if(donorMap.containsKey(nodeId)) {
                 partitionIds = donorMap.get(nodeId);
@@ -491,7 +490,7 @@ public class AdminClient {
                 partitionIds = new ArrayList<Integer>();
                 donorMap.put(nodeId, partitionIds);
             }
-            partitionIds.add(partition);
+            partitionIds.add(partitionId);
         }
 
         public void throwException(VProto.Error error) {
@@ -2451,7 +2450,7 @@ public class AdminClient {
                                          boolean changeRebalanceState,
                                          boolean rollback,
                                          boolean failEarly) {
-            HashMap<Integer, List<RebalanceTaskInfo>> stealerNodeToPlan = RebalanceUtils.groupPartitionsTaskByNode(rebalanceTaskPlanList,
+            HashMap<Integer, List<RebalanceTaskInfo>> stealerNodeToRebalanceTasks = RebalanceUtils.groupPartitionsTaskByNode(rebalanceTaskPlanList,
                                                                                                                          true);
             Set<Integer> completedNodeIds = Sets.newHashSet();
 
@@ -2463,7 +2462,7 @@ public class AdminClient {
                         individualStateChange(node.getId(),
                                               transitionCluster,
                                               targetStoreDefs,
-                                              stealerNodeToPlan.get(node.getId()),
+                                              stealerNodeToRebalanceTasks.get(node.getId()),
                                               swapRO,
                                               changeClusterMetadata,
                                               changeRebalanceState,
@@ -2506,7 +2505,7 @@ public class AdminClient {
                             individualStateChange(completedNodeId,
                                                   existingCluster,
                                                   existingStoreDefs,
-                                                  stealerNodeToPlan.get(completedNodeId),
+                                                  stealerNodeToRebalanceTasks.get(completedNodeId),
                                                   swapRO,
                                                   changeClusterMetadata,
                                                   changeRebalanceState,
@@ -2576,7 +2575,7 @@ public class AdminClient {
                     RebalanceTaskInfoMap infoMap = ProtoUtils.encodeRebalanceTaskInfoMap(stealInfo);
                     map.add(infoMap);
                 }
-                getRebalanceStateChangeRequestBuilder.addAllRebalancePartitionTaskList(map);
+                getRebalanceStateChangeRequestBuilder.addAllRebalanceTaskList(map);
             }
 
             VAdminProto.RebalanceStateChangeRequest getRebalanceStateChangeRequest = getRebalanceStateChangeRequestBuilder.setSwapRo(swapRO)

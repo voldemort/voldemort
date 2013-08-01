@@ -33,27 +33,29 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+/**
+ * Rebalance Task info maintains all information needed for rebalancing for a
+ * stealer-donor node tuple.
+ * 
+ * @param stealerNodeId Stealer node id
+ * @param donorId Donor node id
+ * @param storeToPartitionList Map of store name to partitions
+ * @param initialCluster We require the state of the current metadata in order to determine
+ *            correct key movement for RW stores. Otherwise we move keys on the basis of the
+ *            updated metadata and hell breaks loose.
+ *            
+ *  TODO: Verify if initialCluster is needed as part of this class.          
+ */
+
 public class RebalanceTaskInfo {
 
     private final int stealerId;
-
     private final int donorId;
     private HashMap<String, List<Integer>> storeToPartitionIds;
     private Cluster initialCluster;
     
-    /**
-     * Rebalance Partitions info maintains all information needed for rebalancing for a
-     * stealer-donor node tuple
-     * 
-     * @param stealerNodeId Stealer node id
-     * @param donorId Donor node id
-     * @param storeToPartitionList Map of store name to partitions
-     * @param initialCluster We require the state of the current metadata in order to determine
-     *            correct key movement for RW stores. Otherwise we move keys on the basis of the
-     *            updated metadata and hell breaks loose.
-     */
     public RebalanceTaskInfo(int stealerNodeId, int donorId, HashMap<String,
-                                      List<Integer>> storeToPartitionIds, Cluster initialCluster) {
+                             List<Integer>> storeToPartitionIds, Cluster initialCluster) {
         this.stealerId = stealerNodeId;
         this.donorId = donorId;
         this.storeToPartitionIds = storeToPartitionIds;

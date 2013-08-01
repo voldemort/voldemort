@@ -487,14 +487,14 @@ public class StoreRoutingPlan {
      * @param nodePartitions Partition list on this node
      * @return Returns a boolean to indicate if this belongs to the map
      */
-    public static boolean checkKeyBelongsToPartitionIds(List<Integer> keyPartitions,
-                                                        List<Integer> nodePartitions) {
-        for (int i = 0; i < keyPartitions.size(); i++) {
-            if (nodePartitions.contains(keyPartitions.get(i)))
-                return true;
-        }
-        return false;
-    }
+//    public static boolean checkKeyBelongsToPartitionIds(List<Integer> keyPartitionIds,
+//                                                        List<Integer> nodePartitionIds) {
+//        for (int i = 0; i < keyPartitionIds.size(); i++) {
+//            if (nodePartitionIds.contains(keyPartitionIds.get(i)))
+//                return true;
+//        }
+//        return false;
+//    }
 
     /**
      * Given a key and a list of steal infos give back a list of stealer node
@@ -507,23 +507,23 @@ public class StoreRoutingPlan {
      * @param storeDef Store definitions
      * @return List of node ids
      */
-    public static List<Integer> checkKeyBelongsToPartitionIds(byte[] key,
-                                                              Set<Pair<Integer, List<Integer>>> stealerNodeToPartitionIds,
-                                                              Cluster cluster,
-                                                              StoreDefinition storeDef) {
-        List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                         cluster)
-                                                                  .getPartitionList(key);
-        List<Integer> nodesToPush = Lists.newArrayList();
-        for(Pair<Integer, List<Integer>> stealNodeToList: stealerNodeToPartitionIds) {
-            List<Integer> nodePartitions = cluster.getNodeById(stealNodeToList.getFirst())
-                                                  .getPartitionIds();
-            if(StoreRoutingPlan.checkKeyBelongsToPartitionIds(keyPartitions, nodePartitions)) {
-                nodesToPush.add(stealNodeToList.getFirst());
-            }
-        }
-        return nodesToPush;
-    }
+//    public static List<Integer> checkKeyBelongsToPartitionIds(byte[] key,
+//                                                              Set<Pair<Integer, List<Integer>>> stealerNodeToPartitionIds,
+//                                                              Cluster cluster,
+//                                                              StoreDefinition storeDef) {
+//        List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+//                                                                                         cluster)
+//                                                                  .getPartitionList(key);
+//        List<Integer> nodesToPush = Lists.newArrayList();
+//        for(Pair<Integer, List<Integer>> stealNodeToList: stealerNodeToPartitionIds) {
+//            List<Integer> nodePartitions = cluster.getNodeById(stealNodeToList.getFirst())
+//                                                  .getPartitionIds();
+//            if(StoreRoutingPlan.checkKeyBelongsToPartitionIds(keyPartitions, nodePartitions)) {
+//                nodesToPush.add(stealNodeToList.getFirst());
+//            }
+//        }
+//        return nodesToPush;
+//    }
 
     /**
      * Check that the key belongs to one of the partitions on the node
@@ -534,26 +534,26 @@ public class StoreRoutingPlan {
      * @param storeDef The store definition
      * @return Returns a boolean to indicate if this belongs to the map
      */
-    public static boolean
-            checkKeyBelongsToPartitionIds(int nodeId,
-                                          byte[] key,
-                                          Cluster cluster,
-                                          StoreDefinition storeDef) {
-        boolean checkResult = false;
-        if(storeDef.getRoutingStrategyType().equals(RoutingStrategyType.TO_ALL_STRATEGY)
-           || storeDef.getRoutingStrategyType()
-                      .equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY)) {
-            checkResult = true;
-        } else {
-            List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                             cluster)
-                                                                      .getPartitionList(key);
-            List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-            checkResult = StoreRoutingPlan.checkKeyBelongsToPartitionIds(keyPartitions,
-                                                                         nodePartitions);
-        }
-        return checkResult;
-    }
+//    public static boolean
+//            checkKeyBelongsToPartitionIds(int nodeId,
+//                                          byte[] key,
+//                                          Cluster cluster,
+//                                          StoreDefinition storeDef) {
+//        boolean checkResult = false;
+//        if(storeDef.getRoutingStrategyType().equals(RoutingStrategyType.TO_ALL_STRATEGY)
+//           || storeDef.getRoutingStrategyType()
+//                      .equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY)) {
+//            checkResult = true;
+//        } else {
+//            List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+//                                                                                             cluster)
+//                                                                      .getPartitionList(key);
+//            List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
+//            checkResult = StoreRoutingPlan.checkKeyBelongsToPartitionIds(keyPartitions,
+//                                                                         nodePartitions);
+//        }
+//        return checkResult;
+//    }
 
     /***
      * Checks if a given partition is stored in the node.
@@ -569,11 +569,9 @@ public class StoreRoutingPlan {
                                                       Cluster cluster,
                                                       StoreDefinition storeDef) {
         List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-        System.out.println(nodePartitions);
         List<Integer> replicatingPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                                  cluster)
                                                                           .getReplicatingPartitionList(partition);
-        System.out.println(replicatingPartitions);
         replicatingPartitions.retainAll(nodePartitions);
         return replicatingPartitions.size() > 0;
     }

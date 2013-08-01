@@ -125,7 +125,7 @@ public class RebalanceUtils {
     }
     
     /**
-     * Given the current replica to partition list, try to check if the donor
+     * Given the current partitionIds list, try to check if the donor
      * node would already contain that partition and if yes, ignore it
      * 
      * @param stealerNodeId Stealer node id
