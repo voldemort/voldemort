@@ -44,7 +44,7 @@ public class ClusterUtilsTest {
         // -------oo-------oo--oo-------------- !Wraps around!
 
         // => {14,7}, {6,3}, {12,1}
-        iiMap = ClusterUtils.getMapOfContiguousPartitions(cluster, 0);
+        iiMap = PartitionBalanceUtils.getMapOfContiguousPartitions(cluster, 0);
         assertTrue(iiMap.containsKey(6));
         assertTrue(iiMap.get(6) == 3);
         assertTrue(iiMap.containsKey(12));
@@ -66,7 +66,7 @@ public class ClusterUtilsTest {
         // -------oo---------oo--
 
         // => {3,3}, {9,3}, {13,1}
-        iiMap = ClusterUtils.getMapOfContiguousPartitions(cluster, 1);
+        iiMap = PartitionBalanceUtils.getMapOfContiguousPartitions(cluster, 1);
         assertTrue(iiMap.containsKey(3));
         assertTrue(iiMap.get(3) == 3);
         assertTrue(iiMap.containsKey(9));

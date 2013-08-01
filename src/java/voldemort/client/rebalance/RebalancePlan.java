@@ -30,7 +30,9 @@ import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.tools.PartitionBalance;
 import voldemort.utils.MoveMap;
+import voldemort.utils.PartitionBalanceUtils;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.UpdateClusterUtils;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.Lists;
@@ -181,9 +183,9 @@ public class RebalancePlan {
             List<Entry<Integer, Integer>> partitionsMoved = Lists.newArrayList();
             for(Entry<Integer, Integer> stealerToPartition: stealerToStolenPrimaryPartitions.entries()) {
                 partitionsMoved.add(stealerToPartition);
-                batchFinalCluster = RebalanceUtils.createUpdatedCluster(batchFinalCluster,
-                                                                        stealerToPartition.getKey(),
-                                                                        Lists.newArrayList(stealerToPartition.getValue()));
+                batchFinalCluster = UpdateClusterUtils.createUpdatedCluster(batchFinalCluster,
+                                                                            stealerToPartition.getKey(),
+                                                                            Lists.newArrayList(stealerToPartition.getValue()));
                 partitions++;
                 if(partitions == batchSize)
                     break;
@@ -329,10 +331,10 @@ public class RebalancePlan {
             sb.append(batchPlan).append(Utils.NEWLINE);
         }
         // Add invalid metadata rate analysis
-        sb.append(RebalanceUtils.analyzeInvalidMetadataRate(currentCluster,
-                                                            currentStoreDefs,
-                                                            finalCluster,
-                                                            finalStoreDefs));
+        sb.append(PartitionBalanceUtils.analyzeInvalidMetadataRate(currentCluster,
+                                                                   currentStoreDefs,
+                                                                   finalCluster,
+                                                                   finalStoreDefs));
         // Summarize aggregate plan stats
         sb.append("Total number of primary partition moves : " + numPrimaryPartitionMoves)
           .append(Utils.NEWLINE)

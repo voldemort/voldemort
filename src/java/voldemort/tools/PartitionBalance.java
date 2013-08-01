@@ -27,8 +27,8 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
-import voldemort.utils.ClusterUtils;
 import voldemort.utils.Pair;
+import voldemort.utils.PartitionBalanceUtils;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 
@@ -65,7 +65,7 @@ public class PartitionBalance {
         this.cluster = cluster;
 
         StringBuilder builder = new StringBuilder();
-        builder.append(ClusterUtils.verboseClusterDump(cluster));
+        builder.append(PartitionBalanceUtils.verboseClusterDump(cluster));
 
         HashMap<StoreDefinition, Integer> uniqueStores = StoreDefinitionUtils.getUniqueStoreDefinitionsWithCounts(storeDefs);
         Set<Integer> nodeIds = cluster.getNodeIds();

@@ -17,7 +17,6 @@
 package voldemort.cluster;
 
 import java.io.Serializable;
-import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,7 +32,6 @@ import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.utils.Utils;
-import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Sets;
 
@@ -54,8 +52,16 @@ public class Cluster implements Serializable {
     private final Map<Integer, Zone> zonesById;
     private final Map<Zone, List<Integer>> nodesPerZone;
     private final Map<Zone, List<Integer>> partitionsPerZone;
+
+    // Since partitionId space must be dense, arrays could be used instead of
+    // maps. To do so, the partition ID range would have to be determined. This
+    // could be done by summing up the lengths of each node's .getPartitionIds()
+    // returned list. This could be faster to construct and lookup by some
+    // constant and memory footprint could be better.
     private final Map<Integer, Zone> partitionIdToZone;
     private final Node[] partitionIdToNodeArray;
+    private final Map<Integer, Node> partitionIdToNode;
+    private final Map<Integer, Integer> partitionIdToNodeId;
 
     public Cluster(String name, List<Node> nodes) {
         this(name, nodes, new ArrayList<Zone>());
@@ -66,8 +72,9 @@ public class Cluster implements Serializable {
         this.partitionsPerZone = new LinkedHashMap<Zone, List<Integer>>();
         this.nodesPerZone = new LinkedHashMap<Zone, List<Integer>>();
         this.partitionIdToZone = new HashMap<Integer, Zone>();
-
         Map<Integer, Node> partitionIdToNodeMap = new HashMap<Integer, Node>();
+        this.partitionIdToNode = new HashMap<Integer, Node>();
+        this.partitionIdToNodeId = new HashMap<Integer, Integer>();
 
         if(zones.size() != 0) {
             zonesById = new LinkedHashMap<Integer, Zone>(zones.size());
@@ -96,14 +103,22 @@ public class Cluster implements Serializable {
             nodesById.put(node.getId(), node);
 
             Zone nodesZone = zonesById.get(node.getZoneId());
-            if (nodesZone == null) {
+            if(nodesZone == null) {
                 throw new IllegalArgumentException("No zone associated with this node exists.");
             }
             nodesPerZone.get(nodesZone).add(node.getId());
             partitionsPerZone.get(nodesZone).addAll(node.getPartitionIds());
             for(Integer partitionId: node.getPartitionIds()) {
+                if(this.partitionIdToNodeId.containsKey(partitionId)) {
+                    throw new IllegalArgumentException("Partition id " + partitionId
+                                                       + " found on two nodes : " + node.getId()
+                                                       + " and "
+                                                       + this.partitionIdToNodeId.get(partitionId));
+                }
                 this.partitionIdToZone.put(partitionId, nodesZone);
                 partitionIdToNodeMap.put(partitionId, node);
+                this.partitionIdToNode.put(partitionId, node);
+                this.partitionIdToNodeId.put(partitionId, node.getId());
             }
         }
         this.numberOfPartitionIds = getNumberOfTags(nodes);
@@ -221,11 +236,33 @@ public class Cluster implements Serializable {
         return this.partitionIdToNodeArray;
     }
 
+    /**
+     * 
+     * @return Map of partition id to node id.
+     */
+    public Map<Integer, Integer> getPartitionIdToNodeIdMap() {
+        return new HashMap<Integer, Integer>(partitionIdToNodeId);
+    }
+
     public Node getNodeById(int id) {
         Node node = nodesById.get(id);
         if(node == null)
             throw new VoldemortException("No such node in cluster: " + id);
         return node;
+    }
+
+    /**
+     * Given a cluster and a node id checks if the node exists
+     * 
+     * @param nodeId The node id to search for
+     * @return True if cluster contains the node id, else false
+     */
+    public boolean hasNodeWithId(int nodeId) {
+        Node node = nodesById.get(nodeId);
+        if(node == null) {
+            return false;
+        }
+        return true;
     }
 
     @JmxGetter(name = "numberOfNodes", description = "The number of nodes in the cluster.")
@@ -271,17 +308,26 @@ public class Cluster implements Serializable {
         return builder.toString();
     }
 
-    // TODO: Add a proper .clone() implementation.
     /**
-     * In the absence of a proper Cluster.clone() operation, this hack safely
-     * clones a Cluster object via serde to/from XML.
+     * Clones the cluster by constructing a new one with same name, partition
+     * layout, and nodes.
      * 
      * @param cluster
      * @return clone of Cluster cluster.
      */
     public static Cluster cloneCluster(Cluster cluster) {
+        // Could add a better .clone() implementation that clones the derived
+        // data structures. The constructor invoked by this clone implementation
+        // can be slow for large numbers of partitions. Probably faster to copy
+        // all the maps and stuff.
+        return new Cluster(cluster.getName(),
+                           new ArrayList<Node>(cluster.getNodes()),
+                           new ArrayList<Zone>(cluster.getZones()));
+        /*-
+         * Historic "clone" code being kept in case this, for some reason, was the "right" way to be doing this.
         ClusterMapper mapper = new ClusterMapper();
         return mapper.readCluster(new StringReader(mapper.writeCluster(cluster)));
+         */
     }
 
     @Override

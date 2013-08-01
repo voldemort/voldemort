@@ -31,7 +31,7 @@ import org.junit.Test;
 import voldemort.ClusterTestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
-import voldemort.utils.ClusterUtils;
+import voldemort.utils.PartitionBalanceUtils;
 
 public class RepartitionerTest {
 
@@ -541,7 +541,7 @@ public class RepartitionerTest {
      */
     public boolean verifyNoncontiguousPartitions(Cluster cluster, int cutoff) {
         for(int zoneId: cluster.getZoneIds()) {
-            Map<Integer, Integer> rlMap = ClusterUtils.getMapOfContiguousPartitionRunLengths(cluster,
+            Map<Integer, Integer> rlMap = PartitionBalanceUtils.getMapOfContiguousPartitionRunLengths(cluster,
                                                                                              zoneId);
             for(int runLength: rlMap.keySet()) {
                 if(runLength > cutoff)

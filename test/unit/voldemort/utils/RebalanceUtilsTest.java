@@ -42,7 +42,7 @@ public class RebalanceUtilsTest {
 
         Cluster finalCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 4, 5, 6, 7, 8 }, { 2, 3 } });
-        Cluster updatedCluster = RebalanceUtils.updateCluster(currentCluster,
+        Cluster updatedCluster = UpdateClusterUtils.updateCluster(currentCluster,
                                                               new ArrayList<Node>(finalCluster.getNodes()));
         assertEquals("updated cluster should match finalCluster", updatedCluster, finalCluster);
     }
@@ -52,12 +52,12 @@ public class RebalanceUtilsTest {
         List<Node> nodes = Lists.newArrayList();
 
         // Test with empty node list
-        assertEquals(NodeUtils.getNodeIds(nodes).size(), 0);
+        assertEquals(Utils.nodeListToNodeIdList(nodes).size(), 0);
 
         // Add one node
         nodes.add(new Node(0, "localhost", 1, 2, 3, new ArrayList<Integer>()));
-        assertEquals(NodeUtils.getNodeIds(nodes).size(), 1);
-        assertEquals(NodeUtils.getNodeIds(nodes).get(0).intValue(), 0);
+        assertEquals(Utils.nodeListToNodeIdList(nodes).size(), 1);
+        assertEquals(Utils.nodeListToNodeIdList(nodes).get(0).intValue(), 0);
     }
 
     @Test
@@ -78,7 +78,7 @@ public class RebalanceUtilsTest {
                                          nodes,
                                          Lists.newArrayList(cluster.getZones()));
 
-        Cluster generatedCluster = RebalanceUtils.getClusterWithNewNodes(cluster, newCluster);
+        Cluster generatedCluster = RebalanceUtils.getInterimCluster(cluster, newCluster);
         assertEquals(generatedCluster.getNumberOfNodes(), 4);
         assertEquals(Utils.compareList(generatedCluster.getNodeById(0).getPartitionIds(),
                                        cluster.getNodeById(0).getPartitionIds()), true);
@@ -92,7 +92,7 @@ public class RebalanceUtilsTest {
                                              Cluster interimC,
                                              Cluster finalC,
                                              boolean verify) {
-        Cluster derivedInterim1 = RebalanceUtils.getClusterWithNewNodes(currentC, interimC);
+        Cluster derivedInterim1 = RebalanceUtils.getInterimCluster(currentC, interimC);
         if(verify)
             assertEquals(interimC, derivedInterim1);
 

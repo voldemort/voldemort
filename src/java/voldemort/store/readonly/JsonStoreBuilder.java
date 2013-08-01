@@ -56,7 +56,6 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.utils.ByteUtils;
-import voldemort.utils.ClusterUtils;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
@@ -589,7 +588,7 @@ public class JsonStoreBuilder {
         // Start moving files over to their correct node
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
                                                                                       cluster);
-        Map<Integer, Integer> replicaMapping = ClusterUtils.getCurrentPartitionMapping(cluster);
+        Map<Integer, Integer> replicaMapping = cluster.getPartitionIdToNodeIdMap();
         for(File file: tempDirectory.listFiles()) {
             String fileName = file.getName();
             if(fileName.matches("^[\\d]+_[\\d]+_[\\d]+\\.(data|index)")) {

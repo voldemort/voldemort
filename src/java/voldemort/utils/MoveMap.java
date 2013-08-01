@@ -32,9 +32,6 @@ import voldemort.VoldemortException;
  */
 public class MoveMap {
 
-    // TODO: (refactor) create a voldemort.utils.rebalance package and move this
-    // class (and others) to it.
-
     final TreeSet<Integer> idKeySet;
     final Map<Integer, Map<Integer, Integer>> fromToMoves;
 

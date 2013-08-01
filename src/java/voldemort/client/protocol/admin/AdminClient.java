@@ -463,7 +463,7 @@ public class AdminClient {
                                                 Cluster cluster,
                                                 StoreDefinition storeDef) {
 
-            Map<Integer, Integer> partitionToNodeId = ClusterUtils.getCurrentPartitionMapping(cluster);
+            Map<Integer, Integer> partitionToNodeId = cluster.getPartitionIdToNodeIdMap();
             int nodeId = -1;
             int partitionId = -1;
             boolean found = false;

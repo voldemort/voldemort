@@ -66,7 +66,6 @@ public class RebalanceSchedulerTest {
         StealerBasedRebalanceTask sbTask = new StealerBasedRebalanceTask(0,
                                                                          0,
                                                                          partitionsInfo,
-                                                                         3,
                                                                          donorPermit,
                                                                          adminClient,
                                                                          progressBar,

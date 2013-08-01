@@ -23,7 +23,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteUtils;
-import voldemort.utils.NodeUtils;
+import voldemort.utils.Utils;
 
 /**
  * This class wraps up a Cluster object and a StoreDefinition. The methods are
@@ -162,7 +162,7 @@ public class BaseStoreRoutingPlan {
      * @return list of nodes that key replicates to
      */
     public List<Integer> getReplicationNodeList(final byte[] key) {
-        return NodeUtils.getNodeIds(this.routingStrategy.routeRequest(key));
+        return Utils.nodeListToNodeIdList(this.routingStrategy.routeRequest(key));
     }
 
 }

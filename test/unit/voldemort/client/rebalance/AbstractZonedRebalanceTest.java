@@ -68,6 +68,7 @@ import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.UpdateClusterUtils;
 import voldemort.versioning.ClockEntry;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -413,10 +414,10 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
 
             Cluster currentCluster = ServerTestUtils.getLocalZonedCluster(4, 2, new int[] { 0, 0,
                     1, 1 }, new int[][] { { 0, 2, 4, 6 }, {}, { 1, 3, 5, 7 }, {} });
-            Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+            Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
                                                                        3,
                                                                        Lists.newArrayList(2, 6));
-            finalCluster = RebalanceUtils.createUpdatedCluster(finalCluster,
+            finalCluster = UpdateClusterUtils.createUpdatedCluster(finalCluster,
                                                                1,
                                                                Lists.newArrayList(3, 7));
 
@@ -460,10 +461,10 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
                                                                       new int[][] { { 0, 2, 4 },
                                                                               { 6 }, { 1, 3, 5 },
                                                                               { 7 } });
-        Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+        Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
                                                                    3,
                                                                    Lists.newArrayList(2));
-        finalCluster = RebalanceUtils.createUpdatedCluster(finalCluster, 1, Lists.newArrayList(3));
+        finalCluster = UpdateClusterUtils.createUpdatedCluster(finalCluster, 1, Lists.newArrayList(3));
 
         // start servers
         List<Integer> serverList = Arrays.asList(0, 1, 2, 3);
@@ -523,10 +524,10 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         try {
             Cluster currentCluster = ServerTestUtils.getLocalZonedCluster(6, 2, new int[] { 0, 0,
                     0, 1, 1, 1 }, new int[][] { { 0 }, { 1, 6 }, { 2 }, { 3 }, { 4, 7 }, { 5 } });
-            Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+            Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
                                                                        2,
                                                                        Lists.newArrayList(7));
-            finalCluster = RebalanceUtils.createUpdatedCluster(finalCluster,
+            finalCluster = UpdateClusterUtils.createUpdatedCluster(finalCluster,
                                                                5,
                                                                Lists.newArrayList(6));
 
@@ -639,10 +640,10 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         try {
             Cluster currentCluster = ServerTestUtils.getLocalZonedCluster(4, 2, new int[] { 0, 0,
                     1, 1 }, new int[][] { { 0, 2, 4 }, { 6 }, { 1, 3, 5 }, { 7 } });
-            Cluster tmpfinalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+            Cluster tmpfinalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
                                                                           3,
                                                                           Lists.newArrayList(2));
-            final Cluster finalCluster = RebalanceUtils.createUpdatedCluster(tmpfinalCluster,
+            final Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(tmpfinalCluster,
                                                                              1,
                                                                              Lists.newArrayList(3));
 
@@ -778,10 +779,10 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         try {
             Cluster currentCluster = ServerTestUtils.getLocalZonedCluster(6, 2, new int[] { 0, 0,
                     0, 1, 1, 1 }, new int[][] { { 0 }, { 1, 6 }, { 2 }, { 3 }, { 4, 7 }, { 5 } });
-            Cluster finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+            Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
                                                                        2,
                                                                        Lists.newArrayList(7));
-            finalCluster = RebalanceUtils.createUpdatedCluster(finalCluster,
+            finalCluster = UpdateClusterUtils.createUpdatedCluster(finalCluster,
                                                                5,
                                                                Lists.newArrayList(6));
 

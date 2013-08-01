@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import voldemort.VoldemortException;
+import voldemort.cluster.Node;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;
@@ -722,6 +723,20 @@ public class Utils {
             offset++;
         }
         return evenMap;
+    }
+
+    /**
+     * Given a list of nodes, retrieves the list of node ids
+     * 
+     * @param nodes The list of nodes
+     * @return Returns a list of node ids
+     */
+    public static List<Integer> nodeListToNodeIdList(List<Node> nodes) {
+        List<Integer> nodeIds = new ArrayList<Integer>(nodes.size());
+        for(Node node: nodes) {
+            nodeIds.add(node.getId());
+        }
+        return nodeIds;
     }
 
 }

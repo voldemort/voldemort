@@ -74,10 +74,10 @@ import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
-import voldemort.utils.NodeUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
+import voldemort.utils.UpdateClusterUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
@@ -155,7 +155,7 @@ public class AdminRebalanceTest {
                                                                tempStoreXml.getAbsolutePath(),
                                                                new Properties());
 
-        finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster, 2, Lists.newArrayList(0));
+        finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster, 2, Lists.newArrayList(0));
 
         RebalanceBatchPlan plan = new RebalanceBatchPlan(currentCluster,
                                                          finalCluster,
@@ -196,7 +196,7 @@ public class AdminRebalanceTest {
                                                                tempStoreXml.getAbsolutePath(),
                                                                new Properties());
 
-        finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster, 3, Lists.newArrayList(0));
+        finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster, 3, Lists.newArrayList(0));
         RebalanceBatchPlan plan = new RebalanceBatchPlan(currentCluster,
                                                          finalCluster,
                                                          Lists.newArrayList(storeDef1, storeDef2));
@@ -246,7 +246,7 @@ public class AdminRebalanceTest {
                                                                tempStoreXml.getAbsolutePath(),
                                                                new Properties());
 
-        finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster, 3, Lists.newArrayList(0));
+        finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster, 3, Lists.newArrayList(0));
         RebalanceBatchPlan plan = new RebalanceBatchPlan(currentCluster,
                                                          finalCluster,
                                                          Lists.newArrayList(storeDef1, storeDef2));
@@ -322,7 +322,7 @@ public class AdminRebalanceTest {
                                                                tempStoreXml.getAbsolutePath(),
                                                                new Properties());
 
-        finalCluster = RebalanceUtils.createUpdatedCluster(currentCluster, 3, Lists.newArrayList(0));
+        finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster, 3, Lists.newArrayList(0));
         // Make plan only with RO stores
         RebalanceBatchPlan plan = new RebalanceBatchPlan(currentCluster,
                                                          finalCluster,
@@ -1057,7 +1057,7 @@ public class AdminRebalanceTest {
                              finalCluster);
             }
 
-            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(currentCluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(Utils.nodeListToNodeIdList(Lists.newArrayList(currentCluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
@@ -1128,7 +1128,7 @@ public class AdminRebalanceTest {
                              new RebalancerState(Lists.newArrayList(plan)));
             }
 
-            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(currentCluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(Utils.nodeListToNodeIdList(Lists.newArrayList(currentCluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
@@ -1239,7 +1239,7 @@ public class AdminRebalanceTest {
                              finalCluster);
             }
 
-            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(currentCluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(Utils.nodeListToNodeIdList(Lists.newArrayList(currentCluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
