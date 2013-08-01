@@ -24,9 +24,6 @@ import java.util.Set;
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-
-import org.apache.log4j.Logger;
-
 import voldemort.client.rebalance.RebalanceController;
 import voldemort.client.rebalance.RebalancePlan;
 import voldemort.cluster.Cluster;
@@ -44,8 +41,6 @@ import com.google.common.base.Joiner;
  */
 
 public class RebalanceControllerCLI {
-
-    private final static Logger logger = Logger.getLogger(RebalanceControllerCLI.class);
 
     private static OptionParser parser;
 

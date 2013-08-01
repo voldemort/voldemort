@@ -350,34 +350,6 @@ public class StoreRoutingPlan {
         }
     }
 
-    /**
-     * Determines replicaType for partition id on node id.
-     * 
-     * @param nodeId
-     * @param partitionId
-     * @return replicaType of the partition Id on the given node id.
-     */
-    // TODO: (replicaType) drop method.
-    @Deprecated
-    public int getReplicaType(int nodeId, int partitionId) {
-        List<Integer> replicatingNodeIds = getReplicationNodeList(partitionId);
-        int replicaType = -1;
-        for(int replicatingNodeId: replicatingNodeIds) {
-            Node replicatingNode = cluster.getNodeById(replicatingNodeId);
-            replicaType++;
-            if(replicatingNode.getId() == nodeId) {
-                return replicaType;
-            }
-        }
-        if(replicaType > 0) {
-            throw new VoldemortException("Node " + nodeId + " not a replica for partition "
-                                         + partitionId);
-        } else {
-            throw new VoldemortException("Could not find any replicas for partition Id "
-                                         + partitionId);
-        }
-    }
-
     // TODO: (refactor) Move from static methods to non-static methods that use
     // this object's cluster and storeDefinition member for the various
     // check*BelongsTo* methods. Also, tweak internal members to make these
@@ -479,81 +451,6 @@ public class StoreRoutingPlan {
         }
         return nodesToPush;
     }
-
-    /**
-     * Check that the key belongs to one of the partitions
-     * 
-     * @param keyPartitions Preference list of the key
-     * @param nodePartitions Partition list on this node
-     * @return Returns a boolean to indicate if this belongs to the map
-     */
-//    public static boolean checkKeyBelongsToPartitionIds(List<Integer> keyPartitionIds,
-//                                                        List<Integer> nodePartitionIds) {
-//        for (int i = 0; i < keyPartitionIds.size(); i++) {
-//            if (nodePartitionIds.contains(keyPartitionIds.get(i)))
-//                return true;
-//        }
-//        return false;
-//    }
-
-    /**
-     * Given a key and a list of steal infos give back a list of stealer node
-     * ids which will steal this.
-     * 
-     * @param key Byte array of key
-     * @param stealerNodeToMappingTuples Pairs of stealer node id to their
-     *        corresponding partition ids
-     * @param cluster Cluster metadata
-     * @param storeDef Store definitions
-     * @return List of node ids
-     */
-//    public static List<Integer> checkKeyBelongsToPartitionIds(byte[] key,
-//                                                              Set<Pair<Integer, List<Integer>>> stealerNodeToPartitionIds,
-//                                                              Cluster cluster,
-//                                                              StoreDefinition storeDef) {
-//        List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-//                                                                                         cluster)
-//                                                                  .getPartitionList(key);
-//        List<Integer> nodesToPush = Lists.newArrayList();
-//        for(Pair<Integer, List<Integer>> stealNodeToList: stealerNodeToPartitionIds) {
-//            List<Integer> nodePartitions = cluster.getNodeById(stealNodeToList.getFirst())
-//                                                  .getPartitionIds();
-//            if(StoreRoutingPlan.checkKeyBelongsToPartitionIds(keyPartitions, nodePartitions)) {
-//                nodesToPush.add(stealNodeToList.getFirst());
-//            }
-//        }
-//        return nodesToPush;
-//    }
-
-    /**
-     * Check that the key belongs to one of the partitions on the node
-     * 
-     * @param nodeId Node on which this is running ( generally stealer node )
-     * @param key The key to check
-     * @param cluster Cluster metadata
-     * @param storeDef The store definition
-     * @return Returns a boolean to indicate if this belongs to the map
-     */
-//    public static boolean
-//            checkKeyBelongsToPartitionIds(int nodeId,
-//                                          byte[] key,
-//                                          Cluster cluster,
-//                                          StoreDefinition storeDef) {
-//        boolean checkResult = false;
-//        if(storeDef.getRoutingStrategyType().equals(RoutingStrategyType.TO_ALL_STRATEGY)
-//           || storeDef.getRoutingStrategyType()
-//                      .equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY)) {
-//            checkResult = true;
-//        } else {
-//            List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-//                                                                                             cluster)
-//                                                                      .getPartitionList(key);
-//            List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-//            checkResult = StoreRoutingPlan.checkKeyBelongsToPartitionIds(keyPartitions,
-//                                                                         nodePartitions);
-//        }
-//        return checkResult;
-//    }
 
     /***
      * Checks if a given partition is stored in the node.

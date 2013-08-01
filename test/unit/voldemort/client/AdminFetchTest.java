@@ -216,9 +216,6 @@ public class AdminFetchTest {
                                                                                                         cluster,
                                                                                                         2);
         Set<String> fetchedKeys = getEntries(entriesItr);
-
-        System.out.println(fetchedKeys);
-
         Set<String> partition0Keys = new HashSet<String>(partitionToKeysMap.get(0));
         int numPartition0Keys = partition0Keys.size();
         partition0Keys.removeAll(fetchedKeys);

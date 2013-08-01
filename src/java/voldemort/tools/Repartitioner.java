@@ -79,7 +79,7 @@ public class Repartitioner {
      * Default setting for which zone IDs to run greedy swap algorithm. Empty implies all zones will
      * be considered.
      */
-    public final static List<Integer> DEFAULT_GREEDY_SWAP_ZONE_IDS = Collections.<Integer> emptyList();;
+    public final static List<Integer> DEFAULT_GREEDY_SWAP_ZONE_IDS = Collections.<Integer> emptyList();
     /**
      * Default (max) number of partition IDs per node to consider, if greedy
      * swaps are enabled.

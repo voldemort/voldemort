@@ -37,7 +37,6 @@ import voldemort.utils.NetworkClassLoader;
 public abstract class PartitionScanFetchStreamRequestHandler extends FetchStreamRequestHandler {
 
     protected Set<Integer> fetchedPartitions;
-    // protected List<Integer> replicaTypeList;
     protected List<Integer> partitionList;
 
     protected Integer currentIndex;
@@ -61,21 +60,9 @@ public abstract class PartitionScanFetchStreamRequestHandler extends FetchStream
               operation);
 
         fetchedPartitions = new HashSet<Integer>();
-        // replicaTypeList = new ArrayList<Integer>();
         partitionList = new ArrayList<Integer>();
 
         partitionList = partitionIds;
-        // TODO (Sid) : Confirm if this can be safely removed
-        // flatten the replicatype to partition map
-        // for(Integer replicaType: replicaToPartitionList.keySet()) {
-        // if(replicaToPartitionList.get(replicaType) != null) {
-        // for(Integer partitionId: replicaToPartitionList.get(replicaType)) {
-        // partitionList.add(partitionId);
-        // replicaTypeList.add(replicaType);
-        // }
-        // }
-        // }
-
         currentIndex = 0;
         currentPartition = null;
         currentReplicaType = null;

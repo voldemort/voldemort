@@ -337,10 +337,6 @@ public class RebalanceBatchPlan {
                                                  stealerNodeId,
                                                  stealerPartitionId);
 
-                    // Add this specific partition-store steal to the overall
-                    // plan
-                    int donorReplicaType = currentSRP.getReplicaType(donorNodeId,
-                                                                     stealerPartitionId);
                     rpiBuilder.addPartitionStoreMove(stealerNodeId,
                                                      donorNodeId,
                                                      storeDef.getName(),

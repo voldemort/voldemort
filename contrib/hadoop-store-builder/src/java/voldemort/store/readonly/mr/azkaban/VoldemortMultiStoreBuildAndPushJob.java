@@ -817,7 +817,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                               Path inputPath,
                               Path outputPath) throws Exception {
         int chunkSize = props.getInt("build.chunk.size." + storeDef.getName(),
-                                     props.getInt("build.chunk.size", (int) 1024 * 1024 * 1024));
+                                     props.getInt("build.chunk.size", 1024 * 1024 * 1024));
         Path tempDir = new Path(props.getString("build.temp.dir", "/tmp/voldemort-build-temp-"
                                                                   + new Random().nextLong()));
 

@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -80,7 +79,6 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /**
  * Protocol buffers implementation of a {@link RequestHandler}

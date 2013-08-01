@@ -24,9 +24,6 @@ import java.util.Set;
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-
-import org.apache.log4j.Logger;
-
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
@@ -52,8 +49,7 @@ import com.google.common.base.Joiner;
 
 public class RepartitionerCLI {
 
-    private final static Logger logger = Logger.getLogger(RepartitionerCLI.class);
-
+    
     private static OptionParser parser;
 
     private static void setupParser() {

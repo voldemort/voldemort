@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -60,14 +59,11 @@ import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.tools.PartitionBalance;
-import voldemort.versioning.Occurred;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 /**
  * RebalanceUtils provide basic functionality for rebalancing.
@@ -105,11 +101,9 @@ public class RebalanceUtils {
             List<Integer> partitionList = Lists.newArrayList();
             for(int partition: tuple.getValue()) {
                 List<Integer> preferenceList = strategy.getReplicatingPartitionList(partition);
-
-                // If this node was already in the
-                // preference list before, a copy of the
-                // data will already exist - Don't copy
-                // it!
+                
+                // If this node was already in the preference list before, a copy of the
+                // data will already exist - Don't copy it!
                 if(!ClusterUtils.containsPreferenceList(cluster, preferenceList, stealerNodeId)) {
                     partitionList.add(partition);
                 }
@@ -131,8 +125,7 @@ public class RebalanceUtils {
      * @param stealerNodeId Stealer node id
      * @param cluster Cluster metadata
      * @param storeDef Store definition
-     * @param currentReplicaToPartitionList Current replica to partition list
-     * @return Optimized replica to partition list
+     * @return Optimized partition list
      */
     public static List<Integer> getOptimizedPartitionIds(int stealerNodeId, 
                                                          Cluster cluster, 
@@ -194,17 +187,6 @@ public class RebalanceUtils {
             }
         }
         return latestCluster;
-    }
-
-    private static void checkNotConcurrent(ArrayList<Versioned<Cluster>> clockList,
-                                           VectorClock newClock) {
-        for(Versioned<Cluster> versionedCluster: clockList) {
-            VectorClock clock = (VectorClock) versionedCluster.getVersion();
-            if(Occurred.CONCURRENTLY.equals(clock.compare(newClock)))
-                throw new VoldemortException("Cluster is in inconsistent state because we got conflicting clocks "
-                                             + clock + " and on current node " + newClock);
-
-        }
     }
 
     /**
@@ -578,64 +560,6 @@ public class RebalanceUtils {
 
         return finalList;
     }
-
-    /**
-     * Find all [replica_type, partition] tuples to be stolen
-     * 
-     * @param currentCluster Current cluster metadata
-     * @param finalCluster Final cluster metadata
-     * @param storeDef Store Definition
-     * @return Map of stealer node id to sets of [ replica_type, partition ]
-     *         tuples
-     */
-    public static Map<Integer, Set<Pair<Integer, Integer>>> getStolenPartitionTuples(final Cluster currentCluster,
-                                                                                     final Cluster finalCluster,
-                                                                                     final StoreDefinition storeDef) {
-        Map<Integer, Set<Pair<Integer, Integer>>> currentNodeIdToReplicas = getNodeIdToAllPartitions(currentCluster,
-                                                                                                     storeDef,
-                                                                                                     true);
-        Map<Integer, Set<Pair<Integer, Integer>>> finalNodeIdToReplicas = getNodeIdToAllPartitions(finalCluster,
-                                                                                                   storeDef,
-                                                                                                   true);
-
-        Map<Integer, Set<Pair<Integer, Integer>>> stealerNodeToStolenPartitionTuples = Maps.newHashMap();
-        for(int stealerId: NodeUtils.getNodeIds(Lists.newArrayList(finalCluster.getNodes()))) {
-            Set<Pair<Integer, Integer>> clusterStealerReplicas = currentNodeIdToReplicas.get(stealerId);
-            Set<Pair<Integer, Integer>> finalStealerReplicas = finalNodeIdToReplicas.get(stealerId);
-
-            Set<Pair<Integer, Integer>> diff = Utils.getAddedInTarget(clusterStealerReplicas,
-                                                                      finalStealerReplicas);
-
-            if(diff != null && diff.size() > 0) {
-                stealerNodeToStolenPartitionTuples.put(stealerId, diff);
-            }
-        }
-        return stealerNodeToStolenPartitionTuples;
-    }
-
-    /**
-     * Given a mapping of existing node ids to their partition tuples and
-     * another new set of node ids to partition tuples, combines them together
-     * and puts it into the existing partition tuples
-     * 
-     * @param existingPartitionTuples Existing partition tuples ( Will include
-     *        the new partition tuples at the end of this function )
-     * @param newPartitionTuples New partition tuples
-     */
-//    public static void combinePartitionTuples(Map<Integer, Set<Pair<Integer, Integer>>> existingPartitionTuples,
-//                                              Map<Integer, Set<Pair<Integer, Integer>>> newPartitionTuples) {
-//
-//        for(int nodeId: newPartitionTuples.keySet()) {
-//            Set<Pair<Integer, Integer>> tuples = null;
-//            if(existingPartitionTuples.containsKey(nodeId)) {
-//                tuples = existingPartitionTuples.get(nodeId);
-//            } else {
-//                tuples = Sets.newHashSet();
-//                existingPartitionTuples.put(nodeId, tuples);
-//            }
-//            tuples.addAll(newPartitionTuples.get(nodeId));
-//        }
-//    }
 
     /**
      * For a particular cluster creates a mapping of node id to their
@@ -1044,75 +968,6 @@ public class RebalanceUtils {
         return count;
     }
 
-    /**
-     * Given a map of replica_type to partition mapping gives back a set of
-     * tuples of [replica_type, partition]
-     * 
-     * @param replicaToPartitionList Map of replica_type to set of partitions
-     * @return Set of <replica_type, partition> tuples
-     */
-    public static Set<Pair<Integer, Integer>> flattenPartitionTuples(HashMap<Integer, List<Integer>> replicaToPartitionList) {
-        Set<Pair<Integer, Integer>> partitionTuples = Sets.newHashSet();
-
-        for(Entry<Integer, List<Integer>> entry: replicaToPartitionList.entrySet()) {
-            for(Iterator<Integer> iter = entry.getValue().iterator(); iter.hasNext();) {
-                partitionTuples.add(new Pair<Integer, Integer>(entry.getKey(), iter.next()));
-            }
-        }
-
-        return partitionTuples;
-    }
-
-    /**
-     * Given a set of [ replica, partition ] tuples, flatten it to retrieve only
-     * the partitions
-     * 
-     * @param tuples The [ replica, partition ] tuples
-     * @return List of partitions
-     */
-    public static List<Integer> getPartitionsFromTuples(Set<Pair<Integer, Integer>> tuples) {
-        List<Integer> partitions = Lists.newArrayList();
-
-        if(tuples != null) {
-            for(Pair<Integer, Integer> tuple: tuples) {
-                partitions.add(tuple.getSecond());
-            }
-        }
-        return partitions;
-    }
-
-    /**
-     * Given a list of partition plans and a set of stores, copies the store
-     * names to every individual plan and creates a new list
-     * 
-     * @param existingPlanList Existing partition plan list
-     * @param storeDefs List of store names we are rebalancing
-     * @return List of updated partition plan
-     */
-    public static List<RebalancePartitionsInfo> filterPartitionPlanWithStores(List<RebalancePartitionsInfo> existingPlanList,
-                                                                              List<StoreDefinition> storeDefs) {
-        List<RebalancePartitionsInfo> plans = Lists.newArrayList();
-        List<String> storeNames = StoreDefinitionUtils.getStoreNames(storeDefs);
-
-        for(RebalancePartitionsInfo existingPlan: existingPlanList) {
-            RebalancePartitionsInfo info = RebalancePartitionsInfo.create(existingPlan.toJsonString());
-
-            // Filter the plans only for stores given
-            HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitions = info.getStoreToReplicaToAddPartitionList();
-
-            HashMap<String, HashMap<Integer, List<Integer>>> newStoreToReplicaToAddPartitions = Maps.newHashMap();
-            for(String storeName: storeNames) {
-                if(storeToReplicaToAddPartitions.containsKey(storeName))
-                    newStoreToReplicaToAddPartitions.put(storeName,
-                                                         storeToReplicaToAddPartitions.get(storeName));
-            }
-            info.setStoreToReplicaToAddPartitionList(newStoreToReplicaToAddPartitions);
-
-            plans.add(info);
-        }
-
-        return plans;
-    }
 
     /**
      * Given a list of partition plans and a set of stores, copies the store names to every
@@ -1144,33 +999,6 @@ public class RebalanceUtils {
         return plans;
     }
 
-    /**
-     * Given a list of partition infos, generates a map of stealer / donor node
-     * to list of partition infos
-     * 
-     * @param rebalancePartitionPlanList Complete list of partition plans
-     * @param groupByStealerNode Boolean indicating if we want to group by
-     *        stealer node ( or donor node )
-     * @return Flattens it into a map on a per node basis
-     */
-    public static HashMap<Integer, List<RebalancePartitionsInfo>> groupPartitionsInfoByNode(List<RebalancePartitionsInfo> rebalancePartitionPlanList,
-                                                                                            boolean groupByStealerNode) {
-        HashMap<Integer, List<RebalancePartitionsInfo>> nodeToPartitionsInfo = Maps.newHashMap();
-        if(rebalancePartitionPlanList != null) {
-            for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
-                int nodeId = groupByStealerNode ? partitionInfo.getStealerId()
-                                               : partitionInfo.getDonorId();
-                List<RebalancePartitionsInfo> partitionInfos = nodeToPartitionsInfo.get(nodeId);
-                if(partitionInfos == null) {
-                    partitionInfos = Lists.newArrayList();
-                    nodeToPartitionsInfo.put(nodeId, partitionInfos);
-                }
-                partitionInfos.add(partitionInfo);
-            }
-        }
-        return nodeToPartitionsInfo;
-    }
-    
     /**
      * Given a list of partition infos, generates a map of stealer / donor node
      * to list of partition infos
