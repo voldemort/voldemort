@@ -29,7 +29,6 @@ import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
-import voldemort.utils.RebalanceUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -64,7 +63,7 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
 
     @Override
     public void operate() throws Exception {
-        adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+        adminClient = AdminClient.createTempAdminClient(voldemortConfig,
                                                            metadataStore.getCluster(),
                                                            voldemortConfig.getMaxParallelStoresRebalancing());
         final List<Exception> failures = new ArrayList<Exception>();

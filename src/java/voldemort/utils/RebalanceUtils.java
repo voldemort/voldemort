@@ -37,9 +37,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
-import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.client.rebalance.RebalancePlan;
 import voldemort.client.rebalance.RebalanceTaskInfo;
@@ -49,16 +46,12 @@ import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.StoreRoutingPlan;
-import voldemort.server.VoldemortConfig;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.bdb.BdbStorageConfiguration;
-import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
-import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.tools.PartitionBalance;
-import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Lists;
@@ -111,46 +104,6 @@ public class RebalanceUtils {
         return optimizedPartitionIds;
     }
 
-    // TODO: (refactor) Either move all methods that take an AdminClient
-    // somewhere else. Either (i) into a name space of AdminClient or (ii)
-    // separate utils class. Must wait until after all changes for abortable
-    // rebalance & atomic update of cluster/stores are merged to do this change.
-    /**
-     * Get the latest cluster from all available nodes in the cluster<br>
-     * 
-     * Throws exception if:<br>
-     * A) Any node in the required nodes list fails to respond.<br>
-     * B) Cluster is in inconsistent state with concurrent versions for cluster
-     * metadata on any two nodes.<br>
-     * 
-     * @param requiredNodes List of nodes from which we definitely need an
-     *        answer
-     * @param adminClient Admin client used to query the nodes
-     * @return Returns the latest cluster metadata
-     */
-    public static Versioned<Cluster> getLatestCluster(List<Integer> requiredNodes,
-                                                      AdminClient adminClient) {
-        Versioned<Cluster> latestCluster = new Versioned<Cluster>(adminClient.getAdminClientCluster());
-        Cluster cluster = latestCluster.getValue();
-        for(Node node: cluster.getNodes()) {
-            try {
-                Cluster nodesCluster = adminClient.metadataMgmtOps.getRemoteCluster(node.getId())
-                                                                  .getValue();
-                if(!nodesCluster.equals(cluster)) {
-                    throw new VoldemortException("Cluster is in inconsistent state because cluster xml on node "
-                                                 + node.getId()
-                                                 + " does not match cluster xml of adminClient.");
-                }
-            } catch(Exception e) {
-                if(null != requiredNodes && requiredNodes.contains(node.getId()))
-                    throw new VoldemortException("Failed on node " + node.getId(), e);
-                else
-                    logger.info("Failed on node " + node.getId(), e);
-            }
-        }
-        return latestCluster;
-    }
-
     /**
      * Given a list of partition informations check all of them belong to the
      * same donor node
@@ -167,36 +120,6 @@ public class RebalanceUtils {
                 throw new VoldemortException("Found a stealer information " + info
                                              + " having a different donor node from others ( "
                                              + donorId + " )");
-            }
-        }
-    }
-
-    /**
-     * Check the execution state of the server by checking the state of
-     * {@link VoldemortState} <br>
-     * 
-     * This function checks if the nodes are all in normal state (
-     * {@link VoldemortState#NORMAL_SERVER}).
-     * 
-     * @param cluster Cluster metadata whose nodes we are checking
-     * @param adminClient Admin client used to query
-     * @throws VoldemortRebalancingException if any node is not in normal state
-     */
-    public static void checkEachServerInNormalState(final Cluster cluster,
-                                                    final AdminClient adminClient) {
-        for(Node node: cluster.getNodes()) {
-            Versioned<VoldemortState> versioned = adminClient.rebalanceOps.getRemoteServerState(node.getId());
-
-            if(!VoldemortState.NORMAL_SERVER.equals(versioned.getValue())) {
-                throw new VoldemortRebalancingException("Cannot rebalance since node "
-                                                        + node.getId() + " (" + node.getHost()
-                                                        + ") is not in normal state, but in "
-                                                        + versioned.getValue());
-            } else {
-                if(logger.isInfoEnabled()) {
-                    logger.info("Node " + node.getId() + " (" + node.getHost()
-                                + ") is ready for rebalance.");
-                }
             }
         }
     }
@@ -443,6 +366,8 @@ public class RebalanceUtils {
         return finalList;
     }
 
+    // TODO: (replicaType) deprecate.
+   
     /**
      * For a particular cluster creates a mapping of node id to their
      * corresponding list of [ replicaType, partition ] tuple
@@ -452,6 +377,7 @@ public class RebalanceUtils {
      * @param includePrimary Include the primary partition?
      * @return Map of node id to set of [ replicaType, partition ] tuple
      */
+
     public static Map<Integer, Set<Pair<Integer, Integer>>> getNodeIdToAllPartitions(final Cluster cluster,
                                                                                      final StoreDefinition storeDef,
                                                                                      boolean includePrimary) {
@@ -558,55 +484,6 @@ public class RebalanceUtils {
         }
     }
 
-    public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig,
-                                                    Cluster cluster,
-                                                    int numConnPerNode) {
-        AdminClientConfig config = new AdminClientConfig().setMaxConnectionsPerNode(numConnPerNode)
-                                                          .setAdminConnectionTimeoutSec(voldemortConfig.getAdminConnectionTimeout())
-                                                          .setAdminSocketTimeoutSec(voldemortConfig.getAdminSocketTimeout())
-                                                          .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
-
-        return new AdminClient(cluster, config, new ClientConfig());
-    }
-
-    /**
-     * Given the cluster metadata and admin client, retrieves the list of store
-     * definitions.
-     * 
-     * <br>
-     * 
-     * It also checks if the store definitions are consistent across the cluster
-     * 
-     * @param cluster The cluster metadata
-     * @param adminClient The admin client to use to retrieve the store
-     *        definitions
-     * @return List of store definitions
-     */
-    public static List<StoreDefinition> getCurrentStoreDefinitions(Cluster cluster,
-                                                                   AdminClient adminClient) {
-        List<StoreDefinition> storeDefs = null;
-        for(Node node: cluster.getNodes()) {
-            List<StoreDefinition> storeDefList = adminClient.metadataMgmtOps.getRemoteStoreDefList(node.getId())
-                                                                            .getValue();
-            if(storeDefs == null) {
-                storeDefs = storeDefList;
-            } else {
-
-                // Compare against the previous store definitions
-                if(!Utils.compareList(storeDefs, storeDefList)) {
-                    throw new VoldemortException("Store definitions on node " + node.getId()
-                                                 + " does not match those on other nodes");
-                }
-            }
-        }
-
-        if(storeDefs == null) {
-            throw new VoldemortException("Could not retrieve list of store definitions correctly");
-        } else {
-            return storeDefs;
-        }
-    }
-
     /**
      * Given a list of store definitions, makes sure that rebalance supports all
      * of them. If not it throws an error.
@@ -630,49 +507,7 @@ public class RebalanceUtils {
         return returnList;
     }
 
-    /**
-     * Given a list of store definitions, cluster and admin client returns a
-     * boolean indicating if all RO stores are in the correct format.
-     * 
-     * <br>
-     * 
-     * This function also takes into consideration nodes which are being
-     * bootstrapped for the first time, in which case we can safely ignore
-     * checking them ( as they will have default to ro0 )
-     * 
-     * @param cluster Cluster metadata
-     * @param storeDefs Complete list of store definitions
-     * @param adminClient Admin client
-     */
-    public static void validateReadOnlyStores(Cluster cluster,
-                                              List<StoreDefinition> storeDefs,
-                                              AdminClient adminClient) {
-        List<StoreDefinition> readOnlyStores = StoreDefinitionUtils.filterStores(storeDefs, true);
-
-        if(readOnlyStores.size() == 0) {
-            // No read-only stores
-            return;
-        }
-
-        List<String> storeNames = StoreDefinitionUtils.getStoreNames(readOnlyStores);
-        for(Node node: cluster.getNodes()) {
-            if(node.getNumberOfPartitions() != 0) {
-                for(Entry<String, String> storeToStorageFormat: adminClient.readonlyOps.getROStorageFormat(node.getId(),
-                                                                                                           storeNames)
-                                                                                       .entrySet()) {
-                    if(storeToStorageFormat.getValue()
-                                           .compareTo(ReadOnlyStorageFormat.READONLY_V2.getCode()) != 0) {
-                        throw new VoldemortRebalancingException("Cannot rebalance since node "
-                                                                + node.getId() + " has store "
-                                                                + storeToStorageFormat.getKey()
-                                                                + " not using format "
-                                                                + ReadOnlyStorageFormat.READONLY_V2);
-                    }
-                }
-            }
-        }
-    }
-
+    // TODO: (replicaType) deprecate this method.
     /**
      * Returns a string representation of the cluster
      * 
@@ -813,6 +648,7 @@ public class RebalanceUtils {
         }
     }
 
+    // TODO: (replicaType) deprecate.
     /**
      * Given a list of tuples of [replica_type, partition], flattens it and
      * generates a map of replica_type to partition mapping
@@ -820,6 +656,7 @@ public class RebalanceUtils {
      * @param partitionTuples Set of <replica_type, partition> tuples
      * @return Map of replica_type to set of partitions
      */
+
     public static HashMap<Integer, List<Integer>> flattenPartitionTuples(Set<Pair<Integer, Integer>> partitionTuples) {
         HashMap<Integer, List<Integer>> flattenedTuples = Maps.newHashMap();
         for(Pair<Integer, Integer> pair: partitionTuples) {
@@ -841,6 +678,7 @@ public class RebalanceUtils {
         }
         return count;
     }
+
 
     public static int countTaskStores(List<RebalanceTaskInfo> infos) {
         int count = 0;

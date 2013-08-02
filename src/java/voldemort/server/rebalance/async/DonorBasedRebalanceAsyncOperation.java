@@ -133,7 +133,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     @Override
     public void operate() throws Exception {
-        adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+        adminClient = AdminClient.createTempAdminClient(voldemortConfig,
                                                            metadataStore.getCluster(),
                                                            voldemortConfig.getMaxParallelStoresRebalancing());
         final CopyOnWriteArrayList<Exception> failures = new CopyOnWriteArrayList<Exception>();

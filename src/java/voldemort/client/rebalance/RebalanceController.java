@@ -89,12 +89,10 @@ public class RebalanceController {
     private Pair<Cluster, List<StoreDefinition>> getCurrentClusterState() {
 
         // Retrieve the latest cluster metadata from the existing nodes
-        Versioned<Cluster> currentVersionedCluster = RebalanceUtils.getLatestCluster(Utils.nodeListToNodeIdList(Lists.newArrayList(adminClient.getAdminClientCluster()
-                                                                                                                                              .getNodes())),
-                                                                                     adminClient);
+        Versioned<Cluster> currentVersionedCluster = adminClient.rebalanceOps.getLatestCluster(Utils.nodeListToNodeIdList(Lists.newArrayList(adminClient.getAdminClientCluster()
+                                                                                                                                              .getNodes())));
         Cluster cluster = currentVersionedCluster.getValue();
-        List<StoreDefinition> storeDefs = RebalanceUtils.getCurrentStoreDefinitions(cluster,
-                                                                                    adminClient);
+        List<StoreDefinition> storeDefs = adminClient.rebalanceOps.getCurrentStoreDefinitions(cluster);
         return new Pair<Cluster, List<StoreDefinition>>(cluster, storeDefs);
     }
 
@@ -187,11 +185,10 @@ public class RebalanceController {
         // Reset the cluster that the admin client points at
         adminClient.setAdminClientCluster(finalCluster);
         // Validate that all the nodes ( new + old ) are in normal state
-        RebalanceUtils.checkEachServerInNormalState(finalCluster, adminClient);
+        adminClient.rebalanceOps.checkEachServerInNormalState(finalCluster);
         // Verify all old RO stores exist at version 2
-        RebalanceUtils.validateReadOnlyStores(finalCluster,
-                                              finalStoreDefs,
-                                              adminClient);
+        adminClient.rebalanceOps.validateReadOnlyStores(finalCluster,
+                                              finalStoreDefs);
     }
 
     /**

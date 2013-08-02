@@ -52,7 +52,6 @@ import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.JNAUtils;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -400,7 +399,7 @@ public class VoldemortServer extends AbstractService {
     @JmxOperation(description = "force restore data from replication")
     public void restoreDataFromReplication(int numberOfParallelTransfers) {
 
-        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+        AdminClient adminClient = AdminClient.createTempAdminClient(voldemortConfig,
                                                                        metadata.getCluster(),
                                                                        numberOfParallelTransfers * 2);
         try {

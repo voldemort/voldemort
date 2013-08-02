@@ -66,6 +66,7 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.RequestRoutingType;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.server.rebalance.VoldemortRebalancingException;
@@ -154,6 +155,7 @@ public class AdminClient {
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
 
     final public AdminClient.HelperOperations helperOps;
+    final public AdminClient.ReplicaTypeOperations replicaTypeOps;
     final public AdminClient.RPCOperations rpcOps;
     final public AdminClient.MetadataManagementOperations metadataMgmtOps;
     final public AdminClient.StoreManagementOperations storeMgmtOps;
@@ -176,6 +178,7 @@ public class AdminClient {
      */
     private AdminClient(AdminClientConfig adminClientConfig, ClientConfig clientConfig) {
         this.helperOps = this.new HelperOperations();
+        this.replicaTypeOps = this.new ReplicaTypeOperations();
         this.rpcOps = this.new RPCOperations();
         this.metadataMgmtOps = this.new MetadataManagementOperations();
         this.storeMgmtOps = this.new StoreManagementOperations();
@@ -292,6 +295,27 @@ public class AdminClient {
     }
 
     /**
+     * Helper method to construct an AdminClient with "good" default settings
+     * based upon a VoldemortConfig. This helper is intended for use by
+     * server-side processes such as rebalancing, restore, and so on.
+     * 
+     * @param voldemortConfig
+     * @param cluster
+     * @param numConnPerNode
+     * @return newly constructed AdminClient
+     */
+    public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig,
+                                                    Cluster cluster,
+                                                    int numConnPerNode) {
+        AdminClientConfig config = new AdminClientConfig().setMaxConnectionsPerNode(numConnPerNode)
+                                                          .setAdminConnectionTimeoutSec(voldemortConfig.getAdminConnectionTimeout())
+                                                          .setAdminSocketTimeoutSec(voldemortConfig.getAdminSocketTimeout())
+                                                          .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
+
+        return new AdminClient(cluster, config, new ClientConfig());
+    }
+
+    /**
      * Encapsulates helper methods used across the admin client
      * 
      */
@@ -364,7 +388,29 @@ public class AdminClient {
             }
         }
 
-        // TODO: (refactor) Move this helper method to ClusterInstance
+        public void throwException(VProto.Error error) {
+            throw AdminClient.this.errorMapper.getError((short) error.getErrorCode(),
+                                                        error.getErrorMessage());
+        }
+
+        private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
+            Class<?> cl = filter.getClass();
+            byte[] classBytes = networkClassLoader.dumpClass(cl);
+            return VAdminProto.VoldemortFilter.newBuilder()
+                                              .setName(cl.getName())
+                                              .setData(ProtoUtils.encodeBytes(new ByteArray(classBytes)))
+                                              .build();
+        }
+
+    }
+
+    // TODO: (replicaType) Deprecate replicaType in all its forms. If any
+    // methods like these are necessary, then they belong in some other utils
+    // class since none of the methods in this helper class actually need to be
+    // part of the AdminClient.
+    
+    public class ReplicaTypeOperations {
+
         /**
          * For a particular node, finds out all the [replica, partition] tuples
          * it needs to steal in order to be brought back to normal state
@@ -381,7 +427,6 @@ public class AdminClient {
             return getReplicationMapping(restoringNode, cluster, storeDef, -1);
         }
 
-        // TODO: (refactor) Move this helper method to ClusterInstance
         /**
          * For a particular node, finds out all the [replica, partition] tuples
          * it needs to steal in order to be brought back to normal state
@@ -438,7 +483,6 @@ public class AdminClient {
             return returnMap;
         }
 
-        // TODO: (refactor) Move this helper method to ClusterInstance
         /**
          * For each partition that need to be restored, find a donor node that
          * owns the partition AND has the same zone ID as requested. -1 means no
@@ -490,50 +534,6 @@ public class AdminClient {
                 donorMap.put(nodeId, partitionIds);
             }
             partitionIds.add(partitionId);
-        }
-
-        public void throwException(VProto.Error error) {
-            throw AdminClient.this.errorMapper.getError((short) error.getErrorCode(),
-                                                        error.getErrorMessage());
-        }
-
-        private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
-            Class<?> cl = filter.getClass();
-            byte[] classBytes = networkClassLoader.dumpClass(cl);
-            return VAdminProto.VoldemortFilter.newBuilder()
-                                              .setName(cl.getName())
-                                              .setData(ProtoUtils.encodeBytes(new ByteArray(classBytes)))
-                                              .build();
-        }
-
-        // TODO: (refactor) It is weird that a helper method invokes
-        // metadataMgmtOps.getRemoteStoreDefList. Refactor this method to split
-        // some of the functionality into ClusterInstance, and then move this
-        // method to metadataMgmtOps. Or, do the refactoring wrt ClusterInstance
-        // and change the method interface to require storeDef rather than
-        // storeName to avoid doing a metadata operation...
-        /**
-         * Converts list of partitions to map of replica type to partition list.
-         * 
-         * @param nodeId Node which is donating data
-         * @param storeName Name of store
-         * @param partitions List of partitions ( primary OR replicas ) to move
-         * @return Map of replica type to partitions
-         */
-        private HashMap<Integer, List<Integer>> getReplicaToPartitionMap(int nodeId,
-                                                                         String storeName,
-                                                                         List<Integer> partitions) {
-            List<StoreDefinition> allStoreDefs = metadataMgmtOps.getRemoteStoreDefList(nodeId)
-                                                                .getValue();
-            allStoreDefs.addAll(SystemStoreConstants.getAllSystemStoreDefs());
-            StoreDefinition def = StoreDefinitionUtils.getStoreDefinitionWithName(allStoreDefs,
-                                                                                  storeName);
-            HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
-            for(int replicaNum = 0; replicaNum < def.getReplicationFactor(); replicaNum++) {
-                replicaToPartitionList.put(replicaNum, partitions);
-            }
-
-            return replicaToPartitionList;
         }
     }
 
@@ -1642,7 +1642,8 @@ public class AdminClient {
             return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
         }
 
-        // TODO: "HashMap<Integer, List<Integer>> replicaToPartitionList" is a
+        // TODO: (replicaType)
+        // "HashMap<Integer, List<Integer>> replicaToPartitionList" is a
         // confusing/opaque argument. Can this be made a type, or even
         // unrolled/simplified? The replicaType is pretty much meaningless
         // anyhow.
@@ -2590,6 +2591,152 @@ public class AdminClient {
                 helperOps.throwException(response.getError());
             }
         }
+
+        /**
+         * Get the latest cluster from all available nodes in the cluster<br>
+         * 
+         * Throws exception if:<br>
+         * A) Any node in the required nodes list fails to respond.<br>
+         * B) Cluster is in inconsistent state with concurrent versions for
+         * cluster metadata on any two nodes.<br>
+         * 
+         * @param requiredNodes List of nodes from which we definitely need an
+         *        answer
+         * @param adminClient Admin client used to query the nodes
+         * @return Returns the latest cluster metadata
+         */
+        public Versioned<Cluster> getLatestCluster(List<Integer> requiredNodes) {
+            Versioned<Cluster> latestCluster = new Versioned<Cluster>(getAdminClientCluster());
+            Cluster cluster = latestCluster.getValue();
+            for(Node node: cluster.getNodes()) {
+                try {
+                    Cluster nodesCluster = metadataMgmtOps.getRemoteCluster(node.getId())
+                                                          .getValue();
+                    if(!nodesCluster.equals(cluster)) {
+                        throw new VoldemortException("Cluster is in inconsistent state because cluster xml on node "
+                                                     + node.getId()
+                                                     + " does not match cluster xml of adminClient.");
+                    }
+                } catch(Exception e) {
+                    if(null != requiredNodes && requiredNodes.contains(node.getId()))
+                        throw new VoldemortException("Failed on node " + node.getId(), e);
+                    else
+                        logger.info("Failed on node " + node.getId(), e);
+                }
+            }
+            return latestCluster;
+        }
+
+        /**
+         * Check the execution state of the server by checking the state of
+         * {@link VoldemortState} <br>
+         * 
+         * This function checks if the nodes are all in normal state (
+         * {@link VoldemortState#NORMAL_SERVER}).
+         * 
+         * @param cluster Cluster metadata whose nodes we are checking
+         * @param adminClient Admin client used to query
+         * @throws VoldemortRebalancingException if any node is not in normal
+         *         state
+         */
+        public void checkEachServerInNormalState(final Cluster cluster) {
+            for(Node node: cluster.getNodes()) {
+                Versioned<VoldemortState> versioned = rebalanceOps.getRemoteServerState(node.getId());
+
+                if(!VoldemortState.NORMAL_SERVER.equals(versioned.getValue())) {
+                    throw new VoldemortRebalancingException("Cannot rebalance since node "
+                                                            + node.getId() + " (" + node.getHost()
+                                                            + ") is not in normal state, but in "
+                                                            + versioned.getValue());
+                } else {
+                    if(logger.isInfoEnabled()) {
+                        logger.info("Node " + node.getId() + " (" + node.getHost()
+                                    + ") is ready for rebalance.");
+                    }
+                }
+            }
+        }
+
+        /**
+         * Given the cluster metadata, retrieves the list of store definitions.
+         * 
+         * <br>
+         * 
+         * It also checks if the store definitions are consistent across the
+         * cluster
+         * 
+         * @param cluster The cluster metadata
+         * @param adminClient The admin client to use to retrieve the store
+         *        definitions
+         * @return List of store definitions
+         */
+        public List<StoreDefinition> getCurrentStoreDefinitions(Cluster cluster) {
+            List<StoreDefinition> storeDefs = null;
+            for(Node node: cluster.getNodes()) {
+                List<StoreDefinition> storeDefList = metadataMgmtOps.getRemoteStoreDefList(node.getId())
+                                                                    .getValue();
+                if(storeDefs == null) {
+                    storeDefs = storeDefList;
+                } else {
+
+                    // Compare against the previous store definitions
+                    if(!Utils.compareList(storeDefs, storeDefList)) {
+                        throw new VoldemortException("Store definitions on node " + node.getId()
+                                                     + " does not match those on other nodes");
+                    }
+                }
+            }
+
+            if(storeDefs == null) {
+                throw new VoldemortException("Could not retrieve list of store definitions correctly");
+            } else {
+                return storeDefs;
+            }
+        }
+
+        /**
+         * Given a list of store definitions, cluster and admin client returns a
+         * boolean indicating if all RO stores are in the correct format.
+         * 
+         * <br>
+         * 
+         * This function also takes into consideration nodes which are being
+         * bootstrapped for the first time, in which case we can safely ignore
+         * checking them ( as they will have default to ro0 )
+         * 
+         * @param cluster Cluster metadata
+         * @param storeDefs Complete list of store definitions
+         * @param adminClient Admin client
+         */
+        public void validateReadOnlyStores(Cluster cluster, List<StoreDefinition> storeDefs) {
+            List<StoreDefinition> readOnlyStores = StoreDefinitionUtils.filterStores(storeDefs,
+                                                                                     true);
+
+            if(readOnlyStores.size() == 0) {
+                // No read-only stores
+                return;
+            }
+
+            List<String> storeNames = StoreDefinitionUtils.getStoreNames(readOnlyStores);
+            for(Node node: cluster.getNodes()) {
+                if(node.getNumberOfPartitions() != 0) {
+                    for(Entry<String, String> storeToStorageFormat: readonlyOps.getROStorageFormat(node.getId(),
+                                                                                                   storeNames)
+                                                                               .entrySet()) {
+                        if(storeToStorageFormat.getValue()
+                                               .compareTo(ReadOnlyStorageFormat.READONLY_V2.getCode()) != 0) {
+                            throw new VoldemortRebalancingException("Cannot rebalance since node "
+                                                                    + node.getId()
+                                                                    + " has store "
+                                                                    + storeToStorageFormat.getKey()
+                                                                    + " not using format "
+                                                                    + ReadOnlyStorageFormat.READONLY_V2);
+                        }
+                    }
+                }
+            }
+        }
+
     }
 
     /**
@@ -2689,10 +2836,11 @@ public class AdminClient {
             logger.info("Restoring data for store " + storeDef.getName() + " on node "
                         + restoringNodeId);
 
-            Map<Integer, List<Integer>> restoreMapping = helperOps.getReplicationMapping(restoringNodeId,
-                                                                                         cluster,
-                                                                                         storeDef,
-                                                                                         zoneId);
+            Map<Integer, List<Integer>> restoreMapping = replicaTypeOps.getReplicationMapping(restoringNodeId,
+                                                                                               cluster,
+                                                                                              storeDef,
+                                                                                              zoneId);
+
             // migrate partition
             for(final Entry<Integer, List<Integer>> replicationEntry: restoreMapping.entrySet()) {
                 final int donorNodeId = replicationEntry.getKey();

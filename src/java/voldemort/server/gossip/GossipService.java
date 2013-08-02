@@ -23,7 +23,6 @@ import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.RebalanceUtils;
 
 /**
  * This service runs a metadata Gossip protocol. See
@@ -41,7 +40,7 @@ public class GossipService extends AbstractService {
                          VoldemortConfig voldemortConfig) {
         super(ServiceType.GOSSIP);
         schedulerService = service;
-        adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+        adminClient = AdminClient.createTempAdminClient(voldemortConfig,
                                                            metadataStore.getCluster(),
                                                            4);
         gossiper = new Gossiper(metadataStore, adminClient, voldemortConfig.getGossipInterval());

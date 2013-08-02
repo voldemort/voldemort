@@ -35,7 +35,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
-import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -70,12 +69,11 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[], byt
     }
 
     private void reinit() {
-        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+        AdminClient adminClient = AdminClient.createTempAdminClient(voldemortConfig,
                                                                        metadata.getCluster(),
                                                                        voldemortConfig.getClientMaxConnectionsPerNode());
         try {
-            Versioned<Cluster> latestCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
-                                                                               adminClient);
+            Versioned<Cluster> latestCluster = adminClient.rebalanceOps.getLatestCluster(new ArrayList<Integer>());
             metadata.put(MetadataStore.CLUSTER_KEY, latestCluster.getValue());
 
             checkAndAddNodeStore();
@@ -167,8 +165,9 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[], byt
     }
 
     @Override
-    public void put(final ByteArray key, final Versioned<byte[]> versioned, final byte[] transforms)
-            throws ObsoleteVersionException {
+    public void
+            put(final ByteArray key, final Versioned<byte[]> versioned, final byte[] transforms)
+                    throws ObsoleteVersionException {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
                 super.put(key, versioned, transforms);
