@@ -226,6 +226,7 @@ public class KeyVersionFetcherCLI {
         public String call() throws Exception {
             String storeName = storeRoutingPlan.getStoreDefinition().getName();
             List<Integer> replicatingNodeIds = storeRoutingPlan.getReplicationNodeList(key);
+            int masterPartitionId = storeRoutingPlan.getMasterPartitionId(key);
 
             ZoneToNaryToString zoneToNaryToString = new ZoneToNaryToString();
 
