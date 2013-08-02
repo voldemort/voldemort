@@ -37,7 +37,7 @@ import com.google.common.collect.Maps;
  * and printing partition information.
  * 
  * Most of these helper methods take one Cluster object, and possibly some other
- * minor, simple arguments. The Cluster object defines the partitoin layout
+ * minor, simple arguments. The Cluster object defines the partition layout
  * which is being interpreted/analzyed/printed.
  */
 public class PartitionBalanceUtils {
@@ -143,8 +143,7 @@ public class PartitionBalanceUtils {
      */
     public static Map<Integer, Integer>
             getMapOfContiguousPartitionRunLengths(final Cluster cluster, int zoneId) {
-        Map<Integer, Integer> idToRunLength = getMapOfContiguousPartitions(cluster,
-                                                                           zoneId);
+        Map<Integer, Integer> idToRunLength = getMapOfContiguousPartitions(cluster, zoneId);
         Map<Integer, Integer> runLengthToCount = Maps.newHashMap();
 
         if(idToRunLength.isEmpty()) {
@@ -202,8 +201,7 @@ public class PartitionBalanceUtils {
         StringBuilder sb = new StringBuilder();
 
         for(int zoneId: cluster.getZoneIds()) {
-            Map<Integer, Integer> idToRunLength = getMapOfContiguousPartitions(cluster,
-                                                                               zoneId);
+            Map<Integer, Integer> idToRunLength = getMapOfContiguousPartitions(cluster, zoneId);
             for(Integer initialPartitionId: idToRunLength.keySet()) {
                 int runLength = idToRunLength.get(initialPartitionId);
                 if(runLength < hotContiguityCutoff)
@@ -281,21 +279,15 @@ public class PartitionBalanceUtils {
 
             builder.append("Partitions in each zone:\n");
             for(Zone zone: cluster.getZones()) {
-                builder.append("\tZone: "
-                               + zone.getId()
-                               + " - "
-                               + compressedListOfPartitionsInZone(cluster,
-                                                                  zone.getId()) + "\n");
+                builder.append("\tZone: " + zone.getId() + " - "
+                               + compressedListOfPartitionsInZone(cluster, zone.getId()) + "\n");
             }
             builder.append("\n");
 
             builder.append("Contiguous partition run lengths in each zone ('{run length : count}'):\n");
             for(Zone zone: cluster.getZones()) {
-                builder.append("\tZone: "
-                               + zone.getId()
-                               + " - "
-                               + getPrettyMapOfContiguousPartitionRunLengths(cluster,
-                                                                             zone.getId())
+                builder.append("\tZone: " + zone.getId() + " - "
+                               + getPrettyMapOfContiguousPartitionRunLengths(cluster, zone.getId())
                                + "\n");
             }
             builder.append("\n");
