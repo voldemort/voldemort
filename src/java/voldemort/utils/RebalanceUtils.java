@@ -71,38 +71,38 @@ public class RebalanceUtils {
     public final static String currentClusterFileName = "current-cluster.xml";
     public final static String finalClusterFileName = "final-cluster.xml";
 
-    /**
-     * Given the current partitionIds list, try to check if the donor node would
-     * already contain that partition and if yes, ignore it
-     * 
-     * @param stealerNodeId Stealer node id
-     * @param cluster Cluster metadata
-     * @param storeDef Store definition
-     * @return Optimized partition list
-     */
-    public static List<Integer> getOptimizedPartitionIds(int stealerNodeId,
-                                                         Cluster cluster,
-                                                         StoreDefinition storeDef,
-                                                         List<Integer> partitionIds) {
-
-        List<Integer> optimizedPartitionIds = Lists.newArrayList();
-        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                      cluster);
-        List<Integer> partitionList = Lists.newArrayList();
-        for(Integer partition: partitionIds) {
-            List<Integer> preferenceList = strategy.getReplicatingPartitionList(partition);
-            // If this node was already in the preference list before, a copy of
-            // the data will
-            // already exist - Don't copy it!
-            if(!ClusterUtils.containsPreferenceList(cluster, preferenceList, stealerNodeId)) {
-                partitionList.add(partition);
-            }
-        }
-        if(partitionList.size() > 0) {
-            optimizedPartitionIds.addAll(partitionList);
-        }
-        return optimizedPartitionIds;
-    }
+//    /**
+//     * Given the current partitionIds list, try to check if the donor node would
+//     * already contain that partition and if yes, ignore it
+//     * 
+//     * @param stealerNodeId Stealer node id
+//     * @param cluster Cluster metadata
+//     * @param storeDef Store definition
+//     * @return Optimized partition list
+//     */
+//    public static List<Integer> getOptimizedPartitionIds(int stealerNodeId,
+//                                                         Cluster cluster,
+//                                                         StoreDefinition storeDef,
+//                                                         List<Integer> partitionIds) {
+//
+//        List<Integer> optimizedPartitionIds = Lists.newArrayList();
+//        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+//                                                                                      cluster);
+//        List<Integer> partitionList = Lists.newArrayList();
+//        for(Integer partition: partitionIds) {
+//            List<Integer> preferenceList = strategy.getReplicatingPartitionList(partition);
+//            // If this node was already in the preference list before, a copy of
+//            // the data will
+//            // already exist - Don't copy it!
+//            if(!ClusterUtils.containsPreferenceList(cluster, preferenceList, stealerNodeId)) {
+//                partitionList.add(partition);
+//            }
+//        }
+//        if(partitionList.size() > 0) {
+//            optimizedPartitionIds.addAll(partitionList);
+//        }
+//        return optimizedPartitionIds;
+//    }
 
     /**
      * Given a list of partition informations check all of them belong to the

@@ -53,7 +53,7 @@ public class ClusterUtilsTest {
         assertTrue(iiMap.get(14) == 7);
 
         // => {3,1}, {1,1}, {7,1}
-        iiMap = ClusterUtils.getMapOfContiguousPartitionRunLengths(cluster, 0);
+        iiMap = PartitionBalanceUtils.getMapOfContiguousPartitionRunLengths(cluster, 0);
         assertTrue(iiMap.containsKey(1));
         assertTrue(iiMap.get(1) == 1);
         assertTrue(iiMap.containsKey(3));
@@ -75,7 +75,7 @@ public class ClusterUtilsTest {
         assertTrue(iiMap.get(13) == 1);
 
         // => {1,1}, {3,2}
-        iiMap = ClusterUtils.getMapOfContiguousPartitionRunLengths(cluster, 1);
+        iiMap = PartitionBalanceUtils.getMapOfContiguousPartitionRunLengths(cluster, 1);
         assertTrue(iiMap.containsKey(1));
         assertTrue(iiMap.get(1) == 1);
         assertTrue(iiMap.containsKey(3));
