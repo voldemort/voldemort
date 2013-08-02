@@ -97,16 +97,14 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
             rebalanceAsyncId = startNodeRebalancing();
             taskStart(rebalanceAsyncId);
 
-            adminClient.rpcOps.waitForCompletion(stealerNodeId,
-                                                 rebalanceAsyncId);
+            adminClient.rpcOps.waitForCompletion(stealerNodeId, rebalanceAsyncId);
             taskDone(rebalanceAsyncId);
 
         } catch(UnreachableStoreException e) {
             exception = e;
-            logger.error("Stealer node "
-                         + stealerNodeId
-                         + " is unreachable, please make sure it is up and running : "
-                         + e.getMessage(),
+            logger.error("Stealer node " + stealerNodeId
+                                 + " is unreachable, please make sure it is up and running : "
+                                 + e.getMessage(),
                          e);
         } catch(Exception e) {
             exception = e;
@@ -121,6 +119,6 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     @Override
     public String toString() {
         return "Stealer based rebalance task on stealer node " + stealerNodeId
-               + " : " + getStealInfos();
+               + " from donor node " + donorNodeId + " : " + getStealInfos();
     }
 }

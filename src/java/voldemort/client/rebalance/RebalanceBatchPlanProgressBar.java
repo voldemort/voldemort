@@ -17,8 +17,8 @@
 package voldemort.client.rebalance;
 
 import java.text.DecimalFormat;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -55,7 +55,7 @@ public class RebalanceBatchPlanProgressBar {
 
         this.startTimeMs = System.currentTimeMillis();
 
-        this.tasksInFlight = new HashSet<Integer>();
+        this.tasksInFlight = new TreeSet<Integer>();
         this.numTasksCompleted = 0;
         this.numPartitionStoresMigrated = 0;
     }
