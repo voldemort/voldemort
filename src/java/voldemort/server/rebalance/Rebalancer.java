@@ -24,18 +24,14 @@ import java.util.Set;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationService;
-import voldemort.server.rebalance.async.DonorBasedRebalanceAsyncOperation;
 import voldemort.server.rebalance.async.StealerBasedRebalanceAsyncOperation;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.versioning.VectorClock;
@@ -214,7 +210,7 @@ public class Rebalancer implements Runnable {
 
                         completedRebalanceSourceClusterChange = true;
 
-                        for (RebalanceTaskInfo info : rebalanceTaskInfo) {
+                        for(RebalanceTaskInfo info: rebalanceTaskInfo) {
                             metadataStore.addRebalancingState(info);
                             completedRebalanceTaskInfo.add(info);
                         }
@@ -222,13 +218,14 @@ public class Rebalancer implements Runnable {
                         // Reset the rebalancing source cluster back to null
 
                         changeClusterAndStores(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, null,
-                        // Reset the rebalancing source stores back to null
+                                               // Reset the rebalancing source
+                                               // stores back to null
                                                MetadataStore.REBALANCING_SOURCE_STORES_XML,
                                                null);
 
                         completedRebalanceSourceClusterChange = true;
 
-                        for (RebalanceTaskInfo info : rebalanceTaskInfo) {
+                        for(RebalanceTaskInfo info: rebalanceTaskInfo) {
                             metadataStore.deleteRebalancingState(info);
                             completedRebalanceTaskInfo.add(info);
                         }
@@ -286,9 +283,9 @@ public class Rebalancer implements Runnable {
             }
 
             // CHANGE BACK ALL REBALANCING STATES FOR COMPLETED ONES
-            if (completedRebalanceTaskInfo.size() > 0) {
+            if(completedRebalanceTaskInfo.size() > 0) {
                 if(!rollback) {
-                    for (RebalanceTaskInfo info : completedRebalanceTaskInfo) {
+                    for(RebalanceTaskInfo info: completedRebalanceTaskInfo) {
                         try {
                             metadataStore.deleteRebalancingState(info);
                         } catch(Exception exception) {
@@ -298,7 +295,7 @@ public class Rebalancer implements Runnable {
                         }
                     }
                 } else {
-                    for (RebalanceTaskInfo info : completedRebalanceTaskInfo) {
+                    for(RebalanceTaskInfo info: completedRebalanceTaskInfo) {
                         try {
                             metadataStore.addRebalancingState(info);
                         } catch(Exception exception) {
@@ -410,88 +407,6 @@ public class Rebalancer implements Runnable {
 
     /**
      * This function is responsible for starting the actual async rebalance
-     * operation. This is run if this node is the donor node
-     * 
-     * <br>
-     * 
-     * @param stealInfos List of partition infos to steal
-     * @return Returns a id identifying the async operation
-     */
-    public int rebalanceNodeOnDonor(final List<RebalancePartitionsInfo> stealInfos) {
-
-        AdminClient adminClient = null;
-        List<Integer> stealerNodeIdsPermitsAcquired = Lists.newArrayList();
-        try {
-            adminClient = AdminClient.createTempAdminClient(voldemortConfig,
-                                                               metadataStore.getCluster(),
-                                                               1);
-            int donorNodeId = metadataStore.getNodeId();
-
-            for(RebalancePartitionsInfo info: stealInfos) {
-                int stealerNodeId = info.getStealerId();
-
-                // Check if stealer node is in rebalancing state
-                if(!adminClient.rebalanceOps.getRemoteServerState(stealerNodeId)
-                                            .getValue()
-                                            .equals(VoldemortState.REBALANCING_MASTER_SERVER)) {
-                    throw new VoldemortException("Stealer node " + stealerNodeId + " not in "
-                                                 + VoldemortState.REBALANCING_MASTER_SERVER
-                                                 + " state ");
-                }
-
-                // Also check if it has this plan
-                if(adminClient.rebalanceOps.getRemoteRebalancerState(stealerNodeId)
-                                           .getValue()
-                                           .find(donorNodeId) == null) {
-                    throw new VoldemortException("Stealer node " + stealerNodeId
-                                                 + " does not have any plan for donor "
-                                                 + donorNodeId + ". Excepted to have " + info);
-                }
-
-                // Get a lock for the stealer node
-                if(!acquireRebalancingPermit(stealerNodeId)) {
-                    throw new VoldemortException("Node " + metadataStore.getNodeId()
-                                                 + " is already trying to push to stealer node "
-                                                 + stealerNodeId);
-                }
-
-                // Add to list of permits acquired
-                stealerNodeIdsPermitsAcquired.add(stealerNodeId);
-            }
-        } catch(VoldemortException e) {
-
-            // Rollback acquired permits for some of the donor nodes
-            for(int stealerNodeId: stealerNodeIdsPermitsAcquired) {
-                releaseRebalancingPermit(stealerNodeId);
-            }
-
-            throw e;
-
-        } finally {
-            if(adminClient != null) {
-                adminClient.close();
-            }
-        }
-
-        // Acquired lock successfully, start rebalancing...
-        int requestId = asyncService.getUniqueRequestId();
-
-        // Why do we pass 'info' instead of 'stealInfo'? So that we can change
-        // the state as the stores finish rebalance
-        asyncService.submitOperation(requestId,
-                                     new DonorBasedRebalanceAsyncOperation(this,
-                                                                           storeRepository,
-                                                                           voldemortConfig,
-                                                                           metadataStore,
-                                                                           requestId,
-                                                                           stealInfos,
-                                                                           voldemortConfig.usePartitionScanForRebalance()));
-
-        return requestId;
-    }
-
-    /**
-     * This function is responsible for starting the actual async rebalance
      * operation. This is run if this node is the stealer node
      * 
      * <br>
@@ -505,7 +420,7 @@ public class Rebalancer implements Runnable {
     public int rebalanceNode(final RebalanceTaskInfo stealInfo) {
 
         final RebalanceTaskInfo info = metadataStore.getRebalancerState()
-                                                          .find(stealInfo.getDonorId());
+                                                    .find(stealInfo.getDonorId());
 
         // Do we have the plan in the state?
         if(info == null) {

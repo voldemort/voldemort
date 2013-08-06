@@ -264,13 +264,14 @@ public class ChunkedFileSet {
 
                     // Find intersection with nodes partition ids
                     Pair<Integer, Integer> bucket = null;
-                    for(int replicaType = 0; replicaType < routingPartitionList.size(); replicaType++) {
+                    for (int replicatingPartition = 0; replicatingPartition < routingPartitionList.size(); replicatingPartition++) {
 
-                        if(nodePartitionIds.contains(routingPartitionList.get(replicaType))) {
+                        if (nodePartitionIds.contains(routingPartitionList.get(replicatingPartition))) {
                             if(bucket == null) {
 
                                 // Generate bucket information
-                                bucket = Pair.create(routingPartitionList.get(0), replicaType);
+                                bucket = Pair.create(routingPartitionList.get(0),
+                                                     replicatingPartition);
 
                                 int chunkId = 0;
                                 while(true) {
@@ -289,12 +290,13 @@ public class ChunkedFileSet {
                                                 new File(baseDir, fileName + ".data").createNewFile();
                                                 logger.info("No index or data files found, creating empty files for partition "
                                                             + routingPartitionList.get(0)
-                                                            + " and replica type " + replicaType);
+                                                            + " and replicating partition "
+                                                            + replicatingPartition);
                                             } catch(IOException e) {
                                                 throw new VoldemortException("Error creating empty read-only files for partition "
                                                                                      + routingPartitionList.get(0)
-                                                                                     + " and replica type "
-                                                                                     + replicaType,
+                                                                                     + " and replicating partition "
+                                                                                     + replicatingPartition,
                                                                              e);
                                             }
                                         } else {

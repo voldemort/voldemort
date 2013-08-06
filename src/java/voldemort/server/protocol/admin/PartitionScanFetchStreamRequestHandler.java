@@ -41,7 +41,6 @@ public abstract class PartitionScanFetchStreamRequestHandler extends FetchStream
 
     protected Integer currentIndex;
     protected Integer currentPartition;
-    protected Integer currentReplicaType;
     protected long currentPartitionFetched;
 
     public PartitionScanFetchStreamRequestHandler(FetchPartitionEntriesRequest request,
@@ -65,7 +64,6 @@ public abstract class PartitionScanFetchStreamRequestHandler extends FetchStream
         partitionList = partitionIds;
         currentIndex = 0;
         currentPartition = null;
-        currentReplicaType = null;
         currentPartitionFetched = 0;
     }
 
@@ -77,8 +75,8 @@ public abstract class PartitionScanFetchStreamRequestHandler extends FetchStream
      */
     protected void statusInfoMessage(final String tag) {
         if(logger.isInfoEnabled()) {
-            logger.info(tag + " : [partition: " + currentPartition + ", replica type:"
-                        + currentReplicaType + ", partitionFetched: " + currentPartitionFetched
+            logger.info(tag + " : [partition: " + currentPartition + ", partitionFetched: "
+                        + currentPartitionFetched
                         + "] for store " + storageEngine.getName());
         }
     }

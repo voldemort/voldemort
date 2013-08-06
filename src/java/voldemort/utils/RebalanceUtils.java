@@ -37,7 +37,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.client.rebalance.RebalancePlan;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
@@ -48,7 +47,6 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
-import voldemort.store.StoreUtils;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.tools.PartitionBalance;
@@ -70,59 +68,6 @@ public class RebalanceUtils {
 
     public final static String currentClusterFileName = "current-cluster.xml";
     public final static String finalClusterFileName = "final-cluster.xml";
-
-//    /**
-//     * Given the current partitionIds list, try to check if the donor node would
-//     * already contain that partition and if yes, ignore it
-//     * 
-//     * @param stealerNodeId Stealer node id
-//     * @param cluster Cluster metadata
-//     * @param storeDef Store definition
-//     * @return Optimized partition list
-//     */
-//    public static List<Integer> getOptimizedPartitionIds(int stealerNodeId,
-//                                                         Cluster cluster,
-//                                                         StoreDefinition storeDef,
-//                                                         List<Integer> partitionIds) {
-//
-//        List<Integer> optimizedPartitionIds = Lists.newArrayList();
-//        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-//                                                                                      cluster);
-//        List<Integer> partitionList = Lists.newArrayList();
-//        for(Integer partition: partitionIds) {
-//            List<Integer> preferenceList = strategy.getReplicatingPartitionList(partition);
-//            // If this node was already in the preference list before, a copy of
-//            // the data will
-//            // already exist - Don't copy it!
-//            if(!ClusterUtils.containsPreferenceList(cluster, preferenceList, stealerNodeId)) {
-//                partitionList.add(partition);
-//            }
-//        }
-//        if(partitionList.size() > 0) {
-//            optimizedPartitionIds.addAll(partitionList);
-//        }
-//        return optimizedPartitionIds;
-//    }
-
-    /**
-     * Given a list of partition informations check all of them belong to the
-     * same donor node
-     * 
-     * @param partitionInfos List of partition infos
-     * @param expectedDonorId Expected donor node id ( If -1, then just checks
-     *        if all are same )
-     */
-    public static void assertSameDonor(List<RebalancePartitionsInfo> partitionsInfo,
-                                       int expectedDonorId) {
-        int donorId = (expectedDonorId < 0) ? partitionsInfo.get(0).getDonorId() : expectedDonorId;
-        for(RebalancePartitionsInfo info: partitionsInfo) {
-            if(info.getDonorId() != donorId) {
-                throw new VoldemortException("Found a stealer information " + info
-                                             + " having a different donor node from others ( "
-                                             + donorId + " )");
-            }
-        }
-    }
 
     /**
      * Verify store definitions are congruent with cluster definition.
@@ -367,7 +312,7 @@ public class RebalanceUtils {
     }
 
     // TODO: (replicaType) deprecate.
-   
+
     /**
      * For a particular cluster creates a mapping of node id to their
      * corresponding list of [ replicaType, partition ] tuple
@@ -670,15 +615,6 @@ public class RebalanceUtils {
         }
         return flattenedTuples;
     }
-
-    public static int countPartitionStores(List<RebalancePartitionsInfo> infos) {
-        int count = 0;
-        for(RebalancePartitionsInfo info: infos) {
-            count += info.getPartitionStoreCount();
-        }
-        return count;
-    }
-
 
     public static int countTaskStores(List<RebalanceTaskInfo> infos) {
         int count = 0;

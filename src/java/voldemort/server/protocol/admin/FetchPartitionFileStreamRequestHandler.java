@@ -81,9 +81,9 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                                                      VoldemortConfig voldemortConfig,
                                                      StoreRepository storeRepository) {
         this.request = request;
-        // TODO (Sid) : Confirm if keeping metadatastore as a class property is the best
-        // way to do this. metadataStore is used later in the handleNextPartition() to create
-        // a storeRouting object plan.
+        // TODO (Sid) : Confirm if keeping metadatastore as a class property is the best 
+        // way to do this. metadataStore is used later in the handleNextPartition() to create 
+        // object plan.
         this.metadataStore = metadataStore;
 
         StoreDefinition storeDef = metadataStore.getStoreDef(request.getStoreName());
@@ -91,12 +91,9 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
         if(!isReadOnly) {
             throw new VoldemortException("Should be fetching partition files only for read-only stores");
         }
-        
-        List<Integer> partitionIds =  request.getPartitionIdsList();
-        this.partitionIds = partitionIds;
-        // TODO (Sid) : Comment this for removing replica type. Confirm if this is needed
-        //this.replicaToPartitionTuples = RebalanceUtils.flattenPartitionTuples(replicaToPartitionList);
 
+        List<Integer> partitionIds = request.getPartitionIdsList();
+        this.partitionIds = partitionIds;
         ReadOnlyStorageEngine storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
                                                                                                   storeRepository,
                                                                                                   request.getStoreName());
@@ -229,22 +226,28 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             Integer partitionId = partitionIterator.next();
             int nodeId = metadataStore.getNodeId();
             int zoneId = metadataStore.getCluster().getNodeById(nodeId).getZoneId();
-            
+
             StoreDefinition storeDef = metadataStore.getStoreDef(request.getStoreName());
-            StoreRoutingPlan storeRoutingPlan = new StoreRoutingPlan(metadataStore.getCluster(), storeDef);
-            int getZoneNary = storeRoutingPlan.getZoneNaryForNodesPartition(zoneId, nodeId, partitionId);
-           
-            currentPair = Pair.create(getZoneNary,partitionId);
+            StoreRoutingPlan storeRoutingPlan = new StoreRoutingPlan(metadataStore.getCluster(),
+                                                                     storeDef);
+            int getZoneNary = storeRoutingPlan.getZoneNaryForNodesPartition(zoneId,
+                                                                            nodeId,
+                                                                            partitionId);
+
+            currentPair = Pair.create(getZoneNary, partitionId);
             currentChunkId = 0;
 
             // First check if bucket exists
-            if (!bucketToNumChunks.containsKey(Pair.create(currentPair.getSecond(), currentPair.getFirst()))) {
+            if (!bucketToNumChunks.containsKey(Pair.create(currentPair.getSecond(),
+                                                          currentPair.getFirst()))) {
                 throw new VoldemortException("Bucket [ partition = " + currentPair.getSecond()
                                              + ", replica = " + currentPair.getFirst()
-                                             + " ] does not exist for store " + request.getStoreName());
+                                             + " ] does not exist for store "
+                                             + request.getStoreName());
             }
-            numChunks = bucketToNumChunks.get(Pair.create(currentPair.getSecond(), currentPair.getFirst()));
-          
+            numChunks = bucketToNumChunks.get(Pair.create(currentPair.getSecond(),
+                                                          currentPair.getFirst()));
+
             dataFile = indexFile = null;
             fetchStatus = FetchStatus.SEND_DATA_FILE;
         } else {

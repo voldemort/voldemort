@@ -339,7 +339,7 @@ enum AdminRequestType {
   GET_RO_STORAGE_FORMAT = 23;
   REBALANCE_STATE_CHANGE = 24;
   REPAIR_JOB = 25;
-  INITIATE_REBALANCE_NODE_ON_DONOR = 26;
+  // INITIATE_REBALANCE_NODE_ON_DONOR = 26;
   DELETE_STORE_REBALANCE_STATE = 27;
   NATIVE_BACKUP = 28;
   RESERVE_MEMORY = 29;
@@ -371,7 +371,7 @@ message VoldemortAdminRequest {
   optional GetROStorageFormatRequest get_ro_storage_format = 25;
   optional RebalanceStateChangeRequest rebalance_state_change = 26;
   optional RepairJobRequest repair_job = 27;  
-  optional InitiateRebalanceNodeOnDonorRequest initiate_rebalance_node_on_donor = 28;
+  // optional InitiateRebalanceNodeOnDonorRequest initiate_rebalance_node_on_donor = 28;
   optional DeleteStoreRebalanceStateRequest delete_store_rebalance_state = 29;
   optional NativeBackupRequest native_backup = 30;
   optional ReserveMemoryRequest reserve_memory = 31;

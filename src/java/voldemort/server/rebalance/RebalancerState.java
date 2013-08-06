@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
@@ -42,7 +41,7 @@ public class RebalancerState {
 
     public RebalancerState(List<RebalanceTaskInfo> stealInfoList) {
         stealInfoMap = Maps.newHashMapWithExpectedSize(stealInfoList.size());
-        for (RebalanceTaskInfo rebalanceTaskInfo : stealInfoList)
+        for(RebalanceTaskInfo rebalanceTaskInfo: stealInfoList)
             stealInfoMap.put(rebalanceTaskInfo.getDonorId(), rebalanceTaskInfo);
     }
 
@@ -61,7 +60,7 @@ public class RebalancerState {
     public String toJsonString() {
         List<Map<String, Object>> maps = Lists.newLinkedList();
 
-        for (RebalanceTaskInfo rebalanceTaskInfo : stealInfoMap.values())
+        for(RebalanceTaskInfo rebalanceTaskInfo: stealInfoMap.values())
             maps.add(rebalanceTaskInfo.asMap());
 
         StringWriter stringWriter = new StringWriter();
@@ -81,7 +80,7 @@ public class RebalancerState {
     }
 
     public boolean update(RebalanceTaskInfo rebalanceTaskInfo) {
-        if (stealInfoMap.containsKey(rebalanceTaskInfo.getDonorId()))
+        if(stealInfoMap.containsKey(rebalanceTaskInfo.getDonorId()))
             return false;
 
         stealInfoMap.put(rebalanceTaskInfo.getDonorId(), rebalanceTaskInfo);
@@ -91,29 +90,6 @@ public class RebalancerState {
     public Collection<RebalanceTaskInfo> getAll() {
         return stealInfoMap.values();
     }
-
-    // TODO (Sid) : Comment this as part of removing replica type. 
-//    public RebalanceTaskInfo find(String storeName,
-//            List<Integer> keyPartitions,
-//            List<Integer> nodePartitions) {
-//        for (RebalanceTaskInfo info : getAll()) {
-//
-//            // First check if the store exists
-//            if (info.getPartitionStores().contains(storeName)) {
-//
-//                // If yes, check if the key belongs to one of the partitions
-//                // being moved
-//                if (StoreRoutingPlan.checkKeyBelongsToPartition(keyPartitions,
-//                        nodePartitions,
-//                        info.getPartitionIds(storeName))) {
-//                    return info;
-//                }
-//            }
-//        }
-    //
-    // // If none of them match, null
-    // return null;
-    // }
 
     public RebalanceTaskInfo find(int donorId) {
         return stealInfoMap.get(donorId);
@@ -143,7 +119,7 @@ public class RebalancerState {
     public String toString() {
         StringBuilder sb = new StringBuilder("RebalancerState(operations: ");
         sb.append("\n");
-        for (RebalanceTaskInfo info : getAll()) {
+        for(RebalanceTaskInfo info: getAll()) {
             sb.append(info);
             sb.append("\n");
         }

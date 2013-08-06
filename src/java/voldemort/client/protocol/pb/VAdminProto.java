@@ -34,10 +34,9 @@ public final class VAdminProto {
     GET_RO_STORAGE_FORMAT(21, 23),
     REBALANCE_STATE_CHANGE(22, 24),
     REPAIR_JOB(23, 25),
-    INITIATE_REBALANCE_NODE_ON_DONOR(24, 26),
-    DELETE_STORE_REBALANCE_STATE(25, 27),
-    NATIVE_BACKUP(26, 28),
-    RESERVE_MEMORY(27, 29),
+    DELETE_STORE_REBALANCE_STATE(24, 27),
+    NATIVE_BACKUP(25, 28),
+    RESERVE_MEMORY(26, 29),
     ;
     
     
@@ -69,7 +68,6 @@ public final class VAdminProto {
         case 23: return GET_RO_STORAGE_FORMAT;
         case 24: return REBALANCE_STATE_CHANGE;
         case 25: return REPAIR_JOB;
-        case 26: return INITIATE_REBALANCE_NODE_ON_DONOR;
         case 27: return DELETE_STORE_REBALANCE_STATE;
         case 28: return NATIVE_BACKUP;
         case 29: return RESERVE_MEMORY;
@@ -103,7 +101,7 @@ public final class VAdminProto {
     }
     
     private static final AdminRequestType[] VALUES = {
-      GET_METADATA, UPDATE_METADATA, UPDATE_PARTITION_ENTRIES, FETCH_PARTITION_ENTRIES, DELETE_PARTITION_ENTRIES, INITIATE_FETCH_AND_UPDATE, ASYNC_OPERATION_STATUS, INITIATE_REBALANCE_NODE, ASYNC_OPERATION_STOP, ASYNC_OPERATION_LIST, TRUNCATE_ENTRIES, ADD_STORE, DELETE_STORE, FETCH_STORE, SWAP_STORE, ROLLBACK_STORE, GET_RO_MAX_VERSION_DIR, GET_RO_CURRENT_VERSION_DIR, FETCH_PARTITION_FILES, UPDATE_SLOP_ENTRIES, FAILED_FETCH_STORE, GET_RO_STORAGE_FORMAT, REBALANCE_STATE_CHANGE, REPAIR_JOB, INITIATE_REBALANCE_NODE_ON_DONOR, DELETE_STORE_REBALANCE_STATE, NATIVE_BACKUP, RESERVE_MEMORY, 
+      GET_METADATA, UPDATE_METADATA, UPDATE_PARTITION_ENTRIES, FETCH_PARTITION_ENTRIES, DELETE_PARTITION_ENTRIES, INITIATE_FETCH_AND_UPDATE, ASYNC_OPERATION_STATUS, INITIATE_REBALANCE_NODE, ASYNC_OPERATION_STOP, ASYNC_OPERATION_LIST, TRUNCATE_ENTRIES, ADD_STORE, DELETE_STORE, FETCH_STORE, SWAP_STORE, ROLLBACK_STORE, GET_RO_MAX_VERSION_DIR, GET_RO_CURRENT_VERSION_DIR, FETCH_PARTITION_FILES, UPDATE_SLOP_ENTRIES, FAILED_FETCH_STORE, GET_RO_STORAGE_FORMAT, REBALANCE_STATE_CHANGE, REPAIR_JOB, DELETE_STORE_REBALANCE_STATE, NATIVE_BACKUP, RESERVE_MEMORY, 
     };
     public static AdminRequestType valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
@@ -21717,13 +21715,6 @@ public final class VAdminProto {
     public boolean hasRepairJob() { return hasRepairJob; }
     public voldemort.client.protocol.pb.VAdminProto.RepairJobRequest getRepairJob() { return repairJob_; }
     
-    // optional .voldemort.InitiateRebalanceNodeOnDonorRequest initiate_rebalance_node_on_donor = 28;
-    public static final int INITIATE_REBALANCE_NODE_ON_DONOR_FIELD_NUMBER = 28;
-    private boolean hasInitiateRebalanceNodeOnDonor;
-    private voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest initiateRebalanceNodeOnDonor_;
-    public boolean hasInitiateRebalanceNodeOnDonor() { return hasInitiateRebalanceNodeOnDonor; }
-    public voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest getInitiateRebalanceNodeOnDonor() { return initiateRebalanceNodeOnDonor_; }
-    
     // optional .voldemort.DeleteStoreRebalanceStateRequest delete_store_rebalance_state = 29;
     public static final int DELETE_STORE_REBALANCE_STATE_FIELD_NUMBER = 29;
     private boolean hasDeleteStoreRebalanceState;
@@ -21771,7 +21762,6 @@ public final class VAdminProto {
       getRoStorageFormat_ = voldemort.client.protocol.pb.VAdminProto.GetROStorageFormatRequest.getDefaultInstance();
       rebalanceStateChange_ = voldemort.client.protocol.pb.VAdminProto.RebalanceStateChangeRequest.getDefaultInstance();
       repairJob_ = voldemort.client.protocol.pb.VAdminProto.RepairJobRequest.getDefaultInstance();
-      initiateRebalanceNodeOnDonor_ = voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest.getDefaultInstance();
       deleteStoreRebalanceState_ = voldemort.client.protocol.pb.VAdminProto.DeleteStoreRebalanceStateRequest.getDefaultInstance();
       nativeBackup_ = voldemort.client.protocol.pb.VAdminProto.NativeBackupRequest.getDefaultInstance();
       reserveMemory_ = voldemort.client.protocol.pb.VAdminProto.ReserveMemoryRequest.getDefaultInstance();
@@ -21837,9 +21827,6 @@ public final class VAdminProto {
       }
       if (hasRebalanceStateChange()) {
         if (!getRebalanceStateChange().isInitialized()) return false;
-      }
-      if (hasInitiateRebalanceNodeOnDonor()) {
-        if (!getInitiateRebalanceNodeOnDonor().isInitialized()) return false;
       }
       if (hasDeleteStoreRebalanceState()) {
         if (!getDeleteStoreRebalanceState().isInitialized()) return false;
@@ -21930,9 +21917,6 @@ public final class VAdminProto {
       }
       if (hasRepairJob()) {
         output.writeMessage(27, getRepairJob());
-      }
-      if (hasInitiateRebalanceNodeOnDonor()) {
-        output.writeMessage(28, getInitiateRebalanceNodeOnDonor());
       }
       if (hasDeleteStoreRebalanceState()) {
         output.writeMessage(29, getDeleteStoreRebalanceState());
@@ -22051,10 +22035,6 @@ public final class VAdminProto {
       if (hasRepairJob()) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(27, getRepairJob());
-      }
-      if (hasInitiateRebalanceNodeOnDonor()) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(28, getInitiateRebalanceNodeOnDonor());
       }
       if (hasDeleteStoreRebalanceState()) {
         size += com.google.protobuf.CodedOutputStream
@@ -22300,9 +22280,6 @@ public final class VAdminProto {
         }
         if (other.hasRepairJob()) {
           mergeRepairJob(other.getRepairJob());
-        }
-        if (other.hasInitiateRebalanceNodeOnDonor()) {
-          mergeInitiateRebalanceNodeOnDonor(other.getInitiateRebalanceNodeOnDonor());
         }
         if (other.hasDeleteStoreRebalanceState()) {
           mergeDeleteStoreRebalanceState(other.getDeleteStoreRebalanceState());
@@ -22562,15 +22539,6 @@ public final class VAdminProto {
               }
               input.readMessage(subBuilder, extensionRegistry);
               setRepairJob(subBuilder.buildPartial());
-              break;
-            }
-            case 226: {
-              voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest.newBuilder();
-              if (hasInitiateRebalanceNodeOnDonor()) {
-                subBuilder.mergeFrom(getInitiateRebalanceNodeOnDonor());
-              }
-              input.readMessage(subBuilder, extensionRegistry);
-              setInitiateRebalanceNodeOnDonor(subBuilder.buildPartial());
               break;
             }
             case 234: {
@@ -23514,43 +23482,6 @@ public final class VAdminProto {
         return this;
       }
       
-      // optional .voldemort.InitiateRebalanceNodeOnDonorRequest initiate_rebalance_node_on_donor = 28;
-      public boolean hasInitiateRebalanceNodeOnDonor() {
-        return result.hasInitiateRebalanceNodeOnDonor();
-      }
-      public voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest getInitiateRebalanceNodeOnDonor() {
-        return result.getInitiateRebalanceNodeOnDonor();
-      }
-      public Builder setInitiateRebalanceNodeOnDonor(voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        result.hasInitiateRebalanceNodeOnDonor = true;
-        result.initiateRebalanceNodeOnDonor_ = value;
-        return this;
-      }
-      public Builder setInitiateRebalanceNodeOnDonor(voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest.Builder builderForValue) {
-        result.hasInitiateRebalanceNodeOnDonor = true;
-        result.initiateRebalanceNodeOnDonor_ = builderForValue.build();
-        return this;
-      }
-      public Builder mergeInitiateRebalanceNodeOnDonor(voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest value) {
-        if (result.hasInitiateRebalanceNodeOnDonor() &&
-            result.initiateRebalanceNodeOnDonor_ != voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest.getDefaultInstance()) {
-          result.initiateRebalanceNodeOnDonor_ =
-            voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest.newBuilder(result.initiateRebalanceNodeOnDonor_).mergeFrom(value).buildPartial();
-        } else {
-          result.initiateRebalanceNodeOnDonor_ = value;
-        }
-        result.hasInitiateRebalanceNodeOnDonor = true;
-        return this;
-      }
-      public Builder clearInitiateRebalanceNodeOnDonor() {
-        result.hasInitiateRebalanceNodeOnDonor = false;
-        result.initiateRebalanceNodeOnDonor_ = voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeOnDonorRequest.getDefaultInstance();
-        return this;
-      }
-      
       // optional .voldemort.DeleteStoreRebalanceStateRequest delete_store_rebalance_state = 29;
       public boolean hasDeleteStoreRebalanceState() {
         return result.hasDeleteStoreRebalanceState();
@@ -24114,7 +24045,7 @@ public final class VAdminProto {
       "s\030\003 \002(\010\022\023\n\013incremental\030\004 \002(\010\">\n\024ReserveM" +
       "emoryRequest\022\022\n\nstore_name\030\001 \002(\t\022\022\n\nsize",
       "_in_mb\030\002 \002(\003\"8\n\025ReserveMemoryResponse\022\037\n" +
-      "\005error\030\001 \001(\0132\020.voldemort.Error\"\360\016\n\025Volde" +
+      "\005error\030\001 \001(\0132\020.voldemort.Error\"\226\016\n\025Volde" +
       "mortAdminRequest\022)\n\004type\030\001 \002(\0162\033.voldemo" +
       "rt.AdminRequestType\0223\n\014get_metadata\030\002 \001(" +
       "\0132\035.voldemort.GetMetadataRequest\0229\n\017upda" +
@@ -24155,33 +24086,30 @@ public final class VAdminProto {
       "rmatRequest\022F\n\026rebalance_state_change\030\032 ",
       "\001(\0132&.voldemort.RebalanceStateChangeRequ" +
       "est\022/\n\nrepair_job\030\033 \001(\0132\033.voldemort.Repa" +
-      "irJobRequest\022X\n initiate_rebalance_node_" +
-      "on_donor\030\034 \001(\0132..voldemort.InitiateRebal" +
-      "anceNodeOnDonorRequest\022Q\n\034delete_store_r" +
-      "ebalance_state\030\035 \001(\0132+.voldemort.DeleteS" +
-      "toreRebalanceStateRequest\0225\n\rnative_back" +
-      "up\030\036 \001(\0132\036.voldemort.NativeBackupRequest" +
-      "\0227\n\016reserve_memory\030\037 \001(\0132\037.voldemort.Res" +
-      "erveMemoryRequest*\310\005\n\020AdminRequestType\022\020",
-      "\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022\034\n" +
-      "\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027FETCH_PAR" +
-      "TITION_ENTRIES\020\003\022\034\n\030DELETE_PARTITION_ENT" +
-      "RIES\020\004\022\035\n\031INITIATE_FETCH_AND_UPDATE\020\005\022\032\n" +
-      "\026ASYNC_OPERATION_STATUS\020\006\022\033\n\027INITIATE_RE" +
-      "BALANCE_NODE\020\007\022\030\n\024ASYNC_OPERATION_STOP\020\010" +
-      "\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020TRUNCATE_E" +
-      "NTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELETE_STORE\020" +
-      "\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016RO" +
-      "LLBACK_STORE\020\017\022\032\n\026GET_RO_MAX_VERSION_DIR",
-      "\020\020\022\036\n\032GET_RO_CURRENT_VERSION_DIR\020\021\022\031\n\025FE" +
-      "TCH_PARTITION_FILES\020\022\022\027\n\023UPDATE_SLOP_ENT" +
-      "RIES\020\024\022\026\n\022FAILED_FETCH_STORE\020\026\022\031\n\025GET_RO" +
-      "_STORAGE_FORMAT\020\027\022\032\n\026REBALANCE_STATE_CHA" +
-      "NGE\020\030\022\016\n\nREPAIR_JOB\020\031\022$\n INITIATE_REBALA" +
-      "NCE_NODE_ON_DONOR\020\032\022 \n\034DELETE_STORE_REBA" +
-      "LANCE_STATE\020\033\022\021\n\rNATIVE_BACKUP\020\034\022\022\n\016RESE" +
-      "RVE_MEMORY\020\035B-\n\034voldemort.client.protoco" +
-      "l.pbB\013VAdminProtoH\001"
+      "irJobRequest\022Q\n\034delete_store_rebalance_s" +
+      "tate\030\035 \001(\0132+.voldemort.DeleteStoreRebala" +
+      "nceStateRequest\0225\n\rnative_backup\030\036 \001(\0132\036" +
+      ".voldemort.NativeBackupRequest\0227\n\016reserv" +
+      "e_memory\030\037 \001(\0132\037.voldemort.ReserveMemory" +
+      "Request*\242\005\n\020AdminRequestType\022\020\n\014GET_META" +
+      "DATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022\034\n\030UPDATE_PA" +
+      "RTITION_ENTRIES\020\002\022\033\n\027FETCH_PARTITION_ENT",
+      "RIES\020\003\022\034\n\030DELETE_PARTITION_ENTRIES\020\004\022\035\n\031" +
+      "INITIATE_FETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPE" +
+      "RATION_STATUS\020\006\022\033\n\027INITIATE_REBALANCE_NO" +
+      "DE\020\007\022\030\n\024ASYNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_" +
+      "OPERATION_LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r" +
+      "\n\tADD_STORE\020\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH" +
+      "_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016ROLLBACK_STO" +
+      "RE\020\017\022\032\n\026GET_RO_MAX_VERSION_DIR\020\020\022\036\n\032GET_" +
+      "RO_CURRENT_VERSION_DIR\020\021\022\031\n\025FETCH_PARTIT" +
+      "ION_FILES\020\022\022\027\n\023UPDATE_SLOP_ENTRIES\020\024\022\026\n\022",
+      "FAILED_FETCH_STORE\020\026\022\031\n\025GET_RO_STORAGE_F" +
+      "ORMAT\020\027\022\032\n\026REBALANCE_STATE_CHANGE\020\030\022\016\n\nR" +
+      "EPAIR_JOB\020\031\022 \n\034DELETE_STORE_REBALANCE_ST" +
+      "ATE\020\033\022\021\n\rNATIVE_BACKUP\020\034\022\022\n\016RESERVE_MEMO" +
+      "RY\020\035B-\n\034voldemort.client.protocol.pbB\013VA" +
+      "dminProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -24665,7 +24593,7 @@ public final class VAdminProto {
           internal_static_voldemort_VoldemortAdminRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_VoldemortAdminRequest_descriptor,
-              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "InitiateFetchAndUpdate", "AsyncOperationStatus", "InitiateRebalanceNode", "AsyncOperationStop", "AsyncOperationList", "TruncateEntries", "AddStore", "DeleteStore", "FetchStore", "SwapStore", "RollbackStore", "GetRoMaxVersionDir", "GetRoCurrentVersionDir", "FetchPartitionFiles", "UpdateSlopEntries", "FailedFetchStore", "GetRoStorageFormat", "RebalanceStateChange", "RepairJob", "InitiateRebalanceNodeOnDonor", "DeleteStoreRebalanceState", "NativeBackup", "ReserveMemory", },
+              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "InitiateFetchAndUpdate", "AsyncOperationStatus", "InitiateRebalanceNode", "AsyncOperationStop", "AsyncOperationList", "TruncateEntries", "AddStore", "DeleteStore", "FetchStore", "SwapStore", "RollbackStore", "GetRoMaxVersionDir", "GetRoCurrentVersionDir", "FetchPartitionFiles", "UpdateSlopEntries", "FailedFetchStore", "GetRoStorageFormat", "RebalanceStateChange", "RepairJob", "DeleteStoreRebalanceState", "NativeBackup", "ReserveMemory", },
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.class,
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.Builder.class);
           return null;

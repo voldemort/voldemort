@@ -90,7 +90,7 @@ public class RebalanceController {
 
         // Retrieve the latest cluster metadata from the existing nodes
         Versioned<Cluster> currentVersionedCluster = adminClient.rebalanceOps.getLatestCluster(Utils.nodeListToNodeIdList(Lists.newArrayList(adminClient.getAdminClientCluster()
-                                                                                                                                              .getNodes())));
+                                                                                                                                                        .getNodes())));
         Cluster cluster = currentVersionedCluster.getValue();
         List<StoreDefinition> storeDefs = adminClient.rebalanceOps.getCurrentStoreDefinitions(cluster);
         return new Pair<Cluster, List<StoreDefinition>>(cluster, storeDefs);
@@ -188,7 +188,7 @@ public class RebalanceController {
         adminClient.rebalanceOps.checkEachServerInNormalState(finalCluster);
         // Verify all old RO stores exist at version 2
         adminClient.rebalanceOps.validateReadOnlyStores(finalCluster,
-                                              finalStoreDefs);
+                                                        finalStoreDefs);
     }
 
     /**
@@ -712,29 +712,6 @@ public class RebalanceController {
             }
             scheduler.run(sbTaskList);
         }
-        // TODO (Sid) : Comment this for replica type cleanup. Decide later.
-        // } else {
-        // // Group by donor nodes
-        // HashMap<Integer, List<RebalancePartitionsInfo>>
-        // donorNodeBasedPartitionsInfo =
-        // RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
-        // false);
-        // for (Entry<Integer, List<RebalancePartitionsInfo>> entries :
-        // donorNodeBasedPartitionsInfo.entrySet()) {
-        // DonorBasedRebalanceTask rebalanceTask = new
-        // DonorBasedRebalanceTask(batchId,
-        // taskId,
-        // entries.getValue(),
-        // donorPermits[entries.getValue()
-        // .get(0)
-        // .getDonorId()],
-        // adminClient,
-        // progressBar);
-        // taskList.add(rebalanceTask);
-        // service.execute(rebalanceTask);
-        // taskId++;
-        // }
-        // }
         return taskList;
     }
 

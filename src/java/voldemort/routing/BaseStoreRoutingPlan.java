@@ -121,8 +121,8 @@ public class BaseStoreRoutingPlan {
     }
 
     /**
-     * Given a key and a replica type n (< zone replication factor), figure out
-     * the node that contains the key as the nth replica in the given zone.
+     * Given a key and a zoneNary (< zone replication factor), figure out the
+     * node that contains the key as the nth replica in the given zone.
      * 
      * @param zoneId
      * @param zoneNary

@@ -23,7 +23,6 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalanceBatchPlanProgressBar;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.client.rebalance.RebalanceScheduler;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.server.rebalance.AlreadyRebalancingException;
@@ -103,8 +102,8 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
         } catch(UnreachableStoreException e) {
             exception = e;
             logger.error("Stealer node " + stealerNodeId
-                                 + " is unreachable, please make sure it is up and running : "
-                                 + e.getMessage(),
+                         + " is unreachable, please make sure it is up and running : "
+                         + e.getMessage(),
                          e);
         } catch(Exception e) {
             exception = e;

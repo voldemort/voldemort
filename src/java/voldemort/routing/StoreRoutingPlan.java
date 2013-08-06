@@ -109,7 +109,7 @@ public class StoreRoutingPlan {
                 }
             }
         }
-        
+
     }
 
     public Cluster getCluster() {

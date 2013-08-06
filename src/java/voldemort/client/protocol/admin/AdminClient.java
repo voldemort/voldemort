@@ -59,7 +59,6 @@ import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.RebalanceTaskInfoMap;
 import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VProto.RequestType;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -68,7 +67,6 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
-import voldemort.server.rebalance.RebalancerState;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
@@ -408,7 +406,7 @@ public class AdminClient {
     // methods like these are necessary, then they belong in some other utils
     // class since none of the methods in this helper class actually need to be
     // part of the AdminClient.
-    
+
     public class ReplicaTypeOperations {
 
         /**
@@ -418,8 +416,7 @@ public class AdminClient {
          * @param restoringNode The id of the node which needs to be restored
          * @param cluster The cluster definition
          * @param storeDef The store definition to use
-         * @return Map of node id to map of replica type and corresponding
-         *         partition list
+         * @return Map of node id to corresponding partition list
          */
         public Map<Integer, List<Integer>> getReplicationMapping(int restoringNode,
                                                                  Cluster cluster,
@@ -1191,9 +1188,9 @@ public class AdminClient {
         }
 
         /**
-         * Migrate keys/values belonging to a map of replica type to partition
-         * list from donor node to stealer node. <b>Does not delete the
-         * partitions from donorNode, merely copies them. </b>
+         * Migrate keys/values belonging to a list of partition ids from donor
+         * node to stealer node. <b>Does not delete the partitions from
+         * donorNode, merely copies them. </b>
          * <p>
          * This is a background operation (see
          * {@link voldemort.server.protocol.admin.AsyncOperation} that runs on
@@ -1205,8 +1202,7 @@ public class AdminClient {
          * @param stealerNodeId Node <em>to</em> which the partitions are to be
          *        streamed.
          * @param storeName Name of the store to stream.
-         * @param replicaToPartitionList Mapping from replica type to partition
-         *        to be stolen
+         * @param partitionIds List of partition ids
          * @param filter Voldemort post-filter
          * @param initialCluster The cluster metadata to use for making the
          *        decision if the key belongs to these partitions. If not
@@ -1305,7 +1301,7 @@ public class AdminClient {
          * 
          * @param nodeId Node on which the entries to be deleted
          * @param storeName Name of the store holding the entries
-         * @param replicaToPartitionList Map of replica type to partition list
+         * @param partitionIds List of partition Ids
          * @param filter Custom filter implementation to filter out entries
          *        which should not be deleted.
          * @return Number of entries deleted
@@ -1469,20 +1465,6 @@ public class AdminClient {
                                           boolean fetchMasterEntries,
                                           Cluster initialCluster,
                                           long recordsPerPartition) throws IOException {
-            // TODO (Sid): Commenting this for removing replica type.
-            // HashMap<Integer, List<Integer>> filteredReplicaToPartitionList =
-            // Maps.newHashMap();
-            // if(fetchMasterEntries) {
-            // if(!replicaToPartitionList.containsKey(0)) {
-            // throw new
-            // VoldemortException("Could not find any partitions for primary replica type");
-            // } else {
-            // filteredReplicaToPartitionList.put(0,
-            // replicaToPartitionList.get(0));
-            // }
-            // } else {
-            // filteredReplicaToPartitionList.putAll(replicaToPartitionList);
-            // }
             VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest = VAdminProto.FetchPartitionEntriesRequest.newBuilder()
                                                                                                                     .setFetchValues(fetchValues)
                                                                                                                     .addAllPartitionIds(partitionIds)
@@ -1652,8 +1634,7 @@ public class AdminClient {
         // awkward. We should have a core KeyValue type that effectively wraps
         // up a ByteArray and a Versioned<byte[]>.
         /**
-         * Fetch key/value tuples belonging to this map of replica type to
-         * partition list
+         * Fetch key/value tuples belonging to this list of partition ids
          * <p>
          * 
          * <b>Streaming API</b> - The server keeps sending the messages as it's
@@ -1668,8 +1649,7 @@ public class AdminClient {
          * 
          * @param nodeId Id of the node to fetch from
          * @param storeName Name of the store
-         * @param replicaToPartitionList Mapping of replica type to partition
-         *        list
+         * @param partitionIds List of partition ids
          * @param filter Custom filter implementation to filter out entries
          *        which should not be fetched.
          * @param fetchMasterEntries Fetch an entry only if master replica
@@ -1863,14 +1843,12 @@ public class AdminClient {
         }
 
         /**
-         * Fetch all keys belonging to the map of replica type to partition
-         * list. Identical to {@link AdminClient#fetchEntries} but
-         * <em>only fetches the keys</em>
+         * Fetch all keys belonging to the list of partition ids. Identical to
+         * {@link AdminClient#fetchEntries} but <em>only fetches the keys</em>
          * 
          * @param nodeId The node id from where to fetch the keys
          * @param storeName The store name whose keys we want to retrieve
-         * @param replicaToPartitionList Map of replica type to corresponding
-         *        partition list
+         * @param partitionIds List of partitionIds
          * @param filter Custom filter
          * @param initialCluster Cluster to use for selecting a key. If null,
          *        use the default metadata from the metadata store
@@ -2278,33 +2256,6 @@ public class AdminClient {
 
         /**
          * Rebalance a stealer-donor node pair for a set of stores. This is run
-         * on the donor node.
-         * 
-         * @param stealInfos List of partition steal information
-         * @return The request id of the async operation
-         */
-        public int rebalanceNode(List<RebalancePartitionsInfo> stealInfos) {
-            List<VAdminProto.RebalancePartitionInfoMap> rebalancePartitionInfoMap = ProtoUtils.encodeRebalancePartitionInfoMap(stealInfos);
-            VAdminProto.InitiateRebalanceNodeOnDonorRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeOnDonorRequest.newBuilder()
-                                                                                                                                  .addAllRebalancePartitionInfo(rebalancePartitionInfoMap)
-                                                                                                                                  .build();
-            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                              .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE_ON_DONOR)
-                                                                                              .setInitiateRebalanceNodeOnDonor(rebalanceNodeRequest)
-                                                                                              .build();
-            VAdminProto.AsyncOperationStatusResponse.Builder response = rpcOps.sendAndReceive(stealInfos.get(0)
-                                                                                                        .getDonorId(),
-                                                                                              adminRequest,
-                                                                                              VAdminProto.AsyncOperationStatusResponse.newBuilder());
-
-            if(response.hasError())
-                helperOps.throwException(response.getError());
-
-            return response.getRequestId();
-        }
-
-        /**
-         * Rebalance a stealer-donor node pair for a set of stores. This is run
          * on the stealer node.
          * 
          * @param stealInfo Partition steal information
@@ -2371,19 +2322,6 @@ public class AdminClient {
                                                                         MetadataStore.SERVER_STATE_KEY);
             return new Versioned<VoldemortState>(VoldemortState.valueOf(value.getValue()),
                                                  value.getVersion());
-        }
-
-        /**
-         * Return the remote rebalancer state for remote node
-         * 
-         * @param nodeId Node id
-         * @return The rebalancer state
-         */
-        public Versioned<RebalancerState> getRemoteRebalancerState(int nodeId) {
-            Versioned<String> value = metadataMgmtOps.getRemoteMetadata(nodeId,
-                                                                        MetadataStore.REBALANCING_STEAL_INFO);
-            return new Versioned<RebalancerState>(RebalancerState.create(value.getValue()),
-                                                  value.getVersion());
         }
 
         /**
@@ -2837,7 +2775,7 @@ public class AdminClient {
                         + restoringNodeId);
 
             Map<Integer, List<Integer>> restoreMapping = replicaTypeOps.getReplicationMapping(restoringNodeId,
-                                                                                               cluster,
+                                                                                              cluster,
                                                                                               storeDef,
                                                                                               zoneId);
 
@@ -3279,7 +3217,7 @@ public class AdminClient {
          * 
          * @param nodeId The node id from where to copy
          * @param storeName The name of the read-only store
-         * @param replicaToPartitionList Map of replica type to partition list
+         * @param partitionIds List of partitionIds
          * @param destinationDirPath The destination path
          * @param notAcceptedBuckets These are Pair< partition, replica > which
          *        we cannot copy AT all. This is because these are current

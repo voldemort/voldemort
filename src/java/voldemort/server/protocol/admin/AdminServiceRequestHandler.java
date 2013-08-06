@@ -38,7 +38,6 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.RebalanceTaskInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.common.nio.ByteBufferBackedInputStream;
@@ -69,7 +68,6 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
@@ -192,10 +190,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case INITIATE_REBALANCE_NODE:
                 ProtoUtils.writeMessage(outputStream,
                                         handleRebalanceNode(request.getInitiateRebalanceNode()));
-                break;
-            case INITIATE_REBALANCE_NODE_ON_DONOR:
-                ProtoUtils.writeMessage(outputStream,
-                                        handleRebalanceNodeOnDonor(request.getInitiateRebalanceNodeOnDonor()));
                 break;
             case ASYNC_OPERATION_LIST:
                 ProtoUtils.writeMessage(outputStream,
@@ -343,35 +337,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 logger.error("handleRebalanceStateChange failed for request(" + request.toString()
                              + ")", e);
             }
-        }
-
-        return response.build();
-    }
-
-    public VAdminProto.AsyncOperationStatusResponse
-            handleRebalanceNodeOnDonor(VAdminProto.InitiateRebalanceNodeOnDonorRequest request) {
-        VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
-        try {
-            if(!voldemortConfig.isEnableRebalanceService())
-                throw new VoldemortException("Rebalance service is not enabled for node: "
-                                             + metadataStore.getNodeId());
-
-            List<RebalancePartitionsInfo> rebalanceStealInfos = ProtoUtils.decodeRebalancePartitionInfoMap(request.getRebalancePartitionInfoList());
-
-            // Assert that all the plans we got have the same donor node
-            RebalanceUtils.assertSameDonor(rebalanceStealInfos, metadataStore.getNodeId());
-
-            int requestId = rebalancer.rebalanceNodeOnDonor(rebalanceStealInfos);
-
-            response.setRequestId(requestId)
-                    .setDescription(rebalanceStealInfos.toString())
-                    .setStatus("Started rebalancing on donor")
-                    .setComplete(false);
-
-        } catch(VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleRebalanceNodeOnDonor failed for request(" + request.toString()
-                         + ")", e);
         }
 
         return response.build();
@@ -615,7 +580,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         }
     }
-
 
     private boolean doesStorageEngineSupportMultiVersionPuts(StorageEngine<ByteArray, byte[], byte[]> storageEngine) {
         if(!voldemortConfig.getMultiVersionStreamingPutsEnabled()
@@ -944,8 +908,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 @Override
                 public void operate() {
                     AdminClient adminClient = AdminClient.createTempAdminClient(voldemortConfig,
-                                                                                   metadataStore.getCluster(),
-                                                                                   voldemortConfig.getClientMaxConnectionsPerNode());
+                                                                                metadataStore.getCluster(),
+                                                                                voldemortConfig.getClientMaxConnectionsPerNode());
                     try {
                         StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
                                                                                                   storeName);
