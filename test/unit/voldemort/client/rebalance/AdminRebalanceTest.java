@@ -45,6 +45,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
+import voldemort.ROTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
@@ -75,7 +76,6 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.UpdateClusterUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -1076,7 +1076,7 @@ public class AdminRebalanceTest {
 
     private void checkRO(Cluster cluster) {
         for(StoreDefinition storeDef: Lists.newArrayList(storeDef1, storeDef2)) {
-            Map<Integer, Set<Pair<Integer, Integer>>> nodeToPartitions = RebalanceUtils.getNodeIdToAllPartitions(cluster,
+            Map<Integer, Set<Pair<Integer, Integer>>> nodeToPartitions = ROTestUtils.getNodeIdToAllPartitions(cluster,
                                                                                                                  storeDef,
                                                                                                                  true);
 
@@ -1337,11 +1337,11 @@ public class AdminRebalanceTest {
     }
 
     private void buildROStore(StoreDefinition storeDef, int numChunks) throws IOException {
-        Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
-                                                                                                                  storeDef,
-                                                                                                                  true);
+        Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = ROTestUtils.getNodeIdToAllPartitions(currentCluster,
+                                                                                                               storeDef,
+                                                                                                               true);
         for(Entry<Integer, Set<Pair<Integer, Integer>>> entry: nodeIdToAllPartitions.entrySet()) {
-            HashMap<Integer, List<Integer>> tuples = RebalanceUtils.flattenPartitionTuples(entry.getValue());
+            HashMap<Integer, List<Integer>> tuples = ROTestUtils.flattenPartitionTuples(entry.getValue());
 
             File tempDir = new File(((ReadOnlyStorageEngine) getStore(entry.getKey(),
                                                                       storeDef.getName())).getStoreDirPath(),

@@ -27,6 +27,7 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 
+import voldemort.ROTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
@@ -49,7 +50,6 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -207,10 +207,10 @@ public abstract class AbstractRebalanceTest {
                                              HashMap<String, String> baselineTuples,
                                              HashMap<String, VectorClock> baselineVersions) {
         for(StoreDefinition storeDef: storeDefs) {
-            Map<Integer, Set<Pair<Integer, Integer>>> currentNodeToPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
+            Map<Integer, Set<Pair<Integer, Integer>>> currentNodeToPartitionTuples = ROTestUtils.getNodeIdToAllPartitions(currentCluster,
                                                                                                                              storeDef,
                                                                                                                              true);
-            Map<Integer, Set<Pair<Integer, Integer>>> finalNodeToPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(finalCluster,
+            Map<Integer, Set<Pair<Integer, Integer>>> finalNodeToPartitionTuples = ROTestUtils.getNodeIdToAllPartitions(finalCluster,
                                                                                                                            storeDef,
                                                                                                                            true);
 
@@ -218,7 +218,7 @@ public abstract class AbstractRebalanceTest {
                 Set<Pair<Integer, Integer>> currentPartitionTuples = currentNodeToPartitionTuples.get(nodeId);
                 Set<Pair<Integer, Integer>> finalPartitionTuples = finalNodeToPartitionTuples.get(nodeId);
 
-                HashMap<Integer, List<Integer>> flattenedPresentTuples = RebalanceUtils.flattenPartitionTuples(Utils.getAddedInTarget(currentPartitionTuples,
+                HashMap<Integer, List<Integer>> flattenedPresentTuples = ROTestUtils.flattenPartitionTuples(Utils.getAddedInTarget(currentPartitionTuples,
                                                                                                                                       finalPartitionTuples));
                 Store<ByteArray, byte[], byte[]> store = getSocketStore(storeDef.getName(),
                                                                         finalCluster.getNodeById(nodeId)

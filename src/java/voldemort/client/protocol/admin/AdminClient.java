@@ -153,7 +153,7 @@ public class AdminClient {
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
 
     final public AdminClient.HelperOperations helperOps;
-    final public AdminClient.ReplicationOperations replicaTypeOps;
+    final public AdminClient.ReplicationOperations replicaOps;
     final public AdminClient.RPCOperations rpcOps;
     final public AdminClient.MetadataManagementOperations metadataMgmtOps;
     final public AdminClient.StoreManagementOperations storeMgmtOps;
@@ -176,7 +176,7 @@ public class AdminClient {
      */
     private AdminClient(AdminClientConfig adminClientConfig, ClientConfig clientConfig) {
         this.helperOps = this.new HelperOperations();
-        this.replicaTypeOps = this.new ReplicationOperations();
+        this.replicaOps = this.new ReplicationOperations();
         this.rpcOps = this.new RPCOperations();
         this.metadataMgmtOps = this.new MetadataManagementOperations();
         this.storeMgmtOps = this.new StoreManagementOperations();
@@ -1619,12 +1619,6 @@ public class AdminClient {
             return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
         }
 
-        // TODO: (replicaType)
-        // "HashMap<Integer, List<Integer>> replicaToPartitionList" is a
-        // confusing/opaque argument. Can this be made a type, or even
-        // unrolled/simplified? The replicaType is pretty much meaningless
-        // anyhow.
-
         // TODO: The use of "Pair" in the return for a fundamental type is
         // awkward. We should have a core KeyValue type that effectively wraps
         // up a ByteArray and a Versioned<byte[]>.
@@ -2769,7 +2763,7 @@ public class AdminClient {
             logger.info("Restoring data for store " + storeDef.getName() + " on node "
                         + restoringNodeId);
 
-            Map<Integer, List<Integer>> restoreMapping = replicaTypeOps.getReplicationMapping(restoringNodeId,
+            Map<Integer, List<Integer>> restoreMapping = replicaOps.getReplicationMapping(restoringNodeId,
                                                                                               cluster,
                                                                                               storeDef,
                                                                                               zoneId);

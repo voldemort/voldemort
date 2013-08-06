@@ -24,10 +24,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -42,8 +39,6 @@ import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
-import voldemort.routing.RoutingStrategy;
-import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
@@ -310,87 +305,7 @@ public class RebalanceUtils {
 
         return finalList;
     }
-
-    // TODO: (replicaType) deprecate.
-
-    /**
-     * For a particular cluster creates a mapping of node id to their
-     * corresponding list of [ replicaType, partition ] tuple
-     * 
-     * @param cluster The cluster metadata
-     * @param storeDef The store definition
-     * @param includePrimary Include the primary partition?
-     * @return Map of node id to set of [ replicaType, partition ] tuple
-     */
-
-    public static Map<Integer, Set<Pair<Integer, Integer>>> getNodeIdToAllPartitions(final Cluster cluster,
-                                                                                     final StoreDefinition storeDef,
-                                                                                     boolean includePrimary) {
-        final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                   cluster);
-
-        final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToReplicas = new HashMap<Integer, Set<Pair<Integer, Integer>>>();
-        final Map<Integer, Integer> partitionToNodeIdMap = cluster.getPartitionIdToNodeIdMap();
-
-        // Map initialization.
-        for(Node node: cluster.getNodes()) {
-            nodeIdToReplicas.put(node.getId(), new HashSet<Pair<Integer, Integer>>());
-        }
-
-        // Track how many zones actually have partitions (and so replica types)
-        // in them.
-        int zonesWithPartitions = 0;
-        for(Integer zoneId: cluster.getZoneIds()) {
-            if(cluster.getNumberOfPartitionsInZone(zoneId) > 0) {
-                zonesWithPartitions++;
-            }
-        }
-
-        // Loops through all nodes
-        for(Node node: cluster.getNodes()) {
-
-            // Gets the partitions that this node was configured with.
-            for(Integer primary: node.getPartitionIds()) {
-
-                // Gets the list of replicating partitions.
-                List<Integer> replicaPartitionList = routingStrategy.getReplicatingPartitionList(primary);
-
-                if((replicaPartitionList.size() % zonesWithPartitions != 0)
-                   || ((replicaPartitionList.size() / zonesWithPartitions) != (storeDef.getReplicationFactor() / cluster.getNumberOfZones()))) {
-
-                    // For zone expansion & shrinking, this warning is expected
-                    // in some cases. For other use cases (shuffling, cluster
-                    // expansion), this warning indicates that something
-                    // is wrong between the clusters and store defs.
-                    logger.warn("Number of replicas returned (" + replicaPartitionList.size()
-                                + ") does not make sense given the replication factor ("
-                                + storeDef.getReplicationFactor() + ") and that there are "
-                                + cluster.getNumberOfZones() + " zones of which "
-                                + zonesWithPartitions + " have partitions (and of which "
-                                + (cluster.getNumberOfZones() - zonesWithPartitions)
-                                + " are empty).");
-                }
-
-                int replicaType = 0;
-                if(!includePrimary) {
-                    replicaPartitionList.remove(primary);
-                    replicaType = 1;
-                }
-
-                // Get the node that this replicating partition belongs to.
-                for(Integer replicaPartition: replicaPartitionList) {
-                    Integer replicaNodeId = partitionToNodeIdMap.get(replicaPartition);
-
-                    // The replicating node will have a copy of primary.
-                    nodeIdToReplicas.get(replicaNodeId).add(Pair.create(replicaType, primary));
-
-                    replicaType++;
-                }
-            }
-        }
-        return nodeIdToReplicas;
-    }
-
+    
     /**
      * Print log to the following logger ( Info level )
      * 
@@ -450,46 +365,6 @@ public class RebalanceUtils {
             }
         }
         return returnList;
-    }
-
-    // TODO: (replicaType) deprecate this method.
-    /**
-     * Returns a string representation of the cluster
-     * 
-     * <pre>
-     * Current Cluster:
-     * 0 - [0, 1, 2, 3] + [7, 8, 9]
-     * 1 - [4, 5, 6] + [0, 1, 2, 3]
-     * 2 - [7, 8, 9] + [4, 5, 6]
-     * </pre>
-     * 
-     * @param nodeIdToAllPartitions Mapping of node id to all tuples
-     * @return Returns a string representation of the cluster
-     */
-    public static String printMap(final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions) {
-        StringBuilder sb = new StringBuilder();
-        for(Map.Entry<Integer, Set<Pair<Integer, Integer>>> entry: nodeIdToAllPartitions.entrySet()) {
-            final Integer nodeId = entry.getKey();
-            final Set<Pair<Integer, Integer>> allPartitions = entry.getValue();
-
-            final HashMap<Integer, List<Integer>> replicaTypeToPartitions = flattenPartitionTuples(allPartitions);
-
-            // Put into sorted key order such that primary replicas occur before
-            // secondary replicas and so on...
-            final TreeMap<Integer, List<Integer>> sortedReplicaTypeToPartitions = new TreeMap<Integer, List<Integer>>(replicaTypeToPartitions);
-
-            sb.append(nodeId);
-            if(replicaTypeToPartitions.size() > 0) {
-                for(Entry<Integer, List<Integer>> partitions: sortedReplicaTypeToPartitions.entrySet()) {
-                    Collections.sort(partitions.getValue());
-                    sb.append(" - " + partitions.getValue());
-                }
-            } else {
-                sb.append(" - empty");
-            }
-            sb.append(Utils.NEWLINE);
-        }
-        return sb.toString();
     }
 
     /**
@@ -592,30 +467,7 @@ public class RebalanceUtils {
             }
         }
     }
-
-    // TODO: (replicaType) deprecate.
-    /**
-     * Given a list of tuples of [replica_type, partition], flattens it and
-     * generates a map of replica_type to partition mapping
-     * 
-     * @param partitionTuples Set of <replica_type, partition> tuples
-     * @return Map of replica_type to set of partitions
-     */
-
-    public static HashMap<Integer, List<Integer>> flattenPartitionTuples(Set<Pair<Integer, Integer>> partitionTuples) {
-        HashMap<Integer, List<Integer>> flattenedTuples = Maps.newHashMap();
-        for(Pair<Integer, Integer> pair: partitionTuples) {
-            if(flattenedTuples.containsKey(pair.getFirst())) {
-                flattenedTuples.get(pair.getFirst()).add(pair.getSecond());
-            } else {
-                List<Integer> newPartitions = Lists.newArrayList();
-                newPartitions.add(pair.getSecond());
-                flattenedTuples.put(pair.getFirst(), newPartitions);
-            }
-        }
-        return flattenedTuples;
-    }
-
+ 
     public static int countTaskStores(List<RebalanceTaskInfo> infos) {
         int count = 0;
         for(RebalanceTaskInfo info: infos) {

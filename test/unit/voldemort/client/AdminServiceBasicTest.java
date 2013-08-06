@@ -50,6 +50,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
+import voldemort.ROTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
@@ -80,7 +81,6 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.UpdateClusterUtils;
 import voldemort.utils.Utils;
@@ -336,7 +336,7 @@ public class AdminServiceBasicTest {
         Cluster newCluster = new Cluster("single_zone_cluster", nodes, zones);
 
         try {
-            adminClient.replicaTypeOps.getReplicationMapping(0, newCluster, storeDef);
+            adminClient.replicaOps.getReplicationMapping(0, newCluster, storeDef);
             fail("Should have thrown an exception since rep-factor = 1");
         } catch(VoldemortException e) {}
 
@@ -350,7 +350,7 @@ public class AdminServiceBasicTest {
                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         // On node 0
-        Map<Integer, List<Integer>> replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(0,
+        Map<Integer, List<Integer>> replicationMapping = adminClient.replicaOps.getReplicationMapping(0,
                                                                                                      newCluster,
                                                                                                      storeDef);
         {
@@ -362,7 +362,7 @@ public class AdminServiceBasicTest {
 
         {
             // On node 1
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(1,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(1,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer,List<Integer>> expectedMapping = Maps.newHashMap();
@@ -373,7 +373,7 @@ public class AdminServiceBasicTest {
 
         {
             // On node 2
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(2,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(2,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -383,7 +383,7 @@ public class AdminServiceBasicTest {
         }
         {
             // On node 3
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(3,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -411,7 +411,7 @@ public class AdminServiceBasicTest {
 
         {
             // On node 0
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(0,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(0,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -421,7 +421,7 @@ public class AdminServiceBasicTest {
         }
         {
             // On node 1
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(1,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(1,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -431,7 +431,7 @@ public class AdminServiceBasicTest {
 
         {
             // On node 2
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(2,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(2,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -442,7 +442,7 @@ public class AdminServiceBasicTest {
 
         {
             // On node 3
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(3,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -461,7 +461,7 @@ public class AdminServiceBasicTest {
         newCluster = new Cluster("single_zone_cluster", nodes, zones);
 
         {
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(0,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(0,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -472,7 +472,7 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(1,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(1,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -483,7 +483,7 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(2,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(2,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -494,7 +494,7 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(3,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -521,7 +521,7 @@ public class AdminServiceBasicTest {
                                                RoutingStrategyType.ZONE_STRATEGY);
         newCluster = new Cluster("multi_zone_cluster", nodes, zones);
         {
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(0,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(0,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -532,7 +532,7 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(1,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(1,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -543,7 +543,7 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(2,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(2,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -554,7 +554,7 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(3,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
                                                                              newCluster,
                                                                              storeDef);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
@@ -586,7 +586,7 @@ public class AdminServiceBasicTest {
         Cluster newCluster = new Cluster("single_zone_cluster", nodes, zones);
 
         try {
-            adminClient.replicaTypeOps.getReplicationMapping(0, newCluster, storeDef, 1);
+            adminClient.replicaOps.getReplicationMapping(0, newCluster, storeDef, 1);
             fail("Should have thrown an exception since rep-factor = 1");
         } catch(VoldemortException e) {}
 
@@ -601,7 +601,7 @@ public class AdminServiceBasicTest {
         newCluster = new Cluster("single_zone_cluster", nodes, zones);
 
         try {
-            adminClient.replicaTypeOps.getReplicationMapping(0, newCluster, storeDef, 0);
+            adminClient.replicaOps.getReplicationMapping(0, newCluster, storeDef, 0);
             fail("Should have thrown an exception since rep-factor = 1");
         } catch(VoldemortException e) {}
 
@@ -615,7 +615,7 @@ public class AdminServiceBasicTest {
                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         // On node 0; zone id 1
-        Map<Integer, List<Integer>> replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(0,
+        Map<Integer, List<Integer>> replicationMapping = adminClient.replicaOps.getReplicationMapping(0,
                                                                                                      newCluster,
                                                                                                      storeDef,
                                                                                                      1);
@@ -627,7 +627,7 @@ public class AdminServiceBasicTest {
         }
 
         // On node 0; zone id 0
-        replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(0,
+        replicationMapping = adminClient.replicaOps.getReplicationMapping(0,
                                                                               newCluster,
                                                                               storeDef,
                                                                               0);
@@ -661,7 +661,7 @@ public class AdminServiceBasicTest {
             // On node 0, zone 0 - failure case since zoneReplicationFactor is 1
 
             try {
-                replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(0,
+                replicationMapping = adminClient.replicaOps.getReplicationMapping(0,
                                                                                       newCluster,
                                                                                       storeDef,
                                                                                       0);
@@ -671,7 +671,7 @@ public class AdminServiceBasicTest {
 
         {
             // On node 0, zone 1
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(0,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(0,
                                                                              newCluster,
                                                                              storeDef,
                                                                              1);
@@ -683,7 +683,7 @@ public class AdminServiceBasicTest {
 
         {
             // On node 1, zone 1
-            replicationMapping = adminClient.replicaTypeOps.getReplicationMapping(1,
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(1,
                                                                              newCluster,
                                                                              storeDef,
                                                                              1);
@@ -933,7 +933,7 @@ public class AdminServiceBasicTest {
     private void
             generateAndFetchFiles(int numChunks, long versionId, long indexSize, long dataSize)
                     throws IOException {
-        Map<Integer, Set<Pair<Integer, Integer>>> buckets = RebalanceUtils.getNodeIdToAllPartitions(cluster,
+        Map<Integer, Set<Pair<Integer, Integer>>> buckets = ROTestUtils.getNodeIdToAllPartitions(cluster,
                                                                                                     StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
                                                                                                                                                     "test-readonly-fetchfiles"),
                                                                                                     true);
@@ -943,7 +943,7 @@ public class AdminServiceBasicTest {
 
             // Create list of buckets ( replica to partition )
             Set<Pair<Integer, Integer>> nodeBucketsSet = buckets.get(node.getId());
-            HashMap<Integer, List<Integer>> nodeBuckets = RebalanceUtils.flattenPartitionTuples(nodeBucketsSet);
+            HashMap<Integer, List<Integer>> nodeBuckets = ROTestUtils.flattenPartitionTuples(nodeBucketsSet);
 
             // Split the buckets into primary and replica buckets
             HashMap<Integer, List<Integer>> primaryNodeBuckets = Maps.newHashMap();
