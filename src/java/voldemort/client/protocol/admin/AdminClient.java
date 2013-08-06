@@ -153,7 +153,7 @@ public class AdminClient {
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
 
     final public AdminClient.HelperOperations helperOps;
-    final public AdminClient.ReplicaTypeOperations replicaTypeOps;
+    final public AdminClient.ReplicationOperations replicaTypeOps;
     final public AdminClient.RPCOperations rpcOps;
     final public AdminClient.MetadataManagementOperations metadataMgmtOps;
     final public AdminClient.StoreManagementOperations storeMgmtOps;
@@ -176,7 +176,7 @@ public class AdminClient {
      */
     private AdminClient(AdminClientConfig adminClientConfig, ClientConfig clientConfig) {
         this.helperOps = this.new HelperOperations();
-        this.replicaTypeOps = this.new ReplicaTypeOperations();
+        this.replicaTypeOps = this.new ReplicationOperations();
         this.rpcOps = this.new RPCOperations();
         this.metadataMgmtOps = this.new MetadataManagementOperations();
         this.storeMgmtOps = this.new StoreManagementOperations();
@@ -402,12 +402,7 @@ public class AdminClient {
 
     }
 
-    // TODO: (replicaType) Deprecate replicaType in all its forms. If any
-    // methods like these are necessary, then they belong in some other utils
-    // class since none of the methods in this helper class actually need to be
-    // part of the AdminClient.
-
-    public class ReplicaTypeOperations {
+    public class ReplicationOperations {
 
         /**
          * For a particular node, finds out all the [replica, partition] tuples
@@ -425,7 +420,7 @@ public class AdminClient {
         }
 
         /**
-         * For a particular node, finds out all the [replica, partition] tuples
+         * For a particular node, finds out all the [node, partition] 
          * it needs to steal in order to be brought back to normal state
          * 
          * @param restoringNode The id of the node which needs to be restored
@@ -448,7 +443,7 @@ public class AdminClient {
                                                           .getPartitionIds();
 
             // Go over every partition. As long as one of them belongs to the
-            // current node list, find its replica
+            // current node list, find its replicating partitions
             for(Node node: cluster.getNodes()) {
                 for(int partitionId: node.getPartitionIds()) {
                     List<Integer> replicatingPartitions = strategy.getReplicatingPartitionList(partitionId);

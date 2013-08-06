@@ -31,16 +31,8 @@ import org.junit.runners.Parameterized.Parameters;
 public class ZonedRebalanceLongTest extends AbstractZonedRebalanceTest {
 
     private final int NUM_KEYS = 10100;
-
-    // TODO: Add back donor-based tests. These tests are broken because it is
-    // near impossible to get the replica-type handshake correct between the
-    // client & server. Once replicaTypes are removed from the fetchEntries code
-    // paths (e.g.,
-    // DonorBasedRebalanceAsyncOperation.fetchEntriesForStealersPartitionScan),
-    // then donor-based code should work again.
-    // public RebalanceLongTest(boolean useNio, boolean useDonorBased) {
     public ZonedRebalanceLongTest(boolean useNio) {
-        super(useNio, false);
+        super(useNio);
     }
 
     @Parameters

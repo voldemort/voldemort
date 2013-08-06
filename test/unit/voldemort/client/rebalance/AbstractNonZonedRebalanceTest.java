@@ -108,8 +108,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
     private StoreDefinition rwStoreDefWithReplication;
     private StoreDefinition rwStoreDefWithReplication2;
 
-    public AbstractNonZonedRebalanceTest(boolean useNio, boolean useDonorBased) {
-        super(useNio, useDonorBased);
+    public AbstractNonZonedRebalanceTest(boolean useNio) {
+        super(useNio);
     }
 
     @Before
@@ -239,9 +239,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           configProps);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            boolean stealerBased = !useDonorBased;
+            
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             try {
@@ -292,9 +291,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           configProps);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             try {
@@ -355,9 +352,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           configProps);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             try {
@@ -395,9 +390,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           null);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             try {
@@ -440,9 +433,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           configProps);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             try {
@@ -508,9 +499,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           configProps);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             try {
@@ -583,10 +572,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = 5;
-            boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             try {
@@ -645,10 +632,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = 5;
-            boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             try {
@@ -703,11 +688,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = 2;
-            // Must use stealer-based for RO!
-            boolean stealerBased = true;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             // Populate the two stores
@@ -862,10 +844,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             // cluster topology then.
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = 2;
-            boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             populateData(updatedCurrentCluster,
@@ -1071,10 +1051,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
             int maxParallel = 2;
-            boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             // Populate the two stores

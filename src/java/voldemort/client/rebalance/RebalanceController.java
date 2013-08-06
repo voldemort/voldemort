@@ -61,12 +61,10 @@ public class RebalanceController {
     public final static long PROXY_PAUSE_IN_SECONDS = TimeUnit.MINUTES.toSeconds(5);
 
     private final int maxParallelRebalancing;
-    private final boolean stealerBasedRebalancing;
     private final long proxyPauseSec;
 
     public RebalanceController(String bootstrapUrl,
                                int maxParallelRebalancing,
-                               boolean stealerBased,
                                long proxyPauseSec) {
         this.adminClient = new AdminClient(bootstrapUrl,
                                            new AdminClientConfig(),
@@ -76,7 +74,6 @@ public class RebalanceController {
         this.currentStoreDefs = pair.getSecond();
 
         this.maxParallelRebalancing = maxParallelRebalancing;
-        this.stealerBasedRebalancing = stealerBased;
         this.proxyPauseSec = proxyPauseSec;
     }
 
@@ -694,24 +691,22 @@ public class RebalanceController {
                          Semaphore[] donorPermits) {
         List<RebalanceTask> taskList = Lists.newArrayList();
         int taskId = 0;
-        if(stealerBasedRebalancing) {
-            RebalanceScheduler scheduler = new RebalanceScheduler(service, maxParallelRebalancing);
-            List<StealerBasedRebalanceTask> sbTaskList = Lists.newArrayList();
-            for(RebalanceTaskInfo taskInfo: rebalanceTaskPlanList) {
-                StealerBasedRebalanceTask rebalanceTask = new StealerBasedRebalanceTask(batchId,
-                                                                                        taskId,
-                                                                                        taskInfo,
-                                                                                        donorPermits[taskInfo.getDonorId()],
-                                                                                        adminClient,
-                                                                                        progressBar,
-                                                                                        scheduler);
-                taskList.add(rebalanceTask);
-                sbTaskList.add(rebalanceTask);
-                // service.execute(rebalanceTask);
-                taskId++;
-            }
-            scheduler.run(sbTaskList);
+        RebalanceScheduler scheduler = new RebalanceScheduler(service, maxParallelRebalancing);
+        List<StealerBasedRebalanceTask> sbTaskList = Lists.newArrayList();
+        for(RebalanceTaskInfo taskInfo: rebalanceTaskPlanList) {
+            StealerBasedRebalanceTask rebalanceTask = new StealerBasedRebalanceTask(batchId,
+                                                                                    taskId,
+                                                                                    taskInfo,
+                                                                                    donorPermits[taskInfo.getDonorId()],
+                                                                                    adminClient,
+                                                                                    progressBar,
+                                                                                    scheduler);
+            taskList.add(rebalanceTask);
+            sbTaskList.add(rebalanceTask);
+            // service.execute(rebalanceTask);
+            taskId++;
         }
+        scheduler.run(sbTaskList);
         return taskList;
     }
 

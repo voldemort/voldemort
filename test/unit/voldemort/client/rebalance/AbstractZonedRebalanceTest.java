@@ -116,8 +116,8 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
     private StoreDefinition rwStoreDefWithReplication;
     private StoreDefinition rwStoreDefWithReplication2;
 
-    public AbstractZonedRebalanceTest(boolean useNio, boolean useDonorBased) {
-        super(useNio, useDonorBased);
+    public AbstractZonedRebalanceTest(boolean useNio) {
+        super(useNio);
     }
 
     @Before
@@ -281,9 +281,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
             interimCluster = startServers(interimCluster, cStoresXml, serverList, configProps);
 
             String bootstrapUrl = getBootstrapUrl(interimCluster, 0);
-            boolean stealerBased = !useDonorBased;
             ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                                                          stealerBased,
                                                                                           fCluster,
                                                                                           fStoreDefs);
 
@@ -346,11 +344,9 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         }
 
         String bootstrapUrl = getBootstrapUrl(interimCluster, 0);
-        boolean stealerBased = !useDonorBased;
-
+    
         // Shuffle cluster
         ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                                                      stealerBased,
                                                                                       zzShuffle,
                                                                                       zzStores);
         rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, serverList);
@@ -359,7 +355,6 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         // Now, go from shuffled state, back to the original to ocnfirm
         // subsequent rebalances can be invoked.
         rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                        stealerBased,
                                                         zzCurrent,
                                                         zzStores);
         rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, serverList);
@@ -431,9 +426,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
                                           configProps);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            boolean stealerBased = !useDonorBased;
             ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                                                          stealerBased,
                                                                                           finalCluster);
 
             try {
@@ -479,10 +472,8 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
 
         String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
         int maxParallel = 5;
-        boolean stealerBased = !useDonorBased;
         ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                       maxParallel,
-                                                                                      stealerBased,
                                                                                       finalCluster);
 
         try {
@@ -553,9 +544,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
                                           configProps);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            boolean stealerBased = !useDonorBased;
             ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
-                                                                                          stealerBased,
                                                                                           finalCluster);
 
             try {
@@ -661,11 +650,8 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
 
             String bootstrapUrl = getBootstrapUrl(updatedCurrentCluster, 0);
             int maxParallel = 2;
-            // Forced to use steal since RO does not support donor based.
-            boolean stealerBased = true;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             try {
@@ -832,10 +818,8 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
             // infinite, so this should be fine.
             String bootstrapUrl = getBootstrapUrl(updatedCurrentCluster, 0);
             int maxParallel = 2;
-            boolean stealerBased = !useDonorBased;
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 maxParallel,
-                                                                                                stealerBased,
                                                                                                 finalCluster);
 
             populateData(currentCluster, rwStoreDefWithReplication);

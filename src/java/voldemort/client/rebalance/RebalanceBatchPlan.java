@@ -228,59 +228,6 @@ public class RebalanceBatchPlan {
         }
     }
 
-    // TODO: (replicaType) As part of dropping replicaType and
-    // RebalancePartitionsInfo from code, simplify this object.
-    /**
-     * Gathers all of the state necessary to build a
-     * List<RebalancePartitionsInfo> which is effectively a (batch) plan.
-     */
-//    private class RebalancePartitionsInfoBuilder {
-//
-//        final HashMap<Pair<Integer, Integer>, HashMap<String, HashMap<Integer, List<Integer>>>> stealerDonorToStoreToStealPartition;
-//
-//        RebalancePartitionsInfoBuilder() {
-//            stealerDonorToStoreToStealPartition = Maps.newHashMap();
-//        }
-//
-//        public void addPartitionStoreMove(int stealerNodeId,
-//                                          int donorNodeId,
-//                                          String storeName,
-//                                          int donorReplicaType,
-//                                          int partitionId) {
-//            Pair<Integer, Integer> stealerDonor = new Pair<Integer, Integer>(stealerNodeId,
-//                                                                             donorNodeId);
-//            if(!stealerDonorToStoreToStealPartition.containsKey(stealerDonor)) {
-//                stealerDonorToStoreToStealPartition.put(stealerDonor,
-//                                                        new HashMap<String, HashMap<Integer, List<Integer>>>());
-//            }
-//
-//            HashMap<String, HashMap<Integer, List<Integer>>> storeToStealPartition = stealerDonorToStoreToStealPartition.get(stealerDonor);
-//            if(!storeToStealPartition.containsKey(storeName)) {
-//                storeToStealPartition.put(storeName, new HashMap<Integer, List<Integer>>());
-//            }
-//
-//            HashMap<Integer, List<Integer>> replicaTypeToPartitionIdList = storeToStealPartition.get(storeName);
-//            if(!replicaTypeToPartitionIdList.containsKey(donorReplicaType)) {
-//                replicaTypeToPartitionIdList.put(donorReplicaType, new ArrayList<Integer>());
-//            }
-//
-//            List<Integer> partitionIdList = replicaTypeToPartitionIdList.get(donorReplicaType);
-//            partitionIdList.add(partitionId);
-//        }
-//
-//        public List<RebalancePartitionsInfo> buildRebalancePartitionsInfos() {
-//            final List<RebalancePartitionsInfo> result = new ArrayList<RebalancePartitionsInfo>();
-//
-//            for(Pair<Integer, Integer> stealerDonor: stealerDonorToStoreToStealPartition.keySet()) {
-//                result.add(new RebalancePartitionsInfo(stealerDonor.getFirst(),
-//                                                       stealerDonor.getSecond(),
-//                                                       stealerDonorToStoreToStealPartition.get(stealerDonor),
-//                                                       currentCluster));
-//            }
-//            return result;
-//        }
-//    }
-
     /**
      * Determine the batch plan and return it. The batch plan has the following
      * properties:

@@ -70,7 +70,7 @@ public class Ec2RebalanceTest extends AbstractNonZonedRebalanceTest {
     private List<String> activeHostNames = new ArrayList<String>();
 
     public Ec2RebalanceTest() {
-        super(true, true);
+        super(true);
     }
 
     @BeforeClass

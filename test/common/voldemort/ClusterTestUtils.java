@@ -665,12 +665,10 @@ public class ClusterTestUtils {
 
     public static RebalanceKit getRebalanceKit(String bootstrapUrl,
                                                int maxParallel,
-                                               boolean stealerBased,
                                                long proxyPauseS,
                                                Cluster finalCluster) {
         RebalanceController rebalanceController = new RebalanceController(bootstrapUrl,
                                                                           maxParallel,
-                                                                          stealerBased,
                                                                           proxyPauseS);
         RebalancePlan rebalancePlan = rebalanceController.getPlan(finalCluster,
                                                                   RebalancePlan.BATCH_SIZE);
@@ -679,33 +677,27 @@ public class ClusterTestUtils {
     }
 
     public static RebalanceKit getRebalanceKit(String bootstrapUrl,
-                                               boolean stealerBased,
                                                Cluster finalCluster) {
         return getRebalanceKit(bootstrapUrl,
                                RebalanceController.MAX_PARALLEL_REBALANCING,
-                               stealerBased,
                                REBALANCE_CONTROLLER_TEST_PROXY_PAUSE_IN_SECONDS,
                                finalCluster);
     }
 
     public static RebalanceKit getRebalanceKit(String bootstrapUrl,
                                                int maxParallel,
-                                               boolean stealerBased,
                                                Cluster finalCluster) {
         return getRebalanceKit(bootstrapUrl,
                                maxParallel,
-                               stealerBased,
                                REBALANCE_CONTROLLER_TEST_PROXY_PAUSE_IN_SECONDS,
                                finalCluster);
     }
 
     public static RebalanceKit getRebalanceKit(String bootstrapUrl,
-                                               boolean stealerBased,
                                                Cluster finalCluster,
                                                List<StoreDefinition> finalStoreDefs) {
         RebalanceController rebalanceController = new RebalanceController(bootstrapUrl,
                                                                           RebalanceController.MAX_PARALLEL_REBALANCING,
-                                                                          stealerBased,
                                                                           REBALANCE_CONTROLLER_TEST_PROXY_PAUSE_IN_SECONDS);
         RebalancePlan rebalancePlan = rebalanceController.getPlan(finalCluster,
                                                                   finalStoreDefs,

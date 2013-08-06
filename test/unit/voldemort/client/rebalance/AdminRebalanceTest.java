@@ -76,8 +76,8 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
-import voldemort.utils.Utils;
 import voldemort.utils.UpdateClusterUtils;
+import voldemort.utils.Utils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
@@ -113,7 +113,6 @@ public class AdminRebalanceTest {
 
     private final boolean useNio;
 
-    // TODO: should test stealer- and donor-based rebalancing
     public AdminRebalanceTest(boolean useNio) {
         this.useNio = useNio;
     }

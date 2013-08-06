@@ -59,13 +59,11 @@ public abstract class AbstractRebalanceTest {
     Map<Integer, VoldemortServer> serverMap;
 
     protected final boolean useNio;
-    protected final boolean useDonorBased;
     HashMap<String, String> testEntries;
     protected SocketStoreFactory socketStoreFactory;
 
-    public AbstractRebalanceTest(boolean useNio, boolean useDonorBased) {
+    public AbstractRebalanceTest(boolean useNio) {
         this.useNio = useNio;
-        this.useDonorBased = useDonorBased;
         this.serverMap = new HashMap<Integer, VoldemortServer>();
         testEntries = ServerTestUtils.createRandomKeyValueString(getNumKeys());
         socketStoreFactory = new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
