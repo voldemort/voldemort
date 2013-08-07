@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -36,8 +36,6 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.restclient.RESTClientConfig;
-import voldemort.restclient.RESTClientFactory;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -71,7 +69,6 @@ public class Benchmark {
     public static final String PROP_FILE = "prop-file";
     public static final String THREADS = "threads";
     public static final String NUM_CONNECTIONS_PER_NODE = "num-connections-per-node";
-    public static final String MAX_TOTAL_CONNECTIONS = "max-total-connections";
     public static final String ITERATIONS = "iterations";
     public static final String STORAGE_CONFIGURATION_CLASS = "storage-configuration-class";
     public static final String INTERVAL = "interval";
@@ -150,7 +147,7 @@ public class Benchmark {
         @Override
         public void run() {
             boolean testComplete = true;
-            int totalOps = 0, prevTotalOps = 0, totalFailureCount = 0;
+            int totalOps = 0, prevTotalOps = 0;
             do {
                 testComplete = true;
                 totalOps = 0;
@@ -159,15 +156,13 @@ public class Benchmark {
                         testComplete = false;
                     }
                     totalOps += ((ClientThread) thread).getOpsDone();
-                    totalFailureCount += ((ClientThread) thread).getFailureCount();
                 }
 
                 if(totalOps != 0 && totalOps != prevTotalOps) {
                     System.out.println("[status]\tThroughput(ops/sec): "
                                        + Time.MS_PER_SECOND
                                        * ((double) totalOps / (double) (System.currentTimeMillis() - startTime))
-                                       + "\tTotal Failures:" + totalFailureCount + "\tOperations: "
-                                       + totalOps);
+                                       + "\tOperations: " + totalOps);
                     Metrics.getInstance().printReport(System.out);
                 }
                 prevTotalOps = totalOps;
@@ -187,7 +182,6 @@ public class Benchmark {
         private int operationsCount;
         private double targetThroughputPerMs;
         private int opsDone;
-        private int failureCount = 0;
         private final WorkloadPlugin plugin;
 
         public ClientThread(VoldemortWrapper db,
@@ -211,10 +205,6 @@ public class Benchmark {
             return this.opsDone;
         }
 
-        public int getFailureCount() {
-            return this.failureCount;
-        }
-
         @Override
         public void run() {
             long startTime = System.currentTimeMillis();
@@ -229,13 +219,11 @@ public class Benchmark {
                             break;
                         }
                     }
-                    opsDone++;
                 } catch(Exception e) {
-                    // if(this.isVerbose)
-                    e.printStackTrace();
-                    failureCount++;
-                    System.err.println("Increasing failure count " + failureCount);
+                    if(this.isVerbose)
+                        e.printStackTrace();
                 }
+                opsDone++;
 
                 if(targetThroughputPerMs > 0) {
                     double timePerOp = ((double) opsDone) / targetThroughputPerMs;
@@ -261,25 +249,6 @@ public class Benchmark {
             }
         }
         return storeDef;
-    }
-
-    public String findKeyType(SerializerDefinition serializerDefinition) throws Exception {
-        if(serializerDefinition != null) {
-            if("string".equals(serializerDefinition.getName())) {
-                return Benchmark.STRING_KEY_TYPE;
-            } else if("json".equals(serializerDefinition.getName())) {
-                if(serializerDefinition.getCurrentSchemaInfo().contains("int")) {
-                    return Benchmark.JSONINT_KEY_TYPE;
-                } else if(serializerDefinition.getCurrentSchemaInfo().contains("string")) {
-                    return Benchmark.JSONSTRING_KEY_TYPE;
-                }
-            } else if("identity".equals(serializerDefinition.getName())) {
-                return Benchmark.IDENTITY_KEY_TYPE;
-            }
-        }
-
-        throw new Exception("Can't determine key type for key serializer "
-                            + serializerDefinition.getName());
     }
 
     public String findKeyType(StoreDefinition storeDefinition) throws Exception {
@@ -360,10 +329,6 @@ public class Benchmark {
         this.ignoreNulls = benchmarkProps.getBoolean(IGNORE_NULLS, false);
         int clientZoneId = benchmarkProps.getInt(CLIENT_ZONE_ID, -1);
 
-        int maxTotalConnections = benchmarkProps.getInt(MAX_TOTAL_CONNECTIONS, 5000);
-
-        System.err.println("Using total connections : " + maxTotalConnections);
-
         if(benchmarkProps.containsKey(URL)) {
 
             // Remote benchmark
@@ -371,26 +336,7 @@ public class Benchmark {
                 throw new VoldemortException("Missing storename");
             }
 
-            String bootstrapURL = benchmarkProps.getString(URL);
-            String socketUrl = "";
-
-            if(bootstrapURL.contains("http")) {
-                // Create the client
-                RESTClientConfig config = new RESTClientConfig();
-                config.setHttpBootstrapURL(bootstrapURL)
-                      .setTimeoutMs(1500, TimeUnit.MILLISECONDS)
-                      .setMaxR2ConnectionPoolSize(maxTotalConnections);
-
-                RESTClientFactory factory = new RESTClientFactory(config);
-                this.storeClient = factory.getStoreClient("test");
-                this.factory = factory;
-
-                socketUrl = bootstrapURL.replace("http", "tcp");
-                socketUrl = socketUrl.replace("8080", "6666");
-            } else {
-                socketUrl = bootstrapURL;
-            }
-
+            String socketUrl = benchmarkProps.getString(URL);
             String storeName = benchmarkProps.getString(STORE_NAME);
 
             ClientConfig clientConfig = new ClientConfig().setMaxThreads(numThreads)
@@ -404,35 +350,17 @@ public class Benchmark {
                                                                                 TimeUnit.MILLISECONDS)
                                                           .setRequestFormatType(RequestFormatType.VOLDEMORT_V3)
                                                           .setBootstrapUrls(socketUrl);
+            // .enableDefaultClient(true);
 
             if(clientZoneId >= 0) {
                 clientConfig.setClientZoneId(clientZoneId);
             }
-
             SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
-
-            if(!bootstrapURL.contains("http")) {
-                this.storeClient = socketFactory.getStoreClient(storeName);
-
-                StoreDefinition storeDef = getStoreDefinition(socketFactory, storeName);
-                this.keyType = findKeyType(storeDef);
-                benchmarkProps.put(Benchmark.KEY_TYPE, this.keyType);
-                this.factory = socketFactory;
-            } else {
-
-                // String serializerInfoXml = ((RESTClientFactory)
-                // factory).getSerializerInfo("test");
-                // SerializerDefinition keySerializerDefinition =
-                // CoordinatorUtils.parseKeySerializerDefinition(serializerInfoXml);
-                // SerializerDefinition valueSerializerDefinition =
-                // CoordinatorUtils.parseValueSerializerDefinition(serializerInfoXml);
-                // System.err.println("Schema = " + serializerInfoXml);
-
-                SerializerDefinition keySerializerDefinition = new SerializerDefinition("string");
-
-                this.keyType = findKeyType(keySerializerDefinition);
-                benchmarkProps.put(Benchmark.KEY_TYPE, this.keyType);
-            }
+            this.storeClient = socketFactory.getStoreClient(storeName);
+            StoreDefinition storeDef = getStoreDefinition(socketFactory, storeName);
+            this.keyType = findKeyType(storeDef);
+            benchmarkProps.put(Benchmark.KEY_TYPE, this.keyType);
+            this.factory = socketFactory;
 
         } else {
 
@@ -613,12 +541,6 @@ public class Benchmark {
               .withRequiredArg()
               .describedAs("num-connections-per-node")
               .ofType(Integer.class);
-        parser.accepts(MAX_TOTAL_CONNECTIONS,
-                       "max number of total connections to the entire cluster; Default = 5000")
-              .withRequiredArg()
-              .describedAs("max-total-connections")
-              .ofType(Integer.class);
-
         parser.accepts(ITERATIONS, "number of times to repeat benchmark phase; Default = 1")
               .withRequiredArg()
               .describedAs("num-iter")
@@ -761,9 +683,6 @@ public class Benchmark {
             mainProps.put(NUM_CONNECTIONS_PER_NODE, CmdUtils.valueOf(options,
                                                                      NUM_CONNECTIONS_PER_NODE,
                                                                      MAX_CONNECTIONS_PER_NODE));
-
-            mainProps.put(MAX_TOTAL_CONNECTIONS,
-                          CmdUtils.valueOf(options, MAX_TOTAL_CONNECTIONS, 5000));
             mainProps.put(PERCENT_CACHED, CmdUtils.valueOf(options, PERCENT_CACHED, 0));
             mainProps.put(INTERVAL, CmdUtils.valueOf(options, INTERVAL, 0));
             mainProps.put(TARGET_THROUGHPUT, CmdUtils.valueOf(options, TARGET_THROUGHPUT, -1));

@@ -38,8 +38,6 @@ public abstract class AbstractRestRequestHandler extends SimpleChannelUpstreamHa
     private final Logger logger = Logger.getLogger(AbstractRestRequestHandler.class);
     private final boolean isVectorClockOptional;
 
-    private long maxLatency = 0;
-
     // Implicit constructor defined for the derived classes
     public AbstractRestRequestHandler() {
         this.isVectorClockOptional = true;
@@ -55,8 +53,6 @@ public abstract class AbstractRestRequestHandler extends SimpleChannelUpstreamHa
         RestRequestValidator requestValidator;
         if(!readingChunks) {
 
-            logger.debug("Received request in Request handler");
-
             // Construct the Request from messageEvent
             HttpRequest request = this.request = (HttpRequest) messageEvent.getMessage();
             String requestURI = this.request.getUri();
@@ -64,23 +60,12 @@ public abstract class AbstractRestRequestHandler extends SimpleChannelUpstreamHa
                 logger.debug("Request URI: " + requestURI);
             }
 
-            // Figure out the time difference:
-            long currentTimeInMs = System.currentTimeMillis();
-            long originTimeInMs = Long.parseLong(request.getHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS));
-            long diff = currentTimeInMs - originTimeInMs;
-            // if(diff > maxLatency) {
-            maxLatency = diff;
-            System.err.println("Max Time difference in ms = " + maxLatency + " for handler :"
-                               + ctx.getPipeline().getChannel().getId());
-            // }
-
             if(request.isChunked()) {
                 readingChunks = true;
             } else {
                 // Instantiate the appropriate error handler
                 HttpMethod httpMethod = request.getMethod();
                 if(httpMethod.equals(HttpMethod.GET)) {
-                    logger.debug("Received GET request in request handler");
                     requestValidator = new RestGetRequestValidator(request, messageEvent);
                 } else if(httpMethod.equals(HttpMethod.POST)) {
                     requestValidator = new RestPutRequestValidator(request,

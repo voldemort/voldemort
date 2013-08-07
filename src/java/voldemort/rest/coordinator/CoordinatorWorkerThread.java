@@ -114,16 +114,6 @@ public class CoordinatorWorkerThread implements Runnable {
                         try {
                             boolean keyExists = false;
                             List<Versioned<byte[]>> versionedValues = this.storeClient.getWithCustomTimeout(this.requestObject);
-
-                            // Do a Noop
-                            // Versioned<byte[]> responseVersioned = null;
-                            // byte[] sampleByteArray = "a".getBytes();
-                            // responseVersioned = new
-                            // Versioned<byte[]>(sampleByteArray);
-                            // List<Versioned<byte[]>> versionedValues = new
-                            // ArrayList<Versioned<byte[]>>();
-                            // versionedValues.add(responseVersioned);
-
                             if(versionedValues == null || versionedValues.size() == 0) {
                                 if(this.requestObject.getValue() != null) {
                                     if(versionedValues == null) {
@@ -258,7 +248,6 @@ public class CoordinatorWorkerThread implements Runnable {
                         try {
                             VectorClock successfulPutVC = null;
 
-                            // Do a NOOP
                             if(this.requestObject.getValue() != null) {
                                 successfulPutVC = ((VectorClock) this.storeClient.putVersionedWithCustomTimeout(this.requestObject)).clone();
                             } else {

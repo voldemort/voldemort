@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.commons.codec.binary.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.jdom.Document;
@@ -32,17 +31,14 @@ public class RestUtils {
      * @return The string (JSON) version of the specified Vector clock
      */
     public static String getSerializedVectorClock(VectorClock vc) {
-        // VectorClockWrapper vcWrapper = new VectorClockWrapper(vc);
-        // ObjectMapper mapper = new ObjectMapper();
+        VectorClockWrapper vcWrapper = new VectorClockWrapper(vc);
+        ObjectMapper mapper = new ObjectMapper();
         String serializedVC = "";
-        // try {
-        // serializedVC = mapper.writeValueAsString(vcWrapper);
-        // } catch(Exception e) {
-        // e.printStackTrace();
-        // }
-
-        serializedVC = new String(Base64.encodeBase64(vc.toBytes()));
-
+        try {
+            serializedVC = mapper.writeValueAsString(vcWrapper);
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
         return serializedVC;
     }
 
@@ -53,18 +49,14 @@ public class RestUtils {
             return null;
         }
 
-        vc = new VectorClock(Base64.decodeBase64(serializedVC));
+        ObjectMapper mapper = new ObjectMapper();
 
-        // ObjectMapper mapper = new ObjectMapper();
-        //
-        // try {
-        // VectorClockWrapper vcWrapper = mapper.readValue(serializedVC,
-        // VectorClockWrapper.class);
-        // vc = new VectorClock(vcWrapper.getVersions(),
-        // vcWrapper.getTimestamp());
-        // } catch(Exception e) {
-        // e.printStackTrace();
-        // }
+        try {
+            VectorClockWrapper vcWrapper = mapper.readValue(serializedVC, VectorClockWrapper.class);
+            vc = new VectorClock(vcWrapper.getVersions(), vcWrapper.getTimestamp());
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
 
         return vc;
     }

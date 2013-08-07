@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
@@ -73,8 +74,8 @@ public abstract class RestRequestValidator {
                 this.parsedTimeoutInMs = Long.parseLong(timeoutValStr);
                 if(this.parsedTimeoutInMs < 0) {
                     RestErrorHandler.writeErrorResponse(messageEvent,
-                                                        HttpResponseStatus.BAD_REQUEST,
-                                                        "Time out cannot be negative ");
+                                                              HttpResponseStatus.BAD_REQUEST,
+                                                              "Time out cannot be negative ");
 
                 } else {
                     result = true;
@@ -84,15 +85,15 @@ public abstract class RestRequestValidator {
                                      + timeoutValStr,
                              nfe);
                 RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                    HttpResponseStatus.BAD_REQUEST,
-                                                    "Incorrect timeout parameter. Cannot parse this to long: "
-                                                            + timeoutValStr);
+                                                          HttpResponseStatus.BAD_REQUEST,
+                                                          "Incorrect timeout parameter. Cannot parse this to long: "
+                                                                  + timeoutValStr);
             }
         } else {
             logger.error("Error when validating request. Missing timeout parameter.");
             RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                HttpResponseStatus.BAD_REQUEST,
-                                                "Missing timeout parameter.");
+                                                      HttpResponseStatus.BAD_REQUEST,
+                                                      "Missing timeout parameter.");
         }
         return result;
     }
@@ -119,15 +120,15 @@ public abstract class RestRequestValidator {
                                      + rtCode,
                              nfe);
                 RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                    HttpResponseStatus.BAD_REQUEST,
-                                                    "Incorrect routing type parameter. Cannot parse this to long: "
-                                                            + rtCode);
+                                                          HttpResponseStatus.BAD_REQUEST,
+                                                          "Incorrect routing type parameter. Cannot parse this to long: "
+                                                                  + rtCode);
             } catch(VoldemortException ve) {
                 logger.error("Exception when validating request. Incorrect routing type code: "
                              + rtCode, ve);
                 RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                    HttpResponseStatus.BAD_REQUEST,
-                                                    "Incorrect routing type code: " + rtCode);
+                                                          HttpResponseStatus.BAD_REQUEST,
+                                                          "Incorrect routing type code: " + rtCode);
             }
         }
     }
@@ -148,8 +149,8 @@ public abstract class RestRequestValidator {
                 this.parsedRequestOriginTimeInMs = Long.parseLong(originTime);
                 if(this.parsedRequestOriginTimeInMs < 0) {
                     RestErrorHandler.writeErrorResponse(messageEvent,
-                                                        HttpResponseStatus.BAD_REQUEST,
-                                                        "Origin time cannot be negative ");
+                                                              HttpResponseStatus.BAD_REQUEST,
+                                                              "Origin time cannot be negative ");
 
                 } else {
                     result = true;
@@ -159,15 +160,15 @@ public abstract class RestRequestValidator {
                                      + originTime,
                              nfe);
                 RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                    HttpResponseStatus.BAD_REQUEST,
-                                                    "Incorrect origin time parameter. Cannot parse this to long: "
-                                                            + originTime);
+                                                          HttpResponseStatus.BAD_REQUEST,
+                                                          "Incorrect origin time parameter. Cannot parse this to long: "
+                                                                  + originTime);
             }
         } else {
             logger.error("Error when validating request. Missing origin time parameter.");
             RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                HttpResponseStatus.BAD_REQUEST,
-                                                "Missing origin time parameter.");
+                                                      HttpResponseStatus.BAD_REQUEST,
+                                                      "Missing origin time parameter.");
         }
         return result;
     }
@@ -183,27 +184,24 @@ public abstract class RestRequestValidator {
 
         String vectorClockHeader = this.request.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK);
         if(vectorClockHeader != null) {
-            // ObjectMapper mapper = new ObjectMapper();
+            ObjectMapper mapper = new ObjectMapper();
             try {
-                this.parsedVectorClock = RestUtils.deserializeVectorClock(vectorClockHeader);
-                // VectorClockWrapper vcWrapper =
-                // mapper.readValue(vectorClockHeader,
-                // VectorClockWrapper.class);
-                // this.parsedVectorClock = new
-                // VectorClock(vcWrapper.getVersions(),
-                // vcWrapper.getTimestamp());
+                VectorClockWrapper vcWrapper = mapper.readValue(vectorClockHeader,
+                                                                VectorClockWrapper.class);
+                this.parsedVectorClock = new VectorClock(vcWrapper.getVersions(),
+                                                         vcWrapper.getTimestamp());
                 result = true;
             } catch(Exception e) {
                 logger.error("Exception while parsing and constructing vector clock", e);
                 RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                    HttpResponseStatus.BAD_REQUEST,
-                                                    "Invalid Vector Clock");
+                                                          HttpResponseStatus.BAD_REQUEST,
+                                                          "Invalid Vector Clock");
             }
         } else if(!isVectorClockOptional) {
             logger.error("Error when validating request. Missing Vector Clock");
             RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                HttpResponseStatus.BAD_REQUEST,
-                                                "Missing Vector Clock");
+                                                      HttpResponseStatus.BAD_REQUEST,
+                                                      "Missing Vector Clock");
         } else {
             result = true;
         }
@@ -226,8 +224,8 @@ public abstract class RestRequestValidator {
         } else {
             logger.error("Error when validating request. No key specified.");
             RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                HttpResponseStatus.BAD_REQUEST,
-                                                "Error: No key specified !");
+                                                      HttpResponseStatus.BAD_REQUEST,
+                                                      "Error: No key specified !");
         }
         return result;
     }
@@ -274,8 +272,8 @@ public abstract class RestRequestValidator {
         } else {
             logger.error("Error when validatig request. Missing store name.");
             RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                HttpResponseStatus.BAD_REQUEST,
-                                                "Missing store name. Critical error.");
+                                                      HttpResponseStatus.BAD_REQUEST,
+                                                      "Missing store name. Critical error.");
         }
         return result;
     }
