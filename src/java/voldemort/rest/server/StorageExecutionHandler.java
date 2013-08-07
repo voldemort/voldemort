@@ -3,6 +3,7 @@ package voldemort.rest.server;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import org.apache.log4j.Logger;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
@@ -16,6 +17,7 @@ public class StorageExecutionHandler extends ExecutionHandler {
     private final ThreadPoolExecutor threadPoolExecutor;
     private final StoreStats performanceStats;
     private final int localZoneId;
+    private Logger logger = Logger.getLogger(getClass());
 
     public StorageExecutionHandler(Executor executor, StoreStats performanceStats, int localZoneId) {
         super(executor);
@@ -32,6 +34,7 @@ public class StorageExecutionHandler extends ExecutionHandler {
     public void handleUpstream(ChannelHandlerContext context, ChannelEvent channelEvent)
             throws Exception {
         if(channelEvent instanceof MessageEvent) {
+            logger.error("Executing request now ");
             getExecutor().execute(new StorageWorkerThread((MessageEvent) channelEvent,
                                                           performanceStats,
                                                           localZoneId));

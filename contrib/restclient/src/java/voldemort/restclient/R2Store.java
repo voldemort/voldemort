@@ -46,9 +46,8 @@ import org.codehaus.jackson.map.ObjectMapper;
 
 import voldemort.VoldemortException;
 import voldemort.common.VoldemortOpCode;
-import voldemort.rest.RestUtils;
 import voldemort.rest.RestMessageHeaders;
-import voldemort.rest.VectorClockWrapper;
+import voldemort.rest.RestUtils;
 import voldemort.store.AbstractStore;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.utils.ByteArray;
@@ -287,13 +286,16 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 if(logger.isDebugEnabled()) {
                     logger.debug("Received VC : " + serializedVC);
                 }
-                VectorClockWrapper vcWrapper = mapper.readValue(serializedVC,
-                                                                VectorClockWrapper.class);
 
+                VectorClock clock = RestUtils.deserializeVectorClock(serializedVC);
+
+                // VectorClockWrapper vcWrapper = mapper.readValue(serializedVC,
+                // VectorClockWrapper.class);
+                //
                 // get the value bytes
                 byte[] bodyPartBytes = ((String) part.getContent()).getBytes();
-                VectorClock clock = new VectorClock(vcWrapper.getVersions(),
-                                                    vcWrapper.getTimestamp());
+                // VectorClock clock = new VectorClock(vcWrapper.getVersions(),
+                // vcWrapper.getTimestamp());
                 results.add(new Versioned<byte[]>(bodyPartBytes, clock));
 
             }
@@ -586,13 +588,17 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                         logger.debug("Received serialized Vector Clock : " + serializedVC);
                     }
 
-                    VectorClockWrapper vcWrapper = mapper.readValue(serializedVC,
-                                                                    VectorClockWrapper.class);
+                    VectorClock clock = RestUtils.deserializeVectorClock(serializedVC);
+
+                    // VectorClockWrapper vcWrapper =
+                    // mapper.readValue(serializedVC,
+                    // VectorClockWrapper.class);
 
                     // get the value bytes
                     byte[] bodyPartBytes = ((String) valuePart.getContent()).getBytes();
-                    VectorClock clock = new VectorClock(vcWrapper.getVersions(),
-                                                        vcWrapper.getTimestamp());
+                    // VectorClock clock = new
+                    // VectorClock(vcWrapper.getVersions(),
+                    // vcWrapper.getTimestamp());
                     valueResultList.add(new Versioned<byte[]>(bodyPartBytes, clock));
 
                 }

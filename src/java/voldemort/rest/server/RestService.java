@@ -49,7 +49,12 @@ public class RestService extends AbstractService {
     protected void startInner() {
 
         // Configure the server.
-        this.workerPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(config.getNumRestServiceNettyWorkerThreads());
+        // this.workerPool = (ThreadPoolExecutor)
+        // Executors.newFixedThreadPool(config.getNumRestServiceNettyWorkerThreads());
+        // this.workerPool = (ThreadPoolExecutor)
+        // Executors.newCachedThreadPool();
+        this.workerPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(16);
+
         this.bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newFixedThreadPool(config.getNumRestServiceNettyBossThreads()),
                                                                                workerPool));
         /*

@@ -61,7 +61,7 @@
 	<classpathentry kind="lib" path="lib/azkaban-common-0.05.jar"/>
 	<classpathentry kind="lib" path="contrib/restclient/lib/data-1.5.10.jar"/>
 	<classpathentry kind="lib" path="contrib/restclient/lib/pegasus-common-1.5.10.jar"/>
-	<classpathentry kind="lib" path="contrib/restclient/lib/r2-1.5.10.jar"/>
+	<classpathentry kind="lib" path="contrib/restclient/lib/r2-1.5.10.jar" sourcepath="/home/csoman/linkedin_setup/network/pegasus/pegasus/build/r2/libs/r2-1.5.10-sources.jar"/>
 	<classpathentry kind="lib" path="lib/guava-14.0.1.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="classes"/>
