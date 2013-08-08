@@ -76,7 +76,7 @@ public class RebalanceBatchPlanProgressBar {
      * and some number of partition stores have been migrated.
      * 
      * @param taskId
-     * @param totalPartitionStoreCount Number of partition stores moved by this
+     * @param partitionStoresMigrated Number of partition stores moved by this
      *        completed task.
      */
     synchronized public void completeTask(int taskId, int partitionStoresMigrated) {
@@ -92,7 +92,7 @@ public class RebalanceBatchPlanProgressBar {
      * Construct a pretty string documenting progress for this batch plan thus
      * far.
      * 
-     * @return
+     * @return pretty string documenting progress
      */
     synchronized public String getPrettyProgressBar() {
         StringBuilder sb = new StringBuilder();

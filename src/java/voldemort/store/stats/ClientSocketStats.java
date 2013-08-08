@@ -107,7 +107,7 @@ public class ClientSocketStats {
     /**
      * Construction of a new aggregate stats object
      * 
-     * @param pool The socket pool that will give out connection information
+     * @param jmxId the jmx id
      */
     public ClientSocketStats(int jmxId) {
         this.parent = null;

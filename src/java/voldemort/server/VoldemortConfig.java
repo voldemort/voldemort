@@ -924,8 +924,6 @@ public class VoldemortConfig implements Serializable {
      * <li>Property : "bdb.log.fault.read.size"</li>
      * <li>Default : 2048</li>
      * </ul>
-     * 
-     * @return
      */
     public void setBdbLogFaultReadSize(int bdbLogFaultReadSize) {
         this.bdbLogFaultReadSize = bdbLogFaultReadSize;

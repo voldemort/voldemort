@@ -293,7 +293,7 @@ public class Cluster implements Serializable {
      * Return a detailed string representation of the current cluster
      * 
      * @param isDetailed
-     * @return
+     * @return descripton of cluster
      */
     public String toString(boolean isDetailed) {
         if(!isDetailed) {

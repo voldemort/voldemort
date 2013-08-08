@@ -49,7 +49,7 @@ public class PartitionBalanceUtils {
      * 
      * @param cluster
      * @param zoneId
-     * @return
+     * @return pretty string of partitions per zone
      */
     public static String compressedListOfPartitionsInZone(final Cluster cluster, int zoneId) {
         Map<Integer, Integer> idToRunLength = PartitionBalanceUtils.getMapOfContiguousPartitions(cluster,
@@ -165,7 +165,7 @@ public class PartitionBalanceUtils {
      * 
      * @param cluster
      * @param zoneId
-     * @return
+     * @return pretty string of contiguous run lengths
      */
     public static String getPrettyMapOfContiguousPartitionRunLengths(final Cluster cluster,
                                                                      int zoneId) {
@@ -194,7 +194,7 @@ public class PartitionBalanceUtils {
      * @param cluster The cluster to analyze
      * @param hotContiguityCutoff cutoff below which a contiguous run is not
      *        hot.
-     * @return
+     * @return pretty string of hot partitions
      */
     public static String getHotPartitionsDueToContiguity(final Cluster cluster,
                                                          int hotContiguityCutoff) {
@@ -225,7 +225,7 @@ public class PartitionBalanceUtils {
      * find the specific view of the cluster xml that you want.
      * 
      * @param cluster
-     * @return
+     * @return pretty string of cluster balance
      */
     public static String verboseClusterDump(final Cluster cluster) {
         StringBuilder builder = new StringBuilder();

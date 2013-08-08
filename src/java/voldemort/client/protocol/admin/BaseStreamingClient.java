@@ -359,7 +359,7 @@ public class BaseStreamingClient {
      * Add another store destination to an existing streaming session
      * 
      * 
-     * @param store: the name of the store to stream to
+     * @param store the name of the store to stream to
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected void addStoreToSession(String store) {
@@ -591,7 +591,7 @@ public class BaseStreamingClient {
     /**
      * mark a node as blacklisted
      * 
-     * @param NodeId Integer node id of the node to be balcklisted
+     * @param nodeId Integer node id of the node to be balcklisted
      */
 
     @SuppressWarnings({ "rawtypes", "unchecked" })

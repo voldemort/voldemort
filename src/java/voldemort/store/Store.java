@@ -125,7 +125,7 @@ public interface Store<K, V, T> {
      * only contain entries for the keys which have a value associated with
      * them.
      * 
-     * @param requests Contains the keys to check for.
+     * @param request Contains the keys to check for.
      * @return A Map of keys to a list of versioned values.
      * @throws VoldemortException
      */
@@ -143,7 +143,7 @@ public interface Store<K, V, T> {
     /**
      * Delete all entries prior to the given version
      * 
-     * @param request: Contains the key to delete and current version of the key
+     * @param request Contains the key to delete and current version of the key
      * @return True if anything was deleted
      */
     public boolean delete(CompositeVoldemortRequest<K, V> request) throws VoldemortException;

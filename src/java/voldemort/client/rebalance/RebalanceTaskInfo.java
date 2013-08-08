@@ -119,16 +119,10 @@ public class RebalanceTaskInfo {
         return this.storeToPartitionIds;
     }
 
-    /**
-     * @return set partition ids for a specific store
-     */
     public synchronized void setPartitionIds(String storeName, List<Integer> partitionIds) {
         this.storeToPartitionIds.put(storeName, partitionIds);
     }
 
-    /**
-     * @return set store to partitions maps
-     */
     public synchronized void setStoreToPartitionList(HashMap<String, List<Integer>> storeToPartitionIds) {
         this.storeToPartitionIds = storeToPartitionIds;
     }
@@ -169,7 +163,7 @@ public class RebalanceTaskInfo {
     /**
      * Removes the store name from the map.
      * 
-     * @param store name to be removed from the map
+     * @param storeName name to be removed from the map
      */
     public synchronized void removeStore(String storeName) {
         this.storeToPartitionIds.remove(storeName);
@@ -178,7 +172,7 @@ public class RebalanceTaskInfo {
     /**
      * Returns the list of partitions ids corresponding to a store.
      * 
-     * @param name of the store
+     * @param storeName name of the store
      * @return list of partitions ids for the store.
      */
     public synchronized List<Integer> getPartitionIds(String storeName) {

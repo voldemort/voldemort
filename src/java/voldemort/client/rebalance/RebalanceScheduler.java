@@ -169,7 +169,7 @@ public class RebalanceScheduler {
      * The scheduled task *must* invoke 'doneTask()' upon
      * completion/termination.
      * 
-     * @param boolean flag to control execution of the service, some tests pass
+     * @param executeService flag to control execution of the service, some tests pass
      *        in value 'false'
      * @return The task scheduled or null if not possible to schedule a task at
      *         this time.
@@ -222,7 +222,7 @@ public class RebalanceScheduler {
     /**
      * Add nodes to the workers list
      * 
-     * @param nodeId
+     * @param nodeIds list of node ids.
      */
     public synchronized void addNodesToWorkerList(List<Integer> nodeIds) {
         // Bookkeeping for nodes that will be involved in the next task
@@ -233,7 +233,7 @@ public class RebalanceScheduler {
     /**
      * Removes nodes from the workers list
      * 
-     * @param nodeId
+     * @param nodeIds list of node ids.
      */
     public synchronized void removeNodesFromWorkerList(List<Integer> nodeIds) {
         // Bookkeeping for nodes that have finished the task.

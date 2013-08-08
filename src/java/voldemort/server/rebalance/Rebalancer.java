@@ -134,7 +134,7 @@ public class Rebalancer implements Runnable {
      * methods.
      * 
      * @param cluster Cluster metadata to change
-     * @param rebalancePartitionsInfo List of rebalance partitions info
+     * @param rebalanceTaskInfo List of rebalance partitions info
      * @param swapRO Boolean to indicate swapping of RO store
      * @param changeClusterAndStoresMetadata Boolean to indicate a change of
      *        cluster metadata

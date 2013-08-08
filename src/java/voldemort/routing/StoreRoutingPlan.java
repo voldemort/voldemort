@@ -188,7 +188,7 @@ public class StoreRoutingPlan {
      * Determines master partition ID for the key.
      * 
      * @param key
-     * @return
+     * @return master partition id
      */
     public int getMasterPartitionId(final byte[] key) {
         return this.routingStrategy.getMasterPartition(key);
@@ -198,7 +198,7 @@ public class StoreRoutingPlan {
      * Determines node ID that hosts the specified partition ID.
      * 
      * @param partitionId
-     * @return
+     * @return node id that hosts primary partition id.
      */
     public int getNodeIdForPartitionId(int partitionId) {
         return partitionToNode[partitionId].getId();
@@ -256,7 +256,7 @@ public class StoreRoutingPlan {
      * partition) method
      * 
      * @param partitionId
-     * @return
+     * @return list of node ids 
      * @throws VoldemortException
      */
     public List<Integer> getReplicationNodeList(int partitionId) throws VoldemortException {
@@ -459,7 +459,7 @@ public class StoreRoutingPlan {
      * @param nodeId
      * @param cluster
      * @param storeDef
-     * @return
+     * @return true if partition belongs to node for given store
      */
     public static boolean checkPartitionBelongsToNode(int partition,
                                                       int nodeId,

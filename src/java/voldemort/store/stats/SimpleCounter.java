@@ -109,7 +109,7 @@ public class SimpleCounter {
     /**
      * Returns the events per second in the current interval
      * 
-     * @return
+     * @return events per second in the current interval
      */
     public Double getEventRate() {
         resetIfNeeded();

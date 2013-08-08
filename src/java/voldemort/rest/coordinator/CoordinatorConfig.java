@@ -144,7 +144,7 @@ public class CoordinatorConfig {
      * 
      * @param bootstrapUrls list of bootstrap URLs defining which cluster to
      *        connect to
-     * @return
+     * @return modified CoordinatorConfig
      */
     public CoordinatorConfig setBootstrapURLs(List<String> bootstrapUrls) {
         this.bootstrapURLs = Utils.notNull(bootstrapUrls);

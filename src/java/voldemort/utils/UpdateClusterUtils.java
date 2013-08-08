@@ -138,7 +138,6 @@ public class UpdateClusterUtils {
      *        node should already exist in this metadata
      * @param stealerNodeId Id of node for which we are stealing the partitions
      * @param donatedPartitions List of partitions we are moving
-     * @param partitionList List of partitions we are moving
      * @return Updated cluster metadata
      */
     public static Cluster createUpdatedCluster(Cluster currentCluster,

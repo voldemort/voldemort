@@ -1,7 +1,7 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * copyright 2008-2013 LinkedIn, Inc
  * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
  * 
@@ -490,7 +490,7 @@ public class ClientConfig {
      * Whether or not JMX monitoring is enabled for the system store
      * 
      * @param sysEnableJmx
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setSysEnableJmx(boolean sysEnableJmx) {
         this.sysEnableJmx = sysEnableJmx;
@@ -546,7 +546,7 @@ public class ClientConfig {
      * servers
      * 
      * @param socketKeepAlive
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setSocketKeepAlive(boolean socketKeepAlive) {
         this.socketKeepAlive = socketKeepAlive;
@@ -563,7 +563,7 @@ public class ClientConfig {
      * machine
      * 
      * @param selectors
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setSelectors(int selectors) {
         this.selectors = selectors;
@@ -597,7 +597,7 @@ public class ClientConfig {
      * Set the timeout configuration for the voldemort operations
      * 
      * @param tConfig
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setTimeoutConfig(TimeoutConfig tConfig) {
         this.timeoutConfig = tConfig;
@@ -607,7 +607,7 @@ public class ClientConfig {
     /**
      * Get the timeouts for voldemort operations
      * 
-     * @return
+     * @return modified ClientConfig
      */
     public TimeoutConfig getTimeoutConfig() {
         return timeoutConfig;
@@ -845,7 +845,7 @@ public class ClientConfig {
      * Default : zone 0
      * 
      * @param clientZoneId
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setClientZoneId(int clientZoneId) {
         this.clientZoneId = clientZoneId;
@@ -863,7 +863,7 @@ public class ClientConfig {
      * true = DefaultStoreClient and false = ZenStoreClient
      * 
      * @param enableDefault
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig enableDefaultClient(boolean enableDefault) {
         this.useDefaultClient = enableDefault;
@@ -884,7 +884,7 @@ public class ClientConfig {
      * {@link BannagePeriodFailureDetector}
      * 
      * @param failureDetectorImplementation
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setFailureDetectorImplementation(String failureDetectorImplementation) {
         this.failureDetectorImplementation = failureDetectorImplementation;
@@ -910,7 +910,7 @@ public class ClientConfig {
      * threshold, it will mark the erring server down
      * 
      * @param failureDetectorThreshold
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setFailureDetectorThreshold(int failureDetectorThreshold) {
         this.failureDetectorThreshold = failureDetectorThreshold;
@@ -928,7 +928,7 @@ public class ClientConfig {
      * due to low activity
      * 
      * @param failureDetectorThresholdCountMinimum
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setFailureDetectorThresholdCountMinimum(int failureDetectorThresholdCountMinimum) {
         this.failureDetectorThresholdCountMinimum = failureDetectorThresholdCountMinimum;
@@ -944,7 +944,7 @@ public class ClientConfig {
      * and successes
      * 
      * @param failureDetectorThresholdIntervalMs
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setFailureDetectorThresholdInterval(long failureDetectorThresholdIntervalMs) {
         this.failureDetectorThresholdIntervalMs = failureDetectorThresholdIntervalMs;
@@ -960,7 +960,7 @@ public class ClientConfig {
      * back up again
      * 
      * @param failureDetectorAsyncRecoveryInterval
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setFailureDetectorAsyncRecoveryInterval(long failureDetectorAsyncRecoveryInterval) {
         this.failureDetectorAsyncRecoveryIntervalMs = failureDetectorAsyncRecoveryInterval;
@@ -978,7 +978,7 @@ public class ClientConfig {
      * ConnectException.class.getName()
      * 
      * @param failureDetectorCatastrophicErrorTypes
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
         this.failureDetectorCatastrophicErrorTypes = failureDetectorCatastrophicErrorTypes;
@@ -995,7 +995,7 @@ public class ClientConfig {
      * failure detection
      * 
      * @param failureDetectorRequestLengthThreshold
-     * @return
+     * @return modified ClientConfig
      */
     public ClientConfig setFailureDetectorRequestLengthThreshold(long failureDetectorRequestLengthThreshold) {
         this.failureDetectorRequestLengthThreshold = failureDetectorRequestLengthThreshold;
@@ -1058,8 +1058,9 @@ public class ClientConfig {
      * Set the interval on which client refreshes its corresponding entry of the
      * client registry on the servers
      * 
-     * @param clientRegistryRefreshIntervalInSecs The refresh interval in
+     * @param clientRegistryRefrshIntervalInSecs The refresh interval in
      *        seconds
+     * @return modified ClientConfig
      */
     public ClientConfig setClientRegistryUpdateIntervalInSecs(int clientRegistryRefrshIntervalInSecs) {
         this.clientRegistryRefreshIntervalInSecs = clientRegistryRefrshIntervalInSecs;
@@ -1129,7 +1130,7 @@ public class ClientConfig {
     }
 
     /**
-     * @param fatClientWrapperMaxPoolSize Defines the Core pool size for the
+     * @param fatClientWrapperCorePoolSize Defines the Core pool size for the
      *        thread pool used in the Fat client wrapper
      */
     public ClientConfig setFatClientWrapperCorePoolSize(int fatClientWrapperCorePoolSize) {

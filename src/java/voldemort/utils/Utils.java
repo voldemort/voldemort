@@ -707,7 +707,7 @@ public class Utils {
      * number of elements (peanut butter) over some number of buckets (bread
      * slices).
      * 
-     * @param set The keys of the map over which which to evenly distribute the
+     * @param mapKeys The keys of the map over which which to evenly distribute the
      *        elements.
      * @param numElements The number of elements to distribute.
      * @return A Map with keys specified by breadSlices each integer entry of

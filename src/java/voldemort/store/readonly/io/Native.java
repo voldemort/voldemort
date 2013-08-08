@@ -12,7 +12,7 @@ public class Native {
     /**
      * Used to get access to protected/private field of the specified class
      * 
-     * @param klass - name of the class
+     * @param className - name of the class
      * @param fieldName - name of the field
      * @return Field or null on error
      */

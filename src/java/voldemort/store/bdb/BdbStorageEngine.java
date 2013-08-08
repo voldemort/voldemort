@@ -214,7 +214,7 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
      * This method throws an exception while truncation is happening to any
      * request attempting in parallel with store truncation.
      * 
-     * @return
+     * @return database object
      */
     protected Database getBdbDatabase() {
         if(isTruncating.get()) {

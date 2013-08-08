@@ -29,7 +29,7 @@ public interface AsyncResourceRequest<V> {
     /**
      * To be invoked with resource to use before deadline.
      * 
-     * @param resource. resource should not be null.
+     * @param resource resource should not be null.
      */
     void useResource(V resource);
 

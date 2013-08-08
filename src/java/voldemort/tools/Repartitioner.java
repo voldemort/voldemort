@@ -327,7 +327,7 @@ public class Repartitioner {
      * @param nextCandidateCluster
      * @param balanceZones indicates whether or not number of primary partitions
      *        per zone should be balanced.
-     * @return
+     * @return updated cluster
      */
     public static Cluster balancePrimaryPartitions(final Cluster nextCandidateCluster,
                                                    boolean balanceZones) {
@@ -449,7 +449,7 @@ public class Repartitioner {
      * 
      * @param nextCandidateCluster
      * @param maxContiguousPartitionsPerZone See RebalanceCLI.
-     * @return
+     * @return updated cluster
      */
     public static Cluster
             repeatedlyBalanceContiguousPartitionsPerZone(final Cluster nextCandidateCluster,
@@ -590,7 +590,7 @@ public class Repartitioner {
      * 
      * @param nextCandidateCluster
      * @param zoneId Zone ID within which to shuffle partitions
-     * @return
+     * @return updated cluster
      */
     public static Cluster swapRandomPartitionsWithinZone(final Cluster nextCandidateCluster,
                                                          final int zoneId) {
@@ -697,7 +697,7 @@ public class Repartitioner {
      * @param nextCandidateCluster cluster object.
      * @param randomSwapAttempts See RebalanceCLI.
      * @param randomSwapSuccesses See RebalanceCLI.
-     * @param zoneIds The set of zoneIds to consider. Each zone is done
+     * @param randomSwapZoneIds The set of zoneIds to consider. Each zone is done
      *        independently.
      * @param storeDefs List of store definitions
      * @return updated cluster
@@ -767,11 +767,11 @@ public class Repartitioner {
      * generated. The best among these swap pairs will be chosen.
      * 
      * @param nextCandidateCluster
-     * @param zoneId Zone ID within which to shuffle partitions
+     * @param nodeIds Node IDs within which to shuffle partitions
      * @param greedySwapMaxPartitionsPerNode See RebalanceCLI.
      * @param greedySwapMaxPartitionsPerZone See RebalanceCLI.
      * @param storeDefs
-     * @return
+     * @return updated cluster
      */
     public static Cluster swapGreedyRandomPartitions(final Cluster nextCandidateCluster,
                                                      final List<Integer> nodeIds,
@@ -854,10 +854,10 @@ public class Repartitioner {
      * @param greedyAttempts See RebalanceCLI.
      * @param greedySwapMaxPartitionsPerNode See RebalanceCLI.
      * @param greedySwapMaxPartitionsPerZone See RebalanceCLI.
-     * @param zoneIds The set of zoneIds to consider. Each zone is done
+     * @param greedySwapZoneIds The set of zoneIds to consider. Each zone is done
      *        independently.
      * @param storeDefs
-     * @return
+     * @return updated cluster
      */
     public static Cluster greedyShufflePartitions(final Cluster nextCandidateCluster,
                                                   final int greedyAttempts,

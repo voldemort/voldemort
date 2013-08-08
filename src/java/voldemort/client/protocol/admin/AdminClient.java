@@ -917,7 +917,7 @@ public class AdminClient {
          * See {@link voldemort.store.metadata.MetadataStore} for more
          * information.
          * 
-         * @param remoteNodeId Id of the node
+         * @param remoteNodeIds Ids of the nodes
          * @param key Metadata key to update
          * @param value Value for the metadata key
          * 
@@ -1153,7 +1153,7 @@ public class AdminClient {
          * partitions from donorNode, merely copies them. </b>
          * <p>
          * See
-         * {@link AdminClient#migratePartitions(int, int, String, HashMap, VoldemortFilter, Cluster, boolean)}
+         * {@link #migratePartitions(int, int, String, List, VoldemortFilter, Cluster)}
          * for more details.
          * 
          * 
@@ -1374,7 +1374,7 @@ public class AdminClient {
          * @param nodeId The node id to backup
          * @param storeName The name of the store to backup
          * @param destinationDirPath The destination path
-         * @param minutes to wait for operation to complete
+         * @param timeOut minutes to wait for operation to complete
          * @param verify should the file checksums be verified
          * @param isIncremental is the backup incremental
          */
@@ -1569,12 +1569,12 @@ public class AdminClient {
 
         /**
          * Legacy interface for fetching entries. See
-         * {@link AdminClient#fetchEntries(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+         * {@link #fetchEntries(int, String, List, VoldemortFilter, boolean, Cluster, long)}
          * for more information.
          * 
          * @param nodeId Id of the node to fetch from
          * @param storeName Name of the store
-         * @param partitionList List of the partitions
+         * @param partitionIds List of the partitions
          * @param filter Custom filter implementation to filter out entries
          *        which should not be fetched.
          * @param fetchMasterEntries Fetch an entry only if master replica
@@ -1598,7 +1598,7 @@ public class AdminClient {
 
         /**
          * Legacy interface for fetching entries. See
-         * {@link AdminClient#fetchEntries(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+         * {@link #fetchEntries(int, String, List, VoldemortFilter, boolean, Cluster, long)}
          * for more information.
          * 
          * @param nodeId Id of the node to fetch from
@@ -1782,12 +1782,12 @@ public class AdminClient {
 
         /**
          * Legacy interface for fetching entries. See
-         * {@link AdminClient#fetchKeys(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+         * {@link #fetchKeys(int, String, List, VoldemortFilter, boolean, Cluster, long)}
          * for more information.
          * 
          * @param nodeId Id of the node to fetch from
          * @param storeName Name of the store
-         * @param partitionList List of the partitions to retrieve
+         * @param partitionIds List of the partitions to retrieve
          * @param filter Custom filter implementation to filter out entries
          *        which should not be fetched.
          * @param fetchMasterEntries Fetch a key only if master replica
@@ -1811,7 +1811,7 @@ public class AdminClient {
 
         /**
          * Legacy interface for fetching entries. See
-         * {@link AdminClient#fetchKeys(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+         * {@link #fetchKeys(int, String, List, VoldemortFilter, boolean, Cluster, long)}
          * for more information.
          * 
          * @param nodeId Id of the node to fetch from
@@ -1833,7 +1833,7 @@ public class AdminClient {
 
         /**
          * Fetch all keys belonging to the list of partition ids. Identical to
-         * {@link AdminClient#fetchEntries} but <em>only fetches the keys</em>
+         * {@link #fetchEntries} but <em>only fetches the keys</em>
          * 
          * @param nodeId The node id from where to fetch the keys
          * @param storeName The store name whose keys we want to retrieve
@@ -1994,7 +1994,6 @@ public class AdminClient {
          * @param storeName Name of the store
          * @param nodeKeyValue A specific key/value to update on a specific
          *        node.
-         * @return RepairEntryResult with success/exception details.
          */
         public void putNodeKeyValue(String storeName, NodeValue<ByteArray, byte[]> nodeKeyValue) {
             SocketStore socketStore = adminStoreClient.getSocketStore(nodeKeyValue.getNodeId(),
@@ -2352,7 +2351,9 @@ public class AdminClient {
          * 
          * @param existingCluster Current cluster
          * @param transitionCluster Transition cluster
-         * @param rebalancePartitionPlanList The list of rebalance partition
+         * @param existingStoreDefs current store defs
+         * @param targetStoreDefs transition store defs
+         * @param rebalanceTaskPlanList The list of rebalance partition
          *        info plans
          * @param swapRO Boolean indicating if we need to swap RO stores
          * @param changeClusterMetadata Boolean indicating if we need to change
@@ -2529,7 +2530,6 @@ public class AdminClient {
          * 
          * @param requiredNodes List of nodes from which we definitely need an
          *        answer
-         * @param adminClient Admin client used to query the nodes
          * @return Returns the latest cluster metadata
          */
         public Versioned<Cluster> getLatestCluster(List<Integer> requiredNodes) {
@@ -2562,7 +2562,6 @@ public class AdminClient {
          * {@link VoldemortState#NORMAL_SERVER}).
          * 
          * @param cluster Cluster metadata whose nodes we are checking
-         * @param adminClient Admin client used to query
          * @throws VoldemortRebalancingException if any node is not in normal
          *         state
          */
@@ -2593,8 +2592,6 @@ public class AdminClient {
          * cluster
          * 
          * @param cluster The cluster metadata
-         * @param adminClient The admin client to use to retrieve the store
-         *        definitions
          * @return List of store definitions
          */
         public List<StoreDefinition> getCurrentStoreDefinitions(Cluster cluster) {
@@ -2633,7 +2630,6 @@ public class AdminClient {
          * 
          * @param cluster Cluster metadata
          * @param storeDefs Complete list of store definitions
-         * @param adminClient Admin client
          */
         public void validateReadOnlyStores(Cluster cluster, List<StoreDefinition> storeDefs) {
             List<StoreDefinition> readOnlyStores = StoreDefinitionUtils.filterStores(storeDefs,
@@ -3175,7 +3171,7 @@ public class AdminClient {
 
         /**
          * This is a wrapper around
-         * {@link voldemort.client.protocol.admin.AdminClient#getROMaxVersion(int, List)}
+         * {@link #getROMaxVersion(int, List)}
          * where-in we find the max versions on each machine and then return the
          * max of all of them
          * 

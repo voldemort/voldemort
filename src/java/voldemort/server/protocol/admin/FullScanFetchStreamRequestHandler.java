@@ -98,11 +98,7 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
      * Determines if the key is needed. To be 'needed', a key must (i) belong to a partition being
      * requested and (ii) be necessary to meet recordsPerPartition constraint, if any.
      * 
-     * @param nodeId
      * @param key
-     * @param replicaToPartitionList
-     * @param cluster
-     * @param storeDef
      * @return true iff key is needed.
      */
     protected boolean isKeyNeeded(byte[] key) {
@@ -125,7 +121,7 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
      * needed. For orphan usage, this simply means confirming the key belongs to the node.
      * 
      * @param key
-     * @return
+     * @return true iff entry is accepted.
      */
     protected boolean isItemAccepted(byte[] key) {
         boolean entryAccepted = false;
@@ -179,7 +175,7 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
      * True iff enough items have been fetched for all partitions, where 'enough' is relative to
      * recordsPerPartition value.
      * 
-     * @return
+     * @return true iff enough items have been fetched for all partitions
      */
     protected boolean fetchedEnoughForAllPartitions() {
         if (recordsPerPartition <= 0) {
@@ -196,7 +192,7 @@ public abstract class FullScanFetchStreamRequestHandler extends FetchStreamReque
      * Determines if still WRITING or COMPLETE.
      * 
      * @param itemTag mad libs style string to insert into progress message.
-     * @return
+     * @return state of stream request handler
      */
     protected StreamRequestHandlerState determineRequestHandlerState(String itemTag) {
 

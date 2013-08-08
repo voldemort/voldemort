@@ -31,7 +31,7 @@ import voldemort.store.UnreachableStoreException;
 import com.google.common.collect.Lists;
 
 /**
- * Immutable class that executes a {@link RebalancePartitionsInfo} instance on
+ * Immutable class that executes a {@link RebalanceTaskInfo} instance on
  * the rebalance client side.
  * 
  * This is run from the stealer nodes perspective

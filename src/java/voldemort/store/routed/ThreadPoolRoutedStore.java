@@ -98,7 +98,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
      * @param storeDef The store definition
      * @param numberOfThreads The number of threads in the threadpool
      * @param repairReads Do we want to do read repairs?
-     * @param timeoutMs The timeout in ms
+     * @param timeoutConfig The timeout configuration
      * @param failureDetector The failure detector implementation
      */
     public ThreadPoolRoutedStore(String name,
@@ -129,7 +129,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
      * @param storeDef The store definition
      * @param repairReads Do we want to do read repairs?
      * @param threadPool The threadpool to use
-     * @param timeoutMs The timeout in ms
+     * @param timeoutConfig The timeout configuration
      * @param failureDetector The failure detector implementation
      * @param time Time instance
      */

@@ -115,7 +115,7 @@ public class RestUtils {
      * response to a "schemata" fetch request
      * 
      * @param storeDefinition
-     * @return
+     * @return serialized store definition 
      */
     public static String constructSerializerInfoXml(StoreDefinition storeDefinition) {
         Element store = new Element(StoreDefinitionsMapper.STORE_ELMT);
@@ -137,7 +137,7 @@ public class RestUtils {
      * obtains the key serializer definition
      * 
      * @param serializerInfoXml
-     * @return
+     * @return key serializer definition
      */
     public static SerializerDefinition parseKeySerializerDefinition(String serializerInfoXml) {
         return parseSerializerDefinition(serializerInfoXml,
@@ -149,7 +149,7 @@ public class RestUtils {
      * obtains the value serializer definition
      * 
      * @param serializerInfoXml
-     * @return
+     * @return serializer definition
      */
     public static SerializerDefinition parseValueSerializerDefinition(String serializerInfoXml) {
         return parseSerializerDefinition(serializerInfoXml,

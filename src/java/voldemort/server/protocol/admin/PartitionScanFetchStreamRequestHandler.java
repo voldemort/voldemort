@@ -71,7 +71,6 @@ public abstract class PartitionScanFetchStreamRequestHandler extends FetchStream
      * Simple info message for status
      * 
      * @param tag Message to print out at start of info message
-     * @param currentIndex current partition index
      */
     protected void statusInfoMessage(final String tag) {
         if(logger.isInfoEnabled()) {
@@ -84,7 +83,7 @@ public abstract class PartitionScanFetchStreamRequestHandler extends FetchStream
     /**
      * True iff enough items have been fetched for current partition
      * 
-     * @return
+     * @return true iff enough items have been fetched for current partition.
      */
     protected boolean fetchedEnoughForCurrentPartition() {
         if(recordsPerPartition <= 0) {
@@ -96,7 +95,6 @@ public abstract class PartitionScanFetchStreamRequestHandler extends FetchStream
     /**
      * Account for fetch.
      * 
-     * @param key
      */
     protected void recordFetched() {
         fetched++;

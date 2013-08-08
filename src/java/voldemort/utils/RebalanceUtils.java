@@ -68,7 +68,7 @@ public class RebalanceUtils {
      * Verify store definitions are congruent with cluster definition.
      * 
      * @param cluster
-     * @param stores
+     * @param storeDefs
      */
     public static void validateClusterStores(final Cluster cluster,
                                              final List<StoreDefinition> storeDefs) {
@@ -372,7 +372,7 @@ public class RebalanceUtils {
      * 
      * @param currentCluster Initial cluster metadata
      * @param finalCluster Final cluster metadata
-     * @param outputDir Output directory where to dump this file
+     * @param outputDirName Output directory where to dump this file
      * @param filePrefix String to prepend to the initial & final cluster
      *        metadata files
      * @throws IOException
@@ -390,7 +390,7 @@ public class RebalanceUtils {
      * 
      * @param currentCluster Initial cluster metadata
      * @param finalCluster Final cluster metadata
-     * @param outputDir Output directory where to dump this file
+     * @param outputDirName Output directory where to dump this file
      * @throws IOException
      */
     public static void dumpClusters(Cluster currentCluster,
@@ -510,7 +510,7 @@ public class RebalanceUtils {
      * Given a list of partition infos, generates a map of stealer / donor node
      * to list of partition infos
      * 
-     * @param rebalancePartitionPlanList Complete list of partition plans
+     * @param rebalanceTaskPlanList Complete list of partition plans
      * @param groupByStealerNode Boolean indicating if we want to group by
      *        stealer node ( or donor node )
      * @return Flattens it into a map on a per node basis

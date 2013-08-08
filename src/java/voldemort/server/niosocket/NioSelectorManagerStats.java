@@ -65,7 +65,7 @@ public class NioSelectorManagerStats {
     /**
      * Returns the number of active connections for this selector manager
      * 
-     * @return
+     * @return number of active connections.
      */
     public Integer getNumActiveConnections() {
         return numActiveConnections.toInteger();

@@ -98,7 +98,7 @@ public class RebalanceController {
      * @param finalCluster
      * @param finalStoreDefs Needed for zone expansion/shrinking.
      * @param batchSize
-     * @return
+     * @return RebalancePlan comprised of one or more batches.
      */
     public RebalancePlan getPlan(Cluster finalCluster,
                                  List<StoreDefinition> finalStoreDefs,
@@ -124,7 +124,7 @@ public class RebalanceController {
      * 
      * @param finalCluster
      * @param batchSize
-     * @return
+     * @return RebalancePlan comprised of one or more batches.
      */
     public RebalancePlan getPlan(Cluster finalCluster, int batchSize) {
         return getPlan(finalCluster, currentStoreDefs, batchSize);

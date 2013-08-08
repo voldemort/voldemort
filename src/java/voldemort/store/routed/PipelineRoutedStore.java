@@ -101,13 +101,12 @@ public class PipelineRoutedStore extends RoutedStore {
     /**
      * Create a PipelineRoutedStore
      * 
-     * @param name The name of the store
      * @param innerStores The mapping of node to client
      * @param nonblockingStores
      * @param slopStores The stores for hints
+     * @param nonblockingSlopStores
      * @param cluster Cluster definition
      * @param storeDef Store definition
-     * @param storeConfig The PipelineRoutedStore config
      */
     public PipelineRoutedStore(Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
                                Map<Integer, NonblockingStore> nonblockingStores,

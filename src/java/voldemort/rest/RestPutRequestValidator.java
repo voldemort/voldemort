@@ -84,7 +84,7 @@ public class RestPutRequestValidator extends RestRequestValidator {
     /**
      * Retrieves and validates the content length from the REST request.
      * 
-     * @return
+     * @return true if has content length
      */
     protected boolean hasContentLength() {
         boolean result = false;
@@ -120,7 +120,7 @@ public class RestPutRequestValidator extends RestRequestValidator {
      * TODO REST-Server Should check for valid content type (only binary
      * allowed)
      * 
-     * @return
+     * @return true if has content type.
      */
     protected boolean hasContentType() {
 

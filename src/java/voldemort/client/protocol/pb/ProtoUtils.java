@@ -63,9 +63,9 @@ public class ProtoUtils {
      * Given a protobuf rebalance-partition info, converts it into our
      * rebalance-partition info
      * 
-     * @param rebalancePartitionInfoMap Proto-buff version of
-     *        rebalance-partition-info
-     * @return Rebalance-partition-info
+     * @param rebalanceTaskInfoMap Proto-buff version of
+     *        RebalanceTaskInfoMap
+     * @return RebalanceTaskInfo object.
      */
     public static RebalanceTaskInfo decodeRebalanceTaskInfoMap(VAdminProto.RebalanceTaskInfoMap rebalanceTaskInfoMap) {
         RebalanceTaskInfo rebalanceTaskInfo = new RebalanceTaskInfo(

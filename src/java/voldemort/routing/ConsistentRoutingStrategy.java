@@ -165,7 +165,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
      * Obtain the master partition for a given key
      * 
      * @param key
-     * @return
+     * @return master partition id
      */
     @Override
     public Integer getMasterPartition(byte[] key) {

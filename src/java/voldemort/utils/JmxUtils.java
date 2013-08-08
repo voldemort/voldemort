@@ -355,7 +355,7 @@ public class JmxUtils {
      * Return the string representation of jmxId
      * 
      * @param jmxId
-     * @return
+     * @return string representation of jmx id
      */
     public static String getJmxId(int jmxId) {
         return jmxId == 0 ? "" : Integer.toString(jmxId);

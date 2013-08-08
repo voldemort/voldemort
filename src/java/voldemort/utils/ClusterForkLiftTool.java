@@ -49,13 +49,13 @@ import com.google.common.collect.Lists;
  * There are two modes around how the divergent versions of a key are
  * consolidated from the source cluster. :
  * 
- * 1) Primary only Resolution ({@link SinglePartitionForkLiftTask}: The entries
+ * 1) Primary only Resolution ({@link ClusterForkLiftTool#SinglePartitionForkLiftTask}: The entries
  * on the primary partition are moved over to the destination cluster with empty
  * vector clocks. if any key has multiple versions on the primary, they are
  * resolved. This approach is fast and is best suited if you deem the replicas
  * being very much in sync with each other. This is the DEFAULT mode
  * 
- * 2) Global Resolution ({@link SinglePartitionGloballyResolvingForkLiftTask} :
+ * 2) Global Resolution ({@link ClusterForkLiftTool#SinglePartitionGloballyResolvingForkLiftTask} :
  * The keys belonging to a partition are fetched out of the primary replica, and
  * for each such key, the corresponding values are obtained from all other
  * replicas, using get(..) operations. These versions are then resolved and

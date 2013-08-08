@@ -32,7 +32,7 @@ import com.google.common.collect.Maps;
 
 /**
  * Store and manipulate rebalancing state. Moved out from
- * {@link RebalancePartitionsInfo} and {@link MetadataStore}
+ * {@link RebalanceTaskInfo} and {@link MetadataStore}
  * 
  */
 public class RebalancerState {

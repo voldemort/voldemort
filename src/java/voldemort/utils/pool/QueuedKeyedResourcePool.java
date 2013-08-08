@@ -39,9 +39,8 @@ import voldemort.store.UnreachableStoreException;
  * Beyond the expectations documented in KeyedResourcePool, the following is
  * expected of the user of this class:
  * <ul>
- * <li>A resource acquired via {@link #checkout(K)) checkout} or via {@link
- * #requestResource(K , ResourceRequest<V>) requestResource} is checked in
- * exactly once.
+ * <li>A resource acquired via #checkout(K)) or via equestResource(K ,
+ * ResourceRequest) requestResource is checked in exactly once.
  * <li>A resource that is checked in was previously checked out or requested.
  * <li>Also, reqeustResource is never called after close.
  * </ul>
@@ -58,11 +57,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /**
-     * Create a new queued pool
+     * Create a new queued pool with key type K, request type R, and value type V.
      * 
-     * @param <K> The type of the keys
-     * @param <R> The type of requests
-     * @param <V> The type of the values
      * @param factory The factory that creates objects
      * @param config The pool config
      * @return The created pool
@@ -73,11 +69,9 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /**
-     * Create a new queued pool using the defaults
+     * Create a new queued pool using the defaults for key of tyep K,
+     * request of type R, and value of Type V.
      * 
-     * @param <K> The type of the keys
-     * @param <R> The type of requests
-     * @param <V> The type of the values
      * @param factory The factory that creates objects
      * @return The created pool
      */
@@ -95,8 +89,6 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * non-blocking fast-path that is tried optimistically.
      * 
      * @param key The key to checkout the resource for
-     * @return The resource
-     * 
      */
     public void registerResourceRequest(K key, AsyncResourceRequest<V> resourceRequest) {
         checkNotClosed();
