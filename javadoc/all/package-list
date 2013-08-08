@@ -16,6 +16,7 @@ voldemort.cluster.failuredetector
 voldemort.common
 voldemort.common.nio
 voldemort.common.service
+voldemort.coordinator
 voldemort.routing
 voldemort.serialization
 voldemort.serialization.avro
@@ -35,6 +36,7 @@ voldemort.server.protocol.pb
 voldemort.server.protocol.vold
 voldemort.server.rebalance
 voldemort.server.rebalance.async
+voldemort.server.rest
 voldemort.server.scheduler
 voldemort.server.scheduler.slop
 voldemort.server.socket
@@ -72,6 +74,7 @@ voldemort.store.stats
 voldemort.store.system
 voldemort.store.versioned
 voldemort.store.views
+voldemort.tools
 voldemort.utils
 voldemort.utils.pool
 voldemort.versioning
