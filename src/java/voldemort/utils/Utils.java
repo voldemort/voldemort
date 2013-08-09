@@ -284,6 +284,63 @@ public class Utils {
     }
 
     /**
+     * Computes the percentage, taking care of division by 0
+     */
+    public static double safeGetPercentage(long rawNum, long total) {
+        return total == 0 ? 0.0d : rawNum / (float) total;
+    }
+
+    /**
+     * Computes sum of a {@link java.lang.Long} list
+     * 
+     * @param list
+     * @return sum of the list
+     */
+    public static long sumLongList(List<Long> list) {
+        long sum = 0;
+        for(Long val: list) {
+            sum += val;
+        }
+        return sum;
+    }
+
+    /**
+     * Compute the average of a {@link java.lang.Long} list
+     * 
+     * @param list
+     * @return
+     */
+    public static long avgLongList(List<Long> list) {
+        long sum = sumLongList(list);
+        return list.size() == 0 ? 0L : sum / list.size();
+    }
+
+    /**
+     * Compute the sum of a {@link java.lang.Double} list
+     * 
+     * @param list
+     * @return
+     */
+    public static double sumDoubleList(List<Double> list) {
+        double sum = 0.0;
+        for(Double val: list) {
+            sum += val;
+        }
+        return sum;
+    }
+
+    /**
+     * Compute the average of a {@link java.lang.Double} list
+     * 
+     * @param list
+     * @return
+     */
+    public static double avgDoubleList(List<Double> list) {
+        double sum = sumDoubleList(list);
+        return list.size() == 0 ? 0.0 : sum / list.size();
+    }
+
+    /**
      * Gets hash code of an object, optionally returns hash code based on the
      * "deep contents" of array if the object is an array.
      * <p>

@@ -4,6 +4,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.SortedMap;
 
+import voldemort.utils.Utils;
+
 import com.sleepycat.je.DbInternal;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.cleaner.FileSummary;
@@ -58,12 +60,11 @@ final public class SpaceUtilizationStats {
                 long bytesUsed = fs.totalSize - fs.getObsoleteSize();
                 summaryDetails.append(String.format("%s,%f\n",
                                                     Long.toHexString(entry.getKey().longValue()),
-                                                    BdbEnvironmentStats.safeGetPercentage(bytesUsed,
-                                                                                          fs.totalSize)));
+                                                    Utils.safeGetPercentage(bytesUsed, fs.totalSize)));
             }
             summaryDetails.append(String.format("total,%f\n",
-                                                BdbEnvironmentStats.safeGetPercentage(totalSpaceUtilized,
-                                                                                      totalSpaceUsed)));
+                                                Utils.safeGetPercentage(totalSpaceUtilized,
+                                                                        totalSpaceUsed)));
         }
         return summaryDetails.toString();
     }

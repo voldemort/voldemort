@@ -32,6 +32,7 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageInitializationException;
 import voldemort.store.StoreDefinition;
+import voldemort.store.bdb.stats.AggregatedBdbEnvironmentStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.JmxUtils;
@@ -71,6 +72,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     private final VoldemortConfig voldemortConfig;
     private long reservedCacheSize = 0;
     private Set<Environment> unreservedStores;
+    private AggregatedBdbEnvironmentStats aggBdbStats;
 
     public BdbStorageConfiguration(VoldemortConfig config) {
         this.voldemortConfig = config;
@@ -134,6 +136,11 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         bdbMasterDir = config.getBdbDataDirectory();
         useOneEnvPerStore = config.isBdbOneEnvPerStore();
         unreservedStores = new HashSet<Environment>();
+
+        aggBdbStats = new AggregatedBdbEnvironmentStats();
+        if(config.isJmxEnabled()) {
+            JmxUtils.registerMbean("aggregated-bdb", aggBdbStats);
+        }
     }
 
     public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
@@ -157,6 +164,11 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 if(voldemortConfig.isJmxEnabled()) {
                     // register the environment stats mbean
                     JmxUtils.registerMbean(storeName, engine.getBdbEnvironmentStats());
+                    // when using a shared environment, there is no meaning to
+                    // aggregated stats
+                    if(useOneEnvPerStore) {
+                        aggBdbStats.trackEnvironment(engine.getBdbEnvironmentStats());
+                    }
                 }
                 return engine;
             } catch(DatabaseException d) {

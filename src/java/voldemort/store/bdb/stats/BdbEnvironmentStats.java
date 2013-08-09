@@ -4,9 +4,10 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.Experimental;
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.utils.CachedCallable;
+import voldemort.utils.Utils;
 
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseException;
@@ -288,7 +289,7 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "NumCleanerDeletions")
     public long getNumCleanerDeletions() {
-        return getFastStats().getNCleanerRuns();
+        return getFastStats().getNCleanerDeletions();
     }
 
     @JmxGetter(name = "NumCheckpoints")
@@ -350,12 +351,12 @@ public class BdbEnvironmentStats {
         return numEnvironmentFailureExceptions.longValue();
     }
 
-    @JmxGetter(name = "getEntryCount", description = "Obtain the number of k-v entries in the store")
+    @JmxOperation(description = "Obtain the number of k-v entries in the store")
     public long getEntryCount() throws Exception {
         return entryCount.call();
     }
 
-    @JmxGetter(name = "getBtreeStats", description = "Obtain statistics about the BTree Index for a store")
+    @JmxOperation(description = "Obtain statistics about the BTree Index for a store")
     public String getBtreeStats() throws Exception {
         return btreeStats.call().toString();
     }
@@ -372,17 +373,6 @@ public class BdbEnvironmentStats {
         return getNumSequentialWriteBytes() + getNumRandomWriteBytes();
     }
 
-    @JmxGetter(name = "PercentRandomWrites")
-    public double getPercentRandomWrites() {
-        return safeGetPercentage(getNumRandomWrites(), getNumWritesTotal());
-    }
-
-    @JmxGetter(name = "PercentageRandomWriteBytes")
-    public double getPercentageRandomWriteBytes() {
-        return safeGetPercentage(getNumRandomWriteBytes(), getNumRandomWriteBytes()
-                                                           + getNumSequentialWriteBytes());
-    }
-
     @JmxGetter(name = "NumReadsTotal")
     public long getNumReadsTotal() {
         return getNumRandomReads() + getNumSequentialReads();
@@ -393,67 +383,72 @@ public class BdbEnvironmentStats {
         return getNumRandomReadBytes() + getNumSequentialReadBytes();
     }
 
+    @JmxGetter(name = "PercentRandomWrites")
+    public double getPercentRandomWrites() {
+        return Utils.safeGetPercentage(getNumRandomWrites(), getNumWritesTotal());
+    }
+
+    @JmxGetter(name = "PercentageRandomWriteBytes")
+    public double getPercentageRandomWriteBytes() {
+        return Utils.safeGetPercentage(getNumRandomWriteBytes(), getNumRandomWriteBytes()
+                                                                 + getNumSequentialWriteBytes());
+    }
+
     @JmxGetter(name = "PercentageRandomReads")
     public double getPercentageRandomReads() {
-        return safeGetPercentage(getNumRandomReads(), getNumReadsTotal());
+        return Utils.safeGetPercentage(getNumRandomReads(), getNumReadsTotal());
     }
 
     @JmxGetter(name = "PercentageRandomReadBytes")
     public double getPercentageRandomReadBytes() {
-        return safeGetPercentage(getNumRandomWriteBytes(), getNumRandomReadBytes()
-                                                           + getNumSequentialReadBytes());
+        return Utils.safeGetPercentage(getNumRandomWriteBytes(), getNumRandomReadBytes()
+                                                                 + getNumSequentialReadBytes());
     }
 
     @JmxGetter(name = "PercentageReads")
     public double getPercentageReads() {
-        return safeGetPercentage(getNumReadsTotal(), getNumReadsTotal() + getNumWritesTotal());
+        return Utils.safeGetPercentage(getNumReadsTotal(), getNumReadsTotal() + getNumWritesTotal());
     }
 
     @JmxGetter(name = "PercentageReadBytes")
     public double getPercentageReadBytes() {
-        return safeGetPercentage(getNumReadBytesTotal(), getNumWriteBytesTotal()
-                                                         + getNumReadBytesTotal());
+        return Utils.safeGetPercentage(getNumReadBytesTotal(), getNumWriteBytesTotal()
+                                                               + getNumReadBytesTotal());
     }
 
-    @Experimental
     @JmxGetter(name = "PercentageCacheHits")
     public double getPercentageCacheHits() {
         return 1.0d - getPercentageCacheMisses();
     }
 
-    @Experimental
     @JmxGetter(name = "PercentageCacheMisses")
     public double getPercentageCacheMisses() {
-        return safeGetPercentage(getNumCacheMiss(), getNumReadsTotal() + getNumWritesTotal());
+        return Utils.safeGetPercentage(getNumCacheMiss(), getNumReadsTotal() + getNumWritesTotal());
     }
 
     @JmxGetter(name = "PercentageContended")
     public double getPercentageContended() {
-        return safeGetPercentage(getNumAcquiresWithContention(), getNumAcquiresWithContention()
-                                                                 + getNumAcquiresNoWaiters());
+        return Utils.safeGetPercentage(getNumAcquiresWithContention(),
+                                       getNumAcquiresWithContention() + getNumAcquiresNoWaiters());
     }
 
     @JmxGetter(name = "PercentageUtilization")
     public double getPercentageUtilization() {
-        return safeGetPercentage(getTotalSpaceUtilized(), getTotalSpace());
+        return Utils.safeGetPercentage(getTotalSpaceUtilized(), getTotalSpace());
     }
 
     @JmxGetter(name = "PercentageBINMiss")
     public double getPercentageBINMiss() {
-        return safeGetPercentage(getBINFetchMisses(), getBINFetches());
+        return Utils.safeGetPercentage(getBINFetchMisses(), getBINFetches());
     }
 
     @JmxGetter(name = "PercentageINMiss")
     public double getPercentageINMiss() {
-        return safeGetPercentage(getINFetchMisses(), getINFetches());
+        return Utils.safeGetPercentage(getINFetchMisses(), getINFetches());
     }
 
     @JmxGetter(name = "PercentageLNMiss")
     public double getPercentageLNMiss() {
-        return safeGetPercentage(getLNFetchMisses(), getLNFetches());
-    }
-
-    public static double safeGetPercentage(long rawNum, long total) {
-        return total == 0 ? 0.0d : rawNum / (float) total;
+        return Utils.safeGetPercentage(getLNFetchMisses(), getLNFetches());
     }
 }
