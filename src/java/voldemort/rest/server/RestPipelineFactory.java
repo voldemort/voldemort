@@ -17,6 +17,7 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 import voldemort.rest.NettyConnectionStats;
 import voldemort.rest.NettyConnectionStatsHandler;
 import voldemort.server.StoreRepository;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StoreStatsJmx;
 import voldemort.utils.DaemonThreadFactory;
@@ -37,19 +38,18 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
     private final NettyConnectionStats connectionStats;
     private final NettyConnectionStatsHandler connectionStatsHandler;
     private final StoreStats performanceStats;
+    private final int maxHttpContentLength;
 
     public RestPipelineFactory(StoreRepository storeRepository,
-                               int numStorageThreads,
-                               int threadPoolQueueSize,
-                               boolean jmxEnabled,
+                               VoldemortConfig config,
                                int localZoneId) {
         this.storeRepository = storeRepository;
         performanceStats = new StoreStats();
-        this.threadPoolExecutor = new ThreadPoolExecutor(numStorageThreads,
-                                                         numStorageThreads,
+        this.threadPoolExecutor = new ThreadPoolExecutor(config.getNumRestServiceStorageThreads(),
+                                                         config.getNumRestServiceStorageThreads(),
                                                          0L,
                                                          TimeUnit.MILLISECONDS,
-                                                         new LinkedBlockingQueue<Runnable>(threadPoolQueueSize),
+                                                         new LinkedBlockingQueue<Runnable>(config.getRestServiceStorageThreadPoolQueueSize()),
                                                          threadFactory);
         storageExecutionHandler = new StorageExecutionHandler(threadPoolExecutor,
                                                               performanceStats,
@@ -57,7 +57,8 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
         connectionStats = new NettyConnectionStats();
         connectionStatsHandler = new NettyConnectionStatsHandler(connectionStats);
 
-        if(jmxEnabled) {
+        maxHttpContentLength = config.getMaxHttpAggregatedContentLength();
+        if(config.isJmxEnabled()) {
             // Register MBeans for Storage pool stats
             JmxUtils.registerMbean(this.storageExecutionHandler,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(this.storageExecutionHandler.getClass()),
@@ -81,7 +82,7 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
 
         pipeline.addLast("connectionStats", connectionStatsHandler);
         pipeline.addLast("decoder", new HttpRequestDecoder());
-        pipeline.addLast("aggregator", new HttpChunkAggregator(1048576));
+        pipeline.addLast("aggregator", new HttpChunkAggregator(maxHttpContentLength));
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast("deflater", new HttpContentCompressor());
         pipeline.addLast("handler", new RestServerRequestHandler(storeRepository));

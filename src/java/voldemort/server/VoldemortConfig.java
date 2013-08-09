@@ -229,10 +229,12 @@ public class VoldemortConfig implements Serializable {
     private boolean proxyPutsDuringRebalance;
 
     private boolean enableRestService;
+    private int numRestServiceNettyServerBacklog;
     private int numRestServiceNettyBossThreads;
     private int numRestServiceNettyWorkerThreads;
     private int numRestServiceStorageThreads;
     private int restServiceStorageThreadPoolQueueSize;
+    private int maxHttpAggregatedContentLength;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -506,12 +508,16 @@ public class VoldemortConfig implements Serializable {
 
         // TODO: REST-Server decide on the numbers
         this.enableRestService = props.getBoolean("rest.enable", false);
+        this.numRestServiceNettyServerBacklog = props.getInt("num.rest.service.netty.server.backlog",
+                                                             1000);
         this.numRestServiceNettyBossThreads = props.getInt("num.rest.service.netty.boss.threads", 1);
         this.numRestServiceNettyWorkerThreads = props.getInt("num.rest.service.netty.worker.threads",
-                                                             10);
+                                                             20);
         this.numRestServiceStorageThreads = props.getInt("num.rest.service.storage.threads", 50);
         this.restServiceStorageThreadPoolQueueSize = props.getInt("rest.service.storage.thread.pool.queue.size",
                                                                   numRestServiceStorageThreads);
+        this.maxHttpAggregatedContentLength = props.getInt("max.http.aggregated.content.length",
+                                                           1048576);
         validateParams();
     }
 
@@ -539,6 +545,18 @@ public class VoldemortConfig implements Serializable {
                                              + this.schedulerThreads + " set.");
         if(enableServerRouting && !enableSocketServer)
             throw new ConfigurationException("Server-side routing is enabled, this requires the socket server to also be enabled.");
+        if(numRestServiceNettyBossThreads < 1)
+            throw new ConfigurationException("num.rest.service.netty.boss.threads cannot be less than 1");
+        if(numRestServiceNettyWorkerThreads < 1)
+            throw new ConfigurationException("num.rest.service.netty.worker.threads cannot be less than 1");
+        if(numRestServiceStorageThreads < 1)
+            throw new ConfigurationException("num.rest.service.storage.threads cannot be less than 1");
+        if(numRestServiceNettyServerBacklog < 0)
+            throw new ConfigurationException("num.rest.service.netty.server.backlog cannot be negative");
+        if(restServiceStorageThreadPoolQueueSize < 0)
+            throw new ConfigurationException("rest.service.storage.thread.pool.queue.size cannot be negative.");
+        if(maxHttpAggregatedContentLength <= 0)
+            throw new ConfigurationException("max.http.aggregated.content.length must be positive");
     }
 
     private int getIntEnvVariable(String name) {
@@ -2774,6 +2792,21 @@ public class VoldemortConfig implements Serializable {
         this.enableRestService = enableRestService;
     }
 
+    public int getRestServiceNettyServerBacklog() {
+        return numRestServiceNettyServerBacklog;
+    }
+
+    /**
+     * The capacity of the REST service Netty server backlog.
+     * <ul>
+     * <li>Property :"num.rest.service.netty.server.backlog"</li>
+     * <li>Default :numRestServiceNettyServerBacklog</li>
+     * </ul>
+     */
+    public void setRestServiceNettyServerBacklog(int numRestServiceNettyServerBacklog) {
+        this.numRestServiceNettyServerBacklog = numRestServiceNettyServerBacklog;
+    }
+
     public int getNumRestServiceNettyBossThreads() {
         return numRestServiceNettyBossThreads;
     }
@@ -2833,6 +2866,21 @@ public class VoldemortConfig implements Serializable {
      */
     public void setRestServiceStorageThreadPoolQueueSize(int restServiceStorageThreadPoolQueueSize) {
         this.restServiceStorageThreadPoolQueueSize = restServiceStorageThreadPoolQueueSize;
+    }
+
+    public int getMaxHttpAggregatedContentLength() {
+        return maxHttpAggregatedContentLength;
+    }
+
+    /**
+     * The maximum length of the aggregated Http content.
+     * <ul>
+     * <li>Property :"max.http.content.length"</li>
+     * <li>Default :maxHttpContentLength</li>
+     * </ul>
+     */
+    public void setMaxHttpAggregatedContentLength(int maxHttpAggregatedContentLength) {
+        this.maxHttpAggregatedContentLength = maxHttpAggregatedContentLength;
     }
 
 }

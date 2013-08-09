@@ -52,18 +52,12 @@ public class RestService extends AbstractService {
         this.workerPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(config.getNumRestServiceNettyWorkerThreads());
         this.bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newFixedThreadPool(config.getNumRestServiceNettyBossThreads()),
                                                                                workerPool));
-        /*
-         * TODO REST-Server Need to add a server parameter for netty backlog
-         */
-        // this.bootstrap.setOption("backlog",
-        // this.coordinatorConfig.getNettyServerBacklog());
+        this.bootstrap.setOption("backlog", config.getRestServiceNettyServerBacklog());
         this.bootstrap.setOption("child.tcpNoDelay", true);
         this.bootstrap.setOption("child.keepAlive", true);
         this.bootstrap.setOption("child.reuseAddress", true);
         this.bootstrap.setPipelineFactory(new RestPipelineFactory(storeRepository,
-                                                                  config.getNumRestServiceStorageThreads(),
-                                                                  config.getRestServiceStorageThreadPoolQueueSize(),
-                                                                  config.isJmxEnabled(),
+                                                                  config,
                                                                   localZoneId));
 
         // Bind and start to accept incoming connections.

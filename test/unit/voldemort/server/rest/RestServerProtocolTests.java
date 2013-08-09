@@ -16,8 +16,8 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import voldemort.rest.RestUtils;
 import voldemort.rest.RestMessageHeaders;
+import voldemort.rest.RestUtils;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.versioning.VectorClock;
@@ -207,33 +207,6 @@ public class RestServerProtocolTests {
         }
         bufferedReader.close();
         logger.info(stringBuilder.toString());
-    }
-
-    @Test
-    public void testMissingRoutingType() {
-        logger.info("********** Testing missing routing type **********");
-        HttpURLConnection conn = null;
-        int responseCode = -1;
-        try {
-            conn = doPut(urlStr,
-                         key1,
-                         value1,
-                         storeNameStr,
-                         String.valueOf(System.currentTimeMillis()),
-                         String.valueOf(timeOut),
-                         null,
-                         eTag,
-                         contentType,
-                         String.valueOf(value1.getBytes().length));
-
-            responseCode = conn.getResponseCode();
-            logger.info("Response Code: " + responseCode + " Message: " + conn.getResponseMessage());
-            readErrorMessageFromResponse(conn);
-        } catch(IOException e1) {
-            e1.printStackTrace();
-        }
-        assertEquals(responseCode, 400);
-        conn.disconnect();
     }
 
     @Test
