@@ -23,10 +23,10 @@ import javax.management.MBeanOperationInfo;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
@@ -56,6 +56,26 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
             throw e;
         } finally {
             stats.recordTime(Tracked.DELETE, System.nanoTime() - start);
+        }
+    }
+
+    @Override
+    public List<Version> getVersions(ByteArray key) throws VoldemortException {
+        List<Version> result = null;
+        long start = System.nanoTime();
+        try {
+            result = super.getVersions(key);
+            return result;
+        } catch(VoldemortException e) {
+            stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
+            throw e;
+        } finally {
+            long duration = System.nanoTime() - start;
+            boolean returningEmpty = true;
+            if(result != null) {
+                returningEmpty = result.size() == 0;
+            }
+            stats.recordGetVersionsTime(duration, returningEmpty);
         }
     }
 

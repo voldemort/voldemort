@@ -69,6 +69,21 @@ public class StoreStatsJmx {
         return stats.getThroughputInBytes(Tracked.GET);
     }
 
+    @JmxGetter(name = "numberOfCallsToGetVersions", description = "The number of calls to GET VERSIONS since the last reset.")
+    public long getNumberOfCallsToGetVersions() {
+        return stats.getCount(Tracked.GET_VERSIONS);
+    }
+
+    @JmxGetter(name = "averageGetVersionsCompletionTimeInMs", description = "The avg. time in ms for GET VERSIONS calls to complete.")
+    public double getAverageGetVersionsCompletionTimeInMs() {
+        return stats.getAvgTimeInMs(Tracked.GET_VERSIONS);
+    }
+
+    @JmxGetter(name = "GetVersionsThroughput", description = "Throughput of GET VERSIONS requests")
+    public float getGetVersionsThroughput() {
+        return stats.getThroughput(Tracked.GET_VERSIONS);
+    }
+
     @JmxGetter(name = "numberOfCallsToPut", description = "The number of calls to PUT since the last reset.")
     public long getNumberOfCallsToPut() {
         return stats.getCount(Tracked.PUT);
@@ -120,6 +135,7 @@ public class StoreStatsJmx {
         double weightedTime = 0.0;
         for(Tracked stat: ImmutableList.of(Tracked.DELETE,
                                            Tracked.GET,
+                                           Tracked.GET_VERSIONS,
                                            Tracked.GET_ALL,
                                            Tracked.PUT)) {
             sum += stats.getCount(stat);
@@ -134,7 +150,8 @@ public class StoreStatsJmx {
     @JmxGetter(name = "AllOperationThroughput", description = "The throughput of all operations.")
     public double getOperationThroughput() {
         return stats.getThroughput(Tracked.DELETE) + stats.getThroughput(Tracked.GET)
-               + stats.getThroughput(Tracked.GET_ALL) + stats.getThroughput(Tracked.PUT);
+               + stats.getThroughput(Tracked.GET_VERSIONS) + stats.getThroughput(Tracked.GET_ALL)
+               + stats.getThroughput(Tracked.PUT);
     }
 
     @JmxGetter(name = "AllOperationThroughputInBytes", description = "Throughput of all operations in bytes.")
@@ -148,6 +165,12 @@ public class StoreStatsJmx {
     public double getPercentGetReturningEmptyResponse() {
         return numEmptyResponses(stats.getNumEmptyResponses(Tracked.GET),
                                  stats.getCount(Tracked.GET));
+    }
+
+    @JmxGetter(name = "percentGetVersionsReturningEmptyResponse", description = "The percentage of calls to GET VERSIONS for which no value was found.")
+    public double getPercentGetVersionsReturningEmptyResponse() {
+        return numEmptyResponses(stats.getNumEmptyResponses(Tracked.GET_VERSIONS),
+                                 stats.getCount(Tracked.GET_VERSIONS));
     }
 
     @JmxGetter(name = "percentGetAllReturningEmptyResponse", description = "The percentage of calls to GET_ALL for which no value was found, taking into account multiple returned key-values.")
@@ -170,6 +193,11 @@ public class StoreStatsJmx {
         return stats.getMaxLatencyInMs(Tracked.GET);
     }
 
+    @JmxGetter(name = "maxGetVersionsLatencyInMs", description = "Maximum latency in ms of GET VERSIONS")
+    public long getMaxGetVersionsLatency() {
+        return stats.getMaxLatencyInMs(Tracked.GET_VERSIONS);
+    }
+
     @JmxGetter(name = "maxGetAllLatencyInMs", description = "Maximum latency in ms of GET_ALL")
     public long getMaxGetAllLatency() {
         return stats.getMaxLatencyInMs(Tracked.GET_ALL);
@@ -190,6 +218,11 @@ public class StoreStatsJmx {
         return stats.getQ95LatencyInMs(Tracked.GET);
     }
 
+    @JmxGetter(name = "q95GetVersionsLatencyInMs", description = "")
+    public long getQ95GetVersionsLatency() {
+        return stats.getQ95LatencyInMs(Tracked.GET_VERSIONS);
+    }
+
     @JmxGetter(name = "q95GetAllLatencyInMs", description = "")
     public long getQ95GetAllLatency() {
         return stats.getQ95LatencyInMs(Tracked.GET_ALL);
@@ -208,6 +241,11 @@ public class StoreStatsJmx {
     @JmxGetter(name = "q99GetLatencyInMs", description = "")
     public long getQ99GetLatency() {
         return stats.getQ99LatencyInMs(Tracked.GET);
+    }
+
+    @JmxGetter(name = "q99GetVersionsLatencyInMs", description = "")
+    public long getQ99GetVersionsLatency() {
+        return stats.getQ99LatencyInMs(Tracked.GET_VERSIONS);
     }
 
     @JmxGetter(name = "q99GetAllLatencyInMs", description = "")

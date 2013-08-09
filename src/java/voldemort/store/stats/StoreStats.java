@@ -82,6 +82,14 @@ public class StoreStats {
     }
 
     /**
+     * Record the duration of a get versions operation, along with whether or
+     * not an empty response (ie no values matched) was returned.
+     */
+    public void recordGetVersionsTime(long timeNS, boolean emptyResponse) {
+        recordTime(Tracked.GET_VERSIONS, timeNS, emptyResponse ? 1 : 0, 0, 0);
+    }
+
+    /**
      * Record the duration of a get_all operation, along with how many values
      * were requested, how may were actually returned and the size of the values
      * returned.

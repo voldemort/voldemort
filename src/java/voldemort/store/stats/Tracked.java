@@ -2,6 +2,7 @@ package voldemort.store.stats;
 
 public enum Tracked {
     GET("get"),
+    GET_VERSIONS("getVersions"),
     GET_ALL("getAll"),
     PUT("put"),
     DELETE("delete"),
