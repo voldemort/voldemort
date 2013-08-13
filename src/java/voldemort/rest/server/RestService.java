@@ -1,6 +1,7 @@
 package voldemort.rest.server;
 
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -15,15 +16,11 @@ import voldemort.common.service.AbstractService;
 import voldemort.common.service.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.JmxUtils;
 
 @JmxManaged(description = "Rest Service to serve Http requests")
 public class RestService extends AbstractService {
-
-    // TODO REST-Server
-    // 1. use a different http port for REST service. Do not use the existing
-    // http service port
-    // 2. Bring up both Rest service and http service from Voldemort server
 
     private final Logger logger = Logger.getLogger(RestService.class);
     private final int port;
@@ -31,18 +28,21 @@ public class RestService extends AbstractService {
     private ServerBootstrap bootstrap = null;
     private Channel nettyServerChannel;
     private final StoreRepository storeRepository;
+    private final List<StoreDefinition> storeDefinitions;
     private final VoldemortConfig config;
     private int localZoneId;
 
     public RestService(VoldemortConfig config,
-                       int httpPort,
+                       int restPort,
                        StoreRepository storeRepository,
-                       int zoneId) {
+                       int zoneId,
+                       List<StoreDefinition> storeDefinitions) {
         super(ServiceType.RESTSERVICE);
         this.config = config;
-        this.port = httpPort;
+        this.port = restPort;
         this.storeRepository = storeRepository;
-        localZoneId = zoneId;
+        this.localZoneId = zoneId;
+        this.storeDefinitions = storeDefinitions;
     }
 
     @Override
@@ -58,7 +58,8 @@ public class RestService extends AbstractService {
         this.bootstrap.setOption("child.reuseAddress", true);
         this.bootstrap.setPipelineFactory(new RestPipelineFactory(storeRepository,
                                                                   config,
-                                                                  localZoneId));
+                                                                  localZoneId,
+                                                                  storeDefinitions));
 
         // Bind and start to accept incoming connections.
         this.nettyServerChannel = this.bootstrap.bind(new InetSocketAddress(this.port));

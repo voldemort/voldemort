@@ -89,6 +89,7 @@ public class VoldemortServer extends AbstractService {
                                                         voldemortConfig.getNodeId());
         this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
         this.checkHostName();
+        this.validateRestServiceConfiguration();
         this.services = createServices();
     }
 
@@ -105,6 +106,7 @@ public class VoldemortServer extends AbstractService {
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
 
         this.checkHostName();
+        this.validateRestServiceConfiguration();
         this.storeRepository = new StoreRepository(config.isJmxEnabled());
         // update cluster details in metaDataStore
         ConfigurationStorageEngine metadataInnerEngine = new ConfigurationStorageEngine("metadata-config-store",
@@ -175,6 +177,21 @@ public class VoldemortServer extends AbstractService {
         }
     }
 
+    /**
+     * To start Rest Service two parameters need to be set: 1) set
+     * "enable.rest=true" in server.properties 2) set "<rest-port>" in
+     * cluster.xml. If rest Service is enabled without setting <rest-port>, the
+     * system exits with an error log.
+     */
+    private void validateRestServiceConfiguration() {
+        boolean isRestEnabled = voldemortConfig.isRestServiceEnabled();
+        boolean isRestPortDefined = (identityNode.getRestPort() != -1) ? true : false;
+        if(isRestEnabled && !isRestPortDefined) {
+            logger.error("Rest Service is enabled without defining \"rest-port\" in cluster.xml");
+            System.exit(-1);
+        }
+    }
+
     private List<VoldemortService> createServices() {
 
         /* Services are given in the order they must be started */
@@ -206,16 +223,12 @@ public class VoldemortServer extends AbstractService {
 
         }
         if(voldemortConfig.isRestServiceEnabled()) {
-            /*
-             * TODO REST-Server 1. Need to decide on the number of threads. This
-             * needs to be configurable 2. Need to configure the Rest Service
-             * port instead of hard coding
-             */
-
             services.add(new RestService(voldemortConfig,
-                                         8085,
+                                         identityNode.getRestPort(),
                                          storeRepository,
-                                         identityNode.getZoneId()));
+                                         identityNode.getZoneId(),
+                                         metadata.getStoreDefList()));
+
         }
         if(voldemortConfig.isSocketServerEnabled()) {
             RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,

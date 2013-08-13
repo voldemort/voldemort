@@ -1,5 +1,6 @@
 package voldemort.rest.server;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -14,17 +15,25 @@ import voldemort.store.stats.StoreStats;
 public class StorageExecutionHandler extends ExecutionHandler {
 
     private final ThreadPoolExecutor threadPoolExecutor;
-    private final StoreStats performanceStats;
+    private ConcurrentHashMap<String, StoreStats> storeStatsMap;
+    private StoreStats aggregatedStoreStats;
+    private boolean isJmxEnabled = false;
     private final int localZoneId;
 
-    public StorageExecutionHandler(Executor executor, StoreStats performanceStats, int localZoneId) {
+    public StorageExecutionHandler(Executor executor,
+                                   ConcurrentHashMap<String, StoreStats> storeStatsMap,
+                                   StoreStats aggregateStoreStats,
+                                   boolean isJmxEnabled,
+                                   int localZoneId) {
         super(executor);
         if(executor instanceof ThreadPoolExecutor) {
             threadPoolExecutor = (ThreadPoolExecutor) executor;
         } else {
             threadPoolExecutor = null;
         }
-        this.performanceStats = performanceStats;
+        this.storeStatsMap = storeStatsMap;
+        this.aggregatedStoreStats = aggregateStoreStats;
+        this.isJmxEnabled = isJmxEnabled;
         this.localZoneId = localZoneId;
     }
 
@@ -33,7 +42,9 @@ public class StorageExecutionHandler extends ExecutionHandler {
             throws Exception {
         if(channelEvent instanceof MessageEvent) {
             getExecutor().execute(new StorageWorkerThread((MessageEvent) channelEvent,
-                                                          performanceStats,
+                                                          storeStatsMap,
+                                                          aggregatedStoreStats,
+                                                          isJmxEnabled,
                                                           localZoneId));
         }
     }

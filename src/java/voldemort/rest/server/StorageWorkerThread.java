@@ -4,6 +4,7 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
 import org.jboss.netty.channel.MessageEvent;
@@ -23,7 +24,9 @@ import voldemort.rest.RestPutErrorHandler;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.Store;
 import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.StoreStatsJmx;
 import voldemort.utils.ByteArray;
+import voldemort.utils.JmxUtils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -33,19 +36,25 @@ public class StorageWorkerThread implements Runnable {
     private final static RestDeleteErrorHandler deleteErrorHandler = new RestDeleteErrorHandler();
     private final static RestGetVersionErrorHandler getVersionErrorHandler = new RestGetVersionErrorHandler();
     private final static RestPutErrorHandler putErrorHandler = new RestPutErrorHandler();
-    private final StoreStats performanceStats;
+    private ConcurrentHashMap<String, StoreStats> storeStatsMap;
+    private StoreStats performanceStats = null, aggregatedStoreStats = null;
     CompositeVoldemortRequest<ByteArray, byte[]> requestObject;
     private MessageEvent messageEvent;
     private Store<ByteArray, byte[], byte[]> store;
     private final int localZoneId;
+    private boolean isJmxEnabled = false;
 
     private final Logger logger = Logger.getLogger(StorageWorkerThread.class);
 
     public StorageWorkerThread(MessageEvent messageEvent,
-                               StoreStats performanceStats,
+                               ConcurrentHashMap<String, StoreStats> storeStatsMap,
+                               StoreStats aggregatedStoreStats,
+                               boolean isJmxEnabled,
                                int localZoneId) {
         this.messageEvent = messageEvent;
-        this.performanceStats = performanceStats;
+        this.storeStatsMap = storeStatsMap;
+        this.aggregatedStoreStats = aggregatedStoreStats;
+        this.isJmxEnabled = isJmxEnabled;
         this.localZoneId = localZoneId;
     }
 
@@ -59,17 +68,34 @@ public class StorageWorkerThread implements Runnable {
             long now = System.currentTimeMillis();
             if(requestObject.getRequestOriginTimeInMs() + requestObject.getRoutingTimeoutInMs() <= now) {
                 RestErrorHandler.writeErrorResponse(messageEvent,
-                                                          HttpResponseStatus.REQUEST_TIMEOUT,
-                                                          "current time: "
-                                                                  + now
-                                                                  + "\torigin time: "
-                                                                  + requestObject.getRequestOriginTimeInMs()
-                                                                  + "\ttimeout in ms: "
-                                                                  + requestObject.getRoutingTimeoutInMs());
+                                                    HttpResponseStatus.REQUEST_TIMEOUT,
+                                                    "current time: "
+                                                            + now
+                                                            + "\torigin time: "
+                                                            + requestObject.getRequestOriginTimeInMs()
+                                                            + "\ttimeout in ms: "
+                                                            + requestObject.getRoutingTimeoutInMs());
                 return;
             } else {
                 fromLocalZone = isLocalZoneId(storeRequestObject.getZoneId());
                 this.store = storeRequestObject.getStore();
+                String storeName = store.getName();
+
+                performanceStats = storeStatsMap.get(storeName);
+                if(performanceStats == null) {
+                    // Add to concurrentHashMap
+                    storeStatsMap.putIfAbsent(storeName, new StoreStats(aggregatedStoreStats));
+                    performanceStats = storeStatsMap.get(storeName);
+
+                    // Register MBeans for new store performance stats
+                    if(isJmxEnabled) {
+                        JmxUtils.registerMbean(new StoreStatsJmx(performanceStats),
+                                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass())
+                                                                                 + ".store.stats",
+                                                                         storeName));
+                    }
+                }
+
                 switch(requestObject.getOperationType()) {
                     case VoldemortOpCode.GET_OP_CODE:
                         if(logger.isDebugEnabled()) {
@@ -83,7 +109,7 @@ public class StorageWorkerThread implements Runnable {
                                 GetResponseSender responseConstructor = new GetResponseSender(messageEvent,
                                                                                               requestObject.getKey(),
                                                                                               versionedValues,
-                                                                                              store.getName());
+                                                                                              storeName);
                                 responseConstructor.sendResponse(performanceStats,
                                                                  fromLocalZone,
                                                                  requestObject.getRequestOriginTimeInMs());
@@ -91,8 +117,8 @@ public class StorageWorkerThread implements Runnable {
                             } else {
                                 logger.error("Error when doing get. Key does not exist");
                                 RestErrorHandler.writeErrorResponse(messageEvent,
-                                                                          NOT_FOUND,
-                                                                          "Key does not exist");
+                                                                    NOT_FOUND,
+                                                                    "Key does not exist");
                             }
 
                         } catch(Exception e) {
@@ -119,15 +145,15 @@ public class StorageWorkerThread implements Runnable {
                             if(hasAtleastOneValidKey) {
                                 GetAllResponseSender responseConstructor = new GetAllResponseSender(messageEvent,
                                                                                                     keyValuesMap,
-                                                                                                    store.getName());
+                                                                                                    storeName);
                                 responseConstructor.sendResponse(performanceStats,
                                                                  fromLocalZone,
                                                                  requestObject.getRequestOriginTimeInMs());
                             } else {
                                 logger.error("Error when doing getall. Key does not exist or key is null");
                                 RestErrorHandler.writeErrorResponse(messageEvent,
-                                                                          NOT_FOUND,
-                                                                          "Key does not exist or key is null");
+                                                                    NOT_FOUND,
+                                                                    "Key does not exist or key is null");
                             }
                         } catch(Exception e) {
                             getErrorHandler.handleExceptions(messageEvent, e);
@@ -159,8 +185,8 @@ public class StorageWorkerThread implements Runnable {
                             if(!result) {
                                 logger.error("Error when doing delete. Non Existing key/version. Nothing to delete");
                                 RestErrorHandler.writeErrorResponse(messageEvent,
-                                                                          NOT_FOUND,
-                                                                          "Non Existing key/version. Nothing to delete");
+                                                                    NOT_FOUND,
+                                                                    "Non Existing key/version. Nothing to delete");
                                 break;
                             }
                             DeleteResponseSender responseConstructor = new DeleteResponseSender(messageEvent);
@@ -185,7 +211,7 @@ public class StorageWorkerThread implements Runnable {
                                 GetVersionResponseSender responseConstructor = new GetVersionResponseSender(messageEvent,
                                                                                                             requestObject.getKey(),
                                                                                                             versions,
-                                                                                                            store.getName());
+                                                                                                            storeName);
                                 responseConstructor.sendResponse(performanceStats,
                                                                  fromLocalZone,
                                                                  requestObject.getRequestOriginTimeInMs());
@@ -193,8 +219,8 @@ public class StorageWorkerThread implements Runnable {
                             } else {
                                 logger.error("Error when doing getversion. Key does not exist or key is null");
                                 RestErrorHandler.writeErrorResponse(messageEvent,
-                                                                          NOT_FOUND,
-                                                                          "Key does not exist or key is null");
+                                                                    NOT_FOUND,
+                                                                    "Key does not exist or key is null");
                             }
                         } catch(Exception e) {
                             getVersionErrorHandler.handleExceptions(messageEvent, e);

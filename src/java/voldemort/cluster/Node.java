@@ -46,6 +46,7 @@ public class Node implements Serializable, Comparable<Node> {
     private final int adminPort;
     private final int zoneId;
     private final List<Integer> partitions;
+    private int restPort = -1;
 
     public Node(int id,
                 String host,
@@ -78,6 +79,30 @@ public class Node implements Serializable, Comparable<Node> {
         }
 
         this.adminPort = adminPort;
+    }
+
+    /**
+     * Adding a new Constructor for Rest Service.
+     * 
+     * @param id
+     * @param host
+     * @param httpPort
+     * @param socketPort
+     * @param adminPort
+     * @param zoneId
+     * @param partitions
+     * @param restPort
+     */
+    public Node(int id,
+                String host,
+                int httpPort,
+                int socketPort,
+                int adminPort,
+                int zoneId,
+                List<Integer> partitions,
+                int restPort) {
+        this(id, host, httpPort, socketPort, adminPort, Zone.DEFAULT_ZONE_ID, partitions);
+        this.restPort = restPort;
     }
 
     public String getHost() {
@@ -165,5 +190,9 @@ public class Node implements Serializable, Comparable<Node> {
         return id == other.getId() && host.equalsIgnoreCase(other.getHost())
                && httpPort == other.getHttpPort() && socketPort == other.getSocketPort()
                && adminPort == other.getAdminPort() && zoneId == other.getZoneId();
+    }
+
+    public int getRestPort() {
+        return restPort;
     }
 }

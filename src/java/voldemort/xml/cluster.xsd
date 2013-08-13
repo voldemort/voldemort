@@ -37,6 +37,7 @@
 			<xs:element name="http-port" type="xs:nonNegativeInteger" />
 			<xs:element name="socket-port" type="xs:nonNegativeInteger" />
 			<xs:element name="admin-port" type="xs:nonNegativeInteger" minOccurs="0" />
+			<xs:element name="rest-port" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
 			<xs:element name="partitions" type="xs:string" />
 			<xs:element name="zone-id" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
 		</xs:sequence>

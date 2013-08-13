@@ -65,6 +65,7 @@ public class ClusterMapper {
     private static final String HTTP_PORT_ELMT = "http-port";
     private static final String SOCKET_PORT_ELMT = "socket-port";
     private static final String ADMIN_PORT_ELMT = "admin-port";
+    private static final String REST_PORT_ELMT = "rest-port";
 
     public static final Integer MAX_PARTITIONID = 65535;
 
@@ -146,6 +147,9 @@ public class ClusterMapper {
         // read admin-port default to -1 if not available
         int adminPort = (null != server.getChildText(ADMIN_PORT_ELMT)) ? Integer.parseInt(server.getChildText(ADMIN_PORT_ELMT))
                                                                       : -1;
+        // read rest-port . Default to -1 if not available
+        int restPort = (null != server.getChildText(REST_PORT_ELMT)) ? Integer.parseInt(server.getChildText(REST_PORT_ELMT))
+                                                                    : -1;
         int zoneId = (null != server.getChildText(ZONE_ID_ELMT)) ? Integer.parseInt(server.getChildText(ZONE_ID_ELMT))
                                                                 : Zone.DEFAULT_ZONE_ID;
         String partitionsText = server.getChildText(SERVER_PARTITIONS_ELMT).trim();
@@ -159,7 +163,11 @@ public class ClusterMapper {
                 partitions.add(partition);
             }
 
-        return new Node(id, host, httpPort, socketPort, adminPort, zoneId, partitions);
+        if(restPort == -1) {
+            return new Node(id, host, httpPort, socketPort, adminPort, zoneId, partitions);
+        } else {
+            return new Node(id, host, httpPort, socketPort, adminPort, zoneId, partitions, restPort);
+        }
     }
 
     public String writeCluster(Cluster cluster) {

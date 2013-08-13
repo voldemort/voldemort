@@ -114,11 +114,7 @@ public class RestPutRequestValidator extends RestRequestValidator {
     }
 
     /**
-     * Retrieves and validates the content type from the REST request
-     * 
-     * 
-     * TODO REST-Server Should check for valid content type (only binary
-     * allowed)
+     * Retrieves and validates the content type from the REST requests
      * 
      * @return true if has content type.
      */

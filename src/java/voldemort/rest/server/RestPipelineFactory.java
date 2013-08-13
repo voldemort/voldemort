@@ -2,6 +2,8 @@ package voldemort.rest.server;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -18,41 +20,43 @@ import voldemort.rest.NettyConnectionStats;
 import voldemort.rest.NettyConnectionStatsHandler;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.store.StoreDefinition;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StoreStatsJmx;
 import voldemort.utils.DaemonThreadFactory;
 import voldemort.utils.JmxUtils;
+import azkaban.common.utils.Utils;
 
 public class RestPipelineFactory implements ChannelPipelineFactory {
 
     private StoreRepository storeRepository;
-
-    /**
-     * TODO REST-Server 1. Using a Bounded blocking queue with configurable
-     * capacity
-     * 
-     */
     ThreadFactory threadFactory = new DaemonThreadFactory("Voldemort-REST-Server-Storage-Thread");
     private final ThreadPoolExecutor threadPoolExecutor;
     private final StorageExecutionHandler storageExecutionHandler;
     private final NettyConnectionStats connectionStats;
     private final NettyConnectionStatsHandler connectionStatsHandler;
-    private final StoreStats performanceStats;
+    private final StoreStats aggregatedStoreStats;
     private final int maxHttpContentLength;
+    private ConcurrentHashMap<String, StoreStats> storeStatsMap;
 
     public RestPipelineFactory(StoreRepository storeRepository,
                                VoldemortConfig config,
-                               int localZoneId) {
+                               int localZoneId,
+                               List<StoreDefinition> storeDefinitions) {
         this.storeRepository = storeRepository;
-        performanceStats = new StoreStats();
         this.threadPoolExecutor = new ThreadPoolExecutor(config.getNumRestServiceStorageThreads(),
                                                          config.getNumRestServiceStorageThreads(),
                                                          0L,
                                                          TimeUnit.MILLISECONDS,
                                                          new LinkedBlockingQueue<Runnable>(config.getRestServiceStorageThreadPoolQueueSize()),
                                                          threadFactory);
+        this.aggregatedStoreStats = new StoreStats();
+        createAndRegisterMBeansForAllStoreStats(config, storeDefinitions);
+
         storageExecutionHandler = new StorageExecutionHandler(threadPoolExecutor,
-                                                              performanceStats,
+                                                              storeStatsMap,
+                                                              aggregatedStoreStats,
+                                                              config.isJmxEnabled(),
                                                               localZoneId);
         connectionStats = new NettyConnectionStats();
         connectionStatsHandler = new NettyConnectionStatsHandler(connectionStats);
@@ -67,11 +71,34 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
             JmxUtils.registerMbean(this.connectionStats,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(this.connectionStats.getClass()),
                                                              JmxUtils.getClassName(this.connectionStats.getClass())));
+        }
+    }
 
-            // Register the Rest server performance stats
-            JmxUtils.registerMbean(new StoreStatsJmx(this.performanceStats),
-                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.performanceStats.getClass()),
-                                                             JmxUtils.getClassName(this.performanceStats.getClass())));
+    public void createAndRegisterMBeansForAllStoreStats(VoldemortConfig config,
+                                                        List<StoreDefinition> storeDefinitions) {
+        storeStatsMap = new ConcurrentHashMap<String, StoreStats>();
+        boolean isJmxEnabled = config.isJmxEnabled();
+        for(StoreDefinition storeDefinition: Utils.nonNull(storeDefinitions)) {
+            String storeName = storeDefinition.getName();
+
+            // Add to concurrentHashMap
+            storeStatsMap.put(storeName, new StoreStats(aggregatedStoreStats));
+
+            // Register storeStats MBeans for every store
+            if(isJmxEnabled) {
+                JmxUtils.registerMbean(new StoreStatsJmx(storeStatsMap.get(storeName)),
+                                       JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass())
+                                                                         + ".store.stats",
+                                                                 storeName));
+            }
+        }
+
+        // Register Mbean for aggregated server store stats
+        if(isJmxEnabled) {
+            JmxUtils.registerMbean(new StoreStatsJmx(aggregatedStoreStats),
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass())
+                                                                     + ".store.stats",
+                                                             JmxUtils.getClassName(this.aggregatedStoreStats.getClass())));
         }
     }
 
