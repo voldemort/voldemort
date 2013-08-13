@@ -55,7 +55,7 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
             stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
             throw e;
         } finally {
-            stats.recordTime(Tracked.DELETE, System.nanoTime() - start);
+            stats.recordDeleteTime(System.nanoTime() - start, key.get().length);
         }
     }
 
@@ -91,15 +91,15 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
             throw e;
         } finally {
             long duration = System.nanoTime() - start;
-            long totalBytes = 0;
+            long totalValueBytes = 0;
             boolean returningEmpty = true;
             if(result != null) {
                 returningEmpty = result.size() == 0;
                 for(Versioned<byte[]> bytes: result) {
-                    totalBytes += bytes.getValue().length;
+                    totalValueBytes += bytes.getValue().length;
                 }
             }
-            stats.recordGetTime(duration, returningEmpty, totalBytes);
+            stats.recordGetTime(duration, returningEmpty, totalValueBytes, key.get().length);
         }
     }
 
@@ -117,12 +117,14 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
             throw e;
         } finally {
             long duration = System.nanoTime() - start;
-            long totalBytes = 0;
+            long totalValueBytes = 0;
+            long totalKeyBytes = 0;
             int requestedValues = 0;
             int returnedValues = 0;
 
             // Determine how many values were requested
             for(ByteArray k: keys) {
+                totalKeyBytes += k.get().length;
                 requestedValues++;
             }
 
@@ -132,12 +134,16 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
                 // Determine the total size of the response
                 for(List<Versioned<byte[]>> value: result.values()) {
                     for(Versioned<byte[]> bytes: value) {
-                        totalBytes += bytes.getValue().length;
+                        totalValueBytes += bytes.getValue().length;
                     }
                 }
             }
 
-            stats.recordGetAllTime(duration, requestedValues, returnedValues, totalBytes);
+            stats.recordGetAllTime(duration,
+                                   requestedValues,
+                                   returnedValues,
+                                   totalValueBytes,
+                                   totalKeyBytes);
         }
     }
 
@@ -154,7 +160,9 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
             stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
             throw e;
         } finally {
-            stats.recordPutTimeAndSize(System.nanoTime() - start, value.getValue().length);
+            stats.recordPutTimeAndSize(System.nanoTime() - start,
+                                       value.getValue().length,
+                                       key.get().length);
         }
     }
 
@@ -188,15 +196,18 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
             throw e;
         } finally {
             long duration = System.nanoTime() - start;
-            long totalBytes = 0;
+            long totalValueBytes = 0;
             boolean returningEmpty = true;
             if(result != null) {
                 returningEmpty = result.size() == 0;
                 for(Versioned<byte[]> bytes: result) {
-                    totalBytes += bytes.getValue().length;
+                    totalValueBytes += bytes.getValue().length;
                 }
             }
-            stats.recordGetTime(duration, returningEmpty, totalBytes);
+            stats.recordGetTime(duration,
+                                returningEmpty,
+                                totalValueBytes,
+                                request.getKey().get().length);
         }
     }
 
@@ -214,12 +225,14 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
             throw e;
         } finally {
             long duration = System.nanoTime() - start;
-            long totalBytes = 0;
+            long totalValueBytes = 0;
+            long totalKeyBytes = 0;
             int requestedValues = 0;
             int returnedValues = 0;
 
             // Determine how many values were requested
             for(ByteArray k: request.getIterableKeys()) {
+                totalKeyBytes += k.get().length;
                 requestedValues++;
             }
 
@@ -229,12 +242,16 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
                 // Determine the total size of the response
                 for(List<Versioned<byte[]>> value: result.values()) {
                     for(Versioned<byte[]> bytes: value) {
-                        totalBytes += bytes.getValue().length;
+                        totalValueBytes += bytes.getValue().length;
                     }
                 }
             }
 
-            stats.recordGetAllTime(duration, requestedValues, returnedValues, totalBytes);
+            stats.recordGetAllTime(duration,
+                                   requestedValues,
+                                   returnedValues,
+                                   totalValueBytes,
+                                   totalKeyBytes);
         }
     }
 
@@ -251,7 +268,8 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
             throw e;
         } finally {
             stats.recordPutTimeAndSize(System.nanoTime() - start,
-                                       request.getValue().getValue().length);
+                                       request.getValue().getValue().length,
+                                       request.getKey().get().length);
         }
 
     }
@@ -266,7 +284,7 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
             stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
             throw e;
         } finally {
-            stats.recordTime(Tracked.DELETE, System.nanoTime() - start);
+            stats.recordDeleteTime(System.nanoTime() - start, request.getKey().get().length);
         }
     }
 }

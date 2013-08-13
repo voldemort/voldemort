@@ -61,15 +61,23 @@ public class StoreStats {
      * specific methods for those ops.
      */
     public void recordTime(Tracked op, long timeNS) {
-        recordTime(op, timeNS, 0, 0, 0);
+        recordTime(op, timeNS, 0, 0, 0, 0);
+    }
+
+    /**
+     * Record the duration of specified op. For PUT, GET and GET_ALL use
+     * specific methods for those ops.
+     */
+    public void recordDeleteTime(long timeNS, long keySize) {
+        recordTime(Tracked.DELETE, timeNS, 0, 0, keySize, 0);
     }
 
     /**
      * Record the duration of a put operation, along with the size of the values
      * returned.
      */
-    public void recordPutTimeAndSize(long timeNS, long size) {
-        recordTime(Tracked.PUT, timeNS, 0, size, 0);
+    public void recordPutTimeAndSize(long timeNS, long valueSize, long keySize) {
+        recordTime(Tracked.PUT, timeNS, 0, valueSize, keySize, 0);
     }
 
     /**
@@ -77,8 +85,8 @@ public class StoreStats {
      * empty response (ie no values matched) and the size of the values
      * returned.
      */
-    public void recordGetTime(long timeNS, boolean emptyResponse, long totalBytes) {
-        recordTime(Tracked.GET, timeNS, emptyResponse ? 1 : 0, totalBytes, 0);
+    public void recordGetTime(long timeNS, boolean emptyResponse, long totalBytes, long keyBytes) {
+        recordTime(Tracked.GET, timeNS, emptyResponse ? 1 : 0, totalBytes, keyBytes, 0);
     }
 
     /**
@@ -86,7 +94,7 @@ public class StoreStats {
      * not an empty response (ie no values matched) was returned.
      */
     public void recordGetVersionsTime(long timeNS, boolean emptyResponse) {
-        recordTime(Tracked.GET_VERSIONS, timeNS, emptyResponse ? 1 : 0, 0, 0);
+        recordTime(Tracked.GET_VERSIONS, timeNS, emptyResponse ? 1 : 0, 0, 0, 0);
     }
 
     /**
@@ -94,8 +102,17 @@ public class StoreStats {
      * were requested, how may were actually returned and the size of the values
      * returned.
      */
-    public void recordGetAllTime(long timeNS, int requested, int returned, long totalBytes) {
-        recordTime(Tracked.GET_ALL, timeNS, requested - returned, totalBytes, requested);
+    public void recordGetAllTime(long timeNS,
+                                 int requested,
+                                 int returned,
+                                 long totalValueBytes,
+                                 long totalKeyBytes) {
+        recordTime(Tracked.GET_ALL,
+                   timeNS,
+                   requested - returned,
+                   totalValueBytes,
+                   totalKeyBytes,
+                   requested);
     }
 
     /**
@@ -113,11 +130,21 @@ public class StoreStats {
     private void recordTime(Tracked op,
                             long timeNS,
                             long numEmptyResponses,
-                            long size,
+                            long valueSize,
+                            long keySize,
                             long getAllAggregateRequests) {
-        counters.get(op).addRequest(timeNS, numEmptyResponses, size, getAllAggregateRequests);
+        counters.get(op).addRequest(timeNS,
+                                    numEmptyResponses,
+                                    valueSize,
+                                    keySize,
+                                    getAllAggregateRequests);
         if(parent != null)
-            parent.recordTime(op, timeNS, numEmptyResponses, size, getAllAggregateRequests);
+            parent.recordTime(op,
+                              timeNS,
+                              numEmptyResponses,
+                              valueSize,
+                              keySize,
+                              getAllAggregateRequests);
     }
 
     public long getCount(Tracked op) {
@@ -156,12 +183,20 @@ public class StoreStats {
         return Collections.unmodifiableMap(counters);
     }
 
-    public long getMaxSizeInBytes(Tracked op) {
-        return counters.get(op).getMaxSizeInBytes();
+    public long getMaxValueSizeInBytes(Tracked op) {
+        return counters.get(op).getMaxValueSizeInBytes();
     }
 
-    public double getAvgSizeinBytes(Tracked op) {
-        return counters.get(op).getAverageSizeInBytes();
+    public long getMaxKeySizeInBytes(Tracked op) {
+        return counters.get(op).getMaxKeySizeInBytes();
+    }
+
+    public double getAvgValueSizeinBytes(Tracked op) {
+        return counters.get(op).getAverageValueSizeInBytes();
+    }
+
+    public double getAvgKeySizeinBytes(Tracked op) {
+        return counters.get(op).getAverageKeySizeInBytes();
     }
 
     public double getGetAllAverageCount() {

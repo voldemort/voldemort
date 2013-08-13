@@ -100,7 +100,7 @@ public class RequestCounter {
         Accumulator oldv = getValidAccumulator();
         double elapsed = (time.getMilliseconds() - oldv.startTimeMS) / (double) Time.MS_PER_SECOND;
         if(elapsed > 0f) {
-            return (float) (oldv.totalBytes / elapsed);
+            return (float) ((oldv.totalValueBytes + oldv.totalKeyBytes) / elapsed);
         } else {
             return 0f;
         }
@@ -187,7 +187,7 @@ public class RequestCounter {
      * @param timeNS time of operation, in nanoseconds
      */
     public void addRequest(long timeNS) {
-        addRequest(timeNS, 0, 0, 0);
+        addRequest(timeNS, 0, 0, 0, 0);
     }
 
     /**
@@ -202,7 +202,8 @@ public class RequestCounter {
      */
     public void addRequest(long timeNS,
                            long numEmptyResponses,
-                           long bytes,
+                           long valueBytes,
+                           long keyBytes,
                            long getAllAggregatedCount) {
         // timing instrumentation (trace only)
         long startTimeNs = 0;
@@ -223,8 +224,10 @@ public class RequestCounter {
                                                oldv.total + 1,
                                                oldv.numEmptyResponses + numEmptyResponses,
                                                Math.max(timeNS, oldv.maxLatencyNS),
-                                               oldv.totalBytes + bytes,
-                                               Math.max(oldv.maxBytes, bytes),
+                                               oldv.totalValueBytes + valueBytes,
+                                               Math.max(oldv.maxValueBytes, valueBytes),
+                                               oldv.totalKeyBytes + keyBytes,
+                                               Math.max(oldv.maxKeyBytes, keyBytes),
                                                oldv.getAllAggregatedCount + getAllAggregatedCount,
                                                getAllAggregatedCount > oldv.getAllMaxCount ? getAllAggregatedCount
                                                                                           : oldv.getAllMaxCount);
@@ -259,16 +262,30 @@ public class RequestCounter {
      * Return the size of the largest response or request in bytes returned.
      * Tracked only for GET, GET_ALL and PUT.
      */
-    public long getMaxSizeInBytes() {
-        return getValidAccumulator().maxBytes;
+    public long getMaxValueSizeInBytes() {
+        return getValidAccumulator().maxValueBytes;
+    }
+
+    /**
+     * Return the size of the largest response or request in bytes returned.
+     */
+    public long getMaxKeySizeInBytes() {
+        return getValidAccumulator().maxKeyBytes;
     }
 
     /**
      * Return the average size of all the versioned values returned. Tracked
      * only for GET, GET_ALL and PUT.
      */
-    public double getAverageSizeInBytes() {
-        return getValidAccumulator().getAverageBytes();
+    public double getAverageValueSizeInBytes() {
+        return getValidAccumulator().getAverageValueBytes();
+    }
+
+    /**
+     * Return the average size of all the keys. Tracked for all operations.
+     */
+    public double getAverageKeySizeInBytes() {
+        return getValidAccumulator().getAverageKeyBytes();
     }
 
     /**
@@ -308,11 +325,15 @@ public class RequestCounter {
         final long getAllMaxCount; // GET_ALL : track max number of keys
                                    // requesed
         final long maxLatencyNS;
-        final long maxBytes; // Maximum single value
-        final long totalBytes; // Sum of all the values
+
+        final long maxValueBytes; // Maximum single value
+        final long totalValueBytes; // Sum of all the values
+
+        final long maxKeyBytes; // Maximum single key size
+        final long totalKeyBytes; // Sum of all the key sizes
 
         public Accumulator() {
-            this(RequestCounter.this.time.getMilliseconds(), 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            this(RequestCounter.this.time.getMilliseconds(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         /**
@@ -330,6 +351,8 @@ public class RequestCounter {
                                    0,
                                    0,
                                    0,
+                                   0,
+                                   0,
                                    0);
         }
 
@@ -339,8 +362,10 @@ public class RequestCounter {
                            long total,
                            long numEmptyResponses,
                            long maxLatencyNS,
-                           long totalBytes,
-                           long maxBytes,
+                           long totalValueBytes,
+                           long maxValueBytes,
+                           long totalKeyBytes,
+                           long maxKeyBytes,
                            long getAllAggregatedCount,
                            long getAllMaxCount) {
             this.startTimeMS = startTimeMS;
@@ -349,8 +374,10 @@ public class RequestCounter {
             this.total = total;
             this.numEmptyResponses = numEmptyResponses;
             this.maxLatencyNS = maxLatencyNS;
-            this.totalBytes = totalBytes;
-            this.maxBytes = maxBytes;
+            this.totalValueBytes = totalValueBytes;
+            this.maxValueBytes = maxValueBytes;
+            this.totalKeyBytes = totalKeyBytes;
+            this.maxKeyBytes = maxKeyBytes;
             this.getAllAggregatedCount = getAllAggregatedCount;
             this.getAllMaxCount = getAllMaxCount;
         }
@@ -359,8 +386,12 @@ public class RequestCounter {
             return count > 0 ? 1f * totalTimeNS / count : 0f;
         }
 
-        public double getAverageBytes() {
-            return count > 0 ? 1f * totalBytes / count : -0f;
+        public double getAverageValueBytes() {
+            return count > 0 ? 1f * totalValueBytes / count : -0f;
+        }
+
+        public double getAverageKeyBytes() {
+            return count > 0 ? 1f * totalKeyBytes / count : -0f;
         }
     }
 }

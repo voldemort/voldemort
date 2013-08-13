@@ -260,32 +260,72 @@ public class StoreStatsJmx {
 
     @JmxGetter(name = "maxPutSizeInBytes", description = "Maximum size of value returned in bytes by PUT.")
     public long getMaxPutSizeInBytes() {
-        return stats.getMaxSizeInBytes(Tracked.PUT);
+        return stats.getMaxValueSizeInBytes(Tracked.PUT);
     }
 
     @JmxGetter(name = "maxGetAllSizeInBytes", description = "Maximum size of value returned in bytes by GET_ALL.")
     public long getMaxGetAllSizeInBytes() {
-        return stats.getMaxSizeInBytes(Tracked.GET_ALL);
+        return stats.getMaxValueSizeInBytes(Tracked.GET_ALL);
     }
 
     @JmxGetter(name = "maxGetSizeInBytes", description = "Maximum size of value returned in bytes by GET.")
     public long getMaxGetSizeInBytes() {
-        return stats.getMaxSizeInBytes(Tracked.GET);
+        return stats.getMaxValueSizeInBytes(Tracked.GET);
+    }
+
+    @JmxGetter(name = "maxPutKeySizeInBytes", description = "Maximum size of key specified by PUT.")
+    public long getMaxPutKeySizeInBytes() {
+        return stats.getMaxKeySizeInBytes(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "maxGetAllKeySizeInBytes", description = "Maximum size of keys specified by GET_ALL.")
+    public long getMaxGetAllKeySizeInBytes() {
+        return stats.getMaxKeySizeInBytes(Tracked.GET_ALL);
+    }
+
+    @JmxGetter(name = "maxGetKeySizeInBytes", description = "Maximum size of key specified by GET.")
+    public long getMaxGetKeySizeInBytes() {
+        return stats.getMaxKeySizeInBytes(Tracked.GET);
+    }
+
+    @JmxGetter(name = "maxDeleteKeySizeInBytes", description = "Maximum size of key specified by DELETE.")
+    public long getMaxDeleteKeySizeInBytes() {
+        return stats.getMaxKeySizeInBytes(Tracked.DELETE);
     }
 
     @JmxGetter(name = "averageGetValueSizeInBytes", description = "Average size in bytes of GET request")
     public double getAverageGetSizeInBytes() {
-        return stats.getAvgSizeinBytes(Tracked.GET);
+        return stats.getAvgValueSizeinBytes(Tracked.GET);
     }
 
     @JmxGetter(name = "averageGetAllSizeInBytes", description = "Average size in bytes of GET_ALL request")
     public double getAverageGetAllSizeInBytes() {
-        return stats.getAvgSizeinBytes(Tracked.GET_ALL);
+        return stats.getAvgValueSizeinBytes(Tracked.GET_ALL);
     }
 
     @JmxGetter(name = "averagePutSizeInBytes", description = "Average size in bytes of PUT request")
     public double getAveragePutSizeInBytes() {
-        return stats.getAvgSizeinBytes(Tracked.PUT);
+        return stats.getAvgValueSizeinBytes(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "averageGetKeySizeInBytes", description = "Average key size in bytes of GET request")
+    public double getAverageGetKeySizeInBytes() {
+        return stats.getAvgKeySizeinBytes(Tracked.GET);
+    }
+
+    @JmxGetter(name = "averageGetAllKeySizeInBytes", description = "Average key size in bytes of GET_ALL request")
+    public double getAverageGetAllKeySizeInBytes() {
+        return stats.getAvgKeySizeinBytes(Tracked.GET_ALL);
+    }
+
+    @JmxGetter(name = "averagePutKeySizeInBytes", description = "Average key size in bytes of PUT request")
+    public double getAveragePutKeySizeInBytes() {
+        return stats.getAvgKeySizeinBytes(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "averageDeleteKeySizeInBytes", description = "Average key size in bytes of DELETE request")
+    public double getAverageDeleteKeySizeInBytes() {
+        return stats.getAvgKeySizeinBytes(Tracked.DELETE);
     }
 
 }

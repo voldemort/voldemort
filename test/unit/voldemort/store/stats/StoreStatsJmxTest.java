@@ -51,7 +51,7 @@ public class StoreStatsJmxTest {
         for(Tracked op: EnumSet.of(Tracked.GET,
                                    Tracked.GET_ALL,
                                    Tracked.DELETE,
-                                   Tracked.DELETE,
+                                   Tracked.GET_VERSIONS,
                                    Tracked.PUT)) {
             verify(stats, times(1)).getThroughput(op);
         }
@@ -94,12 +94,12 @@ public class StoreStatsJmxTest {
 
             for(long v: valueSizes) {
                 if(op == GET)
-                    stats.recordGetTime(timeNS, false, v);
+                    stats.recordGetTime(timeNS, false, v, 0);
                 else if(op == GET_ALL)
-                    stats.recordGetAllTime(timeNS, 1, 1, v);
+                    stats.recordGetAllTime(timeNS, 1, 1, v, 0);
                 else
                     // PUT
-                    stats.recordPutTimeAndSize(timeNS, v);
+                    stats.recordPutTimeAndSize(timeNS, v, 0);
 
                 sum += v;
                 max = Math.max(max, v);
@@ -115,16 +115,57 @@ public class StoreStatsJmxTest {
         }
     }
 
+    // Verify that the logic for determing maximum value returned and average
+    // value return has been wired up correctly.
+    @Test
+    public void maxAndAvgSizeOfKeysAreCalculatedCorrectly() {
+        for(Tracked op: EnumSet.of(GET, GET_ALL, PUT, DELETE)) {
+            StoreStats stats = new StoreStats();
+            StoreStatsJmx jmx = new StoreStatsJmx(stats);
+
+            long[] keySizes = new long[] { 100, 450, 200, 300 };
+            long sum = 0l;
+            long max = keySizes[0];
+            final long timeNS = 1 * NS_PER_MS;
+
+            for(long k: keySizes) {
+                if(op == GET)
+                    stats.recordGetTime(timeNS, false, 0, k);
+                else if(op == GET_ALL)
+                    stats.recordGetAllTime(timeNS, 1, 1, 0, k);
+                else if(op == DELETE)
+                    stats.recordDeleteTime(timeNS, k);
+                else
+                    // PUT
+                    stats.recordPutTimeAndSize(timeNS, 0, k);
+
+                sum += k;
+                max = Math.max(max, k);
+            }
+            double average = sum / (double) keySizes.length;
+
+            assertEquals(op == PUT ? max : 0, jmx.getMaxPutKeySizeInBytes());
+            assertEquals(op == PUT ? average : 0, jmx.getAveragePutKeySizeInBytes(), 0.0);
+            assertEquals(op == GET ? max : 0, jmx.getMaxGetKeySizeInBytes());
+            assertEquals(op == GET ? average : 0, jmx.getAverageGetKeySizeInBytes(), 0.0);
+            assertEquals(op == GET_ALL ? max : 0, jmx.getMaxGetAllKeySizeInBytes());
+            assertEquals(op == GET_ALL ? average : 0, jmx.getAverageGetAllKeySizeInBytes(), 0.0);
+            assertEquals(op == DELETE ? max : 0, jmx.getMaxDeleteKeySizeInBytes());
+            assertEquals(op == DELETE ? average : 0, jmx.getAverageDeleteKeySizeInBytes(), 0.0);
+
+        }
+    }
+
     @Test
     public void testGetPercentageGetEmptyResponses() {
         StoreStats stats = new StoreStats();
         StoreStatsJmx jmx = new StoreStatsJmx(stats);
 
-        stats.recordGetTime(100, false, 1000);
+        stats.recordGetTime(100, false, 1000, 0);
         assertEquals(0, jmx.getPercentGetReturningEmptyResponse(), 0.0);
-        stats.recordGetTime(200, true, 1001);
+        stats.recordGetTime(200, true, 1001, 0);
         assertEquals(0.5, jmx.getPercentGetReturningEmptyResponse(), 0.0);
-        stats.recordGetTime(300, false, 1002);
+        stats.recordGetTime(300, false, 1002, 0);
         assertEquals(0.33, jmx.getPercentGetReturningEmptyResponse(), 0.05);
     }
 
@@ -133,10 +174,10 @@ public class StoreStatsJmxTest {
         StoreStats stats = new StoreStats();
         StoreStatsJmx jmx = new StoreStatsJmx(stats);
 
-        stats.recordGetAllTime(100, 2, 2, 1000); // requested values for two
-                                                 // keys, got both of them
+        stats.recordGetAllTime(100, 2, 2, 1000, 0); // requested values for two
+                                                    // keys, got both of them
         assertEquals(0.0, jmx.getPercentGetAllReturningEmptyResponse(), 0.0);
-        stats.recordGetAllTime(200, 2, 0, 1001); // requested 2, got 0
+        stats.recordGetAllTime(200, 2, 0, 1001, 0); // requested 2, got 0
         assertEquals(0.5, jmx.getPercentGetAllReturningEmptyResponse(), 0.0);
     }
 
@@ -144,9 +185,9 @@ public class StoreStatsJmxTest {
     public void testAverageGetAllCount() {
         StoreStats stats = new StoreStats();
         StoreStatsJmx jmx = new StoreStatsJmx(stats);
-        stats.recordGetAllTime(100, 2, 2, 1000);
+        stats.recordGetAllTime(100, 2, 2, 1000, 0);
         assertEquals(2.0, jmx.getAverageGetAllCount(), 0.0);
-        stats.recordGetAllTime(100, 4, 4, 1000);
+        stats.recordGetAllTime(100, 4, 4, 1000, 0);
         assertEquals(3.0, jmx.getAverageGetAllCount(), 0.0);
     }
 }
