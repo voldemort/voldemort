@@ -186,9 +186,13 @@ public class VoldemortServer extends AbstractService {
     private void validateRestServiceConfiguration() {
         boolean isRestEnabled = voldemortConfig.isRestServiceEnabled();
         boolean isRestPortDefined = (identityNode.getRestPort() != -1) ? true : false;
-        if(isRestEnabled && !isRestPortDefined) {
-            logger.error("Rest Service is enabled without defining \"rest-port\" in cluster.xml");
-            System.exit(-1);
+        if(isRestEnabled != isRestPortDefined) {
+            if(isRestEnabled) {
+                logger.error("Rest Service is enabled without defining \"rest-port\" in cluster.xml");
+                System.exit(-1);
+            } else {
+                logger.warn("\"rest-port\" is defined in cluster.xml but Rest service is not enabled.");
+            }
         }
     }
 

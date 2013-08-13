@@ -2800,7 +2800,7 @@ public class VoldemortConfig implements Serializable {
      * The capacity of the REST service Netty server backlog.
      * <ul>
      * <li>Property :"num.rest.service.netty.server.backlog"</li>
-     * <li>Default :numRestServiceNettyServerBacklog</li>
+     * <li>Default : 1000</li>
      * </ul>
      */
     public void setRestServiceNettyServerBacklog(int numRestServiceNettyServerBacklog) {
@@ -2876,7 +2876,7 @@ public class VoldemortConfig implements Serializable {
      * The maximum length of the aggregated Http content.
      * <ul>
      * <li>Property :"max.http.content.length"</li>
-     * <li>Default :maxHttpContentLength</li>
+     * <li>Default : 1048576</li>
      * </ul>
      */
     public void setMaxHttpAggregatedContentLength(int maxHttpAggregatedContentLength) {
