@@ -10,6 +10,7 @@ import javax.management.MBeanOperationInfo;
 
 import org.apache.log4j.Logger;
 
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -39,6 +40,10 @@ public class RepairJob implements Runnable {
     private final StoreRepository storeRepo;
     private final MetadataStore metadataStore;
     private final int deleteBatchSize;
+    private long totalEntriesScanned = 0;
+    private AtomicLong scanProgress;
+    private long totalEntriesDeleted = 0;
+    private AtomicLong deleteProgress;
 
     public RepairJob(StoreRepository storeRepo,
                      MetadataStore metadataStore,
@@ -48,6 +53,8 @@ public class RepairJob implements Runnable {
         this.metadataStore = metadataStore;
         this.repairPermits = Utils.notNull(repairPermits);
         this.deleteBatchSize = deleteBatchSize;
+        this.scanProgress = new AtomicLong(0);
+        this.deleteProgress = new AtomicLong(0);
     }
 
     public RepairJob(StoreRepository storeRepo,
@@ -79,8 +86,7 @@ public class RepairJob implements Runnable {
         for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
             localStats.put(storeDef.getName(), 0L);
         }
-        AtomicLong progress = new AtomicLong(0);
-        if(!acquireRepairPermit(progress))
+        if(!acquireRepairPermit())
             return;
         try {
             // Get routing factory
@@ -103,23 +109,30 @@ public class RepairJob implements Runnable {
 
                         if(!hasDestination(nodes)) {
                             engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
-                            numDeletedKeys++;
+                            numDeletedKeys = this.deleteProgress.incrementAndGet();
                         }
-                        long itemsScanned = progress.incrementAndGet();
+                        long itemsScanned = this.scanProgress.incrementAndGet();
                         if(itemsScanned % deleteBatchSize == 0)
                             logger.info("#Scanned:" + itemsScanned + " #Deleted:" + numDeletedKeys);
                     }
                     closeIterator(iterator);
                     localStats.put(storeDef.getName(), repairSlops);
                     logger.info("Completed store " + storeDef.getName() + " #Scanned:"
-                                + progress.get() + " #Deleted:" + numDeletedKeys);
+                                + this.scanProgress.get() + " #Deleted:"
+                                + this.deleteProgress.get());
                 }
             }
         } catch(Exception e) {
             logger.error(e, e);
         } finally {
             closeIterator(iterator);
-            this.repairPermits.release();
+            this.repairPermits.release(this.getClass().getCanonicalName());
+            synchronized(this) {
+                totalEntriesScanned += scanProgress.get();
+                scanProgress.set(0);
+                totalEntriesDeleted += deleteProgress.get();
+                deleteProgress.set(0);
+            }
             logger.info("Completed repair job started at " + startTime);
         }
 
@@ -151,9 +164,11 @@ public class RepairJob implements Runnable {
         }
     }
 
-    private boolean acquireRepairPermit(AtomicLong progress) {
+    private boolean acquireRepairPermit() {
         logger.info("Acquiring lock to perform repair job ");
-        if(this.repairPermits.tryAcquire(progress)) {
+        if(this.repairPermits.tryAcquire(this.scanProgress,
+                                         this.deleteProgress,
+                                         this.getClass().getCanonicalName())) {
             logger.info("Acquired lock to perform repair job ");
             return true;
         } else {
@@ -162,4 +177,13 @@ public class RepairJob implements Runnable {
         }
     }
 
+    @JmxGetter(name = "numEntriesScanned", description = "Returns number of entries scanned")
+    public synchronized long getEntriesScanned() {
+        return totalEntriesScanned + scanProgress.get();
+    }
+
+    @JmxGetter(name = "numEntriesDeleted", description = "Returns number of entries deleted")
+    public synchronized long getEntriesDeleted() {
+        return totalEntriesDeleted + deleteProgress.get();
+    }
 }

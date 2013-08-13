@@ -48,6 +48,7 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.SlopStorageEngine;
+import voldemort.store.stats.StreamingStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
@@ -85,6 +86,7 @@ public class StreamingSlopPusherJob implements Runnable {
     private ConcurrentHashMap<Integer, Long> attemptedByNode;
     private ConcurrentHashMap<Integer, Long> succeededByNode;
     private final ScanPermitWrapper repairPermits;
+    private final StreamingStats streamStats;
 
     public StreamingSlopPusherJob(StoreRepository storeRepo,
                                   MetadataStore metadataStore,
@@ -96,6 +98,12 @@ public class StreamingSlopPusherJob implements Runnable {
         this.failureDetector = failureDetector;
         this.voldemortConfig = voldemortConfig;
         this.repairPermits = Utils.notNull(repairPermits);
+        if(voldemortConfig.isJmxEnabled()) {
+            this.streamStats = storeRepo.getStreamingStats(this.storeRepo.getSlopStore().getName());
+        } else {
+            this.streamStats = null;
+        }
+
         this.readThrottler = new EventThrottler(voldemortConfig.getSlopMaxReadBytesPerSec());
         this.adminClient = null;
         this.consumerResults = Lists.newArrayList();
@@ -183,6 +191,11 @@ public class StreamingSlopPusherJob implements Runnable {
                 try {
                     keyAndVal = iterator.next();
                     Versioned<Slop> versioned = keyAndVal.getSecond();
+
+                    // Track the scan progress
+                    if(this.streamStats != null) {
+                        this.streamStats.reportStreamingSlopScan();
+                    }
 
                     // Retrieve the node
                     int nodeId = versioned.getValue().getNodeId();
@@ -284,7 +297,7 @@ public class StreamingSlopPusherJob implements Runnable {
             consumerResults.clear();
             slopQueues.clear();
             stopAdminClient();
-            this.repairPermits.release();
+            this.repairPermits.release(this.getClass().getCanonicalName());
         }
 
     }
@@ -391,7 +404,7 @@ public class StreamingSlopPusherJob implements Runnable {
     private void acquireRepairPermit() {
         logger.info("Acquiring lock to perform streaming slop pusher job ");
         try {
-            this.repairPermits.acquire(null);
+            this.repairPermits.acquire(null, this.getClass().getCanonicalName());
             logger.info("Acquired lock to perform streaming slop pusher job ");
         } catch(InterruptedException e) {
             stopAdminClient();

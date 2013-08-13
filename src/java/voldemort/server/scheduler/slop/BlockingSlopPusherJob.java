@@ -212,14 +212,14 @@ public class BlockingSlopPusherJob implements Runnable {
             } catch(Exception e) {
                 logger.error("Failed to close iterator.", e);
             }
-            this.repairPermits.release();
+            this.repairPermits.release(this.getClass().getCanonicalName());
         }
     }
 
     private void acquireRepairPermit() {
         logger.info("Acquiring lock to perform blocking slop pusher job ");
         try {
-            this.repairPermits.acquire(null);
+            this.repairPermits.acquire(null, this.getClass().getCanonicalName());
             logger.info("Acquired lock to perform blocking slop pusher job ");
         } catch(InterruptedException e) {
             throw new IllegalStateException("Blocking slop pusher job interrupted while waiting for permit.",

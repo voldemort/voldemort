@@ -1205,4 +1205,9 @@ public class StorageService extends AbstractService {
             getEntriesScanned() {
         return this.scanPermitWrapper.getEntriesScanned();
     }
+
+    @JmxGetter(name = "numEntriesDeleted", description = "Returns number of entries deleted since last call")
+    public long getEntriesDeleted() {
+        return this.scanPermitWrapper.getEntriesDeleted();
+    }
 }

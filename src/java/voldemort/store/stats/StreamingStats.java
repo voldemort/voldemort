@@ -12,7 +12,8 @@ public class StreamingStats {
         FETCH_ENTRIES,
         FETCH_FILE,
         UPDATE_ENTRIES,
-        SLOP_UPDATE
+        SLOP_UPDATE,
+        SLOP_SCAN
     }
 
     private static final int STREAMING_STATS_RESET_INTERVAL_MS = 60000;
@@ -22,6 +23,7 @@ public class StreamingStats {
     private HashMap<Operation, SimpleCounter> streamingPutCounterMap;
     private HashMap<Operation, SimpleCounter> streamingFetchCounterMap;
     private HashMap<Operation, SimpleCounter> streamingScanCounterMap;
+    private HashMap<Operation, SimpleCounter> slopScanCounterMap;
 
     public StreamingStats() {
         networkTimeCounterMap = new HashMap<StreamingStats.Operation, SimpleCounter>();
@@ -29,6 +31,7 @@ public class StreamingStats {
         streamingPutCounterMap = new HashMap<StreamingStats.Operation, SimpleCounter>();
         streamingFetchCounterMap = new HashMap<StreamingStats.Operation, SimpleCounter>();
         streamingScanCounterMap = new HashMap<StreamingStats.Operation, SimpleCounter>();
+        slopScanCounterMap = new HashMap<StreamingStats.Operation, SimpleCounter>();
 
         // create the counters for each operation
         networkTimeCounterMap.put(Operation.FETCH_KEYS,
@@ -65,6 +68,9 @@ public class StreamingStats {
                                     new SimpleCounter(STREAMING_STATS_RESET_INTERVAL_MS));
         streamingScanCounterMap.put(Operation.FETCH_ENTRIES,
                                     new SimpleCounter(STREAMING_STATS_RESET_INTERVAL_MS));
+
+        slopScanCounterMap.put(Operation.SLOP_SCAN,
+                               new SimpleCounter(STREAMING_STATS_RESET_INTERVAL_MS));
     }
 
     public StreamingStats(StreamingStats parent) {
@@ -100,6 +106,12 @@ public class StreamingStats {
         streamingPutCounterMap.get(op).count();
         if(parent != null)
             parent.reportStreamingPut(op);
+    }
+
+    public void reportStreamingSlopScan() {
+        slopScanCounterMap.get(Operation.SLOP_SCAN).count();
+        if(parent != null)
+            parent.reportStreamingSlopScan();
     }
 
     // Mbeans for FETCH_KEYS
@@ -184,5 +196,10 @@ public class StreamingStats {
     @JmxGetter(name = "getSlopUpdatePutRate", description = "Rate at which slop entries are written to the server per second")
     public double getSlopUpdatePutRate() {
         return streamingPutCounterMap.get(Operation.SLOP_UPDATE).getEventRate();
+    }
+
+    @JmxGetter(name = "getSlopPusherScanRate", description = "Rate at which slop entries are scanned")
+    public double getSlopPusherScanRate() {
+        return slopScanCounterMap.get(Operation.SLOP_SCAN).getEventRate();
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -46,7 +46,9 @@ public class DataCleanupJob<K, V, T> implements Runnable {
     private final Time time;
     private final EventThrottler throttler;
     private long totalEntriesScanned = 0;
-    private AtomicLong progressThisRun;
+    private AtomicLong scanProgressThisRun;
+    private long totalEntriesDeleted = 0;
+    private AtomicLong deleteProgressThisRun;
 
     public DataCleanupJob(StorageEngine<K, V, T> store,
                           ScanPermitWrapper cleanupPermits,
@@ -58,17 +60,18 @@ public class DataCleanupJob<K, V, T> implements Runnable {
         this.maxAgeMs = maxAgeMs;
         this.time = time;
         this.throttler = throttler;
-        this.progressThisRun = new AtomicLong(0);
+        this.scanProgressThisRun = new AtomicLong(0);
+        this.deleteProgressThisRun = new AtomicLong(0);
     }
 
+    @Override
     public void run() {
-        acquireCleanupPermit(progressThisRun);
+        acquireCleanupPermit(scanProgressThisRun, deleteProgressThisRun);
         store.beginBatchModifications();
 
         ClosableIterator<Pair<K, Versioned<V>>> iterator = null;
         try {
             logger.info("Starting data cleanup on store \"" + store.getName() + "\"...");
-            int deleted = 0;
             long now = time.getMilliseconds();
             iterator = store.entries();
 
@@ -78,14 +81,14 @@ public class DataCleanupJob<K, V, T> implements Runnable {
                     logger.info("Datacleanup job halted.");
                     return;
                 }
-                progressThisRun.incrementAndGet();
+                scanProgressThisRun.incrementAndGet();
                 Pair<K, Versioned<V>> keyAndVal = iterator.next();
                 VectorClock clock = (VectorClock) keyAndVal.getSecond().getVersion();
                 if(now - clock.getTimestamp() > maxAgeMs) {
                     store.delete(keyAndVal.getFirst(), clock);
-                    deleted++;
-                    if(deleted % 10000 == 0)
-                        logger.debug("Deleted item " + deleted);
+                    this.deleteProgressThisRun.incrementAndGet();
+                    if(this.deleteProgressThisRun.get() % 10000 == 0)
+                        logger.debug("Deleted item " + this.deleteProgressThisRun.get());
                 }
 
                 // throttle on number of entries.
@@ -93,18 +96,21 @@ public class DataCleanupJob<K, V, T> implements Runnable {
             }
             // log the total items scanned, so we will get an idea of data
             // growth in a cheap, periodic way
-            logger.info("Data cleanup on store \"" + store.getName() + "\" is complete; " + deleted
-                        + " items deleted. " + progressThisRun.get() + " items scanned");
+            logger.info("Data cleanup on store \"" + store.getName() + "\" is complete; "
+                        + this.deleteProgressThisRun.get() + " items deleted. "
+                        + scanProgressThisRun.get() + " items scanned");
 
         } catch(Exception e) {
             logger.error("Error in data cleanup job for store " + store.getName() + ": ", e);
         } finally {
             closeIterator(iterator);
             logger.info("Releasing lock  after data cleanup on \"" + store.getName() + "\".");
-            this.cleanupPermits.release();
+            this.cleanupPermits.release(this.getClass().getCanonicalName());
             synchronized(this) {
-                totalEntriesScanned += progressThisRun.get();
-                progressThisRun.set(0);
+                totalEntriesScanned += scanProgressThisRun.get();
+                scanProgressThisRun.set(0);
+                totalEntriesDeleted += deleteProgressThisRun.get();
+                deleteProgressThisRun.set(0);
             }
             store.endBatchModifications();
         }
@@ -119,10 +125,11 @@ public class DataCleanupJob<K, V, T> implements Runnable {
         }
     }
 
-    private void acquireCleanupPermit(AtomicLong progress) {
+    private void acquireCleanupPermit(AtomicLong scanProgress, AtomicLong deleteProgress) {
         logger.info("Acquiring lock to perform data cleanup on \"" + store.getName() + "\".");
         try {
-            this.cleanupPermits.acquire(progress);
+            this.cleanupPermits.acquire(scanProgress, deleteProgress, this.getClass()
+                                                                          .getCanonicalName());
         } catch(InterruptedException e) {
             throw new IllegalStateException("Datacleanup interrupted while waiting for cleanup permit.",
                                             e);
@@ -131,6 +138,11 @@ public class DataCleanupJob<K, V, T> implements Runnable {
 
     @JmxGetter(name = "numEntriesScanned", description = "Returns number of entries scanned")
     public synchronized long getEntriesScanned() {
-        return totalEntriesScanned + progressThisRun.get();
+        return totalEntriesScanned + scanProgressThisRun.get();
+    }
+
+    @JmxGetter(name = "numEntriesDeleted", description = "Returns number of entries deleted")
+    public synchronized long getEntriesDeleted() {
+        return totalEntriesDeleted + deleteProgressThisRun.get();
     }
 }
