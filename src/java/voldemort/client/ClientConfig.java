@@ -607,7 +607,7 @@ public class ClientConfig {
     /**
      * Get the timeouts for voldemort operations
      * 
-     * @return modified ClientConfig
+     * @return ClientConfig
      */
     public TimeoutConfig getTimeoutConfig() {
         return timeoutConfig;
