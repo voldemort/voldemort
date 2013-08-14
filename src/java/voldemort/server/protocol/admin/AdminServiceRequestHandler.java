@@ -62,6 +62,8 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.SlopStorageEngine;
+import voldemort.store.stats.StreamingStats;
+import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
@@ -891,6 +893,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         final StoreDefinition storeDef = metadataStore.getStoreDef(storeName);
         final boolean isReadOnlyStore = storeDef.getType()
                                                 .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
+        final StreamingStats streamingStats = voldemortConfig.isJmxEnabled() ? storeRepository.getStreamingStats(storeName)
+                                                                            : null;
 
         try {
             asyncService.submitOperation(requestId, new AsyncOperation(requestId,
@@ -953,16 +957,34 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                                                      0);
                                 long numTuples = 0;
                                 long startTime = System.currentTimeMillis();
+                                long startNs = System.nanoTime();
                                 while(running.get() && entriesIterator.hasNext()) {
-                                    Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
+                                    Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
+                                    if(streamingStats != null) {
+                                        streamingStats.reportNetworkTime(Operation.UPDATE_ENTRIES,
+                                                                         Utils.elapsedTimeNs(startNs,
+                                                                                             System.nanoTime()));
+                                    }
                                     ByteArray key = entry.getFirst();
                                     Versioned<byte[]> value = entry.getSecond();
+                                    startNs = System.nanoTime();
                                     try {
+                                        /**
+                                         * TODO This also needs to be fixed to
+                                         * use the atomic multi version puts
+                                         */
                                         storageEngine.put(key, value, null);
                                     } catch(ObsoleteVersionException e) {
                                         // log and ignore
                                         logger.debug("Fetch and update threw Obsolete version exception. Ignoring");
+                                    } finally {
+                                        if(streamingStats != null) {
+                                            streamingStats.reportStreamingPut(Operation.UPDATE_ENTRIES);
+                                            streamingStats.reportStorageTime(Operation.UPDATE_ENTRIES,
+                                                                             Utils.elapsedTimeNs(startNs,
+                                                                                                 System.nanoTime()));
+                                        }
                                     }
 
                                     long totalTime = (System.currentTimeMillis() - startTime) / 1000;
@@ -975,6 +997,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                      + "' in " + totalTime + " seconds");
                                     }
                                     numTuples++;
+                                    startNs = System.nanoTime();
                                 }
 
                                 long totalTime = (System.currentTimeMillis() - startTime) / 1000;

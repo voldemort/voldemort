@@ -21,6 +21,7 @@ import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -102,7 +103,7 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
             try {
                 ByteUtils.read(inputStream, input);
-                networkTimeNs += System.nanoTime() - startNs;
+                networkTimeNs += Utils.elapsedTimeNs(startNs, System.nanoTime());
             } catch(EOFException e) {
                 if(logger.isTraceEnabled())
                     logger.trace("Incomplete read for message");
@@ -142,8 +143,9 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
                     startNs = System.nanoTime();
                     storageEngine.put(key, Versioned.value(value, vectorClock), transforms);
                     if(isJmxEnabled)
-                        streamStats.reportStorageTime(Operation.SLOP_UPDATE, System.nanoTime()
-                                                                             - startNs);
+                        streamStats.reportStorageTime(Operation.SLOP_UPDATE,
+                                                      Utils.elapsedTimeNs(startNs,
+                                                                          System.nanoTime()));
                     if(logger.isTraceEnabled())
                         logger.trace("updateSlopEntries (Streaming put) successful on key:" + key
                                      + " of store: " + request.getStore());

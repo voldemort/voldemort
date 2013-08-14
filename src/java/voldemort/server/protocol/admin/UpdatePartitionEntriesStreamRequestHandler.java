@@ -26,6 +26,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
+import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
@@ -105,8 +106,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
                 if(logger.isTraceEnabled())
                     logger.trace("Incomplete read for message size");
                 if(streamStats != null)
-                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES, System.nanoTime()
-                                                                            - startNs);
+                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES,
+                                                  Utils.elapsedTimeNs(startNs, System.nanoTime()));
                 return StreamRequestHandlerState.INCOMPLETE_READ;
             }
 
@@ -119,8 +120,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
                 if(logger.isTraceEnabled())
                     logger.trace("Message size -1, completed partition update");
                 if(streamStats != null)
-                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES, System.nanoTime()
-                                                                            - startNs);
+                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES,
+                                                  Utils.elapsedTimeNs(startNs, System.nanoTime()));
                 return StreamRequestHandlerState.COMPLETE;
             }
 
@@ -138,8 +139,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
                 return StreamRequestHandlerState.INCOMPLETE_READ;
             } finally {
                 if(streamStats != null)
-                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES, System.nanoTime()
-                                                                            - startNs);
+                    streamStats.reportNetworkTime(Operation.UPDATE_ENTRIES,
+                                                  Utils.elapsedTimeNs(startNs, System.nanoTime()));
             }
 
             VAdminProto.UpdatePartitionEntriesRequest.Builder builder = VAdminProto.UpdatePartitionEntriesRequest.newBuilder();
@@ -164,8 +165,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
                     logger.debug("updateEntries (Streaming put) threw ObsoleteVersionException, Ignoring.");
             } finally {
                 if(streamStats != null)
-                    streamStats.reportStorageTime(Operation.UPDATE_ENTRIES, System.nanoTime()
-                                                                            - startNs);
+                    streamStats.reportStorageTime(Operation.UPDATE_ENTRIES,
+                                                  Utils.elapsedTimeNs(startNs, System.nanoTime()));
             }
 
             throttler.maybeThrottle(key.length() + AdminServiceRequestHandler.valueSize(value));

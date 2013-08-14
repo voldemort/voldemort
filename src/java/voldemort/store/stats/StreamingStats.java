@@ -78,16 +78,16 @@ public class StreamingStats {
         this.parent = parent;
     }
 
-    public void reportNetworkTime(Operation op, long networkTimeMs) {
-        networkTimeCounterMap.get(op).count(networkTimeMs);
+    public void reportNetworkTime(Operation op, long networkTimeNs) {
+        networkTimeCounterMap.get(op).count(networkTimeNs);
         if(parent != null)
-            parent.reportNetworkTime(op, networkTimeMs);
+            parent.reportNetworkTime(op, networkTimeNs);
     }
 
-    public void reportStorageTime(Operation op, long storageTimeMs) {
-        storageTimeCounterMap.get(op).count(storageTimeMs);
+    public void reportStorageTime(Operation op, long storageTimeNs) {
+        storageTimeCounterMap.get(op).count(storageTimeNs);
         if(parent != null)
-            parent.reportStorageTime(op, storageTimeMs);
+            parent.reportStorageTime(op, storageTimeNs);
     }
 
     public void reportStreamingFetch(Operation op) {

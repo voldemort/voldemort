@@ -43,6 +43,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Time;
+import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 
 import com.google.protobuf.Message;
@@ -217,7 +218,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         long startNs = System.nanoTime();
         ProtoUtils.writeMessage(outputStream, message);
         if(streamStats != null) {
-            streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
+            streamStats.reportNetworkTime(operation,
+                                          Utils.elapsedTimeNs(startNs, System.nanoTime()));
         }
     }
 
@@ -229,7 +231,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
     protected void reportStorageOpTime(long startNs) {
         if(streamStats != null) {
             streamStats.reportStreamingScan(operation);
-            streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
+            streamStats.reportStorageTime(operation,
+                                          Utils.elapsedTimeNs(startNs, System.nanoTime()));
         }
     }
 
