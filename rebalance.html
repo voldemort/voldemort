@@ -248,25 +248,25 @@ The key classes of interest for executing a rebalance are as follows:
 <li>Client-side control of rebalancing.</li>
 <ul>
 <li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.tools.RebalanceControllerCLI</a> : Command line tool to initiate rebalancing.</li>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.client.rebalance.RebalanceController</a> : Constructs plan and then schedules batches to complete the plan.</li>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.client.rebalance.RebalanceScheduler</a> : Schedules rebalancing tasks from current rebalancing batch.</li>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.client.rebalance.task.RebalanceTask</a> : Clones partition-stores from donor-node to stealer-node.</li>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.client.rebalance.task.StealerBasedRebalanceTask</a> : Manages execution of specific rebalance task on stealer-node.</li>
+<li><a href="javadoc/all/voldemort/client/rebalance/RebalanceController.html">voldemort.client.rebalance.RebalanceController</a> : Constructs plan and then schedules batches to complete the plan.</li>
+<li><a href="javadoc/all/voldemort/client/rebalance/RebalanceScheduler.html">voldemort.client.rebalance.RebalanceScheduler</a> : Schedules rebalancing tasks from current rebalancing batch.</li>
+<li><a href="javadoc/all/voldemort/client/rebalance/task/RebalanceTask.html">voldemort.client.rebalance.task.RebalanceTask</a> : Clones partition-stores from donor-node to stealer-node.</li>
+<li><a href="javadoc/all/voldemort/client/rebalance/task/StealerBasedRebalanceTask/RepartitionerCLI.html">voldemort.client.rebalance.task.StealerBasedRebalanceTask</a> : Manages execution of specific rebalance task on stealer-node.</li>
 </ul>
 
 <li>Rebalance plan and data structures</li>
 <ul>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.client.rebalance.RebalancePlan</a> : Constructs rebalancing plan comprised of batches.</li>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.client.rebalance.RebalanceBatchPlan</a> : Constructs rebalancing batch comprised of tasks.</li>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.client.rebalance.RebalanceTaskInfo</a> : Structure that tracks which partition-stores must be cloned from donor-node to stealer-node.</li>
+<li><a href="javadoc/all/voldemort/client/rebalance/RebalancePlan.html">voldemort.client.rebalance.RebalancePlan</a> : Constructs rebalancing plan comprised of batches.</li>
+<li><a href="javadoc/all/voldemort/client/rebalance/RebalanceBatchPlan.html">voldemort.client.rebalance.RebalanceBatchPlan</a> : Constructs rebalancing batch comprised of tasks.</li>
+<li><a href="javadoc/all/voldemort/client/rebalance/RebalanceTaskInfo.html">voldemort.client.rebalance.RebalanceTaskInfo</a> : Structure that tracks which partition-stores must be cloned from donor-node to stealer-node.</li>
 </ul>
 
 <li>Server-side control of rebalancing</li>
 <ul>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.server.rebalance.Rebalancer</a> : Initiates server-side rebalancing work and handles server-level abort/rollback.</li>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.server.rebalance.async.RebalanceAsyncOperation</a> : Initiates server-side rebalancing work and handles server-level abort/rollback.</li>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.server.rebalance.async.StealerBasedRebalanceAsyncOperation</a> : Initiates server-side rebalancing work and handles server-level abort/rollback.</li>
-<li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.store.metadata.MetadataStore</a> : Rebalancing state is kept in this store.</li>
+<li><a href="javadoc/all/voldemort/server/rebalance/Rebalancer.html">voldemort.server.rebalance.Rebalancer</a> : Initiates server-side rebalancing work and handles server-level abort/rollback.</li>
+<li><a href="javadoc/all/voldemort/server/rebalance/async/RebalanceAsyncOperation.html">voldemort.server.rebalance.async.RebalanceAsyncOperation</a> : Parent class for server-side rebalancing operations.</li>
+<li><a href="javadoc/all/voldemort/server/rebalance/async/StealerBasedRebalanceAsyncOperation.html">voldemort.server.rebalance.async.StealerBasedRebalanceAsyncOperation</a> : Stealer-based server-side rebalancing operation.</li>
+<li><a href="javadoc/all/voldemort/store/metadata/MetadataStore.html">voldemort.store.metadata.MetadataStore</a> : Rebalancing state is kept in this store.</li>
 </ul>
 
 </ul>
@@ -308,7 +308,6 @@ At a very high-level, servers do the following:
 <li>Upon receiving fetch request, server acts as donor-node and streams requested partition-stores store-by-store (with some parallelism permitted among stores).</li>
 <li>Upon receving abort, rolls back metadata locally, sets state to <em>normal</em>, and stops proxying.</li>
 <li>Upon receving state change to <em>normal</em>, sets state locally and stops proxying.</li>
-<li></li>
 </ol>
 </p>
 
@@ -319,7 +318,7 @@ At a very high-level, servers do the following:
 The execution of rebalance is fundamentally different for read-write stores than for read-only stores.
 This is necessary because the on-disk formats are different and, in particular, the on-disk format for read-only stores does not permit updates in place.
 The rebalance implementation first rebalances read-only stores and then read-write stores.
-Note though that LinkedIn does not have any clusters that host both read-write and read-only stores so we are not positive the code path that rebalances both read-only and read-write stores is truly production quality.
+<em>Note though that LinkedIn does not have any clusters that host both read-write and read-only stores so we are not positive the code path that rebalances both read-only and read-write stores is truly production quality.</em>
 </p>
 
 <p>
@@ -347,7 +346,7 @@ This ensures that rebalance is abortable.
 
 <p>
 Proxy relationships are kept within a zone.
-The specific donor-node a stealer-node identifies for proxy'ing is based on zone n-aries.
+A stealer-node choses a donor-node with which to proxy from within the zone based on zone n-aries in the "old" and "new" cluster.xml.
 The donor-node is the node, in the same zone as the stealer-node, that hosts the same Zone N-Ary in the "old" cluster.xml as the Stealer-Node hosts in the "new" final-cluster.xml.
 A proxy-put is issued only if the "old" partition-store will be orphaned when the Batch completes; if it will be retained, then it is directly receiving put operations during rebalance anyhow.
 For the zone-expansion use case, nodes in the new zone do not do proxy-put operations; proxy-get operations may be performed and will incur cross-zone latencies.
@@ -364,6 +363,11 @@ This period allows for a baseline performance cost of proxying to be established
 To perform proxy-put and proxy-get operations, a server effectively acts as a client to other servers. 
 This means that it creates a store client and failure detector, that it establishes connections with other servers, and so on. 
 The configuration of the store client and of the failure detector is controlled by the VoldemortConfig.
+</p>
+
+<p>
+At this time, delete operations are not proxied. 
+Delete operations do not interact well with eventual consistency in the current implementation and so were excluded from being proxied.
 </p>
 
 
@@ -390,7 +394,7 @@ In stealer-based, the node receiving data "drives" the process on server side.
 Donor-based was added to mitigate the issue that stealer-based rebalancing could result in multiple full scans of all stores on a node.
 In donor-based, each server did a single full scan and sent pertinent partition-stores to the appropriate stealers.
 Since the addition of storage engines that supprot partition scans (see StorageEngine.isPartitionScanSupported()), stealer-based rebalancing is as, or more, efficient than donor-based rebalancing.
-The last commit to have a copy of donor-based code is <b>TODO JJW ADD POINTER TO TAG HERE</b>.
+Voldemort <a href="http://engineering.linkedin.com/voldemort/announcing-voldemort-13-open-source-release">open source release 1.3</a> was the last release that included donor-based rebalancing.
 If donor-based ever needs to be resurrected, then it needs to be changed to use zone n-ary logic (as opposed to the historic "ReplicaType" and "RebalancePartitionsInfo" types).
 </p>
 
@@ -430,6 +434,11 @@ Repartitions a cluster to achieve better balance. For the <em>shuffle</em> use c
 </p>
 
 <p>
+The cluster output by this tool can be used as input to voldemort.tools.RebalanceControllerCLI to actually rebalance the cluster. 
+Please see hte notes below on the  voldemort.tools.RebalanceControllerCLI tool.
+</p>
+
+<p>
 There are two ways in which partitions are "swapped around": random and greedy. Random swapping identifies random pairs of partitions to swap; if the swap improves the utility value then the swap is kept, otherwise it is not. Greedy swapping attempts many distinct random swaps and selects the one "best" such swap. I.e., the one swap that most improved the utility value the most. These techniques are variants of "hill climbing" algorithms or "simulated annealing". 
 </p>
 
@@ -446,6 +455,7 @@ Zone expansion:
 
 For cluster expansion, an <em>interim-cluster</em> must be provided which includes the new nodes without any partition IDs assigned to them. For zone expansion, both an <em>interim-cluster</em> and <em>final-stores</em> must be provided. The latter is necessary because zone replication factors must be updated in the stores.xml file.
 </p>
+
 
 
 <h2>voldemort.tools.RebalancePlanCLI</h2>
