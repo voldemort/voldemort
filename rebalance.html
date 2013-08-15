@@ -2,6 +2,16 @@
 layout: default
 title: Rebalancing - Voldemort
 ---
+<p>
+<b>
+NOTE: 
+This documentation applies to code currently on branch voldemort/vzonewithmasterremdonor.
+This documentation does not apply to
+Voldemort <a href="http://engineering.linkedin.com/voldemort/announcing-voldemort-13-open-source-release">open source release 1.3</a>.
+The aforementioned branch will be merged to master before the next open source release at which point this documentation will be applicable.
+</b>
+</p>
+
 <h1>Outline</h1>
 <p>
 <ul>
@@ -322,7 +332,7 @@ The rebalance implementation first rebalances read-only stores and then read-wri
 </p>
 
 <p>
-For read-write stores, new cluster metatadata is deployed and then data is cloned to the necessary nodes in the "new" cluster xml. 
+For read-write stores, new cluster metadata is deployed and then data is cloned to the necessary nodes in the "new" cluster xml. 
 During the execution of rebalance, proxying ensures that all data ("old" and "new" cluster xml) is kept in sync.
 </p>
 
@@ -472,8 +482,37 @@ and
 <pre>voldemort.tools.RebalancePlanCLI --current-cluster  &lt;current-cluster&gt; --current-stores &lt;current_stores&gt; --final-cluster &lt;final-cluster&gt; --final-stores &lt;final_stores&gt; --output-dir &lt;output_dir&gt;</pre>
 The difference lies in the inclusion of argument "--final-stores &lt;final_stores&gt;". 
 or shuffle and cluster expansion use cases, the final stores argument is not needed. 
-For zone expansion, the final stores argument is needed since storage definitions change when the number of zones changes.
 </p>
+
+<p>
+For zone expansion, the final stores argument is needed since storage definitions change when the number of zones changes.
+The following snippets of storage definitions illustrate how they need to change for zone expansion.
+<blockquote>
+Storage definition for two zones:
+<pre>
+...
+&lt;replication-factor&gt;4&lt;/replication-factor&gt;
+&lt;zone-replication-factor&gt;
+  &lt;replication-factor zone-id="0"&gt;2&lt;/replication-factor&gt;
+  &lt;replication-factor zone-id="1"&gt;2&lt;/replication-factor&gt;
+&lt;/zone-replication-factor&gt;
+...
+</pre>
+Storage definition change for three zones (zone expansion use case):
+<pre>
+...
+&lt;replication-factor&gt;6&lt;/replication-factor&gt;
+&lt;zone-replication-factor&gt;
+  &lt;replication-factor zone-id="0"&gt;2&lt;/replication-factor&gt;
+  &lt;replication-factor zone-id="1"&gt;2&lt;/replication-factor&gt;
+  &lt;replication-factor zone-id="2"&gt;2&lt;/replication-factor&gt;
+&lt;/zone-replication-factor&gt;
+...
+</pre>
+</blockquote>
+</p>
+
+
 
 <p>
 There is an optional batch-size parameter for this tool. Current best practice is to use the default value of "infinite" (Long.MAX_VALUE). Breaking plans into "batches" tends to result in more work and slower rebalances.
@@ -773,6 +812,33 @@ For the zone expansion use case, this is especially true since more servers are 
 
 <p>
 This is a simplified version of the run book LinkedIn uses to rebalance Voldemort clusters.
+</p>
+
+<h2>Tune server configs</h2>
+<p>
+We do not have specific recommendations for how to tune servers for rebalancing. 
+There is a trade off between how quickly rebalance completes and how much it (may) affect foreground performance.
+That said, we thought about the following parameters in the server.properties file (read by VoldemortConfig) when tuning for rebalancing:
+<blockquote>
+<pre>
+# No specific recommendations for these parameters, but each may
+# affect rebalancing performance:
+admin.max.threads=
+client.connection.timeout.ms=
+client.max.connections.per.node=
+client.routing.timeout.ms=
+max.parallel.stores.rebalancing=
+max.proxy.put.threads=
+nio.connector.selectors=
+stream.read.byte.per.sec=
+stream.write.byte.per.sec=
+
+# if your storage engin supports isPartitionScanSupported() then the
+# following setting is the most important one for improving
+# performance of rebalance:
+use.partition.scan.for.rebalance=true
+</pre>
+</blockquote>
 </p>
 
 <h2>Preparation</h2>
