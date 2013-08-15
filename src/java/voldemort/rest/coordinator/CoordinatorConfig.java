@@ -164,8 +164,9 @@ public class CoordinatorConfig {
      * @param fatClientConfigPath The path of the file containing the fat client
      *        config in Avro format
      */
-    public void setFatClientConfigPath(String fatClientConfigPath) {
+    public CoordinatorConfig setFatClientConfigPath(String fatClientConfigPath) {
         this.fatClientConfigPath = fatClientConfigPath;
+        return this;
     }
 
     public int getMetadataCheckIntervalInMs() {
@@ -177,8 +178,9 @@ public class CoordinatorConfig {
      *        check for updates in the cluster metadata (Eg: cluster.xml and
      *        stores.xml)
      */
-    public void setMetadataCheckIntervalInMs(int metadataCheckIntervalInMs) {
+    public CoordinatorConfig setMetadataCheckIntervalInMs(int metadataCheckIntervalInMs) {
         this.metadataCheckIntervalInMs = metadataCheckIntervalInMs;
+        return this;
     }
 
     public int getServerPort() {
@@ -189,8 +191,9 @@ public class CoordinatorConfig {
      * @param serverPort Defines the port to use while bootstrapping the Netty
      *        server
      */
-    public void setServerPort(int serverPort) {
+    public CoordinatorConfig setServerPort(int serverPort) {
         this.nettyServerPort = serverPort;
+        return this;
     }
 
     public int getNettyServerBacklog() {
@@ -201,8 +204,9 @@ public class CoordinatorConfig {
      * @param nettyServerBacklog Defines the netty server backlog value
      * 
      */
-    public void setNettyServerBacklog(int nettyServerBacklog) {
+    public CoordinatorConfig setNettyServerBacklog(int nettyServerBacklog) {
         this.nettyServerBacklog = nettyServerBacklog;
+        return this;
     }
 
     public int getCoordinatorCoreThreads() {
@@ -213,8 +217,9 @@ public class CoordinatorConfig {
      * @param coordinatorCoreThreads Specifies the # core request executor
      *        threads
      */
-    public void setCoordinatorCoreThreads(int coordinatorCoreThreads) {
+    public CoordinatorConfig setCoordinatorCoreThreads(int coordinatorCoreThreads) {
         this.coordinatorCoreThreads = coordinatorCoreThreads;
+        return this;
     }
 
     public int getCoordinatorMaxThreads() {
@@ -224,8 +229,9 @@ public class CoordinatorConfig {
     /**
      * @param coordinatorMaxThreads Specifies the # max request executor threads
      */
-    public void setCoordinatorMaxThreads(int coordinatorMaxThreads) {
+    public CoordinatorConfig setCoordinatorMaxThreads(int coordinatorMaxThreads) {
         this.coordinatorMaxThreads = coordinatorMaxThreads;
+        return this;
     }
 
     public int getCoordinatorQueuedRequestsSize() {
@@ -236,8 +242,9 @@ public class CoordinatorConfig {
      * @param coordinatorQueuedRequestsSize Defines the max # requests that can
      *        be queued for processing
      */
-    public void setCoordinatorQueuedRequestsSize(int coordinatorQueuedRequestsSize) {
+    public CoordinatorConfig setCoordinatorQueuedRequestsSize(int coordinatorQueuedRequestsSize) {
         this.numCoordinatorQueuedRequests = coordinatorQueuedRequestsSize;
+        return this;
     }
 
 }

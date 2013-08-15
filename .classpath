@@ -16,6 +16,7 @@
 	<classpathentry kind="src" path="contrib/collections/src/java"/>
 	<classpathentry kind="src" path="contrib/collections/test"/>
 	<classpathentry kind="src" path="contrib/restclient/src/java"/>
+	<classpathentry kind="src" path="contrib/restclient/test"/>
 	<classpathentry kind="lib" path="lib/catalina-ant.jar"/>
 	<classpathentry kind="lib" path="lib/commons-codec-1.4.jar"/>
 	<classpathentry kind="lib" path="lib/commons-dbcp-1.2.2.jar"/>

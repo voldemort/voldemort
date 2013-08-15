@@ -130,13 +130,16 @@ public class CoordinatorService extends AbstractService {
         for(StoreDefinition storeDef: storeDefList) {
             String storeName = storeDef.getName();
 
-            DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = new DynamicTimeoutStoreClient<ByteArray, byte[]>(storeName,
-                                                                                                                        fatClientFactoryMap.get(storeName),
-                                                                                                                        1,
-                                                                                                                        storesXml,
-                                                                                                                        clusterXml);
+            // Initialize only those stores defined in the client configs file
+            if(fatClientFactoryMap.get(storeName) != null) {
+                DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = new DynamicTimeoutStoreClient<ByteArray, byte[]>(storeName,
+                                                                                                                            fatClientFactoryMap.get(storeName),
+                                                                                                                            1,
+                                                                                                                            storesXml,
+                                                                                                                            clusterXml);
 
-            fatClientMap.put(storeName, storeClient);
+                fatClientMap.put(storeName, storeClient);
+            }
         }
     }
 
