@@ -101,7 +101,7 @@ public class Node implements Serializable, Comparable<Node> {
                 int zoneId,
                 List<Integer> partitions,
                 int restPort) {
-        this(id, host, httpPort, socketPort, adminPort, Zone.DEFAULT_ZONE_ID, partitions);
+        this(id, host, httpPort, socketPort, adminPort, zoneId, partitions);
         this.restPort = restPort;
     }
 
