@@ -8,6 +8,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.log4j.Logger;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.group.ChannelGroup;
+import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
 import voldemort.annotations.jmx.JmxGetter;
@@ -27,6 +29,7 @@ public class RestService extends AbstractService {
     protected ThreadPoolExecutor workerPool;
     private ServerBootstrap bootstrap = null;
     private Channel nettyServerChannel;
+    static final ChannelGroup allChannels = new DefaultChannelGroup();
     private final StoreRepository storeRepository;
     private final List<StoreDefinition> storeDefinitions;
     private final VoldemortConfig config;
@@ -59,10 +62,12 @@ public class RestService extends AbstractService {
         this.bootstrap.setPipelineFactory(new RestPipelineFactory(storeRepository,
                                                                   config,
                                                                   localZoneId,
-                                                                  storeDefinitions));
+                                                                  storeDefinitions,
+                                                                  allChannels));
 
         // Bind and start to accept incoming connections.
         this.nettyServerChannel = this.bootstrap.bind(new InetSocketAddress(this.port));
+        allChannels.add(nettyServerChannel);
         logger.info("REST service started on port " + this.port);
 
         // Register MBeans for Netty worker pool stats
@@ -85,6 +90,10 @@ public class RestService extends AbstractService {
          */
         if(this.nettyServerChannel != null) {
             this.nettyServerChannel.close();
+        }
+
+        if(allChannels != null) {
+            allChannels.close().awaitUninterruptibly();
         }
         this.bootstrap.releaseExternalResources();
     }

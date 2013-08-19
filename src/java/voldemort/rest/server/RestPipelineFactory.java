@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpContentCompressor;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
@@ -42,7 +43,8 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
     public RestPipelineFactory(StoreRepository storeRepository,
                                VoldemortConfig config,
                                int localZoneId,
-                               List<StoreDefinition> storeDefinitions) {
+                               List<StoreDefinition> storeDefinitions,
+                               ChannelGroup allchannels) {
         this.storeRepository = storeRepository;
         this.threadPoolExecutor = new ThreadPoolExecutor(config.getNumRestServiceStorageThreads(),
                                                          config.getNumRestServiceStorageThreads(),
@@ -59,7 +61,7 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
                                                               config.isJmxEnabled(),
                                                               localZoneId);
         connectionStats = new NettyConnectionStats();
-        connectionStatsHandler = new NettyConnectionStatsHandler(connectionStats);
+        connectionStatsHandler = new NettyConnectionStatsHandler(connectionStats, allchannels);
 
         maxHttpContentLength = config.getMaxHttpAggregatedContentLength();
         if(config.isJmxEnabled()) {

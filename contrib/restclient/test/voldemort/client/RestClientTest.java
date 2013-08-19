@@ -18,7 +18,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.client.DefaultStoreClientTest;
 import voldemort.cluster.Cluster;
 import voldemort.rest.coordinator.CoordinatorConfig;
 import voldemort.rest.coordinator.CoordinatorService;
@@ -122,8 +121,6 @@ public class RestClientTest extends DefaultStoreClientTest {
                      client.getValue("k", null));
         client.put("k", "v");
         VectorClock expectedVC = new VectorClock().incremented(nodeId, time.getMilliseconds());
-        System.err.println("Expected VC = " + expectedVC);
-        System.err.println(client.get("k", new Versioned<String>("v2")));
         assertEquals("If there is a value for k, get(k) should return it.",
                      "v",
                      client.get("k", new Versioned<String>("v2")).getValue());

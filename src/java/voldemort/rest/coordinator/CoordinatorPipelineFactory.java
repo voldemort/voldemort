@@ -73,7 +73,7 @@ public class CoordinatorPipelineFactory implements ChannelPipelineFactory {
                                                                       this.coordinatorMetadata,
                                                                       this.coordinatorPerfStats);
 
-        this.connectionStatsHandler = new NettyConnectionStatsHandler(connectionStats);
+        this.connectionStatsHandler = new NettyConnectionStatsHandler(connectionStats, null);
     }
 
     @Override

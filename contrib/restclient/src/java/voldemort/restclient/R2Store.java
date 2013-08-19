@@ -16,12 +16,14 @@
 
 package voldemort.restclient;
 
+import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.PRECONDITION_FAILED;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.REQUEST_TIMEOUT;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeBodyPart;
@@ -46,8 +49,8 @@ import org.codehaus.jackson.map.ObjectMapper;
 
 import voldemort.VoldemortException;
 import voldemort.common.VoldemortOpCode;
-import voldemort.rest.RestUtils;
 import voldemort.rest.RestMessageHeaders;
+import voldemort.rest.RestUtils;
 import voldemort.rest.VectorClockWrapper;
 import voldemort.store.AbstractStore;
 import voldemort.store.InsufficientOperationalNodesException;
@@ -94,6 +97,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     private RESTClientConfig config;
     private String routingTypeCode = null;
     private int zoneId;
+    private AtomicBoolean isActive;
 
     public R2Store(String storeName,
                    String baseURL,
@@ -115,21 +119,30 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         this.mapper = new ObjectMapper();
         this.routingTypeCode = routingCodeStr;
         this.zoneId = zoneId;
-
+        this.isActive = new AtomicBoolean(true);
     }
 
     @Override
     public void close() throws VoldemortException {
         final FutureCallback<None> clientShutdownCallback = new FutureCallback<None>();
-        client.shutdown(clientShutdownCallback);
-        try {
-            clientShutdownCallback.get();
-        } catch(InterruptedException e) {
-            logger.error("Interrupted while shutting down the HttpClientFactory: " + e.getMessage(),
-                         e);
-        } catch(ExecutionException e) {
-            logger.error("Execution exception occurred while shutting down the HttpClientFactory: "
-                         + e.getMessage(), e);
+        if(!this.isActive.get()) {
+            return;
+        }
+
+        if(client != null) {
+            client.shutdown(clientShutdownCallback);
+            try {
+                clientShutdownCallback.get();
+                this.isActive.compareAndSet(true, false);
+            } catch(InterruptedException e) {
+                logger.error("Interrupted while shutting down the HttpClientFactory: "
+                                     + e.getMessage(),
+                             e);
+            } catch(ExecutionException e) {
+                logger.error("Execution exception occurred while shutting down the HttpClientFactory: "
+                                     + e.getMessage(),
+                             e);
+            }
         }
     }
 
@@ -137,7 +150,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         try {
             // Create the REST request with this byte array
-            String base64Key = new String(Base64.encodeBase64(key.get()));
+            String base64Key = RestUtils.encodeVoldemortKey(key.get());
             RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName()
                                                                    + "/" + base64Key));
             // Create a HTTP POST request
@@ -230,7 +243,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         List<Versioned<byte[]>> resultList = new ArrayList<Versioned<byte[]>>();
-        String base64Key = new String(Base64.encodeBase64(key.get()));
+        String base64Key = RestUtils.encodeVoldemortKey(key.get());
         RestRequestBuilder rb = null;
         try {
             rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName() + "/" + base64Key));
@@ -283,6 +296,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             for(int i = 0; i < mp.getCount(); i++) {
                 MimeBodyPart part = (MimeBodyPart) mp.getBodyPart(i);
                 String serializedVC = part.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK)[0];
+                int contentLength = Integer.parseInt(part.getHeader(RestMessageHeaders.CONTENT_LENGTH)[0]);
 
                 if(logger.isDebugEnabled()) {
                     logger.debug("Received VC : " + serializedVC);
@@ -290,8 +304,10 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 VectorClockWrapper vcWrapper = mapper.readValue(serializedVC,
                                                                 VectorClockWrapper.class);
 
-                // get the value bytes
-                byte[] bodyPartBytes = ((String) part.getContent()).getBytes();
+                InputStream input = part.getInputStream();
+                byte[] bodyPartBytes = new byte[contentLength];
+                input.read(bodyPartBytes);
+
                 VectorClock clock = new VectorClock(vcWrapper.getVersions(),
                                                     vcWrapper.getTimestamp());
                 results.add(new Versioned<byte[]>(bodyPartBytes, clock));
@@ -368,7 +384,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             byte[] payload = value.getValue();
 
             // Create the REST request with this byte array
-            String base64Key = new String(Base64.encodeBase64(key.get()));
+            String base64Key = RestUtils.encodeVoldemortKey(key.get());
             RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName()
                                                                    + "/" + base64Key));
 
@@ -437,16 +453,18 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 }
 
                 int httpErrorStatus = exception.getResponse().getStatus();
-                if(httpErrorStatus == PRECONDITION_FAILED.getCode()) {
+                if(httpErrorStatus == BAD_REQUEST.getCode()) {
+                    throw new VoldemortException("Bad request: " + e.getMessage(), e);
+                } else if(httpErrorStatus == PRECONDITION_FAILED.getCode()) {
                     throw new ObsoleteVersionException(e.getMessage());
                 } else if(httpErrorStatus == REQUEST_TIMEOUT.getCode()
                           || httpErrorStatus == INTERNAL_SERVER_ERROR.getCode()) {
                     throw new InsufficientOperationalNodesException(e.getMessage());
                 }
-            } else {
-                throw new VoldemortException("Unknown HTTP request execution exception: "
-                                             + e.getMessage(), e);
             }
+            throw new VoldemortException("Unknown HTTP request execution exception: "
+                                         + e.getMessage(), e);
+
         } catch(InterruptedException e) {
             if(logger.isDebugEnabled()) {
                 logger.debug("Operation interrupted : " + e.getMessage());
@@ -470,7 +488,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
 
             while(it.hasNext()) {
                 ByteArray key = it.next();
-                String base64Key = new String(Base64.encodeBase64(key.get()));
+                String base64Key = RestUtils.encodeVoldemortKey(key.get());
                 if(keyArgs == null) {
                     keyArgs = base64Key;
                 } else {
@@ -562,7 +580,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 // Get the key
                 String contentLocation = part.getHeader("Content-Location")[0];
                 String base64Key = contentLocation.split("/")[2];
-                ByteArray key = new ByteArray(Base64.decodeBase64(base64Key.getBytes()));
+                ByteArray key = new ByteArray(RestUtils.decodeVoldemortKey(base64Key));
 
                 if(logger.isDebugEnabled()) {
                     logger.debug("Content-Location : " + contentLocation);
@@ -582,6 +600,8 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
 
                     MimeBodyPart valuePart = (MimeBodyPart) valueParts.getBodyPart(valueId);
                     String serializedVC = valuePart.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK)[0];
+                    int contentLength = Integer.parseInt(valuePart.getHeader(RestMessageHeaders.CONTENT_LENGTH)[0]);
+
                     if(logger.isDebugEnabled()) {
                         logger.debug("Received serialized Vector Clock : " + serializedVC);
                     }
@@ -590,7 +610,10 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                                                                     VectorClockWrapper.class);
 
                     // get the value bytes
-                    byte[] bodyPartBytes = ((String) valuePart.getContent()).getBytes();
+                    InputStream input = valuePart.getInputStream();
+                    byte[] bodyPartBytes = new byte[contentLength];
+                    input.read(bodyPartBytes);
+
                     VectorClock clock = new VectorClock(vcWrapper.getVersions(),
                                                         vcWrapper.getTimestamp());
                     valueResultList.add(new Versioned<byte[]>(bodyPartBytes, clock));
@@ -619,9 +642,55 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     }
 
     @Override
-    public List<Version> getVersions(ByteArray arg0) {
-        // TODO Auto-generated method stub
-        return null;
+    public List<Version> getVersions(ByteArray key) {
+        List<Version> resultList = new ArrayList<Version>();
+        String base64Key = RestUtils.encodeVoldemortKey(key.get());
+        RestRequestBuilder rb = null;
+        try {
+            rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName() + "/" + base64Key));
+            String timeoutStr = Long.toString(this.config.getTimeoutConfig()
+                                                         .getOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE));
+
+            rb.setHeader(RestMessageHeaders.X_VOLD_GET_VERSION, "true");
+
+            RestResponse response = fetchGetResponse(rb, timeoutStr);
+            final ByteString entity = response.getEntity();
+            if(entity != null) {
+                resultList = parseGetVersionResponse(entity);
+            } else {
+                if(logger.isDebugEnabled()) {
+                    logger.debug("Did not get any response!");
+                }
+            }
+        } catch(ExecutionException e) {
+            if(e.getCause() instanceof RestException) {
+                RestException exception = (RestException) e.getCause();
+                if(logger.isDebugEnabled()) {
+                    logger.debug("REST EXCEPTION STATUS : " + exception.getResponse().getStatus());
+                }
+
+            } else {
+                throw new VoldemortException("Unknown HTTP request execution exception: "
+                                             + e.getMessage(), e);
+            }
+        } catch(InterruptedException e) {
+            if(logger.isDebugEnabled()) {
+                logger.debug("Operation interrupted : " + e.getMessage(), e);
+            }
+            throw new VoldemortException("Operation interrupted exception: " + e.getMessage(), e);
+        } catch(URISyntaxException e) {
+            throw new VoldemortException("Illegal HTTP URL" + e.getMessage(), e);
+        }
+
+        return resultList;
+    }
+
+    private List<Version> parseGetVersionResponse(ByteString entity) {
+        byte[] bytes = new byte[entity.length()];
+        entity.copyBytes(bytes, 0);
+        String vectorClockListStr = new String(bytes);
+        List<Version> vectorClockList = RestUtils.deserializeVectorClocks(vectorClockListStr);
+        return vectorClockList;
     }
 
 }

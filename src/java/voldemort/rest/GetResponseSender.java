@@ -14,7 +14,6 @@ import javax.mail.MessagingException;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMultipart;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -60,8 +59,8 @@ public class GetResponseSender extends RestResponseSender {
 
         MimeMultipart multiPart = new MimeMultipart();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        String contentLocationKey = "/" + this.storeName + "/"
-                                    + new String(Base64.encodeBase64(key.get()));
+        String base64Key = RestUtils.encodeVoldemortKey(key.get());
+        String contentLocationKey = "/" + this.storeName + "/" + base64Key;
 
         for(Versioned<byte[]> versionedValue: versionedValues) {
 
@@ -79,6 +78,9 @@ public class GetResponseSender extends RestResponseSender {
                 body.addHeader(CONTENT_TRANSFER_ENCODING, "binary");
                 body.addHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK, eTag);
                 body.setContent(responseValue, "application/octet-stream");
+                body.addHeader(RestMessageHeaders.CONTENT_LENGTH,
+                               Integer.toString(responseValue.length));
+
                 multiPart.addBodyPart(body);
             } catch(MessagingException me) {
                 logger.error("Exception while constructing body part", me);

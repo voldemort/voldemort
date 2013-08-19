@@ -10,7 +10,6 @@ import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.codec.binary.Base64;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.MessageEvent;
@@ -43,8 +42,8 @@ public class GetVersionResponseSender extends RestResponseSender {
                              boolean isFromLocalZone,
                              long startTimeInMs) throws Exception {
 
-        String contentLocationKey = "/" + this.storeName + "/"
-                                    + new String(Base64.encodeBase64(key.get()));
+        String base64Key = RestUtils.encodeVoldemortKey(key.get());
+        String contentLocationKey = "/" + this.storeName + "/" + base64Key;
 
         List<VectorClock> vectorClocks = new ArrayList<VectorClock>();
         for(Version versionedValue: versionedValues) {

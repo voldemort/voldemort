@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.codec.binary.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.jdom.Document;
@@ -18,6 +19,7 @@ import org.jdom.output.XMLOutputter;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
 import voldemort.xml.MappingException;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -83,9 +85,9 @@ public class RestUtils {
         return serializedVC;
     }
 
-    public static List<VectorClock> deserializeVectorClocks(String serializedVC) {
+    public static List<Version> deserializeVectorClocks(String serializedVC) {
         Set<VectorClockWrapper> vectorClockWrappers = null;
-        List<VectorClock> vectorClocks = null;
+        List<Version> vectorClocks = null;
 
         if(serializedVC == null) {
             return null;
@@ -97,7 +99,7 @@ public class RestUtils {
             vectorClockWrappers = mapper.readValue(serializedVC,
                                                    new TypeReference<Set<VectorClockWrapper>>() {});
             if(vectorClockWrappers.size() > 0) {
-                vectorClocks = new ArrayList<VectorClock>();
+                vectorClocks = new ArrayList<Version>();
             }
             for(VectorClockWrapper vectorClockWrapper: vectorClockWrappers) {
                 vectorClocks.add(new VectorClock(vectorClockWrapper.getVersions(),
@@ -169,6 +171,16 @@ public class RestUtils {
         } catch(IOException e) {
             throw new MappingException(e);
         }
+    }
+
+    public static String encodeVoldemortKey(byte[] keyBytes) {
+        String base64Key = Base64.encodeBase64URLSafeString(keyBytes);
+        return base64Key;
+    }
+
+    public static byte[] decodeVoldemortKey(String base64Key) {
+        byte[] keyBytes = Base64.decodeBase64(base64Key);
+        return keyBytes;
     }
 
 }
