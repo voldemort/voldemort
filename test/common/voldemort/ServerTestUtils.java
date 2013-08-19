@@ -989,9 +989,16 @@ public class ServerTestUtils {
                                                            boolean useNio,
                                                            String clusterFile,
                                                            String storeFile,
-                                                           Properties properties)
+                                                           Properties properties,
+                                                           Cluster customCluster)
             throws IOException {
-        Cluster cluster = ServerTestUtils.getLocalCluster(numServers, partitionMap);
+        Cluster cluster = null;
+        if(customCluster != null) {
+            cluster = customCluster;
+        } else {
+            cluster = ServerTestUtils.getLocalCluster(numServers, partitionMap);
+        }
+
         for(int i = 0; i < numServers; i++) {
             voldemortServers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
                                                                        ServerTestUtils.createServerConfig(useNio,
@@ -1037,6 +1044,50 @@ public class ServerTestUtils {
                                                 String clusterFile,
                                                 String storeFile,
                                                 Properties properties) throws IOException {
+        return startVoldemortCluster(numServers,
+                                     voldemortServers,
+                                     partitionMap,
+                                     socketStoreFactory,
+                                     useNio,
+                                     clusterFile,
+                                     storeFile,
+                                     properties,
+                                     null);
+    }
+
+    /**
+     * This method wraps up all of the work that is done in many different tests
+     * to set up some number of Voldemort servers in a cluster. This method
+     * masks an intermittent TOCTOU problem with the ports identified by
+     * {@link #findFreePorts(int)} not actually being free when a server needs
+     * to bind to them. If this method returns, it will return a non-null
+     * cluster. This method is not guaranteed to return, but will likely
+     * eventually do so...
+     * 
+     * @param numServers
+     * @param voldemortServers
+     * @param partitionMap
+     * @param socketStoreFactory
+     * @param useNio
+     * @param clusterFile
+     * @param storeFile
+     * @param properties
+     * @param customCluster Use this specified cluster object
+     * @return Cluster object that was used to successfully start all of the
+     *         servers.
+     * @throws IOException
+     */
+    // TODO: numServers is likely not needed. If this method is refactored in
+    // the future, then try and drop the numServers argument.
+    public static Cluster startVoldemortCluster(int numServers,
+                                                VoldemortServer[] voldemortServers,
+                                                int[][] partitionMap,
+                                                SocketStoreFactory socketStoreFactory,
+                                                boolean useNio,
+                                                String clusterFile,
+                                                String storeFile,
+                                                Properties properties,
+                                                Cluster customCluster) throws IOException {
         boolean started = false;
         Cluster cluster = null;
 
@@ -1049,7 +1100,8 @@ public class ServerTestUtils {
                                                         useNio,
                                                         clusterFile,
                                                         storeFile,
-                                                        properties);
+                                                        properties,
+                                                        customCluster);
                 started = true;
             } catch(BindException be) {
                 logger.debug("Caught BindException when starting cluster. Will retry.");

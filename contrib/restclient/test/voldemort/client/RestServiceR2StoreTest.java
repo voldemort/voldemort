@@ -2,6 +2,7 @@ package voldemort.client;
 
 import static voldemort.TestUtils.getClock;
 
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -30,6 +31,7 @@ import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 
 import com.linkedin.r2.transport.common.bridge.client.TransportClient;
 import com.linkedin.r2.transport.http.client.HttpClientFactory;
@@ -41,6 +43,8 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
 
     private static final String STORE_NAME = "test";
     private static String storesXmlfile = "test/common/coordinator/config/stores.xml";
+    private static String clusterXmlFile = "test/common/coordinator/config/rest_cluster.xml";
+    protected static final ClusterMapper clusterMapper = new ClusterMapper();
 
     String[] bootStrapUrls = null;
     private VoldemortServer[] servers;
@@ -71,14 +75,18 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
             Properties props = new Properties();
             props.setProperty("rest.enable", "true");
             props.setProperty("http.enable", "true");
+
+            Cluster customCluster = clusterMapper.readCluster(new FileReader(clusterXmlFile), false);
+
             cluster = ServerTestUtils.startVoldemortCluster(numServers,
                                                             servers,
                                                             partitionMap,
                                                             socketStoreFactory,
                                                             true,
-                                                            null,
+                                                            clusterXmlFile,
                                                             storesXmlfile,
-                                                            props);
+                                                            props,
+                                                            customCluster);
 
         } catch(IOException e) {
             fail("Failure to setup the cluster");
@@ -86,7 +94,8 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
 
         // Creating R2Store
         RESTClientConfig restClientConfig = new RESTClientConfig();
-        restClientConfig.setHttpBootstrapURL("http://localhost:8085")
+        restClientConfig.setHttpBootstrapURL("http://localhost:"
+                                             + cluster.getNodeById(0).getRestPort())
                         .setTimeoutMs(10000, TimeUnit.MILLISECONDS)
                         .setMaxR2ConnectionPoolSize(100);
         clientFactory = new HttpClientFactory();
