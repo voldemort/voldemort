@@ -356,22 +356,22 @@ public class CoordinatorService extends AbstractService {
     }
 
     @JmxGetter(name = "q99GetLatencyInMs", description = "")
-    public long getQ99GetLatency() {
+    public double getQ99GetLatency() {
         return this.coordinatorPerfStats.getQ99LatencyInMs(Tracked.GET);
     }
 
     @JmxGetter(name = "q99PutLatencyInMs", description = "")
-    public long getQ99PutLatency() {
+    public double getQ99PutLatency() {
         return this.coordinatorPerfStats.getQ99LatencyInMs(Tracked.PUT);
     }
 
     @JmxGetter(name = "q99GetAllLatencyInMs", description = "")
-    public long getQ99GetAllLatency() {
+    public double getQ99GetAllLatency() {
         return this.coordinatorPerfStats.getQ99LatencyInMs(Tracked.GET_ALL);
     }
 
     @JmxGetter(name = "q99DeleteLatencyInMs", description = "")
-    public long getQ99DeleteLatency() {
+    public double getQ99DeleteLatency() {
         return this.coordinatorPerfStats.getQ99LatencyInMs(Tracked.DELETE);
     }
 }

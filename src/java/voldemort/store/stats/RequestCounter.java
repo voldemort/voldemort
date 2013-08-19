@@ -34,9 +34,8 @@ public class RequestCounter {
     private final AtomicReference<Accumulator> values;
     private final long durationMs;
     private final Time time;
-    private final Histogram histogram;
-    private volatile long q95LatencyMs;
-    private volatile long q99LatencyMs;
+    private final Histogram histogramHundredUs;
+    private final Histogram histogramSecond;
     private boolean useHistogram;
 
     private static final Logger logger = Logger.getLogger(RequestCounter.class.getName());
@@ -69,13 +68,14 @@ public class RequestCounter {
         this.time = time;
         this.values = new AtomicReference<Accumulator>(new Accumulator());
         this.durationMs = durationMs;
-        this.q95LatencyMs = 0;
-        this.q99LatencyMs = 0;
         this.useHistogram = useHistogram;
-        if(this.useHistogram)
-            this.histogram = new Histogram(10000, 1);
-        else
-            this.histogram = null;
+        if(this.useHistogram) {
+            this.histogramHundredUs = new Histogram(10000, 1);
+            this.histogramSecond = new Histogram(10, 1);
+        } else {
+            this.histogramHundredUs = null;
+            this.histogramSecond = null;
+        }
     }
 
     public long getCount() {
@@ -139,13 +139,12 @@ public class RequestCounter {
             }
 
             // Reset the histogram
-            q95LatencyMs = histogram.getQuantile(0.95);
-            q99LatencyMs = histogram.getQuantile(0.99);
-            histogram.reset();
+            histogramHundredUs.reset();
+            histogramSecond.reset();
 
             // timing instrumentation (debug only)
             if(logger.isDebugEnabled()) {
-                logger.debug("Histogram (" + System.identityHashCode(histogram)
+                logger.debug("Histogram (" + System.identityHashCode(histogramHundredUs)
                              + ") : reset, Q95, & Q99 took " + (System.nanoTime() - startTimeNs)
                              + " ns.");
             }
@@ -211,10 +210,12 @@ public class RequestCounter {
             startTimeNs = System.nanoTime();
         }
 
-        long timeMs = timeNS / Time.NS_PER_MS;
+        long timeHundredUs = timeNS / Time.NS_PER_US / 100;
+        long timeSecond = timeNS / Time.NS_PER_SECOND;
         if(this.useHistogram) {
-            histogram.insert(timeMs);
             maybeResetHistogram();
+            histogramHundredUs.insert(timeHundredUs);
+            histogramSecond.insert(timeSecond);
         }
         for(int i = 0; i < 3; i++) {
             Accumulator oldv = getValidAccumulator();
@@ -303,12 +304,28 @@ public class RequestCounter {
         return getValidAccumulator().getAllMaxCount;
     }
 
-    public long getQ95LatencyMs() {
-        return q95LatencyMs;
+    public double getQ95LatencyMs() {
+        maybeResetHistogram();
+        return getQuantile(0.95);
     }
 
-    public long getQ99LatencyMs() {
-        return q99LatencyMs;
+    public double getQ99LatencyMs() {
+        maybeResetHistogram();
+        return getQuantile(0.99);
+    }
+
+    private double getQuantile(double quantile) {
+        if(this.useHistogram) {
+            // use double histogram to track and return a suitable value
+            double coarseResult = histogramSecond.getQuantile(quantile) * Time.MS_PER_SECOND;
+            if(coarseResult > 0) {
+                return coarseResult;
+            } else {
+                return ((double) histogramHundredUs.getQuantile(quantile)) / 10;
+            }
+        } else {
+            return -1;
+        }
     }
 
     private class Accumulator {

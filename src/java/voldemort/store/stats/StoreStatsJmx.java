@@ -209,52 +209,52 @@ public class StoreStatsJmx {
     }
 
     @JmxGetter(name = "q95PutLatencyInMs", description = "")
-    public long getQ95PutLatency() {
+    public double getQ95PutLatency() {
         return stats.getQ95LatencyInMs(Tracked.PUT);
     }
 
     @JmxGetter(name = "q95GetLatencyInMs", description = "")
-    public long getQ95GetLatency() {
+    public double getQ95GetLatency() {
         return stats.getQ95LatencyInMs(Tracked.GET);
     }
 
     @JmxGetter(name = "q95GetVersionsLatencyInMs", description = "")
-    public long getQ95GetVersionsLatency() {
+    public double getQ95GetVersionsLatency() {
         return stats.getQ95LatencyInMs(Tracked.GET_VERSIONS);
     }
 
     @JmxGetter(name = "q95GetAllLatencyInMs", description = "")
-    public long getQ95GetAllLatency() {
+    public double getQ95GetAllLatency() {
         return stats.getQ95LatencyInMs(Tracked.GET_ALL);
     }
 
     @JmxGetter(name = "q95DeleteLatencyInMs", description = "")
-    public long getQ95DeleteLatency() {
+    public double getQ95DeleteLatency() {
         return stats.getQ95LatencyInMs(Tracked.DELETE);
     }
 
     @JmxGetter(name = "q99PutLatencyInMs", description = "")
-    public long getQ99PutLatency() {
+    public double getQ99PutLatency() {
         return stats.getQ99LatencyInMs(Tracked.PUT);
     }
 
     @JmxGetter(name = "q99GetLatencyInMs", description = "")
-    public long getQ99GetLatency() {
+    public double getQ99GetLatency() {
         return stats.getQ99LatencyInMs(Tracked.GET);
     }
 
     @JmxGetter(name = "q99GetVersionsLatencyInMs", description = "")
-    public long getQ99GetVersionsLatency() {
+    public double getQ99GetVersionsLatency() {
         return stats.getQ99LatencyInMs(Tracked.GET_VERSIONS);
     }
 
     @JmxGetter(name = "q99GetAllLatencyInMs", description = "")
-    public long getQ99GetAllLatency() {
+    public double getQ99GetAllLatency() {
         return stats.getQ99LatencyInMs(Tracked.GET_ALL);
     }
 
     @JmxGetter(name = "q99DeleteLatencyInMs", description = "")
-    public long getQ99DeleteLatency() {
+    public double getQ99DeleteLatency() {
         return stats.getQ99LatencyInMs(Tracked.DELETE);
     }
 

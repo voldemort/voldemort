@@ -46,7 +46,7 @@ public class StoreStats {
         counters = new EnumMap<Tracked, RequestCounter>(Tracked.class);
 
         for(Tracked tracked: Tracked.values()) {
-            counters.put(tracked, new RequestCounter(300000, true));
+            counters.put(tracked, new RequestCounter(120000, true));
         }
         this.parent = parent;
 
@@ -171,11 +171,11 @@ public class StoreStats {
         return counters.get(op).getMaxLatencyInMs();
     }
 
-    public long getQ95LatencyInMs(Tracked op) {
+    public double getQ95LatencyInMs(Tracked op) {
         return counters.get(op).getQ95LatencyMs();
     }
 
-    public long getQ99LatencyInMs(Tracked op) {
+    public double getQ99LatencyInMs(Tracked op) {
         return counters.get(op).getQ99LatencyMs();
     }
 

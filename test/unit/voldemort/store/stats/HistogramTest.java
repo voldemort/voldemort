@@ -107,4 +107,15 @@ public class HistogramTest {
         assertEquals(h.getQuantile(0.49), 0);
         assertEquals(h.getQuantile(0.51), 1);
     }
+
+    @Test
+    public void testLowGranularity() {
+        Histogram histogramSecond = new Histogram(10, 1);
+        histogramSecond.insert(2);
+        for(long i = 0; i < 99; i++) {
+            histogramSecond.insert(0);
+        }
+        assertEquals(0, histogramSecond.getQuantile(0.95));
+        assertEquals(2, histogramSecond.getQuantile(0.991));
+    }
 }
