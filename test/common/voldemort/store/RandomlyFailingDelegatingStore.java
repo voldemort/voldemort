@@ -178,4 +178,9 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
     public void putAndUnlock(K key, KeyLockHandle<V> handle) {
         innerStorageEngine.putAndUnlock(key, handle);
     }
+
+    @Override
+    public void releaseLock(KeyLockHandle<V> handle) {
+        innerStorageEngine.releaseLock(handle);
+    }
 }

@@ -189,4 +189,10 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
         throw new UnsupportedOperationException("putAndUnlock is not supported for "
                                                 + this.getClass().getName());
     }
+
+    @Override
+    public void releaseLock(KeyLockHandle<V> handle) {
+        throw new UnsupportedOperationException("releaseLock is not supported for "
+                                                + this.getClass().getName());
+    }
 }

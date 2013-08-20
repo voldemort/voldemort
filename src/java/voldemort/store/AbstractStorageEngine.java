@@ -117,4 +117,10 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
         throw new UnsupportedOperationException("putAndUnlock is not supported for "
                                                 + this.getClass().getName());
     }
+
+    @Override
+    public void releaseLock(KeyLockHandle<V> handle) {
+        throw new UnsupportedOperationException("releaseLock is not supported for "
+                                                + this.getClass().getName());
+    }
 }

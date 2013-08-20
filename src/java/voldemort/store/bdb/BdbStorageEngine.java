@@ -660,6 +660,9 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
         return false;
     }
 
+    /**
+     * FIXME VC this needs to be reimplemented using getAndLock and putAndUnlock
+     */
     @Override
     public List<Versioned<byte[]>> multiVersionPut(ByteArray key,
                                                    final List<Versioned<byte[]>> values)
@@ -803,6 +806,14 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
                              + (System.nanoTime() - startTimeNs) + " ns at "
                              + System.currentTimeMillis());
             }
+        }
+    }
+
+    @Override
+    public void releaseLock(KeyLockHandle<byte[]> handle) {
+        Transaction transaction = (Transaction) handle.getKeyLock();
+        if(transaction != null) {
+            attemptAbort(transaction);
         }
     }
 

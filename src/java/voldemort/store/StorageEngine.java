@@ -161,6 +161,14 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
     public void putAndUnlock(K key, KeyLockHandle<V> handle);
 
     /**
+     * Release any lock held by a prior
+     * {@link AbstractStorageEngine#getAndLock(Object)} call
+     * 
+     * @param handle
+     */
+    public void releaseLock(KeyLockHandle<V> handle);
+
+    /**
      * 
      * @return true if the storage engine successfully returned to normal mode
      */

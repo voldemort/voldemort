@@ -146,23 +146,28 @@ public class VersionedPutPruneJob extends DataMaintenanceJob {
 
                     KeyLockHandle<byte[]> lockHandle = engine.getAndLock(key);
                     List<Versioned<byte[]>> vals = lockHandle.getValues();
-                    List<Integer> keyReplicas = routingPlan.getReplicationNodeList(routingPlan.getMasterPartitionId(key.get()));
-                    MutableBoolean didPrune = new MutableBoolean(false);
-                    List<Versioned<byte[]>> prunedVals = pruneNonReplicaEntries(vals,
-                                                                                keyReplicas,
-                                                                                didPrune);
-                    // Only write something back if some pruning actually
-                    // happened. Optimization to reduce load on storage
-                    if(didPrune.booleanValue()) {
-                        List<Versioned<byte[]>> resolvedVals = VectorClockUtils.resolveVersions(prunedVals);
-                        // TODO this is only implemented for BDB for now
-                        lockHandle.setValues(resolvedVals);
-                        engine.putAndUnlock(key, lockHandle);
-                        numPrunedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
+                    try {
+                        List<Integer> keyReplicas = routingPlan.getReplicationNodeList(routingPlan.getMasterPartitionId(key.get()));
+                        MutableBoolean didPrune = new MutableBoolean(false);
+                        List<Versioned<byte[]>> prunedVals = pruneNonReplicaEntries(vals,
+                                                                                    keyReplicas,
+                                                                                    didPrune);
+                        // Only write something back if some pruning actually
+                        // happened. Optimization to reduce load on storage
+                        if(didPrune.booleanValue()) {
+                            List<Versioned<byte[]>> resolvedVals = VectorClockUtils.resolveVersions(prunedVals);
+                            // TODO this is only implemented for BDB for now
+                            lockHandle.setValues(resolvedVals);
+                            engine.putAndUnlock(key, lockHandle);
+                            numPrunedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
+                        }
+                        itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
+                        if(itemsScanned % STAT_RECORDS_INTERVAL == 0)
+                            logger.info("#Scanned:" + itemsScanned + " #Pruned:" + numPrunedKeys);
+                    } catch(Exception e) {
+                        engine.releaseLock(lockHandle);
+                        throw e;
                     }
-                    itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
-                    if(itemsScanned % STAT_RECORDS_INTERVAL == 0)
-                        logger.info("#Scanned:" + itemsScanned + " #Pruned:" + numPrunedKeys);
                 }
                 closeIterator(iterator);
                 logger.info("Completed store " + storeDef.getName() + " #Scanned:" + itemsScanned
