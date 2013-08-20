@@ -23,6 +23,7 @@ import java.util.NoSuchElementException;
 import org.apache.log4j.Logger;
 
 import voldemort.routing.RoutingStrategy;
+import voldemort.server.storage.KeyLockHandle;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StoreBinaryFormat;
 import voldemort.store.StoreUtils;
@@ -90,44 +91,44 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
         }
     }
 
-    @Override
-    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
-            throws PersistenceFailureException {
+    private ByteArray validateAndConstructKey(ByteArray key) {
         StoreUtils.assertValidKey(key);
         int partition = routingStrategy.getMasterPartition(key.get());
         ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
                                                                                 partition));
-        return super.get(prefixedKey, transforms);
+        return prefixedKey;
+    }
+
+    @Override
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
+            throws PersistenceFailureException {
+        return super.get(validateAndConstructKey(key), transforms);
     }
 
     @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws PersistenceFailureException {
-
-        StoreUtils.assertValidKey(key);
-        int partition = routingStrategy.getMasterPartition(key.get());
-        ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
-                                                                                partition));
-        super.put(prefixedKey, value, transforms);
+        super.put(validateAndConstructKey(key), value, transforms);
     }
 
     @Override
     public boolean delete(ByteArray key, Version version) throws PersistenceFailureException {
-
-        StoreUtils.assertValidKey(key);
-        int partition = routingStrategy.getMasterPartition(key.get());
-        ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
-                                                                                partition));
-        return super.delete(prefixedKey, version);
+        return super.delete(validateAndConstructKey(key), version);
     }
 
     @Override
     public List<Versioned<byte[]>> multiVersionPut(ByteArray key, List<Versioned<byte[]>> values) {
-        StoreUtils.assertValidKey(key);
-        int partition = routingStrategy.getMasterPartition(key.get());
-        ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
-                                                                                partition));
-        return super.multiVersionPut(prefixedKey, values);
+        return super.multiVersionPut(validateAndConstructKey(key), values);
+    }
+
+    @Override
+    public KeyLockHandle<byte[]> getAndLock(ByteArray key) {
+        return super.getAndLock(validateAndConstructKey(key));
+    }
+
+    @Override
+    public void putAndUnlock(ByteArray key, KeyLockHandle<byte[]> handle) {
+        super.putAndUnlock(validateAndConstructKey(key), handle);
     }
 
     @Override

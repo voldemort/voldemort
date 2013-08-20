@@ -144,7 +144,8 @@ public class VersionedPutPruneJob extends DataMaintenanceJob {
                 while(iterator.hasNext()) {
                     ByteArray key = iterator.next();
 
-                    List<Versioned<byte[]>> vals = engine.get(key, null);
+                    KeyLockHandle<byte[]> lockHandle = engine.getAndLock(key);
+                    List<Versioned<byte[]>> vals = lockHandle.getValues();
                     List<Integer> keyReplicas = routingPlan.getReplicationNodeList(routingPlan.getMasterPartitionId(key.get()));
                     MutableBoolean didPrune = new MutableBoolean(false);
                     List<Versioned<byte[]>> prunedVals = pruneNonReplicaEntries(vals,
@@ -154,9 +155,9 @@ public class VersionedPutPruneJob extends DataMaintenanceJob {
                     // happened. Optimization to reduce load on storage
                     if(didPrune.booleanValue()) {
                         List<Versioned<byte[]>> resolvedVals = VectorClockUtils.resolveVersions(prunedVals);
-                        // FIXME VC what happens if there is an online write(..)
-                        // in the meantime. The key needs to be locked.
-                        engine.rawPut(key, resolvedVals);
+                        // TODO this is only implemented for BDB for now
+                        lockHandle.setValues(resolvedVals);
+                        engine.putAndUnlock(key, lockHandle);
                         numPrunedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
                     }
                     itemsScanned = this.numKeysScannedThisRun.incrementAndGet();

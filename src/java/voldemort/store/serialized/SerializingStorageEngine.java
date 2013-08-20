@@ -19,6 +19,7 @@ package voldemort.store.serialized;
 import java.util.List;
 
 import voldemort.serialization.Serializer;
+import voldemort.server.storage.KeyLockHandle;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
@@ -178,8 +179,14 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
     }
 
     @Override
-    public void rawPut(K key, List<Versioned<V>> values) {
-        throw new UnsupportedOperationException("rawPut is not supported for "
+    public KeyLockHandle<V> getAndLock(K key) {
+        throw new UnsupportedOperationException("getAndLock is not supported for "
+                                                + this.getClass().getName());
+    }
+
+    @Override
+    public void putAndUnlock(K key, KeyLockHandle<V> handle) {
+        throw new UnsupportedOperationException("putAndUnlock is not supported for "
                                                 + this.getClass().getName());
     }
 }

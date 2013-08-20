@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import voldemort.server.storage.KeyLockHandle;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.Occurred;
@@ -106,8 +107,14 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
     }
 
     @Override
-    public void rawPut(K key, List<Versioned<V>> values) {
-        throw new UnsupportedOperationException("rawPut is not supported for "
+    public KeyLockHandle<V> getAndLock(K key) {
+        throw new UnsupportedOperationException("getAndLock is not supported for "
+                                                + this.getClass().getName());
+    }
+
+    @Override
+    public void putAndUnlock(K key, KeyLockHandle<V> handle) {
+        throw new UnsupportedOperationException("putAndUnlock is not supported for "
                                                 + this.getClass().getName());
     }
 }

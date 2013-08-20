@@ -18,6 +18,7 @@ package voldemort.store;
 
 import java.util.List;
 
+import voldemort.server.storage.KeyLockHandle;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
@@ -135,13 +136,29 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
     public List<Versioned<V>> multiVersionPut(K key, List<Versioned<V>> values);
 
     /**
-     * Update storage for the given key, with the list of versions provided,
-     * without any version checking
+     * Returns the list of versions stored for the key, at the same time locking
+     * the key for any writes until
+     * {@link StorageEngine#putAndUnlock(Object, KeyLockHandle)} is called with
+     * the same lock handle. The idea here is to facilitate custom atomic
+     * Read-Modify-Write logic outside the storage engine
      * 
      * @param key
-     * @param values
+     * @return
      */
-    public void rawPut(K key, List<Versioned<V>> values);
+    public KeyLockHandle<V> getAndLock(K key);
+
+    /**
+     * Takes the handle issued from a prior
+     * {@link StorageEngine#getAndLock(Object)} call, and update the key with
+     * the set of values provided in the handle, also releasing the lock held on
+     * the key.
+     * 
+     * FIXME VC need also a way to release the lock alone for error handling
+     * 
+     * @param key
+     * @param handle handle object with new list of versions to be stored
+     */
+    public void putAndUnlock(K key, KeyLockHandle<V> handle);
 
     /**
      * 

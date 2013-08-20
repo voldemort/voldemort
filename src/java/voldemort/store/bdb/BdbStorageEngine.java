@@ -31,6 +31,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.server.storage.KeyLockHandle;
 import voldemort.store.AbstractStorageEngine;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageInitializationException;
@@ -721,12 +722,51 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
         return obsoleteVals;
     }
 
-    /**
-     * 
-     */
     @Override
-    public void rawPut(ByteArray key, List<Versioned<byte[]>> values)
-            throws PersistenceFailureException {
+    public KeyLockHandle<byte[]> getAndLock(ByteArray key) {
+        long startTimeNs = -1;
+        if(logger.isTraceEnabled())
+            startTimeNs = System.nanoTime();
+
+        StoreUtils.assertValidKey(key);
+        DatabaseEntry keyEntry = new DatabaseEntry(key.get());
+        DatabaseEntry valueEntry = new DatabaseEntry();
+
+        Transaction transaction = null;
+        List<Versioned<byte[]>> vals = null;
+        KeyLockHandle<byte[]> handle;
+
+        try {
+            transaction = environment.beginTransaction(null, null);
+            // do a get for the existing values
+            OperationStatus status = getBdbDatabase().get(transaction,
+                                                          keyEntry,
+                                                          valueEntry,
+                                                          LockMode.RMW);
+            if(OperationStatus.SUCCESS == status) {
+                vals = StoreBinaryFormat.fromByteArray(valueEntry.getData());
+            } else {
+                vals = new ArrayList<Versioned<byte[]>>(0);
+            }
+
+            handle = new KeyLockHandle<byte[]>(vals, transaction);
+        } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
+            logger.error("Error in getAndLock for store " + this.getName(), e);
+            throw new PersistenceFailureException(e);
+        } finally {
+            if(logger.isTraceEnabled()) {
+                logger.trace("Completed getAndLock (" + getName() + ") to key " + key
+                             + " (keyRef: " + System.identityHashCode(key) + " in "
+                             + (System.nanoTime() - startTimeNs) + " ns at "
+                             + System.currentTimeMillis());
+            }
+        }
+        return handle;
+    }
+
+    @Override
+    public void putAndUnlock(ByteArray key, KeyLockHandle<byte[]> handle) {
         long startTimeNs = -1;
 
         if(logger.isTraceEnabled())
@@ -740,17 +780,17 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
         Transaction transaction = null;
 
         try {
-            transaction = environment.beginTransaction(null, null);
-            valueEntry.setData(StoreBinaryFormat.toByteArray(values));
+            transaction = (Transaction) handle.getKeyLock();
+            valueEntry.setData(StoreBinaryFormat.toByteArray(handle.getValues()));
             OperationStatus status = getBdbDatabase().put(transaction, keyEntry, valueEntry);
 
             if(status != OperationStatus.SUCCESS)
-                throw new PersistenceFailureException("rawPut operation failed with status: "
+                throw new PersistenceFailureException("putAndUnlock operation failed with status: "
                                                       + status);
             succeeded = true;
         } catch(DatabaseException e) {
             this.bdbEnvironmentStats.reportException(e);
-            logger.error("Error in rawPut for store " + this.getName(), e);
+            logger.error("Error in putAndUnlock for store " + this.getName(), e);
             throw new PersistenceFailureException(e);
         } finally {
             if(succeeded)
@@ -758,8 +798,8 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
             else
                 attemptAbort(transaction);
             if(logger.isTraceEnabled()) {
-                logger.trace("Completed RAWPUT (" + getName() + ") to key " + key + " (keyRef: "
-                             + System.identityHashCode(key) + " in "
+                logger.trace("Completed PUTANDUNLOCK (" + getName() + ") to key " + key
+                             + " (keyRef: " + System.identityHashCode(key) + " in "
                              + (System.nanoTime() - startTimeNs) + " ns at "
                              + System.currentTimeMillis());
             }
