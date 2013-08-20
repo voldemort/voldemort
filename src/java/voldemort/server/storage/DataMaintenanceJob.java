@@ -29,6 +29,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.Utils;
 
 /**
@@ -49,16 +50,25 @@ public abstract class DataMaintenanceJob implements Runnable {
     protected long totalKeysScanned = 0;
     protected long totalKeysUpdated = 0;
     protected AtomicBoolean isRunning;
+    protected final EventThrottler throttler;
 
     public DataMaintenanceJob(StoreRepository storeRepo,
                               MetadataStore metadataStore,
-                              ScanPermitWrapper scanPermits) {
+                              ScanPermitWrapper scanPermits,
+                              int maxRatePerSecond) {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
         this.scanPermits = Utils.notNull(scanPermits);
         this.numKeysScannedThisRun = new AtomicLong(0);
         this.numKeysUpdatedThisRun = new AtomicLong(0);
         this.isRunning = new AtomicBoolean(false);
+        this.throttler = new EventThrottler(maxRatePerSecond);
+    }
+
+    public DataMaintenanceJob(StoreRepository storeRepo,
+                              MetadataStore metadataStore,
+                              ScanPermitWrapper scanPermits) {
+        this(storeRepo, metadataStore, scanPermits, Integer.MAX_VALUE);
     }
 
     @Override

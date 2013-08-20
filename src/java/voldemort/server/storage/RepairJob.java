@@ -31,6 +31,8 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 
+import com.google.common.primitives.Ints;
+
 /**
  * This is a background job that should be run after successful rebalancing. The
  * job deletes all data that does not belong to the server.
@@ -43,8 +45,9 @@ public class RepairJob extends DataMaintenanceJob {
 
     public RepairJob(StoreRepository storeRepo,
                      MetadataStore metadataStore,
-                     ScanPermitWrapper repairPermits) {
-        super(storeRepo, metadataStore, repairPermits);
+                     ScanPermitWrapper repairPermits,
+                     int maxKeysScannedPerSecond) {
+        super(storeRepo, metadataStore, repairPermits, maxKeysScannedPerSecond);
     }
 
     @JmxOperation(description = "Start the Repair Job thread", impact = MBeanOperationInfo.ACTION)
@@ -98,6 +101,8 @@ public class RepairJob extends DataMaintenanceJob {
                             numDeletedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
                         }
                         itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
+                        // Throttle the itemsScanned
+                        throttler.maybeThrottle(Ints.checkedCast(itemsScanned));
                         if(itemsScanned % STAT_RECORDS_INTERVAL == 0) {
                             logger.info("#Scanned:" + itemsScanned + " #Deleted:" + numDeletedKeys);
                         }

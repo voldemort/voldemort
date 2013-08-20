@@ -238,6 +238,8 @@ public class VoldemortConfig implements Serializable {
     private int restServiceStorageThreadPoolQueueSize;
     private int maxHttpAggregatedContentLength;
 
+    private int repairJobMaxKeysScannedPerSec;
+
     public VoldemortConfig(Properties props) {
         this(new Props(props));
     }
@@ -521,6 +523,10 @@ public class VoldemortConfig implements Serializable {
                                                                   numRestServiceStorageThreads);
         this.maxHttpAggregatedContentLength = props.getInt("max.http.aggregated.content.length",
                                                            1048576);
+
+        this.repairJobMaxKeysScannedPerSec = props.getInt("repairjob.max.keys.scanned.per.sec",
+                                                          Integer.MAX_VALUE);
+
         validateParams();
     }
 
@@ -2900,4 +2906,19 @@ public class VoldemortConfig implements Serializable {
         this.maxHttpAggregatedContentLength = maxHttpAggregatedContentLength;
     }
 
+    public int getRepairJobMaxKeysScannedPerSec() {
+        return repairJobMaxKeysScannedPerSec;
+    }
+
+    /**
+     * Global throttle limit for repair jobs
+     * 
+     * <ul>
+     * <li>Property :"repairjob.max.keys.scanned.per.sec"</li>
+     * <li>Default : Integer.MAX_VALUE (unthrottled)</li>
+     * </ul>
+     */
+    public void setRepairJobMaxKeysScannedPerSec(int maxKeysPerSecond) {
+        this.repairJobMaxKeysScannedPerSec = maxKeysPerSecond;
+    }
 }
