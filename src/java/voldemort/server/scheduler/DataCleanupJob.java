@@ -66,6 +66,8 @@ public class DataCleanupJob<K, V, T> implements Runnable {
 
     @Override
     public void run() {
+
+        // FIXME VC make this return out, if the server is not normal
         acquireCleanupPermit(scanProgressThisRun, deleteProgressThisRun);
         store.beginBatchModifications();
 

@@ -353,7 +353,7 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
 
         } catch(DatabaseException e) {
             this.bdbEnvironmentStats.reportException(e);
-            logger.error(e);
+            logger.error("Error in put for store " + this.getName(), e);
             throw new PersistenceFailureException(e);
         } finally {
             if(succeeded)
@@ -704,7 +704,7 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
 
         } catch(DatabaseException e) {
             this.bdbEnvironmentStats.reportException(e);
-            logger.error(e);
+            logger.error("Error in MultiVersionPut for store " + this.getName(), e);
             throw new PersistenceFailureException(e);
         } finally {
             if(succeeded)
@@ -719,6 +719,51 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
             }
         }
         return obsoleteVals;
+    }
+
+    /**
+     * 
+     */
+    @Override
+    public void rawPut(ByteArray key, List<Versioned<byte[]>> values)
+            throws PersistenceFailureException {
+        long startTimeNs = -1;
+
+        if(logger.isTraceEnabled())
+            startTimeNs = System.nanoTime();
+
+        StoreUtils.assertValidKey(key);
+        DatabaseEntry keyEntry = new DatabaseEntry(key.get());
+        DatabaseEntry valueEntry = new DatabaseEntry();
+
+        boolean succeeded = false;
+        Transaction transaction = null;
+
+        try {
+            transaction = environment.beginTransaction(null, null);
+            valueEntry.setData(StoreBinaryFormat.toByteArray(values));
+            OperationStatus status = getBdbDatabase().put(transaction, keyEntry, valueEntry);
+
+            if(status != OperationStatus.SUCCESS)
+                throw new PersistenceFailureException("rawPut operation failed with status: "
+                                                      + status);
+            succeeded = true;
+        } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
+            logger.error("Error in rawPut for store " + this.getName(), e);
+            throw new PersistenceFailureException(e);
+        } finally {
+            if(succeeded)
+                attemptCommit(transaction);
+            else
+                attemptAbort(transaction);
+            if(logger.isTraceEnabled()) {
+                logger.trace("Completed RAWPUT (" + getName() + ") to key " + key + " (keyRef: "
+                             + System.identityHashCode(key) + " in "
+                             + (System.nanoTime() - startTimeNs) + " ns at "
+                             + System.currentTimeMillis());
+            }
+        }
     }
 
     @Override

@@ -349,6 +349,16 @@ public class StorageService extends AbstractService {
                 JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
                 storeRepository.registerRepairJob(job);
             }
+
+            // Create a prune job object and register it
+            if(voldemortConfig.isPruneJobEnabled()) {
+                logger.info("Intializing prune job");
+                VersionedPutPruneJob job = new VersionedPutPruneJob(storeRepository,
+                                                                    metadata,
+                                                                    scanPermitWrapper);
+                JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
+                storeRepository.registerPruneJob(job);
+            }
         }
 
         List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
@@ -896,8 +906,7 @@ public class StorageService extends AbstractService {
         }
     }
 
-    private Store<ByteArray, byte[], byte[]>
-            getNodeStore(String storeName, Node node, int localNode) {
+    private Store<ByteArray, byte[], byte[]> getNodeStore(String storeName, Node node, int localNode) {
         Store<ByteArray, byte[], byte[]> store;
         if(node.getId() == localNode) {
             store = this.storeRepository.getLocalStore(storeName);
@@ -1062,8 +1071,7 @@ public class StorageService extends AbstractService {
     }
 
     @JmxOperation(description = "Force cleanup of old data based on retention policy, allows override of throttle-rate", impact = MBeanOperationInfo.ACTION)
-    public void
-            forceCleanupOldData(String storeName) {
+    public void forceCleanupOldData(String storeName) {
         StoreDefinition storeDef = getMetadataStore().getStoreDef(storeName);
         int throttleRate = storeDef.hasRetentionScanThrottleRate() ? storeDef.getRetentionScanThrottleRate()
                                                                   : Integer.MAX_VALUE;
@@ -1072,8 +1080,7 @@ public class StorageService extends AbstractService {
     }
 
     @JmxOperation(description = "Force cleanup of old data based on retention policy.", impact = MBeanOperationInfo.ACTION)
-    public void
-            forceCleanupOldDataThrottled(String storeName, int entryScanThrottleRate) {
+    public void forceCleanupOldDataThrottled(String storeName, int entryScanThrottleRate) {
         logger.info("forceCleanupOldData() called for store " + storeName
                     + " with retention scan throttle rate:" + entryScanThrottleRate
                     + " Entries/second.");
@@ -1189,20 +1196,17 @@ public class StorageService extends AbstractService {
     }
 
     @JmxGetter(name = "getScanPermitOwners", description = "Returns class names of services holding the scan permit")
-    public List<String>
-            getPermitOwners() {
+    public List<String> getPermitOwners() {
         return this.scanPermitWrapper.getPermitOwners();
     }
 
     @JmxGetter(name = "numGrantedScanPermits", description = "Returns number of scan permits granted at the moment")
-    public long
-            getGrantedPermits() {
+    public long getGrantedPermits() {
         return this.scanPermitWrapper.getGrantedPermits();
     }
 
     @JmxGetter(name = "numEntriesScanned", description = "Returns number of entries scanned since last call")
-    public long
-            getEntriesScanned() {
+    public long getEntriesScanned() {
         return this.scanPermitWrapper.getEntriesScanned();
     }
 

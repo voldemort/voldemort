@@ -176,4 +176,10 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
         throw new UnsupportedOperationException("multiVersionPut is not supported for "
                                                 + this.getClass().getName());
     }
+
+    @Override
+    public void rawPut(K key, List<Versioned<V>> values) {
+        throw new UnsupportedOperationException("rawPut is not supported for "
+                                                + this.getClass().getName());
+    }
 }

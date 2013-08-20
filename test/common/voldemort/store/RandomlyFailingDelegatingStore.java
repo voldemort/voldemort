@@ -167,4 +167,9 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
     public List<Versioned<V>> multiVersionPut(K key, List<Versioned<V>> values) {
         return innerStorageEngine.multiVersionPut(key, values);
     }
+
+    @Override
+    public void rawPut(K key, List<Versioned<V>> values) {
+        innerStorageEngine.rawPut(key, values);
+    }
 }

@@ -75,7 +75,7 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
      * @return list of versions from multiPutVals that were rejected as obsolete
      */
     protected List<Versioned<V>> resolveAndConstructVersionsToPersist(List<Versioned<V>> valuesInStorage,
-                                                                    List<Versioned<V>> multiPutValues) {
+                                                                      List<Versioned<V>> multiPutValues) {
         List<Versioned<V>> obsoleteVals = new ArrayList<Versioned<V>>(multiPutValues.size());
         // Go over all the values and determine whether the version is
         // acceptable
@@ -103,5 +103,11 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
         }
 
         return obsoleteVals;
+    }
+
+    @Override
+    public void rawPut(K key, List<Versioned<V>> values) {
+        throw new UnsupportedOperationException("rawPut is not supported for "
+                                                + this.getClass().getName());
     }
 }

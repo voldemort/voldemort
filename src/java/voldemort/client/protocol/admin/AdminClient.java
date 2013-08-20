@@ -68,6 +68,8 @@ import voldemort.server.RequestRoutingType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.server.rebalance.VoldemortRebalancingException;
+import voldemort.server.storage.RepairJob;
+import voldemort.server.storage.VersionedPutPruneJob;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -420,8 +422,8 @@ public class AdminClient {
         }
 
         /**
-         * For a particular node, finds out all the [node, partition] 
-         * it needs to steal in order to be brought back to normal state
+         * For a particular node, finds out all the [node, partition] it needs
+         * to steal in order to be brought back to normal state
          * 
          * @param restoringNode The id of the node which needs to be restored
          * @param cluster The cluster definition
@@ -535,9 +537,7 @@ public class AdminClient {
      */
     public class RPCOperations {
 
-        private <T extends Message.Builder>
-                T
-                sendAndReceive(int nodeId, Message message, T builder) {
+        private <T extends Message.Builder> T sendAndReceive(int nodeId, Message message, T builder) {
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
@@ -1283,11 +1283,7 @@ public class AdminClient {
                                      String storeName,
                                      List<Integer> partitionList,
                                      VoldemortFilter filter) {
-            return deletePartitions(nodeId,
-                                    storeName,
-                                    partitionList,
-                                    null,
-                                    filter);
+            return deletePartitions(nodeId, storeName, partitionList, null, filter);
         }
 
         /**
@@ -1337,8 +1333,7 @@ public class AdminClient {
         }
 
         /**
-         * Repair the stores on a rebalanced node 'nodeId'
-         * <p>
+         * See {@link RepairJob}
          * 
          * @param nodeId The id of the node on which to do the repair
          */
@@ -1366,6 +1361,55 @@ public class AdminClient {
                 socketPool.checkin(destination, sands);
             }
             return;
+        }
+
+        /**
+         * See {@link VersionedPutPruneJob}
+         * 
+         * @param nodeId server on which to prune
+         * @param store store to prune
+         */
+        public void pruneJob(int nodeId, String store) {
+            logger.info("Kicking off prune job on Node " + nodeId + " for store " + store);
+            VAdminProto.PruneJobRequest.Builder jobRequest = VAdminProto.PruneJobRequest.newBuilder()
+                                                                                        .setStoreName(store);
+
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                              .setPruneJob(jobRequest)
+                                                                                              .setType(VAdminProto.AdminRequestType.PRUNE_JOB)
+                                                                                              .build();
+            // FIXME VC probably need a helper to do all this, at some point..
+            // All
+            // of this file has repeated code
+            Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
+            SocketDestination destination = new SocketDestination(node.getHost(),
+                                                                  node.getAdminPort(),
+                                                                  RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+            SocketAndStreams sands = socketPool.checkout(destination);
+
+            try {
+                DataOutputStream outputStream = sands.getOutputStream();
+                ProtoUtils.writeMessage(outputStream, adminRequest);
+                outputStream.flush();
+            } catch(IOException e) {
+                helperOps.close(sands.getSocket());
+                throw new VoldemortException(e);
+            } finally {
+                socketPool.checkin(destination, sands);
+            }
+        }
+
+        /**
+         * See {@link VersionedPutPruneJob}
+         * 
+         * 
+         * @param nodeId The id of the node on which to do the pruning
+         * @param stores the list of stores to prune
+         */
+        public void pruneJob(int nodeId, List<String> stores) {
+            for(String store: stores) {
+                pruneJob(nodeId, store);
+            }
         }
 
         /**
@@ -1487,8 +1531,9 @@ public class AdminClient {
 
         }
 
-        private VAdminProto.FetchPartitionEntriesResponse
-                responseFromStream(DataInputStream inputStream, int size) throws IOException {
+        private VAdminProto.FetchPartitionEntriesResponse responseFromStream(DataInputStream inputStream,
+                                                                             int size)
+                throws IOException {
             byte[] input = new byte[size];
             ByteUtils.read(inputStream, input);
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
@@ -1610,12 +1655,11 @@ public class AdminClient {
          * @return An iterator which allows entries to be streamed as they're
          *         being iterated over.
          */
-        public Iterator<Pair<ByteArray, Versioned<byte[]>>>
-                fetchEntries(int nodeId,
-                             String storeName,
-                             List<Integer> partitionList,
-                             VoldemortFilter filter,
-                             boolean fetchMasterEntries) {
+        public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
+                                                                         String storeName,
+                                                                         List<Integer> partitionList,
+                                                                         VoldemortFilter filter,
+                                                                         boolean fetchMasterEntries) {
             return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
         }
 
@@ -2251,13 +2295,11 @@ public class AdminClient {
          */
         public int rebalanceNode(RebalanceTaskInfo stealInfo) {
             VAdminProto.RebalanceTaskInfoMap rebalanceTaskInfoMap = ProtoUtils.encodeRebalanceTaskInfoMap(stealInfo);
-            VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest
-                                                                                                                    .newBuilder()
+            VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
                                                                                                                     .setRebalanceTaskInfo(rebalanceTaskInfoMap)
                                                                                                                     .build();
 
-            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest
-                                                                                              .newBuilder()
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                               .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
                                                                                               .setInitiateRebalanceNode(rebalanceNodeRequest)
                                                                                               .build();
@@ -2353,8 +2395,8 @@ public class AdminClient {
          * @param transitionCluster Transition cluster
          * @param existingStoreDefs current store defs
          * @param targetStoreDefs transition store defs
-         * @param rebalanceTaskPlanList The list of rebalance partition
-         *        info plans
+         * @param rebalanceTaskPlanList The list of rebalance partition info
+         *        plans
          * @param swapRO Boolean indicating if we need to swap RO stores
          * @param changeClusterMetadata Boolean indicating if we need to change
          *        cluster metadata
@@ -2444,8 +2486,8 @@ public class AdminClient {
                                  + " while changing state");
                 }
                 throw new VoldemortRebalancingException("Got exceptions from nodes "
-                                                        + exceptions.keySet()
-                                                        + " while changing state",
+                                                                + exceptions.keySet()
+                                                                + " while changing state",
                                                         Lists.newArrayList(exceptions.values()));
             }
 
@@ -2699,8 +2741,7 @@ public class AdminClient {
                                                                      new ThreadFactory() {
 
                                                                          @Override
-                                                                         public Thread
-                                                                                 newThread(Runnable r) {
+                                                                         public Thread newThread(Runnable r) {
                                                                              Thread thread = new Thread(r);
                                                                              thread.setName("restore-data-thread");
                                                                              return thread;
@@ -2760,9 +2801,9 @@ public class AdminClient {
                         + restoringNodeId);
 
             Map<Integer, List<Integer>> restoreMapping = replicaOps.getReplicationMapping(restoringNodeId,
-                                                                                              cluster,
-                                                                                              storeDef,
-                                                                                              zoneId);
+                                                                                          cluster,
+                                                                                          storeDef,
+                                                                                          zoneId);
 
             // migrate partition
             for(final Entry<Integer, List<Integer>> replicationEntry: restoreMapping.entrySet()) {
@@ -2859,8 +2900,7 @@ public class AdminClient {
                                                                      new ThreadFactory() {
 
                                                                          @Override
-                                                                         public Thread
-                                                                                 newThread(Runnable r) {
+                                                                         public Thread newThread(Runnable r) {
                                                                              Thread thread = new Thread(r);
                                                                              thread.setName("mirror-data-thread");
                                                                              return thread;
@@ -3170,10 +3210,9 @@ public class AdminClient {
         }
 
         /**
-         * This is a wrapper around
-         * {@link #getROMaxVersion(int, List)}
-         * where-in we find the max versions on each machine and then return the
-         * max of all of them
+         * This is a wrapper around {@link #getROMaxVersion(int, List)} where-in
+         * we find the max versions on each machine and then return the max of
+         * all of them
          * 
          * @param storeNames List of all read-only stores
          * @return A map of store-name to their corresponding max version id
@@ -3245,12 +3284,10 @@ public class AdminClient {
                     FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
                 }
 
-                VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto
-                        .FetchPartitionFilesRequest
-                                                   .newBuilder()
-                                                   .setStoreName(storeName)
-                                                   .addAllPartitionIds(partitionIds)
-                                                   .build();
+                VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto.FetchPartitionFilesRequest.newBuilder()
+                                                                                                                         .setStoreName(storeName)
+                                                                                                                         .addAllPartitionIds(partitionIds)
+                                                                                                                         .build();
 
                 VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                              .setFetchPartitionFiles(fetchPartitionFileRequest)

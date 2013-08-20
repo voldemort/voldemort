@@ -1,10 +1,21 @@
+/*
+ * Copyright 2008-2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.server.storage;
 
-import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.MBeanOperationInfo;
 
@@ -12,55 +23,28 @@ import org.apache.log4j.Logger;
 
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
-import voldemort.cluster.Node;
-import voldemort.routing.RoutingStrategy;
-import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
-import voldemort.utils.Pair;
-import voldemort.utils.Utils;
-import voldemort.versioning.Versioned;
 
-import com.google.common.collect.Maps;
+/**
+ * This is a background job that should be run after successful rebalancing. The
+ * job deletes all data that does not belong to the server.
+ * 
+ * FIXME VC RepairJob is a non intuitive name. Need to rename this.
+ */
+public class RepairJob extends DataMaintenanceJob {
 
-public class RepairJob implements Runnable {
-
-    private final static int DELETE_BATCH_SIZE = 10000;
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
-
-    public final static List<String> blackList = Arrays.asList("krati",
-                                                               ReadOnlyStorageConfiguration.TYPE_NAME);
-
-    private final ScanPermitWrapper repairPermits;
-    private final StoreRepository storeRepo;
-    private final MetadataStore metadataStore;
-    private final int deleteBatchSize;
-    private long totalEntriesScanned = 0;
-    private AtomicLong scanProgress;
-    private long totalEntriesDeleted = 0;
-    private AtomicLong deleteProgress;
-
-    public RepairJob(StoreRepository storeRepo,
-                     MetadataStore metadataStore,
-                     ScanPermitWrapper repairPermits,
-                     int deleteBatchSize) {
-        this.storeRepo = storeRepo;
-        this.metadataStore = metadataStore;
-        this.repairPermits = Utils.notNull(repairPermits);
-        this.deleteBatchSize = deleteBatchSize;
-        this.scanProgress = new AtomicLong(0);
-        this.deleteProgress = new AtomicLong(0);
-    }
 
     public RepairJob(StoreRepository storeRepo,
                      MetadataStore metadataStore,
                      ScanPermitWrapper repairPermits) {
-        this(storeRepo, metadataStore, repairPermits, DELETE_BATCH_SIZE);
+        super(storeRepo, metadataStore, repairPermits);
     }
 
     @JmxOperation(description = "Start the Repair Job thread", impact = MBeanOperationInfo.ACTION)
@@ -68,122 +52,84 @@ public class RepairJob implements Runnable {
         run();
     }
 
+    @Override
     public void run() {
 
-        // don't try to run slop pusher job when rebalancing
-        if(!metadataStore.getServerStateUnlocked()
-                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+        // FIXME VC there is some repeated code here that can benefit from
+        // common helpers or actually implementing a non abstract super.run()
+
+        // don't do maintenance when the server is already not normal
+        if(!isServerNormal()) {
             logger.error("Cannot run repair job since Voldemort server is not in normal state");
             return;
         }
 
-        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
-
+        isRunning.set(true);
+        ClosableIterator<ByteArray> iterator = null;
         Date startTime = new Date();
         logger.info("Started repair job at " + startTime);
 
-        Map<String, Long> localStats = Maps.newHashMap();
-        for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
-            localStats.put(storeDef.getName(), 0L);
-        }
-        if(!acquireRepairPermit())
+        if(!acquireScanPermit()) {
+            isRunning.set(false);
             return;
+        }
         try {
-            // Get routing factory
-            RoutingStrategyFactory routingStrategyFactory = new RoutingStrategyFactory();
-
             for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
                 if(isWritableStore(storeDef)) {
+                    // Lets generate routing strategy for this storage engine
+                    StoreRoutingPlan routingPlan = new StoreRoutingPlan(metadataStore.getCluster(),
+                                                                        storeDef);
                     logger.info("Repairing store " + storeDef.getName());
                     StorageEngine<ByteArray, byte[], byte[]> engine = storeRepo.getStorageEngine(storeDef.getName());
-                    iterator = engine.entries();
+                    iterator = engine.keys();
 
-                    // Lets generate routing strategy for this storage engine
-                    RoutingStrategy routingStrategy = routingStrategyFactory.updateRoutingStrategy(storeDef,
-                                                                                                   metadataStore.getCluster());
-                    long repairSlops = 0L;
+                    long itemsScanned = 0;
                     long numDeletedKeys = 0;
                     while(iterator.hasNext()) {
-                        Pair<ByteArray, Versioned<byte[]>> keyAndVal = iterator.next();
-                        List<Node> nodes = routingStrategy.routeRequest(keyAndVal.getFirst().get());
+                        ByteArray key = iterator.next();
 
-                        if(!hasDestination(nodes)) {
-                            engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
-                            numDeletedKeys = this.deleteProgress.incrementAndGet();
+                        if(!routingPlan.checkKeyBelongsToNode(key.get(), metadataStore.getNodeId())) {
+                            /**
+                             * Blow away the entire key with all its versions..
+                             * FIXME VC MySQL storage engine does not seem to
+                             * honor null versions
+                             */
+                            engine.delete(key, null);
+                            numDeletedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
                         }
-                        long itemsScanned = this.scanProgress.incrementAndGet();
-                        if(itemsScanned % deleteBatchSize == 0)
+                        itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
+                        if(itemsScanned % STAT_RECORDS_INTERVAL == 0) {
                             logger.info("#Scanned:" + itemsScanned + " #Deleted:" + numDeletedKeys);
+                        }
                     }
                     closeIterator(iterator);
-                    localStats.put(storeDef.getName(), repairSlops);
                     logger.info("Completed store " + storeDef.getName() + " #Scanned:"
-                                + this.scanProgress.get() + " #Deleted:"
-                                + this.deleteProgress.get());
+                                + itemsScanned + " #Deleted:" + numDeletedKeys);
                 }
             }
         } catch(Exception e) {
-            logger.error(e, e);
+            logger.error("Error running RepairJob.. ", e);
         } finally {
             closeIterator(iterator);
-            this.repairPermits.release(this.getClass().getCanonicalName());
-            synchronized(this) {
-                totalEntriesScanned += scanProgress.get();
-                scanProgress.set(0);
-                totalEntriesDeleted += deleteProgress.get();
-                deleteProgress.set(0);
-            }
+            this.scanPermits.release(this.getClass().getCanonicalName());
+            resetStats();
             logger.info("Completed repair job started at " + startTime);
-        }
-
-    }
-
-    private void closeIterator(ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator) {
-        try {
-            if(iterator != null)
-                iterator.close();
-        } catch(Exception e) {
-            logger.error("Error in closing iterator", e);
+            isRunning.set(false);
         }
     }
 
-    private boolean hasDestination(List<Node> nodes) {
-        for(Node node: nodes) {
-            if(node.getId() == metadataStore.getNodeId()) {
-                return true;
-            }
-        }
-        return false;
+    @Override
+    protected Logger getLogger() {
+        return logger;
     }
 
-    private boolean isWritableStore(StoreDefinition storeDef) {
-        if(!storeDef.isView() && !blackList.contains(storeDef.getType())) {
-            return true;
-        } else {
-            return false;
-        }
+    @Override
+    protected String getJobName() {
+        return "repair job";
     }
 
-    private boolean acquireRepairPermit() {
-        logger.info("Acquiring lock to perform repair job ");
-        if(this.repairPermits.tryAcquire(this.scanProgress,
-                                         this.deleteProgress,
-                                         this.getClass().getCanonicalName())) {
-            logger.info("Acquired lock to perform repair job ");
-            return true;
-        } else {
-            logger.error("Aborting Repair Job since another instance is already running! ");
-            return false;
-        }
-    }
-
-    @JmxGetter(name = "numEntriesScanned", description = "Returns number of entries scanned")
-    public synchronized long getEntriesScanned() {
-        return totalEntriesScanned + scanProgress.get();
-    }
-
-    @JmxGetter(name = "numEntriesDeleted", description = "Returns number of entries deleted")
-    public synchronized long getEntriesDeleted() {
-        return totalEntriesDeleted + deleteProgress.get();
+    @JmxGetter(name = "numKeysDeleted", description = "Returns number of keys deleted")
+    public synchronized long getKeysDeleted() {
+        return totalKeysUpdated + numKeysUpdatedThisRun.get();
     }
 }

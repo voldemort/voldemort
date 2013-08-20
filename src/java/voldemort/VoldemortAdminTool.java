@@ -212,6 +212,7 @@ public class VoldemortAdminTool {
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
         parser.accepts("repair-job", "Clean after rebalancing is done");
+        parser.accepts("prune-job", "Prune versioned put data, after rebalancing");
         parser.accepts("native-backup", "Perform a native backup")
               .withRequiredArg()
               .describedAs("store-name")
@@ -308,6 +309,7 @@ public class VoldemortAdminTool {
         String ops = "";
         // Honestly, the most insane code I have seen. Atleast sorting this for
         // now so its easy to find a spare character
+        // FIXME VC rid the code of this horror?
         if(options.has("add-stores")) {
             ops += "a";
         }
@@ -341,6 +343,11 @@ public class VoldemortAdminTool {
         if(options.has("clear-rebalancing-metadata")) {
             ops += "i";
         }
+
+        if(options.has("prune-job")) {
+            ops += "j";
+        }
+
         if(options.has("fetch-keys")) {
             ops += "k";
         }
@@ -390,14 +397,13 @@ public class VoldemortAdminTool {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
                         + "set-metadata, check-metadata, clear-rebalancing-metadata, async, "
-                        + "repair-job, native-backup, rollback, reserve-memory, mirror-url, verify-metadata-version) must be specified");
+                        + "repair-job, native-backup, rollback, reserve-memory, mirror-url, verify-metadata-version, prune-job) must be specified");
         }
 
         List<String> storeNames = null;
 
         if(options.has("stores")) {
-            List<String> temp = (List<String>) options.valuesOf("stores");
-            storeNames = temp;
+            storeNames = (List<String>) options.valuesOf("stores");
         }
 
         String outputDir = null;
@@ -577,6 +583,14 @@ public class VoldemortAdminTool {
             if(ops.contains("l")) {
                 executeRepairJob(nodeId, adminClient);
             }
+
+            if(ops.contains("j")) {
+                if(storeNames == null) {
+                    Utils.croak("Must specify --stores to run the prune job");
+                }
+                executePruneJob(nodeId, adminClient, storeNames);
+            }
+
             if(ops.contains("n")) {
                 String backupDir = (String) options.valueOf("backup-dir");
                 String storeName = (String) options.valueOf("native-backup");
@@ -738,6 +752,16 @@ public class VoldemortAdminTool {
         }
     }
 
+    private static void executePruneJob(Integer nodeId, AdminClient adminClient, List<String> stores) {
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                adminClient.storeMntOps.pruneJob(node.getId(), stores);
+            }
+        } else {
+            adminClient.storeMntOps.pruneJob(nodeId, stores);
+        }
+    }
+
     public static void printHelp(PrintStream stream, OptionParser parser) throws IOException {
         stream.println("Commands supported");
         stream.println("------------------");
@@ -857,6 +881,8 @@ public class VoldemortAdminTool {
                        + "--backup-timeout [mins] [--backup-verify] [--backup-incremental] --url [url] --node [node-id]");
         stream.println("\t5) Rollback a read-only store to the specified push version");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --rollback [store-name] --url [url] --node [node-id] --version [version-num] ");
+        stream.println("\t7) Prune data resulting from versioned puts, during rebalancing");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --prune-job --url [url] --node [node-id] --stores [stores_list]");
 
         parser.printHelpOn(stream);
     }

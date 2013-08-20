@@ -29,7 +29,6 @@ import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 /**
  * A vector of the number of writes mastered by each node. The vector is stored
@@ -60,6 +59,10 @@ public class VectorClock implements Version, Serializable {
      */
     public VectorClock() {
         this(System.currentTimeMillis());
+    }
+
+    public TreeMap<Short, Long> getVersionMap() {
+        return versionMap;
     }
 
     public VectorClock(long timestamp) {
@@ -275,74 +278,7 @@ public class VectorClock implements Version, Serializable {
         if(!(v instanceof VectorClock))
             throw new IllegalArgumentException("Cannot compare Versions of different types.");
 
-        return compare(this, (VectorClock) v);
-    }
-
-    /**
-     * Compare two VectorClocks, the outcomes will be one of the following: <br>
-     * -- Clock 1 is BEFORE clock 2, if there exists an nodeId such that
-     * c1(nodeId) <= c2(nodeId) and there does not exist another nodeId such
-     * that c1(nodeId) > c2(nodeId). <br>
-     * -- Clock 1 is CONCURRENT to clock 2 if there exists an nodeId, nodeId2
-     * such that c1(nodeId) < c2(nodeId) and c1(nodeId2) > c2(nodeId2)<br>
-     * -- Clock 1 is AFTER clock 2 otherwise
-     * 
-     * @param v1 The first VectorClock
-     * @param v2 The second VectorClock
-     */
-    public static Occurred compare(VectorClock v1, VectorClock v2) {
-        if(v1 == null || v2 == null)
-            throw new IllegalArgumentException("Can't compare null vector clocks!");
-        // We do two checks: v1 <= v2 and v2 <= v1 if both are true then
-        boolean v1Bigger = false;
-        boolean v2Bigger = false;
-
-        SortedSet<Short> v1Nodes = v1.versionMap.navigableKeySet();
-        SortedSet<Short> v2Nodes = v2.versionMap.navigableKeySet();
-        // get clocks(nodeIds) that both v1 and v2 has
-        SortedSet<Short> commonNodes = Sets.newTreeSet(v1Nodes);
-        commonNodes.retainAll(v2Nodes);
-        // if v1 has more nodes than common nodes
-        // v1 has clocks that v2 does not
-        if(v1Nodes.size() > commonNodes.size()) {
-            v1Bigger = true;
-        }
-        // if v2 has more nodes than common nodes
-        // v2 has clocks that v1 does not
-        if(v2Nodes.size() > commonNodes.size()) {
-            v2Bigger = true;
-        }
-        // compare the common parts
-        for(Short nodeId: commonNodes) {
-            // no need to compare more
-            if(v1Bigger && v2Bigger) {
-                break;
-            }
-            long v1Version = v1.versionMap.get(nodeId);
-            long v2Version = v2.versionMap.get(nodeId);
-            if(v1Version > v2Version) {
-                v1Bigger = true;
-            } else if(v1Version < v2Version) {
-                v2Bigger = true;
-            }
-        }
-
-        /*
-         * This is the case where they are equal. Consciously return BEFORE, so
-         * that the we would throw back an ObsoleteVersionException for online
-         * writes with the same clock.
-         */
-        if(!v1Bigger && !v2Bigger)
-            return Occurred.BEFORE;
-        /* This is the case where v1 is a successor clock to v2 */
-        else if(v1Bigger && !v2Bigger)
-            return Occurred.AFTER;
-        /* This is the case where v2 is a successor clock to v1 */
-        else if(!v1Bigger && v2Bigger)
-            return Occurred.BEFORE;
-        /* This is the case where both clocks are parallel to one another */
-        else
-            return Occurred.CONCURRENTLY;
+        return VectorClockUtils.compare(this, (VectorClock) v);
     }
 
     public long getTimestamp() {

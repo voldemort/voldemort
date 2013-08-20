@@ -256,7 +256,7 @@ public class StoreRoutingPlan {
      * partition) method
      * 
      * @param partitionId
-     * @return list of node ids 
+     * @return list of node ids
      * @throws VoldemortException
      */
     public List<Integer> getReplicationNodeList(int partitionId) throws VoldemortException {
@@ -350,6 +350,22 @@ public class StoreRoutingPlan {
         }
     }
 
+    /**
+     * Determines if the key replicates to the given node
+     * 
+     * @param key
+     * @param nodeId
+     * @return true if the key belongs to the node as some replica
+     */
+    public boolean checkKeyBelongsToNode(byte[] key, int nodeId) {
+        List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
+        List<Integer> replicatingPartitions = getReplicatingPartitionList(key);
+        // remove all partitions from the list, except those that belong to the
+        // node
+        replicatingPartitions.retainAll(nodePartitions);
+        return replicatingPartitions.size() > 0;
+    }
+
     // TODO: (refactor) Move from static methods to non-static methods that use
     // this object's cluster and storeDefinition member for the various
     // check*BelongsTo* methods. Also, tweak internal members to make these
@@ -363,10 +379,9 @@ public class StoreRoutingPlan {
      * @param replicaToPartitionList Mapping of replica type to partition list
      * @return Returns a boolean to indicate if this belongs to the map
      */
-    public static boolean
-            checkKeyBelongsToPartition(List<Integer> keyPartitions,
-                                       List<Integer> nodePartitions,
-                                       HashMap<Integer, List<Integer>> replicaToPartitionList) {
+    public static boolean checkKeyBelongsToPartition(List<Integer> keyPartitions,
+                                                     List<Integer> nodePartitions,
+                                                     HashMap<Integer, List<Integer>> replicaToPartitionList) {
         // Check for null
         replicaToPartitionList = Utils.notNull(replicaToPartitionList);
 
@@ -397,12 +412,11 @@ public class StoreRoutingPlan {
      * @param storeDef The store definition
      * @return Returns a boolean to indicate if this belongs to the map
      */
-    public static boolean
-            checkKeyBelongsToPartition(int nodeId,
-                                       byte[] key,
-                                       HashMap<Integer, List<Integer>> replicaToPartitionList,
-                                       Cluster cluster,
-                                       StoreDefinition storeDef) {
+    public static boolean checkKeyBelongsToPartition(int nodeId,
+                                                     byte[] key,
+                                                     HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                                     Cluster cluster,
+                                                     StoreDefinition storeDef) {
         boolean checkResult = false;
         if(storeDef.getRoutingStrategyType().equals(RoutingStrategyType.TO_ALL_STRATEGY)
            || storeDef.getRoutingStrategyType()
@@ -431,11 +445,10 @@ public class StoreRoutingPlan {
      * @param storeDef Store definitions
      * @return List of node ids
      */
-    public static List<Integer>
-            checkKeyBelongsToPartition(byte[] key,
-                                       Set<Pair<Integer, HashMap<Integer, List<Integer>>>> stealerNodeToMappingTuples,
-                                       Cluster cluster,
-                                       StoreDefinition storeDef) {
+    public static List<Integer> checkKeyBelongsToPartition(byte[] key,
+                                                           Set<Pair<Integer, HashMap<Integer, List<Integer>>>> stealerNodeToMappingTuples,
+                                                           Cluster cluster,
+                                                           StoreDefinition storeDef) {
         List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                          cluster)
                                                                   .getPartitionList(key);

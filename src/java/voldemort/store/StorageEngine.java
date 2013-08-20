@@ -135,6 +135,15 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
     public List<Versioned<V>> multiVersionPut(K key, List<Versioned<V>> values);
 
     /**
+     * Update storage for the given key, with the list of versions provided,
+     * without any version checking
+     * 
+     * @param key
+     * @param values
+     */
+    public void rawPut(K key, List<Versioned<V>> values);
+
+    /**
      * 
      * @return true if the storage engine successfully returned to normal mode
      */

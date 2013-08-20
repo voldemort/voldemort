@@ -41,6 +41,7 @@ import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.server.storage.RepairJob;
+import voldemort.server.storage.VersionedPutPruneJob;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.StorageEngine;
 import voldemort.store.bdb.BdbStorageConfiguration;
@@ -170,6 +171,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableSlop;
     private boolean enableSlopPusherJob;
     private boolean enableRepair;
+    private boolean enablePruneJob;
     private boolean enableHttpServer;
     private boolean enableSocketServer;
     private boolean enableAdminServer;
@@ -418,6 +420,7 @@ public class VoldemortConfig implements Serializable {
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
         this.enableRepair = props.getBoolean("enable.repair", true);
+        this.enablePruneJob = props.getBoolean("enable.prunejob", true);
         this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
 
         this.gossipIntervalMs = props.getInt("gossip.interval.ms", 30 * 1000);
@@ -1920,6 +1923,22 @@ public class VoldemortConfig implements Serializable {
         this.enableRepair = enableRepair;
     }
 
+    public boolean isPruneJobEnabled() {
+        return this.enablePruneJob;
+    }
+
+    /**
+     * Whether {@link VersionedPutPruneJob} will be enabled
+     * 
+     * <ul>
+     * <li>Property :"enable.prunejob"</li>
+     * <li>Default :true</li>
+     * </ul>
+     */
+    public void setEnablePruneJob(boolean enablePruneJob) {
+        this.enablePruneJob = enablePruneJob;
+    }
+
     public boolean isVerboseLoggingEnabled() {
         return this.enableVerboseLogging;
     }
@@ -2353,8 +2372,7 @@ public class VoldemortConfig implements Serializable {
      * <li>Default :FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES</li>
      * </ul>
      */
-    public void
-            setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
+    public void setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
         this.failureDetectorCatastrophicErrorTypes = failureDetectorCatastrophicErrorTypes;
     }
 
@@ -2370,8 +2388,7 @@ public class VoldemortConfig implements Serializable {
      * <li>Default :same as socket timeout</li>
      * </ul>
      */
-    public void
-            setFailureDetectorRequestLengthThreshold(long failureDetectorRequestLengthThreshold) {
+    public void setFailureDetectorRequestLengthThreshold(long failureDetectorRequestLengthThreshold) {
         this.failureDetectorRequestLengthThreshold = failureDetectorRequestLengthThreshold;
     }
 
