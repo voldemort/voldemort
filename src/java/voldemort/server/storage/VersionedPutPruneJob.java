@@ -37,6 +37,8 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockUtils;
 import voldemort.versioning.Versioned;
 
+import com.google.common.primitives.Ints;
+
 /**
  * Voldemort supports a "versioned" put interface, where the user can provide a
  * vector clock, generated outside of Voldemort. A common practice is to create
@@ -96,8 +98,9 @@ public class VersionedPutPruneJob extends DataMaintenanceJob {
 
     public VersionedPutPruneJob(StoreRepository storeRepo,
                                 MetadataStore metadataStore,
-                                ScanPermitWrapper repairPermits) {
-        super(storeRepo, metadataStore, repairPermits);
+                                ScanPermitWrapper repairPermits,
+                                int maxKeysScannedPerSecond) {
+        super(storeRepo, metadataStore, repairPermits, maxKeysScannedPerSecond);
     }
 
     public void setStoreName(String storeName) {
@@ -162,6 +165,7 @@ public class VersionedPutPruneJob extends DataMaintenanceJob {
                             numPrunedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
                         }
                         itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
+                        throttler.maybeThrottle(Ints.checkedCast(itemsScanned));
                         if(itemsScanned % STAT_RECORDS_INTERVAL == 0)
                             logger.info("#Scanned:" + itemsScanned + " #Pruned:" + numPrunedKeys);
                     } catch(Exception e) {
