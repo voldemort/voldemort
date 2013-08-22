@@ -239,7 +239,7 @@ public class VoldemortConfig implements Serializable {
     private int maxHttpAggregatedContentLength;
 
     private int repairJobMaxKeysScannedPerSec;
-    private int versionPruneJobMaxKeysScannedPerSec;
+    private int pruneJobMaxKeysScannedPerSec;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -527,7 +527,7 @@ public class VoldemortConfig implements Serializable {
 
         this.repairJobMaxKeysScannedPerSec = props.getInt("repairjob.max.keys.scanned.per.sec",
                                                           Integer.MAX_VALUE);
-        this.versionPruneJobMaxKeysScannedPerSec = props.getInt("versionprunejob.max.keys.scanned.per.sec",
+        this.pruneJobMaxKeysScannedPerSec = props.getInt("prunejob.max.keys.scanned.per.sec",
                                                           Integer.MAX_VALUE);
 
         validateParams();
@@ -2925,19 +2925,19 @@ public class VoldemortConfig implements Serializable {
         this.repairJobMaxKeysScannedPerSec = maxKeysPerSecond;
     }
     
-    public int getVersionPruneJobMaxKeysScannedPerSec() {
-        return versionPruneJobMaxKeysScannedPerSec;
+    public int getPruneJobMaxKeysScannedPerSec() {
+        return pruneJobMaxKeysScannedPerSec;
     }
 
     /**
      * Global throttle limit for versioned put prune jobs
      * 
      * <ul>
-     * <li>Property :"versionprunejob.max.keys.scanned.per.sec"</li>
+     * <li>Property :"prunejob.max.keys.scanned.per.sec"</li>
      * <li>Default : Integer.MAX_VALUE (unthrottled)</li>
      * </ul>
      */
-    public void setVersionPruneJobMaxKeysScannedPerSec(int maxKeysPerSecond) {
-        this.versionPruneJobMaxKeysScannedPerSec = maxKeysPerSecond;
+    public void setPruneJobMaxKeysScannedPerSec(int maxKeysPerSecond) {
+        this.pruneJobMaxKeysScannedPerSec = maxKeysPerSecond;
     }
 }

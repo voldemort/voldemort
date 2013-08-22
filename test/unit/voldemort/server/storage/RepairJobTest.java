@@ -43,8 +43,10 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.common.service.SchedulerService;
 import voldemort.routing.BaseStoreRoutingPlan;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -77,12 +79,14 @@ public class RepairJobTest {
     private ScanPermitWrapper scanPermitWrapper;
     private SocketStoreFactory socketStoreFactory;
     private Map<Integer, Store<ByteArray, byte[], byte[]>> storeMap;
+    Map<Integer, VoldemortServer> serverMap;
 
     public void setUp() {
 
         File temp = TestUtils.createTempDir();
         VoldemortConfig config = new VoldemortConfig(0, temp.getAbsolutePath());
         new File(config.getMetadataDirectory()).mkdir();
+        this.serverMap = new HashMap<Integer, VoldemortServer>();
         this.scheduler = new SchedulerService(1, new MockTime());
         this.cluster = VoldemortTestConstants.getNineNodeCluster();
         StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
@@ -125,7 +129,8 @@ public class RepairJobTest {
                                                                         null,
                                                                         storeXmlFile,
                                                                         properties);
-            ServerTestUtils.startVoldemortServer(socketStoreFactory, config, cluster);
+            VoldemortServer server = ServerTestUtils.startVoldemortServer(socketStoreFactory, config, cluster);
+            serverMap.put(node, server);
         }
         return cluster;
     }
@@ -133,12 +138,11 @@ public class RepairJobTest {
     private Store<ByteArray, byte[], byte[]> getSocketStore(String storeName,
                                                               String host,
                                                               int port) {
-        return ServerTestUtils.getSocketStore(socketStoreFactory,
-                                              storeName,
-                                              host,
-                                              port,
-                                              RequestFormatType.VOLDEMORT_V1,
-                                              false);
+        return socketStoreFactory.create(storeName,
+                                         host,
+                                         port,
+                                         RequestFormatType.PROTOCOL_BUFFERS,
+                                         RequestRoutingType.IGNORE_CHECKS);
     }
 
     private Map<Integer, Store<ByteArray, byte[], byte[]>> createSocketStore(StoreDefinition storeDef) {
@@ -186,7 +190,11 @@ public class RepairJobTest {
         for(int i = 0; i < 9; i++) {
             admin.storeMntOps.repairJob(i);
         }
-        
+
+        // wait for the repair to complete
+        for(int i = 0; i < 9; i++) {
+            ServerTestUtils.waitForAsyncOperationOnServer(serverMap.get(i), "Repair", 5000);
+        }
         BaseStoreRoutingPlan storeInstance = new BaseStoreRoutingPlan(cluster, storeDefs.get(0));
         for (Entry<String, String> entry: testEntries.entrySet()) {
             ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
@@ -206,7 +214,6 @@ public class RepairJobTest {
                     // that doesn't belong to the nodes. Hence leaving the catch empty.
                 }
             }
-            
           // The repair job should not have deleted the keys from nodes on the pref list.
             for (int nodeId: preferenceNodes) {
                 try {

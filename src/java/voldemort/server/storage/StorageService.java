@@ -359,7 +359,7 @@ public class StorageService extends AbstractService {
                 VersionedPutPruneJob job = new VersionedPutPruneJob(storeRepository,
                                                                     metadata,
                                                                     scanPermitWrapper,
-                                                                    voldemortConfig.getVersionPruneJobMaxKeysScannedPerSec());
+                                                                    voldemortConfig.getPruneJobMaxKeysScannedPerSec());
                 JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
                 storeRepository.registerPruneJob(job);
             }
