@@ -16,7 +16,6 @@
 package voldemort.server.storage;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.lang.mutable.MutableBoolean;
@@ -30,7 +29,6 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ClosableIterator;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.versioning.ClockEntry;
 import voldemort.versioning.VectorClock;
@@ -111,80 +109,54 @@ public class VersionedPutPruneJob extends DataMaintenanceJob {
     }
 
     @Override
-    public void run() {
-        // don't do maintenance when the server is already not normal
-        if(!isServerNormal()) {
-            logger.error("Cannot run repair job since Voldemort server is not in normal state");
-            return;
+    public void operate() throws Exception {
+        StoreDefinition storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(metadataStore.getStoreDefList(),
+                                                                                   storeName);
+        if(storeDef == null) {
+            throw new VoldemortException("Unknown store " + storeName);
         }
 
-        isRunning.set(true);
-        ClosableIterator<ByteArray> iterator = null;
-        Date startTime = new Date();
-        logger.info("Starting VersionedPutPruneJob at " + startTime);
+        if(isWritableStore(storeDef)) {
+            // Lets generate routing strategy for this storage engine
+            StoreRoutingPlan routingPlan = new StoreRoutingPlan(metadataStore.getCluster(),
+                                                                storeDef);
+            logger.info("Pruning store " + storeDef.getName());
+            StorageEngine<ByteArray, byte[], byte[]> engine = storeRepo.getStorageEngine(storeDef.getName());
+            iterator = engine.keys();
 
-        if(!acquireScanPermit()) {
-            isRunning.set(false);
-            return;
-        }
-        try {
-            StoreDefinition storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(metadataStore.getStoreDefList(),
-                                                                                       storeName);
-            if(storeDef == null) {
-                throw new VoldemortException("Unknown store " + storeName);
-            }
+            long itemsScanned = 0;
+            long numPrunedKeys = 0;
+            while(iterator.hasNext()) {
+                ByteArray key = iterator.next();
 
-            if(isWritableStore(storeDef)) {
-                // Lets generate routing strategy for this storage engine
-                StoreRoutingPlan routingPlan = new StoreRoutingPlan(metadataStore.getCluster(),
-                                                                    storeDef);
-                logger.info("Pruning store " + storeDef.getName());
-                StorageEngine<ByteArray, byte[], byte[]> engine = storeRepo.getStorageEngine(storeDef.getName());
-                iterator = engine.keys();
-
-                long itemsScanned = 0;
-                long numPrunedKeys = 0;
-                while(iterator.hasNext()) {
-                    ByteArray key = iterator.next();
-
-                    KeyLockHandle<byte[]> lockHandle = engine.getAndLock(key);
-                    List<Versioned<byte[]>> vals = lockHandle.getValues();
-                    try {
-                        List<Integer> keyReplicas = routingPlan.getReplicationNodeList(routingPlan.getMasterPartitionId(key.get()));
-                        MutableBoolean didPrune = new MutableBoolean(false);
-                        List<Versioned<byte[]>> prunedVals = pruneNonReplicaEntries(vals,
-                                                                                    keyReplicas,
-                                                                                    didPrune);
-                        // Only write something back if some pruning actually
-                        // happened. Optimization to reduce load on storage
-                        if(didPrune.booleanValue()) {
-                            List<Versioned<byte[]>> resolvedVals = VectorClockUtils.resolveVersions(prunedVals);
-                            // TODO this is only implemented for BDB for now
-                            lockHandle.setValues(resolvedVals);
-                            engine.putAndUnlock(key, lockHandle);
-                            numPrunedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
-                        }
-                        itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
-                        throttler.maybeThrottle(Ints.checkedCast(itemsScanned));
-                        if(itemsScanned % STAT_RECORDS_INTERVAL == 0)
-                            logger.info("#Scanned:" + itemsScanned + " #Pruned:" + numPrunedKeys);
-                    } catch(Exception e) {
-                        engine.releaseLock(lockHandle);
-                        throw e;
+                KeyLockHandle<byte[]> lockHandle = engine.getAndLock(key);
+                List<Versioned<byte[]>> vals = lockHandle.getValues();
+                try {
+                    List<Integer> keyReplicas = routingPlan.getReplicationNodeList(routingPlan.getMasterPartitionId(key.get()));
+                    MutableBoolean didPrune = new MutableBoolean(false);
+                    List<Versioned<byte[]>> prunedVals = pruneNonReplicaEntries(vals,
+                                                                                keyReplicas,
+                                                                                didPrune);
+                    // Only write something back if some pruning actually
+                    // happened. Optimization to reduce load on storage
+                    if(didPrune.booleanValue()) {
+                        List<Versioned<byte[]>> resolvedVals = VectorClockUtils.resolveVersions(prunedVals);
+                        // TODO this is only implemented for BDB for now
+                        lockHandle.setValues(resolvedVals);
+                        engine.putAndUnlock(key, lockHandle);
+                        numPrunedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
                     }
+                    itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
+                    throttler.maybeThrottle(Ints.checkedCast(itemsScanned));
+                    if(itemsScanned % STAT_RECORDS_INTERVAL == 0)
+                        logger.info("#Scanned:" + itemsScanned + " #Pruned:" + numPrunedKeys);
+                } catch(Exception e) {
+                    engine.releaseLock(lockHandle);
+                    throw e;
                 }
-                closeIterator(iterator);
-                logger.info("Completed store " + storeDef.getName() + " #Scanned:" + itemsScanned
-                            + " #Pruned:" + numPrunedKeys);
             }
-        } catch(Exception e) {
-            logger.error("Error running Prune Job..", e);
-        } finally {
-            closeIterator(iterator);
-            this.scanPermits.release(this.getClass().getCanonicalName());
-            resetStats();
-            logger.info("Completed prune job started at " + startTime);
-            isRunning.set(false);
+            logger.info("Completed store " + storeDef.getName() + " #Scanned:" + itemsScanned
+                        + " #Pruned:" + numPrunedKeys);
         }
     }
 

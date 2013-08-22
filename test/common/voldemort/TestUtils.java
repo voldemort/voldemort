@@ -43,9 +43,12 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
+import voldemort.versioning.ClockEntry;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
+
+import com.google.common.collect.Lists;
 
 /**
  * Helper utilities for tests
@@ -72,6 +75,27 @@ public class TestUtils {
         VectorClock clock = new VectorClock();
         increment(clock, nodes);
         return clock;
+    }
+
+    /**
+     * Constructs a vector clock as in versioned put based on timestamp
+     * 
+     * @param timeMs timestamp to use in the clock value
+     * @param master node for the put. the master's versions will be timeMs+1,
+     *        if master > -1
+     * @return
+     */
+    @SuppressWarnings("deprecation")
+    public static VectorClock getVersionedPutClock(long timeMs, int master, int... nodes) {
+        List<ClockEntry> clockEntries = Lists.newArrayList();
+        for(int node: nodes) {
+            if(master >= 0 && node == master) {
+                clockEntries.add(new ClockEntry((short) node, timeMs + 1));
+            } else {
+                clockEntries.add(new ClockEntry((short) node, timeMs));
+            }
+        }
+        return new VectorClock(clockEntries, timeMs);
     }
 
     /**

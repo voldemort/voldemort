@@ -16,6 +16,7 @@
 package voldemort.server.storage;
 
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -45,6 +46,7 @@ public abstract class DataMaintenanceJob implements Runnable {
     protected final ScanPermitWrapper scanPermits;
     protected final StoreRepository storeRepo;
     protected final MetadataStore metadataStore;
+    protected ClosableIterator<ByteArray> iterator = null;
     protected AtomicLong numKeysScannedThisRun;
     protected AtomicLong numKeysUpdatedThisRun;
     protected long totalKeysScanned = 0;
@@ -72,13 +74,44 @@ public abstract class DataMaintenanceJob implements Runnable {
     }
 
     @Override
-    abstract public void run();
+    public void run() {
+        // don't do maintenance when the server is already not normal
+        if(!isServerNormal()) {
+            getLogger().error("Cannot run " + getJobName()
+                              + " since Voldemort server is not in normal state");
+            return;
+        }
+
+        isRunning.set(true);
+        Date startTime = new Date();
+        getLogger().info("Started " + getJobName() + " at " + startTime);
+
+        if(!acquireScanPermit()) {
+            isRunning.set(false);
+            return;
+        }
+
+        // actually operate the job
+        try {
+            operate();
+        } catch(Exception e) {
+            getLogger().error("Error running " + getJobName(), e);
+        } finally {
+            closeIterator(iterator);
+            this.scanPermits.release(this.getClass().getCanonicalName());
+            resetStats();
+            getLogger().info("Completed " + getJobName() + " started at " + startTime);
+            isRunning.set(false);
+        }
+    }
+
+    abstract public void operate() throws Exception;
 
     abstract protected Logger getLogger();
 
     abstract protected String getJobName();
 
-    boolean isServerNormal() {
+    private boolean isServerNormal() {
         return metadataStore.getServerStateUnlocked()
                             .equals(MetadataStore.VoldemortState.NORMAL_SERVER);
     }
@@ -91,7 +124,7 @@ public abstract class DataMaintenanceJob implements Runnable {
         }
     }
 
-    protected boolean acquireScanPermit() {
+    private boolean acquireScanPermit() {
         getLogger().info("Acquiring lock to perform " + getJobName());
         if(this.scanPermits.tryAcquire(this.numKeysScannedThisRun,
                                        this.numKeysUpdatedThisRun,
@@ -107,8 +140,10 @@ public abstract class DataMaintenanceJob implements Runnable {
 
     protected void closeIterator(ClosableIterator<ByteArray> iterator) {
         try {
-            if(iterator != null)
+            if(iterator != null) {
                 iterator.close();
+                iterator = null;
+            }
         } catch(Exception e) {
             getLogger().error("Error in closing iterator", e);
         }
@@ -119,7 +154,7 @@ public abstract class DataMaintenanceJob implements Runnable {
      * protects against scheduling the same job twice by mistake from Admin tool
      * (most practical use case)
      * 
-     * FIXME VC There can still be a race when two threads find this value to be
+     * Note: There can still be a race when two threads find this value to be
      * false and both attempt to execute the job
      * 
      * @return

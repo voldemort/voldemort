@@ -661,7 +661,7 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
     }
 
     /**
-     * FIXME VC this needs to be reimplemented using getAndLock and putAndUnlock
+     * FIXME this needs to be reimplemented using getAndLock and putAndUnlock
      */
     @Override
     public List<Versioned<byte[]>> multiVersionPut(ByteArray key,

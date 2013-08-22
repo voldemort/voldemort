@@ -309,7 +309,7 @@ public class VoldemortAdminTool {
         String ops = "";
         // Honestly, the most insane code I have seen. Atleast sorting this for
         // now so its easy to find a spare character
-        // FIXME VC rid the code of this horror?
+        // TODO rid the code of this horror?
         if(options.has("add-stores")) {
             ops += "a";
         }

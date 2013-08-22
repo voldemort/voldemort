@@ -15,8 +15,6 @@
  */
 package voldemort.server.storage;
 
-import java.util.Date;
-
 import javax.management.MBeanOperationInfo;
 
 import org.apache.log4j.Logger;
@@ -29,7 +27,6 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ClosableIterator;
 
 import com.google.common.primitives.Ints;
 
@@ -56,70 +53,41 @@ public class RepairJob extends DataMaintenanceJob {
     }
 
     @Override
-    public void run() {
+    public void operate() throws Exception {
+        for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
+            if(isWritableStore(storeDef)) {
+                // Lets generate routing strategy for this storage engine
+                StoreRoutingPlan routingPlan = new StoreRoutingPlan(metadataStore.getCluster(),
+                                                                    storeDef);
+                logger.info("Repairing store " + storeDef.getName());
+                StorageEngine<ByteArray, byte[], byte[]> engine = storeRepo.getStorageEngine(storeDef.getName());
+                iterator = engine.keys();
 
-        // FIXME VC there is some repeated code here that can benefit from
-        // common helpers or actually implementing a non abstract super.run()
+                long itemsScanned = 0;
+                long numDeletedKeys = 0;
+                while(iterator.hasNext()) {
+                    ByteArray key = iterator.next();
 
-        // don't do maintenance when the server is already not normal
-        if(!isServerNormal()) {
-            logger.error("Cannot run repair job since Voldemort server is not in normal state");
-            return;
-        }
-
-        isRunning.set(true);
-        ClosableIterator<ByteArray> iterator = null;
-        Date startTime = new Date();
-        logger.info("Started repair job at " + startTime);
-
-        if(!acquireScanPermit()) {
-            isRunning.set(false);
-            return;
-        }
-        try {
-            for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
-                if(isWritableStore(storeDef)) {
-                    // Lets generate routing strategy for this storage engine
-                    StoreRoutingPlan routingPlan = new StoreRoutingPlan(metadataStore.getCluster(),
-                                                                        storeDef);
-                    logger.info("Repairing store " + storeDef.getName());
-                    StorageEngine<ByteArray, byte[], byte[]> engine = storeRepo.getStorageEngine(storeDef.getName());
-                    iterator = engine.keys();
-
-                    long itemsScanned = 0;
-                    long numDeletedKeys = 0;
-                    while(iterator.hasNext()) {
-                        ByteArray key = iterator.next();
-
-                        if(!routingPlan.checkKeyBelongsToNode(key.get(), metadataStore.getNodeId())) {
-                            /**
-                             * Blow away the entire key with all its versions..
-                             * FIXME VC MySQL storage engine does not seem to
-                             * honor null versions
-                             */
-                            engine.delete(key, null);
-                            numDeletedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
-                        }
-                        itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
-                        // Throttle the itemsScanned
-                        throttler.maybeThrottle(Ints.checkedCast(itemsScanned));
-                        if(itemsScanned % STAT_RECORDS_INTERVAL == 0) {
-                            logger.info("#Scanned:" + itemsScanned + " #Deleted:" + numDeletedKeys);
-                        }
+                    if(!routingPlan.checkKeyBelongsToNode(key.get(), metadataStore.getNodeId())) {
+                        /**
+                         * Blow away the entire key with all its versions..
+                         * FIXME VC MySQL storage engine does not seem to honor
+                         * null versions
+                         */
+                        engine.delete(key, null);
+                        numDeletedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
                     }
-                    closeIterator(iterator);
-                    logger.info("Completed store " + storeDef.getName() + " #Scanned:"
-                                + itemsScanned + " #Deleted:" + numDeletedKeys);
+                    itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
+                    // Throttle the itemsScanned
+                    throttler.maybeThrottle(Ints.checkedCast(itemsScanned));
+                    if(itemsScanned % STAT_RECORDS_INTERVAL == 0) {
+                        logger.info("#Scanned:" + itemsScanned + " #Deleted:" + numDeletedKeys);
+                    }
                 }
+                closeIterator(iterator);
+                logger.info("Completed store " + storeDef.getName() + " #Scanned:" + itemsScanned
+                            + " #Deleted:" + numDeletedKeys);
             }
-        } catch(Exception e) {
-            logger.error("Error running RepairJob.. ", e);
-        } finally {
-            closeIterator(iterator);
-            this.scanPermits.release(this.getClass().getCanonicalName());
-            resetStats();
-            logger.info("Completed repair job started at " + startTime);
-            isRunning.set(false);
         }
     }
 

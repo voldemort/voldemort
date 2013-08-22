@@ -153,8 +153,6 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
      * the set of values provided in the handle, also releasing the lock held on
      * the key.
      * 
-     * FIXME VC need also a way to release the lock alone for error handling
-     * 
      * @param key
      * @param handle handle object with new list of versions to be stored
      */

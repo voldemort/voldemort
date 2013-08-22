@@ -194,8 +194,18 @@ public class ServerTestUtils {
                                                                   int port,
                                                                   RequestFormatType type,
                                                                   boolean isRouted) {
+        return getSocketStore(storeFactory, storeName, host, port, type, isRouted, false);
+    }
+
+    public static Store<ByteArray, byte[], byte[]> getSocketStore(SocketStoreFactory storeFactory,
+                                                                  String storeName,
+                                                                  String host,
+                                                                  int port,
+                                                                  RequestFormatType type,
+                                                                  boolean isRouted,
+                                                                  boolean ignoreChecks) {
         RequestRoutingType requestRoutingType = RequestRoutingType.getRequestRoutingType(isRouted,
-                                                                                         false);
+                                                                                         ignoreChecks);
         return storeFactory.create(storeName, host, port, type, requestRoutingType);
     }
 
@@ -953,7 +963,6 @@ public class ServerTestUtils {
             matchingOperationIds = service.getMatchingAsyncOperationList(asyncOperationPattern,
                                                                          true);
             if(matchingOperationIds.size() > 0) {
-                System.err.println(">>" + matchingOperationIds);
                 break;
             }
         }
@@ -962,7 +971,6 @@ public class ServerTestUtils {
             List<Integer> completedOps = new ArrayList<Integer>(matchingOperationIds.size());
             for(Integer op: matchingOperationIds) {
                 if(service.isComplete(op)) {
-                    System.err.println("Operation " + op + " is complete");
                     completedOps.add(op);
                 }
             }

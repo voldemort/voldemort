@@ -58,14 +58,13 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
 /*
- * This class tests the repair job tool. The basic workflow is as follows :
- * 1. Start a 9 node cluster with a single322 storedef.
- * 2. Generate 1024 random <key,value> pairs and do puts of all these 1024 on all the servers.
- *    At this time every server will have all the data. 
- * 3. Run the repair job on all 9 nodes.
- * 4. Now, for each key check that the repair job deleted that key from nodes that do not belong 
- *    to the preferenceList for that key.
- * 5. Verify that the key exists on nodes that belong to preferenceList.
+ * This class tests the repair job tool. The basic workflow is as follows : 1.
+ * Start a 9 node cluster with a single322 storedef. 2. Generate 1024 random
+ * <key,value> pairs and do puts of all these 1024 on all the servers. At this
+ * time every server will have all the data. 3. Run the repair job on all 9
+ * nodes. 4. Now, for each key check that the repair job deleted that key from
+ * nodes that do not belong to the preferenceList for that key. 5. Verify that
+ * the key exists on nodes that belong to preferenceList.
  */
 
 public class RepairJobTest {
@@ -76,7 +75,6 @@ public class RepairJobTest {
     private SchedulerService scheduler;
     private List<StoreDefinition> storeDefs;
     private MetadataStore metadataStore;
-    private ScanPermitWrapper scanPermitWrapper;
     private SocketStoreFactory socketStoreFactory;
     private Map<Integer, Store<ByteArray, byte[], byte[]>> storeMap;
     Map<Integer, VoldemortServer> serverMap;
@@ -96,7 +94,6 @@ public class RepairJobTest {
         storage = new StorageService(storeRepository, metadataStore, scheduler, config);
         // Start the storage service
         storage.start();
-        this.scanPermitWrapper = new ScanPermitWrapper(1);
         this.socketStoreFactory = new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
         String storeDefsString = mapper.writeStoreList(storeDefs);
         File file = null;
@@ -116,28 +113,29 @@ public class RepairJobTest {
                                  String storeXmlFile,
                                  List<Integer> nodeToStart,
                                  Map<String, String> configProps) throws Exception {
-        for (int node: nodeToStart) {
+        for(int node: nodeToStart) {
             Properties properties = new Properties();
-            if (null != configProps) {
-                for (Entry<String, String> property: configProps.entrySet()) {
+            if(null != configProps) {
+                for(Entry<String, String> property: configProps.entrySet()) {
                     properties.put(property.getKey(), property.getValue());
                 }
             }
             VoldemortConfig config = ServerTestUtils.createServerConfig(true,
                                                                         node,
-                                                                        TestUtils.createTempDir().getAbsolutePath(),
+                                                                        TestUtils.createTempDir()
+                                                                                 .getAbsolutePath(),
                                                                         null,
                                                                         storeXmlFile,
                                                                         properties);
-            VoldemortServer server = ServerTestUtils.startVoldemortServer(socketStoreFactory, config, cluster);
+            VoldemortServer server = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                          config,
+                                                                          cluster);
             serverMap.put(node, server);
         }
         return cluster;
     }
 
-    private Store<ByteArray, byte[], byte[]> getSocketStore(String storeName,
-                                                              String host,
-                                                              int port) {
+    private Store<ByteArray, byte[], byte[]> getSocketStore(String storeName, String host, int port) {
         return socketStoreFactory.create(storeName,
                                          host,
                                          port,
@@ -147,29 +145,31 @@ public class RepairJobTest {
 
     private Map<Integer, Store<ByteArray, byte[], byte[]>> createSocketStore(StoreDefinition storeDef) {
         storeMap = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
-        for (Node node: cluster.getNodes()) {
-            storeMap.put(node.getId(), getSocketStore(storeDef.getName(), node.getHost(), node.getSocketPort()));
+        for(Node node: cluster.getNodes()) {
+            storeMap.put(node.getId(),
+                         getSocketStore(storeDef.getName(), node.getHost(), node.getSocketPort()));
         }
         return storeMap;
     }
-    
+
     private HashMap<String, String> populateData(HashMap<String, String> testEntries) {
-        for (Entry<String, String> entry: testEntries.entrySet()) {
+        for(Entry<String, String> entry: testEntries.entrySet()) {
             ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
             List<Integer> allNodes = Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8);
-            for (int nodeId: allNodes) {
+            for(int nodeId: allNodes) {
                 try {
                     storeMap.get(nodeId)
                             .put(keyBytes,
                                  new Versioned<byte[]>(ByteUtils.getBytes(entry.getValue(), "UTF-8")),
                                  null);
-                } catch (Exception e) {
-                 // Don't do anything with the exception. Exception are expected here as we are
-                 // putting all keys on all nodes.
+                } catch(Exception e) {
+                    // Don't do anything with the exception. Exception are
+                    // expected here as we are
+                    // putting all keys on all nodes.
                 }
             }
         }
-        for (Store<ByteArray, byte[], byte[]> store: storeMap.values()) {
+        for(Store<ByteArray, byte[], byte[]> store: storeMap.values()) {
             store.close();
         }
         return testEntries;
@@ -182,9 +182,9 @@ public class RepairJobTest {
         // Create socket store
         storeMap = createSocketStore(storeDefs.get(0));
         // Generate random data, populate cluster with it.
-        HashMap<String, String> testEntries = ServerTestUtils.createRandomKeyValueString(1024);
+        HashMap<String, String> testEntries = ServerTestUtils.createRandomKeyValueString(128);
         populateData(testEntries);
-        
+
         // create admin client and run repair on all nodes
         AdminClient admin = new AdminClient(cluster, new AdminClientConfig(), new ClientConfig());
         for(int i = 0; i < 9; i++) {
@@ -196,36 +196,42 @@ public class RepairJobTest {
             ServerTestUtils.waitForAsyncOperationOnServer(serverMap.get(i), "Repair", 5000);
         }
         BaseStoreRoutingPlan storeInstance = new BaseStoreRoutingPlan(cluster, storeDefs.get(0));
-        for (Entry<String, String> entry: testEntries.entrySet()) {
+        for(Entry<String, String> entry: testEntries.entrySet()) {
             ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
             List<Integer> preferenceNodes = storeInstance.getReplicationNodeList(keyBytes.get());
             List<Integer> allNodes = new ArrayList<Integer>(Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8));
-            
-            // Repair job should have deleted the keys on the nodes that shouldn't have been 
-            // hosting the key. Go over all these remaining nodes to make sure that it's true.
+
+            // Repair job should have deleted the keys on the nodes that
+            // shouldn't have been
+            // hosting the key. Go over all these remaining nodes to make sure
+            // that it's true.
             allNodes.removeAll(preferenceNodes);
-            for (int nodeId: allNodes) {
+            for(int nodeId: allNodes) {
                 try {
                     List<Versioned<byte[]>> retVal = storeMap.get(nodeId).get(keyBytes, null);
-                    assertEquals("Repair did not run properly as it left the key it should have" 
+                    assertEquals("Repair did not run properly as it left the key it should have"
                                  + " deleted", retVal.isEmpty(), true);
-                } catch (Exception e) {
-                    // We expect a bunch of invalidmetadata exceptions as we are asking for key
-                    // that doesn't belong to the nodes. Hence leaving the catch empty.
+                } catch(Exception e) {
+                    // We expect a bunch of invalidmetadata exceptions as we are
+                    // asking for key
+                    // that doesn't belong to the nodes. Hence leaving the catch
+                    // empty.
                 }
             }
-          // The repair job should not have deleted the keys from nodes on the pref list.
-            for (int nodeId: preferenceNodes) {
+            // The repair job should not have deleted the keys from nodes on the
+            // pref list.
+            for(int nodeId: preferenceNodes) {
                 try {
                     List<Versioned<byte[]>> retVal = storeMap.get(nodeId).get(keyBytes, null);
-                    assertEquals("Repair job has deleted keys that it should not have", 
-                                 retVal.isEmpty(), false);
-                } catch (Exception e) {
+                    assertEquals("Repair job has deleted keys that it should not have",
+                                 retVal.isEmpty(),
+                                 false);
+                } catch(Exception e) {
                     e.printStackTrace();
                 }
             }
         }
-        for (Store<ByteArray, byte[], byte[]> store: storeMap.values()) {
+        for(Store<ByteArray, byte[], byte[]> store: storeMap.values()) {
             store.close();
         }
     }

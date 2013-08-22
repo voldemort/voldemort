@@ -1378,8 +1378,7 @@ public class AdminClient {
                                                                                               .setPruneJob(jobRequest)
                                                                                               .setType(VAdminProto.AdminRequestType.PRUNE_JOB)
                                                                                               .build();
-            // FIXME VC probably need a helper to do all this, at some point..
-            // All
+            // TODO probably need a helper to do all this, at some point.. all
             // of this file has repeated code
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
             SocketDestination destination = new SocketDestination(node.getHost(),
