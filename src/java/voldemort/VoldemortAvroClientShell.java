@@ -5,8 +5,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
@@ -142,7 +140,10 @@ public class VoldemortAvroClientShell {
             try {
                 if(line.toLowerCase().startsWith("get")) {
 
-                    JsonDecoder decoder = new JsonDecoder(keySchema, line.substring("get".length()));
+                    System.out.println("Enter key:");
+                    line = reader.readLine();
+
+                    JsonDecoder decoder = new JsonDecoder(keySchema, line);
                     GenericDatumReader<Object> datumReader = null;
                     Object key = null;
                     try {
@@ -157,32 +158,16 @@ public class VoldemortAvroClientShell {
                     System.out.println("Value - " + client.get(key));
                 } else if(line.toLowerCase().startsWith("put")) {
 
-                    String regex = "([^\"]\\S*|\".+?\")\\s*"; // "\"([^\"]*)\"|(\\S+)";
-                    Matcher m = Pattern.compile(regex).matcher(line.substring("put".length()));
                     String keyString = null;
                     String valueString = null;
 
-                    if(!m.find()) {
-                        System.err.println("Error parsing key ");
-                        continue;
-                    }
+                    System.out.println("Enter key:");
+                    line = reader.readLine();
+                    keyString = line;
 
-                    if(m.group(1) != null) {
-                        keyString = m.group(1);
-                    } else {
-                        keyString = m.group(2);
-                    }
-
-                    if(!m.find()) {
-                        System.err.println("Error parsing value ");
-                        continue;
-                    }
-
-                    if(m.group(1) != null) {
-                        valueString = m.group(1);
-                    } else {
-                        valueString = m.group(2);
-                    }
+                    System.out.println("Enter value:");
+                    line = reader.readLine();
+                    valueString = line;
 
                     JsonDecoder keyDecoder = new JsonDecoder(keySchema, keyString);
 
