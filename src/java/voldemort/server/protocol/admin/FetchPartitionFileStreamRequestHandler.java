@@ -81,8 +81,10 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                                                      VoldemortConfig voldemortConfig,
                                                      StoreRepository storeRepository) {
         this.request = request;
-        // TODO (Sid) : Confirm if keeping metadatastore as a class property is the best 
-        // way to do this. metadataStore is used later in the handleNextPartition() to create 
+        // TODO (Sid) : Confirm if keeping metadatastore as a class property is
+        // the best
+        // way to do this. metadataStore is used later in the
+        // handleNextPartition() to create
         // object plan.
         this.metadataStore = metadataStore;
 
@@ -221,7 +223,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private StreamRequestHandlerState handleNextPartition() {
         StreamRequestHandlerState handlerState = StreamRequestHandlerState.WRITING;
-        if (partitionIterator.hasNext()) {
+        if(partitionIterator.hasNext()) {
             // Start a new partition
             Integer partitionId = partitionIterator.next();
             int nodeId = metadataStore.getNodeId();
@@ -238,7 +240,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             currentChunkId = 0;
 
             // First check if bucket exists
-            if (!bucketToNumChunks.containsKey(Pair.create(currentPair.getSecond(),
+            if(!bucketToNumChunks.containsKey(Pair.create(currentPair.getSecond(),
                                                           currentPair.getFirst()))) {
                 throw new VoldemortException("Bucket [ partition = " + currentPair.getSecond()
                                              + ", replica = " + currentPair.getFirst()
@@ -254,8 +256,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
             // We are done since we have gone through the entire
             // partition list
-            logger.info("Finished streaming files for partitions tuples "
-                        + partitionIds);
+            logger.info("Finished streaming files for partitions tuples " + partitionIds);
             handlerState = StreamRequestHandlerState.COMPLETE;
         }
         return handlerState;

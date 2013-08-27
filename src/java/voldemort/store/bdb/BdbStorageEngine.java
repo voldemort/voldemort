@@ -660,71 +660,6 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
         return false;
     }
 
-    /**
-     * FIXME this needs to be reimplemented using getAndLock and putAndUnlock
-     */
-    @Override
-    public List<Versioned<byte[]>> multiVersionPut(ByteArray key,
-                                                   final List<Versioned<byte[]>> values)
-            throws PersistenceFailureException {
-        long startTimeNs = -1;
-
-        if(logger.isTraceEnabled())
-            startTimeNs = System.nanoTime();
-
-        StoreUtils.assertValidKey(key);
-        DatabaseEntry keyEntry = new DatabaseEntry(key.get());
-        DatabaseEntry valueEntry = new DatabaseEntry();
-
-        boolean succeeded = false;
-        Transaction transaction = null;
-        List<Versioned<byte[]>> valuesInStorage = null;
-        List<Versioned<byte[]>> obsoleteVals = null;
-
-        try {
-            transaction = environment.beginTransaction(null, null);
-
-            // do a get for the existing values
-            OperationStatus status = getBdbDatabase().get(transaction,
-                                                          keyEntry,
-                                                          valueEntry,
-                                                          LockMode.RMW);
-            if(OperationStatus.SUCCESS == status) {
-                // update
-                valuesInStorage = StoreBinaryFormat.fromByteArray(valueEntry.getData());
-            } else {
-                // insert
-                valuesInStorage = new ArrayList<Versioned<byte[]>>(values.size());
-            }
-
-            obsoleteVals = resolveAndConstructVersionsToPersist(valuesInStorage, values);
-            valueEntry.setData(StoreBinaryFormat.toByteArray(valuesInStorage));
-            status = getBdbDatabase().put(transaction, keyEntry, valueEntry);
-
-            if(status != OperationStatus.SUCCESS)
-                throw new PersistenceFailureException("multiVersionPut operation failed with status: "
-                                                      + status);
-            succeeded = true;
-
-        } catch(DatabaseException e) {
-            this.bdbEnvironmentStats.reportException(e);
-            logger.error("Error in MultiVersionPut for store " + this.getName(), e);
-            throw new PersistenceFailureException(e);
-        } finally {
-            if(succeeded)
-                attemptCommit(transaction);
-            else
-                attemptAbort(transaction);
-            if(logger.isTraceEnabled()) {
-                logger.trace("Completed PUT (" + getName() + ") to key " + key + " (keyRef: "
-                             + System.identityHashCode(key) + " values " + values + " in "
-                             + (System.nanoTime() - startTimeNs) + " ns at "
-                             + System.currentTimeMillis());
-            }
-        }
-        return obsoleteVals;
-    }
-
     @Override
     public KeyLockHandle<byte[]> getAndLock(ByteArray key) {
         long startTimeNs = -1;
@@ -806,6 +741,7 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
                              + (System.nanoTime() - startTimeNs) + " ns at "
                              + System.currentTimeMillis());
             }
+            handle.close();
         }
     }
 
@@ -815,6 +751,7 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
         if(transaction != null) {
             attemptAbort(transaction);
         }
+        handle.close();
     }
 
     @Override

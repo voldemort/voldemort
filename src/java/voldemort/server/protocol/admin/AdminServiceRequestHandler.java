@@ -557,22 +557,33 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public StreamRequestHandler handleUpdatePartitionEntries(VAdminProto.UpdatePartitionEntriesRequest request) {
         StorageEngine<ByteArray, byte[], byte[]> storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                                                              request.getStore());
-        if(doesStorageEngineSupportMultiVersionPuts(storageEngine)) {
-            return new BufferedUpdatePartitionEntriesStreamRequestHandler(request,
-                                                                          errorCodeMapper,
-                                                                          voldemortConfig,
-                                                                          storageEngine,
-                                                                          storeRepository,
-                                                                          networkClassLoader);
 
+        if(request.hasOverwriteIfLatest() && request.getOverwriteIfLatest()) {
+            // Resolve based on timestamp if specified.
+            return new TimeBasedUpdatePartitionEntriesStreamRequestHandler(request,
+                                                                           errorCodeMapper,
+                                                                           voldemortConfig,
+                                                                           storageEngine,
+                                                                           storeRepository,
+                                                                           networkClassLoader);
         } else {
-            return new UpdatePartitionEntriesStreamRequestHandler(request,
-                                                                  errorCodeMapper,
-                                                                  voldemortConfig,
-                                                                  storageEngine,
-                                                                  storeRepository,
-                                                                  networkClassLoader);
+            // else resort to vector clock based resolving..
+            if(doesStorageEngineSupportMultiVersionPuts(storageEngine)) {
+                return new BufferedUpdatePartitionEntriesStreamRequestHandler(request,
+                                                                              errorCodeMapper,
+                                                                              voldemortConfig,
+                                                                              storageEngine,
+                                                                              storeRepository,
+                                                                              networkClassLoader);
 
+            } else {
+                return new UpdatePartitionEntriesStreamRequestHandler(request,
+                                                                      errorCodeMapper,
+                                                                      voldemortConfig,
+                                                                      storageEngine,
+                                                                      storeRepository,
+                                                                      networkClassLoader);
+            }
         }
     }
 

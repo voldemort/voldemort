@@ -57,8 +57,22 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
 
     @Override
     public List<Versioned<V>> multiVersionPut(K key, List<Versioned<V>> values) {
-        throw new UnsupportedOperationException("multiVersionPut is not supported for "
-                                                + this.getClass().getName());
+        KeyLockHandle<V> handle = null;
+        try {
+            handle = getAndLock(key);
+            List<Versioned<V>> obsoleteVals = resolveAndConstructVersionsToPersist(handle.getValues(),
+                                                                                   values);
+            putAndUnlock(key, handle);
+            return obsoleteVals;
+        } catch(UnsupportedOperationException uoe) {
+            throw new UnsupportedOperationException("multiVersionPut is not supported for "
+                                                    + this.getClass().getName());
+        } catch(PersistenceFailureException pfe) {
+            if(handle != null && !handle.isClosed()) {
+                releaseLock(handle);
+            }
+            throw pfe;
+        }
     }
 
     @Override

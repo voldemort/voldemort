@@ -102,7 +102,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         this.nodeId = metadataStore.getNodeId();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
-        if (request.getPartitionIdsList() != null)
+        if(request.getPartitionIdsList() != null)
             this.partitionIds = request.getPartitionIdsList();
         this.storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                          request.getStore());
@@ -188,8 +188,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
             long totalTimeS = (System.currentTimeMillis() - startTimeMs) / Time.MS_PER_SECOND;
 
             logger.info(tag + " : scanned " + scanned + " and fetched " + fetched + " for store '"
-                        + storageEngine.getName() + "' partitionIds:"
-                        + partitionIds + " in " + totalTimeS + " s");
+                        + storageEngine.getName() + "' partitionIds:" + partitionIds + " in "
+                        + totalTimeS + " s");
         }
     }
 

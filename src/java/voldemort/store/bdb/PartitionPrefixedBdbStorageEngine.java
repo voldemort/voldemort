@@ -117,11 +117,6 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
     }
 
     @Override
-    public List<Versioned<byte[]>> multiVersionPut(ByteArray key, List<Versioned<byte[]>> values) {
-        return super.multiVersionPut(validateAndConstructKey(key), values);
-    }
-
-    @Override
     public KeyLockHandle<byte[]> getAndLock(ByteArray key) {
         return super.getAndLock(validateAndConstructKey(key));
     }

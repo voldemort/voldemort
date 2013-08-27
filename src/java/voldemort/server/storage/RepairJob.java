@@ -71,8 +71,6 @@ public class RepairJob extends DataMaintenanceJob {
                     if(!routingPlan.checkKeyBelongsToNode(key.get(), metadataStore.getNodeId())) {
                         /**
                          * Blow away the entire key with all its versions..
-                         * FIXME VC MySQL storage engine does not seem to honor
-                         * null versions
                          */
                         engine.delete(key, null);
                         numDeletedKeys = this.numKeysUpdatedThisRun.incrementAndGet();

@@ -60,9 +60,9 @@ import com.google.common.primitives.Ints;
  * 
  * Ergo, This has the following effect
  * 
- * 1. For keys that hit some online traffic during rebalancing, we have multiple
- * versions already. In these cases, it will effectively throw away the old
- * version
+ * 1. For keys that were hit with some online traffic during rebalancing, we
+ * have multiple versions already. In these cases, it will effectively throw
+ * away the old version
  * 
  * 2. For keys that were untouched since rebalancing, there will be just one
  * version on disk and the job will empty out entries in the clock that belong
@@ -81,7 +81,7 @@ import com.google.common.primitives.Ints;
  * 
  * 
  * NOTE: Voldemort uses "sparse" vector clocks for the regular put interface,
- * that let's Voldemort pick out a vector clock. This job is not NECESSARY if
+ * that let's Voldemort pick out a vector clock. This job is NOT NECESSARY if
  * you are only doing regular puts. In fact, even if you are using "versioned"
  * puts with "dense" clocks filled with a monotonically increasing number (like
  * timestamp), you are fine.
@@ -129,9 +129,10 @@ public class VersionedPutPruneJob extends DataMaintenanceJob {
             while(iterator.hasNext()) {
                 ByteArray key = iterator.next();
 
-                KeyLockHandle<byte[]> lockHandle = engine.getAndLock(key);
-                List<Versioned<byte[]>> vals = lockHandle.getValues();
+                KeyLockHandle<byte[]> lockHandle = null;
                 try {
+                    lockHandle = engine.getAndLock(key);
+                    List<Versioned<byte[]>> vals = lockHandle.getValues();
                     List<Integer> keyReplicas = routingPlan.getReplicationNodeList(routingPlan.getMasterPartitionId(key.get()));
                     MutableBoolean didPrune = new MutableBoolean(false);
                     List<Versioned<byte[]>> prunedVals = pruneNonReplicaEntries(vals,
@@ -151,7 +152,9 @@ public class VersionedPutPruneJob extends DataMaintenanceJob {
                     if(itemsScanned % STAT_RECORDS_INTERVAL == 0)
                         logger.info("#Scanned:" + itemsScanned + " #Pruned:" + numPrunedKeys);
                 } catch(Exception e) {
-                    engine.releaseLock(lockHandle);
+                    if(lockHandle != null && !lockHandle.isClosed()) {
+                        engine.releaseLock(lockHandle);
+                    }
                     throw e;
                 }
             }

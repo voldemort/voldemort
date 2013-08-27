@@ -179,7 +179,8 @@ public class MysqlStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
             while(rs.next()) {
                 byte[] theKey = rs.getBytes("key_");
                 byte[] version = rs.getBytes("version_");
-                if(new VectorClock(version).compare(maxVersion) == Occurred.BEFORE) {
+                if((maxVersion == null)
+                   || (new VectorClock(version).compare(maxVersion) == Occurred.BEFORE)) {
                     delete(conn, theKey, version);
                     deletedSomething = true;
                 }

@@ -17,6 +17,9 @@ package voldemort.server.storage;
 
 import java.util.List;
 
+import voldemort.annotations.concurrency.NotThreadsafe;
+import voldemort.store.AbstractStorageEngine;
+import voldemort.store.StorageEngine;
 import voldemort.versioning.Versioned;
 
 /**
@@ -24,14 +27,30 @@ import voldemort.versioning.Versioned;
  * storage and the list of versions stored for the key
  * 
  */
+@NotThreadsafe
 public class KeyLockHandle<V> {
 
+    /**
+     * List of values obtained from or written into storage, during getAndLock
+     * and putAndUnlock respectively.
+     */
     private List<Versioned<V>> values;
+    /**
+     * Object representing the undelying storage lock for the key
+     */
     private final Object keyLock;
+    /**
+     * Track whether this handle is open or closed. Handles are opened by
+     * {@link StorageEngine#getAndLock(Object)} and closed by
+     * {@link StorageEngine#releaseLock(KeyLockHandle)} or
+     * {@link AbstractStorageEngine#putAndUnlock(Object, KeyLockHandle)}
+     */
+    private boolean closed;
 
     public KeyLockHandle(List<Versioned<V>> values, Object keyLock) {
         this.values = values;
         this.keyLock = keyLock;
+        this.closed = false;
     }
 
     public void setValues(List<Versioned<V>> values) {
@@ -44,5 +63,16 @@ public class KeyLockHandle<V> {
 
     public Object getKeyLock() {
         return keyLock;
+    }
+
+    public void close() {
+        if(closed) {
+            throw new IllegalStateException("Handle already closed");
+        }
+        this.closed = true;
+    }
+
+    public boolean isClosed() {
+        return closed;
     }
 }

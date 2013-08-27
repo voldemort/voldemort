@@ -149,6 +149,8 @@ public class InMemoryStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, 
 
     @Override
     public synchronized List<Versioned<V>> multiVersionPut(K key, final List<Versioned<V>> values) {
+        // TODO the day this class implements getAndLock and putAndUnlock, this
+        // method can be removed
         StoreUtils.assertValidKey(key);
         List<Versioned<V>> obsoleteVals = null;
         List<Versioned<V>> valuesInStorage = null;

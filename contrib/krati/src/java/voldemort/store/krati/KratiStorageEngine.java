@@ -235,6 +235,8 @@ public class KratiStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
     public List<Versioned<byte[]>> multiVersionPut(ByteArray key,
                                                    final List<Versioned<byte[]>> values)
             throws VoldemortException {
+        // TODO the day this class implements getAndLock and putAndUnlock, this
+        // method can be removed
         StoreUtils.assertValidKey(key);
         List<Versioned<byte[]>> valuesInStorage = null;
         List<Versioned<byte[]>> obsoleteVals = null;

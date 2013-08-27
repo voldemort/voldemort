@@ -39,7 +39,9 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.TestUtils;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.server.storage.KeyLockHandle;
 import voldemort.store.AbstractStorageEngineTest;
+import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
@@ -48,12 +50,14 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.Durability;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
+import com.sleepycat.je.LockTimeoutException;
 
 /**
  * Tests the BDB storage engine. Note that this class uses junit4 style test
@@ -235,6 +239,66 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         }
         latch.await();
         assertFalse("Should not have seen any empty results", returnedEmpty.get());
+    }
+
+    @Test(timeout = 30000)
+    public void testGetAndLock() throws Exception {
+        final ByteArray key = new ByteArray("getAndLock".getBytes());
+        final byte[] valueBytes = "bar".getBytes();
+
+        store.put(key, new Versioned<byte[]>(valueBytes), null);
+        KeyLockHandle<byte[]> handle = store.getAndLock(key);
+
+        // get will block and timeout
+        try {
+            store.get(key, null);
+            fail("get(..) should have blocked and timedout");
+        } catch(PersistenceFailureException pfe) {
+            // expected
+            assertTrue("Should have had a LockTimeoutException",
+                       pfe.getCause() instanceof LockTimeoutException);
+        }
+
+        // let go of the key lock
+        store.releaseLock(handle);
+
+        // get should not block, since the lock has been released
+        List<Versioned<byte[]>> vals = store.get(key, null);
+        assertEquals("Should read back the version previously written", 1, vals.size());
+        assertEquals("Should read back the version previously written",
+                     new ByteArray(valueBytes),
+                     new ByteArray(vals.get(0).getValue()));
+    }
+
+    @Test(timeout = 30000)
+    public void testPutAndLock() throws Exception {
+        final ByteArray key = new ByteArray("putAndLock".getBytes());
+        final byte[] valueBytes = "Lion".getBytes();
+
+        store.put(key, new Versioned<byte[]>(valueBytes), null);
+        // begin the read-modify-write cycle
+        KeyLockHandle<byte[]> handle = store.getAndLock(key);
+
+        // put will block and timeout
+        try {
+            store.put(key, new Versioned<byte[]>("Mountain Lion".getBytes()), null);
+            fail("put(..) should have blocked and timedout");
+        } catch(PersistenceFailureException pfe) {
+            // expected
+            assertTrue("Should have had a LockTimeoutException",
+                       pfe.getCause() instanceof LockTimeoutException);
+        }
+
+        // end the read-modify-write cycle
+        handle.setValues(Lists.newArrayList(new Versioned<byte[]>("Mavericks".getBytes())));
+        store.putAndUnlock(key, handle);
+
+        // get should not block, and read out Mavericks
+        List<Versioned<byte[]>> vals = store.get(key, null);
+        assertEquals("Exactly one version", 1, vals.size());
+        assertEquals("Should read back the version written by putAndUnlock",
+                     "Mavericks",
+                     new String(vals.get(0).getValue()));
     }
 
     @Test

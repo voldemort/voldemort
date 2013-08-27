@@ -2090,12 +2090,46 @@ public class AdminClient {
          * @param entryIterator Iterator of key-value pairs for the entries
          * @param filter Custom filter implementation to filter out entries
          *        which should not be updated.
+         * 
          * @throws VoldemortException
          */
         public void updateEntries(int nodeId,
                                   String storeName,
                                   Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                                   VoldemortFilter filter) {
+            updateEntries(nodeId, storeName, entryIterator, filter, false);
+        }
+
+        /**
+         * Update a stream of key/value entries at the given node. The iterator
+         * entries are <em>streamed</em> from the client to the server:
+         * <ol>
+         * <li>Client performs a handshake with the server (sending in the
+         * update entries request with a store name and a
+         * {@link VoldemortFilter} instance.</li>
+         * <li>While entryIterator has entries, the client will keep sending the
+         * updates one after another to the server, buffering the data, without
+         * waiting for a response from the server.</li>
+         * <li>After iteration is complete, send an end of stream message, force
+         * a flush of the buffer, check the response on the server to check if a
+         * {@link VoldemortException} has occured.</li>
+         * </ol>
+         * 
+         * @param nodeId Id of the remote node (where we wish to update the
+         *        entries)
+         * @param storeName Store name for the entries
+         * @param entryIterator Iterator of key-value pairs for the entries
+         * @param filter Custom filter implementation to filter out entries
+         *        which should not be updated.
+         * @param overWriteIfLatest overwrite the existing value if the supplied
+         *        version has greater timestamp
+         * @throws VoldemortException
+         */
+        public void updateEntries(int nodeId,
+                                  String storeName,
+                                  Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
+                                  VoldemortFilter filter,
+                                  boolean overWriteIfLatest) {
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
@@ -2115,9 +2149,18 @@ public class AdminClient {
                                                                                               .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
                                                                                               .setVersioned(ProtoUtils.encodeVersioned(entry.getSecond()))
                                                                                               .build();
-                        VAdminProto.UpdatePartitionEntriesRequest.Builder updateRequest = VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
-                                                                                                                                   .setStore(storeName)
-                                                                                                                                   .setPartitionEntry(partitionEntry);
+                        VAdminProto.UpdatePartitionEntriesRequest.Builder updateRequest = null;
+
+                        if(overWriteIfLatest) {
+                            updateRequest = VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
+                                                                                     .setStore(storeName)
+                                                                                     .setPartitionEntry(partitionEntry)
+                                                                                     .setOverwriteIfLatest(overWriteIfLatest);
+                        } else {
+                            updateRequest = VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
+                                                                                     .setStore(storeName)
+                                                                                     .setPartitionEntry(partitionEntry);
+                        }
                         entryCount++;
                         if(firstMessage) {
                             if(filter != null) {

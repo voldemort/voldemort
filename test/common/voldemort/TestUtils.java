@@ -77,6 +77,12 @@ public class TestUtils {
         return clock;
     }
 
+    public static VectorClock getClockWithTs(long ts, int... nodes) {
+        VectorClock clock = new VectorClock(ts);
+        increment(clock, nodes);
+        return clock;
+    }
+
     /**
      * Constructs a vector clock as in versioned put based on timestamp
      * 
@@ -157,7 +163,7 @@ public class TestUtils {
      */
     public static void increment(VectorClock clock, int... nodes) {
         for(int n: nodes)
-            clock.incrementVersion((short) n, System.currentTimeMillis());
+            clock.incrementVersion((short) n, clock.getTimestamp());
     }
 
     /**
