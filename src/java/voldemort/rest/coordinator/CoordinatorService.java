@@ -46,6 +46,7 @@ import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
+import voldemort.client.BootstrapFailureException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.SystemStoreRepository;
@@ -150,38 +151,50 @@ public class CoordinatorService extends AbstractService {
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setBootstrapUrls(this.coordinatorConfig.getBootstrapURLs());
         storeClientFactory = new SocketStoreClientFactory(clientConfig);
-        initializeFatClients();
+        try {
+            initializeFatClients();
+            // Setup the Async Metadata checker
+            SystemStoreRepository sysRepository = new SystemStoreRepository(clientConfig);
+            String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
 
-        // Setup the Async Metadata checker
-        SystemStoreRepository sysRepository = new SystemStoreRepository(clientConfig);
-        String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
+            sysRepository.createSystemStores(clientConfig,
+                                             clusterXml,
+                                             storeClientFactory.getFailureDetector());
 
-        sysRepository.createSystemStores(clientConfig,
-                                         clusterXml,
-                                         storeClientFactory.getFailureDetector());
+            // Create a callback for re-bootstrapping the client
+            Callable<Void> rebootstrapCallback = new Callable<Void>() {
 
-        // Create a callback for re-bootstrapping the client
-        Callable<Void> rebootstrapCallback = new Callable<Void>() {
+                @Override
+                public Void call() throws Exception {
+                    initializeFatClients();
+                    return null;
+                }
 
-            @Override
-            public Void call() throws Exception {
-                initializeFatClients();
-                return null;
-            }
+            };
 
-        };
+            // For now track changes in cluster.xml only
+            // TODO: Modify this to track stores.xml in the future
+            asyncMetadataManager = new AsyncMetadataVersionManager(sysRepository,
+                                                                   rebootstrapCallback,
+                                                                   null);
 
-        // For now track changes in cluster.xml only
-        // TODO: Modify this to track stores.xml in the future
-        asyncMetadataManager = new AsyncMetadataVersionManager(sysRepository,
-                                                               rebootstrapCallback,
-                                                               null);
-
-        schedulerService = new SchedulerService(1, SystemTime.INSTANCE, true);
-        schedulerService.schedule(asyncMetadataManager.getClass().getName(),
-                                  asyncMetadataManager,
-                                  new Date(),
-                                  this.coordinatorConfig.getMetadataCheckIntervalInMs());
+            schedulerService = new SchedulerService(1, SystemTime.INSTANCE, true);
+            schedulerService.schedule(asyncMetadataManager.getClass().getName(),
+                                      asyncMetadataManager,
+                                      new Date(),
+                                      this.coordinatorConfig.getMetadataCheckIntervalInMs());
+        } catch(BootstrapFailureException be) {
+            /*
+             * While testing, the cluster may not be up, but we may still need
+             * to verify if the service deploys. Hence, catch a
+             * BootstrapFailureException if any, but continue to register the
+             * Netty service (and listener).
+             * 
+             * TODO: Modify the coordinator service to be more lazy. If it
+             * cannot initialize the fat clients during initialization, do this
+             * when we get an actual request.
+             */
+        }
 
         // Configure the server.
         this.workerPool = (ThreadPoolExecutor) Executors.newCachedThreadPool();
