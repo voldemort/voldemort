@@ -126,7 +126,8 @@ public class DataCleanupJobTest {
                                                                                 new ScanPermitWrapper(1),
                                                                                 2 * Time.MS_PER_SECOND,
                                                                                 SystemTime.INSTANCE,
-                                                                                new EventThrottler(1));
+                                                                                new EventThrottler(1),
+                                                                                null);
 
             // and will run every 5 seconds starting now
             scheduler.schedule("cleanup-freq-test", cleanupJob, now, 5 * Time.MS_PER_SECOND);
@@ -194,7 +195,8 @@ public class DataCleanupJobTest {
                                                       new ScanPermitWrapper(1),
                                                       Time.MS_PER_DAY,
                                                       time,
-                                                      new EventThrottler(1)).run();
+                                                      new EventThrottler(1),
+                                                      null).run();
 
         // Check that all the later keys are there AND the key updated later
         assertContains("a", "d", "e", "f");

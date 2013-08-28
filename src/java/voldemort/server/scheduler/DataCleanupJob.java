@@ -23,6 +23,8 @@ import org.apache.log4j.Logger;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
@@ -49,12 +51,14 @@ public class DataCleanupJob<K, V, T> implements Runnable {
     private AtomicLong scanProgressThisRun;
     private long totalEntriesDeleted = 0;
     private AtomicLong deleteProgressThisRun;
+    private MetadataStore metadataStore;
 
     public DataCleanupJob(StorageEngine<K, V, T> store,
                           ScanPermitWrapper cleanupPermits,
                           long maxAgeMs,
                           Time time,
-                          EventThrottler throttler) {
+                          EventThrottler throttler,
+                          MetadataStore metadataStore) {
         this.store = Utils.notNull(store);
         this.cleanupPermits = Utils.notNull(cleanupPermits);
         this.maxAgeMs = maxAgeMs;
@@ -62,12 +66,20 @@ public class DataCleanupJob<K, V, T> implements Runnable {
         this.throttler = throttler;
         this.scanProgressThisRun = new AtomicLong(0);
         this.deleteProgressThisRun = new AtomicLong(0);
+        this.metadataStore = metadataStore;
     }
 
     @Override
     public void run() {
 
-        // FIXME VC make this return out, if the server is not normal
+        // if the server is not normal, skip this run.
+        if(metadataStore != null
+           && metadataStore.getServerStateUnlocked() != VoldemortState.NORMAL_SERVER) {
+            logger.info("Datacleanup on store " + store.getName()
+                        + " skipped since server is not normal..");
+            return;
+        }
+
         acquireCleanupPermit(scanProgressThisRun, deleteProgressThisRun);
         store.beginBatchModifications();
 
