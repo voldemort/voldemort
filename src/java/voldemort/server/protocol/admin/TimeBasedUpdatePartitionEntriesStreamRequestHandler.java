@@ -9,7 +9,6 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.storage.KeyLockHandle;
 import voldemort.store.ErrorCodeMapper;
-import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.NetworkClassLoader;
@@ -76,12 +75,12 @@ public class TimeBasedUpdatePartitionEntriesStreamRequestHandler extends
                 // greater than what we are trying to write in
                 storageEngine.releaseLock(handle);
             }
-        } catch(PersistenceFailureException pfe) {
+        } catch(Exception e) {
             if(handle != null && !handle.isClosed()) {
                 storageEngine.releaseLock(handle);
             }
-            logger.error("Error in time based update entries", pfe);
-            throw new IOException(pfe);
+            logger.error("Error in time based update entries", e);
+            throw new IOException(e);
         }
     }
 

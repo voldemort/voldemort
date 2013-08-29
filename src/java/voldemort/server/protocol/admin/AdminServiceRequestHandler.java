@@ -558,7 +558,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         StorageEngine<ByteArray, byte[], byte[]> storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                                                              request.getStore());
 
-        if(request.hasOverwriteIfLatest() && request.getOverwriteIfLatest()) {
+        if(request.hasOverwriteIfLatestTs() && request.getOverwriteIfLatestTs()) {
             // Resolve based on timestamp if specified.
             return new TimeBasedUpdatePartitionEntriesStreamRequestHandler(request,
                                                                            errorCodeMapper,

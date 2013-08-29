@@ -2097,7 +2097,31 @@ public class AdminClient {
                                   String storeName,
                                   Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                                   VoldemortFilter filter) {
-            updateEntries(nodeId, storeName, entryIterator, filter, false);
+            streamingUpdateEntries(nodeId, storeName, entryIterator, filter, false);
+        }
+
+        /**
+         * Update a stream of key/value entries at the given node in the same
+         * way as
+         * {@link StreamingOperations#updateEntries(int, String, Iterator, VoldemortFilter)}
+         * 
+         * The only difference being the resolving on the server will happen
+         * based on timestamp and not the vector clock.
+         * 
+         * @param nodeId Id of the remote node (where we wish to update the
+         *        entries)
+         * @param storeName Store name for the entries
+         * @param entryIterator Iterator of key-value pairs for the entries
+         * @param filter Custom filter implementation to filter out entries
+         *        which should not be updated.
+         * 
+         * @throws VoldemortException
+         */
+        public void updateEntriesTimeBased(int nodeId,
+                                           String storeName,
+                                           Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
+                                           VoldemortFilter filter) {
+            streamingUpdateEntries(nodeId, storeName, entryIterator, filter, true);
         }
 
         /**
@@ -2121,15 +2145,16 @@ public class AdminClient {
          * @param entryIterator Iterator of key-value pairs for the entries
          * @param filter Custom filter implementation to filter out entries
          *        which should not be updated.
-         * @param overWriteIfLatest overwrite the existing value if the supplied
-         *        version has greater timestamp
+         * @param overWriteIfLatestTs if true overwrite the existing value if
+         *        the supplied version has greater timestamp; else use vector
+         *        clocks
          * @throws VoldemortException
          */
-        public void updateEntries(int nodeId,
-                                  String storeName,
-                                  Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
-                                  VoldemortFilter filter,
-                                  boolean overWriteIfLatest) {
+        private void streamingUpdateEntries(int nodeId,
+                                            String storeName,
+                                            Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
+                                            VoldemortFilter filter,
+                                            boolean overWriteIfLatestTs) {
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
@@ -2151,11 +2176,11 @@ public class AdminClient {
                                                                                               .build();
                         VAdminProto.UpdatePartitionEntriesRequest.Builder updateRequest = null;
 
-                        if(overWriteIfLatest) {
+                        if(overWriteIfLatestTs) {
                             updateRequest = VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
                                                                                      .setStore(storeName)
                                                                                      .setPartitionEntry(partitionEntry)
-                                                                                     .setOverwriteIfLatest(overWriteIfLatest);
+                                                                                     .setOverwriteIfLatestTs(overWriteIfLatestTs);
                         } else {
                             updateRequest = VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
                                                                                      .setStore(storeName)

@@ -690,6 +690,9 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
             handle = new KeyLockHandle<byte[]>(vals, transaction);
         } catch(DatabaseException e) {
             this.bdbEnvironmentStats.reportException(e);
+            // Unless we return out properly from this method, we need to ensure
+            // the transaction handle is closed on exception..
+            attemptAbort(transaction);
             logger.error("Error in getAndLock for store " + this.getName(), e);
             throw new PersistenceFailureException(e);
         } finally {

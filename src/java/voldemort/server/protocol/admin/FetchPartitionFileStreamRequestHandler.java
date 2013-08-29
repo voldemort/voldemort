@@ -82,10 +82,8 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                                                      StoreRepository storeRepository) {
         this.request = request;
         // TODO (Sid) : Confirm if keeping metadatastore as a class property is
-        // the best
-        // way to do this. metadataStore is used later in the
-        // handleNextPartition() to create
-        // object plan.
+        // the best way to do this. metadataStore is used later in the
+        // handleNextPartition() to create object plan.
         this.metadataStore = metadataStore;
 
         StoreDefinition storeDef = metadataStore.getStoreDef(request.getStoreName());

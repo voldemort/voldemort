@@ -138,9 +138,13 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
     /**
      * Returns the list of versions stored for the key, at the same time locking
      * the key for any writes until
-     * {@link StorageEngine#putAndUnlock(Object, KeyLockHandle)} is called with
-     * the same lock handle. The idea here is to facilitate custom atomic
+     * {@link StorageEngine#putAndUnlock(Object, KeyLockHandle)} or
+     * {@link StorageEngine#releaseLock(KeyLockHandle)} is called with the same
+     * lock handle. The idea here is to facilitate custom atomic
      * Read-Modify-Write logic outside the storage engine
+     * 
+     * NOTE : An invocation of getAndLock should be followed by EXACTLY ONE call
+     * to either putAndLock or releaseLock, for resources to be freed properly
      * 
      * @param key
      * @return
@@ -160,7 +164,8 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
 
     /**
      * Release any lock held by a prior
-     * {@link AbstractStorageEngine#getAndLock(Object)} call
+     * {@link AbstractStorageEngine#getAndLock(Object)} call. Helpful for
+     * exception handling during a read-modify-cycle
      * 
      * @param handle
      */

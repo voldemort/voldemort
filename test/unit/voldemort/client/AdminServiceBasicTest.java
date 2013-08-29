@@ -1587,7 +1587,7 @@ public class AdminServiceBasicTest {
             }
         };
 
-        getAdminClient().streamingOps.updateEntries(0, storeName, iterator, null, true);
+        getAdminClient().streamingOps.updateEntriesTimeBased(0, storeName, iterator, null);
 
         // check updated values
         for(int i = 0; i < keys.size(); i++) {
