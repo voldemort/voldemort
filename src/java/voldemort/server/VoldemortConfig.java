@@ -117,8 +117,9 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbMinimizeScanImpact;
     private boolean bdbPrefixKeysWithPartitionId;
     private boolean bdbLevelBasedEviction;
-    private boolean bdbProactiveBackgroundMigration;
     private boolean bdbCheckpointerOffForBatchWrites;
+    private boolean bdbCleanerFetchObsoleteSize;
+    private String bdbRawPropertyString;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -291,10 +292,10 @@ public class VoldemortConfig implements Serializable {
         this.bdbPrefixKeysWithPartitionId = props.getBoolean("bdb.prefix.keys.with.partitionid",
                                                              true);
         this.bdbLevelBasedEviction = props.getBoolean("bdb.evict.by.level", false);
-        this.bdbProactiveBackgroundMigration = props.getBoolean("bdb.proactive.background.migration",
-                                                                false);
         this.bdbCheckpointerOffForBatchWrites = props.getBoolean("bdb.checkpointer.off.batch.writes",
                                                                  false);
+        this.bdbCleanerFetchObsoleteSize = props.getBoolean("bdb.cleaner.fetch.obsolete.size", true);
+        this.bdbRawPropertyString = props.getString("bdb.raw.property.string", null);
 
         this.numReadOnlyVersions = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -763,6 +764,28 @@ public class VoldemortConfig implements Serializable {
     public void setBdbDataDirectory(String bdbDataDirectory) {
         this.bdbDataDirectory = bdbDataDirectory;
     }
+    
+    public String getBdbRawPropertyString() {
+        return bdbRawPropertyString;
+    }
+
+    /**
+     * When supplied with comma separated propkey=propvalue strings, 
+     * enables admin to arbitrarily set any BDB JE environment property
+     * 
+     *  eg: bdb.raw.property.string=je.cleaner.threads=1,je.cleaner.lazyMigration=true
+     *  
+     *  Since this is applied after the regular BDB parameter in this class, 
+     *  this has the effect of overriding previous configs if they are specified here again.
+     * 
+     * <ul>
+     * <li>Property : "bdb.raw.property.string"</li>
+     * <li>Default : null</li>
+     * </ul>
+     */
+    public void setBdbRawPropertyString(String bdbRawPropString) {
+        this.bdbRawPropertyString = bdbRawPropString;
+    }
 
     public long getBdbMaxLogFileSize() {
         return this.bdbMaxLogFileSize;
@@ -1048,6 +1071,26 @@ public class VoldemortConfig implements Serializable {
         this.bdbBtreeFanout = bdbBtreeFanout;
     }
 
+    public boolean getBdbCleanerFetchObsoleteSize() {
+        return bdbCleanerFetchObsoleteSize;
+    }
+
+    /**
+     * If true, Cleaner also fetches the old value to determine the size during 
+     * an update/delete to compute file utilization. Without this, BDB will 
+     * auto compute utilization based on heuristics.. 
+     * (which may or may not work, depending on your use case)
+     * 
+     * <ul>
+     * <li>property: "bdb.cleaner.fetch.obsolete.size"</li>
+     * <li>default : true</li>
+     * </ul>
+     * 
+     */
+    public final void setBdbCleanerFetchObsoleteSize(boolean bdbCleanerFetchObsoleteSize) {
+        this.bdbCleanerFetchObsoleteSize = bdbCleanerFetchObsoleteSize;
+    }
+    
     public boolean getBdbCleanerLazyMigration() {
         return bdbCleanerLazyMigration;
     }
@@ -1266,23 +1309,6 @@ public class VoldemortConfig implements Serializable {
      */
     public void setBdbLevelBasedEviction(boolean bdbLevelBasedEviction) {
         this.bdbLevelBasedEviction = bdbLevelBasedEviction;
-    }
-
-    public boolean getBdbProactiveBackgroundMigration() {
-        return bdbProactiveBackgroundMigration;
-    }
-
-    /**
-     * Exposes BDB JE EnvironmentConfig.CLEANER_PROACTIVE_BACKGROUND_MIGRATION.
-     * 
-     * <ul>
-     * <li>Property : "bdb.proactive.background.migration"</li>
-     * <li>Default : false</li>
-     * </ul>
-     * 
-     */
-    public void setBdbProactiveBackgroundMigration(boolean bdbProactiveBackgroundMigration) {
-        this.bdbProactiveBackgroundMigration = bdbProactiveBackgroundMigration;
     }
 
     public int getCoreThreads() {
