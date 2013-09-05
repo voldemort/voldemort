@@ -139,9 +139,16 @@ public class ClientSocketStats {
         ClientSocketStats stats = statsMap.get(destination);
         if (stats == null) {
             ClientSocketStats socketStats = new ClientSocketStats(this, destination, pool, jmxId);
+            // The idea here is to avoid registering the bean multiple times. This can happen when 
+            // two threads, both read the stats object as null (three lines above) and then try to
+            // populate the map with their own socketStats object. putifabsent returns the existing
+            // value if the key exists or returns null. The thread that does the first put will
+            // get a null return vale. That thread will then go on to get the stats object and register
+            // the bean. All the other threads will have their stats object populated by the return
+            // value of the putIfAbsent call that will return the existing value in the map.
             stats = statsMap.putIfAbsent(destination, socketStats);
             if (stats == null) {
-                stats = statsMap.get(destination);
+                stats = socketStats;
                 JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
                                        JmxUtils.createObjectName(JmxUtils.getPackageName(ClientRequestExecutor.class),
                                                                  "stats_"
