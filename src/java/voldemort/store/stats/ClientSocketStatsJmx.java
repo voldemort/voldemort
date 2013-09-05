@@ -78,7 +78,7 @@ public class ClientSocketStatsJmx {
     public double getCheckoutQueueLengthQ99th() {
         return stats.getCheckoutQueueLengthHistogram().getQuantile(0.99);
     }
-
+  
     @JmxGetter(name = "resourceRequestCount", description = "Number of resource requests made. Aggregate measure based on current monitoring interval.")
     public int getResourceRequestCount() {
         return stats.resourceRequestCount();
@@ -98,6 +98,31 @@ public class ClientSocketStatsJmx {
     public double getResourceRequestWaitMsQ99th() {
         return (double) stats.getResourceRequestWaitUsHistogram().getQuantile(0.99)
                / Time.US_PER_MS;
+    }
+    
+    @JmxGetter(name = "connectionEstablishmentMsAverage", description = "Average time (ms) to establish a connection. Aggregate measure based on current monitoring interval.")
+    public double getConnectionEstablishmentMsAverage() {
+        return stats.getAvgConnectionEstablishmentUs();
+    }
+    
+    @JmxGetter(name = "connectionEstablishmentMsQ99th", description = "99th percentile wait time (ms) to establish a connection. Aggregate measure based on current monitoring interval.")
+    public double getConnectionEstablishmentQ99th() {
+        return (double) stats.getConnectionEstablishmentUsHistogram().getQuantile(0.99) / Time.US_PER_MS ;
+    }
+    
+    @JmxGetter(name = "opTimeMsAverage", description = "Average time (ms) to establish a connection. Aggregate measure based on current monitoring interval.")
+    public double getopTimeMsAverage() {
+        return stats.getAvgOpTimeUs();
+    }
+    
+    @JmxGetter(name = "opTimeMsQ95th", description = "95th percentile time (ms) to do an operation. Aggregate measure based on current monitoring interval.")
+    public double getopTimeMsQ95th() {
+        return (double) stats.gettotalOpTimeUsHistogram().getQuantile(0.95) / Time.US_PER_MS ;
+    }
+    
+    @JmxGetter(name = "opTimeMsQ99th", description = "99th percentile time (ms) to do an operation. Aggregate measure based on current monitoring interval.")
+    public double getopTimeMsQ99th() {
+        return (double) stats.gettotalOpTimeUsHistogram().getQuantile(0.99) / Time.US_PER_MS ;
     }
 
     @JmxGetter(name = "resourceRequestQueueLengthQ50th", description = "50th percentile asynchronous queue length to get a connection. Aggregate measure based on current monitoring interval.")

@@ -320,7 +320,7 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
                 clientRequestExecutor.close();
             }
             // Record operation time
-            long opTimeNs = System.nanoTime() - startTimeNs;
+            long opTimeNs = Utils.elapsedTimeNs(startTimeNs, System.nanoTime());
             if (stats != null) {
                 stats.recordOpTimeUs(destination, opTimeNs * Time.NS_PER_US);
             }

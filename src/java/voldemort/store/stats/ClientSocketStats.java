@@ -82,6 +82,7 @@ public class ClientSocketStats {
     // Operation time stats
     private final AtomicLong totalOpTimeUs = new AtomicLong(0);
     private final AtomicLong totalOpCount = new AtomicLong(0);
+    private final Histogram  totalOpTimeUsHistogram = new Histogram(20000, 100);
 
     private final int jmxId;
     private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
@@ -164,6 +165,7 @@ public class ClientSocketStats {
             recordConnectionEstablishmentTimeUs(null, opTimeUs);
         } else {
             this.totalOpTimeUs.getAndAdd(opTimeUs);
+            this.totalOpTimeUsHistogram.insert(opTimeUs);
             this.totalOpCount.getAndIncrement();
             checkMonitoringInterval();
         }
@@ -328,7 +330,7 @@ public class ClientSocketStats {
     public Histogram getResourceRequestWaitUsHistogram() {
         return this.resourceRequestTimeUsHistogram;
     }
-
+    
     /**
      * @return 0 if there have been no resourceRequest invocations
      */
@@ -338,7 +340,7 @@ public class ClientSocketStats {
             return totalResourceRequestTimeUs.get() / count;
         return 0;
     }
-
+    
     public Histogram getResourceRequestQueueLengthHistogram() {
         return this.resourceRequestQueueLengthHistogram;
     }
@@ -387,7 +389,12 @@ public class ClientSocketStats {
     public long getOpCount() {
         return this.totalOpCount.get();
     }
-
+    
+    public Histogram gettotalOpTimeUsHistogram() {
+        return this.totalOpTimeUsHistogram;
+    }
+    
+    
     /**
      * @return 0 if there have been no operations
      */
