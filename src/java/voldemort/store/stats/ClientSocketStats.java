@@ -81,9 +81,9 @@ public class ClientSocketStats {
     
     // Operation time stats
     private final AtomicLong totalOpTimeUs = new AtomicLong(0);
-    private final AtomicLong totalOpCount = new AtomicLong(0);
+    private final AtomicInteger totalOpCount = new AtomicInteger(0);
     private final Histogram  totalOpTimeUsHistogram = new Histogram(20000, 100);
-
+    
     private final int jmxId;
     private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
 
@@ -133,20 +133,23 @@ public class ClientSocketStats {
 
     /* get per node stats, create one if not exist */
     private ClientSocketStats getOrCreateNodeStats(SocketDestination destination) {
-        if(destination == null) {
+        if (destination == null) {
             return null;
         }
         ClientSocketStats stats = statsMap.get(destination);
-        if(stats == null) {
-            stats = new ClientSocketStats(this, destination, pool, jmxId);
-            statsMap.putIfAbsent(destination, stats);
-            stats = statsMap.get(destination);
-            JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
-                                   JmxUtils.createObjectName(JmxUtils.getPackageName(ClientRequestExecutor.class),
-                                                             "stats_"
-                                                                     + destination.toString()
-                                                                                  .replace(':', '_')
-                                                                     + JmxUtils.getJmxId(jmxId)));
+        if (stats == null) {
+            ClientSocketStats socketStats = new ClientSocketStats(this, destination, pool, jmxId);
+            stats = statsMap.putIfAbsent(destination, socketStats);
+            if (stats == null) {
+                stats = statsMap.get(destination);
+                JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
+                                       JmxUtils.createObjectName(JmxUtils.getPackageName(ClientRequestExecutor.class),
+                                                                 "stats_"
+                                                                         + destination.toString()
+                                                                                      .replace(':',
+                                                                                               '_')
+                                                                         + JmxUtils.getJmxId(jmxId)));
+            }
         }
         return stats;
     }
@@ -467,6 +470,8 @@ public class ClientSocketStats {
         this.connectionEstablishmentTimeHistogram.reset();
         this.totalOpTimeUs.set(0);
         this.totalOpCount.set(0);
+        
+        
     }
 
     public void setPool(QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
