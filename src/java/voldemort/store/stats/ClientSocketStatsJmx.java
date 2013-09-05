@@ -107,7 +107,7 @@ public class ClientSocketStatsJmx {
     
     @JmxGetter(name = "connectionEstablishmentMsQ99th", description = "99th percentile wait time (ms) to establish a connection. Aggregate measure based on current monitoring interval.")
     public double getConnectionEstablishmentQ99th() {
-        return (double) stats.getConnectionEstablishmentUsHistogram().getQuantile(0.99) / Time.US_PER_MS ;
+        return stats.getConnectionEstablishmentQ99LatencyMs();
     }
     
     @JmxGetter(name = "opTimeMsAverage", description = "Average time (ms) to establish a connection. Aggregate measure based on current monitoring interval.")
@@ -117,12 +117,12 @@ public class ClientSocketStatsJmx {
     
     @JmxGetter(name = "opTimeMsQ95th", description = "95th percentile time (ms) to do an operation. Aggregate measure based on current monitoring interval.")
     public double getopTimeMsQ95th() {
-        return (double) stats.gettotalOpTimeUsHistogram().getQuantile(0.95) / Time.US_PER_MS ;
+        return stats.getopTimeMsQ95th();
     }
     
     @JmxGetter(name = "opTimeMsQ99th", description = "99th percentile time (ms) to do an operation. Aggregate measure based on current monitoring interval.")
     public double getopTimeMsQ99th() {
-        return (double) stats.gettotalOpTimeUsHistogram().getQuantile(0.99) / Time.US_PER_MS ;
+        return stats.getopTimeMsQ99th();
     }
 
     @JmxGetter(name = "resourceRequestQueueLengthQ50th", description = "50th percentile asynchronous queue length to get a connection. Aggregate measure based on current monitoring interval.")

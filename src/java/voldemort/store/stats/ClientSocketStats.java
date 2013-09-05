@@ -27,6 +27,7 @@ import org.apache.log4j.Logger;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.utils.JmxUtils;
+import voldemort.utils.Time;
 import voldemort.utils.pool.QueuedKeyedResourcePool;
 
 /**
@@ -76,13 +77,9 @@ public class ClientSocketStats {
     private final AtomicInteger resourceRequestCount = new AtomicInteger(0);
     private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
     // "Sync checkouts" connection establishment time
-    private final AtomicLong totalConnectionEstablishmentTimeUs = new AtomicLong(0);
-    private final Histogram connectionEstablishmentTimeHistogram = new Histogram(20000, 100);
-    
+    private final RequestCounter connectionEstablishmentRequestCounter = new RequestCounter(1000000, true);
     // Operation time stats
-    private final AtomicLong totalOpTimeUs = new AtomicLong(0);
-    private final AtomicInteger totalOpCount = new AtomicInteger(0);
-    private final Histogram  totalOpTimeUsHistogram = new Histogram(20000, 100);
+    private final RequestCounter opTimeRequestCounter = new RequestCounter(1000000, true);
     
     private final int jmxId;
     private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
@@ -162,7 +159,7 @@ public class ClientSocketStats {
     }
     
     /**
-     * Record the connection establishment time
+     * Record operation time
      * 
      * @param dest Destination of the socket to connect to. Will actually record
      *        if null. Otherwise will call this on self and corresponding child
@@ -172,12 +169,9 @@ public class ClientSocketStats {
     public void recordOpTimeUs(SocketDestination dest, long opTimeUs) {
         if (dest != null) {
             getOrCreateNodeStats(dest).recordOpTimeUs(null, opTimeUs);
-            recordConnectionEstablishmentTimeUs(null, opTimeUs);
+            recordOpTimeUs(null, opTimeUs);
         } else {
-            this.totalOpTimeUs.getAndAdd(opTimeUs);
-            this.totalOpTimeUsHistogram.insert(opTimeUs);
-            this.totalOpCount.getAndIncrement();
-            checkMonitoringInterval();
+            this.opTimeRequestCounter.addRequest(opTimeUs * Time.NS_PER_US);
         }
     }
     
@@ -194,9 +188,7 @@ public class ClientSocketStats {
             getOrCreateNodeStats(dest).recordConnectionEstablishmentTimeUs(null, connEstTimeUs);
             recordConnectionEstablishmentTimeUs(null, connEstTimeUs);
         } else {
-            this.totalConnectionEstablishmentTimeUs.getAndAdd(connEstTimeUs);
-            this.connectionEstablishmentTimeHistogram.insert(connEstTimeUs);
-            checkMonitoringInterval();
+            this.connectionEstablishmentRequestCounter.addRequest(connEstTimeUs * Time.NS_PER_US);
         }
     }
 
@@ -216,7 +208,6 @@ public class ClientSocketStats {
             this.totalCheckoutTimeUs.getAndAdd(checkoutTimeUs);
             this.checkoutTimeUsHistogram.insert(checkoutTimeUs);
             this.checkoutCount.getAndIncrement();
-
             checkMonitoringInterval();
         }
     }
@@ -372,49 +363,27 @@ public class ClientSocketStats {
         }
     }
     
-    // Getter for connection establishment stats
-    public long getConnectionEstablishmentTimeUs() {
-        return this.totalConnectionEstablishmentTimeUs.get();
+    // Getters for connection establishment stats
+    public double getAvgConnectionEstablishmentUs() {
+        return this.connectionEstablishmentRequestCounter.getAverageTimeInMs();
     }
 
-    public Histogram getConnectionEstablishmentUsHistogram() {
-        return this.connectionEstablishmentTimeHistogram;
-    }
-
-    /**
-     * @return 0 if there have been no connection establishments
-     */
-    public long getAvgConnectionEstablishmentUs() {
-        long count = connectionsCreated.intValue();
-        if (count > 0)
-            return totalConnectionEstablishmentTimeUs.get() / count;
-        return 0;
+    public double getConnectionEstablishmentQ99LatencyMs() {
+        return this.connectionEstablishmentRequestCounter.getQ99LatencyMs();
     }
     
-    // Getter for operation time stats
-    public long getOpTimeUs() {
-        return this.totalOpTimeUs.get();
-    }
-
-    public long getOpCount() {
-        return this.totalOpCount.get();
+    // Getters for op time
+    public double getAvgOpTimeUs() {
+        return this.opTimeRequestCounter.getAverageTimeInMs();
     }
     
-    public Histogram gettotalOpTimeUsHistogram() {
-        return this.totalOpTimeUsHistogram;
+    public double getopTimeMsQ95th() {
+        return this.opTimeRequestCounter.getQ95LatencyMs();
     }
     
-    
-    /**
-     * @return 0 if there have been no operations
-     */
-    public long getAvgOpTimeUs() {
-        long count = totalOpCount.get();
-        if (count > 0)
-            return totalOpTimeUs.get() / count;
-        return 0;
+    public double getopTimeMsQ99th() {
+        return this.opTimeRequestCounter.getQ99LatencyMs();
     }
-
 
     // Config & administrivia interfaces
 
@@ -471,14 +440,7 @@ public class ClientSocketStats {
         this.totalResourceRequestTimeUs.set(0);
         this.resourceRequestCount.set(0);
         this.resourceRequestTimeUsHistogram.reset();
-        this.resourceRequestQueueLengthHistogram.reset();
-        
-        this.totalConnectionEstablishmentTimeUs.set(0);
-        this.connectionEstablishmentTimeHistogram.reset();
-        this.totalOpTimeUs.set(0);
-        this.totalOpCount.set(0);
-        
-        
+        this.resourceRequestQueueLengthHistogram.reset();   
     }
 
     public void setPool(QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
