@@ -18,6 +18,14 @@ Changes
 * Using standard Netty pipeline in the Coordinator
 * Added monitoring hooks for the Rest Service
 
+Release 1.5.1 on 09/05/2013
+This is a custom release atop master (tag: release-1.5.1-cutoff), 
+which simply upgrades BDB-JE to 5.0.73. Will be merged to master soon after canarying
+
+NOTE: Other changes need to noted in this file, at the time of the next non
+custom release off master.
+
+
 Release 1.4.6 on 07/24/2013
 
 Changes
