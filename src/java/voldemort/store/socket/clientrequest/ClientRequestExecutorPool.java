@@ -155,7 +155,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                factory.getTimeout(),
                                dest,
                                this,
-                               requestRoutingType);
+                               requestRoutingType,
+                               stats);
     }
 
     /**

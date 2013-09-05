@@ -42,7 +42,9 @@ import voldemort.store.socket.clientrequest.GetAllClientRequest;
 import voldemort.store.socket.clientrequest.GetClientRequest;
 import voldemort.store.socket.clientrequest.GetVersionsClientRequest;
 import voldemort.store.socket.clientrequest.PutClientRequest;
+import voldemort.store.stats.ClientSocketStats;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -70,18 +72,21 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
     private final RequestFormat requestFormat;
     private final RequestRoutingType requestRoutingType;
     private final Logger logger = Logger.getLogger(SocketStore.class);
+    private final ClientSocketStats stats;
 
     public SocketStore(String storeName,
                        long timeoutMs,
                        SocketDestination dest,
                        ClientRequestExecutorPool pool,
-                       RequestRoutingType requestRoutingType) {
+                       RequestRoutingType requestRoutingType,
+                       ClientSocketStats stats) {
         super(storeName);
         this.timeoutMs = timeoutMs;
         this.pool = Utils.notNull(pool);
         this.destination = dest;
         this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
         this.requestRoutingType = requestRoutingType;
+        this.stats = stats;
     }
 
     @Override
@@ -272,11 +277,10 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
         if(logger.isDebugEnabled()) {
             startTimeMs = System.currentTimeMillis();
         }
-        startTimeNs = System.nanoTime();
-
         ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
-
         String debugMsgStr = "";
+
+        startTimeNs = System.nanoTime();
 
         BlockingClientRequest<T> blockingClientRequest = null;
         try {
@@ -315,14 +319,18 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
                 // close the executor if we timed out
                 clientRequestExecutor.close();
             }
-
+            // Record operation time
+            long opTimeNs = System.nanoTime() - startTimeNs;
+            if (stats != null) {
+                stats.recordOpTimeUs(destination, opTimeNs * Time.NS_PER_US);
+            }
             if(logger.isDebugEnabled()) {
                 logger.debug("Sync request end, type: "
                              + operationName
                              + " requestRef: "
                              + System.identityHashCode(delegate)
                              + " totalTimeNs: "
-                             + (System.nanoTime() - startTimeNs)
+                             + opTimeNs
                              + " start time: "
                              + startTimeMs
                              + " end time: "

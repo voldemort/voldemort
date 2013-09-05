@@ -78,6 +78,10 @@ public class ClientSocketStats {
     // "Sync checkouts" connection establishment time
     private final AtomicLong totalConnectionEstablishmentTimeUs = new AtomicLong(0);
     private final Histogram connectionEstablishmentTimeHistogram = new Histogram(20000, 100);
+    
+    // Operation time stats
+    private final AtomicLong totalOpTimeUs = new AtomicLong(0);
+    private final AtomicLong totalOpCount = new AtomicLong(0);
 
     private final int jmxId;
     private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
@@ -144,6 +148,25 @@ public class ClientSocketStats {
                                                                      + JmxUtils.getJmxId(jmxId)));
         }
         return stats;
+    }
+    
+    /**
+     * Record the connection establishment time
+     * 
+     * @param dest Destination of the socket to connect to. Will actually record
+     *        if null. Otherwise will call this on self and corresponding child
+     *        with this param null.
+     * @param opTimeUs The number of us for the op to finish
+     */
+    public void recordOpTimeUs(SocketDestination dest, long opTimeUs) {
+        if (dest != null) {
+            getOrCreateNodeStats(dest).recordOpTimeUs(null, opTimeUs);
+            recordConnectionEstablishmentTimeUs(null, opTimeUs);
+        } else {
+            this.totalOpTimeUs.getAndAdd(opTimeUs);
+            this.totalOpCount.getAndIncrement();
+            checkMonitoringInterval();
+        }
     }
     
     /**
@@ -355,6 +378,25 @@ public class ClientSocketStats {
             return totalConnectionEstablishmentTimeUs.get() / count;
         return 0;
     }
+    
+    // Getter for operation time stats
+    public long getOpTimeUs() {
+        return this.totalOpTimeUs.get();
+    }
+
+    public long getOpCount() {
+        return this.totalOpCount.get();
+    }
+
+    /**
+     * @return 0 if there have been no operations
+     */
+    public long getAvgOpTimeUs() {
+        long count = totalOpCount.get();
+        if (count > 0)
+            return totalOpTimeUs.get() / count;
+        return 0;
+    }
 
 
     // Config & administrivia interfaces
@@ -416,6 +458,8 @@ public class ClientSocketStats {
         
         this.totalConnectionEstablishmentTimeUs.set(0);
         this.connectionEstablishmentTimeHistogram.reset();
+        this.totalOpTimeUs.set(0);
+        this.totalOpCount.set(0);
     }
 
     public void setPool(QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
