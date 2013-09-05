@@ -122,7 +122,8 @@ public class ClientRequestExecutorFactory implements
 
         SocketChannel socketChannel = null;
         ClientRequestExecutor clientRequestExecutor = null;
-
+        long durationMs = 0;
+        
         try {
             socketChannel = SocketChannel.open();
             socketChannel.socket().setReceiveBufferSize(this.socketBufferSize);
@@ -134,7 +135,6 @@ public class ClientRequestExecutorFactory implements
             socketChannel.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
 
             long startTimeMs = System.currentTimeMillis();
-            long durationMs = 0;
             long currWaitTimeMs = 1;
             long prevWaitTimeMS = 1;
 
@@ -224,9 +224,9 @@ public class ClientRequestExecutorFactory implements
 
             throw e;
         }
-
-        if(stats != null) {
+        if (stats != null) {
             stats.connectionCreate(dest);
+            stats.recordConnectionEstablishmentTimeUs(dest, durationMs * Time.US_PER_MS);
         }
 
         return clientRequestExecutor;

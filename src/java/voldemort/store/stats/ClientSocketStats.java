@@ -75,6 +75,9 @@ public class ClientSocketStats {
     private final AtomicLong totalResourceRequestTimeUs = new AtomicLong(0);
     private final AtomicInteger resourceRequestCount = new AtomicInteger(0);
     private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
+    // "Sync checkouts" connection establishment time
+    private final AtomicLong totalConnectionEstablishmentTimeUs = new AtomicLong(0);
+    private final Histogram connectionEstablishmentTimeHistogram = new Histogram(20000, 100);
 
     private final int jmxId;
     private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
@@ -141,6 +144,25 @@ public class ClientSocketStats {
                                                                      + JmxUtils.getJmxId(jmxId)));
         }
         return stats;
+    }
+    
+    /**
+     * Record the connection establishment time
+     * 
+     * @param dest Destination of the socket to connect to. Will actually record
+     *        if null. Otherwise will call this on self and corresponding child
+     *        with this param null.
+     * @param connEstTimeUs The number of us to wait before establishing a connection
+     */
+    public void recordConnectionEstablishmentTimeUs(SocketDestination dest, long connEstTimeUs) {
+        if (dest != null) {
+            getOrCreateNodeStats(dest).recordConnectionEstablishmentTimeUs(null, connEstTimeUs);
+            recordConnectionEstablishmentTimeUs(null, connEstTimeUs);
+        } else {
+            this.totalConnectionEstablishmentTimeUs.getAndAdd(connEstTimeUs);
+            this.connectionEstablishmentTimeHistogram.insert(connEstTimeUs);
+            checkMonitoringInterval();
+        }
     }
 
     /**
@@ -314,6 +336,26 @@ public class ClientSocketStats {
             return pool.getCheckedInResourcesCount(destination);
         }
     }
+    
+    // Getter for connection establishment stats
+    public long getConnectionEstablishmentTimeUs() {
+        return this.totalConnectionEstablishmentTimeUs.get();
+    }
+
+    public Histogram getConnectionEstablishmentUsHistogram() {
+        return this.connectionEstablishmentTimeHistogram;
+    }
+
+    /**
+     * @return 0 if there have been no connection establishments
+     */
+    public long getAvgConnectionEstablishmentUs() {
+        long count = connectionsCreated.intValue();
+        if (count > 0)
+            return totalConnectionEstablishmentTimeUs.get() / count;
+        return 0;
+    }
+
 
     // Config & administrivia interfaces
 
@@ -371,6 +413,9 @@ public class ClientSocketStats {
         this.resourceRequestCount.set(0);
         this.resourceRequestTimeUsHistogram.reset();
         this.resourceRequestQueueLengthHistogram.reset();
+        
+        this.totalConnectionEstablishmentTimeUs.set(0);
+        this.connectionEstablishmentTimeHistogram.reset();
     }
 
     public void setPool(QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
