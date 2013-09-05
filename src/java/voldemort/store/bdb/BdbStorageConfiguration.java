@@ -119,6 +119,10 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_FETCH_OBSOLETE_SIZE, 
                                          Boolean.toString(config.getBdbCleanerFetchObsoleteSize()));
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
+        environmentConfig.setConfigParam(EnvironmentConfig.TREE_MAX_DELTA,
+                                         Integer.toString(config.getBdbMaxDelta()));
+        environmentConfig.setConfigParam(EnvironmentConfig.TREE_BIN_DELTA,
+                                         Integer.toString(config.getBdbBinDelta()));
         if(config.getBdbCacheModeEvictLN()) {
             environmentConfig.setCacheMode(CacheMode.EVICT_LN);
         }
