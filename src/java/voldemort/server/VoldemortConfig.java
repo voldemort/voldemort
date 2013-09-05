@@ -93,6 +93,8 @@ public class VoldemortConfig implements Serializable {
     private String bdbDataDirectory;
     private long bdbMaxLogFileSize;
     private int bdbBtreeFanout;
+    private int bdbMaxDelta; 
+    private int bdbBinDelta;
     private long bdbCheckpointBytes;
     private long bdbCheckpointMs;
     private boolean bdbOneEnvPerStore;
@@ -265,6 +267,8 @@ public class VoldemortConfig implements Serializable {
                                                                       + File.separator + "bdb");
         this.bdbMaxLogFileSize = props.getBytes("bdb.max.logfile.size", 60 * 1024 * 1024);
         this.bdbBtreeFanout = props.getInt("bdb.btree.fanout", 512);
+        this.bdbMaxDelta = props.getInt("bdb.max.delta", 100);
+        this.bdbBinDelta = props.getInt("bdb.bin.delta", 75);
         this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 200 * 1024 * 1024);
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
@@ -1069,6 +1073,41 @@ public class VoldemortConfig implements Serializable {
      */
     public void setBdbBtreeFanout(int bdbBtreeFanout) {
         this.bdbBtreeFanout = bdbBtreeFanout;
+    }
+
+
+    /**
+     * Exposes BDB JE EnvironmentConfig.TREE_MAX_DELTA.
+     * 
+     * <ul>
+     * <li>Property : "bdb.max.delta"</li>
+     * <li>Default : 100</li>
+     * </ul>
+     * 
+     */
+    public void setBdbMaxDelta(int maxDelta) {
+        this.bdbMaxDelta = maxDelta;
+    }
+
+    public int getBdbMaxDelta() {
+        return this.bdbMaxDelta;
+    }
+
+    /**
+     * Exposes BDB JE EnvironmentConfig.TREE_BIN_DELTA.
+     *
+     * <ul>
+     * <li>Property : "bdb.bin.delta"</li>
+     * <li>Default : 75</li>
+     * </ul>
+     *
+     */
+    public void setBdbBinDelta(int binDelta) {
+        this.bdbBinDelta = binDelta;
+    }
+
+    public int getBdbBinDelta() {
+        return this.bdbBinDelta;
     }
 
     public boolean getBdbCleanerFetchObsoleteSize() {
