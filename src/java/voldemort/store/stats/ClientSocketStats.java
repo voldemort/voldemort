@@ -76,10 +76,10 @@ public class ClientSocketStats {
     private final AtomicLong totalResourceRequestTimeUs = new AtomicLong(0);
     private final AtomicInteger resourceRequestCount = new AtomicInteger(0);
     private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
-    // "Sync checkouts" connection establishment time
-    private final RequestCounter connectionEstablishmentRequestCounter = new RequestCounter(1000000, true);
-    // Operation time stats
-    private final RequestCounter opTimeRequestCounter = new RequestCounter(1000000, true);
+    // "Sync checkouts" connection establishment time. The counter will be reset every 60 seconds
+    private final RequestCounter connectionEstablishmentRequestCounter = new RequestCounter(60000, true);
+    // Operation time stats. The counter will be reset every 60 seconds
+    private final RequestCounter opTimeRequestCounter = new RequestCounter(60000, true);
     
     private final int jmxId;
     private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
