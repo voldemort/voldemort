@@ -26,6 +26,7 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
+import voldemort.store.stats.StoreClientFactoryStats;
 import voldemort.utils.Pair;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -44,10 +45,12 @@ public class CachingStoreClientFactory implements StoreClientFactory {
 
     private final StoreClientFactory inner;
     private final ConcurrentMap<Pair<String, Object>, StoreClient<?, ?>> cache;
+    private final StoreClientFactoryStats cacheStoreClientFactoryStats;
 
     public CachingStoreClientFactory(StoreClientFactory inner) {
         this.inner = inner;
         this.cache = new ConcurrentHashMap<Pair<String, Object>, StoreClient<?, ?>>();
+        this.cacheStoreClientFactoryStats = new StoreClientFactoryStats();
     }
 
     @SuppressWarnings("unchecked")
@@ -115,5 +118,10 @@ public class CachingStoreClientFactory implements StoreClientFactory {
         } catch(Exception e) {
             logger.warn("Exception during bootstrapAllClients", e);
         }
+    }
+
+    @Override
+    public StoreClientFactoryStats getStoreClientFactoryStats() {
+        return cacheStoreClientFactoryStats;
     }
 }

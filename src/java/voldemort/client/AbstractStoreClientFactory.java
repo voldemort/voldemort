@@ -55,6 +55,8 @@ import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.slop.Slop;
 import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.stats.StoreClientFactoryStats;
+import voldemort.store.stats.StoreClientFactoryStatsJmx;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.versioned.InconsistencyResolvingStore;
@@ -98,7 +100,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     protected final int jmxId;
     protected volatile FailureDetector failureDetector;
     private final int maxBootstrapRetries;
-    private final StoreStats stats;
+    private final StoreStats aggregateStats;
+    private final StoreClientFactoryStats clientFactoryStats;
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
     private final String clientContextName;
@@ -120,7 +123,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.requestFormatType = config.getRequestFormatType();
         this.jmxId = getNextJmxId();
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
-        this.stats = new StoreStats();
+        this.aggregateStats = new StoreStats();
+        this.clientFactoryStats = new StoreClientFactoryStats();
         this.clientContextName = config.getClientContextName();
         this.routedStoreConfig = new RoutedStoreConfig(config);
         this.routedStoreConfig.setJmxId(this.jmxId);
@@ -136,8 +140,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
                                                              JmxUtils.getClassName(threadPool.getClass())
                                                                      + JmxUtils.getJmxId(jmxId)));
-            JmxUtils.registerMbean(new StoreStatsJmx(stats),
+            JmxUtils.registerMbean(new StoreStatsJmx(aggregateStats),
                                    JmxUtils.createObjectName("voldemort.store.stats.aggregate",
+                                                             "aggregate-perf"
+                                                                     + JmxUtils.getJmxId(jmxId)));
+            
+            JmxUtils.registerMbean(new StoreClientFactoryStatsJmx(clientFactoryStats),
+                                   JmxUtils.createObjectName("voldemort.store.client.factory.stats",
                                                              "aggregate-perf"
                                                                      + JmxUtils.getJmxId(jmxId)));
         }
@@ -150,7 +159,11 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     public int getCurrentJmxId() {
         return jmxIdCounter.get();
     }
-
+    
+    public StoreClientFactoryStats getClientFactoryStats() {
+        return clientFactoryStats;
+    }
+  
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return getStoreClient(storeName, null);
     }
@@ -298,7 +311,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         store = new LoggingStore(store);
 
         if(isJmxEnabled) {
-            StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
+            StatTrackingStore statStore = new StatTrackingStore(store, this.aggregateStats);
             store = statStore;
             JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
@@ -409,6 +422,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             try {
                 return bootstrapMetadata(key, urls);
             } catch(BootstrapFailureException e) {
+                // We have a bootstrap failure, record the event.
+                clientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.FAILED_BOOTSTRAP_EVENT);
                 if(nTries < this.maxBootstrapRetries) {
                     int backOffTime = 5 * nTries;
                     logger.warn("Failed to bootstrap will try again after " + backOffTime
@@ -419,6 +434,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                         throw new RuntimeException(e1);
                     }
                 }
+            }
+            finally {
+                // We have a bootstrap event, record it.
+                clientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.BOOTSTRAP_EVENT);
             }
         }
 

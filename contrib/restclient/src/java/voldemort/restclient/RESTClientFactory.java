@@ -21,6 +21,7 @@ import voldemort.store.compress.CompressingStore;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.stats.StoreClientFactoryStats;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.versioned.InconsistencyResolvingStore;
@@ -49,7 +50,8 @@ public class RESTClientFactory implements StoreClientFactory {
     private SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private HttpClientFactory _clientFactory;
     private final TransportClient transportClient;
-
+    private final StoreClientFactoryStats RESTClientFactoryStats;
+    
     /**
      * This list holds a reference to all the raw stores created by this
      * factory. When the application invokes 'close' on this factory, it invokes
@@ -69,6 +71,7 @@ public class RESTClientFactory implements StoreClientFactory {
         properties.put(HttpClientFactory.POOL_SIZE_KEY,
                        Integer.toString(this.config.getMaxR2ConnectionPoolSize()));
         transportClient = _clientFactory.getClient(properties);
+        this.RESTClientFactoryStats = new StoreClientFactoryStats();
 
     }
 
@@ -182,6 +185,11 @@ public class RESTClientFactory implements StoreClientFactory {
     @Override
     public FailureDetector getFailureDetector() {
         return null;
+    }
+
+    @Override
+    public StoreClientFactoryStats getStoreClientFactoryStats() {
+        return RESTClientFactoryStats;
     }
 
 }

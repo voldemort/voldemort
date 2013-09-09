@@ -10,6 +10,7 @@ import voldemort.client.StoreClientFactory;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.store.Store;
+import voldemort.store.stats.StoreClientFactoryStats;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
@@ -31,6 +32,7 @@ public class StaticStoreClientFactory implements StoreClientFactory {
     private final AtomicInteger current;
     private final List<Store<?, ?, ?>> stores;
     private final FailureDetector failureDetector;
+    private final StoreClientFactoryStats staticStoreClientFactoryStats;
 
     public StaticStoreClientFactory(Store<?, ?, ?>... stores) {
         if(stores.length < 1)
@@ -38,6 +40,7 @@ public class StaticStoreClientFactory implements StoreClientFactory {
         this.stores = Arrays.asList(stores);
         current = new AtomicInteger(0);
         failureDetector = new NoopFailureDetector();
+        staticStoreClientFactoryStats = new StoreClientFactoryStats();
     }
 
     @SuppressWarnings("unchecked")
@@ -64,5 +67,10 @@ public class StaticStoreClientFactory implements StoreClientFactory {
 
     public FailureDetector getFailureDetector() {
         return failureDetector;
+    }
+
+    @Override
+    public StoreClientFactoryStats getStoreClientFactoryStats() {
+        return staticStoreClientFactoryStats;
     }
 }
