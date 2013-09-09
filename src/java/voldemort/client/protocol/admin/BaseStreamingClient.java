@@ -105,6 +105,8 @@ public class BaseStreamingClient {
     private AdminClientConfig adminClientConfig;
 
     String bootstrapURL;
+    
+    boolean overWriteIfLatestTs;
 
     // Data structures for the streaming maps from Pair<Store, Node Id> to
     // Resource
@@ -133,6 +135,8 @@ public class BaseStreamingClient {
         this.bootstrapURL = config.getBootstrapURL();
         CHECKPOINT_COMMIT_SIZE = config.getBatchSize();
         THROTTLE_QPS = config.getThrottleQPS();
+        this.overWriteIfLatestTs = config.isOverWriteIfLatestTs();
+        
         adminClientConfig = new AdminClientConfig();
         adminClient = new AdminClient(bootstrapURL, adminClientConfig, new ClientConfig());
         faultyNodes = new ArrayList<Integer>();
@@ -513,10 +517,20 @@ public class BaseStreamingClient {
                                                                                   .setVersioned(ProtoUtils.encodeVersioned(value))
                                                                                   .build();
 
-            VAdminProto.UpdatePartitionEntriesRequest.Builder updateRequest = VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
-                                                                                                                       .setStore(storeName)
-                                                                                                                       .setPartitionEntry(partitionEntry);
-
+            
+            VAdminProto.UpdatePartitionEntriesRequest.Builder updateRequest = null;
+            
+            if(overWriteIfLatestTs) {
+                updateRequest = VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
+                                                                         .setStore(storeName)
+                                                                         .setPartitionEntry(partitionEntry)
+                                                                         .setOverwriteIfLatestTs(overWriteIfLatestTs);
+            } else {
+                updateRequest = VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
+                                                                         .setStore(storeName)
+                                                                         .setPartitionEntry(partitionEntry);
+            }
+            
             DataOutputStream outputStream = nodeIdStoreToOutputStreamRequest.get(new Pair(storeName,
                                                                                           node.getId()));
             try {

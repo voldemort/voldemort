@@ -12,15 +12,15 @@ public class StreamingClientConfig implements Serializable {
 
     private static final int DEFAULT_BATCH_SIZE = 10000;
     private static final int DEFAULT_THROTTLE_QPS = 3000;
-
-    private static final int DEFAULT_MAX_FAULTY_NODES = 1;
+    // By default, don't tolerate any faulty hosts.
+    private static final int DEFAULT_MAX_FAULTY_NODES = 0;
+    private static final boolean DEFAULT_OVERWRITE_IF_LATEST_TS = false; 
 
     private int batchSize;
     private int throttleQPS;
-
     private int failedNodesTolerated;
-
-    private String bootstrapURL;
+    private String bootstrapURL;    
+    private boolean overWriteIfLatestTs;
 
     public StreamingClientConfig() {
 
@@ -30,7 +30,8 @@ public class StreamingClientConfig implements Serializable {
 
         this.batchSize = props.getInt("streaming.platform.commit.batch", DEFAULT_BATCH_SIZE);
         this.throttleQPS = props.getInt("streaming.platform.throttle.qps", DEFAULT_THROTTLE_QPS);
-
+        this.overWriteIfLatestTs = props.getBoolean("streaming.platform.overwrite.if.latest.ts", 
+                                                    DEFAULT_OVERWRITE_IF_LATEST_TS);
         this.setFailedNodesTolerated(props.getInt("streaming.platform.max.failed.nodes",
                                                   DEFAULT_MAX_FAULTY_NODES));
 
@@ -75,7 +76,16 @@ public class StreamingClientConfig implements Serializable {
 
         if(throttleQPS < 0)
             throw new IllegalArgumentException("streaming.platform.throttle.qps cannot be less than 1");
-
+        
+        // TODO For streaming services that use slop as a mechanism to eventually consolidate data across servers, 
+        // they should
+        // 1. Either disable overwrite_if_latest_ts and go with vector clock based resolution
+        // 2. Or add the time based resolving functionality to the Slop pusher on the Voldemort server.
+        if (failedNodesTolerated > 0 && overWriteIfLatestTs){
+            throw new IllegalArgumentException("Cannot write slops and resolve based on time, at the same time."+
+                                                " To move on either set streaming.platform.max.failed.nodes = 0 or " +
+                                                " set streaming.platform.overwrite.if.latest.ts=false");
+        }
     }
 
     public int getFailedNodesTolerated() {
@@ -84,5 +94,14 @@ public class StreamingClientConfig implements Serializable {
 
     public void setFailedNodesTolerated(int failedNodesTolerated) {
         this.failedNodesTolerated = failedNodesTolerated;
+    }
+    
+    public boolean isOverWriteIfLatestTs() {
+        return overWriteIfLatestTs;
+    }
+
+    
+    public void setOverWriteIfLatestTs(boolean overWriteIfLatestTs) {
+        this.overWriteIfLatestTs = overWriteIfLatestTs;
     }
 }
