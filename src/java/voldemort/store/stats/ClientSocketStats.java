@@ -165,12 +165,12 @@ public class ClientSocketStats {
      *        with this param null.
      * @param opTimeUs The number of us for the op to finish
      */
-    public void recordOpTimeUs(SocketDestination dest, long opTimeUs) {
+    public void recordOpTimeNs(SocketDestination dest, long opTimeNs) {
         if (dest != null) {
-            getOrCreateNodeStats(dest).recordOpTimeUs(null, opTimeUs);
-            recordOpTimeUs(null, opTimeUs);
+            getOrCreateNodeStats(dest).recordOpTimeNs(null, opTimeNs);
+            recordOpTimeNs(null, opTimeNs);
         } else {
-            this.opTimeRequestCounter.addRequest(opTimeUs * Time.NS_PER_US);
+            this.opTimeRequestCounter.addRequest(opTimeNs);
         }
     }
     

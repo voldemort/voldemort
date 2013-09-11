@@ -44,7 +44,6 @@ import voldemort.store.socket.clientrequest.GetVersionsClientRequest;
 import voldemort.store.socket.clientrequest.PutClientRequest;
 import voldemort.store.stats.ClientSocketStats;
 import voldemort.utils.ByteArray;
-import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -322,7 +321,7 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
             // Record operation time
             long opTimeNs = Utils.elapsedTimeNs(startTimeNs, System.nanoTime());
             if (stats != null) {
-                stats.recordOpTimeUs(destination, opTimeNs * Time.NS_PER_US);
+                stats.recordOpTimeNs(destination, opTimeNs);
             }
             if(logger.isDebugEnabled()) {
                 logger.debug("Sync request end, type: "
