@@ -20,13 +20,13 @@ import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
 
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.utils.JmxUtils;
+import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 import voldemort.utils.pool.QueuedKeyedResourcePool;
 
@@ -59,27 +59,24 @@ public class ClientSocketStats {
     private final SocketDestination destination;
     private QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
 
-    // monitoringInterval <= connectionCheckouts + resourceRequests
-    // 1 qps => monitoring interval of just over a day (~27 hours)
-    // 1000 qps => monitoring interval of 1 minute and 40 seconds
-    private final AtomicInteger monitoringInterval = new AtomicInteger(100000);
     // Connection lifecycle
     private final AtomicInteger connectionsCreated = new AtomicInteger(0);
     private final AtomicInteger connectionsDestroyed = new AtomicInteger(0);
     // "Sync checkouts" / KeyedResourcePool::checkout
-    private final Histogram checkoutTimeUsHistogram = new Histogram(20000, 100);
-    private final AtomicLong totalCheckoutTimeUs = new AtomicLong(0);
-    private final AtomicInteger checkoutCount = new AtomicInteger(0);
-    private final Histogram checkoutQueueLengthHistogram = new Histogram(250, 1);
+    private final RequestCounter checkoutTimeRequestCounter = new RequestCounter(60000, true);
     // "Async checkouts" / QueuedKeyedResourcePool::registerResourceRequest
-    private final Histogram resourceRequestTimeUsHistogram = new Histogram(20000, 100);
-    private final AtomicLong totalResourceRequestTimeUs = new AtomicLong(0);
-    private final AtomicInteger resourceRequestCount = new AtomicInteger(0);
-    private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
+    private final RequestCounter resourceRequestTimeRequestCounter = new RequestCounter(60000, true);
     // "Sync checkouts" connection establishment time. The counter will be reset every 60 seconds
     private final RequestCounter connectionEstablishmentRequestCounter = new RequestCounter(60000, true);
     // Operation time stats. The counter will be reset every 60 seconds
     private final RequestCounter opTimeRequestCounter = new RequestCounter(60000, true);
+    
+    // The histograms will be reset after monitoringInterval
+    private final AtomicInteger monitoringInterval = new AtomicInteger(60000);
+    private long startMs;
+    private final Histogram checkoutQueueLengthHistogram = new Histogram(250, 1);
+    private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
+    
     
     private final int jmxId;
     private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
@@ -101,6 +98,7 @@ public class ClientSocketStats {
         this.destination = destination;
         this.pool = pool;
         this.jmxId = jmxId;
+        this.startMs = SystemTime.INSTANCE.getMilliseconds(); 
 
         if(logger.isDebugEnabled()) {
             logger.debug("Constructed ClientSocketStatsStats object ("
@@ -120,6 +118,7 @@ public class ClientSocketStats {
         this.destination = null;
         this.pool = null;
         this.jmxId = jmxId;
+        this.startMs = SystemTime.INSTANCE.getMilliseconds(); 
 
         if(logger.isDebugEnabled()) {
             logger.debug("Constructed ClientSocketStatsStats object ("
@@ -205,10 +204,7 @@ public class ClientSocketStats {
             getOrCreateNodeStats(dest).recordCheckoutTimeUs(null, checkoutTimeUs);
             recordCheckoutTimeUs(null, checkoutTimeUs);
         } else {
-            this.totalCheckoutTimeUs.getAndAdd(checkoutTimeUs);
-            this.checkoutTimeUsHistogram.insert(checkoutTimeUs);
-            this.checkoutCount.getAndIncrement();
-            checkMonitoringInterval();
+            this.checkoutTimeRequestCounter.addRequest(checkoutTimeUs * Time.NS_PER_US);
         }
     }
 
@@ -227,6 +223,7 @@ public class ClientSocketStats {
             recordCheckoutQueueLength(null, queueLength);
         } else {
             this.checkoutQueueLengthHistogram.insert(queueLength);
+            checkMonitoringInterval();
         }
     }
 
@@ -244,12 +241,7 @@ public class ClientSocketStats {
             getOrCreateNodeStats(dest).recordResourceRequestTimeUs(null, resourceRequestTimeUs);
             recordResourceRequestTimeUs(null, resourceRequestTimeUs);
         } else {
-            this.totalResourceRequestTimeUs.getAndAdd(resourceRequestTimeUs);
-            this.resourceRequestTimeUsHistogram.insert(resourceRequestTimeUs);
-            this.resourceRequestCount.getAndIncrement();
-
-            checkMonitoringInterval();
-        }
+            this.resourceRequestTimeRequestCounter.addRequest(resourceRequestTimeUs * Time.NS_PER_US);        }
     }
 
     /**
@@ -267,6 +259,7 @@ public class ClientSocketStats {
             recordResourceRequestQueueLength(null, queueLength);
         } else {
             this.resourceRequestQueueLengthHistogram.insert(queueLength);
+            checkMonitoringInterval();
         }
     }
 
@@ -289,7 +282,6 @@ public class ClientSocketStats {
     }
 
     // Getters for connection life cycle stats
-
     public int getConnectionsCreated() {
         return connectionsCreated.intValue();
     }
@@ -299,23 +291,24 @@ public class ClientSocketStats {
     }
 
     // Getters for checkout stats
-
     public int getCheckoutCount() {
-        return checkoutCount.intValue();
+        return (int) checkoutTimeRequestCounter.getCount();
     }
 
-    public Histogram getCheckoutWaitUsHistogram() {
-        return this.checkoutTimeUsHistogram;
+    public double getAvgCheckoutWaitMs() {
+        return checkoutTimeRequestCounter.getAverageTimeInMs();
     }
-
-    /**
-     * @return 0 if there have been no checkout invocations
-     */
-    public long getAvgCheckoutWaitUs() {
-        long count = checkoutCount.get();
-        if(count > 0)
-            return totalCheckoutTimeUs.get() / count;
-        return 0;
+    
+    public double getCheckoutTimeMsQ10th() {
+        return checkoutTimeRequestCounter.getQ10LatencyMs();
+    }
+    
+    public double getCheckoutTimeMsQ50th() {
+        return checkoutTimeRequestCounter.getQ50LatencyMs();
+    }
+  
+    public double getCheckoutTimeMsQ99th() {
+        return checkoutTimeRequestCounter.getQ99LatencyMs();
     }
 
     public Histogram getCheckoutQueueLengthHistogram() {
@@ -323,23 +316,27 @@ public class ClientSocketStats {
     }
 
     // Getters for resourceRequest stats
-
     public int resourceRequestCount() {
-        return resourceRequestCount.intValue();
-    }
-
-    public Histogram getResourceRequestWaitUsHistogram() {
-        return this.resourceRequestTimeUsHistogram;
+        return (int) resourceRequestTimeRequestCounter.getCount();
     }
     
     /**
      * @return 0 if there have been no resourceRequest invocations
      */
-    public long getAvgResourceRequestWaitUs() {
-        long count = resourceRequestCount.get();
-        if(count > 0)
-            return totalResourceRequestTimeUs.get() / count;
-        return 0;
+    public double getAvgResourceRequestTimeMs() {
+        return resourceRequestTimeRequestCounter.getAverageTimeInMs();
+    }
+    
+    public double getResourceRequestTimeMsQ10th() {
+        return resourceRequestTimeRequestCounter.getQ10LatencyMs();
+    }
+    
+    public double getResourceRequestTimeMsQ50th() {
+        return resourceRequestTimeRequestCounter.getQ50LatencyMs();
+    }
+  
+    public double getResourceRequestTimeMsQ99th() {
+        return resourceRequestTimeRequestCounter.getQ99LatencyMs();
     }
     
     public Histogram getResourceRequestQueueLengthHistogram() {
@@ -364,7 +361,7 @@ public class ClientSocketStats {
     }
     
     // Getters for connection establishment stats
-    public double getAvgConnectionEstablishmentUs() {
+    public double getAvgConnectionEstablishmentMs() {
         return this.connectionEstablishmentRequestCounter.getAverageTimeInMs();
     }
 
@@ -373,7 +370,7 @@ public class ClientSocketStats {
     }
     
     // Getters for op time
-    public double getAvgOpTimeUs() {
+    public double getAvgOpTimeMs() {
         return this.opTimeRequestCounter.getAverageTimeInMs();
     }
     
@@ -396,18 +393,11 @@ public class ClientSocketStats {
     }
 
     protected void checkMonitoringInterval() {
-        int monitoringCount = this.checkoutCount.get() + this.resourceRequestCount.get();
-
+        int durationMs = this.monitoringInterval.get();
         // reset aggregated stats and all the node stats for new interval
-        if(parent == null && statsMap != null) {
-            int monitoringInterval = this.monitoringInterval.get();
-            if(monitoringCount % (monitoringInterval + 1) == monitoringInterval) {
-                // timing instrumentation (debug only)
-                long startTimeNs = 0;
-                if(logger.isDebugEnabled()) {
-                    startTimeNs = System.nanoTime();
-                }
-
+        if (parent == null && statsMap != null) {
+            long now = SystemTime.INSTANCE.getMilliseconds();
+            if (now -  this.startMs > durationMs) {
                 // reset all children
                 Iterator<SocketDestination> it = statsMap.keySet().iterator();
                 while(it.hasNext()) {
@@ -416,32 +406,20 @@ public class ClientSocketStats {
                 }
                 // reset itself
                 resetForInterval();
-
-                // timing instrumentation (debug only)
-                if(logger.isDebugEnabled()) {
-                    logger.debug("ClientSocketStats(" + System.identityHashCode(this)
-                                 + ")::checkMonitoringInterval: reset self and all children in "
-                                 + (System.nanoTime() - startTimeNs) + " ns.");
-                }
             }
         }
     }
-
+    
     /**
      * Reset all of the stats counters
      */
     protected void resetForInterval() {
         // harmless race conditions amongst all of this counter resetting:
-        this.totalCheckoutTimeUs.set(0);
-        this.checkoutCount.set(0);
-        this.checkoutTimeUsHistogram.reset();
         this.checkoutQueueLengthHistogram.reset();
-
-        this.totalResourceRequestTimeUs.set(0);
-        this.resourceRequestCount.set(0);
-        this.resourceRequestTimeUsHistogram.reset();
         this.resourceRequestQueueLengthHistogram.reset();   
+        this.startMs = SystemTime.INSTANCE.getMilliseconds();
     }
+    
 
     public void setPool(QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
         this.pool = pool;

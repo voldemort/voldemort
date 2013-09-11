@@ -19,7 +19,6 @@ package voldemort.store.stats;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxSetter;
-import voldemort.utils.Time;
 
 /**
  * 
@@ -56,17 +55,17 @@ public class ClientSocketStatsJmx {
 
     @JmxGetter(name = "waitMsAverage", description = "Average ms wait to do a synchronous socket checkout. Aggregate measure based on current monitoring interval.")
     public double getWaitMsAverage() {
-        return (double) stats.getAvgCheckoutWaitUs() / Time.US_PER_MS;
+        return stats.getAvgCheckoutWaitMs();
     }
 
     @JmxGetter(name = "waitMsQ50th", description = "50th percentile wait time (ms) to get a connection. Aggregate measure based on current monitoring interval.")
     public double getWaitMsQ50th() {
-        return (double) stats.getCheckoutWaitUsHistogram().getQuantile(0.5) / Time.US_PER_MS;
+        return stats.getCheckoutTimeMsQ50th();
     }
 
     @JmxGetter(name = "waitMsQ99th", description = "99th percentile wait time (ms) to get a connection. Aggregate measure based on current monitoring interval.")
     public double getWaitMsQ99th() {
-        return (double) stats.getCheckoutWaitUsHistogram().getQuantile(0.99) / Time.US_PER_MS;
+        return stats.getCheckoutTimeMsQ99th();
     }
 
     @JmxGetter(name = "checkoutQueueLengthQ50th", description = "50th percentile blocking queue length to get a connection. Aggregate measure based on current monitoring interval.")
@@ -86,23 +85,22 @@ public class ClientSocketStatsJmx {
 
     @JmxGetter(name = "resourceRequestWaitMsAverage", description = "Average ms wait to do an asynchronous socket checkout. Aggregate measure based on current monitoring interval.")
     public double getResourceRequestWaitMsAverage() {
-        return (double) stats.getAvgResourceRequestWaitUs() / Time.US_PER_MS;
+        return stats.getAvgResourceRequestTimeMs();
     }
 
     @JmxGetter(name = "resourceRequestWaitMsQ50th", description = "50th percentile wait time (ms) to do an asynchronous socket checkout. Aggregate measure based on current monitoring interval.")
     public double getResourceRequestWaitMsQ50th() {
-        return (double) stats.getResourceRequestWaitUsHistogram().getQuantile(0.5) / Time.US_PER_MS;
+        return  stats.getResourceRequestTimeMsQ50th();
     }
 
     @JmxGetter(name = "resourceRequestWaitMsQ99th", description = "99th percentile wait time (ms) to do an asynchronous socket checkout. Aggregate measure based on current monitoring interval.")
     public double getResourceRequestWaitMsQ99th() {
-        return (double) stats.getResourceRequestWaitUsHistogram().getQuantile(0.99)
-               / Time.US_PER_MS;
+        return stats.getResourceRequestTimeMsQ99th();
     }
     
     @JmxGetter(name = "connectionEstablishmentMsAverage", description = "Average time (ms) to establish a connection. Aggregate measure based on current monitoring interval.")
     public double getConnectionEstablishmentMsAverage() {
-        return stats.getAvgConnectionEstablishmentUs();
+        return stats.getAvgConnectionEstablishmentMs();
     }
     
     @JmxGetter(name = "connectionEstablishmentMsQ99th", description = "99th percentile wait time (ms) to establish a connection. Aggregate measure based on current monitoring interval.")
@@ -112,7 +110,7 @@ public class ClientSocketStatsJmx {
     
     @JmxGetter(name = "opTimeMsAverage", description = "Average time (ms) to establish a connection. Aggregate measure based on current monitoring interval.")
     public double getopTimeMsAverage() {
-        return stats.getAvgOpTimeUs();
+        return stats.getAvgOpTimeMs();
     }
     
     @JmxGetter(name = "opTimeMsQ95th", description = "95th percentile time (ms) to do an operation. Aggregate measure based on current monitoring interval.")

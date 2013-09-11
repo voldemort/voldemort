@@ -303,12 +303,22 @@ public class RequestCounter {
     public long getGetAllMaxCount() {
         return getValidAccumulator().getAllMaxCount;
     }
-
+    
+    public double getQ10LatencyMs() {
+        maybeResetHistogram();
+        return getQuantile(0.10);
+    }
+    
+    public double getQ50LatencyMs() {
+        maybeResetHistogram();
+        return getQuantile(0.50);
+    }
+    
     public double getQ95LatencyMs() {
         maybeResetHistogram();
         return getQuantile(0.95);
     }
-
+   
     public double getQ99LatencyMs() {
         maybeResetHistogram();
         return getQuantile(0.99);
@@ -321,7 +331,7 @@ public class RequestCounter {
             if(coarseResult > 0) {
                 return coarseResult;
             } else {
-                return ((double) histogramHundredUs.getQuantile(quantile)) / 10;
+                return histogramHundredUs.getQuantile(quantile) / (double) 10;
             }
         } else {
             return -1;
