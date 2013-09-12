@@ -31,6 +31,7 @@ import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
 import voldemort.routing.StoreRoutingPlan;
+import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.Time;
 import voldemort.versioning.ChainedResolver;

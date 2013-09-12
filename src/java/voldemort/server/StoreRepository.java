@@ -8,8 +8,8 @@ import java.util.concurrent.ConcurrentMap;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
-import voldemort.server.storage.RepairJob;
-import voldemort.server.storage.VersionedPutPruneJob;
+import voldemort.server.storage.prunejob.VersionedPutPruneJob;
+import voldemort.server.storage.repairjob.RepairJob;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.slop.SlopStorageEngine;

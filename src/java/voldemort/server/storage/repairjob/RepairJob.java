@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package voldemort.server.storage;
+package voldemort.server.storage.repairjob;
 
 import javax.management.MBeanOperationInfo;
 
@@ -23,6 +23,8 @@ import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
+import voldemort.server.storage.DataMaintenanceJob;
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;

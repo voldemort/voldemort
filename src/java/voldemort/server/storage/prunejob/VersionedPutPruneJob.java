@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package voldemort.server.storage;
+package voldemort.server.storage.prunejob;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +25,9 @@ import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
+import voldemort.server.storage.DataMaintenanceJob;
+import voldemort.server.storage.KeyLockHandle;
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
