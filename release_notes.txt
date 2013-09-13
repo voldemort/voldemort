@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Release 1.5.3 on 09/19/2013
 
 * Bug fixes (NPE during shutdown
@@ -17,6 +18,15 @@ Changes
 * Refactoring the rest package (Rest server and Coordinator)
 * Using standard Netty pipeline in the Coordinator
 * Added monitoring hooks for the Rest Service
+=======
+Release 1.5.2 on 09/12/2013
+This is a custom release atop master (tag: release-1.5.2-cutoff),
+which simply upgrades BDB-JE to 5.0.73. Will be merged to master soon after
+canarying
+
+NOTE: Other changes need to noted in this file, at the time of the next non
+custom release off master
+>>>>>>> Upgrading release_notes for custom release 1.5.2
 
 Release 1.5.1 on 09/05/2013
 This is a custom release atop master (tag: release-1.5.1-cutoff), 
