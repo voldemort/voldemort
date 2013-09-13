@@ -313,6 +313,7 @@ public class ClientSocketStats {
     }
 
     public Histogram getCheckoutQueueLengthHistogram() {
+        checkMonitoringInterval();
         return this.checkoutQueueLengthHistogram;
     }
 

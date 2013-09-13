@@ -291,37 +291,43 @@ public class ClientSocketStatsTest {
     @Test
     public void testSetMonitoringInterval() {
         ClientSocketStats stats = masterStats;
-        stats.setMonitoringInterval(9);
-        stats.recordCheckoutTimeUs(dest1, 100);
-        stats.recordCheckoutTimeUs(dest1, 200);
-        stats.recordCheckoutTimeUs(dest1, 300);
-        stats.recordCheckoutTimeUs(dest1, 400);
-        stats.recordCheckoutTimeUs(dest1, 500);
-        stats.recordCheckoutTimeUs(dest1, 600);
-        stats.recordCheckoutTimeUs(dest2, 700);
-        stats.recordCheckoutTimeUs(dest2, 800);
-        // before interval based reset
+        stats.setMonitoringInterval(500);
+        stats.recordCheckoutQueueLength(dest1, 1);
+        stats.recordCheckoutQueueLength(dest1, 2);
+        stats.recordCheckoutQueueLength(dest1, 3);
+        stats.recordCheckoutQueueLength(dest1, 4);
+        stats.recordCheckoutQueueLength(dest1, 5);
+        stats.recordCheckoutQueueLength(dest1, 6);
+        stats.recordCheckoutQueueLength(dest2, 7);
+        stats.recordCheckoutQueueLength(dest2, 8);
+        // before reset
         // check parent
-        assertEquals(8, stats.getCheckoutCount());
-        assertEquals(450, (int) (stats.getAvgCheckoutWaitMs() * Time.US_PER_MS));
+        assertEquals(4.5, (stats.getCheckoutQueueLengthHistogram().getAverage()), 0);
         // check child
         ClientSocketStats child1 = stats.getStatsMap().get(dest1);
         ClientSocketStats child2 = stats.getStatsMap().get(dest2);
-        assertEquals(6, child1.getCheckoutCount());
-        assertEquals(2, child2.getCheckoutCount());
-        assertEquals(350, (int) (child1.getAvgCheckoutWaitMs() * Time.US_PER_MS));
-        assertEquals(750, (int) (child2.getAvgCheckoutWaitMs() * Time.US_PER_MS));
-
-        // after interval based reset
-        stats.recordCheckoutTimeUs(dest2, 900000);
+        assertEquals(3.5, child1.getCheckoutQueueLengthHistogram().getAverage(), 0);
+        assertEquals(7.5, child2.getCheckoutQueueLengthHistogram().getAverage(), 0);
+   
+        // Make it sleep for a second
+        try {
+            Thread.sleep(1000);
+        } catch(InterruptedException e) {
+            e.printStackTrace();
+        }
+        
+        // The histogram should be reset by now
+        assertEquals(0, (stats.getCheckoutQueueLengthHistogram().getAverage()), 0);
+        
+        stats.recordCheckoutQueueLength(dest1, 1);
+        stats.recordCheckoutQueueLength(dest1, 1);
+        stats.recordCheckoutQueueLength(dest2, 4);
+        // after reset
         // check parent
-        assertEquals(0, (int) (stats.getAvgCheckoutWaitMs() * Time.US_PER_MS));
-        assertEquals(0, stats.getCheckoutCount());
+        assertEquals(2, (stats.getCheckoutQueueLengthHistogram().getAverage()), 0);
         // check child
-        assertEquals(0, (int) (child1.getAvgCheckoutWaitMs() * Time.US_PER_MS));
-        assertEquals(0, child1.getCheckoutCount());
-        assertEquals(0, (int) (child2.getAvgCheckoutWaitMs() * Time.US_PER_MS));
-        assertEquals(0, child2.getCheckoutCount());
+        assertEquals(1, (child1.getCheckoutQueueLengthHistogram().getAverage()), 0);
+        assertEquals(4, (child2.getCheckoutQueueLengthHistogram().getAverage()), 0);
     }
 
     @SuppressWarnings("deprecation")
