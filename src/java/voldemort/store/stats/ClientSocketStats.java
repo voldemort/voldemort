@@ -241,7 +241,8 @@ public class ClientSocketStats {
             getOrCreateNodeStats(dest).recordResourceRequestTimeUs(null, resourceRequestTimeUs);
             recordResourceRequestTimeUs(null, resourceRequestTimeUs);
         } else {
-            this.resourceRequestTimeRequestCounter.addRequest(resourceRequestTimeUs * Time.NS_PER_US);        }
+            this.resourceRequestTimeRequestCounter.addRequest(resourceRequestTimeUs * Time.NS_PER_US);        
+        }
     }
 
     /**

@@ -50,7 +50,6 @@ public class RESTClientFactory implements StoreClientFactory {
     private SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private HttpClientFactory _clientFactory;
     private final TransportClient transportClient;
-    private final StoreClientFactoryStats RESTClientFactoryStats;
     
     /**
      * This list holds a reference to all the raw stores created by this
@@ -71,8 +70,6 @@ public class RESTClientFactory implements StoreClientFactory {
         properties.put(HttpClientFactory.POOL_SIZE_KEY,
                        Integer.toString(this.config.getMaxR2ConnectionPoolSize()));
         transportClient = _clientFactory.getClient(properties);
-        this.RESTClientFactoryStats = new StoreClientFactoryStats();
-
     }
 
     /**
@@ -189,7 +186,7 @@ public class RESTClientFactory implements StoreClientFactory {
 
     @Override
     public StoreClientFactoryStats getStoreClientFactoryStats() {
-        return RESTClientFactoryStats;
+        return null;
     }
 
 }

@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class StoreClientFactoryStats {
-
+    
     private final Map<Tracked, AtomicInteger> counters;
     
     public StoreClientFactoryStats() {

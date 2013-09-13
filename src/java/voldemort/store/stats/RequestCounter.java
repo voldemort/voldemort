@@ -318,7 +318,7 @@ public class RequestCounter {
         maybeResetHistogram();
         return getQuantile(0.95);
     }
-   
+    
     public double getQ99LatencyMs() {
         maybeResetHistogram();
         return getQuantile(0.99);
@@ -331,7 +331,7 @@ public class RequestCounter {
             if(coarseResult > 0) {
                 return coarseResult;
             } else {
-                return histogramHundredUs.getQuantile(quantile) / (double) 10;
+                return ((double) histogramHundredUs.getQuantile(quantile)) / 10;
             }
         } else {
             return -1;

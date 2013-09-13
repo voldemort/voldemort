@@ -144,9 +144,5 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
         VoldemortIOUtils.closeQuietly(this.httpClient);
     }
 
-    @Override
-    public StoreClientFactoryStats getStoreClientFactoryStats() {
-        return super.getClientFactoryStats();
-    }
 
 }

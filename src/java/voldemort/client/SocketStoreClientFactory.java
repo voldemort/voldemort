@@ -37,7 +37,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
-import voldemort.store.stats.StoreClientFactoryStats;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.InconsistencyResolver;
@@ -187,10 +186,5 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                            SystemStoreConstants.SYSTEM_STORE_SCHEMA,
                            clusterXml,
                            fd);
-    }
-
-    @Override
-    public StoreClientFactoryStats getStoreClientFactoryStats() {
-        return super.getClientFactoryStats();
     }
 }

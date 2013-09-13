@@ -147,8 +147,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             
             JmxUtils.registerMbean(new StoreClientFactoryStatsJmx(clientFactoryStats),
                                    JmxUtils.createObjectName("voldemort.store.client.factory.stats",
-                                                             "aggregate-perf"
-                                                                     + JmxUtils.getJmxId(jmxId)));
+                                                             JmxUtils.getJmxId(jmxId)));
         }
     }
 
@@ -160,14 +159,17 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return jmxIdCounter.get();
     }
     
-    public StoreClientFactoryStats getClientFactoryStats() {
+    @Override
+    public StoreClientFactoryStats getStoreClientFactoryStats() {
         return clientFactoryStats;
     }
   
+    @Override
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return getStoreClient(storeName, null);
     }
 
+    @Override
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
 
@@ -424,9 +426,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             } catch(BootstrapFailureException e) {
                 // We have a bootstrap failure, record the event.
                 clientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.FAILED_BOOTSTRAP_EVENT);
+                logger.warn("Failed to bootstrap store");
                 if(nTries < this.maxBootstrapRetries) {
                     int backOffTime = 5 * nTries;
-                    logger.warn("Failed to bootstrap will try again after " + backOffTime
+                    logger.warn("Will try to bootstrap will try again after " + backOffTime
                                 + " seconds.");
                     try {
                         Thread.sleep(backOffTime * 1000);
