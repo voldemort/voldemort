@@ -197,28 +197,35 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         // the position to 0 in preparation for reading in the RequestHandler.
         inputStream.getBuffer().flip();
 
-        if(!clientRequest.isCompleteResponse(inputStream.getBuffer())) {
-            // Ouch - we're missing some data for a full request, so handle that
-            // and return.
-            handleIncompleteRequest(position);
-            return;
+        // uses a local variable to point to request to prevent racing condition
+        // when atomicNullOutClientRequest() is called by another thread
+        ClientRequest<?> request = clientRequest;
+
+        if(request != null) {
+
+            if(!request.isCompleteResponse(inputStream.getBuffer())) {
+                // Ouch - we're missing some data for a full request, so handle
+                // that and return.
+                handleIncompleteRequest(position);
+                return;
+            }
+
+            // At this point we have the full request (and it's not streaming),
+            // so rewind the buffer for reading and execute the request.
+            inputStream.getBuffer().rewind();
+
+            if(logger.isTraceEnabled())
+                logger.trace("Starting read for " + socketChannel.socket());
+
+            request.parseResponse(new DataInputStream(inputStream));
+
+            // At this point we've completed a full stand-alone request. So
+            // clear our input buffer and prepare for outputting back to the client.
+            if(logger.isTraceEnabled())
+                logger.trace("Finished read for " + socketChannel.socket());
+
+            selectionKey.interestOps(0);
         }
-
-        // At this point we have the full request (and it's not streaming), so
-        // rewind the buffer for reading and execute the request.
-        inputStream.getBuffer().rewind();
-
-        if(logger.isTraceEnabled())
-            logger.trace("Starting read for " + socketChannel.socket());
-
-        clientRequest.parseResponse(new DataInputStream(inputStream));
-
-        // At this point we've completed a full stand-alone request. So clear
-        // our input buffer and prepare for outputting back to the client.
-        if(logger.isTraceEnabled())
-            logger.trace("Finished read for " + socketChannel.socket());
-
-        selectionKey.interestOps(0);
         completeClientRequest();
     }
 
