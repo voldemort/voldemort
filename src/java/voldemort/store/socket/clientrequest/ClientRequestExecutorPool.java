@@ -406,7 +406,6 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                                             .socket()
                                                             .getLocalPort() + " result: " + o);
                     }
-
                     callback.requestComplete(o, requestTime);
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.WARN))
@@ -420,8 +419,9 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             try {
                 clientRequest.complete();
                 Object result = clientRequest.getResult();
-
-                invokeCallback(result, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+                long durationNs = Utils.elapsedTimeNs(startNs, System.nanoTime());
+                stats.recordOpTimeNs(destination, durationNs);
+                invokeCallback(result, durationNs / Time.NS_PER_MS);
             } catch(Exception e) {
                 invokeCallback(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
             } finally {
