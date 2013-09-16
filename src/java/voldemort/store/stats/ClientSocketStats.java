@@ -342,6 +342,7 @@ public class ClientSocketStats {
     }
     
     public Histogram getResourceRequestQueueLengthHistogram() {
+        checkMonitoringInterval();
         return this.resourceRequestQueueLengthHistogram;
     }
 
