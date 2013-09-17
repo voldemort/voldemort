@@ -108,19 +108,34 @@ public class ClientSocketStatsJmx {
         return stats.getConnectionEstablishmentQ99LatencyMs();
     }
     
-    @JmxGetter(name = "opTimeMsAverage", description = "Average time (ms) to establish a connection. Aggregate measure based on current monitoring interval.")
-    public double getopTimeMsAverage() {
-        return stats.getAvgOpTimeMs();
+    @JmxGetter(name = "syncOpTimeMsAverage", description = "Average time (ms) to do a sync operation. Aggregate measure based on current monitoring interval.")
+    public double getSyncOpTimeMsAverage() {
+        return stats.getSyncOpTimeMsAvg();
     }
     
-    @JmxGetter(name = "opTimeMsQ95th", description = "95th percentile time (ms) to do an operation. Aggregate measure based on current monitoring interval.")
-    public double getopTimeMsQ95th() {
-        return stats.getopTimeMsQ95th();
+    @JmxGetter(name = "syncOpTimeMsQ95th", description = "95th percentile time (ms) to do a sync operation. Aggregate measure based on current monitoring interval.")
+    public double getSyncOpTimeMsQ95th() {
+        return stats.getSyncOpTimeMsQ95th();
     }
     
-    @JmxGetter(name = "opTimeMsQ99th", description = "99th percentile time (ms) to do an operation. Aggregate measure based on current monitoring interval.")
-    public double getopTimeMsQ99th() {
-        return stats.getopTimeMsQ99th();
+    @JmxGetter(name = "syncOpTimeMsQ99th", description = "99th percentile time (ms) to do a sync operation. Aggregate measure based on current monitoring interval.")
+    public double getSyncOpTimeMsQ99th() {
+        return stats.getSyncOpTimeMsQ99th();
+    }
+    
+    @JmxGetter(name = "asyncOpTimeMsAverage", description = "Average time (ms) to do an async operation.. Aggregate measure based on current monitoring interval.")
+    public double getAsyncOpTimeMsAverage() {
+        return stats.getAsyncOpTimeMsAvg();
+    }
+    
+    @JmxGetter(name = "asyncOpTimeMsQ95th", description = "95th percentile time (ms) to do an async operation. Aggregate measure based on current monitoring interval.")
+    public double getAsyncOpTimeMsQ95th() {
+        return stats.getAsyncOpTimeMsQ95th();
+    }
+    
+    @JmxGetter(name = "asyncOpTimeMsQ99th", description = "99th percentile time (ms) to do an async operation. Aggregate measure based on current monitoring interval.")
+    public double getAsyncOpTimeMsQ99th() {
+        return stats.getAsyncOpTimeMsQ99th();
     }
 
     @JmxGetter(name = "resourceRequestQueueLengthQ50th", description = "50th percentile asynchronous queue length to get a connection. Aggregate measure based on current monitoring interval.")

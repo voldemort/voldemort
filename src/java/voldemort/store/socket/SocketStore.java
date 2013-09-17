@@ -321,7 +321,7 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
             // Record operation time
             long opTimeNs = Utils.elapsedTimeNs(startTimeNs, System.nanoTime());
             if (stats != null) {
-                stats.recordOpTimeNs(destination, opTimeNs);
+                stats.recordSyncOpTimeNs(destination, opTimeNs);
             }
             if(logger.isDebugEnabled()) {
                 logger.debug("Sync request end, type: "

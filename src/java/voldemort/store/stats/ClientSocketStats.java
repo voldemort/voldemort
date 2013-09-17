@@ -66,11 +66,14 @@ public class ClientSocketStats {
     private final RequestCounter checkoutTimeRequestCounter = new RequestCounter(60000, true);
     // "Async checkouts" / QueuedKeyedResourcePool::registerResourceRequest
     private final RequestCounter resourceRequestTimeRequestCounter = new RequestCounter(60000, true);
-    // "Sync checkouts" connection establishment time. The counter will be reset every 60 seconds
+    // Connection establishment time. The counter will be reset every 60 seconds
     private final RequestCounter connectionEstablishmentRequestCounter = new RequestCounter(60000, true);
-    // Operation time stats. The counter will be reset every 60 seconds
-    private final RequestCounter opTimeRequestCounter = new RequestCounter(60000, true);
     
+    // Sync operation time stats. The counter will be reset every 60 seconds
+    private final RequestCounter syncOpTimeRequestCounter = new RequestCounter(60000, true);
+    // Async operation time stats. The counter will be reset every 60 seconds
+    private final RequestCounter asynOpTimeRequestCounter = new RequestCounter(60000, true);
+
     // The histograms will be reset after monitoringInterval
     private final AtomicInteger monitoringInterval = new AtomicInteger(60000);
     private long startMs;
@@ -158,19 +161,36 @@ public class ClientSocketStats {
     }
     
     /**
-     * Record operation time
+     * Record operation for sync ops time
      * 
      * @param dest Destination of the socket to connect to. Will actually record
      *        if null. Otherwise will call this on self and corresponding child
      *        with this param null.
      * @param opTimeUs The number of us for the op to finish
      */
-    public void recordOpTimeNs(SocketDestination dest, long opTimeNs) {
+    public void recordSyncOpTimeNs(SocketDestination dest, long opTimeNs) {
         if (dest != null) {
-            getOrCreateNodeStats(dest).recordOpTimeNs(null, opTimeNs);
-            recordOpTimeNs(null, opTimeNs);
+            getOrCreateNodeStats(dest).recordSyncOpTimeNs(null, opTimeNs);
+            recordSyncOpTimeNs(null, opTimeNs);
         } else {
-            this.opTimeRequestCounter.addRequest(opTimeNs);
+            this.syncOpTimeRequestCounter.addRequest(opTimeNs);
+        }
+    }
+    
+    /**
+     * Record operation for async ops time
+     * 
+     * @param dest Destination of the socket to connect to. Will actually record
+     *        if null. Otherwise will call this on self and corresponding child
+     *        with this param null.
+     * @param opTimeUs The number of us for the op to finish
+     */
+    public void recordAsyncOpTimeNs(SocketDestination dest, long opTimeNs) {
+        if (dest != null) {
+            getOrCreateNodeStats(dest).recordAsyncOpTimeNs(null, opTimeNs);
+            recordAsyncOpTimeNs(null, opTimeNs);
+        } else {
+            this.asynOpTimeRequestCounter.addRequest(opTimeNs);
         }
     }
     
@@ -372,19 +392,32 @@ public class ClientSocketStats {
         return this.connectionEstablishmentRequestCounter.getQ99LatencyMs();
     }
     
-    // Getters for op time
-    public double getAvgOpTimeMs() {
-        return this.opTimeRequestCounter.getAverageTimeInMs();
+    // Getters for sync op time
+    public double getSyncOpTimeMsAvg() {
+        return this.syncOpTimeRequestCounter.getAverageTimeInMs();
     }
     
-    public double getopTimeMsQ95th() {
-        return this.opTimeRequestCounter.getQ95LatencyMs();
+    public double getSyncOpTimeMsQ95th() {
+        return this.syncOpTimeRequestCounter.getQ95LatencyMs();
     }
     
-    public double getopTimeMsQ99th() {
-        return this.opTimeRequestCounter.getQ99LatencyMs();
+    public double getSyncOpTimeMsQ99th() {
+        return this.syncOpTimeRequestCounter.getQ99LatencyMs();
     }
-
+    
+    // Getters for async op time
+    public double getAsyncOpTimeMsAvg() {
+        return this.asynOpTimeRequestCounter.getAverageTimeInMs();
+    }
+    
+    public double getAsyncOpTimeMsQ95th() {
+        return this.asynOpTimeRequestCounter.getQ95LatencyMs();
+    }
+    
+    public double getAsyncOpTimeMsQ99th() {
+        return this.asynOpTimeRequestCounter.getQ99LatencyMs();
+    }
+  
     // Config & administrivia interfaces
 
     public void setMonitoringInterval(int count) {
