@@ -349,9 +349,11 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                 // Because PerformParallel(Put||Delete|GetAll)Requests define
                 // 'callback' via an anonymous class, callback can be null if
                 // the client factory closes down and some other thread invokes
-                // this code. This can cause NullPointerExceptions during
+                // this code. Hence, protect against NullPointerExceptions during
                 // shutdown if async resource requests are queued up.
-                callback.requestComplete(e, 0);
+                if (callback != null){
+                    callback.requestComplete(e, 0);
+                }
             } catch(Exception ex) {
                 if(logger.isEnabledFor(Level.WARN))
                     logger.warn(ex, ex);
