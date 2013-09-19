@@ -92,7 +92,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     private final Logger logger = Logger.getLogger(R2Store.class);
 
     private Client client = null;
-    private String baseURL;
+    private String restBootstrapURL;
     private ObjectMapper mapper;
     private RESTClientConfig config;
     private String routingTypeCode = null;
@@ -100,30 +100,30 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
     private AtomicBoolean isActive;
 
     public R2Store(String storeName,
-                   String baseURL,
+                   String restBootstrapURL,
                    final TransportClient transportClient,
                    final RESTClientConfig config) {
-        this(storeName, baseURL, null, transportClient, null, config, INVALID_ZONE_ID);
+        this(storeName, restBootstrapURL, null, transportClient, null, config, INVALID_ZONE_ID);
     }
 
     public R2Store(String storeName,
-                   String httpBootstrapURL,
+                   String restBootstrapURL,
                    String routingCodeStr,
                    final TransportClient transportClient,
                    final RESTClientConfig config,
                    int zoneId) {
-        this(storeName, httpBootstrapURL, routingCodeStr, transportClient, null, config, zoneId);
+        this(storeName, restBootstrapURL, routingCodeStr, transportClient, null, config, zoneId);
     }
 
     public R2Store(String storeName,
-                   String httpBootstrapURL,
+                   String restBootstrapURL,
                    Client d2Client,
                    RESTClientConfig config) {
-        this(storeName, httpBootstrapURL, null, null, d2Client, config, INVALID_ZONE_ID);
+        this(storeName, restBootstrapURL, null, null, d2Client, config, INVALID_ZONE_ID);
     }
     
     public R2Store(String storeName,
-                   String httpBootstrapURL,
+                   String restBootstrapURL,
                    String routingCodeStr,
                    final TransportClient transportClient,
                    Client d2Client,
@@ -136,7 +136,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
             this.client = new TransportClientAdapter(transportClient);
         }
         this.config = config;
-        this.baseURL = httpBootstrapURL;
+        this.restBootstrapURL = restBootstrapURL;
         this.mapper = new ObjectMapper();
         this.routingTypeCode = routingCodeStr;
         this.zoneId = zoneId;
@@ -173,7 +173,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         try {
             // Create the REST request with this byte array
             String base64Key = RestUtils.encodeVoldemortKey(key.get());
-            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName()
+            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.restBootstrapURL + "/" + getName()
                                                                    + "/" + base64Key));
             // Create a HTTP POST request
             rb.setMethod(DELETE);
@@ -268,7 +268,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         String base64Key = RestUtils.encodeVoldemortKey(key.get());
         RestRequestBuilder rb = null;
         try {
-            rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName() + "/" + base64Key));
+            rb = new RestRequestBuilder(new URI(this.restBootstrapURL + "/" + getName() + "/" + base64Key));
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.GET_OP_CODE));
             rb.setHeader("Accept", MULTIPART_CONTENT_TYPE);
@@ -359,7 +359,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         RestRequestBuilder rb = null;
         try {
             String base64Key = new String(Base64.encodeBase64(getName().getBytes("UTF-8")));
-            rb = new RestRequestBuilder(new URI(this.baseURL + "/" + SCHEMATA_STORE_NAME + "/"
+            rb = new RestRequestBuilder(new URI(this.restBootstrapURL + "/" + SCHEMATA_STORE_NAME + "/"
                                                 + base64Key));
             rb.setHeader("Accept", "binary");
             rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
@@ -407,7 +407,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
 
             // Create the REST request with this byte array
             String base64Key = RestUtils.encodeVoldemortKey(key.get());
-            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName()
+            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.restBootstrapURL + "/" + getName()
                                                                    + "/" + base64Key));
 
             // Create a HTTP POST request
@@ -518,7 +518,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 }
             }
 
-            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName()
+            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.restBootstrapURL + "/" + getName()
                                                                    + "/" + keyArgs));
 
             rb.setMethod(GET);
@@ -669,7 +669,7 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
         String base64Key = RestUtils.encodeVoldemortKey(key.get());
         RestRequestBuilder rb = null;
         try {
-            rb = new RestRequestBuilder(new URI(this.baseURL + "/" + getName() + "/" + base64Key));
+            rb = new RestRequestBuilder(new URI(this.restBootstrapURL + "/" + getName() + "/" + base64Key));
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE));
 

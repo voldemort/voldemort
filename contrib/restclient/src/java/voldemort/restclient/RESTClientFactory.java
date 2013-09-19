@@ -202,7 +202,7 @@ public class RESTClientFactory implements StoreClientFactory {
 
     @Override
     public StoreClientFactoryStats getStoreClientFactoryStats() {
-        return null;
+        return RESTClientFactoryStats;
     }
 
     /**
