@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.log4j.Logger;
@@ -35,6 +36,7 @@ import voldemort.versioning.Versioned;
 
 import com.linkedin.common.callback.FutureCallback;
 import com.linkedin.common.util.None;
+import com.linkedin.r2.transport.common.Client;
 import com.linkedin.r2.transport.common.bridge.client.TransportClient;
 import com.linkedin.r2.transport.http.client.HttpClientFactory;
 
@@ -50,7 +52,9 @@ public class RESTClientFactory implements StoreClientFactory {
     private SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private HttpClientFactory _clientFactory;
     private final TransportClient transportClient;
-    
+    private final StoreClientFactoryStats RESTClientFactoryStats;
+    private Client d2Client;
+
     /**
      * This list holds a reference to all the raw stores created by this
      * factory. When the application invokes 'close' on this factory, it invokes
@@ -58,8 +62,10 @@ public class RESTClientFactory implements StoreClientFactory {
      */
     private List<R2Store> rawStoreList = null;
 
-    public RESTClientFactory(RESTClientConfig config) {
-        this.config = config;
+    public RESTClientFactory(Config config) {
+        this.config = new RESTClientConfig(config.getClientConfig());
+        this.d2Client = config.getD2Client();
+        
         this.stats = new StoreStats();
         this.rawStoreList = new ArrayList<R2Store>();
 
@@ -70,6 +76,7 @@ public class RESTClientFactory implements StoreClientFactory {
         properties.put(HttpClientFactory.POOL_SIZE_KEY,
                        Integer.toString(this.config.getMaxR2ConnectionPoolSize()));
         transportClient = _clientFactory.getClient(properties);
+        this.RESTClientFactoryStats = new StoreClientFactoryStats();
     }
 
     /**
@@ -107,10 +114,19 @@ public class RESTClientFactory implements StoreClientFactory {
         Store<K, V, T> clientStore = null;
 
         // The lowest layer : Transporting request to coordinator
-        R2Store r2store = new R2Store(storeName,
+        R2Store r2store = null;
+        if (this.d2Client == null) {
+            r2store = new R2Store(storeName,
+                                          this.config.getHttpBootstrapURL(),
+                                          this.transportClient,
+                                          this.config);
+        } else {
+           r2store = new R2Store(storeName,
                                       this.config.getHttpBootstrapURL(),
-                                      this.transportClient,
+                                      this.d2Client,
                                       this.config);
+        }
+                                      
         this.rawStoreList.add(r2store);
 
         // bootstrap from the coordinator and obtain all the serialization
@@ -121,9 +137,9 @@ public class RESTClientFactory implements StoreClientFactory {
 
         if(logger.isDebugEnabled()) {
             logger.debug("Bootstrapping for " + storeName + ": Key serializer "
-                         + keySerializerDefinition);
+                    + keySerializerDefinition);
             logger.debug("Bootstrapping for " + storeName + ": Value serializer "
-                         + valueSerializerDefinition);
+                    + valueSerializerDefinition);
         }
 
         // Start building the stack..
@@ -153,10 +169,10 @@ public class RESTClientFactory implements StoreClientFactory {
 
         // Add inconsistency Resolving layer
         InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver<V>()
-                                                                                : resolver;
+                                                                                 : resolver;
         clientStore = new InconsistencyResolvingStore<K, V, T>(clientStore,
-                                                               new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver<V>(),
-                                                                                                 secondaryResolver));
+                new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver<V>(),
+                        secondaryResolver));
         return clientStore;
     }
 
@@ -175,7 +191,7 @@ public class RESTClientFactory implements StoreClientFactory {
                          e);
         } catch(ExecutionException e) {
             logger.error("Execution exception occurred while shutting down the HttpClientFactory: "
-                         + e.getMessage(), e);
+                    + e.getMessage(), e);
         }
     }
 
@@ -187,6 +203,42 @@ public class RESTClientFactory implements StoreClientFactory {
     @Override
     public StoreClientFactoryStats getStoreClientFactoryStats() {
         return null;
+    }
+
+    /**
+     * Inner configuration class.
+     */
+    public static class Config
+    {
+        private Properties clientConfig;
+        private Client d2Client;
+
+        public Config()
+        {
+        }
+
+        public Config(Properties clientConfig, Client d2Client)
+        {
+            setClientConfig(clientConfig);
+            setD2Client(d2Client);
+        }
+
+        public Properties getClientConfig() {
+            return clientConfig;
+        }
+
+        public void setClientConfig(Properties clientConfig) {
+            this.clientConfig = clientConfig;
+        }
+
+        public Client getD2Client() {
+            return d2Client;
+        }
+
+        public void setD2Client(Client d2Client) {
+            this.d2Client = d2Client;
+        }
+
     }
 
 }

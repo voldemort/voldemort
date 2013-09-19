@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.Before;
@@ -21,7 +20,6 @@ import voldemort.ServerTestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.rest.coordinator.CoordinatorConfig;
 import voldemort.rest.coordinator.CoordinatorService;
-import voldemort.restclient.RESTClientConfig;
 import voldemort.restclient.RESTClientFactory;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
@@ -91,12 +89,13 @@ public class RestClientTest extends DefaultStoreClientTest {
             fail("Failure to start the Coordinator");
         }
 
-        RESTClientConfig config = new RESTClientConfig();
-        config.setHttpBootstrapURL("http://localhost:9999")
-              .setTimeoutMs(1500, TimeUnit.MILLISECONDS)
-              .setMaxR2ConnectionPoolSize(100);
+        Properties props = new Properties();
+        props.setProperty(ClientConfig.BOOTSTRAP_URLS_PROPERTY, "http://localhost:9999");
+        props.setProperty(ClientConfig.ROUTING_TIMEOUT_MS_PROPERTY, "1500");
 
-        RESTClientFactory factory = new RESTClientFactory(config);
+        RESTClientFactory.Config mainConfig = new RESTClientFactory.Config(props, null);
+        RESTClientFactory factory = new RESTClientFactory(mainConfig);
+
 
         this.client = factory.getStoreClient(STORE_NAME);
     }

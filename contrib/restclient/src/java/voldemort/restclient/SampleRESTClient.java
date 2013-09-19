@@ -18,8 +18,9 @@ package voldemort.restclient;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.Properties;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.StoreClient;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
@@ -35,12 +36,12 @@ public class SampleRESTClient {
     public static void main(String[] args) {
 
         // Create the client
-        RESTClientConfig config = new RESTClientConfig();
-        config.setHttpBootstrapURL("http://localhost:8080")
-              .setTimeoutMs(1500, TimeUnit.MILLISECONDS)
-              .setMaxR2ConnectionPoolSize(100);
+        Properties props = new Properties();
+        props.setProperty(ClientConfig.BOOTSTRAP_URLS_PROPERTY, "http://localhost:8080");
+        props.setProperty(ClientConfig.ROUTING_TIMEOUT_MS_PROPERTY, "1500");
 
-        RESTClientFactory factory = new RESTClientFactory(config);
+        RESTClientFactory.Config mainConfig = new RESTClientFactory.Config(props, null);
+        RESTClientFactory factory = new RESTClientFactory(mainConfig);
         StoreClient<String, String> clientStore = factory.getStoreClient("test");
 
         try {

@@ -103,24 +103,46 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                    String baseURL,
                    final TransportClient transportClient,
                    final RESTClientConfig config) {
-        this(storeName, baseURL, null, transportClient, config, INVALID_ZONE_ID);
+        this(storeName, baseURL, null, transportClient, null, config, INVALID_ZONE_ID);
     }
 
     public R2Store(String storeName,
-                   String baseURL,
+                   String httpBootstrapURL,
                    String routingCodeStr,
                    final TransportClient transportClient,
                    final RESTClientConfig config,
                    int zoneId) {
+        this(storeName, httpBootstrapURL, routingCodeStr, transportClient, null, config, zoneId);
+    }
+
+    public R2Store(String storeName,
+                   String httpBootstrapURL,
+                   Client d2Client,
+                   RESTClientConfig config) {
+        this(storeName, httpBootstrapURL, null, null, d2Client, config, INVALID_ZONE_ID);
+    }
+    
+    public R2Store(String storeName,
+                   String httpBootstrapURL,
+                   String routingCodeStr,
+                   final TransportClient transportClient,
+                   Client d2Client,
+                   RESTClientConfig config,
+                   int zoneId) {
         super(storeName);
-        this.client = new TransportClientAdapter(transportClient);
+        if (transportClient == null) {
+            this.client = d2Client;
+        } else {
+            this.client = new TransportClientAdapter(transportClient);
+        }
         this.config = config;
-        this.baseURL = baseURL;
+        this.baseURL = httpBootstrapURL;
         this.mapper = new ObjectMapper();
         this.routingTypeCode = routingCodeStr;
         this.zoneId = zoneId;
         this.isActive = new AtomicBoolean(true);
     }
+
 
     @Override
     public void close() throws VoldemortException {
