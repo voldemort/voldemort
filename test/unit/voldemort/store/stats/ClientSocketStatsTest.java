@@ -57,8 +57,8 @@ public class ClientSocketStatsTest {
     public void testNewAggrNodeStatsObject() {
         ClientSocketStats stats = masterStats;
         assertNotNull(stats);
-        assertEquals(0, stats.getConnectionsCreated());
-        assertEquals(0, stats.getConnectionsDestroyed());
+        assertEquals(0, stats.getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
+        assertEquals(0, stats.getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
         assertEquals(0, stats.getCheckoutCount());
         assertEquals(0, (int) stats.getAvgCheckoutWaitMs() * Time.US_PER_MS);
     }
@@ -66,23 +66,23 @@ public class ClientSocketStatsTest {
     @Test
     public void testConnectionCreate() {
         ClientSocketStats stats = masterStats;
-        stats.connectionCreate(dest1);
-        stats.connectionCreate(dest2);
-        stats.connectionCreate(dest1);
-        assertEquals(3, stats.getConnectionsCreated());
-        assertEquals(2, stats.getStatsMap().get(dest1).getConnectionsCreated());
-        assertEquals(1, stats.getStatsMap().get(dest2).getConnectionsCreated());
+        stats.incrementCount(dest1, ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT);
+        stats.incrementCount(dest2, ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT);
+        stats.incrementCount(dest1, ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT);
+        assertEquals(3, stats.getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
+        assertEquals(2, stats.getStatsMap().get(dest1).getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
+        assertEquals(1, stats.getStatsMap().get(dest2).getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
     }
 
     @Test
     public void testConnectionDestroy() {
         ClientSocketStats stats = masterStats;
-        stats.connectionDestroy(dest1);
-        stats.connectionDestroy(dest2);
-        stats.connectionDestroy(dest1);
-        assertEquals(3, stats.getConnectionsDestroyed());
-        assertEquals(2, stats.getStatsMap().get(dest1).getConnectionsDestroyed());
-        assertEquals(1, stats.getStatsMap().get(dest2).getConnectionsDestroyed());
+        stats.incrementCount(dest1, ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT);
+        stats.incrementCount(dest2, ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT);
+        stats.incrementCount(dest1, ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT);
+        assertEquals(3, stats.getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
+        assertEquals(2, stats.getStatsMap().get(dest1).getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
+        assertEquals(1, stats.getStatsMap().get(dest2).getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
     }
 
     @Test

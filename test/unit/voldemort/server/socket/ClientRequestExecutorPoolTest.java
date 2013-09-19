@@ -39,6 +39,7 @@ import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.store.stats.ClientSocketStats;
 
 /**
  * Tests for the socket pooling
@@ -118,19 +119,19 @@ public class ClientRequestExecutorPoolTest {
         for(int i = 0; i < maxConnectionsPerNode; i++)
             list.add(pool.checkout(dest1));
 
-        assertEquals(list.size(), pool.getStats().getConnectionsCreated());
+        assertEquals(list.size(), pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
         assertEquals(list.size(), pool.getStats().getConnectionsActive(null));
 
         pool.close(dest1);
 
         assertEquals(list.size(), pool.getStats().getConnectionsActive(null));
-        assertEquals(0, pool.getStats().getConnectionsDestroyed());
+        assertEquals(0, pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
 
         for(ClientRequestExecutor sas: list)
             pool.checkin(dest1, sas);
 
         assertEquals(0, pool.getStats().getConnectionsActive(null));
-        assertEquals(list.size(), pool.getStats().getConnectionsCreated());
+        assertEquals(list.size(), pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
     }
 
     @Test

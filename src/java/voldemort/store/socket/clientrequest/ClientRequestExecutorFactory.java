@@ -99,7 +99,7 @@ public class ClientRequestExecutorFactory implements
         clientRequestExecutor.close();
         int numDestroyed = destroyed.incrementAndGet();
         if(stats != null) {
-            stats.connectionDestroy(dest);
+            stats.incrementCount(dest, ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT);
         }
 
         if(logger.isDebugEnabled())
@@ -145,6 +145,7 @@ public class ClientRequestExecutorFactory implements
                 long remaining = this.connectTimeoutMs - durationMs;
 
                 if(remaining < 0) {
+                    stats.incrementCount(dest, ClientSocketStats.Tracked.CONNECTION_EXCEPTION_EVENT);
                     throw new ConnectException("Cannot connect socket " + numCreated + " for "
                                                + dest.getHost() + ":" + dest.getPort() + " after "
                                                + durationMs + " ms");
@@ -225,7 +226,7 @@ public class ClientRequestExecutorFactory implements
             throw e;
         }
         if (stats != null) {
-            stats.connectionCreate(dest);
+            stats.incrementCount(dest, ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT);
             stats.recordConnectionEstablishmentTimeUs(dest, durationMs * Time.US_PER_MS);
         }
 

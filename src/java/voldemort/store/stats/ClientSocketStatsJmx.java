@@ -40,12 +40,17 @@ public class ClientSocketStatsJmx {
 
     @JmxGetter(name = "socketsCreated", description = "Number of sockets created. Aggregate measure based on current monitoring interval.")
     public int getConnectionsCreated() {
-        return stats.getConnectionsCreated();
+        return stats.getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT);
     }
 
     @JmxGetter(name = "socketsDestroyed", description = "Number of sockets destroyed. Aggregate measure based on current monitoring interval.")
     public int getConnectionsDestroyed() {
-        return stats.getConnectionsDestroyed();
+        return stats.getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT);
+    }
+    
+    @JmxGetter(name = "connectionException", description = "Number of connection exception. Aggregate measure based on current monitoring interval.")
+    public int getConnectionExceptions() {
+        return stats.getCount(ClientSocketStats.Tracked.CONNECTION_EXCEPTION_EVENT);
     }
 
     @JmxGetter(name = "socketsCheckedout", description = "Number of sockets checked out. Aggregate measure based on current monitoring interval.")

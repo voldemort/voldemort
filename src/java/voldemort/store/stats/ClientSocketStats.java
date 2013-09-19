@@ -16,7 +16,9 @@
 
 package voldemort.store.stats;
 
+import java.util.EnumMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -59,9 +61,6 @@ public class ClientSocketStats {
     private final SocketDestination destination;
     private QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
 
-    // Connection lifecycle
-    private final AtomicInteger connectionsCreated = new AtomicInteger(0);
-    private final AtomicInteger connectionsDestroyed = new AtomicInteger(0);
     // "Sync checkouts" / KeyedResourcePool::checkout
     private final RequestCounter checkoutTimeRequestCounter = new RequestCounter(60000, true);
     // "Async checkouts" / QueuedKeyedResourcePool::registerResourceRequest
@@ -80,9 +79,24 @@ public class ClientSocketStats {
     private final Histogram checkoutQueueLengthHistogram = new Histogram(250, 1);
     private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
     
-    
     private final int jmxId;
     private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
+
+    private final Map<Tracked, AtomicInteger> counters;
+
+    public static enum Tracked {
+        CONNECTION_CREATED_EVENT("connectionCreated"),
+        CONNECTION_DESTROYED_EVENT("connectionDestroyed"),
+        CONNECTION_EXCEPTION_EVENT("connectionException");
+        private final String name;
+        private Tracked(String name) {
+            this.name = name;
+        }
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
 
     /**
      * To construct a per node stats object
@@ -102,6 +116,10 @@ public class ClientSocketStats {
         this.pool = pool;
         this.jmxId = jmxId;
         this.startMs = SystemTime.INSTANCE.getMilliseconds(); 
+        counters = new EnumMap<Tracked, AtomicInteger>(Tracked.class);
+        for (Tracked tracked: Tracked.values()) {
+            counters.put(tracked, new AtomicInteger(0));
+        }
 
         if(logger.isDebugEnabled()) {
             logger.debug("Constructed ClientSocketStatsStats object ("
@@ -109,6 +127,8 @@ public class ClientSocketStats {
                          + System.identityHashCode(parent) + ")");
         }
     }
+
+
 
     /**
      * Construction of a new aggregate stats object
@@ -122,6 +142,10 @@ public class ClientSocketStats {
         this.pool = null;
         this.jmxId = jmxId;
         this.startMs = SystemTime.INSTANCE.getMilliseconds(); 
+        counters = new EnumMap<Tracked, AtomicInteger>(Tracked.class);
+        for (Tracked tracked: Tracked.values()) {
+            counters.put(tracked, new AtomicInteger(0));
+        }
 
         if(logger.isDebugEnabled()) {
             logger.debug("Constructed ClientSocketStatsStats object ("
@@ -129,7 +153,7 @@ public class ClientSocketStats {
                          + System.identityHashCode(parent) + ")");
         }
     }
-
+    
     /* get per node stats, create one if not exist */
     private ClientSocketStats getOrCreateNodeStats(SocketDestination destination) {
         if (destination == null) {
@@ -284,31 +308,17 @@ public class ClientSocketStats {
         }
     }
 
-    public void connectionCreate(SocketDestination dest) {
-        if(dest != null) {
-            getOrCreateNodeStats(dest).connectionCreate(null);
-            connectionCreate(null);
+    public void incrementCount(SocketDestination dest, Tracked metric) {
+        if (dest != null) {
+            getOrCreateNodeStats(dest).incrementCount(null, metric);
+            incrementCount(null, metric);
         } else {
-            this.connectionsCreated.getAndIncrement();
+            this.counters.get(metric).getAndIncrement();
         }
     }
 
-    public void connectionDestroy(SocketDestination dest) {
-        if(dest != null) {
-            getOrCreateNodeStats(dest).connectionDestroy(null);
-            connectionDestroy(null);
-        } else {
-            this.connectionsDestroyed.getAndIncrement();
-        }
-    }
-
-    // Getters for connection life cycle stats
-    public int getConnectionsCreated() {
-        return connectionsCreated.intValue();
-    }
-
-    public int getConnectionsDestroyed() {
-        return connectionsDestroyed.intValue();
+    public int getCount(Tracked metric) {
+        return counters.get(metric).get();
     }
 
     // Getters for checkout stats
