@@ -1,3 +1,23 @@
+Release 1.5.3 on 09/19/2013
+
+* Bug fixes (NPE during shutdown
+* Client side visibility changes (Histogram, Connect exception)
+* Adding PruneJob and timebased resolving mechanism to streaming client
+* R2Store cleanup required for the rest client
+* Monitoring improvements (aggregated BDB stats, streaming stats)
+* Monitoring and Config improvements for REST service
+* Removed donor based rebalancing code
+* Removed replica type from the code base
+* Improvements to Rebalance controller
+
+Release 1.4.7 on 09/04/13
+
+Changes
+* Added the Zone affinity feature on the client side
+* Refactoring the rest package (Rest server and Coordinator)
+* Using standard Netty pipeline in the Coordinator
+* Added monitoring hooks for the Rest Service
+
 Release 1.4.6 on 07/24/2013
 
 Changes
