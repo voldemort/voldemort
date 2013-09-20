@@ -131,6 +131,8 @@ public class RestHadoopFetcher implements FileFetcher {
             RestHadoopAuth.loginSecuredHdfs();
 
             // instantiate RestFS
+            // It is a hack to replace webhdfs w/ http because the BnP job will construct URL w/ webhdfs. We have to release this code to all servers before modifying BnP. Otherwise, servers will immediately using http w/o going through RESTHdfsClient and the operations will fail.
+            sourceFileUrl = sourceFileUrl.replace("webhdfs", "http"); 
             URL sourceUrl = new URL(sourceFileUrl);
             RestFileSystem rfs = new RestFileSystem(sourceUrl.getProtocol() + "://"
                                                     + sourceUrl.getHost() + ":"

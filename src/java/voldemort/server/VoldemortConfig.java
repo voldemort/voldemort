@@ -3090,6 +3090,7 @@ public class VoldemortConfig implements Serializable {
      */
     public void setPruneJobMaxKeysScannedPerSec(int maxKeysPerSecond) {
         this.pruneJobMaxKeysScannedPerSec = maxKeysPerSecond;
+    }
     
     /**
      * Kdc for kerberized Hadoop grids

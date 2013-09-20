@@ -17,7 +17,7 @@ public enum ServiceType {
     GOSSIP("gossip-service"),
     REBALANCE("rebalance-service"),
     COORDINATOR("coordinator-service"),
-    RESTSERVICE("rest-service");
+    RESTSERVICE("rest-service"),
     HDFSAuth("hdfs-auth-service");
 
     private final String display;

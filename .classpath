@@ -65,7 +65,7 @@
 	<classpathentry kind="lib" path="contrib/restclient/lib/r2-1.5.10.jar"/>
 	<classpathentry kind="lib" path="lib/guava-14.0.1.jar"/>
 	<classpathentry kind="lib" path="lib/gson-2.2.4.jar"/>
-	<classpathentry kind="lib" path="lib/restfs.jar" />
+	<classpathentry kind="lib" path="lib/restfs-1.0-SNAPSHOT.jar" />
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>
