@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
+import org.apache.hadoop.fs.rest.client.RestAuthService;
+import org.apache.hadoop.fs.rest.client.RestFSException;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -45,6 +47,7 @@ import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationService;
+import voldemort.server.protocol.hadoop.RestHadoopAuth;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
 import voldemort.server.socket.SocketService;
@@ -311,6 +314,13 @@ public class VoldemortServer extends AbstractService {
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
 
+        if(voldemortConfig.isRestHdfsEnabled()) {
+            services.add(new RestHadoopAuth(voldemortConfig.getReadOnlyKerberosRealm(),
+                                            voldemortConfig.getReadOnlyKerberosKdc(),
+                                            voldemortConfig.getReadOnlyKerberosUser(),
+                                            voldemortConfig.getReadOnlyKeytabPath()));
+        }
+
         return ImmutableList.copyOf(services);
     }
 
@@ -347,6 +357,14 @@ public class VoldemortServer extends AbstractService {
             }
         }
         logger.info("All services stopped for Node:" + getIdentityNode().getId());
+
+        // logout secured hdfs when closing the server.
+        try {
+            RestAuthService.logout();
+        } catch(RestFSException e) {
+            logger.info("Exception encounted while logging out from secured hdfs: "
+                        + e.getMessage());
+        }
 
         if(exceptions.size() > 0)
             throw exceptions.get(0);
