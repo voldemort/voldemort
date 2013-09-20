@@ -422,7 +422,9 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                 clientRequest.complete();
                 Object result = clientRequest.getResult();
                 long durationNs = Utils.elapsedTimeNs(startNs, System.nanoTime());
-                stats.recordAsyncOpTimeNs(destination, durationNs);
+                if (stats != null) {
+                    stats.recordAsyncOpTimeNs(destination, durationNs);
+                }
                 invokeCallback(result, durationNs / Time.NS_PER_MS);
             } catch(Exception e) {
                 invokeCallback(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
