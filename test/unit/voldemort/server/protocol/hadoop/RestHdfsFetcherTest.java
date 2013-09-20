@@ -178,6 +178,8 @@ public class RestHdfsFetcherTest {
             // this is just some random admin operation to trigger the loading
             // of the fetcher class when request handler is instantiated
             adminClient.readonlyOps.getROMaxVersionDir(0, new ArrayList<String>());
+
+            ServerTestUtils.stopVoldemortServer(server);
         } catch(IOException ioe) {
             // igore ioexception here
         }
@@ -232,6 +234,8 @@ public class RestHdfsFetcherTest {
             // this is just some random admin operation to trigger the loading
             // of the fetcher class when request handler is instantiated
             adminClient.readonlyOps.getROMaxVersionDir(0, new ArrayList<String>());
+
+            ServerTestUtils.stopVoldemortServer(server);
         } catch(IOException ioe) {
             // igore ioexception here
         }

@@ -25,8 +25,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-import org.apache.hadoop.fs.rest.client.RestAuthService;
-import org.apache.hadoop.fs.rest.client.RestFSException;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -357,14 +355,6 @@ public class VoldemortServer extends AbstractService {
             }
         }
         logger.info("All services stopped for Node:" + getIdentityNode().getId());
-
-        // logout secured hdfs when closing the server.
-        try {
-            RestAuthService.logout();
-        } catch(RestFSException e) {
-            logger.error("Exception encounted while logging out from secured hdfs: ");
-            logger.error(e);
-        }
 
         if(exceptions.size() > 0)
             throw exceptions.get(0);

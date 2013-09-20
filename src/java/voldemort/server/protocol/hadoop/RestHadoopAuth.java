@@ -108,7 +108,8 @@ public class RestHadoopAuth extends AbstractService {
      * @throws RestFSException
      */
     public static void logoutSecuredHdfs() throws RestFSException {
-        RestAuthService.logout();
-        logger.info("Successfully logged out HDFS");
+        if(RestAuthService.logout()) {
+            logger.info("Successfully logged out HDFS");
+        }
     }
 }
