@@ -122,7 +122,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     private void setFetcherClass(VoldemortConfig voldemortConfig) {
         if(voldemortConfig != null) {
-            String className = voldemortConfig.getAllProps().getString("file.fetcher.class", null);
+            String className = voldemortConfig.getFileFetcherClass();
             if(className == null || className.trim().length() == 0) {
                 this.fileFetcher = null;
             } else {

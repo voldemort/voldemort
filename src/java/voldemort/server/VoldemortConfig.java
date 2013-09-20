@@ -83,7 +83,9 @@ public class VoldemortConfig implements Serializable {
     public static final String DEFAULT_KEYTAB_PATH = "/voldemrt.headless.keytab";
     private static final String DEFAULT_KERBEROS_KDC = "";
     private static final String DEFAULT_KERBEROS_REALM = "";
-    private static final boolean DEFAULT_READONLY_REST_HDFS = true;
+    private static final boolean DEFAULT_READONLY_REST_HDFS = false;
+    private static final String DEFAULT_FILE_FETCHER_CLASS = null;
+    private static final String REST_HDFS_FETCHER_CLASS = "voldemort.server.protocol.hadoop.RestHadoopFetcher";
 
     private int nodeId;
     private String voldemortHome;
@@ -149,6 +151,7 @@ public class VoldemortConfig implements Serializable {
     private String readOnlyKerberosKdc;
     private String readOnlykerberosRealm;
     private boolean enableReadOnlyRestHdfs;
+    private String fileFetcherClass;
 
     // flag to indicate if we will mlock and pin index pages in memory
     private boolean useMlock;
@@ -340,6 +343,8 @@ public class VoldemortConfig implements Serializable {
                                                      VoldemortConfig.DEFAULT_KERBEROS_REALM);
         this.enableReadOnlyRestHdfs = props.getBoolean("enable.readonly.rest.hdfs",
                                                        VoldemortConfig.DEFAULT_READONLY_REST_HDFS);
+        this.fileFetcherClass = props.getString("file.fetcher.class",
+                                                VoldemortConfig.DEFAULT_FILE_FETCHER_CLASS);
 
         this.setUseMlock(props.getBoolean("readonly.mlock.index", true));
 
@@ -594,6 +599,13 @@ public class VoldemortConfig implements Serializable {
             throw new ConfigurationException("rest.service.storage.thread.pool.queue.size cannot be negative.");
         if(maxHttpAggregatedContentLength <= 0)
             throw new ConfigurationException("max.http.aggregated.content.length must be positive");
+        if(REST_HDFS_FETCHER_CLASS.equals(fileFetcherClass) && !enableReadOnlyRestHdfs
+           || !REST_HDFS_FETCHER_CLASS.equals(fileFetcherClass) && enableReadOnlyRestHdfs)
+            throw new ConfigurationException("The values of \"file.fetcher.class\" and \"enable.readonly.rest.hdfs\" do not match: \n"
+                                             + "  file.fetcher.class="
+                                             + fileFetcherClass
+                                             + "\n  enable.readonly.rest.hdfs="
+                                             + enableReadOnlyRestHdfs);
     }
 
     private int getIntEnvVariable(String name) {
@@ -3099,7 +3111,7 @@ public class VoldemortConfig implements Serializable {
      * kerberized hadoop realm
      * 
      * <ul>
-     * <li>Property :"readonly.kerberos.realm
+     * <li>Property :"readonly.kerberos.realm"</li>
      * <li>Default : ""</li>
      * </ul>
      * 
@@ -3128,4 +3140,23 @@ public class VoldemortConfig implements Serializable {
     public boolean isRestHdfsEnabled() {
         return this.enableReadOnlyRestHdfs;
     }
+
+    /**
+     * Read-only file fetcher class
+     * 
+     * <ul>
+     * <li>Property :"file.fetcher.class"</li>
+     * <li>Default : "voldemort.server.protocol.hadoop.RestHadoopFetcher"</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public void setFileFetcherClass(String fileFetcherClass) {
+        this.fileFetcherClass = fileFetcherClass;
+    }
+
+    public String getFileFetcherClass() {
+        return this.fileFetcherClass;
+    }
+
 }
