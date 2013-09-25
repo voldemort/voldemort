@@ -36,14 +36,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.apache.avro.Schema;
+import org.apache.commons.lang.Validate;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.store.StoreDefinition;
@@ -171,74 +174,150 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     }
 
+    /**
+     * 
+     * Compare two clusters to see if they have the equal number of partitions, equal number of nodes and each node 
+     * hosts the same partition ids. 
+     * 
+     * @param lhs Left hand side Cluster object
+     * @param rhs Right hand side cluster object       
+     * @return True if the clusters are congruent (equal number of partitions, equal number of nodes and same partition
+     *         ids 
+     */
+    private boolean areClustersCongruent(final Cluster lhs, final Cluster rhs) {
+        if (lhs.getNumberOfPartitions() != rhs.getNumberOfPartitions())
+            return false;
+        if (!lhs.getNodeIds().equals(rhs.getNodeIds()))
+            return false;
+        for (Node lhsNode: lhs.getNodes()) {
+            Node rhsNode = rhs.getNodeById(lhsNode.getId());
+            if (!rhsNode.getPartitionIds().equals(lhsNode.getPartitionIds())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Check if all cluster objects in the list are congruent.
+     * 
+     * @param list of cluster objects 
+     * @return 
+     *         
+     */
+    private void allClustersCongruent(final List<String> clusterUrls) {
+        Validate.notEmpty(clusterUrls, "Clusterurls cannot be null");
+        AdminClient adminClientLhs = new AdminClient(clusterUrls.get(0),
+                                                     new AdminClientConfig(),
+                                                     new ClientConfig());
+        Cluster clusterLhs = adminClientLhs.getAdminClientCluster();
+        for (int index = 1; index < clusterUrls.size(); index++) {
+            AdminClient adminClientRhs = new AdminClient(clusterUrls.get(index),
+                                                         new AdminClientConfig(),
+                                                         new ClientConfig());
+            Cluster clusterRhs = adminClientRhs.getAdminClientCluster();
+            if (!areClustersCongruent(clusterLhs, clusterRhs))
+                throw new VoldemortException("Cluster " + clusterLhs.getName()
+                                             + "is not the same as "
+                                             + clusterRhs.getName());
+        }
+    }
+
     @Override
     public void run() throws Exception {
+        // These two options control the build and push phases of the job respectively.
+        // When used together, the data set will be build thrice and then pushed to each data center
         boolean build = props.getBoolean("build", true);
         boolean push = props.getBoolean("push", true);
+        // This option is an optimization such that it builds only once and then pushes it to all
+        // three. The pushes are done sequentially.
+        boolean multi = props.getBoolean("multi", true);
 
         jsonKeyField = props.getString("key.selection", null);
         jsonValueField = props.getString("value.selection", null);
-        if(build && push && dataDirs.size() != 1) {
-            // Should have only one data directory ( which acts like the parent
-            // directory to all
-            // urls )
-            throw new RuntimeException(" Should have only one data directory ( which acts like root directory ) since they are auto-generated during build phase ");
-        } else if(!build && push && dataDirs.size() != clusterUrl.size()) {
-            // Number of data directories should be equal to number of cluster
-            // urls
-            throw new RuntimeException(" Since we are only pushing, number of data directories ( comma separated ) should be equal to number of cluster urls ");
-        }
 
+        if (build && push && dataDirs.size() != 1) {
+            // Should have only one data directory (which acts like the parent directory to all urls)
+            throw new RuntimeException(" Should have only one data directory ( which acts like root "
+                                       +
+                                       " directory ) since they are auto-generated during build phase ");
+        } else if (!build && push && dataDirs.size() != clusterUrl.size()) {
+            // Number of data directories should be equal to number of cluster urls
+            throw new RuntimeException(" Since we are only pushing, number of data directories"
+                                       + " ( comma separated ) should be equal to number of cluster"
+                                       + " urls ");
+        }
         // Check every url individually
         HashMap<String, Exception> exceptions = Maps.newHashMap();
-
-        for(int index = 0; index < clusterUrl.size(); index++) {
+        String buildOutputDir = null;
+        for (int index = 0; index < clusterUrl.size(); index++) {
             String url = clusterUrl.get(index);
-
             log.info("Working on " + url);
-
             try {
-
                 if(isAvroJob)
                     verifyAvroSchemaAndVersions(url, isAvroVersioned);
                 else
                     verifySchema(url);
-
-                String buildOutputDir;
-                if(build) {
-                    buildOutputDir = runBuildStore(props, url);
+                if (!multi) {
+                    // preserve the original behavior of building multiple times
+                    if (build) {
+                        buildOutputDir = runBuildStore(props, url);
+                    } else {
+                        buildOutputDir = dataDirs.get(index);
+                    }
+                    if (push) {
+                        if (log.isDebugEnabled()) {
+                            log.debug("Informing about push start ...");
+                        }
+                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                                                                                            "Running",
+                                                                                            this.getId())));
+                        runPushStore(props, url, buildOutputDir);
+                        if (log.isDebugEnabled()) {
+                            log.debug("Informing about push finish ...");
+                        }
+                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                                                                                            "Finished",
+                                                                                            this.getId())));
+                    }
                 } else {
-                    buildOutputDir = dataDirs.get(index);
+                    // If multi option is being used make sure that the cluster toplogy is the same
+                    try {
+                        allClustersCongruent(clusterUrl);
+                    } catch (VoldemortException e) {
+                        log.error("Exception during build and push " + e.getMessage(), e);
+                        System.exit(-1);
+                    }
+                    // build only once
+                    if (buildOutputDir == null) {
+                        buildOutputDir = runBuildStore(props, clusterUrl.get(index));
+                    }
+                    // And push to all
+                    for (; index < clusterUrl.size(); index++) {
+                        if (log.isDebugEnabled()) {
+                            log.debug("Informing about push start ...");
+                        }
+                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                                                                                            "Running",
+                                                                                            this.getId())));
+                        runPushStore(props, clusterUrl.get(index), buildOutputDir);
+                        if (log.isDebugEnabled()) {
+                            log.debug("Informing about push finish ...");
+                        }
+                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                                                                                            "Finished",
+                                                                                            this.getId())));
+                    }
                 }
-
-                if(push) {
-                    if(log.isDebugEnabled())
-                        log.debug("Informing about push start ...");
-                    informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                        "Running",
-                                                                                        this.getId())));
-
-                    runPushStore(props, url, buildOutputDir);
-                }
-
-                if(build && push && !props.getBoolean("build.output.keep", false)) {
+                if (build && push && !props.getBoolean("build.output.keep", false)) {
                     JobConf jobConf = new JobConf();
-
-                    if(props.containsKey("hadoop.job.ugi")) {
+                    if (props.containsKey("hadoop.job.ugi")) {
                         jobConf.set("hadoop.job.ugi", props.getString("hadoop.job.ugi"));
                     }
-
-                    log.info("Deleting " + buildOutputDir);
+                    log.info("Informing about delete start ..." + buildOutputDir);
                     HadoopUtils.deletePathIfExists(jobConf, buildOutputDir);
                     log.info("Deleted " + buildOutputDir);
                 }
-
-                if(log.isDebugEnabled())
-                    log.debug("Informing about push finish ...");
-                informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                    "Finished",
-                                                                                    this.getId())));
-
                 for(Future result: informedResults) {
                     try {
                         result.get();
@@ -252,7 +331,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 exceptions.put(url, e);
             }
         }
-
         if(exceptions.size() > 0) {
             log.error("Got exceptions while pushing to " + Joiner.on(",").join(exceptions.keySet())
                       + " => " + Joiner.on(",").join(exceptions.values()));
