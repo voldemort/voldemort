@@ -41,21 +41,20 @@ import com.google.protobuf.Message;
  */
 public class DefaultSerializerFactory implements SerializerFactory {
 
-    private static final String JAVA_SERIALIZER_TYPE_NAME = "java-serialization";
-    private static final String STRING_SERIALIZER_TYPE_NAME = "string";
-    private static final String IDENTITY_SERIALIZER_TYPE_NAME = "identity";
-    private static final String JSON_SERIALIZER_TYPE_NAME = "json";
-    private static final String PROTO_BUF_TYPE_NAME = "protobuf";
-    private static final String THRIFT_TYPE_NAME = "thrift";
-    private static final String AVRO_GENERIC_TYPE_NAME = "avro-generic";
-    private static final String AVRO_SPECIFIC_TYPE_NAME = "avro-specific";
-    private static final String AVRO_REFLECTIVE_TYPE_NAME = "avro-reflective";
+    public static final String JAVA_SERIALIZER_TYPE_NAME = "java-serialization";
+    public static final String STRING_SERIALIZER_TYPE_NAME = "string";
+    public static final String IDENTITY_SERIALIZER_TYPE_NAME = "identity";
+    public static final String JSON_SERIALIZER_TYPE_NAME = "json";
+    public static final String PROTO_BUF_TYPE_NAME = "protobuf";
+    public static final String THRIFT_TYPE_NAME = "thrift";
+    public static final String AVRO_GENERIC_TYPE_NAME = "avro-generic";
+    public static final String AVRO_SPECIFIC_TYPE_NAME = "avro-specific";
+    public static final String AVRO_REFLECTIVE_TYPE_NAME = "avro-reflective";
 
     // New serialization types for avro versioning support
     // We cannot change existing serializer classes since
     // this will break existing clients while looking for the version byte
-
-    private static final String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
+    public static final String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
 
     public Serializer<?> getSerializer(SerializerDefinition serializerDef) {
         String name = serializerDef.getName();

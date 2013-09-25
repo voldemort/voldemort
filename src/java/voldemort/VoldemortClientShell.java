@@ -24,6 +24,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.PrintStream;
 import java.io.StringReader;
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -36,18 +37,27 @@ import java.util.Set;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.io.JsonDecoder;
+import org.apache.commons.lang.mutable.MutableInt;
+
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
-import voldemort.client.StoreClientFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializationException;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.EndOfFileException;
 import voldemort.serialization.json.JsonReader;
+import voldemort.store.StoreDefinition;
+import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
@@ -58,15 +68,70 @@ import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 
 /**
- * A toy shell to interact with the server via the command line
- * 
+ * Shell to interact with the voldemort cluster from the command line...
  * 
  */
 public class VoldemortClientShell {
 
     private static final String PROMPT = "> ";
 
-    private static DefaultStoreClient<Object, Object> client;
+    private DefaultStoreClient<Object, Object> client;
+
+    private SocketStoreClientFactory factory;
+
+    private StoreDefinition storeDef;
+
+    private final BufferedReader commandReader;
+
+    private final PrintStream commandOutput;
+
+    private final PrintStream errorStream;
+
+    private AdminClient adminClient;
+
+    public VoldemortClientShell(ClientConfig clientConfig,
+                                String storeName,
+                                BufferedReader commandReader,
+                                PrintStream commandOutput,
+                                PrintStream errorStream) {
+
+        this.commandReader = commandReader;
+        this.commandOutput = commandOutput;
+        this.errorStream = errorStream;
+
+        String bootstrapUrl = clientConfig.getBootstrapUrls()[0];
+
+        try {
+            factory = new SocketStoreClientFactory(clientConfig);
+            client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
+            adminClient = new AdminClient(bootstrapUrl, new AdminClientConfig(), new ClientConfig());
+
+            storeDef = StoreUtils.getStoreDef(factory.getStoreDefs(), storeName);
+
+            commandOutput.println("Established connection to " + storeName + " via " + bootstrapUrl);
+            commandOutput.print(PROMPT);
+        } catch(Exception e) {
+            safeClose();
+            Utils.croak("Could not connect to server: " + e.getMessage());
+        }
+    }
+
+    private void safeClose() {
+        if(adminClient != null)
+            adminClient.close();
+        if(factory != null)
+            factory.close();
+    }
+
+    public void process(boolean printCommands) {
+        try {
+            processCommands(printCommands);
+        } catch(Exception e) {
+            Utils.croak("Error processing commands.." + e.getMessage());
+        } finally {
+            safeClose();
+        }
+    }
 
     public static void main(String[] args) throws Exception {
 
@@ -86,17 +151,16 @@ public class VoldemortClientShell {
 
         String storeName = nonOptions.get(0);
         String bootstrapUrl = nonOptions.get(1);
-
-        String commandsFileName = "";
-        BufferedReader fileReader = null;
         BufferedReader inputReader = null;
+        boolean fileInput = false;
+
         try {
             if(nonOptions.size() == 3) {
-                commandsFileName = nonOptions.get(2);
-                fileReader = new BufferedReader(new FileReader(commandsFileName));
+                inputReader = new BufferedReader(new FileReader(nonOptions.get(2)));
+                fileInput = true;
+            } else {
+                inputReader = new BufferedReader(new InputStreamReader(System.in));
             }
-
-            inputReader = new BufferedReader(new InputStreamReader(System.in));
         } catch(IOException e) {
             Utils.croak("Failure to open input stream: " + e.getMessage());
         }
@@ -109,72 +173,132 @@ public class VoldemortClientShell {
             clientConfig.setClientZoneId((Integer) options.valueOf("client-zone-id"));
         }
 
-        StoreClientFactory factory = null;
-        AdminClient adminClient = null;
+        VoldemortClientShell shell = new VoldemortClientShell(clientConfig,
+                                                              storeName,
+                                                              inputReader,
+                                                              System.out,
+                                                              System.err);
+        shell.process(fileInput);
+    }
 
-        try {
-            try {
-                factory = new SocketStoreClientFactory(clientConfig);
-                client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
-                adminClient = new AdminClient(bootstrapUrl,
-                                              new AdminClientConfig(),
-                                              new ClientConfig());
-            } catch(Exception e) {
-                Utils.croak("Could not connect to server: " + e.getMessage());
-            }
-
-            System.out.println("Established connection to " + storeName + " via " + bootstrapUrl);
-            System.out.print(PROMPT);
-            if(fileReader != null) {
-                processCommands(factory, adminClient, fileReader, true);
-                fileReader.close();
-            }
-            processCommands(factory, adminClient, inputReader, false);
-        } finally {
-            if(adminClient != null)
-                adminClient.close();
-            if(factory != null)
-                factory.close();
+    private boolean isAvroSchema(String serializerName) {
+        if(serializerName.equals(DefaultSerializerFactory.AVRO_GENERIC_VERSIONED_TYPE_NAME)
+           || serializerName.equals(DefaultSerializerFactory.AVRO_GENERIC_TYPE_NAME)
+           || serializerName.equals(DefaultSerializerFactory.AVRO_REFLECTIVE_TYPE_NAME)
+           || serializerName.equals(DefaultSerializerFactory.AVRO_SPECIFIC_TYPE_NAME)) {
+            return true;
+        } else {
+            return false;
         }
     }
 
-    private static void processCommands(StoreClientFactory factory,
-                                        AdminClient adminClient,
-                                        BufferedReader reader,
-                                        boolean printCommands) throws IOException {
-        for(String line = reader.readLine(); line != null; line = reader.readLine()) {
+    private Object parseObject(SerializerDefinition serializerDef,
+                               String argStr,
+                               MutableInt parsePos) {
+        Object obj = null;
+        try {
+            // TODO everything is read as json string now..
+            JsonReader jsonReader = new JsonReader(new StringReader(argStr));
+            obj = jsonReader.read();
+            // mark how much of the original string, we blew through to
+            // extract the avrostring.
+            parsePos.setValue(jsonReader.getCurrentLineOffset() - 1);
+
+            if(isAvroSchema(serializerDef.getName())) {
+                // TODO Need to check all the avro siblings work
+                // For avro, we hack and extract avro key/value as a string,
+                // before we do the actual parsing with the schema
+                String avroString = (String) obj;
+                // From here on, this is just normal avro parsing.
+                Schema latestSchema = Schema.parse(serializerDef.getCurrentSchemaInfo());
+                try {
+                    JsonDecoder decoder = new JsonDecoder(latestSchema, avroString);
+                    GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(latestSchema);
+                    obj = datumReader.read(null, decoder);
+                } catch(IOException io) {
+                    errorStream.println("Error parsing avro string " + avroString);
+                    io.printStackTrace();
+                }
+            } else {
+                // all json processing does some numeric type tightening
+                obj = tightenNumericTypes(obj);
+            }
+        } catch(EndOfFileException eof) {
+            // can be thrown from the jsonReader.read(..) call indicating, we
+            // have nothing more to read.
+            obj = null;
+        }
+        return obj;
+    }
+
+    private Object parseKey(String argStr, MutableInt parsePos) {
+        return parseObject(storeDef.getKeySerializer(), argStr, parsePos);
+    }
+
+    private Object parseValue(String argStr, MutableInt parsePos) {
+        return parseObject(storeDef.getValueSerializer(), argStr, parsePos);
+    }
+
+    private void processPut(String putArgStr) {
+        MutableInt parsePos = new MutableInt(0);
+        Object key = parseKey(putArgStr, parsePos);
+        putArgStr = putArgStr.substring(parsePos.intValue());
+        Object value = parseValue(putArgStr, parsePos);
+        client.put(key, value);
+    }
+
+    private void processGetAll(String getAllArgStr) {
+        List<Object> keys = new ArrayList<Object>();
+        MutableInt parsePos = new MutableInt(0);
+
+        while(true) {
+            Object key = parseKey(getAllArgStr, parsePos);
+            if(key == null) {
+                break;
+            }
+            keys.add(key);
+            getAllArgStr = getAllArgStr.substring(parsePos.intValue());
+        }
+
+        Map<Object, Versioned<Object>> vals = client.getAll(keys);
+        if(vals.size() > 0) {
+            for(Map.Entry<Object, Versioned<Object>> entry: vals.entrySet()) {
+                commandOutput.print(entry.getKey());
+                commandOutput.print(" => ");
+                printVersioned(entry.getValue());
+            }
+        } else {
+            commandOutput.println("null");
+        }
+    }
+
+    private void processGet(String getArgStr) {
+        MutableInt parsePos = new MutableInt(0);
+        Object key = parseKey(getArgStr, parsePos);
+        printVersioned(client.get(key));
+    }
+
+    private void processDelete(String deleteArgStr) {
+        MutableInt parsePos = new MutableInt(0);
+        Object key = parseKey(deleteArgStr, parsePos);
+        client.delete(key);
+    }
+
+    private void processCommands(boolean printCommands) throws IOException {
+        for(String line = commandReader.readLine(); line != null; line = commandReader.readLine()) {
             if(line.trim().equals(""))
                 continue;
             if(printCommands)
-                System.out.println(line);
+                commandOutput.println(line);
             try {
                 if(line.toLowerCase().startsWith("put")) {
-                    JsonReader jsonReader = new JsonReader(new StringReader(line.substring("put".length())));
-                    Object key = tightenNumericTypes(jsonReader.read());
-                    Object value = tightenNumericTypes(jsonReader.read());
-                    if(jsonReader.hasMore())
-                        client.put(key, value, tightenNumericTypes(jsonReader.read()));
-                    else
-                        client.put(key, value);
+                    processPut(line.substring("put".length()));
                 } else if(line.toLowerCase().startsWith("getall")) {
-                    JsonReader jsonReader = new JsonReader(new StringReader(line.substring("getall".length())));
-                    List<Object> keys = new ArrayList<Object>();
-                    try {
-                        while(true)
-                            keys.add(jsonReader.read());
-                    } catch(EndOfFileException e) {
-                        // this is okay, just means we are done reading
-                    }
-                    Map<Object, Versioned<Object>> vals = client.getAll(keys);
-                    if(vals.size() > 0) {
-                        for(Map.Entry<Object, Versioned<Object>> entry: vals.entrySet()) {
-                            System.out.print(entry.getKey());
-                            System.out.print(" => ");
-                            printVersioned(entry.getValue());
-                        }
-                    } else {
-                        System.out.println("null");
-                    }
+                    processGetAll(line.substring("getall".length()));
+                } else if(line.toLowerCase().startsWith("get")) {
+                    processGet(line.substring("get".length()));
+                } else if(line.toLowerCase().startsWith("delete")) {
+                    processDelete(line.substring("delete".length()));
                 } else if(line.toLowerCase().startsWith("getmetadata")) {
                     String[] args = line.substring("getmetadata".length() + 1).split("\\s+");
                     int remoteNodeId = Integer.valueOf(args[0]);
@@ -182,23 +306,13 @@ public class VoldemortClientShell {
                     Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(remoteNodeId,
                                                                                                 key);
                     if(versioned == null) {
-                        System.out.println("null");
+                        commandOutput.println("null");
                     } else {
-                        System.out.println(versioned.getVersion());
-                        System.out.print(": ");
-                        System.out.println(versioned.getValue());
-                        System.out.println();
+                        commandOutput.println(versioned.getVersion());
+                        commandOutput.print(": ");
+                        commandOutput.println(versioned.getValue());
+                        commandOutput.println();
                     }
-                } else if(line.toLowerCase().startsWith("get")) {
-                    JsonReader jsonReader = new JsonReader(new StringReader(line.substring("get".length())));
-                    Object key = tightenNumericTypes(jsonReader.read());
-                    if(jsonReader.hasMore())
-                        printVersioned(client.get(key, tightenNumericTypes(jsonReader.read())));
-                    else
-                        printVersioned(client.get(key));
-                } else if(line.toLowerCase().startsWith("delete")) {
-                    JsonReader jsonReader = new JsonReader(new StringReader(line.substring("delete".length())));
-                    client.delete(tightenNumericTypes(jsonReader.read()));
                 } else if(line.startsWith("preflist")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("preflist".length())));
                     Object key = tightenNumericTypes(jsonReader.read());
@@ -219,10 +333,10 @@ public class VoldemortClientShell {
                         if(args.length > 3) {
                             writer = new BufferedWriter(new FileWriter(new File(args[3])));
                         } else
-                            writer = new BufferedWriter(new OutputStreamWriter(System.out));
+                            writer = new BufferedWriter(new OutputStreamWriter(commandOutput));
                     } catch(IOException e) {
-                        System.err.println("Failed to open the output stream");
-                        e.printStackTrace();
+                        errorStream.println("Failed to open the output stream");
+                        e.printStackTrace(errorStream);
                     }
                     if(writer != null) {
                         while(partitionKeys.hasNext()) {
@@ -249,10 +363,10 @@ public class VoldemortClientShell {
                         if(args.length > 3) {
                             writer = new BufferedWriter(new FileWriter(new File(args[3])));
                         } else
-                            writer = new BufferedWriter(new OutputStreamWriter(System.out));
+                            writer = new BufferedWriter(new OutputStreamWriter(commandOutput));
                     } catch(IOException e) {
-                        System.err.println("Failed to open the output stream");
-                        e.printStackTrace();
+                        errorStream.println("Failed to open the output stream");
+                        e.printStackTrace(errorStream);
                     }
                     if(writer != null) {
                         while(partitionEntries.hasNext()) {
@@ -271,63 +385,67 @@ public class VoldemortClientShell {
                         writer.flush();
                     }
                 } else if(line.startsWith("help")) {
-                    System.out.println();
-                    System.out.println("Commands:");
-                    System.out.println(PROMPT
-                                       + "put key value --- Associate the given value with the key.");
-                    System.out.println(PROMPT
-                                       + "get key --- Retrieve the value associated with the key.");
-                    System.out.println(PROMPT
-                                       + "getall key1 [key2...] --- Retrieve the value(s) associated with the key(s).");
-                    System.out.println(PROMPT
-                                       + "delete key --- Remove all values associated with the key.");
-                    System.out.println(PROMPT
-                                       + "preflist key --- Get node preference list for given key.");
+                    commandOutput.println();
+                    commandOutput.println("Commands:");
+                    commandOutput.println(PROMPT
+                                          + "put key value --- Associate the given value with the key.");
+                    commandOutput.println(PROMPT
+                                          + "get key --- Retrieve the value associated with the key.");
+                    commandOutput.println(PROMPT
+                                          + "getall key1 [key2...] --- Retrieve the value(s) associated with the key(s).");
+                    commandOutput.println(PROMPT
+                                          + "delete key --- Remove all values associated with the key.");
+                    commandOutput.println(PROMPT
+                                          + "preflist key --- Get node preference list for given key.");
                     String metaKeyValues = voldemort.store.metadata.MetadataStore.METADATA_KEYS.toString();
-                    System.out.println(PROMPT
-                                       + "getmetadata node_id meta_key --- Get store metadata associated "
-                                       + "with meta_key from node_id. meta_key may be one of "
-                                       + metaKeyValues.substring(1, metaKeyValues.length() - 1)
-                                       + ".");
-                    System.out.println(PROMPT
-                                       + "fetchkeys node_id store_name partitions <file_name> --- Fetch all keys "
-                                       + "from given partitions (a comma separated list) of store_name on "
-                                       + "node_id. Optionally, write to file_name. "
-                                       + "Use getmetadata to determine appropriate values for store_name and partitions");
-                    System.out.println(PROMPT
-                                       + "fetch node_id store_name partitions <file_name> --- Fetch all entries "
-                                       + "from given partitions (a comma separated list) of store_name on "
-                                       + "node_id. Optionally, write to file_name. "
-                                       + "Use getmetadata to determine appropriate values for store_name and partitions");
-                    System.out.println(PROMPT + "help --- Print this message.");
-                    System.out.println(PROMPT + "exit --- Exit from this shell.");
-                    System.out.println();
+                    commandOutput.println(PROMPT
+                                          + "getmetadata node_id meta_key --- Get store metadata associated "
+                                          + "with meta_key from node_id. meta_key may be one of "
+                                          + metaKeyValues.substring(1, metaKeyValues.length() - 1)
+                                          + ".");
+                    commandOutput.println(PROMPT
+                                          + "fetchkeys node_id store_name partitions <file_name> --- Fetch all keys "
+                                          + "from given partitions (a comma separated list) of store_name on "
+                                          + "node_id. Optionally, write to file_name. "
+                                          + "Use getmetadata to determine appropriate values for store_name and partitions");
+                    commandOutput.println(PROMPT
+                                          + "fetch node_id store_name partitions <file_name> --- Fetch all entries "
+                                          + "from given partitions (a comma separated list) of store_name on "
+                                          + "node_id. Optionally, write to file_name. "
+                                          + "Use getmetadata to determine appropriate values for store_name and partitions");
+                    commandOutput.println(PROMPT + "help --- Print this message.");
+                    commandOutput.println(PROMPT + "exit --- Exit from this shell.");
+                    commandOutput.println();
+                    commandOutput.println("Avro usage:");
+                    commandOutput.println("For avro keys or values, ensure that the entire json string is enclosed within single quotes (').");
+                    commandOutput.println("Also, the field names and strings should STRICTLY be enclosed by double quotes(\")");
+                    commandOutput.println("eg: > put '{\"id\":1,\"name\":\"Vinoth Chandar\"}' '[{\"skill\":\"java\", \"score\":90.27, \"isendorsed\": true}]'");
 
-                } else if(line.startsWith("quit") || line.startsWith("exit")) {
-                    System.out.println("k k thx bye.");
+                } else if(line.equals("quit") || line.equals("exit")) {
+                    commandOutput.println("bye.");
                     System.exit(0);
                 } else {
-                    System.err.println("Invalid command. (Try 'help' for usage.)");
+                    errorStream.println("Invalid command. (Try 'help' for usage.)");
                 }
             } catch(EndOfFileException e) {
-                System.err.println("Expected additional token.");
+                errorStream.println("Expected additional token.");
             } catch(SerializationException e) {
-                System.err.print("Error serializing values: ");
-                e.printStackTrace();
+                errorStream.print("Error serializing values: ");
+                e.printStackTrace(errorStream);
             } catch(VoldemortException e) {
-                System.err.println("Exception thrown during operation.");
-                e.printStackTrace(System.err);
+                errorStream.println("Exception thrown during operation.");
+                e.printStackTrace(errorStream);
             } catch(ArrayIndexOutOfBoundsException e) {
-                System.err.println("Invalid command. (Try 'help' for usage.)");
+                errorStream.println("Invalid command. (Try 'help' for usage.)");
             } catch(Exception e) {
-                System.err.println("Unexpected error:");
-                e.printStackTrace(System.err);
+                errorStream.println("Unexpected error:");
+                e.printStackTrace(errorStream);
             }
-            System.out.print(PROMPT);
+            commandOutput.print(PROMPT);
         }
     }
 
-    private static List<Integer> parseCsv(String csv) {
+    private List<Integer> parseCsv(String csv) {
         return Lists.transform(Arrays.asList(csv.split(",")), new Function<String, Integer>() {
 
             public Integer apply(String input) {
@@ -336,70 +454,70 @@ public class VoldemortClientShell {
         });
     }
 
-    private static void printNodeList(List<Node> nodes, FailureDetector failureDetector) {
+    private void printNodeList(List<Node> nodes, FailureDetector failureDetector) {
         if(nodes.size() > 0) {
             for(int i = 0; i < nodes.size(); i++) {
                 Node node = nodes.get(i);
-                System.out.println("Node " + node.getId());
-                System.out.println("host:  " + node.getHost());
-                System.out.println("port: " + node.getSocketPort());
-                System.out.println("available: "
-                                   + (failureDetector.isAvailable(node) ? "yes" : "no"));
-                System.out.println("last checked: " + failureDetector.getLastChecked(node)
-                                   + " ms ago");
-                System.out.println();
+                commandOutput.println("Node " + node.getId());
+                commandOutput.println("host:  " + node.getHost());
+                commandOutput.println("port: " + node.getSocketPort());
+                commandOutput.println("available: "
+                                      + (failureDetector.isAvailable(node) ? "yes" : "no"));
+                commandOutput.println("last checked: " + failureDetector.getLastChecked(node)
+                                      + " ms ago");
+                commandOutput.println();
             }
         }
     }
 
-    private static void printVersioned(Versioned<Object> v) {
+    private void printVersioned(Versioned<Object> v) {
         if(v == null) {
-            System.out.println("null");
+            commandOutput.println("null");
         } else {
-            System.out.print(v.getVersion());
-            System.out.print(": ");
+            commandOutput.print(v.getVersion());
+            commandOutput.print(": ");
             printObject(v.getValue());
-            System.out.println();
+            commandOutput.println();
         }
     }
 
     @SuppressWarnings("unchecked")
-    private static void printObject(Object o) {
+    private void printObject(Object o) {
         if(o == null) {
-            System.out.print("null");
+            commandOutput.print("null");
         } else if(o instanceof String) {
-            System.out.print('"');
-            System.out.print(o);
-            System.out.print('"');
+            commandOutput.print('"');
+            commandOutput.print(o);
+            commandOutput.print('"');
         } else if(o instanceof Date) {
             DateFormat df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
-            System.out.print("'");
-            System.out.print(df.format((Date) o));
-            System.out.print("'");
+            commandOutput.print("'");
+            commandOutput.print(df.format((Date) o));
+            commandOutput.print("'");
         } else if(o instanceof List) {
             List<Object> l = (List<Object>) o;
-            System.out.print("[");
+            commandOutput.print("[");
             for(Object obj: l)
                 printObject(obj);
-            System.out.print("]");
+            commandOutput.print("]");
         } else if(o instanceof Map) {
             Map<String, Object> m = (Map<String, Object>) o;
-            System.out.print('{');
+            commandOutput.print('{');
             for(String s: m.keySet()) {
                 printObject(s);
-                System.out.print(':');
+                commandOutput.print(':');
                 printObject(m.get(s));
-                System.out.print(", ");
+                commandOutput.print(", ");
             }
-            System.out.print('}');
+            commandOutput.print('}');
         } else if(o instanceof Object[]) {
             Object[] a = (Object[]) o;
-            System.out.print(Arrays.deepToString(a));
+            commandOutput.print(Arrays.deepToString(a));
         } else if(o instanceof byte[]) {
             byte[] a = (byte[]) o;
-            System.out.print(Arrays.toString(a));
+            commandOutput.print(Arrays.toString(a));
         } else {
-            System.out.print(o);
+            commandOutput.print(o);
         }
     }
 
@@ -442,5 +560,4 @@ public class VoldemortClientShell {
             return o;
         }
     }
-
 }

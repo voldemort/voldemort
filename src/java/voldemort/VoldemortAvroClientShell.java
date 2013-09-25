@@ -22,11 +22,13 @@ import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 
 /**
+ * NOTE: This class is unsupported. All shell access is via the
+ * {@link VoldemortClientShell}
+ * 
  * Utility to check avro values through command line very handy for debugging
- * since Voldemort shell only supports JSON
  * 
  */
-
+@Deprecated
 public class VoldemortAvroClientShell {
 
     private static final String PROMPT = "> ";
@@ -170,7 +172,6 @@ public class VoldemortAvroClientShell {
                     valueString = line;
 
                     JsonDecoder keyDecoder = new JsonDecoder(keySchema, keyString);
-
                     JsonDecoder valueDecoder = new JsonDecoder(valueSchema, valueString);
 
                     GenericDatumReader<Object> datumReader = null;
