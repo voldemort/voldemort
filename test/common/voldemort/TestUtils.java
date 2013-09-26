@@ -49,6 +49,7 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
+import com.google.common.io.Files;
 
 /**
  * Helper utilities for tests
@@ -62,6 +63,7 @@ public class TestUtils {
     public static final String CHARACTERS = LETTERS + DIGITS + "~!@#$%^&*()____+-=[];',,,./>?:{}";
     public static final Random SEEDED_RANDOM = new Random(19873482374L);
     public static final Random UNSEEDED_RANDOM = new Random();
+    private static final CharSequence VOLD_TEST_DATA_DIRECTORY_NAME = "vold-test-data";
 
     /**
      * Get a vector clock with events on the sequence of nodes given So
@@ -316,7 +318,23 @@ public class TestUtils {
      * @return The directory created.
      */
     public static File createTempDir() {
-        return createTempDir(new File(System.getProperty("java.io.tmpdir")));
+        String systemTempDir = System.getProperty("java.io.tmpdir");
+        if(!(systemTempDir.contains(VOLD_TEST_DATA_DIRECTORY_NAME))) {
+            File parentDir = new File(systemTempDir + "/" + VOLD_TEST_DATA_DIRECTORY_NAME);
+            System.err.println("********************* Creating base test dir : "
+                               + parentDir.getAbsolutePath() + " *********************");
+            parentDir.mkdir();
+            System.setProperty("java.io.tmpdir", parentDir.getAbsolutePath());
+        }
+        // return createTempDir(new File(System.getProperty("java.io.tmpdir")));
+        File tempdir = Files.createTempDir();
+        System.err.println("******************** Creating temp dir: " + tempdir.getAbsolutePath()
+                           + "***********************");
+
+        tempdir.delete();
+        tempdir.mkdir();
+        tempdir.deleteOnExit();
+        return tempdir;
     }
 
     /**
