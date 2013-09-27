@@ -231,6 +231,9 @@ public class KeyVersionFetcherCLI {
             ZoneToNaryToString zoneToNaryToString = new ZoneToNaryToString();
 
             for(int replicatingNodeId: replicatingNodeIds) {
+                // TODO Not sure why we can't do getVersions(..) here. Seems
+                // wasteful to fetch the value all the way over from the server
+                // and discard it here
                 List<Versioned<byte[]>> values = adminClient.storeOps.getNodeKey(storeName,
                                                                                  replicatingNodeId,
                                                                                  new ByteArray(key));
@@ -241,14 +244,18 @@ public class KeyVersionFetcherCLI {
 
                 // Sort the versions so that on-disk order of concurrent
                 // versions is not visible.
-                TreeSet<Version> sortedVersions = new TreeSet<Version>();
-                for(Versioned<byte[]> value: values) {
-                    sortedVersions.add(value.getVersion());
-                }
+                // FIXME this will break since VectorClock is not a
+                // 'Comparable'.
+                /*
+                 * TreeSet<Version> sortedVersions = new TreeSet<Version>();
+                 * for(Versioned<byte[]> value: values) {
+                 * sortedVersions.add(value.getVersion()); }
+                 */
 
                 StringBuilder sb = new StringBuilder();
                 sb.append(ByteUtils.toHexString(key));
-                for(Version version: sortedVersions) {
+                for(Versioned<byte[]> value: values) {
+                    Version version = value.getVersion();
                     sb.append(" : ").append(version.toString());
                 }
 
