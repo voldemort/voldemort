@@ -76,11 +76,12 @@ public class TimeBasedUpdatePartitionEntriesStreamRequestHandler extends
                 storageEngine.releaseLock(handle);
             }
         } catch(Exception e) {
+            logger.error("Error in time based update entries", e);
+            throw new IOException(e);
+        } finally {
             if(handle != null && !handle.isClosed()) {
                 storageEngine.releaseLock(handle);
             }
-            logger.error("Error in time based update entries", e);
-            throw new IOException(e);
         }
     }
 

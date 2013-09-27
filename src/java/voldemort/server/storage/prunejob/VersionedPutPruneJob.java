@@ -149,16 +149,20 @@ public class VersionedPutPruneJob extends DataMaintenanceJob {
                         lockHandle.setValues(resolvedVals);
                         engine.putAndUnlock(key, lockHandle);
                         numPrunedKeys = this.numKeysUpdatedThisRun.incrementAndGet();
+                    } else {
+                        // if we did not prune, still need to let go of the lock
+                        engine.releaseLock(lockHandle);
                     }
                     itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
                     throttler.maybeThrottle(Ints.checkedCast(itemsScanned));
                     if(itemsScanned % STAT_RECORDS_INTERVAL == 0)
                         logger.info("#Scanned:" + itemsScanned + " #Pruned:" + numPrunedKeys);
                 } catch(Exception e) {
+                    throw e;
+                } finally {
                     if(lockHandle != null && !lockHandle.isClosed()) {
                         engine.releaseLock(lockHandle);
                     }
-                    throw e;
                 }
             }
             logger.info("Completed store " + storeDef.getName() + " #Scanned:" + itemsScanned

@@ -68,10 +68,11 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
             throw new UnsupportedOperationException("multiVersionPut is not supported for "
                                                     + this.getClass().getName());
         } catch(PersistenceFailureException pfe) {
+            throw pfe;
+        } finally {
             if(handle != null && !handle.isClosed()) {
                 releaseLock(handle);
             }
-            throw pfe;
         }
     }
 
