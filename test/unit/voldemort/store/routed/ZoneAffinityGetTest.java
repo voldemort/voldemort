@@ -41,6 +41,8 @@ public class ZoneAffinityGetTest {
 
     private Store<String, String, byte[]> client;
     private Map<Integer, VoldemortServer> vservers = new HashMap<Integer, VoldemortServer>();
+    private Map<Integer, SocketStoreFactory> socketStoreFactories = new HashMap<Integer, SocketStoreFactory>();
+
     private Cluster cluster;
     private final Integer clientZoneId;
 
@@ -81,6 +83,7 @@ public class ZoneAffinityGetTest {
                                                                       config,
                                                                       cluster);
             vservers.put(nodeId, vs);
+            socketStoreFactories.put(nodeId, socketStoreFactory);
             Store<ByteArray, byte[], byte[]> store = vs.getStoreRepository()
                                                        .getLocalStore(storeDef.getName());
             Node node = cluster.getNodeById(nodeId);
@@ -101,9 +104,14 @@ public class ZoneAffinityGetTest {
 
     @After
     public void tearDown() {
+        client.close();
         for(VoldemortServer vs: this.vservers.values()) {
             vs.stop();
         }
+        for(SocketStoreFactory ssf: this.socketStoreFactories.values()) {
+            ssf.close();
+        }
+        ClusterTestUtils.reset();
     }
 
     @Test

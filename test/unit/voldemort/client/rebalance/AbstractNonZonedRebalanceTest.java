@@ -216,6 +216,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
         testEntries = null;
         socketStoreFactory.close();
         socketStoreFactory = null;
+        ClusterTestUtils.reset();
     }
 
     @Test(timeout = 600000)

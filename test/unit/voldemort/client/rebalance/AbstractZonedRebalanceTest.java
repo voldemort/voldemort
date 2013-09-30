@@ -239,6 +239,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         testEntries = null;
         socketStoreFactory.close();
         socketStoreFactory = null;
+        ClusterTestUtils.reset();
     }
 
     // TODO: The tests based on this method are susceptible to TOCTOU

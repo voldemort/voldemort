@@ -277,6 +277,13 @@ public class ClusterTestUtils {
     }
 
     /**
+     * Reset all singletons, especially for tests under the same test suite
+     */
+    static public void reset() {
+        clusterPorts = null;
+    }
+
+    /**
      * The 'Z' and 'E' prefixes in these method names indicate zones with
      * partitions and zones without partitions.
      */
