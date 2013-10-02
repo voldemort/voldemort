@@ -321,16 +321,12 @@ public class TestUtils {
         String systemTempDir = System.getProperty("java.io.tmpdir");
         if(!(systemTempDir.contains(VOLD_TEST_DATA_DIRECTORY_NAME))) {
             File parentDir = new File(systemTempDir + "/" + VOLD_TEST_DATA_DIRECTORY_NAME);
-            System.err.println("********************* Creating base test dir : "
-                               + parentDir.getAbsolutePath() + " *********************");
+            parentDir.delete();
             parentDir.mkdir();
+            parentDir.deleteOnExit();
             System.setProperty("java.io.tmpdir", parentDir.getAbsolutePath());
         }
-        // return createTempDir(new File(System.getProperty("java.io.tmpdir")));
         File tempdir = Files.createTempDir();
-        System.err.println("******************** Creating temp dir: " + tempdir.getAbsolutePath()
-                           + "***********************");
-
         tempdir.delete();
         tempdir.mkdir();
         tempdir.deleteOnExit();
