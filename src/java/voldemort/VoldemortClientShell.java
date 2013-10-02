@@ -247,6 +247,10 @@ public class VoldemortClientShell {
         client.put(key, value);
     }
 
+    /**
+     * 
+     * @param getAllArgStr space separated list of key strings
+     */
     private void processGetAll(String getAllArgStr) {
         List<Object> keys = new ArrayList<Object>();
         MutableInt parsePos = new MutableInt(0);

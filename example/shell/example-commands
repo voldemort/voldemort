@@ -1,0 +1,78 @@
+This document shows some examples on how to use the Voldemort client shell
+for different key and value serialization types. 
+
+For the store definitions, please refer to shell-stores.xml
+
+json key, avro value :
+> put {"id":1, "name":"John"} '{"lname":"Doe","age":7}'
+> get {"id":1, "name":"John"}
+version(0:1) ts:1380147595816: {"lname": "Doe", "age": 7}
+> put {"id":2, "name":"Old"} '{"lname":"Joe","age":70}' 
+> getall {"id":1, "name":"John"} {"id":2, "name":"Old"}
+{id=1, name=John} => version(0:1) ts:1380147595816: {"lname": "Doe", "age": 7}
+{id=2, name=Old} => version(0:1) ts:1380147631987: {"lname": "Joe", "age": 70}
+> delete {"id":2, "name":"Old"}
+> get {"id":2, "name":"Old"}
+null
+> 
+
+json key, string value :
+> put {"id":1,"name":"Vinoth Chandar"} "Engineer@Data infra, Linkedin" 
+> get {"id":1,"name":"Vinoth Chandar"}
+version(0:1) ts:1380147309190: "Engineer@Data infra, Linkedin"
+> put {"id":2,"name":"Brendan Harris"} "Site Reliability Engineer, Voldemort, Linkedin"
+> getall {"id":1,"name":"Vinoth Chandar"} {"id":2,"name":"Brendan Harris"}
+{id=1, name=Vinoth Chandar} => version(0:1) ts:1380147309190: "Engineer@Data infra, Linkedin"
+{id=2, name=Brendan Harris} => version(0:1) ts:1380147357655: "Site Reliability Engineer, Voldemort, Linkedin"
+> delete {"id":2,"name":"Brendan Harris"}
+> get {"id":2,"name":"Brendan Harris"}
+null
+> 
+
+string key, string value:
+> put "voldemort" "fast"
+> get "voldemort"
+version(0:1) ts:1380146922595: "fast"
+> put "fast" "voldemort"
+> get "voldemort" "fast"
+version(0:1) ts:1380146922595: "fast"
+> getall "voldemort" "fast"
+voldemort => version(0:1) ts:1380146922595: "fast"
+fast => version(0:1) ts:1380146935238: "voldemort"
+> delete "voldemort"
+> get "voldemort"
+null
+>
+
+string key, json value :
+> put "http://linkedin.com" {"id":1,"name":"Welcome!|Linkedin"}
+> get "http://linkedin.com"
+version(0:1) ts:1380146726535: {"id":1, "name":"Welcome!|Linkedin", }
+> put "slideshare.net" {"id":2,"name":"Upload & Share powerpoint presentations"}     
+> getall "facebook.com"    
+null
+> getall "slideshare.net" "http://linkedin.com"
+http://linkedin.com => version(0:1) ts:1380146726535: {"id":1, "name":"Welcome!|Linkedin", }
+slideshare.net => version(0:1) ts:1380146811515: {"id":2, "name":"Upload & Share powerpoint presentations", }
+> delete "slideshare.net"
+> get "slideshare.net"
+null
+>
+
+avro key, avro record array value :
+
+> put '{"id":1,"name":"Vinoth Chandar"}' '[{"skill":"java", "score":90.27, "isendorsed": true},{"skill":"c", "score":91.6, "isendorsed":true}]'
+> get '{"id":1,"name":"Vinoth Chandar"}'                                                                                                       
+version(0:3) ts:1380146327351: [{"skill": "java", "score": 90.27, "isendorsed": true}{"skill": "c", "score": 91.6, "isendorsed": true}]
+> put '{"id":1,"name":"Vinoth Chandar"}' '[{"skill":"java", "score":90.27, "isendorsed": true},{"skill":"fishing", "score":0.6, "isendorsed":false}]'
+> get '{"id":1,"name":"Vinoth Chandar"}'                                                                                                             
+version(0:4) ts:1380146437773: [{"skill": "java", "score": 90.27, "isendorsed": true}{"skill": "fishing", "score": 0.6, "isendorsed": false}]
+> put '{"id":2,"name":"Brendan Harris"}' '[{"skill":"Operations", "score":94.7345, "isendorsed": true},{"skill":"Drinking", "score":99.999, "isendorsed":true}]'
+> getall '{"id":1,"name":"Vinoth Chandar"}' '{"id":2,"name":"Brendan Harris"}'
+{"id": 2, "name": "Brendan Harris"} => version(0:1) ts:1380146447557: [{"skill": "Operations", "score": 94.7345, "isendorsed": true}{"skill": "Drinking", "score": 99.999, "isendorsed": true}]
+{"id": 1, "name": "Vinoth Chandar"} => version(0:4) ts:1380146437773: [{"skill": "java", "score": 90.27, "isendorsed": true}{"skill": "fishing", "score": 0.6, "isendorsed": false}]
+> delete '{"id":1,"name":"Vinoth Chandar"}'
+> get '{"id":1,"name":"Vinoth Chandar"}'
+null
+> 
+
