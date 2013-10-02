@@ -1189,8 +1189,8 @@ class JsonTypeSerializer(object):
         >>> s._write_dict(f, {'b':2, 'c':3}, OrderedDict((('a','int16'), ('b','int32'))))
         Traceback (most recent call last):
         ...
-        SerializationException: Missing key: 'a' required by type: {'a':'int16', 'b':'int32'}
-
+        SerializationException: Missing key: 'a' required by type: OrderedDict([('a', 'int16'), ('b', 'int32')])
+        
         The object being serialized must be a dict:
 
         >>> f = StringIO.StringIO()
