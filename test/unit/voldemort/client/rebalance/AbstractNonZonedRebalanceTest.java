@@ -108,8 +108,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
     private StoreDefinition rwStoreDefWithReplication;
     private StoreDefinition rwStoreDefWithReplication2;
 
-    public AbstractNonZonedRebalanceTest(boolean useNio) {
-        super(useNio);
+    public AbstractNonZonedRebalanceTest() {
+        super();
     }
 
     @Before
@@ -227,8 +227,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                     { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
             Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
-                                                                       1,
-                                                                       Lists.newArrayList(2, 3));
+                                                                           1,
+                                                                           Lists.newArrayList(2, 3));
 
             // start servers 0 , 1 only
             List<Integer> serverList = Arrays.asList(0, 1);
@@ -240,7 +240,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                                           configProps);
 
             String bootstrapUrl = getBootstrapUrl(currentCluster, 0);
-            
+
             final ClusterTestUtils.RebalanceKit rebalanceKit = ClusterTestUtils.getRebalanceKit(bootstrapUrl,
                                                                                                 finalCluster);
 
@@ -278,8 +278,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                     { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
             Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
-                                                                       1,
-                                                                       Lists.newArrayList(2, 3));
+                                                                           1,
+                                                                           Lists.newArrayList(2, 3));
 
             // start servers 0 , 1 only
             List<Integer> serverList = Arrays.asList(0, 1);
@@ -328,8 +328,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                     { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
             Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
-                                                                       1,
-                                                                       Lists.newArrayList(2, 3));
+                                                                           1,
+                                                                           Lists.newArrayList(2, 3));
 
             // start servers 0 , 1 only
             List<Integer> serverList = Arrays.asList(0, 1);
@@ -381,8 +381,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                     { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
             Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
-                                                                       1,
-                                                                       Lists.newArrayList(2, 3));
+                                                                           1,
+                                                                           Lists.newArrayList(2, 3));
             // start servers 0 , 1 only
             List<Integer> serverList = Arrays.asList(0, 1);
             currentCluster = startServers(currentCluster,
@@ -421,8 +421,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                     { 1, 3 }, { 2 } });
 
             Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
-                                                                       2,
-                                                                       Lists.newArrayList(3));
+                                                                           2,
+                                                                           Lists.newArrayList(3));
 
             // start servers 0 , 1, 2
             Map<String, String> configProps = new HashMap<String, String>();
@@ -487,8 +487,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                     { 1 }, { 2 } });
 
             Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
-                                                                       2,
-                                                                       Lists.newArrayList(3));
+                                                                           2,
+                                                                           Lists.newArrayList(3));
 
             // start servers 0 , 1, 2
             Map<String, String> configProps = new HashMap<String, String>();
@@ -671,9 +671,9 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                     { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
             final Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
-                                                                             1,
-                                                                             Lists.newArrayList(2,
-                                                                                                3));
+                                                                                 1,
+                                                                                 Lists.newArrayList(2,
+                                                                                                    3));
             // start servers 0 , 1 only
             final List<Integer> serverList = Arrays.asList(0, 1);
             Map<String, String> configProps = new HashMap<String, String>();
@@ -823,8 +823,8 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                     { 1, 3 }, { 2 } });
 
             Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
-                                                                       2,
-                                                                       Lists.newArrayList(3));
+                                                                           2,
+                                                                           Lists.newArrayList(3));
 
             // start servers 0,1,2 only
             final List<Integer> serverList = Arrays.asList(0, 1, 2);
@@ -1034,9 +1034,9 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                     { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
             final Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
-                                                                             1,
-                                                                             Lists.newArrayList(2,
-                                                                                                3));
+                                                                                 1,
+                                                                                 Lists.newArrayList(2,
+                                                                                                    3));
 
             final List<Integer> serverList = Arrays.asList(0, 1);
             Map<String, String> configProps = new HashMap<String, String>();

@@ -57,16 +57,13 @@ import voldemort.versioning.Versioned;
 public abstract class AbstractRebalanceTest {
 
     Map<Integer, VoldemortServer> serverMap;
-
-    protected final boolean useNio;
     HashMap<String, String> testEntries;
     protected SocketStoreFactory socketStoreFactory;
 
-    public AbstractRebalanceTest(boolean useNio) {
-        this.useNio = useNio;
+    public AbstractRebalanceTest() {
         this.serverMap = new HashMap<Integer, VoldemortServer>();
         testEntries = ServerTestUtils.createRandomKeyValueString(getNumKeys());
-        socketStoreFactory = new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
+        socketStoreFactory = new ClientRequestExecutorPool(2, 1000, 1000, 32 * 1024);
     }
 
     // This method is susceptible to BindException issues due to TOCTOU
@@ -87,8 +84,10 @@ public abstract class AbstractRebalanceTest {
             }
             // turn proxy puts on
             properties.put("proxy.puts.during.rebalance", "true");
+            properties.put("bdb.cache.size", "" + (5 * 1024 * 1024));
+            properties.put("bdb.one.env.per.store", "true");
 
-            VoldemortConfig config = ServerTestUtils.createServerConfig(useNio,
+            VoldemortConfig config = ServerTestUtils.createServerConfig(true,
                                                                         node,
                                                                         TestUtils.createTempDir()
                                                                                  .getAbsolutePath(),
@@ -208,18 +207,18 @@ public abstract class AbstractRebalanceTest {
                                              HashMap<String, VectorClock> baselineVersions) {
         for(StoreDefinition storeDef: storeDefs) {
             Map<Integer, Set<Pair<Integer, Integer>>> currentNodeToPartitionTuples = ROTestUtils.getNodeIdToAllPartitions(currentCluster,
-                                                                                                                             storeDef,
-                                                                                                                             true);
+                                                                                                                          storeDef,
+                                                                                                                          true);
             Map<Integer, Set<Pair<Integer, Integer>>> finalNodeToPartitionTuples = ROTestUtils.getNodeIdToAllPartitions(finalCluster,
-                                                                                                                           storeDef,
-                                                                                                                           true);
+                                                                                                                        storeDef,
+                                                                                                                        true);
 
             for(int nodeId: nodeCheckList) {
                 Set<Pair<Integer, Integer>> currentPartitionTuples = currentNodeToPartitionTuples.get(nodeId);
                 Set<Pair<Integer, Integer>> finalPartitionTuples = finalNodeToPartitionTuples.get(nodeId);
 
                 HashMap<Integer, List<Integer>> flattenedPresentTuples = ROTestUtils.flattenPartitionTuples(Utils.getAddedInTarget(currentPartitionTuples,
-                                                                                                                                      finalPartitionTuples));
+                                                                                                                                   finalPartitionTuples));
                 Store<ByteArray, byte[], byte[]> store = getSocketStore(storeDef.getName(),
                                                                         finalCluster.getNodeById(nodeId)
                                                                                     .getHost(),

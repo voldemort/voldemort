@@ -16,12 +16,6 @@
 
 package voldemort.client.rebalance;
 
-import java.util.Arrays;
-import java.util.Collection;
-
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
 
 /**
  * Start VoldemortServer locally using ServerTestUtils and run rebalancing
@@ -29,23 +23,12 @@ import org.junit.runners.Parameterized.Parameters;
  * 
  * 
  */
-@RunWith(Parameterized.class)
 public class NonZonedRebalanceTest extends AbstractNonZonedRebalanceTest {
 
     private final int NUM_KEYS = 20;
 
-    public NonZonedRebalanceTest(boolean useNio) {
-        super(useNio);
-    }
-
-    @Parameters
-    public static Collection<Object[]> configs() {
-        /*-
-        return Arrays.asList(new Object[][] { { true, true }, { true, false }, { false, true },
-                { false, false } });
-         */
-        return Arrays.asList(new Object[][] { { true }, { false } });
-
+    public NonZonedRebalanceTest() {
+        super();
     }
 
     @Override

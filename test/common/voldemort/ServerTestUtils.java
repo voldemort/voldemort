@@ -793,8 +793,6 @@ public class ServerTestUtils {
         props.put("node.id", nodeId);
         props.put("voldemort.home", baseDir + "/node-" + nodeId);
         props.put("bdb.cache.size", 1 * 1024 * 1024);
-        props.put("bdb.write.transactions", "true");
-        props.put("bdb.flush.transactions", "true");
         props.put("jmx.enable", "false");
         props.put("enable.mysql.engine", "true");
         props.loadProperties(properties);
