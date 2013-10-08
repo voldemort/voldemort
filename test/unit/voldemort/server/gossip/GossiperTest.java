@@ -30,6 +30,7 @@ import java.util.concurrent.Executors;
 import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -53,7 +54,12 @@ import voldemort.versioning.Versioned;
 
 /**
  * Tests {@link voldemort.server.gossip.Gossiper}
+ * 
+ * NOTE : DISABLED.. and will be removed from codebase eventually.
+ * 
+ * 
  */
+@Ignore
 @RunWith(Parameterized.class)
 public class GossiperTest {
 
