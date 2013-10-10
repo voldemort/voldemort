@@ -284,6 +284,23 @@ public class PerformParallelPutRequests extends
                 processResponse(response, pipeline);
             }
 
+            // quorum check
+            if(!quorumSatisfied && pipelineData.getSuccesses() >= required) {
+                quorumSatisfied = true;
+            }
+
+            // zone check
+            if(!quorumSatisfied) {
+                if(pipelineData.getZonesRequired() == null) {
+                    zonesSatisfied = true;
+                } else {
+                    int numZonesSatisfied = pipelineData.getZoneResponses().size();
+                    if(numZonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
+                        zonesSatisfied = true;
+                    }
+                }
+            }
+
             if(quorumSatisfied && zonesSatisfied) {
                 if(logger.isDebugEnabled()) {
                     logger.debug("PUT {key:" + key + "} succeeded at parellel put stage");
@@ -322,7 +339,7 @@ public class PerformParallelPutRequests extends
                                                                         + pipeline.getOperation()
                                                                                   .getSimpleName()
                                                                         + "s required zone, but only "
-                                                                        + zonesSatisfied
+                                                                        + (pipelineData.getZoneResponses().size())
                                                                         + " succeeded. Failing nodes : "
                                                                         + pipelineData.getFailedNodes());
                     pipelineData.setFatalError(fatalError);
