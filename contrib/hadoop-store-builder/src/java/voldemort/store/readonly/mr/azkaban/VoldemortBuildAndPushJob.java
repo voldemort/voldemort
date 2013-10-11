@@ -176,15 +176,15 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     /**
      * 
-     * Compare two clusters to see if they have the equal number of partitions, equal number of nodes and each node 
-     * hosts the same partition ids. 
+     * Compare two clusters to see if they have the equal number of partitions,
+     * equal number of nodes and each node hosts the same partition ids.
      * 
      * @param lhs Left hand side Cluster object
-     * @param rhs Right hand side cluster object       
-     * @return True if the clusters are congruent (equal number of partitions, equal number of nodes and same partition
-     *         ids 
+     * @param rhs Right hand side cluster object
+     * @return True if the clusters are congruent (equal number of partitions,
+     *         equal number of nodes and same partition ids
      */
-    private boolean areClustersCongruent(final Cluster lhs, final Cluster rhs) {
+    private boolean areTwoClustersEqual(final Cluster lhs, final Cluster rhs) {
         if (lhs.getNumberOfPartitions() != rhs.getNumberOfPartitions())
             return false;
         if (!lhs.getNodeIds().equals(rhs.getNodeIds()))
@@ -201,12 +201,15 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     /**
      * Check if all cluster objects in the list are congruent.
      * 
-     * @param list of cluster objects 
-     * @return 
-     *         
+     * @param list of cluster objects
+     * @return
+     * 
      */
-    private void allClustersCongruent(final List<String> clusterUrls) {
+    private void allClustersEqual(final List<String> clusterUrls) {
         Validate.notEmpty(clusterUrls, "Clusterurls cannot be null");
+        // If only one clusterUrl return immediately
+        if (clusterUrls.size() == 1)
+            return;
         AdminClient adminClientLhs = new AdminClient(clusterUrls.get(0),
                                                      new AdminClientConfig(),
                                                      new ClientConfig());
@@ -216,131 +219,130 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                          new AdminClientConfig(),
                                                          new ClientConfig());
             Cluster clusterRhs = adminClientRhs.getAdminClientCluster();
-            if (!areClustersCongruent(clusterLhs, clusterRhs))
+            if (!areTwoClustersEqual(clusterLhs, clusterRhs))
                 throw new VoldemortException("Cluster " + clusterLhs.getName()
-                                             + "is not the same as "
-                                             + clusterRhs.getName());
+                                             + "is not the same as " + clusterRhs.getName());
+        }
+    }
+    
+    private void checkForPreconditions(boolean build, boolean push) {
+        if (!build && !push) {
+            throw new RuntimeException(" Both build and push cannot be false ");
+        }
+        else if (build && push && dataDirs.size() != 1) {
+            // Should have only one data directory (which acts like the parent directory to all urls)
+            throw new RuntimeException(" Should have only one data directory ( which acts like root "
+                                       + " directory ) since they are auto-generated during build phase ");
+        } else if (!build && push && dataDirs.size() != clusterUrl.size()) {
+            // Since we are only pushing number of data directories should be equal to number of cluster urls
+            throw new RuntimeException(" Since we are only pushing, number of data directories"
+                                       + " ( comma separated ) should be equal to number of cluster"
+                                       + " urls ");
+        }
+        if ((!build && push) || (build && !push)) {
+            log.warn("DEPRECATED : Creating one build job and separate push job is a deprecated strategy. Instead create"
+                    + "just one job with both build and push set as true and pass a list of cluster urls.");
         }
     }
 
     @Override
     public void run() throws Exception {
         // These two options control the build and push phases of the job respectively.
-        // When used together, the data set will be build thrice and then pushed to each data center
         boolean build = props.getBoolean("build", true);
         boolean push = props.getBoolean("push", true);
-        // This option is an optimization such that it builds only once and then pushes it to all
-        // three. The pushes are done sequentially.
-        boolean multi = props.getBoolean("multi", true);
-
         jsonKeyField = props.getString("key.selection", null);
         jsonValueField = props.getString("value.selection", null);
-
-        if (build && push && dataDirs.size() != 1) {
-            // Should have only one data directory (which acts like the parent directory to all urls)
-            throw new RuntimeException(" Should have only one data directory ( which acts like root "
-                                       +
-                                       " directory ) since they are auto-generated during build phase ");
-        } else if (!build && push && dataDirs.size() != clusterUrl.size()) {
-            // Number of data directories should be equal to number of cluster urls
-            throw new RuntimeException(" Since we are only pushing, number of data directories"
-                                       + " ( comma separated ) should be equal to number of cluster"
-                                       + " urls ");
+        
+        checkForPreconditions(build, push);
+        
+        try {
+            allClustersEqual(clusterUrl);
+        } catch(VoldemortException e) {
+            log.error("Exception during cluster equality check", e);
+            System.exit(-1);
         }
-        // Check every url individually
+        // Create a hashmap to capture exception per url
         HashMap<String, Exception> exceptions = Maps.newHashMap();
         String buildOutputDir = null;
         for (int index = 0; index < clusterUrl.size(); index++) {
             String url = clusterUrl.get(index);
-            log.info("Working on " + url);
-            try {
-                if(isAvroJob)
-                    verifyAvroSchemaAndVersions(url, isAvroVersioned);
-                else
-                    verifySchema(url);
-                if (!multi) {
-                    // preserve the original behavior of building multiple times
-                    if (build) {
+            if (isAvroJob) {
+                // Verify the schema if the store exists or else add the new store
+                verifyOrAddStoreAvro(url, isAvroVersioned);
+            } else {
+                // Verify the schema if the store exists or else add the new store
+                verifyOrAddStore(url);
+            }
+            if (build) { 
+                // If we are only building and not pushing then we want the build to 
+                // happen on all three clusters || we are pushing and we want to build
+                // it to only once
+                if (!push || buildOutputDir == null) {
+                    try {
                         buildOutputDir = runBuildStore(props, url);
-                    } else {
+                    } catch(Exception e) {
+                    log.error("Exception during build for url " + url, e);
+                    exceptions.put(url, e);
+                    }
+                }
+            }
+            if (push) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Informing about push start ...");
+                }
+                informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                                                                                    "Running",
+                                                                                    this.getId())));
+                log.info("Pushing to clusterURl" + clusterUrl.get(index));
+                // If we are not building and just pushing then we want to get the built
+                // from the dataDirs, or else we will just the one that we built earlier
+                try {
+                    if (!build) {
                         buildOutputDir = dataDirs.get(index);
                     }
-                    if (push) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("Informing about push start ...");
-                        }
-                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                            "Running",
-                                                                                            this.getId())));
-                        runPushStore(props, url, buildOutputDir);
-                        if (log.isDebugEnabled()) {
-                            log.debug("Informing about push finish ...");
-                        }
-                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                            "Finished",
-                                                                                            this.getId())));
-                    }
-                } else {
-                    // If multi option is being used make sure that the cluster toplogy is the same
-                    try {
-                        allClustersCongruent(clusterUrl);
-                    } catch (VoldemortException e) {
-                        log.error("Exception during build and push " + e.getMessage(), e);
-                        System.exit(-1);
-                    }
-                    // build only once
-                    if (buildOutputDir == null) {
-                        buildOutputDir = runBuildStore(props, clusterUrl.get(index));
-                    }
-                    // And push to all
-                    for (; index < clusterUrl.size(); index++) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("Informing about push start ...");
-                        }
-                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                            "Running",
-                                                                                            this.getId())));
-                        runPushStore(props, clusterUrl.get(index), buildOutputDir);
-                        if (log.isDebugEnabled()) {
-                            log.debug("Informing about push finish ...");
-                        }
-                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                            "Finished",
-                                                                                            this.getId())));
-                    }
+                    runPushStore(props, url, buildOutputDir);
+                    informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                                                                                        "Finished",
+                                                                                        this.getId())));
+                } catch(Exception e) {
+                    log.error("Exception during push for url " + url, e);
+                    exceptions.put(url, e);
                 }
-                if (build && push && !props.getBoolean("build.output.keep", false)) {
-                    JobConf jobConf = new JobConf();
-                    if (props.containsKey("hadoop.job.ugi")) {
-                        jobConf.set("hadoop.job.ugi", props.getString("hadoop.job.ugi"));
-                    }
-                    log.info("Informing about delete start ..." + buildOutputDir);
-                    HadoopUtils.deletePathIfExists(jobConf, buildOutputDir);
-                    log.info("Deleted " + buildOutputDir);
-                }
-                for(Future result: informedResults) {
-                    try {
-                        result.get();
-                    } catch(Exception e) {
-                        this.log.error("Exception in consumer", e);
-                    }
-                }
-                this.informedExecutor.shutdownNow();
-            } catch(Exception e) {
-                log.error("Exception during build and push for url " + url, e);
-                exceptions.put(url, e);
             }
         }
-        if(exceptions.size() > 0) {
+        if (build && push && !props.getBoolean("build.output.keep", false)) {
+            JobConf jobConf = new JobConf();
+            if (props.containsKey("hadoop.job.ugi")) {
+                jobConf.set("hadoop.job.ugi", props.getString("hadoop.job.ugi"));
+            }
+            log.info("Informing about delete start ..." + buildOutputDir);
+            HadoopUtils.deletePathIfExists(jobConf, buildOutputDir);
+            log.info("Deleted " + buildOutputDir);
+        }
+        for (Future result: informedResults) {
+            try {
+                result.get();
+            } catch(Exception e) {
+                this.log.error("Exception in consumer", e);
+            }
+        }
+        this.informedExecutor.shutdownNow();
+        if (exceptions.size() > 0) {
             log.error("Got exceptions while pushing to " + Joiner.on(",").join(exceptions.keySet())
                       + " => " + Joiner.on(",").join(exceptions.values()));
             System.exit(-1);
         }
     }
 
-    public void verifySchema(String url) throws Exception {
-        // create new json store def with schema from the metadata in the input
-        // path
+    /**
+     * Checks whether the store is already present in the cluster and verify its schema, otherwise add it
+     * 
+     * @param url to check
+     * @return
+     * 
+     */
+    private void verifyOrAddStore(String url) throws Exception {
+        // create new json store def with schema from the metadata in the input path
         JsonSchema schema = HadoopUtils.getSchemaFromPath(getInputPath());
         int replicationFactor = props.getInt("build.replication.factor", 2);
         int requiredReads = props.getInt("build.required.reads", 1);
@@ -349,19 +351,24 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         String owners = props.getString("push.store.owners", "");
         String keySchema = "\n\t\t<type>json</type>\n\t\t<schema-info version=\"0\">"
                            + schema.getKeyType() + "</schema-info>\n\t";
-        if(jsonKeyField != null && jsonKeyField.length() > 0)
+
+        if(jsonKeyField != null && jsonKeyField.length() > 0) {
             keySchema = "\n\t\t<type>json</type>\n\t\t<schema-info version=\"0\">"
                         + schema.getKeyType().subtype(jsonKeyField) + "</schema-info>\n\t";
+        }
+
         String valSchema = "\n\t\t<type>json</type>\n\t\t<schema-info version=\"0\">"
                            + schema.getValueType() + "</schema-info>\n\t";
 
-        if(jsonValueField != null && jsonValueField.length() > 0)
+        if (jsonValueField != null && jsonValueField.length() > 0) {
             valSchema = "\n\t\t<type>json</type>\n\t\t<schema-info version=\"0\">"
                         + schema.getValueType().subtype(jsonValueField) + "</schema-info>\n\t";
+        }
 
         boolean hasCompression = false;
-        if(props.containsKey("build.compress.value"))
+        if (props.containsKey("build.compress.value")) {
             hasCompression = true;
+        }
 
         if(hasCompression) {
             valSchema += "\t<compression><type>gzip</type></compression>\n\t";
@@ -389,42 +396,79 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                                             : valSchema,
                                                               description,
                                                               owners);
+        boolean foundStore = findAndVerify(url,
+                                           newStoreDefXml,
+                                           hasCompression,
+                                           replicationFactor,
+                                           requiredReads,
+                                           requiredWrites);
+        if (!foundStore) {
+            try {
+                StoreDefinition newStoreDef = VoldemortUtils.getStoreDef(newStoreDefXml);
+                addStore(description, owners, url, newStoreDef);
+            }
+            catch(RuntimeException e) {
+                log.error("Getting store definition from: " + url + " (node id " + this.nodeId + ")", e); 
+                System.exit(-1);
+            }
+        }
+        AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+        // don't use newStoreDef because we want to ALWAYS use the JSON definition since the store 
+        // builder assumes that you are using JsonTypeSerializer. This allows you to tweak your 
+        // value/key store xml  as you see fit, but still uses the json sequence file meta data
+        // to  build the store.
+        storeDefs = ImmutableList.of(VoldemortUtils.getStoreDef(VoldemortUtils.getStoreDefXml(storeName,
+                                                                                              replicationFactor,
+                                                                                              requiredReads,
+                                                                                              requiredWrites,
+                                                                                              props.containsKey("build.preferred.reads") ? props.getInt("build.preferred.reads")
+                                                                                                                                        : null,
+                                                                                              props.containsKey("build.preferred.writes") ? props.getInt("build.preferred.writes")
+                                                                                                                                         : null,
+                                                                                              keySchema,
+                                                                                              valSchema)));
+        cluster = adminClient.getAdminClientCluster();
+        adminClient.close();
+    }
+    
+    /**
+     * Check if store exists and then verify the schema. Returns false if store doesn't exist
+     * 
+     * @param url to check
+     * @param storeDefXml
+     * @param hasCompression
+     * @param replicationFactor
+     * @param requiredReads
+     * @param requiredWrites
+     * @return boolean value true means store exists, false otherwise
+     * 
+     */
 
+    private boolean findAndVerify(String url,
+                                  String newStoreDefXml,
+                                  boolean hasCompression,
+                                  int replicationFactor,
+                                  int requiredReads,
+                                  int requiredWrites) {
         log.info("Verifying store: \n" + newStoreDefXml.toString());
-
         StoreDefinition newStoreDef = VoldemortUtils.getStoreDef(newStoreDefXml);
-
-        // get store def from cluster
         log.info("Getting store definition from: " + url + " (node id " + this.nodeId + ")");
-
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
         try {
             List<StoreDefinition> remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(this.nodeId)
                                                                                .getValue();
             boolean foundStore = false;
-
-            // go over all store defs and see if one has the same name as the
-            // store we're trying
-            // to build
+            // go over all store defs and see if one has the same name as the store we're trying to build
             for(StoreDefinition remoteStoreDef: remoteStoreDefs) {
                 if(remoteStoreDef.getName().equals(storeName)) {
-                    // if the store already exists, but doesn't match what we
-                    // want to push, we need
-                    // to worry
+                    // if the store already exists, but doesn't match what we want to push, we need to worry
                     if(!remoteStoreDef.equals(newStoreDef)) {
-                        // it is possible that the stores actually DO match, but
-                        // the
-                        // json in the key/value serializers is out of order (eg
-                        // {'a': 'int32', 'b': 'int32'} could have a/b reversed.
-                        // this is just a reflection of the fact that voldemort
-                        // json
-                        // type defs use hashmaps that are unordered, and pig
-                        // uses
-                        // bags that are unordered as well. it's therefore
-                        // unpredictable what order the keys will come out of
-                        // pig.
-                        // let's check to see if the key/value serializers are
-                        // REALLY equal.
+                        // it is possible that the stores actually DO match, but the json in the key/value 
+                        // serializers is out of order (eg {'a': 'int32', 'b': 'int32'}  could have a/b reversed. 
+                        // This is just a reflection of the fact that voldemort json type defs use hashmaps that 
+                        // are unordered, and pig uses bags that are unordered  as well. it's therefore unpredictable 
+                        // what order the keys will come out of pig. let's check to see if the key/value 
+                        // serializers are REALLY equal.
                         SerializerDefinition localKeySerializerDef = newStoreDef.getKeySerializer();
                         SerializerDefinition localValueSerializerDef = newStoreDef.getValueSerializer();
                         SerializerDefinition remoteKeySerializerDef = remoteStoreDef.getKeySerializer();
@@ -444,12 +488,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                 if(hasCompression) {
                                     compressionPolicy = "\n\t\t<compression><type>gzip</type></compression>";
                                 }
-
-                                // if the key/value serializers are REALLY equal
-                                // (even though the strings may not match), then
-                                // just use the remote stores to GUARANTEE that
-                                // they
-                                // match, and try again.
+                                // if the key/value serializers are REALLY equal (even though the strings may not match), then
+                                // just use the remote stores to GUARANTEE that they match, and try again.
                                 newStoreDefXml = VoldemortUtils.getStoreDefXml(storeName,
                                                                                replicationFactor,
                                                                                requiredReads,
@@ -468,79 +508,52 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                        + "\n\t");
 
                                 newStoreDef = VoldemortUtils.getStoreDef(newStoreDefXml);
-
                                 if(!remoteStoreDef.equals(newStoreDef)) {
-                                    // if we still get a fail, then we know that
-                                    // the
-                                    // store defs don't match for reasons OTHER
-                                    // than
-                                    // the key/value serializer
+                                    // if we still get a fail, then we know that the store defs don't match for reasons 
+                                    // OTHER than the key/value serializer
                                     throw new RuntimeException("Your store schema is identical, but the store definition does not match. Have: "
-                                                               + newStoreDef
-                                                               + "\nBut expected: "
-                                                               + remoteStoreDef);
+                                                               + newStoreDef + "\nBut expected: " + remoteStoreDef);
                                 }
                             } else {
-                                // if the key/value serializers are not equal
-                                // (even
-                                // in java, not just json strings), then fail
+                                // if the key/value serializers are not equal (even in java, not just json strings), 
+                                // then fail
                                 throw new RuntimeException("Your store definition does not match the store definition that is already in the cluster. Tried to resolve identical schemas between local and remote, but failed. Have: "
-                                                           + newStoreDef
-                                                           + "\nBut expected: "
-                                                           + remoteStoreDef);
+                                                           + newStoreDef + "\nBut expected: " + remoteStoreDef);
                             }
                         } else {
                             throw new RuntimeException("Your store definition does not match the store definition that is already in the cluster. Have: "
-                                                       + newStoreDef
-                                                       + "\nBut expected: "
-                                                       + remoteStoreDef);
+                                                       + newStoreDef + "\nBut expected: " + remoteStoreDef);
                         }
                     }
-
                     foundStore = true;
                     break;
                 }
             }
-
-            // if the store doesn't exist yet, create it
-            if(!foundStore) {
-                // New requirement - Make sure the user had description and
-                // owner specified
-                if(description.length() == 0) {
-                    throw new RuntimeException("Description field missing in store definition. "
-                                               + "Please add \"push.store.description\" with a line describing your store");
-                }
-
-                if(owners.length() == 0) {
-                    throw new RuntimeException("Owner field missing in store definition. "
-                                               + "Please add \"push.store.owners\" with value being comma-separated list of LinkedIn email ids");
-
-                }
-
-                log.info("Could not find store " + storeName
-                         + " on Voldemort. Adding it to all nodes ");
-                adminClient.storeMgmtOps.addStore(newStoreDef);
-            }
-
-            // don't use newStoreDef because we want to ALWAYS use the JSON
-            // definition since the store builder assumes that you are using
-            // JsonTypeSerializer. This allows you to tweak your value/key store
-            // xml
-            // as you see fit, but still uses the json sequence file meta data
-            // to
-            // build the store.
-            storeDefs = ImmutableList.of(VoldemortUtils.getStoreDef(VoldemortUtils.getStoreDefXml(storeName,
-                                                                                                  replicationFactor,
-                                                                                                  requiredReads,
-                                                                                                  requiredWrites,
-                                                                                                  props.containsKey("build.preferred.reads") ? props.getInt("build.preferred.reads")
-                                                                                                                                            : null,
-                                                                                                  props.containsKey("build.preferred.writes") ? props.getInt("build.preferred.writes")
-                                                                                                                                             : null,
-                                                                                                  keySchema,
-                                                                                                  valSchema)));
-            cluster = adminClient.getAdminClientCluster();
+         return foundStore;
         } finally {
+            adminClient.close();
+        }
+    }
+    
+    private void addStore(String description, String owners, String url, StoreDefinition newStoreDef) {
+        if (description.length() == 0) {
+            throw new RuntimeException("Description field missing in store definition. "
+                                       + "Please add \"push.store.description\" with a line describing your store");
+        }
+        if (owners.length() == 0) {
+            throw new RuntimeException("Owner field missing in store definition. "
+                                       + "Please add \"push.store.owners\" with value being comma-separated list of LinkedIn email ids");
+
+        }
+        log.info("Could not find store " + storeName + " on Voldemort. Adding it to all nodes ");
+        AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+        try {
+            adminClient.storeMgmtOps.addStore(newStoreDef);
+        }
+        catch(VoldemortException ve) {
+            throw new RuntimeException("Exception during adding store" + ve.getMessage());
+        }
+        finally {
             adminClient.close();
         }
     }
@@ -646,64 +659,59 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     // Get the schema for the Avro Record from the object container file
     public String getRecordSchema() throws IOException {
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
-
         String recSchema = schema.toString();
-
         return recSchema;
-
     }
 
     // Extract schema of the key field
     public String getKeySchema() throws IOException {
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
-
         String keySchema = schema.getField(keyField).schema().toString();
-
         return keySchema;
-
     }
 
     // Extract schema of the value field
     public String getValueSchema() throws IOException {
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
-
         String valueSchema = schema.getField(valueField).schema().toString();
-
         return valueSchema;
-
     }
-
-    // Verify if the new avro schema being pushed is the same one as the last
-    // version present on the server
+    
+    private static class KeyValueSchema {
+        String keySchema;
+        String valSchema;
+        KeyValueSchema(String key, String val) {
+            keySchema = key;
+            valSchema = val;
+        }
+    }
+    
+    // Verify if the new avro schema being pushed is the same one as the last version present on the server
     // supports schema evolution
 
-    public void verifyAvroSchemaAndVersions(String url, boolean isVersioned) throws Exception {
-        // create new n store def with schema from the metadata in the input
-        // path
+    public void verifyOrAddStoreAvro(String url, boolean isVersioned) throws Exception {
+        // create new n store def with schema from the metadata in the input path
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
         int replicationFactor = props.getInt("build.replication.factor", 2);
         int requiredReads = props.getInt("build.required.reads", 1);
         int requiredWrites = props.getInt("build.required.writes", 1);
         String description = props.getString("push.store.description", "");
         String owners = props.getString("push.store.owners", "");
-
         String serializerName;
-
-        if(isVersioned)
+        if (isVersioned)
             serializerName = AVRO_GENERIC_VERSIONED_TYPE_NAME;
         else
             serializerName = AVRO_GENERIC_TYPE_NAME;
 
-        String keySchema = "\n\t\t<type>" + serializerName
-                           + "</type>\n\t\t<schema-info version=\"0\">"
+        String keySchema = "\n\t\t<type>" + serializerName + "</type>\n\t\t<schema-info version=\"0\">"
                            + schema.getField(keyField).schema() + "</schema-info>\n\t";
-        String valSchema = "\n\t\t<type>" + serializerName
-                           + "</type>\n\t\t<schema-info version=\"0\">"
+        String valSchema = "\n\t\t<type>" + serializerName + "</type>\n\t\t<schema-info version=\"0\">"
                            + schema.getField(valueField).schema() + "</schema-info>\n\t";
 
         boolean hasCompression = false;
-        if(props.containsKey("build.compress.value"))
+        if (props.containsKey("build.compress.value")) {
             hasCompression = true;
+        }
 
         if(hasCompression) {
             valSchema += "\t<compression><type>gzip</type></compression>\n\t";
@@ -731,39 +739,86 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                                             : valSchema,
                                                               description,
                                                               owners);
-
+        KeyValueSchema returnSchemaObj = new KeyValueSchema(keySchema, valSchema);
+        boolean foundStore = findAndVerifyAvro(url,
+                                               newStoreDefXml,
+                                               hasCompression,
+                                               replicationFactor,
+                                               requiredReads,
+                                               requiredWrites,
+                                               serializerName,
+                                               returnSchemaObj);
+        if (!foundStore) {
+            try {
+                StoreDefinition newStoreDef = VoldemortUtils.getStoreDef(newStoreDefXml);
+                addStore(description, owners, url, newStoreDef);
+            }
+            catch(RuntimeException e) {
+                log.error("Error in adding store definition from: " + url, e); 
+                System.exit(-1);
+            }
+        }
+        AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+        // don't use newStoreDef because we want to ALWAYS use the JSON definition since the store 
+        // builder assumes that you are using JsonTypeSerializer. This allows you to tweak your 
+        // value/key store xml  as you see fit, but still uses the json sequence file meta data
+        // to  build the store.
+        storeDefs = ImmutableList.of(VoldemortUtils.getStoreDef(VoldemortUtils.getStoreDefXml(storeName,
+                                                                                              replicationFactor,
+                                                                                              requiredReads,
+                                                                                              requiredWrites,
+                                                                                              props.containsKey("build.preferred.reads") ? props.getInt("build.preferred.reads")
+                                                                                                                                        : null,
+                                                                                              props.containsKey("build.preferred.writes") ? props.getInt("build.preferred.writes")
+                                                                                                                                         : null,
+                                                                                              returnSchemaObj.keySchema,
+                                                                                              returnSchemaObj.valSchema)));
+        cluster = adminClient.getAdminClientCluster();
+        adminClient.close();
+    }
+ 
+    /**
+     * Check if store exists and then verify the schema. Returns false if store doesn't exist
+     * 
+     * @param url to check
+     * @param storeDefXml
+     * @param hasCompression
+     * @param replicationFactor
+     * @param requiredReads
+     * @param requiredWrites
+     * @param serializerName
+     * @param schemaObj key/value schema obj
+     * @return boolean value true means store exists, false otherwise
+     * 
+     */
+    private boolean findAndVerifyAvro(String url,
+                                      String newStoreDefXml,
+                                      boolean hasCompression,
+                                      int replicationFactor,
+                                      int requiredReads,
+                                      int requiredWrites,
+                                      String serializerName,
+                                      KeyValueSchema schemaObj) {
         log.info("Verifying store: \n" + newStoreDefXml.toString());
-
         StoreDefinition newStoreDef = VoldemortUtils.getStoreDef(newStoreDefXml);
-
         // get store def from cluster
         log.info("Getting store definition from: " + url + " (node id " + this.nodeId + ")");
-
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
         try {
             List<StoreDefinition> remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(this.nodeId)
                                                                                .getValue();
             boolean foundStore = false;
-
-            // go over all store defs and see if one has the same name as the
-            // store we're trying
-            // to build
+            // go over all store defs and see if one has the same name as the store we're trying to build
             for(StoreDefinition remoteStoreDef: remoteStoreDefs) {
-
                 if(remoteStoreDef.getName().equals(storeName)) {
-                    // if the store already exists, but doesn't match what we
-                    // want to push, we need
-                    // to worry
-
+                    // if the store already exists, but doesn't match what we want to push, we need to worry
                     if(!remoteStoreDef.equals(newStoreDef)) {
-
                         // let's check to see if the key/value serializers are
                         // REALLY equal.
                         SerializerDefinition localKeySerializerDef = newStoreDef.getKeySerializer();
                         SerializerDefinition localValueSerializerDef = newStoreDef.getValueSerializer();
                         SerializerDefinition remoteKeySerializerDef = remoteStoreDef.getKeySerializer();
                         SerializerDefinition remoteValueSerializerDef = remoteStoreDef.getValueSerializer();
-
                         if(remoteKeySerializerDef.getName().equals(serializerName)
                            && remoteValueSerializerDef.getName().equals(serializerName)) {
 
@@ -808,7 +863,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                        + "</schema-info>\n\t";
                                 }
 
-                                keySchema = keySerializerStr;
+                                schemaObj.keySchema = keySerializerStr;
                                 String valueSerializerStr = "\n\t\t<type>"
                                                             + remoteValueSerializerDef.getName()
                                                             + "</type>";
@@ -835,7 +890,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                          + "\n\t";
 
                                 }
-                                valSchema = valueSerializerStr;
+                                schemaObj.valSchema = valueSerializerStr;
 
                                 newStoreDefXml = VoldemortUtils.getStoreDefXml(storeName,
                                                                                replicationFactor,
@@ -851,11 +906,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                 newStoreDef = VoldemortUtils.getStoreDef(newStoreDefXml);
 
                                 if(!remoteStoreDef.equals(newStoreDef)) {
-                                    // if we still get a fail, then we know that
-                                    // the
-                                    // store defs don't match for reasons OTHER
-                                    // than
-                                    // the key/value serializer
+                                    // if we still get a fail, then we know that the store defs don't match for reasons 
+                                    // OTHER than the key/value serializer
                                     throw new RuntimeException("Your store schema is identical, but the store definition does not match. Have: "
                                                                + newStoreDef
                                                                + "\nBut expected: "
@@ -863,9 +915,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                 }
 
                             } else {
-                                // if the key/value serializers are not equal
-                                // (even
-                                // in java, not just json strings), then fail
+                                // if the key/value serializers are not equal (even in java, not just json strings), 
+                                // then fail
                                 throw new RuntimeException("Your store definition does not match the store definition that is already in the cluster. Tried to resolve identical schemas between local and remote, but failed. Have: "
                                                            + newStoreDef
                                                            + "\nBut expected: "
@@ -878,45 +929,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                        + remoteStoreDef);
                         }
                     }
-
                     foundStore = true;
-
                     break;
                 }
             }
-
-            // if the store doesn't exist yet, create it
-            if(!foundStore) {
-
-                // New requirement - Make sure the user had description and
-                // owner specified
-                if(description.length() == 0) {
-                    throw new RuntimeException("Description field missing in store definition. "
-                                               + "Please add \"push.store.description\" with a line describing your store");
-                }
-
-                if(owners.length() == 0) {
-                    throw new RuntimeException("Owner field missing in store definition. "
-                                               + "Please add \"push.store.owners\" with value being comma-separated list of LinkedIn email ids");
-
-                }
-
-                log.info("Could not find store " + storeName
-                         + " on Voldemort. Adding it to all nodes ");
-                adminClient.storeMgmtOps.addStore(newStoreDef);
-            }
-
-            storeDefs = ImmutableList.of(VoldemortUtils.getStoreDef(VoldemortUtils.getStoreDefXml(storeName,
-                                                                                                  replicationFactor,
-                                                                                                  requiredReads,
-                                                                                                  requiredWrites,
-                                                                                                  props.containsKey("build.preferred.reads") ? props.getInt("build.preferred.reads")
-                                                                                                                                            : null,
-                                                                                                  props.containsKey("build.preferred.writes") ? props.getInt("build.preferred.writes")
-                                                                                                                                             : null,
-                                                                                                  keySchema,
-                                                                                                  valSchema)));
-            cluster = adminClient.getAdminClientCluster();
+            return foundStore;
         } finally {
             adminClient.close();
         }
