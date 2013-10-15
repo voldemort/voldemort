@@ -94,6 +94,7 @@ public class ClientConfig {
     private volatile long failureDetectorAsyncRecoveryIntervalMs = FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL;
     private volatile List<String> failureDetectorCatastrophicErrorTypes = FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES;
     private long failureDetectorRequestLengthThreshold = socketTimeoutMs;
+    protected volatile int maximumTolerableFatalFailures = FailureDetectorConfig.DEFAULT_MAX_TOLERABLE_FATAL_FAILURES;
 
     private volatile int maxBootstrapRetries = 2;
     private volatile String clientContextName = "";
@@ -155,6 +156,7 @@ public class ClientConfig {
     public static final String FAILUREDETECTOR_ASYNCRECOVERY_INTERVAL_PROPERTY = "failuredetector_asyncscan_interval";
     public static final String FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES_PROPERTY = "failuredetector_catastrophic_error_types";
     public static final String FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD_PROPERTY = "failuredetector_request_length_threshold";
+    public static final String FAILUREDETECTOR_MAX_TOLERABLE_FATALITIES_PROPERTY = "failuredetector_max_tolerable_fatal_failures";
     public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
     public static final String CLIENT_CONTEXT_NAME = "voldemort_client_context_name";
     public static final String ASYNC_CHECK_METADATA_INTERVAL = "check_metadata_interval_ms";
@@ -299,6 +301,9 @@ public class ClientConfig {
 
         if(props.containsKey(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY))
             this.setFailureDetectorImplementation(props.getString(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY));
+
+        if(props.containsKey(FAILUREDETECTOR_MAX_TOLERABLE_FATALITIES_PROPERTY))
+            this.setMaximumTolerableFatalFailures(props.getInt(FAILUREDETECTOR_MAX_TOLERABLE_FATALITIES_PROPERTY));
 
         // We're changing the property from "node_bannage_ms" to
         // "failuredetector_bannage_period" so if we have the old one, migrate
@@ -1002,6 +1007,23 @@ public class ClientConfig {
         return this;
     }
 
+    public int getMaximumTolerableFatalFailures() {
+        return maximumTolerableFatalFailures;
+    }
+
+    /**
+     * Sets the maximum number of Fatal failures (connectivity failures)
+     * acceptable before the node is marked as unavailable (in case of
+     * ThresholdFailureDetector).
+     * 
+     * @param maximumTolerableFatalFailures #fatal failures acceptable before
+     *        node is marked as unavailable
+     */
+    public ClientConfig setMaximumTolerableFatalFailures(int maximumTolerableFatalFailures) {
+        this.maximumTolerableFatalFailures = maximumTolerableFatalFailures;
+        return this;
+    }
+
     public int getMaxBootstrapRetries() {
         return maxBootstrapRetries;
     }
@@ -1058,8 +1080,7 @@ public class ClientConfig {
      * Set the interval on which client refreshes its corresponding entry of the
      * client registry on the servers
      * 
-     * @param clientRegistryRefrshIntervalInSecs The refresh interval in
-     *        seconds
+     * @param clientRegistryRefrshIntervalInSecs The refresh interval in seconds
      * @return modified ClientConfig
      */
     public ClientConfig setClientRegistryUpdateIntervalInSecs(int clientRegistryRefrshIntervalInSecs) {

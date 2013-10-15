@@ -68,6 +68,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         nodeStatus.setLastChecked(currTime);
         nodeStatus.setStartMillis(currTime);
         nodeStatus.setAvailable(true);
+        nodeStatus.setNumConsecutiveCatastrophicErrors(0);
         return nodeStatus;
     }
 
@@ -169,6 +170,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
                 logger.info("Node " + node.getId() + " now available");
 
             synchronized(nodeStatus) {
+                nodeStatus.setNumConsecutiveCatastrophicErrors(0);
+                if(logger.isTraceEnabled()) {
+                    logger.trace("Resetting # consecutive connect errors for node : " + node);
+                }
                 nodeStatus.notifyAll();
             }
 

@@ -62,6 +62,8 @@ public class FailureDetectorConfig {
 
     public static final long DEFAULT_REQUEST_LENGTH_THRESHOLD = 5000;
 
+    public static final int DEFAULT_MAX_TOLERABLE_FATAL_FAILURES = 10;
+
     protected String implementationClassName = DEFAULT_IMPLEMENTATION_CLASS_NAME;
 
     protected long bannagePeriod = DEFAULT_BANNAGE_PERIOD;
@@ -83,6 +85,8 @@ public class FailureDetectorConfig {
     protected StoreVerifier storeVerifier;
 
     protected Time time = SystemTime.INSTANCE;
+
+    protected int maximumTolerableFatalFailures;
 
     private Cluster cluster = null;
 
@@ -123,6 +127,7 @@ public class FailureDetectorConfig {
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
         setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
         setRequestLengthThreshold(config.getFailureDetectorRequestLengthThreshold());
+        setMaximumTolerableFatalFailures(DEFAULT_MAX_TOLERABLE_FATAL_FAILURES);
     }
 
     /**
@@ -147,6 +152,7 @@ public class FailureDetectorConfig {
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
         setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
         setRequestLengthThreshold(config.getFailureDetectorRequestLengthThreshold());
+        setMaximumTolerableFatalFailures(config.getMaximumTolerableFatalFailures());
     }
 
     /**
@@ -617,6 +623,25 @@ public class FailureDetectorConfig {
     public FailureDetectorConfig setTime(Time time) {
         this.time = Utils.notNull(time);
         return this;
+    }
+
+    /**
+     * Sets the maximum number of Fatal failures (connectivity failures)
+     * acceptable before the node is marked as unavailable (in case of
+     * ThresholdFailureDetector).
+     * 
+     * @param maximumTolerableFatalFailures #fatal failures acceptable before
+     *        node is marked as unavailable
+     */
+    public void setMaximumTolerableFatalFailures(int maximumTolerableFatalFailures) {
+        this.maximumTolerableFatalFailures = maximumTolerableFatalFailures;
+    }
+
+    /**
+     * @return #fatal failures acceptable before node is marked as unavailable
+     */
+    public int getMaximumTolerableFatalFailures() {
+        return maximumTolerableFatalFailures;
     }
 
 }

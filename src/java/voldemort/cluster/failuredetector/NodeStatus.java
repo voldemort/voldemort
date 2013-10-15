@@ -16,6 +16,7 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Holds the status of a node--either available or unavailable as well as the
@@ -38,6 +39,8 @@ class NodeStatus {
     private long failure;
 
     private long total;
+
+    private AtomicInteger numConsecutiveCatastrophicErrors;
 
     public long getLastChecked() {
         return lastChecked;
@@ -97,6 +100,28 @@ class NodeStatus {
 
     public void incrementTotal(long delta) {
         this.total += delta;
+    }
+
+    public int getNumConsecutiveCatastrophicErrors() {
+        if(this.numConsecutiveCatastrophicErrors == null) {
+            return 0;
+        }
+        return numConsecutiveCatastrophicErrors.get();
+    }
+
+    public void setNumConsecutiveCatastrophicErrors(int numConsecutiveCatastrophicErrors) {
+        if(this.numConsecutiveCatastrophicErrors == null) {
+            this.numConsecutiveCatastrophicErrors = new AtomicInteger(0);
+        }
+        this.numConsecutiveCatastrophicErrors.set(numConsecutiveCatastrophicErrors);
+    }
+
+    public void incrementConsecutiveCatastrophicErrors() {
+        if(this.numConsecutiveCatastrophicErrors == null) {
+            this.numConsecutiveCatastrophicErrors = new AtomicInteger(0);
+        }
+
+        this.numConsecutiveCatastrophicErrors.incrementAndGet();
     }
 
 }

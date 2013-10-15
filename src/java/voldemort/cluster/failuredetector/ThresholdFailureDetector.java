@@ -150,6 +150,14 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
         // Protect all logic to decide on available/unavailable w/in
         // synchronized section
         synchronized(nodeStatus) {
+
+            if(nodeStatus.getNumConsecutiveCatastrophicErrors() != 0 && successDelta > 0) {
+                nodeStatus.setNumConsecutiveCatastrophicErrors(0);
+                if(logger.isTraceEnabled()) {
+                    logger.trace("Resetting # consecutive connect errors for node : " + node);
+                }
+            }
+
             if(currentTime >= nodeStatus.getStartMillis() + getConfig().getThresholdInterval()) {
                 // We've passed into a new interval, so reset our counts
                 // appropriately.
@@ -167,9 +175,17 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                 if(catastrophicError != null) {
                     if(logger.isTraceEnabled())
                         logger.trace("Node " + node.getId() + " experienced catastrophic error: "
-                                     + catastrophicError);
+                                     + catastrophicError + " on node : " + node
+                                     + " # accumulated errors = "
+                                     + nodeStatus.getNumConsecutiveCatastrophicErrors());
 
-                    invokeSetUnavailable = true;
+                    nodeStatus.incrementConsecutiveCatastrophicErrors();
+                    if(nodeStatus.getNumConsecutiveCatastrophicErrors() >= this.failureDetectorConfig.getMaximumTolerableFatalFailures()) {
+                        invokeSetUnavailable = true;
+                        logger.info("Node " + node.getId() + " experienced consecutive "
+                                    + this.failureDetectorConfig.getMaximumTolerableFatalFailures()
+                                    + " catastrophic errors. Marking it unavailable.");
+                    }
                 } else if(nodeStatus.getFailure() >= getConfig().getThresholdCountMinimum()) {
                     long percentage = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 
