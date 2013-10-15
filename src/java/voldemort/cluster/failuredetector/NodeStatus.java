@@ -42,6 +42,10 @@ class NodeStatus {
 
     private AtomicInteger numConsecutiveCatastrophicErrors;
 
+    public NodeStatus() {
+        numConsecutiveCatastrophicErrors = new AtomicInteger(0);
+    }
+
     public long getLastChecked() {
         return lastChecked;
     }
@@ -103,24 +107,14 @@ class NodeStatus {
     }
 
     public int getNumConsecutiveCatastrophicErrors() {
-        if(this.numConsecutiveCatastrophicErrors == null) {
-            return 0;
-        }
         return numConsecutiveCatastrophicErrors.get();
     }
 
     public void setNumConsecutiveCatastrophicErrors(int numConsecutiveCatastrophicErrors) {
-        if(this.numConsecutiveCatastrophicErrors == null) {
-            this.numConsecutiveCatastrophicErrors = new AtomicInteger(0);
-        }
         this.numConsecutiveCatastrophicErrors.set(numConsecutiveCatastrophicErrors);
     }
 
     public void incrementConsecutiveCatastrophicErrors() {
-        if(this.numConsecutiveCatastrophicErrors == null) {
-            this.numConsecutiveCatastrophicErrors = new AtomicInteger(0);
-        }
-
         this.numConsecutiveCatastrophicErrors.incrementAndGet();
     }
 

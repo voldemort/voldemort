@@ -68,7 +68,6 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         nodeStatus.setLastChecked(currTime);
         nodeStatus.setStartMillis(currTime);
         nodeStatus.setAvailable(true);
-        nodeStatus.setNumConsecutiveCatastrophicErrors(0);
         return nodeStatus;
     }
 
