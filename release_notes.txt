@@ -1,3 +1,14 @@
+Release 1.5.5 on 10/18/2013
+
+* Client shell with avro support
+* Fix bind exceptions
+* Fix ObsoleteVersion Exceptions
+* Build once and push to multiple clusters
+* Improvements to failure detector
+* Fix parallel puts
+* Prevent NPE in worker thread when shutdown
+* Bug fixes in repair and prune job
+
 Release 1.5.3 on 09/19/2013
 
 * Bug fixes (NPE during shutdown
