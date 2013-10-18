@@ -33,6 +33,10 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
+/**
+ * This test verifies the zone count write policy in PipelineRoutedStore
+ * 
+ */
 public class ZoneCountWriteTest {
 
     private Store<String, String, byte[]> client;
@@ -114,7 +118,9 @@ public class ZoneCountWriteTest {
             client.put("AB", new Versioned<String>("CD"), null);
             try {
                 Thread.sleep(100);
-            } catch(InterruptedException e) {}
+            } catch(InterruptedException e) {
+                e.printStackTrace();
+            }
             for(Integer nodeId: vservers.keySet()) {
                 VoldemortServer vs = vservers.get(nodeId);
                 Store<ByteArray, byte[], byte[]> store = vs.getStoreRepository()
@@ -158,6 +164,7 @@ public class ZoneCountWriteTest {
             }
         } catch(InsufficientOperationalNodesException e) {
             fail("Failed with exception: " + e);
+            e.printStackTrace();
         }
     }
 

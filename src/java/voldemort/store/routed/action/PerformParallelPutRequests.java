@@ -230,20 +230,8 @@ public class PerformParallelPutRequests extends
                     preferredSatisfied = true;
                 }
 
-                // quorum check
-                if(pipelineData.getSuccesses() >= required) {
-                    quorumSatisfied = true;
-                }
-
-                // zone check
-                if(pipelineData.getZonesRequired() == null) {
-                    zonesSatisfied = true;
-                } else {
-                    int numZonesSatisfied = pipelineData.getZoneResponses().size();
-                    if(numZonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
-                        zonesSatisfied = true;
-                    }
-                }
+                quorumSatisfied = isQuorumSatisfied();
+                zonesSatisfied = isZonesSatisfied();
 
                 if(quorumSatisfied && zonesSatisfied && preferredSatisfied || remainingNs <= 0
                    || numNodesPendingResponse <= 0) {
@@ -284,22 +272,8 @@ public class PerformParallelPutRequests extends
                 processResponse(response, pipeline);
             }
 
-            // quorum check
-            if(!quorumSatisfied && pipelineData.getSuccesses() >= required) {
-                quorumSatisfied = true;
-            }
-
-            // zone check
-            if(!quorumSatisfied) {
-                if(pipelineData.getZonesRequired() == null) {
-                    zonesSatisfied = true;
-                } else {
-                    int numZonesSatisfied = pipelineData.getZoneResponses().size();
-                    if(numZonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
-                        zonesSatisfied = true;
-                    }
-                }
-            }
+            quorumSatisfied = isQuorumSatisfied();
+            zonesSatisfied = isZonesSatisfied();
 
             if(quorumSatisfied && zonesSatisfied) {
                 if(logger.isDebugEnabled()) {
@@ -402,5 +376,32 @@ public class PerformParallelPutRequests extends
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
             }
         }
+    }
+
+    /**
+     * Check if quorum is satisfied
+     * 
+     * @return whether quorum is satisfied
+     */
+    private boolean isQuorumSatisfied() {
+        return pipelineData.getSuccesses() >= required;
+    }
+
+    /**
+     * Check if zone count policy is satisfied
+     * 
+     * @return whether zone is satisfied
+     */
+    private boolean isZonesSatisfied() {
+        boolean zonesSatisfied = false;
+        if(pipelineData.getZonesRequired() == null) {
+            zonesSatisfied = true;
+        } else {
+            int numZonesSatisfied = pipelineData.getZoneResponses().size();
+            if(numZonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
+                zonesSatisfied = true;
+            }
+        }
+        return zonesSatisfied;
     }
 }
