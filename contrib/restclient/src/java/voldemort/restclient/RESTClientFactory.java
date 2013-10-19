@@ -65,7 +65,7 @@ public class RESTClientFactory implements StoreClientFactory {
     public RESTClientFactory(Config config) {
         this.config = new RESTClientConfig(config.getClientConfig());
         this.d2Client = config.getD2Client();
-        
+
         this.stats = new StoreStats();
         this.rawStoreList = new ArrayList<R2Store>();
 
@@ -115,18 +115,18 @@ public class RESTClientFactory implements StoreClientFactory {
 
         // The lowest layer : Transporting request to coordinator
         R2Store r2store = null;
-        if (this.d2Client == null) {
+        if(this.d2Client == null) {
             r2store = new R2Store(storeName,
-                                          this.config.getHttpBootstrapURL(),
-                                          this.transportClient,
-                                          this.config);
+                                  this.config.getHttpBootstrapURL(),
+                                  this.transportClient,
+                                  this.config);
         } else {
-           r2store = new R2Store(storeName,
-                                      this.config.getHttpBootstrapURL(),
-                                      this.d2Client,
-                                      this.config);
+            r2store = new R2Store(storeName,
+                                  this.config.getHttpBootstrapURL(),
+                                  this.d2Client,
+                                  this.config);
         }
-                                      
+
         this.rawStoreList.add(r2store);
 
         // bootstrap from the coordinator and obtain all the serialization
@@ -137,9 +137,9 @@ public class RESTClientFactory implements StoreClientFactory {
 
         if(logger.isDebugEnabled()) {
             logger.debug("Bootstrapping for " + storeName + ": Key serializer "
-                    + keySerializerDefinition);
+                         + keySerializerDefinition);
             logger.debug("Bootstrapping for " + storeName + ": Value serializer "
-                    + valueSerializerDefinition);
+                         + valueSerializerDefinition);
         }
 
         // Start building the stack..
@@ -169,10 +169,10 @@ public class RESTClientFactory implements StoreClientFactory {
 
         // Add inconsistency Resolving layer
         InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver<V>()
-                                                                                 : resolver;
+                                                                                : resolver;
         clientStore = new InconsistencyResolvingStore<K, V, T>(clientStore,
-                new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver<V>(),
-                        secondaryResolver));
+                                                               new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver<V>(),
+                                                                                                 secondaryResolver));
         return clientStore;
     }
 
@@ -191,7 +191,7 @@ public class RESTClientFactory implements StoreClientFactory {
                          e);
         } catch(ExecutionException e) {
             logger.error("Execution exception occurred while shutting down the HttpClientFactory: "
-                    + e.getMessage(), e);
+                         + e.getMessage(), e);
         }
     }
 
@@ -200,25 +200,17 @@ public class RESTClientFactory implements StoreClientFactory {
         return null;
     }
 
-    @Override
-    public StoreClientFactoryStats getStoreClientFactoryStats() {
-        return RESTClientFactoryStats;
-    }
-
     /**
      * Inner configuration class.
      */
-    public static class Config
-    {
+    public static class Config {
+
         private Properties clientConfig;
         private Client d2Client;
 
-        public Config()
-        {
-        }
+        public Config() {}
 
-        public Config(Properties clientConfig, Client d2Client)
-        {
+        public Config(Properties clientConfig, Client d2Client) {
             setClientConfig(clientConfig);
             setD2Client(d2Client);
         }

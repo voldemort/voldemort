@@ -29,7 +29,6 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.serialized.SerializingStore;
-import voldemort.store.stats.StoreClientFactoryStats;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.store.versioned.VersionIncrementingStore;
 import voldemort.store.views.ViewStorageConfiguration;
@@ -205,10 +204,5 @@ public class MockStoreClientFactory implements StoreClientFactory {
 
     public FailureDetector getFailureDetector() {
         return failureDetector;
-    }
-
-    @Override
-    public StoreClientFactoryStats getStoreClientFactoryStats() {
-        return null;
     }
 }

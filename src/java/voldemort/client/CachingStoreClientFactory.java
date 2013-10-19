@@ -119,9 +119,4 @@ public class CachingStoreClientFactory implements StoreClientFactory {
             logger.warn("Exception during bootstrapAllClients", e);
         }
     }
-
-    @Override
-    public StoreClientFactoryStats getStoreClientFactoryStats() {
-        return cacheStoreClientFactoryStats;
-    }
 }

@@ -18,7 +18,6 @@ package voldemort.client;
 
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
-import voldemort.store.stats.StoreClientFactoryStats;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
@@ -86,13 +85,4 @@ public interface StoreClientFactory {
      */
 
     public FailureDetector getFailureDetector();
-    
-    /**
-     * Returns the stats object related to the factory
-     * 
-     * @return StoreClientFactoryStats
-     */
-
-    public StoreClientFactoryStats getStoreClientFactoryStats();
-
 }

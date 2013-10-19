@@ -68,9 +68,4 @@ public class StaticStoreClientFactory implements StoreClientFactory {
     public FailureDetector getFailureDetector() {
         return failureDetector;
     }
-
-    @Override
-    public StoreClientFactoryStats getStoreClientFactoryStats() {
-        return staticStoreClientFactoryStats;
-    }
 }

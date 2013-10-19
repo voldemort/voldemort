@@ -32,7 +32,6 @@ import voldemort.serialization.Serializer;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.store.stats.StoreClientFactoryStats;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistencyResolver;
@@ -105,7 +104,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during delete [  "
                             + e.getMessage() + " ] on store '" + storeName + "'. Rebootstrapping");
-                storeFactory.getStoreClientFactoryStats().incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
                 bootStrap();
             }
         }
@@ -137,7 +135,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during get [  " + e.getMessage()
                             + " ] on store '" + storeName + "'. Rebootstrapping");
-                storeFactory.getStoreClientFactoryStats().incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
                 bootStrap();
             }
         }
@@ -153,7 +150,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during get [  " + e.getMessage()
                             + " ] on store '" + storeName + "'. Rebootstrapping");
-                storeFactory.getStoreClientFactoryStats().incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
                 bootStrap();
             }
         }
@@ -168,7 +164,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during getVersions [  "
                             + e.getMessage() + " ] on store '" + storeName + "'. Rebootstrapping");
-                storeFactory.getStoreClientFactoryStats().incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
                 bootStrap();
             }
         }
@@ -202,7 +197,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during getAll [  "
                             + e.getMessage() + " ] on store '" + storeName + "'. Rebootstrapping");
-                storeFactory.getStoreClientFactoryStats().incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
                 bootStrap();
             }
         }
@@ -241,7 +235,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during put [  " + e.getMessage()
                             + " ] on store '" + storeName + "'. Rebootstrapping");
-                storeFactory.getStoreClientFactoryStats().incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
                 bootStrap();
             }
         }
@@ -267,7 +260,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during put [  " + e.getMessage()
                             + " ] on store '" + storeName + "'. Rebootstrapping");
-                storeFactory.getStoreClientFactoryStats().incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
                 bootStrap();
             }
         }
@@ -336,7 +328,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during getAll [  "
                             + e.getMessage() + " ] on store '" + storeName + "'. Rebootstrapping");
-                storeFactory.getStoreClientFactoryStats().incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
                 bootStrap();
             }
         }

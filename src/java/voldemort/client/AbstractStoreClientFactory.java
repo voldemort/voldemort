@@ -144,7 +144,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                    JmxUtils.createObjectName("voldemort.store.stats.aggregate",
                                                              "aggregate-perf"
                                                                      + JmxUtils.getJmxId(jmxId)));
-            
+
             JmxUtils.registerMbean(new StoreClientFactoryStatsJmx(clientFactoryStats),
                                    JmxUtils.createObjectName("voldemort.store.client.factory.stats",
                                                              JmxUtils.getJmxId(jmxId)));
@@ -158,12 +158,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     public int getCurrentJmxId() {
         return jmxIdCounter.get();
     }
-    
-    @Override
-    public StoreClientFactoryStats getStoreClientFactoryStats() {
-        return clientFactoryStats;
-    }
-  
+
     @Override
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return getStoreClient(storeName, null);
@@ -437,8 +432,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                         throw new RuntimeException(e1);
                     }
                 }
-            }
-            finally {
+            } finally {
                 // We have a bootstrap event, record it.
                 clientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.BOOTSTRAP_EVENT);
             }
