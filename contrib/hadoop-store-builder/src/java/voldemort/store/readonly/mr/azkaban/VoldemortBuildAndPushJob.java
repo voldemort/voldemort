@@ -300,6 +300,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     if (!build) {
                         buildOutputDir = dataDirs.get(index);
                     }
+                    // If there was an exception during the build part the buildOutputDir might be null, check 
+                    // if that's the case, if yes then continue and don't even try pushing
+                    if (buildOutputDir == null) {
+                        continue;
+                    }
                     runPushStore(props, url, buildOutputDir);
                     informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
                                                                                         "Finished",
@@ -310,7 +315,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 }
             }
         }
-        if (build && push && !props.getBoolean("build.output.keep", false)) {
+        if (build && push && buildOutputDir != null && !props.getBoolean("build.output.keep", false)) {
             JobConf jobConf = new JobConf();
             if (props.containsKey("hadoop.job.ugi")) {
                 jobConf.set("hadoop.job.ugi", props.getString("hadoop.job.ugi"));
