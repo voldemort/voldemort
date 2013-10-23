@@ -93,7 +93,7 @@ public class VoldemortConfig implements Serializable {
     private String bdbDataDirectory;
     private long bdbMaxLogFileSize;
     private int bdbBtreeFanout;
-    private int bdbMaxDelta; 
+    private int bdbMaxDelta;
     private int bdbBinDelta;
     private long bdbCheckpointBytes;
     private long bdbCheckpointMs;
@@ -121,6 +121,7 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbLevelBasedEviction;
     private boolean bdbCheckpointerOffForBatchWrites;
     private boolean bdbCleanerFetchObsoleteSize;
+    private boolean bdbCleanerAdjustUtilization;
     private String bdbRawPropertyString;
 
     private String mysqlUsername;
@@ -299,6 +300,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointerOffForBatchWrites = props.getBoolean("bdb.checkpointer.off.batch.writes",
                                                                  false);
         this.bdbCleanerFetchObsoleteSize = props.getBoolean("bdb.cleaner.fetch.obsolete.size", true);
+        this.bdbCleanerAdjustUtilization = props.getBoolean("bdb.cleaner.adjust.utilization", false);
         this.bdbRawPropertyString = props.getString("bdb.raw.property.string", null);
 
         this.numReadOnlyVersions = props.getInt("readonly.backups", 1);
@@ -533,7 +535,7 @@ public class VoldemortConfig implements Serializable {
         this.repairJobMaxKeysScannedPerSec = props.getInt("repairjob.max.keys.scanned.per.sec",
                                                           Integer.MAX_VALUE);
         this.pruneJobMaxKeysScannedPerSec = props.getInt("prunejob.max.keys.scanned.per.sec",
-                                                          Integer.MAX_VALUE);
+                                                         Integer.MAX_VALUE);
 
         validateParams();
     }
@@ -768,19 +770,22 @@ public class VoldemortConfig implements Serializable {
     public void setBdbDataDirectory(String bdbDataDirectory) {
         this.bdbDataDirectory = bdbDataDirectory;
     }
-    
+
     public String getBdbRawPropertyString() {
         return bdbRawPropertyString;
     }
 
     /**
-     * When supplied with comma separated propkey=propvalue strings, 
-     * enables admin to arbitrarily set any BDB JE environment property
+     * When supplied with comma separated propkey=propvalue strings, enables
+     * admin to arbitrarily set any BDB JE environment property
      * 
-     *  eg: bdb.raw.property.string=je.cleaner.threads=1,je.cleaner.lazyMigration=true
-     *  
-     *  Since this is applied after the regular BDB parameter in this class, 
-     *  this has the effect of overriding previous configs if they are specified here again.
+     * eg:
+     * bdb.raw.property.string=je.cleaner.threads=1,je.cleaner.lazyMigration=
+     * true
+     * 
+     * Since this is applied after the regular BDB parameter in this class, this
+     * has the effect of overriding previous configs if they are specified here
+     * again.
      * 
      * <ul>
      * <li>Property : "bdb.raw.property.string"</li>
@@ -1075,7 +1080,6 @@ public class VoldemortConfig implements Serializable {
         this.bdbBtreeFanout = bdbBtreeFanout;
     }
 
-
     /**
      * Exposes BDB JE EnvironmentConfig.TREE_MAX_DELTA.
      * 
@@ -1095,12 +1099,12 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * Exposes BDB JE EnvironmentConfig.TREE_BIN_DELTA.
-     *
+     * 
      * <ul>
      * <li>Property : "bdb.bin.delta"</li>
      * <li>Default : 75</li>
      * </ul>
-     *
+     * 
      */
     public void setBdbBinDelta(int binDelta) {
         this.bdbBinDelta = binDelta;
@@ -1115,10 +1119,10 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * If true, Cleaner also fetches the old value to determine the size during 
-     * an update/delete to compute file utilization. Without this, BDB will 
-     * auto compute utilization based on heuristics.. 
-     * (which may or may not work, depending on your use case)
+     * If true, Cleaner also fetches the old value to determine the size during
+     * an update/delete to compute file utilization. Without this, BDB will auto
+     * compute utilization based on heuristics.. (which may or may not work,
+     * depending on your use case)
      * 
      * <ul>
      * <li>property: "bdb.cleaner.fetch.obsolete.size"</li>
@@ -1129,7 +1133,25 @@ public class VoldemortConfig implements Serializable {
     public final void setBdbCleanerFetchObsoleteSize(boolean bdbCleanerFetchObsoleteSize) {
         this.bdbCleanerFetchObsoleteSize = bdbCleanerFetchObsoleteSize;
     }
-    
+
+    public boolean getBdbCleanerAdjsutUtilization() {
+        return bdbCleanerAdjustUtilization;
+    }
+
+    /**
+     * If true, Cleaner does not perform any predictive adjustment of the
+     * internally computed utilization values
+     * 
+     * <ul>
+     * <li>property: "bdb.cleaner.adjust.utilization"</li>
+     * <li>default : false</li>
+     * </ul>
+     * 
+     */
+    public final void setBdbCleanerAdjustUtilization(boolean bdbCleanerAdjustUtilization) {
+        this.bdbCleanerAdjustUtilization = bdbCleanerAdjustUtilization;
+    }
+
     public boolean getBdbCleanerLazyMigration() {
         return bdbCleanerLazyMigration;
     }
@@ -2989,7 +3011,7 @@ public class VoldemortConfig implements Serializable {
     public void setRepairJobMaxKeysScannedPerSec(int maxKeysPerSecond) {
         this.repairJobMaxKeysScannedPerSec = maxKeysPerSecond;
     }
-    
+
     public int getPruneJobMaxKeysScannedPerSec() {
         return pruneJobMaxKeysScannedPerSec;
     }

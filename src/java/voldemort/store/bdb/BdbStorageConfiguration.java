@@ -116,13 +116,15 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Boolean.toString(config.getBdbCleanerLazyMigration()));
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_BYTES_INTERVAL,
                                          Long.toString(config.getBdbCleanerBytesInterval()));
-        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_FETCH_OBSOLETE_SIZE, 
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_FETCH_OBSOLETE_SIZE,
                                          Boolean.toString(config.getBdbCleanerFetchObsoleteSize()));
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
         environmentConfig.setConfigParam(EnvironmentConfig.TREE_MAX_DELTA,
                                          Integer.toString(config.getBdbMaxDelta()));
         environmentConfig.setConfigParam(EnvironmentConfig.TREE_BIN_DELTA,
                                          Integer.toString(config.getBdbBinDelta()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_ADJUST_UTILIZATION,
+                                         Boolean.toString(config.getBdbCleanerAdjsutUtilization()));
         if(config.getBdbCacheModeEvictLN()) {
             environmentConfig.setCacheMode(CacheMode.EVICT_LN);
         }
@@ -130,23 +132,24 @@ public class BdbStorageConfiguration implements StorageConfiguration {
             environmentConfig.setConfigParam(EnvironmentConfig.EVICTOR_LRU_ONLY,
                                              Boolean.toString(false));
         }
-        
+
         // Now apply the raw property string overrides
-        if (config.getBdbRawPropertyString() != null){
+        if(config.getBdbRawPropertyString() != null) {
             try {
                 String[] props = config.getBdbRawPropertyString().split(",");
-                if (props.length > 0){
-                    for (int i=0; i < props.length; i++) {
+                if(props.length > 0) {
+                    for(int i = 0; i < props.length; i++) {
                         String[] propSplit = props[i].split("=");
-                        if (propSplit.length == 2){
-                            logger.info("Overriding property "+ propSplit[0] +" to "+ propSplit[1]+ 
-                                        " from the raw property string");
+                        if(propSplit.length == 2) {
+                            logger.info("Overriding property " + propSplit[0] + " to "
+                                        + propSplit[1] + " from the raw property string");
                             environmentConfig.setConfigParam(propSplit[0], propSplit[1]);
                         }
                     }
                 }
-            } catch (Exception e){
-                logger.warn("Error when applying raw BDB property string... Ignoring and moving on..", e);
+            } catch(Exception e) {
+                logger.warn("Error when applying raw BDB property string... Ignoring and moving on..",
+                            e);
             }
         }
 
