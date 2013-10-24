@@ -105,7 +105,7 @@ public class BaseStreamingClient {
     private AdminClientConfig adminClientConfig;
 
     String bootstrapURL;
-    
+
     boolean overWriteIfLatestTs;
 
     // Data structures for the streaming maps from Pair<Store, Node Id> to
@@ -136,10 +136,12 @@ public class BaseStreamingClient {
         CHECKPOINT_COMMIT_SIZE = config.getBatchSize();
         THROTTLE_QPS = config.getThrottleQPS();
         this.overWriteIfLatestTs = config.isOverWriteIfLatestTs();
-        
+
         adminClientConfig = new AdminClientConfig();
         adminClient = new AdminClient(bootstrapURL, adminClientConfig, new ClientConfig());
         faultyNodes = new ArrayList<Integer>();
+        storeNames = new ArrayList<String>();
+        nodesToStream = new ArrayList<Node>();
     }
 
     public AdminClient getAdminClient() {
@@ -316,13 +318,11 @@ public class BaseStreamingClient {
         entriesProcessed = 0;
         newBatch = true;
         isMultiSession = true;
-        storeNames = new ArrayList();
         this.throttler = new EventThrottler(THROTTLE_QPS);
 
         TimeUnit unit = TimeUnit.SECONDS;
 
         Collection<Node> nodesInCluster = adminClient.getAdminClientCluster().getNodes();
-        nodesToStream = new ArrayList();
 
         if(blackListedNodes != null && blackListedNodes.size() > 0) {
 
@@ -517,9 +517,8 @@ public class BaseStreamingClient {
                                                                                   .setVersioned(ProtoUtils.encodeVersioned(value))
                                                                                   .build();
 
-            
             VAdminProto.UpdatePartitionEntriesRequest.Builder updateRequest = null;
-            
+
             if(overWriteIfLatestTs) {
                 updateRequest = VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
                                                                          .setStore(storeName)
@@ -530,7 +529,7 @@ public class BaseStreamingClient {
                                                                          .setStore(storeName)
                                                                          .setPartitionEntry(partitionEntry);
             }
-            
+
             DataOutputStream outputStream = nodeIdStoreToOutputStreamRequest.get(new Pair(storeName,
                                                                                           node.getId()));
             try {
@@ -656,6 +655,13 @@ public class BaseStreamingClient {
         }
 
         boolean hasError = false;
+        if(nodesToStream == null) {
+            if(logger.isDebugEnabled()) {
+                logger.debug("No nodes to stream to. Returning.");
+            }
+            return;
+        }
+
         for(Node node: nodesToStream) {
 
             for(String store: storeNamesToCommit) {
