@@ -25,7 +25,6 @@ import java.util.Collection;
 
 import junit.framework.Assert;
 
-import org.apache.commons.io.FileDeleteStrategy;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,6 +34,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.TestUtils;
 import voldemort.server.VoldemortConfig;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
 
@@ -75,17 +75,12 @@ public class BdbSplitStorageEngineTest {
     @Before
     public void setUp() throws Exception {
         bdbMasterDir = TestUtils.createTempDir();
-        FileDeleteStrategy.FORCE.delete(bdbMasterDir);
     }
 
     @After
     public void tearDown() throws Exception {
-        try {
-            if(bdbStorage != null)
-                bdbStorage.close();
-        } finally {
-            FileDeleteStrategy.FORCE.delete(bdbMasterDir);
-        }
+        if(bdbStorage != null)
+            bdbStorage.close();
     }
 
     @Test
@@ -187,7 +182,6 @@ public class BdbSplitStorageEngineTest {
     @Test
     public void testUnsharedCache() throws DatabaseException {
         EnvironmentConfig environmentConfig = new EnvironmentConfig();
-        environmentConfig = new EnvironmentConfig();
         environmentConfig.setDurability(Durability.COMMIT_NO_SYNC);
         environmentConfig.setAllowCreate(true);
         environmentConfig.setTransactional(true);
@@ -220,7 +214,11 @@ public class BdbSplitStorageEngineTest {
         databaseConfig.setSortedDuplicates(true);
 
         long maxCacheSize = getMaxCacheUsage(environmentConfig, databaseConfig);
-        assertEquals("MaxCacheSize <= CACHE_SIZE", true, maxCacheSize <= CACHE_SIZE);
+        // Include a buffer of 1mb.. since the actual cache usage can be a few
+        // bytes more
+        assertEquals("MaxCacheSize" + maxCacheSize + " <= CACHE_SIZE:" + CACHE_SIZE,
+                     true,
+                     maxCacheSize <= (CACHE_SIZE + ByteUtils.BYTES_PER_MB));
     }
 
     private long getMaxCacheUsage(EnvironmentConfig environmentConfig, DatabaseConfig databaseConfig)
@@ -250,9 +248,9 @@ public class BdbSplitStorageEngineTest {
                                                                             this.prefixPartitionId);
 
         long maxCacheUsage = 0;
-        for(int i = 0; i <= 4; i++) {
+        for(int i = 0; i <= 10000; i++) {
 
-            byte[] value = new byte[(int) (CACHE_SIZE / 4)];
+            byte[] value = new byte[(int) (CACHE_SIZE / 10000)];
             // try to push values in cache
             storeA.put(TestUtils.toByteArray(i + "A"), new Versioned<byte[]>(value), null);
             storeA.get(TestUtils.toByteArray(i + "A"), null);
