@@ -137,6 +137,8 @@ public class VoldemortConfig implements Serializable {
     private long readOnlyFetcherMaxBytesPerSecond;
     private long readOnlyFetcherMinBytesPerSecond;
     private long readOnlyFetcherReportingIntervalBytes;
+    private int readOnlyFetchRetryCount;
+    private long readOnlyFetchRetryDelayMs;
     private int fetcherBufferSize;
     private String readOnlyKeytabPath;
     private String readOnlyKerberosUser;
@@ -314,6 +316,8 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyFetcherMinBytesPerSecond = props.getBytes("fetcher.min.bytes.per.sec", 0);
         this.readOnlyFetcherReportingIntervalBytes = props.getBytes("fetcher.reporting.interval.bytes",
                                                                     REPORTING_INTERVAL_BYTES);
+        this.readOnlyFetchRetryCount = props.getInt("fetcher.retry.count", 5);
+        this.readOnlyFetchRetryDelayMs = props.getLong("fetcher.retry.delay.ms", 5000);
         this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
                                                       DEFAULT_BUFFER_SIZE);
         this.readOnlyKeytabPath = props.getString("readonly.keytab.path",
@@ -2712,6 +2716,40 @@ public class VoldemortConfig implements Serializable {
      */
     public void setReadOnlyFetcherReportingIntervalBytes(long reportingIntervalBytes) {
         this.readOnlyFetcherReportingIntervalBytes = reportingIntervalBytes;
+    }
+
+    public int getReadOnlyFetchRetryCount() {
+        return readOnlyFetchRetryCount;
+    }
+
+    /**
+     * Number of attempts the readonly fetcher will make, before giving up on a
+     * failed fetch from Hadoop
+     * 
+     * <ul>
+     * <li>Property :"fetcher.retry.count"</li>
+     * <li>Default :5</li>
+     * </ul>
+     */
+    public void setReadOnlyFetchRetryCount(int readOnlyFetchRetryCount) {
+        this.readOnlyFetchRetryCount = readOnlyFetchRetryCount;
+    }
+
+    public long getReadOnlyFetchRetryDelayMs() {
+        return readOnlyFetchRetryDelayMs;
+    }
+
+    /**
+     * Amount of delay in ms between readonly fetcher retries, to fetch data
+     * from Hadoop
+     * 
+     * <ul>
+     * <li>Property :"fetcher.retry.delay.ms"</li>
+     * <li>Default :5000 (5 seconds)</li>
+     * </ul>
+     */
+    public void setReadOnlyFetchRetryDelayMs(long readOnlyFetchRetryDelayMs) {
+        this.readOnlyFetchRetryDelayMs = readOnlyFetchRetryDelayMs;
     }
 
     public int getFetcherBufferSize() {

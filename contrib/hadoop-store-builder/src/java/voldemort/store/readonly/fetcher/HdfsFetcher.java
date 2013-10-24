@@ -45,6 +45,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.protocol.admin.AdminServiceRequestHandler;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
@@ -74,28 +75,22 @@ public class HdfsFetcher implements FileFetcher {
     private AsyncOperationStatus status;
     private EventThrottler throttler = null;
     private long minBytesPerSecond = 0;
+    private long retryDelayMs = 0;
+    private int maxAttempts = 0;
     private DynamicThrottleLimit globalThrottleLimit = null;
-    private static final int NUM_RETRIES = 3;
     private VoldemortConfig voldemortConfig = null;
 
     public static final String FS_DEFAULT_NAME = "fs.default.name";
 
     /* Additional constructor invoked from ReadOnlyStoreManagementServlet */
     public HdfsFetcher(VoldemortConfig config) {
-        this(null,
-             null,
-             config.getReadOnlyFetcherReportingIntervalBytes(),
-             config.getFetcherBufferSize(),
-             config.getReadOnlyFetcherMinBytesPerSecond(),
-             config.getReadOnlyKeytabPath(),
-             config.getReadOnlyKerberosUser());
-
-        this.voldemortConfig = config;
-
-        logger.info("Created hdfs fetcher with no dynamic throttler, buffer size " + bufferSize
-                    + ", reporting interval bytes " + reportingIntervalBytes);
+        this(config, null);
     }
 
+    /**
+     * this is the actual constructor invoked from
+     * {@link AdminServiceRequestHandler} via reflection
+     */
     public HdfsFetcher(VoldemortConfig config, DynamicThrottleLimit dynThrottleLimit) {
         this(dynThrottleLimit,
              null,
@@ -103,23 +98,31 @@ public class HdfsFetcher implements FileFetcher {
              config.getFetcherBufferSize(),
              config.getReadOnlyFetcherMinBytesPerSecond(),
              config.getReadOnlyKeytabPath(),
-             config.getReadOnlyKerberosUser());
-
+             config.getReadOnlyKerberosUser(),
+             config.getReadOnlyFetchRetryCount(),
+             config.getReadOnlyFetchRetryDelayMs());
         this.voldemortConfig = config;
 
-        logger.info("Created hdfs fetcher with throttle rate " + dynThrottleLimit.getRate()
-                    + ", buffer size " + bufferSize + ", reporting interval bytes "
-                    + reportingIntervalBytes);
+        if(dynThrottleLimit == null) {
+            logger.info("Created hdfs fetcher with no dynamic throttler, buffer size " + bufferSize
+                        + ", reporting interval bytes " + reportingIntervalBytes);
+        } else {
+            logger.info("Created hdfs fetcher with throttle rate " + dynThrottleLimit.getRate()
+                        + ", buffer size " + bufferSize + ", reporting interval bytes "
+                        + reportingIntervalBytes);
+        }
     }
 
+    // Test-only constructor
     public HdfsFetcher() {
         this((Long) null,
              VoldemortConfig.REPORTING_INTERVAL_BYTES,
              VoldemortConfig.DEFAULT_BUFFER_SIZE);
     }
 
+    // Test-only constructor
     public HdfsFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
-        this(null, maxBytesPerSecond, reportingIntervalBytes, bufferSize, 0, "", "");
+        this(null, maxBytesPerSecond, reportingIntervalBytes, bufferSize, 0, "", "", 3, 1000);
     }
 
     public HdfsFetcher(DynamicThrottleLimit dynThrottleLimit,
@@ -128,7 +131,9 @@ public class HdfsFetcher implements FileFetcher {
                        int bufferSize,
                        long minBytesPerSecond,
                        String keytabLocation,
-                       String kerberosUser) {
+                       String kerberosUser,
+                       int retryCount,
+                       long retryDelayMs) {
         if(maxBytesPerSecond != null) {
             this.maxBytesPerSecond = maxBytesPerSecond;
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
@@ -144,6 +149,8 @@ public class HdfsFetcher implements FileFetcher {
         this.bufferSize = bufferSize;
         this.status = null;
         this.minBytesPerSecond = minBytesPerSecond;
+        this.maxAttempts = retryCount + 1;
+        this.retryDelayMs = retryDelayMs;
         HdfsFetcher.kerberosPrincipal = kerberosUser;
         HdfsFetcher.keytabPath = keytabLocation;
     }
@@ -213,7 +220,7 @@ public class HdfsFetcher implements FileFetcher {
                  * when we fetch the files over hdfs or webhdfs. This retry loop
                  * is inserted here as a temporary measure.
                  */
-                for(int retryCount = 0; retryCount < NUM_RETRIES; retryCount++) {
+                for(int attempt = 0; attempt < maxAttempts; attempt++) {
                     boolean isValidFilesystem = false;
 
                     if(!new File(HdfsFetcher.keytabPath).exists()) {
@@ -257,7 +264,7 @@ public class HdfsFetcher implements FileFetcher {
                                                      });
                             isValidFilesystem = true;
                         } catch(InterruptedException e) {
-                            logger.error(e.getMessage());
+                            logger.error(e.getMessage(), e);
                         } catch(Exception e) {
                             logger.error("Got an exception while getting the filesystem object: ");
                             logger.error("Exception class : " + e.getClass());
@@ -270,11 +277,13 @@ public class HdfsFetcher implements FileFetcher {
 
                     if(isValidFilesystem) {
                         break;
-                    } else if(retryCount < NUM_RETRIES - 1) {
-                        logger.error("Could not get a valid Filesystem object. Trying again.");
+                    } else if(attempt < maxAttempts - 1) {
+                        logger.error("Attempt#" + attempt
+                                     + " Could not get a valid Filesystem object. Trying again in "
+                                     + retryDelayMs + " ms");
+                        sleepForRetryDelayMs();
                     }
                 }
-
             } else {
                 fs = path.getFileSystem(config);
             }
@@ -300,14 +309,10 @@ public class HdfsFetcher implements FileFetcher {
             } else {
                 return null;
             }
-        } catch(IOException e) {
-            e.printStackTrace();
-            logger.error("Error while getting Hadoop filesystem : " + e);
-            throw new VoldemortException("Error while getting Hadoop filesystem : " + e);
         } catch(Throwable te) {
             te.printStackTrace();
-            logger.error("Error thrown while trying to get Hadoop filesystem");
-            throw new VoldemortException("Error thrown while trying to get Hadoop filesystem : "
+            logger.error("Error thrown while trying to get data from Hadoop filesystem", te);
+            throw new VoldemortException("Error thrown while trying to get data from Hadoop filesystem : "
                                          + te);
         } finally {
             if(this.globalThrottleLimit != null) {
@@ -318,8 +323,17 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
-    private boolean fetch(FileSystem fs, Path source, File dest, CopyStats stats)
-            throws IOException {
+    private void sleepForRetryDelayMs() {
+        if(retryDelayMs > 0) {
+            try {
+                Thread.sleep(retryDelayMs);
+            } catch(InterruptedException ie) {
+                logger.error("Fetcher interrupted while waiting to retry", ie);
+            }
+        }
+    }
+
+    private boolean fetch(FileSystem fs, Path source, File dest, CopyStats stats) throws Throwable {
         if(!fs.isFile(source)) {
             Utils.mkdirs(dest);
             FileStatus[] statuses = fs.listStatus(source);
@@ -443,12 +457,12 @@ public class HdfsFetcher implements FileFetcher {
                                           Path source,
                                           File dest,
                                           CopyStats stats,
-                                          CheckSumType checkSumType) throws IOException {
+                                          CheckSumType checkSumType) throws Throwable {
         CheckSum fileCheckSumGenerator = null;
         logger.debug("Starting copy of " + source + " to " + dest);
         FSDataInputStream input = null;
         OutputStream output = null;
-        for(int attempt = 0; attempt < NUM_RETRIES; attempt++) {
+        for(int attempt = 0; attempt < maxAttempts; attempt++) {
             boolean success = true;
             try {
 
@@ -456,6 +470,8 @@ public class HdfsFetcher implements FileFetcher {
                 if(checkSumType != null) {
                     fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
                 }
+
+                logger.info("Attempt " + attempt + " at copy of " + source + " to " + dest);
 
                 input = fs.open(source);
                 output = new BufferedOutputStream(new FileOutputStream(dest));
@@ -500,35 +516,23 @@ public class HdfsFetcher implements FileFetcher {
                 }
                 logger.info("Completed copy of " + source + " to " + dest);
 
-            } catch(IOException ioe) {
-                success = false;
-                logger.error("Error during copying file ", ioe);
-                ioe.printStackTrace();
-                if(attempt < NUM_RETRIES - 1) {
-                    logger.info("retrying copying");
-                } else {
-                    throw ioe;
-                }
-
-            } catch(Exception e) {
-                logger.error("Error during copying file ", e);
-                return null;
-
             } catch(Throwable te) {
+                success = false;
                 logger.error("Error during copying file ", te);
-                return null;
-
-            }
-            // the finally block _always_ executes even if we have
-            // return in the catch block
-
-            finally {
+                te.printStackTrace();
+                if(attempt < maxAttempts - 1) {
+                    logger.info("Will retry copying after " + retryDelayMs + " ms");
+                    sleepForRetryDelayMs();
+                } else {
+                    logger.info("Fetcher giving up copy after " + maxAttempts + " attempts");
+                    throw te;
+                }
+            } finally {
                 IOUtils.closeQuietly(output);
                 IOUtils.closeQuietly(input);
                 if(success) {
                     break;
                 }
-
             }
             logger.debug("Completed copy of " + source + " to " + dest);
         }
@@ -751,7 +755,9 @@ public class HdfsFetcher implements FileFetcher {
                                               VoldemortConfig.DEFAULT_BUFFER_SIZE,
                                               0,
                                               keytabLocation,
-                                              kerberosUser);
+                                              kerberosUser,
+                                              5,
+                                              5000);
         long start = System.currentTimeMillis();
 
         File location = fetcher.fetch(url, System.getProperty("java.io.tmpdir") + File.separator
