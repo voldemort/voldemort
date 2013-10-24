@@ -84,7 +84,7 @@ public class ClientConfig {
     @Deprecated
     private volatile long threadIdleMs = 100000;
 
-    private volatile boolean useDefaultClient = true;
+    private volatile boolean useDefaultClient = false;
 
     private volatile String failureDetectorImplementation = FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME;
     private volatile long failureDetectorBannagePeriod = FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD;
