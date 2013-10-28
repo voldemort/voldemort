@@ -1,3 +1,10 @@
+Release 1.5.7 on 10/28/2013
+
+* Voldemort now uses BDB 5.0.88
+* Support for RO fetches via RestHdfs
+* Fix NPE in Streaming Client
+* Retrying fetches on all exceptions w/ delay
+
 Release 1.5.6 on 10/18/2013
 
 * Removed getStoreClientFactoryStats from StoreClientFactory interface (fix)
