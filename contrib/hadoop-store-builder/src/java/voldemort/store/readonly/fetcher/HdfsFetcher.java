@@ -530,7 +530,11 @@ public class HdfsFetcher implements FileFetcher {
                     logger.error("Error while copying file " + source + " after " + totalBytesRead
                                  + " bytes.", te);
                 }
+                if(te.getCause() != null) {
+                    logger.error("Cause of error ", te.getCause());
+                }
                 te.printStackTrace();
+
                 if(attempt < maxAttempts - 1) {
                     logger.info("Will retry copying after " + retryDelayMs + " ms");
                     sleepForRetryDelayMs();
