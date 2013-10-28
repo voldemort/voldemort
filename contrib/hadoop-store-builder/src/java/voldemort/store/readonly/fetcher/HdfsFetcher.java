@@ -462,8 +462,11 @@ public class HdfsFetcher implements FileFetcher {
         logger.debug("Starting copy of " + source + " to " + dest);
         FSDataInputStream input = null;
         OutputStream output = null;
+
         for(int attempt = 0; attempt < maxAttempts; attempt++) {
             boolean success = true;
+            long totalBytesRead = 0;
+            boolean fsOpened = false;
             try {
 
                 // Create a per file checksum generator
@@ -474,6 +477,8 @@ public class HdfsFetcher implements FileFetcher {
                 logger.info("Attempt " + attempt + " at copy of " + source + " to " + dest);
 
                 input = fs.open(source);
+                fsOpened = true;
+
                 output = new BufferedOutputStream(new FileOutputStream(dest));
                 byte[] buffer = new byte[bufferSize];
                 while(true) {
@@ -495,6 +500,7 @@ public class HdfsFetcher implements FileFetcher {
                     }
 
                     stats.recordBytes(read);
+                    totalBytesRead += read;
                     if(stats.getBytesSinceLastReport() > reportingIntervalBytes) {
                         NumberFormat format = NumberFormat.getNumberInstance();
                         format.setMaximumFractionDigits(2);
@@ -518,7 +524,12 @@ public class HdfsFetcher implements FileFetcher {
 
             } catch(Throwable te) {
                 success = false;
-                logger.error("Error while copying file " + source, te);
+                if(!fsOpened) {
+                    logger.error("Error while opening the file stream to " + source, te);
+                } else {
+                    logger.error("Error while copying file " + source + " after " + totalBytesRead
+                                 + " bytes.", te);
+                }
                 te.printStackTrace();
                 if(attempt < maxAttempts - 1) {
                     logger.info("Will retry copying after " + retryDelayMs + " ms");
