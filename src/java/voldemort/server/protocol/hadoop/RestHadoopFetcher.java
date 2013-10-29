@@ -33,9 +33,6 @@ import javax.management.ObjectName;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
-import org.apache.hadoop.fs.rest.client.RestFSException;
-import org.apache.hadoop.fs.rest.client.RestFileStatus;
-import org.apache.hadoop.fs.rest.client.RestFileSystem;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -54,6 +51,10 @@ import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 
+import com.linkedin.tusk.RestFSException;
+import com.linkedin.tusk.RestFileStatus;
+import com.linkedin.tusk.RestFileSystem;
+
 public class RestHadoopFetcher implements FileFetcher {
 
     private static final Logger logger = Logger.getLogger(RestHadoopFetcher.class);
@@ -65,13 +66,17 @@ public class RestHadoopFetcher implements FileFetcher {
     private final int bufferSize;
     private AsyncOperationStatus status;
     private long minBytesPerSecond = 0;
+    private long retryDelayMs = 0;
+    private int maxAttempts = 0;
 
     public RestHadoopFetcher(VoldemortConfig config) {
         this(null,
              null,
              config.getReadOnlyFetcherReportingIntervalBytes(),
              config.getFetcherBufferSize(),
-             config.getReadOnlyFetcherMinBytesPerSecond());
+             config.getReadOnlyFetcherMinBytesPerSecond(),
+             config.getReadOnlyFetchRetryCount(),
+             config.getReadOnlyFetchRetryDelayMs());
 
         logger.info("Created Rest-based hdfs fetcher with no dynamic throttler, buffer size "
                     + bufferSize + ", reporting interval bytes " + reportingIntervalBytes);
@@ -82,28 +87,34 @@ public class RestHadoopFetcher implements FileFetcher {
              null,
              config.getReadOnlyFetcherReportingIntervalBytes(),
              config.getFetcherBufferSize(),
-             config.getReadOnlyFetcherMinBytesPerSecond());
+             config.getReadOnlyFetcherMinBytesPerSecond(),
+             config.getReadOnlyFetchRetryCount(),
+             config.getReadOnlyFetchRetryDelayMs());
 
         logger.info("Created Rest-based hdfs fetcher with throttle rate "
                     + dynThrottleLimit.getRate() + ", buffer size " + bufferSize
                     + ", reporting interval bytes " + reportingIntervalBytes);
     }
 
+    // Test-only constructor
     public RestHadoopFetcher() {
         this((Long) null,
              VoldemortConfig.REPORTING_INTERVAL_BYTES,
              VoldemortConfig.DEFAULT_BUFFER_SIZE);
     }
 
+    // Test-only constructor
     public RestHadoopFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
-        this(null, maxBytesPerSecond, reportingIntervalBytes, bufferSize, 0);
+        this(null, maxBytesPerSecond, reportingIntervalBytes, bufferSize, 0, 3, 1000);
     }
 
     public RestHadoopFetcher(DynamicThrottleLimit dynThrottleLimit,
                              Long maxBytesPerSecond,
                              Long reportingIntervalBytes,
                              int bufferSize,
-                             long minBytesPerSecond) {
+                             long minBytesPerSecond,
+                             int retryCount,
+                             long retryDelayMs) {
         if(maxBytesPerSecond != null) {
             this.maxBytesPerSecond = maxBytesPerSecond;
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
@@ -119,6 +130,8 @@ public class RestHadoopFetcher implements FileFetcher {
         this.bufferSize = bufferSize;
         this.status = null;
         this.minBytesPerSecond = minBytesPerSecond;
+        this.maxAttempts = retryCount + 1;
+        this.retryDelayMs = retryDelayMs;
     }
 
     @Override
@@ -210,6 +223,16 @@ public class RestHadoopFetcher implements FileFetcher {
         return size;
     }
 
+    private void sleepForRetryDelayMs() {
+        if(retryDelayMs > 0) {
+            try {
+                Thread.sleep(retryDelayMs);
+            } catch(InterruptedException ie) {
+                logger.error("Fetcher interrupted while waiting to retry", ie);
+            }
+        }
+    }
+
     /**
      * Function to copy a file from the given filesystem with a checksum of type
      * 'checkSumType' computed and returned. In case an error occurs during such
@@ -228,79 +251,104 @@ public class RestHadoopFetcher implements FileFetcher {
                                           String source,
                                           File dest,
                                           CopyStats stats,
-                                          CheckSumType checkSumType) throws IOException {
+                                          CheckSumType checkSumType) throws Throwable {
         CheckSum fileCheckSumGenerator = null;
         logger.info("Starting copy of " + source + " to " + dest);
         BufferedInputStream input = null;
         OutputStream output = null;
 
-        try {
-            // Create a per file checksum generator
-            if(checkSumType != null) {
-                fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
-            }
+        for(int attempt = 0; attempt < maxAttempts; attempt++) {
+            boolean success = true;
+            long totalBytesRead = 0;
+            boolean fsOpened = false;
 
-            input = new BufferedInputStream(rfs.openFile(source).getInputStream());
-            output = new BufferedOutputStream(new FileOutputStream(dest));
-            byte[] buffer = new byte[bufferSize];
-            while(true) {
-                int read = input.read(buffer);
-                if(read < 0) {
-                    break;
-                } else {
-                    output.write(buffer, 0, read);
+            try {
+                // Create a per file checksum generator
+                if(checkSumType != null) {
+                    fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
                 }
 
-                // Update the per file checksum
-                if(fileCheckSumGenerator != null) {
-                    fileCheckSumGenerator.update(buffer, 0, read);
-                }
+                logger.info("Attempt " + attempt + " at copy of " + source + " to " + dest);
 
-                // Check if we need to throttle the fetch
-                if(throttler != null) {
-                    throttler.maybeThrottle(read);
-                }
+                input = new BufferedInputStream(rfs.openFile(source).getInputStream());
+                fsOpened = true;
 
-                stats.recordBytes(read);
-                if(stats.getBytesSinceLastReport() > reportingIntervalBytes) {
-                    NumberFormat format = NumberFormat.getNumberInstance();
-                    format.setMaximumFractionDigits(2);
-                    logger.info(stats.getTotalBytesCopied() / (1024 * 1024) + " MB copied at "
-                                + format.format(stats.getBytesPerSecond() / (1024 * 1024))
-                                + " MB/sec - " + format.format(stats.getPercentCopied())
-                                + " % complete, destination:" + dest);
-                    if(this.status != null) {
-                        this.status.setStatus(stats.getTotalBytesCopied()
-                                              / (1024 * 1024)
-                                              + " MB copied at "
-                                              + format.format(stats.getBytesPerSecond()
-                                                              / (1024 * 1024)) + " MB/sec - "
-                                              + format.format(stats.getPercentCopied())
-                                              + " % complete, destination:" + dest);
+                output = new BufferedOutputStream(new FileOutputStream(dest));
+                byte[] buffer = new byte[bufferSize];
+                while(true) {
+                    int read = input.read(buffer);
+                    if(read < 0) {
+                        break;
+                    } else {
+                        output.write(buffer, 0, read);
                     }
-                    stats.reset();
+
+                    // Update the per file checksum
+                    if(fileCheckSumGenerator != null) {
+                        fileCheckSumGenerator.update(buffer, 0, read);
+                    }
+
+                    // Check if we need to throttle the fetch
+                    if(throttler != null) {
+                        throttler.maybeThrottle(read);
+                    }
+
+                    stats.recordBytes(read);
+                    if(stats.getBytesSinceLastReport() > reportingIntervalBytes) {
+                        NumberFormat format = NumberFormat.getNumberInstance();
+                        format.setMaximumFractionDigits(2);
+                        logger.info(stats.getTotalBytesCopied() / (1024 * 1024) + " MB copied at "
+                                    + format.format(stats.getBytesPerSecond() / (1024 * 1024))
+                                    + " MB/sec - " + format.format(stats.getPercentCopied())
+                                    + " % complete, destination:" + dest);
+                        if(this.status != null) {
+                            this.status.setStatus(stats.getTotalBytesCopied()
+                                                  / (1024 * 1024)
+                                                  + " MB copied at "
+                                                  + format.format(stats.getBytesPerSecond()
+                                                                  / (1024 * 1024)) + " MB/sec - "
+                                                  + format.format(stats.getPercentCopied())
+                                                  + " % complete, destination:" + dest);
+                        }
+                        stats.reset();
+                    }
+                }
+                // at this point, we are done!
+                logger.info("Completed copy of " + source + " to " + dest);
+            } catch(Throwable te) {
+                success = false;
+                if(!fsOpened) {
+                    logger.error("Error while opening the file stream to " + source, te);
+                } else {
+                    logger.error("Error while copying file " + source + " after " + totalBytesRead
+                                 + " bytes.", te);
+                }
+                if(te.getCause() != null) {
+                    logger.error("Cause of error ", te.getCause());
+                }
+                te.printStackTrace();
+
+                if(attempt < maxAttempts - 1) {
+                    logger.info("Will retry copying after " + retryDelayMs + " ms");
+                    sleepForRetryDelayMs();
+                } else {
+                    logger.info("Fetcher giving up copy after " + maxAttempts + " attempts");
+                    throw te;
+                }
+            } finally {
+                IOUtils.closeQuietly(output);
+                IOUtils.closeQuietly(input);
+                if(success) {
+                    break;
                 }
             }
-            // at this point, we are done!
             logger.info("Completed copy of " + source + " to " + dest);
-        } catch(IOException ioe) {
-            logger.error("Error during copying file ", ioe);
-            ioe.printStackTrace();
-            throw ioe;
-        } catch(Throwable te) {
-            logger.error("Error during copying file ", te);
-            return null;
-        } finally {
-            // the finally block _always_ executes even if we have returned in
-            // the catch block
-            IOUtils.closeQuietly(output);
-            IOUtils.closeQuietly(input);
         }
         return fileCheckSumGenerator;
     }
 
     private boolean fetch(RestFileSystem rfs, String source, File dest, CopyStats stats)
-            throws IOException, RestFSException {
+            throws Throwable, RestFSException {
         boolean fetchSucceed = false;
 
         if(rfs.fileStatus(source).isDir()) {
@@ -535,7 +583,9 @@ public class RestHadoopFetcher implements FileFetcher {
                                                           MAX_BYTES_PER_SECOND,
                                                           REPORTING_INTERVAL_BYTES,
                                                           BUFFER_SIZE,
-                                                          0);
+                                                          0,
+                                                          3,
+                                                          1000);
 
         // start file fetching
         long start = System.currentTimeMillis();

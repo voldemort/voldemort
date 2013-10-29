@@ -2,12 +2,13 @@ package voldemort.server.protocol.hadoop;
 
 import java.util.Properties;
 
-import org.apache.hadoop.fs.rest.client.RestAuthService;
-import org.apache.hadoop.fs.rest.client.RestFSException;
 import org.apache.log4j.Logger;
 
 import voldemort.common.service.AbstractService;
 import voldemort.common.service.ServiceType;
+
+import com.linkedin.tusk.RestAuthService;
+import com.linkedin.tusk.RestFSException;
 
 public class RestHadoopAuth extends AbstractService {
 
