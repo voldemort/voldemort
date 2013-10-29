@@ -1,3 +1,9 @@
+Release 1.5.8 on 10/29/2013
+
+* Replace resthdfs jar with tusk.jar
+* Incorporate retries into rest hdfs fetcher 
+
+
 Release 1.5.7 on 10/28/2013
 
 * Voldemort now uses BDB 5.0.88
