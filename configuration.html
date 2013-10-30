@@ -186,7 +186,7 @@ If you intend to use the <i>zone-routing</i> strategy we need to extend the stor
 </ul>
 </p>
 
-<h3>Per-node configuration</h3>
+<h3>Server configuration</h3>
 
 <p>We store per-node based configuration in the server.properties file. Most of the properties have sane defaults ( hopefully ). The bare minimal file should have the following property.</p> 
 
@@ -200,6 +200,11 @@ You can find the list of server side parameters <a href="http://www.project-vold
 
 Here is a list of all the configuration options supported:
 
+<iframe height="500px" width="1000px" src="http://www.project-voldemort.com/voldemort/javadoc/all/voldemort/server/VoldemortConfig.html"></iframe> 
+
+
+
+<!--
 <table class="data-table">
 <tr>
   <th>name</th>
@@ -534,6 +539,8 @@ Here is a list of all the configuration options supported:
   <td>Number of threads to use for scheduled jobs</td>
 </tr>
 </table>
+-->
+
 
 <h3>BDB Management</h3>
 
@@ -543,8 +550,16 @@ Here is a list of all the configuration options supported:
 
 <h3>Client configuration</h3>
 
-<p>The above settings were all for the server. It is important to correctly configure the client as well. Following is a list of configuration options for the clients:
+<p>The above settings were all for the server. It is important to correctly configure the client as well:
 
+List of all the client configuration parameters can be found <a href="http://www.project-voldemort.com/voldemort/javadoc/all/voldemort/client/ClientConfig.html">here</a>
+
+<iframe src="http://www.project-voldemort.com/voldemort/javadoc/all/voldemort/client/ClientConfig.html" width="1000px" height="500px"></iframe>
+
+
+
+
+<!--
 <table class="data-table">
 <tr>
   <th>name</th>
@@ -655,6 +670,7 @@ Here is a list of all the configuration options supported:
   <td>ThresholdFailureDector : The integer percentage representation of the threshold that must be met or exceeded</td>
 </tr>
 </table>
+-->
 
 <h3>Some additional suggestions</h3>
 
@@ -664,7 +680,7 @@ At LinkedIn we maintain two sets of clusters, read-only and read-write. The read
 
 <pre>
   # Min, max, total JVM size 
-  JVM_SIZE="-server -Xms22g -Xmx22g"
+  JVM_SIZE="-server -Xms32g -Xmx32g"
 
   # New Generation Sizes 
   JVM_SIZE_NEW="-XX:NewSize=2048m -XX:MaxNewSize=2048m"
@@ -679,7 +695,11 @@ At LinkedIn we maintain two sets of clusters, read-only and read-write. The read
   JVM_GC_LOG="-XX:+PrintTenuringDistribution -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$LOG_DIR/gc.log"
 </pre>
 
-This is the setup on a 32GB RAM box with a BDB cache size of 10GB and 3 cleaner threads. There are two key things here: (1) BDB cache must fit in heap or else it won't work (obviously), (2) you must use the concurrent mark and sweep gc or else the GC pauses from collecting such a large heap will cause unresponsive periods (it doesn't happen at first either, it creeps up and then eventually goes into a spiral of gc pause death). 
+Note that you must use the concurrent mark and sweep gc or else the GC pauses from collecting such a large heap will cause unresponsive periods (it doesn't happen at first either, it creeps up and then eventually goes into a spiral of gc pause death). 
+
+This is the setup on a 48GB RAM box with a BDB cache size of 20GB and 1 cleaner threads, on SSDs. 
+You can find the entire configuration under config/prod_single_node_cluster. To bring a server up with these settings, use bin/voldemort-prod-server.sh
+
 <p>
 For the read-only clusters we use the same JVM GC settings, except the heap size is set to a smaller value.
 </p>
