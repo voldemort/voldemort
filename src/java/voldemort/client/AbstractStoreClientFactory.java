@@ -147,7 +147,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
             JmxUtils.registerMbean(new StoreClientFactoryStatsJmx(clientFactoryStats),
                                    JmxUtils.createObjectName("voldemort.store.client.factory.stats",
-                                                             JmxUtils.getJmxId(jmxId)));
+                                                             "bootstrap-stats"
+                                                                     + JmxUtils.getJmxId(jmxId)));
         }
     }
 
