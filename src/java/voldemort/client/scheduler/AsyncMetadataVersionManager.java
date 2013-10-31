@@ -43,9 +43,8 @@ import voldemort.utils.MetadataVersionStoreUtils;
 
 public class AsyncMetadataVersionManager implements Runnable {
 
-    public final String CLUSTER_VERSION_KEY = "cluster.xml";
-    public String STORES_VERSION_KEY = "stores.xml";
-    public static final String VERSIONS_METADATA_STORE = "metadata-versions";
+    private final String CLUSTER_VERSION_KEY = "cluster.xml";
+    private String storesVersionKey = "stores.xml";
 
     private final Logger logger = Logger.getLogger(this.getClass());
     private Long currentClusterVersion;
@@ -60,7 +59,7 @@ public class AsyncMetadataVersionManager implements Runnable {
         this.systemStoreRepository = sysRepository;
 
         if(storeName != null) {
-            STORES_VERSION_KEY = storeName;
+            storesVersionKey = storeName;
         }
 
         // Get the properties object from the system store (containing versions)
@@ -70,7 +69,7 @@ public class AsyncMetadataVersionManager implements Runnable {
         this.currentClusterVersion = initializeVersion(CLUSTER_VERSION_KEY, versionProps);
 
         // Initialize base store version to do all subsequent comparisons
-        this.currentStoreVersion = initializeVersion(STORES_VERSION_KEY, versionProps);
+        this.currentStoreVersion = initializeVersion(storesVersionKey, versionProps);
 
         logger.debug("Initial cluster.xml version = " + this.currentClusterVersion);
         logger.debug("Initial store '" + storeName + "' version = " + this.currentClusterVersion);
@@ -141,6 +140,8 @@ public class AsyncMetadataVersionManager implements Runnable {
 
     public void run() {
 
+        logger.debug("************* AsyncMetadataVersionManger running. Checking for "
+                     + CLUSTER_VERSION_KEY + " and  " + storesVersionKey + " *************");
         try {
             /*
              * Get the properties object from the system store (containing
@@ -151,7 +152,7 @@ public class AsyncMetadataVersionManager implements Runnable {
             Long newClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY,
                                                      this.currentClusterVersion,
                                                      versionProps);
-            Long newStoreVersion = fetchNewVersion(STORES_VERSION_KEY,
+            Long newStoreVersion = fetchNewVersion(storesVersionKey,
                                                    this.currentStoreVersion,
                                                    versionProps);
 
@@ -165,17 +166,14 @@ public class AsyncMetadataVersionManager implements Runnable {
                     }
 
                     if(newStoreVersion != null) {
-                        logger.info("Updating store : '" + STORES_VERSION_KEY + "' version");
+                        logger.info("Updating store : '" + storesVersionKey + "' version");
                         this.currentStoreVersion = newStoreVersion;
                     }
 
                     this.storeClientThunk.call();
 
                 } catch(Exception e) {
-                    if(logger.isDebugEnabled()) {
-                        logger.info("Exception occurred while invoking the rebootstrap callback.",
-                                    e);
-                    }
+                    logger.info("Exception occurred while invoking the rebootstrap callback.", e);
                 }
             }
 
