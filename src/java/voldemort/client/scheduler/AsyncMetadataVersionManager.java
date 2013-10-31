@@ -43,8 +43,8 @@ import voldemort.utils.MetadataVersionStoreUtils;
 
 public class AsyncMetadataVersionManager implements Runnable {
 
-    public static final String CLUSTER_VERSION_KEY = "cluster.xml";
-    public static String STORES_VERSION_KEY = "stores.xml";
+    public final String CLUSTER_VERSION_KEY = "cluster.xml";
+    public String STORES_VERSION_KEY = "stores.xml";
     public static final String VERSIONS_METADATA_STORE = "metadata-versions";
 
     private final Logger logger = Logger.getLogger(this.getClass());
@@ -173,14 +173,14 @@ public class AsyncMetadataVersionManager implements Runnable {
 
                 } catch(Exception e) {
                     if(logger.isDebugEnabled()) {
-                        e.printStackTrace();
-                        logger.debug(e.getMessage());
+                        logger.info("Exception occurred while invoking the rebootstrap callback.",
+                                    e);
                     }
                 }
             }
 
         } catch(Exception e) {
-            logger.debug("Could not retrieve metadata versions from the server.");
+            logger.debug("Could not retrieve metadata versions from the server.", e);
         }
 
     }
