@@ -173,12 +173,14 @@ public class AsyncMetadataVersionManager implements Runnable {
                     this.storeClientThunk.call();
 
                 } catch(Exception e) {
-                    logger.info("Exception occurred while invoking the rebootstrap callback.", e);
+                    logger.error("Exception occurred while invoking the rebootstrap callback.", e);
                 }
             }
 
         } catch(Exception e) {
-            logger.debug("Could not retrieve metadata versions from the server.", e);
+            if(logger.isDebugEnabled()) {
+                logger.debug("Could not retrieve metadata versions from the server.", e);
+            }
         }
 
     }

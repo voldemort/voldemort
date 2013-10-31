@@ -131,7 +131,7 @@ public class AsyncMetadataVersionManagerTest {
      * updating the version to a new value. For the test to succeed the callback
      * has to be invoked correctly by the asynchronous manager.
      */
-    @Test
+    @Test(timeout = 60000)
     public void testBasicAsyncBehaviour() {
         String storeVersionKey = "cluster.xml";
         try {
@@ -161,10 +161,8 @@ public class AsyncMetadataVersionManagerTest {
                                500);
 
             // Wait until the Version Manager is active
-            int maxRetries = 0;
-            while(maxRetries < 3 && !asyncCheckMetadata.isActive) {
+            while(!asyncCheckMetadata.isActive) {
                 Thread.sleep(500);
-                maxRetries++;
             }
 
             // Updating the version metadata here for the Version Metadata
@@ -174,10 +172,8 @@ public class AsyncMetadataVersionManagerTest {
             versionProps.setProperty(storeVersionKey, Long.toString(this.newVersion));
             MetadataVersionStoreUtils.setProperties(this.sysVersionStore, versionProps);
 
-            maxRetries = 0;
-            while(maxRetries < 3 && !callbackDone) {
+            while(!callbackDone) {
                 Thread.sleep(2000);
-                maxRetries++;
             }
 
             assertEquals(this.updatedClusterVersion, this.newVersion);
@@ -195,7 +191,7 @@ public class AsyncMetadataVersionManagerTest {
      * For the test to succeed the callback has to be invoked correctly by the
      * asynchronous manager.
      */
-    @Test
+    @Test(timeout = 60000)
     public void testStoreDefinitionChangeTracker() {
         String storeVersionKey = "users";
         Callable<Void> rebootstrapCallback = new Callable<Void>() {
@@ -225,10 +221,8 @@ public class AsyncMetadataVersionManagerTest {
                                500);
 
             // Wait until the Version Manager is active
-            int maxRetries = 0;
-            while(maxRetries < 3 && !asyncCheckMetadata.isActive) {
+            while(!asyncCheckMetadata.isActive) {
                 Thread.sleep(500);
-                maxRetries++;
             }
 
             // Updating the version metadata here for the Version Metadata
@@ -238,10 +232,8 @@ public class AsyncMetadataVersionManagerTest {
             versionProps.setProperty(storeVersionKey, Long.toString(this.newVersion));
             MetadataVersionStoreUtils.setProperties(this.sysVersionStore, versionProps);
 
-            maxRetries = 0;
-            while(maxRetries < 3 && !callbackDone) {
+            while(!callbackDone) {
                 Thread.sleep(2000);
-                maxRetries++;
             }
 
             assertEquals(false, (this.updatedStoreVersion == 0));
@@ -263,7 +255,7 @@ public class AsyncMetadataVersionManagerTest {
      * This test also checks that callback is invoked only for the corresponding
      * store that was updated. Other callbacks should not be invoked.
      */
-    @Test
+    @Test(timeout = 60000)
     public void testMultipleStoreDefinitionsChangeTracker() {
         String storeVersionKeys[] = new String[3];
         for(int i = 0; i < 3; i++) {
@@ -301,20 +293,9 @@ public class AsyncMetadataVersionManagerTest {
             }
 
             // Wait until the Version Manager is active
-            int maxRetries = 0;
-            while(maxRetries < 3) {
-                boolean isActive = true;
-                for(int i = 0; i < 3; i++) {
-                    if(!asyncVersionManagers.get(i).isActive) {
-                        isActive = false;
-                    }
-                }
-
-                if(!isActive) {
-                    Thread.sleep(500);
-                }
-
-                maxRetries++;
+            while(!asyncVersionManagers.get(0).isActive && !asyncVersionManagers.get(1).isActive
+                  && !asyncVersionManagers.get(2).isActive) {
+                Thread.sleep(500);
             }
 
             // Updating the version metadata here for the Version Metadata
@@ -326,12 +307,8 @@ public class AsyncMetadataVersionManagerTest {
             versionProps.setProperty(storeVersionKeys[1], Long.toString(this.newVersion));
             MetadataVersionStoreUtils.setProperties(this.sysVersionStore, versionProps);
 
-            maxRetries = 0;
-            while(maxRetries < 3) {
-                if(!callbacksDone[0] && !callbacksDone[1] && !callbacksDone[2]) {
-                    Thread.sleep(2000);
-                }
-                maxRetries++;
+            while(!callbacksDone[0] && !callbacksDone[1] && !callbacksDone[2]) {
+                Thread.sleep(2000);
             }
 
             // Check that version for index 1 has been udpated correctly.
