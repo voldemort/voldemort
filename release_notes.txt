@@ -1,8 +1,11 @@
+Release 1.5.9 on 11/05/2013
+
+* Bug fix in AsyncMetadataVersionManager (related to store version tracking)
+
 Release 1.5.8 on 10/29/2013
 
 * Replace resthdfs jar with tusk.jar
 * Incorporate retries into rest hdfs fetcher 
-
 
 Release 1.5.7 on 10/28/2013
 
