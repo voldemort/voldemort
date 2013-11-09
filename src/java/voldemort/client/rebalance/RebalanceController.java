@@ -17,7 +17,9 @@
 package voldemort.client.rebalance;
 
 import java.text.DecimalFormat;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -169,8 +171,7 @@ public class RebalanceController {
      * <li>confirms read-only stores can be rebalanced.
      * </ul>
      * 
-     * @param finalCluster
-     * @param finalStores
+     * @param rebalancePlan
      */
     private void validateClusterForRebalance(RebalancePlan rebalancePlan) {
         logger.info("Validating state of deployed cluster to confirm its ready for rebalance.");
@@ -430,7 +431,7 @@ public class RebalanceController {
      * @param batchId Rebalancing batch id
      * @param batchCurrentCluster Current cluster
      * @param batchFinalCluster Transition cluster to propagate
-     * @param rebalancePartitionPlanList List of partition plan list
+     * @param rebalanceTaskPlanList List of partition plan list
      * @param hasReadOnlyStores Boolean indicating if read-only stores exist
      * @param hasReadWriteStores Boolean indicating if read-write stores exist
      * @param finishedReadOnlyStores Boolean indicating if we have finished RO
@@ -557,7 +558,7 @@ public class RebalanceController {
      * 
      * @param batchId Rebalance batch id
      * @param batchRollbackCluster Cluster to rollback to if we have a problem
-     * @param rebalancePartitionPlanList The list of rebalance partition plans
+     * @param rebalanceTaskPlanList The list of rebalance partition plans
      * @param hasReadOnlyStores Are we rebalancing any read-only stores?
      * @param hasReadWriteStores Are we rebalancing any read-write stores?
      * @param finishedReadOnlyStores Have we finished rebalancing of read-only
@@ -584,9 +585,9 @@ public class RebalanceController {
         final List<RebalanceTask> incompleteTasks = Lists.newArrayList();
 
         // Semaphores for donor nodes - To avoid multiple disk sweeps
-        Semaphore[] donorPermits = new Semaphore[batchRollbackCluster.getNumberOfNodes()];
+        Map<Integer, Semaphore> donorPermits = new HashMap<Integer, Semaphore>();
         for(Node node: batchRollbackCluster.getNodes()) {
-            donorPermits[node.getId()] = new Semaphore(1);
+            donorPermits.put(node.getId(), new Semaphore(1));
         }
 
         try {
@@ -686,7 +687,7 @@ public class RebalanceController {
                          RebalanceBatchPlanProgressBar progressBar,
                          final ExecutorService service,
                          List<RebalanceTaskInfo> rebalanceTaskPlanList,
-                         Semaphore[] donorPermits) {
+                         Map<Integer,Semaphore> donorPermits) {
         List<RebalanceTask> taskList = Lists.newArrayList();
         int taskId = 0;
         RebalanceScheduler scheduler = new RebalanceScheduler(service, maxParallelRebalancing);
@@ -695,7 +696,7 @@ public class RebalanceController {
             StealerBasedRebalanceTask rebalanceTask = new StealerBasedRebalanceTask(batchId,
                                                                                     taskId,
                                                                                     taskInfo,
-                                                                                    donorPermits[taskInfo.getDonorId()],
+                                                                                    donorPermits.get(taskInfo.getDonorId()),
                                                                                     adminClient,
                                                                                     progressBar,
                                                                                     scheduler);
