@@ -23,6 +23,7 @@ import java.io.StringReader;
 import java.net.BindException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -82,6 +83,7 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 /**
  * Helper functions for testing with real server implementations
@@ -351,12 +353,33 @@ public class ServerTestUtils {
 
         return new Cluster(original.getName(), newNodeList);
     }
-
+    
     /**
      * Returns a list of zones with their proximity list being in increasing
      * order
      * 
      * @param numberOfZones The number of zones to return
+     * @return List of zones
+     */
+    public static List<Zone> getZonesFromZoneIds(int[] zoneIds) {
+        List<Zone> zones = Lists.newArrayList();
+        Set<Integer> zoneIdsSet = new HashSet<Integer>();
+        for (int i : zoneIds) {
+            zoneIdsSet.add(i);
+        }
+        Set<Integer> removeSet = new HashSet<Integer>();
+        for (int i = 0; i < zoneIds.length; i++) {
+            removeSet.add(zoneIds[i]);
+            zones.add(new Zone(zoneIds[i], Lists.newLinkedList(Sets.symmetricDifference(zoneIdsSet, removeSet))));
+            removeSet.clear();
+        }
+        return zones;
+    }
+
+    /**
+     * Given zone ids, this method returns a list of zones with their proximity list
+     * 
+     * @param list of zone ids
      * @return List of zones
      */
     public static List<Zone> getZones(int numberOfZones) {
@@ -600,6 +623,58 @@ public class ServerTestUtils {
         }
 
         List<Zone> zones = getZones(numberOfZones);
+        return new Cluster("cluster", nodes, zones);
+    }
+
+    public static Cluster getLocalNonContiguousZonedCluster(int[] zoneIds,
+                                                            int[][] nodeIdsPerZone,
+                                                            int[][] partitionMap,
+                                                            int[] ports) {
+
+        int numberOfZones = zoneIds.length;
+        if (numberOfZones < 1) {
+            throw new VoldemortException("The number of zones must be positive (" + numberOfZones
+                                         + ")");
+        }
+        if (nodeIdsPerZone.length != numberOfZones) {
+            throw new VoldemortException("Mismatch between numberOfZones (" + numberOfZones
+                                         + ") and size of nodesPerZone array ("
+                                         + nodeIdsPerZone.length + ").");
+        }
+
+        int numNodes = 0;
+        for (int nodeIdsInZone[]: nodeIdsPerZone) {
+            numNodes += nodeIdsInZone.length;
+        }
+        if (partitionMap.length != numNodes) {
+            throw new VoldemortException("Mismatch between numNodes (" + numNodes
+                                         + ") and size of partitionMap array (" + partitionMap
+                                         + ").");
+        }
+
+        // Generate nodes
+        List<Node> nodes = new ArrayList<Node>();
+        int partitionOffset = 0;
+        int zoneOffset = 0;
+        for (int zoneId : zoneIds) {
+            for (int nodeId: nodeIdsPerZone[zoneOffset]) {
+                List<Integer> partitions = new ArrayList<Integer>(partitionMap[partitionOffset].length);
+                for (int p: partitionMap[partitionOffset]) {
+                    partitions.add(p);
+                }
+                nodes.add(new Node(nodeId,
+                                   "localhost",
+                                   ports[partitionOffset * 3],
+                                   ports[partitionOffset * 3 + 1],
+                                   ports[partitionOffset * 3 + 2],
+                                   zoneId,
+                                   partitions));
+                partitionOffset++;
+            }
+            zoneOffset++;
+        }
+
+        List<Zone> zones = getZonesFromZoneIds(zoneIds);
         return new Cluster("cluster", nodes, zones);
     }
 

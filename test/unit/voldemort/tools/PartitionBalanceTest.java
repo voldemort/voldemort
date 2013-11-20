@@ -113,31 +113,23 @@ public class PartitionBalanceTest {
     }
 
     /**
-     * Confirm that zone Ids need not be contiguous. This tests for the ability
-     * to shrink zones.
+     * Confirm that zone Ids need not be contiguous with contiguous node ids.
      */
     @Test
-    public void testNonContiguousZoneIds() {
-        new PartitionBalance(ClusterTestUtils.getZZClusterWithNonContiguousZoneIDsButContiguousNodeIDs(),
-                             ClusterTestUtils.getZZStoreDefsWithNonContiguousZoneIDsInMemory());
+    public void testNonContiguousZoneIdsWithContiguousNodeIDs() {
+        new PartitionBalance(ClusterTestUtils.getZ0Z2ClusterWithContiguousNodeIDs(),
+                             ClusterTestUtils.getZ0Z2322StoreDefsInMemory());
     }
 
-    // TODO: Fix handling of node Ids so that they do not need to be contiguous.
     /**
-     * This should be a positive test. But, for now, is a negative test to
-     * confirm that we require nodeIds to be contiguous. This may become a
-     * problem if we ever shrink the number of zones.
+     * Confirm that zone Ids and node ids need not be contiguous. 
      */
+
     @Test
-    public void testNonContiguousZonesThatShouldWorkButDoNot() {
-        boolean veCaught = false;
-        try {
-            new PartitionBalance(ClusterTestUtils.getZZClusterWithNonContiguousZoneIDsAndNonContiguousNodeIDs(),
-                                 ClusterTestUtils.getZZStoreDefsInMemory());
-        } catch(VoldemortException ve) {
-            veCaught = true;
-        }
-        assertTrue(veCaught);
+    public void testNonContiguousZoneIdsWithNonContiguousNodeIDs() {
+        new PartitionBalance(ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIDs(),
+                             ClusterTestUtils.getZ1Z3322StoreDefsInMemory());
+
     }
 
 }
