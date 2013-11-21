@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -101,13 +102,14 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     protected volatile FailureDetector failureDetector;
     private final int maxBootstrapRetries;
     private final StoreStats aggregateStats;
-    private final StoreClientFactoryStats clientFactoryStats;
+    private final StoreClientFactoryStats storeClientFactoryStats;
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
     private final String clientContextName;
     private final AtomicInteger clientSequencer;
     private final HashSet<SchedulerService> clientAsyncServiceRepo;
     private final RoutedStoreConfig routedStoreConfig;
+    private final Callable<Object> storeRebootstrapCallback;
 
     private Cluster cluster;
     private List<StoreDefinition> storeDefs;
@@ -124,7 +126,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.jmxId = getNextJmxId();
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         this.aggregateStats = new StoreStats();
-        this.clientFactoryStats = new StoreClientFactoryStats();
+        this.storeClientFactoryStats = new StoreClientFactoryStats();
         this.clientContextName = config.getClientContextName();
         this.routedStoreConfig = new RoutedStoreConfig(config);
         this.routedStoreConfig.setJmxId(this.jmxId);
@@ -134,6 +136,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         this.clientSequencer = new AtomicInteger(0);
         this.clientAsyncServiceRepo = new HashSet<SchedulerService>();
+        this.storeRebootstrapCallback = new Callable<Object>(){
+            @Override
+            public Object call() throws Exception {
+                storeClientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
+                return null;
+            }
+        };
 
         if(this.isJmxEnabled) {
             JmxUtils.registerMbean(threadPool,
@@ -145,7 +154,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                              "aggregate-perf"
                                                                      + JmxUtils.getJmxId(jmxId)));
 
-            JmxUtils.registerMbean(new StoreClientFactoryStatsJmx(clientFactoryStats),
+            JmxUtils.registerMbean(new StoreClientFactoryStatsJmx(storeClientFactoryStats),
                                    JmxUtils.createObjectName("voldemort.store.client.factory.stats",
                                                              "bootstrap-stats"
                                                                      + JmxUtils.getJmxId(jmxId)));
@@ -169,7 +178,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
 
-        StoreClient<K, V> client = null;
+        DefaultStoreClient<K, V> client = null;
         if(this.config.isDefaultClientEnabled()) {
             client = new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
         } else if(this.bootstrapUrls.length > 0
@@ -191,6 +200,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                               config,
                                               service);
         }
+        client.setBeforeRebootstrapCallback(this.storeRebootstrapCallback);
 
         return client;
     }
@@ -421,7 +431,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                 return bootstrapMetadata(key, urls);
             } catch(BootstrapFailureException e) {
                 // We have a bootstrap failure, record the event.
-                clientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.FAILED_BOOTSTRAP_EVENT);
+                storeClientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.FAILED_BOOTSTRAP_EVENT);
                 logger.warn("Failed to bootstrap store");
                 if(nTries < this.maxBootstrapRetries) {
                     int backOffTime = 5 * nTries;
@@ -435,7 +445,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                 }
             } finally {
                 // We have a bootstrap event, record it.
-                clientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.BOOTSTRAP_EVENT);
+                storeClientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.BOOTSTRAP_EVENT);
             }
         }
 

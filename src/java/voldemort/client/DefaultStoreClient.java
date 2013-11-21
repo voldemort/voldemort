@@ -19,6 +19,7 @@ package voldemort.client;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.Callable;
 
 import org.apache.log4j.Logger;
 
@@ -57,6 +58,7 @@ import com.google.common.collect.Maps;
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private final Logger logger = Logger.getLogger(DefaultStoreClient.class);
+    protected Callable<Object> beforeRebootstrapCallback = null;
     protected StoreClientFactory storeFactory;
     protected int metadataRefreshAttempts;
     protected String storeName;
@@ -86,6 +88,13 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     @JmxOperation(description = "bootstrap metadata from the cluster.")
     public void bootStrap() {
+        if(beforeRebootstrapCallback != null) {
+            try {
+                beforeRebootstrapCallback.call();
+            } catch (Exception e) {
+                logger.warn("Exception caught when running callback before bootstrap", e);
+            }
+        }
         logger.info("Bootstrapping metadata for store " + this.storeName);
         this.store = storeFactory.getRawStore(storeName, resolver);
     }
@@ -356,5 +365,9 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         }
         return put(key, versioned, transforms);
 
+    }
+
+    public void setBeforeRebootstrapCallback(Callable<Object> callback) {
+        beforeRebootstrapCallback = callback;
     }
 }
