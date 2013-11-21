@@ -82,9 +82,7 @@ public class RebalancePlanTest {
         z1z3z5ClusterExpansion = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithPPP();
         
         z1z3Stores = ClusterTestUtils.getZ1Z3StoreDefsBDB();
-        z1z3z5Stores = ClusterTestUtils.getZ1Z3Z5StoreDefsBDB();
-        
-        
+        z1z3z5Stores = ClusterTestUtils.getZ1Z3Z5StoreDefsBDB();   
     }
 
     @Test

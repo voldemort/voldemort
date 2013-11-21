@@ -42,6 +42,20 @@ public class ZonedRebalanceBatchPlanTest {
     static Cluster zzeZoneExpansion;
     static Cluster zzzZoneExpansionXXP;
     static List<StoreDefinition> zzzStores;
+    
+    static Cluster z1z3Current;
+    static Cluster z1z3z5Current;
+    
+    static Cluster z1z3Shuffle;
+    static Cluster z1z3z5Shuffle;
+    
+    static Cluster z1z3ClusterExpansionNN;
+    static Cluster z1z3z5ClusterExpansionNNN;
+    static Cluster z1z3ClusterExpansionPP;
+    static Cluster z1z3z5ClusterExpansionPPP;
+    
+    static List<StoreDefinition> z1z3Stores;
+    static List<StoreDefinition> z1z3z5Stores;
 
     @BeforeClass
     public static void setup() {
@@ -59,6 +73,23 @@ public class ZonedRebalanceBatchPlanTest {
         zzeZoneExpansion = ClusterTestUtils.getZZECluster();
         zzzZoneExpansionXXP = ClusterTestUtils.getZZEClusterXXP();
         zzzStores = ClusterTestUtils.getZZZStoreDefsBDB();
+    }
+    
+    @BeforeClass
+    public static void setupNonContigous() {
+        z1z3Current = ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds();
+        z1z3z5Current = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds();
+        z1z3ClusterExpansionNN = ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIdsWithNN();
+        z1z3ClusterExpansionPP = ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIdsWithPP();
+        
+        z1z3z5ClusterExpansionNNN = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithNNN();
+        z1z3z5ClusterExpansionPPP = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithPPP();
+        
+        z1z3Shuffle = ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIdsWithSwappedPartitions();
+        z1z3z5Shuffle = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithSwappedPartitions();
+        
+        z1z3Stores = ClusterTestUtils.getZ1Z3StoreDefsBDB();
+        z1z3z5Stores = ClusterTestUtils.getZ1Z3Z5StoreDefsBDB();   
     }
 
     @Test
@@ -123,5 +154,47 @@ public class ZonedRebalanceBatchPlanTest {
         batchPlan = ClusterTestUtils.getBatchPlan(zzCurrent, zzStores, zzzCurrent, zzzStores);
         assertTrue(batchPlan.size() > 0);
     }
+    
+    @Test
+    public void testNoopWithNonContiguousZoneIdsAndNodeIds() {
+        List<RebalanceTaskInfo> batchPlan;
+
+        // Two zones
+        batchPlan = ClusterTestUtils.getBatchPlan(z1z3Current, z1z3Current, z1z3Stores);
+        assertEquals(batchPlan.size(), 0);
+
+        // Three zones
+        batchPlan = ClusterTestUtils.getBatchPlan(z1z3z5Current, z1z3z5Current, z1z3z5Stores);
+        assertEquals(batchPlan.size(), 0);
+    }
+    
+    @Test
+    public void testShuffleWithNonContiguousZoneIdsAndNodeIds() {
+        List<RebalanceTaskInfo> batchPlan;
+
+        // Two zones
+        batchPlan = ClusterTestUtils.getBatchPlan(z1z3Current, z1z3Shuffle, z1z3Stores);
+        assertTrue(batchPlan.size() > 0);
+
+        // Three zones
+        batchPlan = ClusterTestUtils.getBatchPlan(z1z3z5Current, z1z3z5Shuffle, z1z3z5Stores);
+        assertTrue(batchPlan.size() > 0);
+    }
+
+    @Test
+    public void testClusterExpansionWithNonContiguousZoneIdsAndNodeIds() {
+        List<RebalanceTaskInfo> batchPlan;
+        // Two zones
+        batchPlan = ClusterTestUtils.getBatchPlan(z1z3ClusterExpansionNN,
+                                                  z1z3ClusterExpansionPP,
+                                                  z1z3Stores);
+        assertTrue(batchPlan.size() > 0);
+        // Three zones
+        batchPlan = ClusterTestUtils.getBatchPlan(z1z3z5ClusterExpansionNNN,
+                                                  z1z3z5ClusterExpansionPPP,
+                                                  z1z3z5Stores);
+        assertTrue(batchPlan.size() > 0);
+    }
+
 
 }

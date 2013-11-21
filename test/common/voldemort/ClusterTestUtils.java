@@ -672,13 +672,24 @@ public class ClusterTestUtils {
     
     public static Cluster getZ1Z3ClusterWithNonContiguousNodeIdsWithPP() {
         int zoneIds[] = new int[] { 1, 3 };
-        int nodesPerZone[][] = new int[][] { { 3, 4, 5, 12 }, { 9, 10, 11, 14} };
+        int nodesPerZone[][] = new int[][] { { 3, 4, 5, 12 }, { 9, 10, 11, 13} };
         int partitionMap[][] = new int[][] { { 0, 6, 12, 16, 17 }, { 7, 13 }, { 8, 14 }, { 1, 2 },
                 { 9, 15 }, { 10 }, { 5, 11 }, { 3, 4 } };
         return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
                                                                  nodesPerZone,
                                                                  partitionMap,
                                                                  getClusterPorts());
+    }
+    
+    public static Cluster getZ1Z3ClusterWithNonContiguousNodeIdsWithNN() {
+        int zoneIds[] = new int[] { 1, 3 };
+        int nodesPerZone[][] = new int[][] { { 3, 4, 5, 12 }, { 9, 10, 11, 13 } };
+        int partitionMap[][] = new int[][] { { 0, 6, 12, 16, 17 }, { 1, 7, 15 }, { 2, 8, 14 }, {},
+                { 3, 9, 13 }, { 4, 10 }, { 5, 11 }, {} };
+        return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
+                                                    nodesPerZone,
+                                                    partitionMap,
+                                                    getClusterPorts());
     }
   
     /**
@@ -709,6 +720,17 @@ public class ClusterTestUtils {
                                                                  getClusterPorts());
     }
     
+    public static Cluster getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithNNN() {
+        int zoneIds[] = new int[] { 1, 3, 5 };
+        int nodesPerZone[][] = new int[][] { { 3, 4, 5, 18 }, { 9, 10, 11, 19 }, { 15, 16, 17, 20 } };
+        int partitionMap[][] = new int[][] { { 0, 9 }, { 1, 15 }, { 2, 11, 7 }, {}, 
+                { 12, 16, 3, 6 }, { 13, 8, 17, 10 }, { 5, 4, 14 }, {}, 
+                { 18, 20}, { 19, 21}, {22, 23, 24}, { } };
+        return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
+                                                    nodesPerZone,
+                                                    partitionMap,
+                                                    getClusterPorts());
+    }
 
     /**
      * Construct 3 zones with zone IDs 1, 3, 5 respectively and with nodes that
@@ -724,6 +746,7 @@ public class ClusterTestUtils {
                                                                  partitionMap,
                                                                  getClusterPorts());
     }
+  
   
     /**
      * Construct 2 zones with zone IDs 0 and 2 respectively. The node ids are
