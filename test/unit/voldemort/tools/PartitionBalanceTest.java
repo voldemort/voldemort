@@ -118,7 +118,7 @@ public class PartitionBalanceTest {
     @Test
     public void testNonContiguousZoneIdsWithContiguousNodeIDs() {
         new PartitionBalance(ClusterTestUtils.getZ0Z2ClusterWithContiguousNodeIDs(),
-                             ClusterTestUtils.getZ0Z2322StoreDefsInMemory());
+                             ClusterTestUtils.getZ0Z2322StoreDefs("InMemoryStorageConfiguration.TYPE_NAME"));
     }
 
     /**
@@ -127,8 +127,8 @@ public class PartitionBalanceTest {
 
     @Test
     public void testNonContiguousZoneIdsWithNonContiguousNodeIDs() {
-        new PartitionBalance(ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIDs(),
-                             ClusterTestUtils.getZ1Z3322StoreDefsInMemory());
+        new PartitionBalance(ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(),
+                             ClusterTestUtils.getZ1Z3322StoreDefs("InMemoryStorageConfiguration.TYPE_NAME"));
 
     }
 

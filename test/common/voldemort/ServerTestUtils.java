@@ -664,9 +664,9 @@ public class ServerTestUtils {
                 }
                 nodes.add(new Node(nodeId,
                                    "localhost",
-                                   ports[partitionOffset * 3],
-                                   ports[partitionOffset * 3 + 1],
-                                   ports[partitionOffset * 3 + 2],
+                                   ports[nodeId * 3],
+                                   ports[nodeId * 3 + 1],
+                                   ports[nodeId * 3 + 2],
                                    zoneId,
                                    partitions));
                 partitionOffset++;

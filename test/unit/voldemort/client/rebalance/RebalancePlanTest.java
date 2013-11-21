@@ -41,6 +41,18 @@ public class RebalancePlanTest {
     static Cluster zzeZoneExpansion;
     static Cluster zzzZoneExpansion;
     static List<StoreDefinition> zzzStores;
+    
+    static Cluster z1z3Current;
+    static Cluster z1z3z5Current;
+    
+    static Cluster z1z3Shuffle;
+    static Cluster z1z3z5Shuffle;
+    
+    static Cluster z1z3ClusterExpansion;
+    static Cluster z1z3z5ClusterExpansion;
+    
+    static List<StoreDefinition> z1z3Stores;
+    static List<StoreDefinition> z1z3z5Stores;
 
     @BeforeClass
     public static void setup() {
@@ -56,6 +68,23 @@ public class RebalancePlanTest {
         zzeZoneExpansion = ClusterTestUtils.getZZECluster();
         zzzZoneExpansion = ClusterTestUtils.getZZEClusterXXP();
         zzzStores = ClusterTestUtils.getZZZStoreDefsBDB();
+    }
+    
+    @BeforeClass
+    public static void setupNonContigous() {
+        z1z3Current = ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds();
+        z1z3z5Current = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds();
+        
+        z1z3Shuffle = ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIdsWithSwappedPartitions();
+        z1z3z5Shuffle = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithSwappedPartitions();
+        
+        z1z3ClusterExpansion = ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIdsWithPP();
+        z1z3z5ClusterExpansion = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithPPP();
+        
+        z1z3Stores = ClusterTestUtils.getZ1Z3StoreDefsBDB();
+        z1z3z5Stores = ClusterTestUtils.getZ1Z3Z5StoreDefsBDB();
+        
+        
     }
 
     @Test
@@ -196,5 +225,101 @@ public class RebalancePlanTest {
         assertTrue(zoneMoves.get(2, 0) == 0);
         assertTrue(zoneMoves.get(2, 1) == 0);
         assertTrue(zoneMoves.get(2, 2) == 0);
+    }
+    
+    /*
+     * Tests for non contiguous zone and node ids
+     */
+    @Test
+    public void testNoopWithNonContiguousZoneIdsAndNodeIds() {
+        RebalancePlan rebalancePlan;
+        
+        // Two zones
+        rebalancePlan = ClusterTestUtils.makePlan(z1z3Current, z1z3Stores, z1z3Current, z1z3Stores);
+        assertEquals(rebalancePlan.getPlan().size(), 0);
+        assertEquals(rebalancePlan.getPrimariesMoved(), 0);
+        assertEquals(rebalancePlan.getPartitionStoresMoved(), 0);
+        assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
+
+        // Three zones
+        rebalancePlan = ClusterTestUtils.makePlan(z1z3z5Current, z1z3z5Stores, z1z3z5Current, z1z3z5Stores);
+        assertEquals(rebalancePlan.getPlan().size(), 0);
+        assertEquals(rebalancePlan.getPrimariesMoved(), 0);
+        assertEquals(rebalancePlan.getPartitionStoresMoved(), 0);
+        assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
+    }
+    
+    @Test
+    public void testShuffleWithNonContiguousZoneIdsAndNodeIds() {
+        RebalancePlan rebalancePlan;
+        // Two zones
+        rebalancePlan = ClusterTestUtils.makePlan(z1z3Current, z1z3Stores, z1z3Shuffle, z1z3Stores);
+        assertEquals(rebalancePlan.getPlan().size(), 1);
+        assertTrue(rebalancePlan.getPrimariesMoved() > 0);
+        assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
+        assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
+
+        MoveMap zoneMoves = rebalancePlan.getZoneMoveMap();
+        assertTrue(zoneMoves.get(1, 1) > 0);
+        assertTrue(zoneMoves.get(1, 3) == 0);
+        assertTrue(zoneMoves.get(3, 1) == 0);
+        assertTrue(zoneMoves.get(3, 3) > 0);
+
+        // Three zones
+        rebalancePlan = ClusterTestUtils.makePlan(z1z3z5Current, z1z3z5Stores, z1z3z5Shuffle, z1z3z5Stores);
+        assertEquals(rebalancePlan.getPlan().size(), 1);
+        assertTrue(rebalancePlan.getPrimariesMoved() > 0);
+        assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
+        assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
+
+        zoneMoves = rebalancePlan.getZoneMoveMap();
+        assertTrue(zoneMoves.get(1, 1) > 0);
+        assertTrue(zoneMoves.get(1, 3) == 0);
+        assertTrue(zoneMoves.get(1, 5) == 0);
+        assertTrue(zoneMoves.get(3, 1) == 0);
+        assertTrue(zoneMoves.get(3, 3) > 0);
+        assertTrue(zoneMoves.get(3, 5) == 0);
+        assertTrue(zoneMoves.get(5, 1) == 0);
+        assertTrue(zoneMoves.get(5, 3) == 0);
+        assertTrue(zoneMoves.get(5, 5) > 0);
+    }
+    
+    @Test
+    public void testClusterExpansionWithNonContiguousZoneIdsAndNodeIds() {
+        RebalancePlan rebalancePlan;
+
+        // Two zones
+        rebalancePlan = ClusterTestUtils.makePlan(z1z3Current, z1z3Stores, z1z3ClusterExpansion, z1z3Stores);
+        assertEquals(rebalancePlan.getPlan().size(), 1);
+        assertTrue(rebalancePlan.getPrimariesMoved() > 0);
+        assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
+        assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
+
+        MoveMap zoneMoves = rebalancePlan.getZoneMoveMap();
+        assertTrue(zoneMoves.get(1, 1) > 0);
+        assertTrue(zoneMoves.get(1, 3) == 0);
+        assertTrue(zoneMoves.get(3, 1) == 0);
+        assertTrue(zoneMoves.get(3, 3) > 0);
+
+        // Three zones
+        rebalancePlan = ClusterTestUtils.makePlan(z1z3z5Current,
+                                                  z1z3z5Stores,
+                                                  z1z3z5ClusterExpansion,
+                                                  z1z3z5Stores);
+        assertEquals(rebalancePlan.getPlan().size(), 1);
+        assertTrue(rebalancePlan.getPrimariesMoved() > 0);
+        assertTrue(rebalancePlan.getPartitionStoresMoved() > 0);
+        assertEquals(rebalancePlan.getPartitionStoresMovedXZone(), 0);
+
+        zoneMoves = rebalancePlan.getZoneMoveMap();
+        assertTrue(zoneMoves.get(1, 1) > 0);
+        assertTrue(zoneMoves.get(1, 3) == 0);
+        assertTrue(zoneMoves.get(1, 5) == 0);
+        assertTrue(zoneMoves.get(3, 1) == 0);
+        assertTrue(zoneMoves.get(3, 3) > 0);
+        assertTrue(zoneMoves.get(3, 5) == 0);
+        assertTrue(zoneMoves.get(5, 1) == 0);
+        assertTrue(zoneMoves.get(5, 3) == 0);
+        assertTrue(zoneMoves.get(5, 5) > 0);
     }
 }

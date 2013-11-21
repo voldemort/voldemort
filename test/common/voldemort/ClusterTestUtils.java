@@ -21,7 +21,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 import voldemort.client.RoutingTier;
 import voldemort.client.rebalance.RebalanceBatchPlan;
@@ -135,52 +134,7 @@ public class ClusterTestUtils {
         storeDefs.add(storeDef322);
         return storeDefs;
     }
-    
-
-    public static List<StoreDefinition> getStoreDefsWithNonContiguousZones(String storageType,
-                                                                           String storeName,
-                                                                           HashMap<Integer, Integer> zoneRep,
-                                                                           int requiredReads,
-                                                                           int requiredWrites,
-                                                                           int zoneCountReads,
-                                                                           int zoneCountWrites) {
-        List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
-        int totalReplicationFactor = 0;
-        for (Integer value : zoneRep.values()) {
-            totalReplicationFactor += value; 
-        }
-        StoreDefinition storeDef = new StoreDefinitionBuilder().setName(storeName)
-                                                               .setType(storageType)
-                                                               .setRoutingPolicy(RoutingTier.CLIENT)
-                                                               .setRoutingStrategyType(RoutingStrategyType.ZONE_STRATEGY)
-                                                               .setKeySerializer(new SerializerDefinition("string"))
-                                                               .setValueSerializer(new SerializerDefinition("string"))
-                                                               .setReplicationFactor(totalReplicationFactor)
-                                                               .setZoneReplicationFactor(zoneRep)
-                                                               .setRequiredReads(requiredReads)
-                                                               .setRequiredWrites(requiredWrites)
-                                                               .setZoneCountReads(zoneCountReads)
-                                                               .setZoneCountWrites(zoneCountWrites)
-                                                               .build();
-        storeDefs.add(storeDef);
-        return storeDefs;
-    }
-    
-    public static List<StoreDefinition> getZ0Z2322StoreDefsInMemory() {
-        HashMap<Integer, Integer> zoneRep322 = new HashMap<Integer, Integer>();
-        zoneRep322.put(0, 3);
-        zoneRep322.put(2, 3);
-        return getStoreDefsWithNonContiguousZones("InMemoryStorageConfiguration.TYPE_NAME", "Z0Z2322", 
-                                                  zoneRep322, 2, 2, 0, 0);
-    }
-    
-    public static List<StoreDefinition> getZ1Z3322StoreDefsInMemory() {
-        HashMap<Integer, Integer> zoneRep322 = new HashMap<Integer, Integer>();
-        zoneRep322.put(1, 3);
-        zoneRep322.put(3, 3);
-        return getStoreDefsWithNonContiguousZones("InMemoryStorageConfiguration.TYPE_NAME", "Z1Z3322", 
-                                                  zoneRep322, 2, 2, 0, 0);
-    }
+  
 
     /**
      * Store defs for zoned clusters with 2 zones. Covers the three store
@@ -294,6 +248,135 @@ public class ClusterTestUtils {
         return storeDefs;
     }
 
+    
+    /*
+     * Non contiguous storeDefs methods
+     */
+    public static List<StoreDefinition> getStoreDefsWithNonContiguousZones(String storageType,
+                                                                           String storeName,
+                                                                           HashMap<Integer, Integer> zoneRep,
+                                                                           int requiredReads,
+                                                                           int requiredWrites,
+                                                                           int zoneCountReads,
+                                                                           int zoneCountWrites) {
+        List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
+        int totalReplicationFactor = 0;
+        for (Integer value : zoneRep.values()) {
+            totalReplicationFactor += value; 
+        }
+        StoreDefinition storeDef = new StoreDefinitionBuilder().setName(storeName)
+                                                               .setType(storageType)
+                                                               .setRoutingPolicy(RoutingTier.CLIENT)
+                                                               .setRoutingStrategyType(RoutingStrategyType.ZONE_STRATEGY)
+                                                               .setKeySerializer(new SerializerDefinition("string"))
+                                                               .setValueSerializer(new SerializerDefinition("string"))
+                                                               .setReplicationFactor(totalReplicationFactor)
+                                                               .setZoneReplicationFactor(zoneRep)
+                                                               .setRequiredReads(requiredReads)
+                                                               .setRequiredWrites(requiredWrites)
+                                                               .setZoneCountReads(zoneCountReads)
+                                                               .setZoneCountWrites(zoneCountWrites)
+                                                               .build();
+        storeDefs.add(storeDef);
+        return storeDefs;
+    }
+    
+    public static List<StoreDefinition> getZ0Z2322StoreDefs(String storageType) {
+        HashMap<Integer, Integer> zoneRep322 = new HashMap<Integer, Integer>();
+        zoneRep322.put(0, 3);
+        zoneRep322.put(2, 3);
+        return getStoreDefsWithNonContiguousZones(storageType, "Z0Z2322", 
+                                                  zoneRep322, 2, 2, 0, 0);
+    }
+    
+    
+    public static List<StoreDefinition> getZ1Z3111StoreDefs(String storageType) {
+        HashMap<Integer, Integer> zoneRep111 = new HashMap<Integer, Integer>();
+        zoneRep111.put(1, 1);
+        zoneRep111.put(3, 1);
+        return getStoreDefsWithNonContiguousZones(storageType, "Z1Z3111", 
+                                                  zoneRep111, 1, 1, 0, 0);
+    }
+    
+    public static List<StoreDefinition> getZ1Z3211StoreDefs(String storageType) {
+        HashMap<Integer, Integer> zoneRep211 = new HashMap<Integer, Integer>();
+        zoneRep211.put(1, 2);
+        zoneRep211.put(3, 2);
+        return getStoreDefsWithNonContiguousZones(storageType, "Z1Z3211", 
+                                                  zoneRep211, 1, 1, 0, 0);
+    }
+    
+    public static List<StoreDefinition> getZ1Z3322StoreDefs(String storageType) {
+        HashMap<Integer, Integer> zoneRep322 = new HashMap<Integer, Integer>();
+        zoneRep322.put(1, 3);
+        zoneRep322.put(3, 3);
+        return getStoreDefsWithNonContiguousZones(storageType, "Z1Z3322", 
+                                                  zoneRep322, 2, 2, 0, 0);
+    }
+    
+    /**
+     * Store defs for zoned clusters with 2 zones. Covers the three store
+     * definitions of interest: 3/2/2, 2/1/1, and 1/1/1
+     */
+    public static List<StoreDefinition> getZ1Z3StoreDefsInMemory() {
+        List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
+        storeDefs.addAll(getZ1Z3111StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(getZ1Z3211StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(getZ1Z3322StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
+        return storeDefs;
+    }
+    
+    /**
+     * Store defs for zoned clusters with 2 zones. Covers the three store
+     * definitions of interest: 3/2/2, 2/1/1, and 1/1/1
+     */
+    public static List<StoreDefinition> getZ1Z3StoreDefsBDB() {
+        List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
+        storeDefs.addAll(getZ1Z3111StoreDefs(BdbStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(getZ1Z3211StoreDefs(BdbStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(getZ1Z3322StoreDefs(BdbStorageConfiguration.TYPE_NAME));
+        return storeDefs;
+    }
+    
+    public static List<StoreDefinition> getZ1Z3Z5111StoreDefs(String storageType) {
+        HashMap<Integer, Integer> zoneRep111 = new HashMap<Integer, Integer>();
+        zoneRep111.put(1, 1);
+        zoneRep111.put(3, 1);
+        zoneRep111.put(5, 1);
+        return getStoreDefsWithNonContiguousZones(storageType, "Z1Z3Z5111", 
+                                                  zoneRep111, 1, 1, 0, 0);
+    }
+    
+    public static List<StoreDefinition> getZ1Z3Z5211StoreDefs(String storageType) {
+        HashMap<Integer, Integer> zoneRep211 = new HashMap<Integer, Integer>();
+        zoneRep211.put(1, 2);
+        zoneRep211.put(3, 2);
+        zoneRep211.put(5, 2);
+        return getStoreDefsWithNonContiguousZones(storageType, "Z1Z3Z5211", 
+                                                  zoneRep211, 1, 1, 0, 0);
+    }
+    
+    public static List<StoreDefinition> getZ1Z3Z5322StoreDefs(String storageType) {
+        HashMap<Integer, Integer> zoneRep322 = new HashMap<Integer, Integer>();
+        zoneRep322.put(1, 3);
+        zoneRep322.put(3, 3);
+        zoneRep322.put(5, 3);
+        return getStoreDefsWithNonContiguousZones(storageType, "Z1Z3Z5322", 
+                                                  zoneRep322, 2, 2, 0, 0);
+    }
+    
+    /**
+     * Store defs for zoned clusters with 3 zones. Covers the three store
+     * definitions of interest: 3/2/2, 2/1/1, and 1/1/1
+     */
+    public static List<StoreDefinition> getZ1Z3Z5StoreDefsBDB() {
+        List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
+        storeDefs.addAll(getZ1Z3Z5111StoreDefs(BdbStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(getZ1Z3Z5211StoreDefs(BdbStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(getZ1Z3Z5322StoreDefs(BdbStorageConfiguration.TYPE_NAME));
+        return storeDefs;
+    }
+    
     // NOTE: All clusters must have 18 partitions in them! This allows the
     // clusters to be used in rebalancing tests. Skewed distributions of
     // partitions is also intentional (i.e., some servers having more
@@ -302,7 +385,7 @@ public class ClusterTestUtils {
     // NOTE: We want nodes returned from various get??Cluster?? methods that
     // have the same ID to have the same ports. These static variables are used
     // for this purpose.
-    static final private int MAX_NODES_IN_TEST_CLUSTER = 12;
+    static final private int MAX_NODES_IN_TEST_CLUSTER = 25;
     static private int clusterPorts[] = null;
 
     /**
@@ -565,11 +648,61 @@ public class ClusterTestUtils {
      * Helper methods to generate non contiguous zone id and non contiguous
      * node ids cluster. Z1Z3 will generate zones with zone ids 1 and 3.
      */
-    public static Cluster getZ1Z3ClusterWithNonContiguousNodeIDs() {
+    public static Cluster getZ1Z3ClusterWithNonContiguousNodeIds() {
         int zoneIds[] = new int[] { 1, 3 };
         int nodesPerZone[][] = new int[][] { { 3, 4, 5 }, { 9, 10, 11 } };
         int partitionMap[][] = new int[][] { { 0, 9, 6, 17 }, { 1, 10, 15 }, { 2, 11, 7 },
                 { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14 } };
+        return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
+                                                                 nodesPerZone,
+                                                                 partitionMap,
+                                                                 getClusterPorts());
+    }
+    
+    public static Cluster getZ1Z3ClusterWithNonContiguousNodeIdsWithSwappedPartitions() {
+        int zoneIds[] = new int[] { 1, 3 };
+        int nodesPerZone[][] = new int[][] { { 3, 4, 5 }, { 9, 10, 11 } };
+        int partitionMap[][] = new int[][] { { 0, 17, 1 }, { 7, 15, 8, 13 }, { 2, 11, 14 },
+                { 3, 9 }, { 4, 10 }, { 5, 12, 6, 16 } };
+        return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
+                                                                 nodesPerZone,
+                                                                 partitionMap,
+                                                                 getClusterPorts());
+    }
+    
+    public static Cluster getZ1Z3ClusterWithNonContiguousNodeIdsWithPP() {
+        int zoneIds[] = new int[] { 1, 3 };
+        int nodesPerZone[][] = new int[][] { { 3, 4, 5, 12 }, { 9, 10, 11, 14} };
+        int partitionMap[][] = new int[][] { { 0, 6, 12, 16, 17 }, { 7, 13 }, { 8, 14 }, { 1, 2 },
+                { 9, 15 }, { 10 }, { 5, 11 }, { 3, 4 } };
+        return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
+                                                                 nodesPerZone,
+                                                                 partitionMap,
+                                                                 getClusterPorts());
+    }
+  
+    /**
+     * Construct 3 zones with zone IDs 1, 3, 5 respectively and with nodes that
+     * are not contiguously numbered.
+     */
+    public static Cluster getZ1Z3Z5ClusterWithNonContiguousNodeIds() {
+        int zoneIds[] = new int[] { 1, 3, 5 };
+        int nodesPerZone[][] = new int[][] { { 3, 4, 5 }, { 9, 10, 11 }, { 15, 16, 17 } };
+        int partitionMap[][] = new int[][] { { 0, 9, 6, 17 }, { 1, 10, 15 }, { 2, 11, 7 },
+                { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14 }, { 18, 20}, { 19, 21}, {22, 23, 24} };
+        return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
+                                                                 nodesPerZone,
+                                                                 partitionMap,
+                                                                 getClusterPorts());
+    }
+    
+    
+    public static Cluster getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithPPP() {
+        int zoneIds[] = new int[] { 1, 3, 5 };
+        int nodesPerZone[][] = new int[][] { { 3, 4, 5, 18 }, { 9, 10, 11, 19 }, { 15, 16, 17, 20 } };
+        int partitionMap[][] = new int[][] { { 0, 9 }, { 1, 15 }, { 2, 11, 7 },
+                { 12, 16 }, { 13, 8 }, { 5, 14 }, { 18, 20}, { 19, 21}, {22, 23, 24},
+                { 4 }, { 3, 6 }, { 17, 10 } };
         return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
                                                                  nodesPerZone,
                                                                  partitionMap,
@@ -581,17 +714,17 @@ public class ClusterTestUtils {
      * Construct 3 zones with zone IDs 1, 3, 5 respectively and with nodes that
      * are not contiguously numbered.
      */
-    public static Cluster getZ1Z3Z5ClusterWithNonContiguousNodeIDs() {
+    public static Cluster getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithSwappedPartitions() {
         int zoneIds[] = new int[] { 1, 3, 5 };
         int nodesPerZone[][] = new int[][] { { 3, 4, 5 }, { 9, 10, 11 }, { 15, 16, 17 } };
-        int partitionMap[][] = new int[][] { { 0, 9, 6, 17 }, { 1, 10, 15 }, { 2, 11, 7 },
-                { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14 }, { 18, 20}, { 19, 21}, {22, 23, 24} };
+        int partitionMap[][] = new int[][] { { 0, 9, 6 }, { 22, 10, 15 }, { 2, 11, 23 },
+                { 3, 4, 7 }, { 12, 13, 16 }, { 5, 14, 8 }, { 18, 20}, { 19, 21}, {1, 24, 17} };
         return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
                                                                  nodesPerZone,
                                                                  partitionMap,
                                                                  getClusterPorts());
     }
-
+  
     /**
      * Construct 2 zones with zone IDs 0 and 2 respectively. The node ids are
      * remapped to be contiguous though. 
