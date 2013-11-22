@@ -770,6 +770,22 @@ public class ClusterTestUtils {
                                                     partitionMap,
                                                     getClusterPorts());
     }
+    
+    /**
+     * Construct 3 zones with zone IDs 1, 3, 5, 10 respectively and with nodes that
+     * are not contiguously numbered.
+     */
+    public static Cluster getZ1Z3Z5Z10ClusterWithNonContiguousNodeIds() {
+        int zoneIds[] = new int[] { 1, 3, 5, 10 };
+        int nodesPerZone[][] = new int[][] { { 3, 4, 5, 6 }, { 9, 10, 11, 12 }, { 15, 16, 17 }, { 19, 20 } };
+        int partitionMap[][] = new int[][] { { 0, 9, 6, 17 }, { 1, 10, 15 }, { 2, 11, 7 },
+                { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14 }, { 18, 20}, { 19, 21}, {22, 23, 24}, 
+                { 25, 26 }, { 27, 28 }, { 29, 30 }, { 31 } };
+        return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
+                                                                 nodesPerZone,
+                                                                 partitionMap,
+                                                                 getClusterPorts());
+    }
   
   
     /**
