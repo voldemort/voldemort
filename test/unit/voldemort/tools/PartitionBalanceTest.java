@@ -43,7 +43,7 @@ import voldemort.VoldemortException;
  * 
  */
 public class PartitionBalanceTest {
-
+    
     @Test
     public void testBasicThingsThatShouldWork() {
         PartitionBalance pb = new PartitionBalance(ClusterTestUtils.getZZCluster(),
@@ -110,6 +110,65 @@ public class PartitionBalanceTest {
             veCaught = true;
         }
         assertTrue(veCaught);
+    }
+    
+    @Test
+    public void testBasicThingsThatShouldWorkWithNonContiguousZones() {
+        PartitionBalance pb = new PartitionBalance(ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(),
+                                                   ClusterTestUtils.getZ1Z3StoreDefsInMemory());
+        // Print out results so there is a test case that demonstrates toString
+        // method output for 2 non contiguous zones
+        System.out.println(pb);
+
+        pb = new PartitionBalance(ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds(),
+                                  ClusterTestUtils.getZ1Z3Z5StoreDefsInMemory());
+        // Print out results so there is a test case that demonstrates toString
+        // method output for 3 contiguous zones
+        System.out.println(pb);
+    }
+    
+
+
+    @Test
+    public void testClusterStoreZoneCountMismatchWithNonContiguousZone() {
+        boolean veCaught;
+
+        veCaught = false;
+        try {
+            new PartitionBalance(ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(),
+                                 ClusterTestUtils.getZ1Z3Z5StoreDefsInMemory());
+        } catch(VoldemortException ve) {
+            veCaught = true;
+        }
+        assertTrue(veCaught);
+        veCaught = false;
+        try {
+            new PartitionBalance(ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds(),
+                                 ClusterTestUtils.getZ1Z3StoreDefsInMemory());
+        } catch(VoldemortException ve) {
+            veCaught = true;
+        }
+        assertTrue(veCaught);
+    }
+
+    @Test
+    public void testClusterWithZoneThatCannotFullyReplicateWithNonContiguousZone() {
+        boolean veCaught = false;
+        try {
+            new PartitionBalance(ClusterTestUtils.getZ1Z3Z5ClusterWithOnlyOneNodeInNewZone(),
+                                 ClusterTestUtils.getZ1Z3Z5StoreDefsInMemory());
+        } catch(VoldemortException ve) {
+            veCaught = true;
+        }
+        assertTrue(veCaught);
+    }
+    
+
+    @Test
+    public void testNewNodeThingsThatShouldWorkWithNonContiguousZone() {
+        new PartitionBalance(ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIdsWithNN(),
+                             ClusterTestUtils.getZ1Z3StoreDefsInMemory());
+      
     }
 
     /**

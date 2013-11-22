@@ -366,6 +366,18 @@ public class ClusterTestUtils {
     }
     
     /**
+     * Store defs for zoned clusters with 2 zones. Covers the three store
+     * definitions of interest: 3/2/2, 2/1/1, and 1/1/1
+     */
+    public static List<StoreDefinition> getZ1Z3Z5StoreDefsInMemory() {
+        List<StoreDefinition> storeDefs = new LinkedList<StoreDefinition>();
+        storeDefs.addAll(getZ1Z3Z5111StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(getZ1Z3Z5211StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
+        storeDefs.addAll(getZ1Z3Z5322StoreDefs(InMemoryStorageConfiguration.TYPE_NAME));
+        return storeDefs;
+    }
+    
+    /**
      * Store defs for zoned clusters with 3 zones. Covers the three store
      * definitions of interest: 3/2/2, 2/1/1, and 1/1/1
      */
@@ -745,6 +757,18 @@ public class ClusterTestUtils {
                                                                  nodesPerZone,
                                                                  partitionMap,
                                                                  getClusterPorts());
+    }
+    
+
+    public static Cluster getZ1Z3Z5ClusterWithOnlyOneNodeInNewZone() {
+        int zoneIds[] = new int[] { 1, 3, 5 };
+        int nodesPerZone[][] = new int[][] { { 0, 1, 2 }, { 6 }, { 3, 4, 5 } };
+        int partitionMap[][] = new int[][] { { 0, 9, 6, 17 }, { 1, 10, 15 }, { 2, 11, 7 }, { 14 },
+                { 3, 12, 16 }, { 4, 13, 8 }, { 5 } };
+        return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
+                                                    nodesPerZone,
+                                                    partitionMap,
+                                                    getClusterPorts());
     }
   
   
