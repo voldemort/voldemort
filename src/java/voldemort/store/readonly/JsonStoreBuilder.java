@@ -259,10 +259,10 @@ public class JsonStoreBuilder {
                     + " chunks per node and type " + ReadOnlyStorageFormat.READONLY_V0);
 
         // initialize nodes
-        int numNodes = cluster.getNumberOfNodes();
-        DataOutputStream[][] indexes = new DataOutputStream[numNodes][numChunks];
-        DataOutputStream[][] datas = new DataOutputStream[numNodes][numChunks];
-        int[][] positions = new int[numNodes][numChunks];
+        Map<Integer, DataOutputStream[]> indexes = new HashMap<Integer, DataOutputStream[]>();
+        Map<Integer, DataOutputStream[]> datas = new HashMap<Integer, DataOutputStream[]>();
+        Map<Integer, Integer[]> positions = new HashMap<Integer, Integer[]>();
+
         for(Node node: cluster.getNodes()) {
             int nodeId = node.getId();
             File nodeDir = new File(outputDir, "node-" + Integer.toString(nodeId));
@@ -276,14 +276,27 @@ public class JsonStoreBuilder {
             writer.write(metadata.toJsonString());
             writer.close();
 
+            indexes.put(nodeId, new DataOutputStream[numChunks]);
+            datas.put(nodeId, new DataOutputStream[numChunks]);
+            positions.put(nodeId, new Integer[numChunks]);
+
             for(int chunk = 0; chunk < numChunks; chunk++) {
                 File indexFile = new File(nodeDir, chunk + ".index");
                 File dataFile = new File(nodeDir, chunk + ".data");
-                positions[nodeId][chunk] = 0;
-                indexes[nodeId][chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
-                                                                                       ioBufferSize));
-                datas[nodeId][chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
-                                                                                     ioBufferSize));
+
+                // Update positions
+                Integer[] positionsArray = positions.get(nodeId);
+                positionsArray[chunk] = 0;
+
+                // Update Indexes
+                DataOutputStream[] indexesOutputStreamArray = indexes.get(nodeId);
+                indexesOutputStreamArray[chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
+                                                                                                ioBufferSize));
+
+                // Update datas
+                DataOutputStream[] datasOutputStreamArray = datas.get(nodeId);
+                datasOutputStreamArray[chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
+                                                                                              ioBufferSize));
             }
         }
 
@@ -304,12 +317,19 @@ public class JsonStoreBuilder {
                 int nodeId = nodes.get(i).getId();
                 int chunk = ReadOnlyUtils.chunk(keyMd5, numChunks);
                 int numBytes = pair.getValue().length;
-                datas[nodeId][chunk].writeInt(numBytes);
-                datas[nodeId][chunk].write(pair.getValue());
-                indexes[nodeId][chunk].write(keyMd5);
-                indexes[nodeId][chunk].writeInt(positions[nodeId][chunk]);
-                positions[nodeId][chunk] += numBytes + 4;
-                checkOverFlow(chunk, positions[nodeId][chunk]);
+
+                DataOutputStream[] datasOutputStreamArray = datas.get(nodeId);
+                datasOutputStreamArray[chunk].writeInt(numBytes);
+                datasOutputStreamArray[chunk].write(pair.getValue());
+
+                DataOutputStream[] indexesOutputStreamArray = indexes.get(nodeId);
+                Integer[] positionsArray = positions.get(nodeId);
+
+                indexesOutputStreamArray[chunk].write(keyMd5);
+                indexesOutputStreamArray[chunk].writeInt(positionsArray[chunk]);
+
+                positionsArray[chunk] += numBytes + 4;
+                checkOverFlow(chunk, positionsArray[chunk]);
             }
             count++;
         }
@@ -318,10 +338,14 @@ public class JsonStoreBuilder {
 
         // sort and write out
         logger.info("Closing all store files.");
-        for(int node = 0; node < numNodes; node++) {
+        for(int node: indexes.keySet()) {
             for(int chunk = 0; chunk < numChunks; chunk++) {
-                indexes[node][chunk].close();
-                datas[node][chunk].close();
+
+                DataOutputStream[] indexesOutputStreamArray = indexes.get(node);
+                indexesOutputStreamArray[chunk].close();
+
+                DataOutputStream[] datasOutputStreamArray = datas.get(node);
+                datasOutputStreamArray[chunk].close();
             }
         }
     }
@@ -332,19 +356,21 @@ public class JsonStoreBuilder {
                     + " chunks per partitions and type " + ReadOnlyStorageFormat.READONLY_V1);
 
         // initialize nodes
-        int numNodes = cluster.getNumberOfNodes();
-        DataOutputStream[][] indexes = new DataOutputStream[numNodes][];
-        DataOutputStream[][] datas = new DataOutputStream[numNodes][];
-        int[][] positions = new int[numNodes][];
+        Map<Integer, DataOutputStream[]> indexes = new HashMap<Integer, DataOutputStream[]>();
+        Map<Integer, DataOutputStream[]> datas = new HashMap<Integer, DataOutputStream[]>();
+        Map<Integer, Integer[]> positions = new HashMap<Integer, Integer[]>();
 
         int[] partitionIdToChunkOffset = new int[cluster.getNumberOfPartitions()];
         int[] partitionIdToNodeId = new int[cluster.getNumberOfPartitions()];
 
         for(Node node: cluster.getNodes()) {
             int nodeId = node.getId();
-            indexes[nodeId] = new DataOutputStream[node.getNumberOfPartitions() * numChunks];
-            datas[nodeId] = new DataOutputStream[node.getNumberOfPartitions() * numChunks];
-            positions[nodeId] = new int[node.getNumberOfPartitions() * numChunks];
+
+            indexes.put(nodeId, new DataOutputStream[node.getNumberOfPartitions() * numChunks]);
+
+            datas.put(nodeId, new DataOutputStream[node.getNumberOfPartitions() * numChunks]);
+
+            positions.put(nodeId, new Integer[node.getNumberOfPartitions() * numChunks]);
 
             File nodeDir = new File(outputDir, "node-" + Integer.toString(nodeId));
             nodeDir.mkdirs();
@@ -366,11 +392,16 @@ public class JsonStoreBuilder {
                                                        + Integer.toString(chunk) + ".index");
                     File dataFile = new File(nodeDir, Integer.toString(partition) + "_"
                                                       + Integer.toString(chunk) + ".data");
-                    positions[nodeId][globalChunk] = 0;
-                    indexes[nodeId][globalChunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
-                                                                                                 ioBufferSize));
-                    datas[nodeId][globalChunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
-                                                                                               ioBufferSize));
+
+                    DataOutputStream[] datasOutputStreamArray = datas.get(nodeId);
+                    DataOutputStream[] indexesOutputStreamArray = indexes.get(nodeId);
+                    Integer[] positionsArray = positions.get(nodeId);
+
+                    positionsArray[globalChunk] = 0;
+                    indexesOutputStreamArray[globalChunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
+                                                                                                          ioBufferSize));
+                    datasOutputStreamArray[globalChunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
+                                                                                                        ioBufferSize));
                     globalChunk++;
                 }
 
@@ -394,12 +425,19 @@ public class JsonStoreBuilder {
                 int localChunkId = ReadOnlyUtils.chunk(keyMd5, numChunks);
                 int chunk = localChunkId + partitionIdToChunkOffset[partitionId];
                 int nodeId = partitionIdToNodeId[partitionId];
-                datas[nodeId][chunk].writeInt(pair.getValue().length);
-                datas[nodeId][chunk].write(pair.getValue());
-                indexes[nodeId][chunk].write(keyMd5);
-                indexes[nodeId][chunk].writeInt(positions[nodeId][chunk]);
-                positions[nodeId][chunk] += pair.getValue().length + 4;
-                checkOverFlow(chunk, positions[nodeId][chunk]);
+
+                DataOutputStream[] datasOutputStreamArray = datas.get(nodeId);
+                DataOutputStream[] indexesOutputStreamArray = indexes.get(nodeId);
+                Integer[] positionsArray = positions.get(nodeId);
+
+                datasOutputStreamArray[chunk].writeInt(pair.getValue().length);
+                datasOutputStreamArray[chunk].write(pair.getValue());
+
+                indexesOutputStreamArray[chunk].write(keyMd5);
+                indexesOutputStreamArray[chunk].writeInt(positionsArray[chunk]);
+
+                positionsArray[chunk] += pair.getValue().length + 4;
+                checkOverFlow(chunk, positionsArray[chunk]);
             }
             count++;
         }
@@ -409,9 +447,12 @@ public class JsonStoreBuilder {
         // sort and write out
         logger.info("Closing all store files.");
         for(Node node: cluster.getNodes()) {
+            DataOutputStream[] datasOutputStreamArray = datas.get(node.getId());
+            DataOutputStream[] indexesOutputStreamArray = indexes.get(node.getId());
+
             for(int chunk = 0; chunk < numChunks * node.getNumberOfPartitions(); chunk++) {
-                indexes[node.getId()][chunk].close();
-                datas[node.getId()][chunk].close();
+                indexesOutputStreamArray[chunk].close();
+                datasOutputStreamArray[chunk].close();
             }
         }
     }
@@ -555,7 +596,7 @@ public class JsonStoreBuilder {
         }
 
         // Create node folders
-        File[] nodeDirs = new File[cluster.getNumberOfNodes()];
+        Map<Integer, File> nodeDirs = new HashMap<Integer, File>(cluster.getNumberOfNodes());
         for(Node node: cluster.getNodes()) {
             int nodeId = node.getId();
 
@@ -564,7 +605,7 @@ public class JsonStoreBuilder {
             nodeDir.mkdirs();
 
             // Add the data directory to the array
-            nodeDirs[node.getId()] = nodeDir;
+            nodeDirs.put(node.getId(), nodeDir);
 
             // Create metadata file
             BufferedWriter writer = new BufferedWriter(new FileWriter(new File(nodeDir, ".metadata")));
@@ -597,7 +638,8 @@ public class JsonStoreBuilder {
                 int replicaType = Integer.parseInt(props[1]);
                 int nodeId = replicaMapping.get(strategy.getReplicatingPartitionList(partitionId)
                                                         .get(replicaType));
-                Utils.move(file, new File(nodeDirs[nodeId], fileName));
+
+                Utils.move(file, new File(nodeDirs.get(nodeId), fileName));
             }
         }
 

@@ -17,6 +17,8 @@
 package voldemort.store.readonly.mr.azkaban;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -64,7 +66,7 @@ public abstract class AbstractVoldemortBatchCopyJob extends AbstractJob {
         ExecutorService executors = Executors.newFixedThreadPool(cluster.getNumberOfNodes());
         final Semaphore semaphore = new Semaphore(0, false);
         final AtomicInteger countSuccess = new AtomicInteger(0);
-        final boolean[] succeeded = new boolean[cluster.getNumberOfNodes()];
+        final Map<Integer, Boolean> succeeded = new HashMap<Integer, Boolean>();
         final String destinationDir = _props.get("dest.path");
         final String sourceHost = _props.getString("src.host", "localhost");
 
@@ -92,7 +94,7 @@ public abstract class AbstractVoldemortBatchCopyJob extends AbstractJob {
                         // VoldemortSwapperUtils.getDataDestinationFile(node.getId(),
                         // destinationDir));
 
-                        succeeded[node.getId()] = true;
+                        succeeded.put(node.getId(), true);
                         countSuccess.incrementAndGet();
                     } catch(Exception e) {
                         error("copy to Remote node failed for node:" + node.getId(), e);
@@ -113,7 +115,7 @@ public abstract class AbstractVoldemortBatchCopyJob extends AbstractJob {
                 // lets try to swap only the successful nodes
                 for(Node node: cluster.getNodes()) {
                     // data refresh succeeded
-                    if(succeeded[node.getId()]) {
+                    if(succeeded.get(node.getId())) {
                         VoldemortSwapperUtils.doSwap(storeName, node, destinationDir);
                         counter++;
                     }
