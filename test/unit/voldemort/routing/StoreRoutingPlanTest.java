@@ -25,6 +25,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.RoutingTier;
@@ -45,14 +46,19 @@ public class StoreRoutingPlanTest {
     // plan for 2 zones
     BaseStoreRoutingPlan zzBaseRoutingPlan;
     BaseStoreRoutingPlan nonZonedBaseRoutingPlan;
+    BaseStoreRoutingPlan z1z3BaseRoutingPlan;
     // plan for 3 zones
     BaseStoreRoutingPlan zzzBaseRoutingPlan;
+    BaseStoreRoutingPlan z1z3z5BaseRoutingPlan;
 
     // plan for 2 zones
     StoreRoutingPlan zzStoreRoutingPlan;
     StoreRoutingPlan nonZonedStoreRoutingPlan;
+    StoreRoutingPlan z1z3StoreRoutingPlan;
+    
     // plan for 3 zones
     StoreRoutingPlan zzzStoreRoutingPlan;
+    StoreRoutingPlan z1z3z5StoreRoutingPlan;
 
     public StoreRoutingPlanTest() {}
 
@@ -137,6 +143,61 @@ public class StoreRoutingPlanTest {
         zzzBaseRoutingPlan = new BaseStoreRoutingPlan(zzzCluster, zzz211StoreDef);
         zzzStoreRoutingPlan = new StoreRoutingPlan(zzzCluster, zzz211StoreDef);
     }
+    
+    @Before
+    public void setupNonContiguous() {
+        Cluster z1z3Current = ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds();
+        HashMap<Integer, Integer> zoneRep211 = new HashMap<Integer, Integer>();
+        zoneRep211.put(1, 2);
+        zoneRep211.put(3, 2);
+        StoreDefinition z1z3211StoreDef = new StoreDefinitionBuilder().setName("z1z3211")
+                                                                    .setType(BdbStorageConfiguration.TYPE_NAME)
+                                                                    .setKeySerializer(new SerializerDefinition("string"))
+                                                                    .setValueSerializer(new SerializerDefinition("string"))
+                                                                    .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                    .setRoutingStrategyType(RoutingStrategyType.ZONE_STRATEGY)
+                                                                    .setReplicationFactor(4)
+                                                                    .setPreferredReads(1)
+                                                                    .setRequiredReads(1)
+                                                                    .setPreferredWrites(1)
+                                                                    .setRequiredWrites(1)
+                                                                    .setZoneCountReads(0)
+                                                                    .setZoneCountWrites(0)
+                                                                    .setZoneReplicationFactor(zoneRep211)
+                                                                    .setHintedHandoffStrategy(HintedHandoffStrategyType.PROXIMITY_STRATEGY)
+                                                                    .build();
+        z1z3BaseRoutingPlan = new BaseStoreRoutingPlan(z1z3Current, z1z3211StoreDef);
+        z1z3StoreRoutingPlan = new StoreRoutingPlan(z1z3Current, z1z3211StoreDef);
+        
+       
+        // 3 zones
+        Cluster z1z3z5Current = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds();
+        HashMap<Integer, Integer> zoneRep3zones211 = new HashMap<Integer, Integer>();
+     
+        zoneRep3zones211.put(1, 2);
+        zoneRep3zones211.put(3, 2);
+        zoneRep3zones211.put(5, 2);
+
+        StoreDefinition z1z3z5211StoreDef = new StoreDefinitionBuilder().setName("z1z3z5211")
+                                                                     .setType(BdbStorageConfiguration.TYPE_NAME)
+                                                                     .setKeySerializer(new SerializerDefinition("string"))
+                                                                     .setValueSerializer(new SerializerDefinition("string"))
+                                                                     .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                     .setRoutingStrategyType(RoutingStrategyType.ZONE_STRATEGY)
+                                                                     .setReplicationFactor(6)
+                                                                     .setPreferredReads(1)
+                                                                     .setRequiredReads(1)
+                                                                     .setPreferredWrites(1)
+                                                                     .setRequiredWrites(1)
+                                                                     .setZoneCountReads(0)
+                                                                     .setZoneCountWrites(0)
+                                                                     .setZoneReplicationFactor(zoneRep3zones211)
+                                                                     .setHintedHandoffStrategy(HintedHandoffStrategyType.PROXIMITY_STRATEGY)
+                                                                     .build();
+
+        z1z3z5BaseRoutingPlan = new BaseStoreRoutingPlan(z1z3z5Current, z1z3z5211StoreDef);
+        z1z3z5StoreRoutingPlan = new StoreRoutingPlan(z1z3z5Current, z1z3z5211StoreDef);
+    }
 
     @Test
     public void testZZStoreRoutingPlan() {
@@ -188,6 +249,56 @@ public class StoreRoutingPlanTest {
                      true,
                      zzzStoreRoutingPlan.zoneNAryExists(1, 0, 1));
     }
+    
+    @Test
+    public void testZ1Z3StoreRoutingPlan() {
+        HashMap<Integer, List<byte[]>> samplePartitionKeysMap = TestUtils.createPartitionsKeys(z1z3StoreRoutingPlan,
+                                                                                               1);
+        assertEquals("Node 3 does not contain p6?",
+                     (Integer) 6,
+                     z1z3StoreRoutingPlan.getNodesPartitionIdForKey(3, samplePartitionKeysMap.get(6)
+                                                                                      .get(0)));
+        assertEquals("Node 4 does not contain p10?",
+                     (Integer) 10,
+                     z1z3StoreRoutingPlan.getNodesPartitionIdForKey(4, samplePartitionKeysMap.get(10)
+                                                                                      .get(0)));
+        assertEquals("Replication list does not match up",
+                     Lists.newArrayList(3, 4, 9, 10),
+                     z1z3StoreRoutingPlan.getReplicationNodeList(0));
+
+        assertEquals("Zone replica type should be 0",
+                      0,
+                     z1z3BaseRoutingPlan.getZoneNAry(1, 3, samplePartitionKeysMap.get(6).get(0)));
+        
+        assertEquals("Zone replica type should be 1",
+                     1,
+                     z1z3BaseRoutingPlan.getZoneNAry(1, 5, samplePartitionKeysMap.get(6).get(0)));
+        
+        assertEquals("Zone replica type should be 1",
+                     1,
+                     z1z3BaseRoutingPlan.getZoneNAry(1, 3, samplePartitionKeysMap.get(7).get(0)));
+        
+        assertEquals("Zone replica type should be 0",
+                     0,
+                     z1z3BaseRoutingPlan.getZoneNAry(1, 5, samplePartitionKeysMap.get(7).get(0)));
+
+        assertEquals("Replica owner should be 3",
+                     3,
+                     z1z3BaseRoutingPlan.getNodeIdForZoneNary(1, 1, samplePartitionKeysMap.get(2)
+                                                                                        .get(0)));
+        assertEquals("Replica owner should be 9",
+                     5,
+                     z1z3BaseRoutingPlan.getNodeIdForZoneNary(1, 1, samplePartitionKeysMap.get(3)
+                                                                                        .get(0)));
+        assertEquals("Replica owner should be 5",
+                     5,
+                     z1z3BaseRoutingPlan.getNodeIdForZoneNary(1, 1, samplePartitionKeysMap.get(1)
+                                                                                        .get(0)));
+        assertEquals("Replica owner should be 4",
+                     4,
+                     zzBaseRoutingPlan.getNodeIdForZoneNary(1, 0, samplePartitionKeysMap.get(2)
+                                                                                        .get(0)));
+    }
 
 
     @Test
@@ -235,6 +346,51 @@ public class StoreRoutingPlanTest {
                      zzzStoreRoutingPlan.zoneNAryExists(2, 1, 0));
 
     }
+    
+    @Test
+    public void testZ1Z3Z5StoreRoutingPlan() {
+        HashMap<Integer, List<byte[]>> samplePartitionKeysMap = TestUtils.createPartitionsKeys(z1z3z5StoreRoutingPlan,
+                                                                                               1);
+
+        assertEquals("Node 3 does not contain p8?",
+                     (Integer) 9,
+                     z1z3z5StoreRoutingPlan.getNodesPartitionIdForKey(3,
+                                                              samplePartitionKeysMap.get(8).get(0)));
+
+        assertEquals("Node 5 does not contain p1?",
+                     (Integer) 2,
+                     z1z3z5StoreRoutingPlan.getNodesPartitionIdForKey(5,
+                                                              samplePartitionKeysMap.get(1).get(0)));
+        assertEquals("Replication list does not match up",
+                     Lists.newArrayList(3, 4, 9, 10, 15, 16 ),
+                     z1z3z5StoreRoutingPlan.getReplicationNodeList(0));
+
+        assertEquals("Replication list does not match up",
+                     Lists.newArrayList(9, 10, 3, 5, 15, 16),
+                     z1z3z5StoreRoutingPlan.getReplicationNodeList(3));
+
+        assertEquals("Zone replica type should be 0",
+                     0,
+                     z1z3z5BaseRoutingPlan.getZoneNAry(1, 3, samplePartitionKeysMap.get(6).get(0)));
+
+        assertEquals("Zone replica type should be 1 in zone 1",
+                     1,
+                     z1z3z5BaseRoutingPlan.getZoneNAry(1, 5, samplePartitionKeysMap.get(6).get(0)));
+
+        assertEquals("Replica owner should be 4",
+                     4,
+                     z1z3z5BaseRoutingPlan.getNodeIdForZoneNary(1, 0, samplePartitionKeysMap.get(1)
+                                                                                         .get(0)));
+        assertEquals("Replica secondary should be 10",
+                     10,
+                     z1z3z5BaseRoutingPlan.getNodeIdForZoneNary(3, 1, samplePartitionKeysMap.get(0)
+                                                                                         .get(0)));
+
+        assertEquals("Does Zone 3 have a replica",
+                     true,
+                     z1z3z5StoreRoutingPlan.zoneNAryExists(3, 1, 0));
+
+    }
 
     @Test
     public void testNonZonedStoreRoutingPlan() {
@@ -271,7 +427,7 @@ public class StoreRoutingPlanTest {
                                                               0,
                                                               samplePartitionKeysMap.get(3).get(0)));
     }
-
+ 
     @After
     public void teardown() {
 
