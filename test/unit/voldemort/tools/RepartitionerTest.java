@@ -449,7 +449,7 @@ public class RepartitionerTest {
         verifyRandomSwapsImproveBalance(currentCluster, storeDefs);
         verifyGreedySwapsImproveBalance(currentCluster, storeDefs);
     }
-
+ 
     @Test
     public void testShuffleWithinZone() {
         // Two zone cluster
@@ -602,6 +602,80 @@ public class RepartitionerTest {
         currentCluster = ClusterTestUtils.getZZZCluster();
         storeDefs = ClusterTestUtils.getZZZStoreDefsInMemory();
         decontigRepartition(currentCluster, storeDefs);
+    }
+    
+    @Test
+    public void testShuffleWithNonContiguousZoneAndNodeIds() {
+        // Two zone cluster
+        Cluster currentCluster = ClusterTestUtils.getZ1Z3ImbalancedClusterWithNonContiguousNodeIds();
+        List<StoreDefinition> storeDefs = ClusterTestUtils.getZ1Z3StoreDefsInMemory();
+        verifyBalanceZoneAndNode(currentCluster, storeDefs, currentCluster, storeDefs);
+        verifyBalanceNodesNotZones(currentCluster, storeDefs, currentCluster, storeDefs);
+        verifyRepartitionNoop(currentCluster, storeDefs, currentCluster, storeDefs);
+        verifyRandomSwapsImproveBalance(currentCluster, storeDefs);
+        verifyGreedySwapsImproveBalance(currentCluster, storeDefs);
+
+        // Three zone cluster
+        currentCluster = ClusterTestUtils.getZ1Z3Z5ImbalancedClusterWithNonContiguousNodeIds();
+        storeDefs = ClusterTestUtils.getZ1Z3Z5StoreDefsInMemory();
+        verifyBalanceZoneAndNode(currentCluster, storeDefs, currentCluster, storeDefs);
+        verifyBalanceNodesNotZones(currentCluster, storeDefs, currentCluster, storeDefs);
+        verifyRepartitionNoop(currentCluster, storeDefs, currentCluster, storeDefs);
+        verifyRandomSwapsImproveBalance(currentCluster, storeDefs);
+        verifyGreedySwapsImproveBalance(currentCluster, storeDefs);
+    }
+    
+    @Test
+    public void testShuffleWithinZoneWithNonContiguousZoneAndNodeIds() {
+        // Two zone cluster
+        Cluster currentCluster = ClusterTestUtils.getZ1Z3ImbalancedClusterWithNonContiguousNodeIds();
+        List<StoreDefinition> storeDefs = ClusterTestUtils.getZ1Z3StoreDefsInMemory();
+        List<Integer> swapZoneIds = new ArrayList<Integer>();
+        // Only shuffle within zone 1
+        swapZoneIds.add(1);
+        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+                swapZoneIds);
+       
+        // Three zone cluster
+        currentCluster = ClusterTestUtils.getZ1Z3Z5ImbalancedClusterWithNonContiguousNodeIds();
+        storeDefs = ClusterTestUtils.getZ1Z3Z5StoreDefsInMemory();
+        // Shuffle only within zone 3
+        swapZoneIds.clear();
+        swapZoneIds.add(3);
+        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+                swapZoneIds);
+        // Shuffle only within zone 1, 3
+        swapZoneIds.clear();
+        swapZoneIds.add(1);
+        swapZoneIds.add(3);
+        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+                swapZoneIds);
+        // Shuffle only within zone 1, 3, 5 
+        swapZoneIds.clear();
+        swapZoneIds.add(1);
+        swapZoneIds.add(3);
+        swapZoneIds.add(5);
+        verifyRandomSwapsWithinZoneOnlyShufflesParitionsInThatZone(currentCluster, storeDefs,
+                swapZoneIds);
+    }
+    
+    @Test
+    public void testClusterExpansionWithNonContiguousZoneAndNodeIds() {
+        // Two zone cluster
+        Cluster currentCluster = ClusterTestUtils.getZ1Z3ImbalancedClusterWithNonContiguousNodeIds();
+        Cluster interimCluster = ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIdsWithNN();
+        List<StoreDefinition> storeDefs = ClusterTestUtils.getZ1Z3StoreDefsInMemory();
+        verifyBalanceZoneAndNode(currentCluster, storeDefs, interimCluster, storeDefs);
+        verifyBalanceNodesNotZones(currentCluster, storeDefs, interimCluster, storeDefs);
+        verifyRepartitionNoop(currentCluster, storeDefs, interimCluster, storeDefs);
+
+        // Three zone cluster
+        currentCluster = ClusterTestUtils.getZ1Z3Z5ImbalancedClusterWithNonContiguousNodeIds();
+        interimCluster = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithNNN();
+        storeDefs = ClusterTestUtils.getZ1Z3Z5StoreDefsInMemory();
+        verifyBalanceZoneAndNode(currentCluster, storeDefs, interimCluster, storeDefs);
+        verifyBalanceNodesNotZones(currentCluster, storeDefs, interimCluster, storeDefs);
+        verifyRepartitionNoop(currentCluster, storeDefs, interimCluster, storeDefs);
     }
 
 }

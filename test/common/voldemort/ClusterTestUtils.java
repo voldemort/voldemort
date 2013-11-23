@@ -671,6 +671,17 @@ public class ClusterTestUtils {
                                                                  getClusterPorts());
     }
     
+    public static Cluster getZ1Z3ImbalancedClusterWithNonContiguousNodeIds() {
+        int zoneIds[] = new int[] { 1, 3 };
+        int nodesPerZone[][] = new int[][] { { 3, 4, 5 }, { 9, 10, 11 } };
+        int partitionMap[][] = new int[][] { { 0, 9, 6, 17, 1, 10 }, { 15 }, { 2, 11, 7 },
+                { 3, 12, 16, 4, 13 }, { 8 }, { 5, 14 } };
+        return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
+                                                                 nodesPerZone,
+                                                                 partitionMap,
+                                                                 getClusterPorts());
+    }
+    
     public static Cluster getZ1Z3ClusterWithNonContiguousNodeIdsWithSwappedPartitions() {
         int zoneIds[] = new int[] { 1, 3 };
         int nodesPerZone[][] = new int[][] { { 3, 4, 5 }, { 9, 10, 11 } };
@@ -713,6 +724,17 @@ public class ClusterTestUtils {
         int nodesPerZone[][] = new int[][] { { 3, 4, 5 }, { 9, 10, 11 }, { 15, 16, 17 } };
         int partitionMap[][] = new int[][] { { 0, 9, 6, 17 }, { 1, 10, 15 }, { 2, 11, 7 },
                 { 3, 12, 16 }, { 4, 13, 8 }, { 5, 14 }, { 18, 20}, { 19, 21}, {22, 23, 24} };
+        return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
+                                                                 nodesPerZone,
+                                                                 partitionMap,
+                                                                 getClusterPorts());
+    }
+    
+    public static Cluster getZ1Z3Z5ImbalancedClusterWithNonContiguousNodeIds() {
+        int zoneIds[] = new int[] { 1, 3, 5 };
+        int nodesPerZone[][] = new int[][] { { 3, 4, 5 }, { 9, 10, 11 }, { 15, 16, 17 } };
+        int partitionMap[][] = new int[][] { { 0, 9, 6, 17, 1, 2 }, { 10, 15 }, { 11, 7 },
+                { 3, 12, 16, 4, 5 }, { 13, 8 }, { 14 }, { 18, 20, 19, 22}, {21}, {23, 24} };
         return ServerTestUtils.getLocalNonContiguousZonedCluster(zoneIds,
                                                                  nodesPerZone,
                                                                  partitionMap,
