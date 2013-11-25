@@ -250,7 +250,9 @@ public class ClusterTestUtils {
 
     
     /*
-     * Non contiguous storeDefs methods
+     * Non contiguous storeDefs methods. This is the inner method that all
+     * specific storeDef creation methods call.
+     * 
      */
     public static List<StoreDefinition> getStoreDefsWithNonContiguousZones(String storageType,
                                                                            String storeName,
@@ -693,6 +695,10 @@ public class ClusterTestUtils {
                                                                  getClusterPorts());
     }
     
+    
+    /**
+     * This method add new nodes with some partitions (PP suffix) to the zones. 
+     */
     public static Cluster getZ1Z3ClusterWithNonContiguousNodeIdsWithPP() {
         int zoneIds[] = new int[] { 1, 3 };
         int nodesPerZone[][] = new int[][] { { 3, 4, 5, 12 }, { 9, 10, 11, 13} };
@@ -704,6 +710,11 @@ public class ClusterTestUtils {
                                                                  getClusterPorts());
     }
     
+
+    /**
+     * This method just adds new nodes (NN suffix) to the zones. No partitions are
+     * assigned to these new nodes. 
+     */
     public static Cluster getZ1Z3ClusterWithNonContiguousNodeIdsWithNN() {
         int zoneIds[] = new int[] { 1, 3 };
         int nodesPerZone[][] = new int[][] { { 3, 4, 5, 12 }, { 9, 10, 11, 13 } };
@@ -716,8 +727,8 @@ public class ClusterTestUtils {
     }
   
     /**
-     * Construct 3 zones with zone IDs 1, 3, 5 respectively and with nodes that
-     * are not contiguously numbered.
+     * Helper methods for 3 zones. Constructs 3 zones with zone IDs 1, 3, 5 respectively and 
+     * with nodes that are not contiguously numbered.
      */
     public static Cluster getZ1Z3Z5ClusterWithNonContiguousNodeIds() {
         int zoneIds[] = new int[] { 1, 3, 5 };
@@ -740,7 +751,6 @@ public class ClusterTestUtils {
                                                                  partitionMap,
                                                                  getClusterPorts());
     }
-    
     
     public static Cluster getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithPPP() {
         int zoneIds[] = new int[] { 1, 3, 5 };
@@ -780,8 +790,7 @@ public class ClusterTestUtils {
                                                                  partitionMap,
                                                                  getClusterPorts());
     }
-    
-
+   
     public static Cluster getZ1Z3Z5ClusterWithOnlyOneNodeInNewZone() {
         int zoneIds[] = new int[] { 1, 3, 5 };
         int nodesPerZone[][] = new int[][] { { 0, 1, 2 }, { 6 }, { 3, 4, 5 } };
@@ -809,13 +818,11 @@ public class ClusterTestUtils {
                                                                  getClusterPorts());
     }
   
-  
     /**
      * Construct 2 zones with zone IDs 0 and 2 respectively. The node ids are
      * remapped to be contiguous though. 
      */
     public static Cluster getZ0Z2ClusterWithContiguousNodeIDs() {
-
         // Hand construct zones 0 and 2
         List<Zone> zones = Lists.newArrayList();
         LinkedList<Integer> proximityList0 = Lists.newLinkedList();

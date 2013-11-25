@@ -18,6 +18,7 @@ package voldemort.tools;
 
 import static org.junit.Assert.assertTrue;
 
+import org.apache.log4j.Logger;
 import org.junit.Test;
 
 import voldemort.ClusterTestUtils;
@@ -43,6 +44,8 @@ import voldemort.VoldemortException;
  * 
  */
 public class PartitionBalanceTest {
+    
+    private static final Logger logger = Logger.getLogger(PartitionBalanceTest.class.getName());
     
     @Test
     public void testBasicThingsThatShouldWork() {
@@ -113,27 +116,25 @@ public class PartitionBalanceTest {
     }
     
     @Test
-    public void testBasicThingsThatShouldWorkWithNonContiguousZones() {
+    public void testBasicThingsWithNonContiguousZones() {
         PartitionBalance pb = new PartitionBalance(ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(),
                                                    ClusterTestUtils.getZ1Z3StoreDefsInMemory());
         // Print out results so there is a test case that demonstrates toString
         // method output for 2 non contiguous zones
-        System.out.println(pb);
+        logger.info("Partiton balance for 2 zones" + pb);
 
         pb = new PartitionBalance(ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds(),
                                   ClusterTestUtils.getZ1Z3Z5StoreDefsInMemory());
         // Print out results so there is a test case that demonstrates toString
         // method output for 3 contiguous zones
-        System.out.println(pb);
+        logger.info("Partiton balance for 3 zones" + pb);
     }
     
 
 
     @Test
     public void testClusterStoreZoneCountMismatchWithNonContiguousZone() {
-        boolean veCaught;
-
-        veCaught = false;
+        boolean veCaught = false;
         try {
             new PartitionBalance(ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(),
                                  ClusterTestUtils.getZ1Z3Z5StoreDefsInMemory());
