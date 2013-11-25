@@ -8,6 +8,7 @@ Changes made since 1.5.9:
 * Fixes to remove dependency on non contiguous node ids
 * Stats for store client
 
+
 Release 1.5.9 on 11/05/2013
 
 * Bug fix in AsyncMetadataVersionManager (related to store version tracking)
