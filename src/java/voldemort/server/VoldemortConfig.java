@@ -448,7 +448,7 @@ public class VoldemortConfig implements Serializable {
         this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
         this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
-        this.enableServerRouting = props.getBoolean("enable.server.routing", true);
+        this.enableServerRouting = props.getBoolean("enable.server.routing", false);
         this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);

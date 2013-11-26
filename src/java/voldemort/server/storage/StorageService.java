@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2010 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -115,8 +115,8 @@ import voldemort.versioning.Versioned;
 
 /**
  * The service responsible for managing all storage types
- * 
- * 
+ *
+ *
  */
 @JmxManaged(description = "Start and stop all stores.")
 public class StorageService extends AbstractService {
@@ -175,7 +175,7 @@ public class StorageService extends AbstractService {
         this.storeStats = new StoreStats();
         this.routedStoreFactory = new RoutedStoreFactory();
         this.routedStoreFactory.setThreadPool(this.clientThreadPool);
-        this.routedStoreConfig = new RoutedStoreConfig(voldemortConfig);
+        this.routedStoreConfig = new RoutedStoreConfig(this.voldemortConfig, this.metadata.getCluster());
 
         /*
          * Initialize the dynamic throttle limit based on the per node limit

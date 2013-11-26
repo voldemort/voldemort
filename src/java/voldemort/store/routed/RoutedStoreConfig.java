@@ -18,6 +18,7 @@ package voldemort.store.routed;
 import voldemort.client.ClientConfig;
 import voldemort.client.TimeoutConfig;
 import voldemort.client.ZoneAffinity;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.server.VoldemortConfig;
 
@@ -39,9 +40,11 @@ public class RoutedStoreConfig {
         this.zoneAffinity = clientConfig.getZoneAffinity();
     }
 
-    public RoutedStoreConfig(VoldemortConfig voldemortConfig) {
+    public RoutedStoreConfig(VoldemortConfig voldemortConfig, Cluster cluster) {
         this.isJmxEnabled = voldemortConfig.isJmxEnabled();
         this.timeoutConfig = voldemortConfig.getTimeoutConfig();
+        // clientZoneId being server zone id for server side routing
+        this.clientZoneId = cluster.getNodeById(voldemortConfig.getNodeId()).getZoneId();
     }
 
     public boolean getRepairReads() {
