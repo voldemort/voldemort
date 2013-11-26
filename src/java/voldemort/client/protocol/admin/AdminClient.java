@@ -396,6 +396,29 @@ public class AdminClient {
             }
         }
 
+        // TODO move as many messages to use this helper.
+        private void sendAdminRequest(VAdminProto.VoldemortAdminRequest adminRequest,
+                                      int destinationNodeId) {
+            // TODO probably need a helper to do all this, at some point.. all
+            // of this file has repeated code
+            Node node = AdminClient.this.getAdminClientCluster().getNodeById(destinationNodeId);
+            SocketDestination destination = new SocketDestination(node.getHost(),
+                                                                  node.getAdminPort(),
+                                                                  RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+            SocketAndStreams sands = socketPool.checkout(destination);
+
+            try {
+                DataOutputStream outputStream = sands.getOutputStream();
+                ProtoUtils.writeMessage(outputStream, adminRequest);
+                outputStream.flush();
+            } catch(IOException e) {
+                helperOps.close(sands.getSocket());
+                throw new VoldemortException(e);
+            } finally {
+                socketPool.checkin(destination, sands);
+            }
+        }
+
         public void throwException(VProto.Error error) {
             throw AdminClient.this.errorMapper.getError((short) error.getErrorCode(),
                                                         error.getErrorMessage());
@@ -1416,6 +1439,25 @@ public class AdminClient {
         public void pruneJob(int nodeId, List<String> stores) {
             for(String store: stores) {
                 pruneJob(nodeId, store);
+            }
+        }
+
+        private void slopPurgeJob(int destinationNodeId, int nodeId, int zoneId) {
+            VAdminProto.SlopPurgeJobRequest.Builder jobRequest = VAdminProto.SlopPurgeJobRequest.newBuilder()
+                                                                                                .setNodeId(nodeId)
+                                                                                                .setZoneId(zoneId);
+
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                              .setSlopPurgeJob(jobRequest)
+                                                                                              .setType(VAdminProto.AdminRequestType.SLOP_PURGE_JOB)
+                                                                                              .build();
+            helperOps.sendAdminRequest(adminRequest, destinationNodeId);
+        }
+
+        public void slopPurgeJob(int nodeId, int zoneId) {
+            for(Node node: currentCluster.getNodes()) {
+                logger.info("Submitting SlopPurgeJob on node " + node.getId());
+                slopPurgeJob(node.getId(), nodeId, zoneId);
             }
         }
 

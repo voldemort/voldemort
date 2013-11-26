@@ -243,6 +243,15 @@ message PruneJobResponse {
   optional Error error = 1;
 }
 
+message SlopPurgeJobRequest {
+  optional int32 node_id = 1;
+  optional int32 zone_id = 2;
+}
+
+message SlopPurgeJobResponse {
+  optional Error error = 1;
+}
+
 
 message ROStoreVersionDirMap {
  required string store_name = 1;
@@ -354,6 +363,7 @@ enum AdminRequestType {
   NATIVE_BACKUP = 28;
   RESERVE_MEMORY = 29;
   PRUNE_JOB = 30;
+  SLOP_PURGE_JOB = 31;
 }
 
 message VoldemortAdminRequest {
@@ -387,4 +397,5 @@ message VoldemortAdminRequest {
   optional NativeBackupRequest native_backup = 30;
   optional ReserveMemoryRequest reserve_memory = 31;
   optional PruneJobRequest prune_job = 32;
+  optional SlopPurgeJobRequest slop_purge_job = 33;
 }

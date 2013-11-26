@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
+import voldemort.server.scheduler.slop.SlopPurgeJob;
 import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.server.storage.repairjob.RepairJob;
 import voldemort.store.StorageEngine;
@@ -97,6 +98,11 @@ public class StoreRepository {
      * Prune job object registered with StoreRepository
      */
     private VersionedPutPruneJob pruneJob;
+
+    /**
+     * SlopPurgeJob registered with the store repository
+     */
+    private SlopPurgeJob slopPurgeJob;
 
     /**
      * Constructor invoked by tests
@@ -299,6 +305,14 @@ public class StoreRepository {
 
     public VersionedPutPruneJob getPruneJob() {
         return pruneJob;
+    }
+
+    public void registerSlopPurgeJob(SlopPurgeJob job) {
+        slopPurgeJob = job;
+    }
+
+    public SlopPurgeJob getSlopPurgeJob() {
+        return slopPurgeJob;
     }
 
     public StreamingStats getStreamingStats(String store) {

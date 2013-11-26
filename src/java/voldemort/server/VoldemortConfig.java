@@ -39,6 +39,7 @@ import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
+import voldemort.server.scheduler.slop.SlopPurgeJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.server.storage.repairjob.RepairJob;
@@ -188,6 +189,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableSlopPusherJob;
     private boolean enableRepair;
     private boolean enablePruneJob;
+    private boolean enableSlopPurgeJob;
     private boolean enableHttpServer;
     private boolean enableSocketServer;
     private boolean enableAdminServer;
@@ -257,6 +259,7 @@ public class VoldemortConfig implements Serializable {
 
     private int repairJobMaxKeysScannedPerSec;
     private int pruneJobMaxKeysScannedPerSec;
+    private int slopPurgeJobMaxKeysScannedPerSec;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -455,6 +458,7 @@ public class VoldemortConfig implements Serializable {
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
         this.enableRepair = props.getBoolean("enable.repair", true);
         this.enablePruneJob = props.getBoolean("enable.prunejob", true);
+        this.enableSlopPurgeJob = props.getBoolean("enable.slop.purge.job", true);
         this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
 
         this.gossipIntervalMs = props.getInt("gossip.interval.ms", 30 * 1000);
@@ -561,6 +565,8 @@ public class VoldemortConfig implements Serializable {
                                                           Integer.MAX_VALUE);
         this.pruneJobMaxKeysScannedPerSec = props.getInt("prunejob.max.keys.scanned.per.sec",
                                                          Integer.MAX_VALUE);
+        this.slopPurgeJobMaxKeysScannedPerSec = props.getInt("slop.purgejob.max.keys.scanned.per.sec",
+                                                             10000);
 
         validateParams();
     }
@@ -2085,6 +2091,22 @@ public class VoldemortConfig implements Serializable {
         this.enablePruneJob = enablePruneJob;
     }
 
+    public boolean isSlopPurgeJobEnabled() {
+        return this.enableSlopPurgeJob;
+    }
+
+    /**
+     * Whether will {@link SlopPurgeJob} be enabled
+     * 
+     * <ul>
+     * <li>Property :"enable.slop.purge.job"</li>
+     * <li>Default :true</li>
+     * </ul>
+     */
+    public void setEnableSlopPurgeJob(boolean enableSlopPurgeJob) {
+        this.enableSlopPurgeJob = enableSlopPurgeJob;
+    }
+
     public boolean isVerboseLoggingEnabled() {
         return this.enableVerboseLogging;
     }
@@ -3110,6 +3132,22 @@ public class VoldemortConfig implements Serializable {
      */
     public void setPruneJobMaxKeysScannedPerSec(int maxKeysPerSecond) {
         this.pruneJobMaxKeysScannedPerSec = maxKeysPerSecond;
+    }
+
+    public int getSlopPurgeJobMaxKeysScannedPerSec() {
+        return slopPurgeJobMaxKeysScannedPerSec;
+    }
+
+    /**
+     * Global throttle limit for slop purge jobs
+     * 
+     * <ul>
+     * <li>Property :"slop.purgejob.max.keys.scanned.per.sec"</li>
+     * <li>Default : 10k</li>
+     * </ul>
+     */
+    public void setSlopPurgeJobMaxKeysScannedPerSec(int maxKeysPerSecond) {
+        this.slopPurgeJobMaxKeysScannedPerSec = maxKeysPerSecond;
     }
 
     /**

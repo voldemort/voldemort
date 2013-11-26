@@ -211,6 +211,8 @@ public class VoldemortAdminTool {
               .ofType(Integer.class);
         parser.accepts("repair-job", "Clean after rebalancing is done");
         parser.accepts("prune-job", "Prune versioned put data, after rebalancing");
+        parser.accepts("purge-slops",
+                       "Purge the slop stores selectively, based on nodeId or zoneId");
         parser.accepts("native-backup", "Perform a native backup")
               .withRequiredArg()
               .describedAs("store-name")
@@ -386,6 +388,9 @@ public class VoldemortAdminTool {
         if(options.has("fetch-entries")) {
             ops += "v";
         }
+        if(options.has("purge-slops")) {
+            ops += "w";
+        }
 
         if(options.has("synchronize-metadata-version")) {
             ops += "z";
@@ -394,7 +399,7 @@ public class VoldemortAdminTool {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
                         + "set-metadata, check-metadata, clear-rebalancing-metadata, async, "
-                        + "repair-job, native-backup, rollback, reserve-memory, mirror-url, verify-metadata-version, prune-job) must be specified");
+                        + "repair-job, native-backup, rollback, reserve-memory, mirror-url, verify-metadata-version, prune-job, purge-slops) must be specified");
         }
 
         List<String> storeNames = null;
@@ -588,6 +593,13 @@ public class VoldemortAdminTool {
                 executePruneJob(nodeId, adminClient, storeNames);
             }
 
+            if(ops.contains("w")) {
+                if(nodeId == -1 && zoneId == -1) {
+                    Utils.croak("Must specify either --node or zone-id with --purge-slops");
+                }
+                executePurgeSlops(adminClient, nodeId, zoneId);
+            }
+
             if(ops.contains("n")) {
                 String backupDir = (String) options.valueOf("backup-dir");
                 String storeName = (String) options.valueOf("native-backup");
@@ -757,6 +769,10 @@ public class VoldemortAdminTool {
         } else {
             adminClient.storeMntOps.pruneJob(nodeId, stores);
         }
+    }
+
+    private static void executePurgeSlops(AdminClient adminClient, Integer nodeId, Integer zoneId) {
+        adminClient.storeMntOps.slopPurgeJob(nodeId, zoneId);
     }
 
     public static void printHelp(PrintStream stream, OptionParser parser) throws IOException {

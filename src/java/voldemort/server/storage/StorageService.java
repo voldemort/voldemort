@@ -63,6 +63,7 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
+import voldemort.server.scheduler.slop.SlopPurgeJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.server.storage.repairjob.RepairJob;
@@ -344,27 +345,38 @@ public class StorageService extends AbstractService {
                                    voldemortConfig.getSlopFrequencyMs());
             }
 
-            // Create a repair job object and register it with Store repository
-            if(voldemortConfig.isRepairEnabled()) {
-                logger.info("Initializing repair job.");
-                RepairJob job = new RepairJob(storeRepository,
-                                              metadata,
-                                              scanPermitWrapper,
-                                              voldemortConfig.getRepairJobMaxKeysScannedPerSec());
+            // Create a SlopPurgeJob object and register it
+            if(voldemortConfig.isSlopPurgeJobEnabled()) {
+                logger.info("Initializing Slop Purge job");
+                SlopPurgeJob job = new SlopPurgeJob(storeRepository,
+                                                    metadata,
+                                                    scanPermitWrapper,
+                                                    voldemortConfig.getSlopPurgeJobMaxKeysScannedPerSec());
                 JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
-                storeRepository.registerRepairJob(job);
+                storeRepository.registerSlopPurgeJob(job);
             }
+        }
 
-            // Create a prune job object and register it
-            if(voldemortConfig.isPruneJobEnabled()) {
-                logger.info("Intializing prune job");
-                VersionedPutPruneJob job = new VersionedPutPruneJob(storeRepository,
-                                                                    metadata,
-                                                                    scanPermitWrapper,
-                                                                    voldemortConfig.getPruneJobMaxKeysScannedPerSec());
-                JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
-                storeRepository.registerPruneJob(job);
-            }
+        // Create a repair job object and register it with Store repository
+        if(voldemortConfig.isRepairEnabled()) {
+            logger.info("Initializing repair job.");
+            RepairJob job = new RepairJob(storeRepository,
+                                          metadata,
+                                          scanPermitWrapper,
+                                          voldemortConfig.getRepairJobMaxKeysScannedPerSec());
+            JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
+            storeRepository.registerRepairJob(job);
+        }
+
+        // Create a prune job object and register it
+        if(voldemortConfig.isPruneJobEnabled()) {
+            logger.info("Intializing prune job");
+            VersionedPutPruneJob job = new VersionedPutPruneJob(storeRepository,
+                                                                metadata,
+                                                                scanPermitWrapper,
+                                                                voldemortConfig.getPruneJobMaxKeysScannedPerSec());
+            JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
+            storeRepository.registerPruneJob(job);
         }
 
         List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
