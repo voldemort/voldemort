@@ -62,6 +62,7 @@ public class ClientConfig {
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableLazy = true;
     private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
+    private volatile boolean cacheStoreClients = true;
 
     /*
      * Following properties are required for the Fat client wrapper to be
@@ -148,6 +149,7 @@ public class ClientConfig {
     public static final String ENABLE_HINTED_HANDOFF_PROPERTY = "enable_hinted_handoff";
     public static final String ENABLE_LAZY_PROPERTY = "enable-lazy";
     public static final String CLIENT_ZONE_ID = "client_zone_id";
+    public static final String CACHE_STORE_CLIENTS = "cache_store_clients";
     public static final String FAILUREDETECTOR_IMPLEMENTATION_PROPERTY = "failuredetector_implementation";
     public static final String FAILUREDETECTOR_BANNAGE_PERIOD_PROPERTY = "failuredetector_bannage_period";
     public static final String FAILUREDETECTOR_THRESHOLD_PROPERTY = "failuredetector_threshold";
@@ -295,6 +297,10 @@ public class ClientConfig {
 
         if(props.containsKey(CLIENT_ZONE_ID))
             this.setClientZoneId(props.getInt(CLIENT_ZONE_ID));
+
+        if(props.containsKey(CACHE_STORE_CLIENTS)) {
+            this.setCacheStoreClients(props.getBoolean(CACHE_STORE_CLIENTS));
+        }
 
         if(props.containsKey(USE_DEFAULT_CLIENT))
             this.enableDefaultClient(props.getBoolean(USE_DEFAULT_CLIENT));
@@ -859,6 +865,24 @@ public class ClientConfig {
 
     public int getClientZoneId() {
         return this.clientZoneId;
+    }
+
+    /**
+     * if true, any subclass of {@link AbstractStoreClientFactory} will
+     * internally reuse StoreClient instances for each store. In other words,
+     * the behavior will be similar to {@link CachingStoreClientFactory}
+     * 
+     * Default : true
+     * 
+     * @param cacheStoreClients
+     */
+    public ClientConfig setCacheStoreClients(boolean cacheStoreClients) {
+        this.cacheStoreClients = cacheStoreClients;
+        return this;
+    }
+
+    public boolean getCacheStoreClients() {
+        return cacheStoreClients;
     }
 
     /**

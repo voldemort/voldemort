@@ -44,8 +44,8 @@ public class SystemStoreRepository {
     public void createSystemStores(ClientConfig config, String clusterXml, FailureDetector fd) {
         for(SystemStoreConstants.SystemStoreName storeName: SystemStoreConstants.SystemStoreName.values()) {
             SystemStoreClient sysStore = this.systemStoreFactory.createSystemStore(storeName.name(),
-                                                                             clusterXml,
-                                                                             fd);
+                                                                                   clusterXml,
+                                                                                   fd);
             this.sysStoreMap.put(storeName.name(), sysStore);
         }
     }
@@ -60,5 +60,9 @@ public class SystemStoreRepository {
         String name = SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name();
         SystemStoreClient<String, String> sysVersionStore = sysStoreMap.get(name);
         return sysVersionStore;
+    }
+
+    public void close() {
+        this.systemStoreFactory.close();
     }
 }

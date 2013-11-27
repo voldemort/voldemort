@@ -66,4 +66,10 @@ public class SystemStoreClientFactory<K, V> {
         return new SystemStoreClient<K, V>(storeName, sysStore);
     }
 
+    public void close() {
+        if(socketStoreFactory != null) {
+            socketStoreFactory.close();
+        }
+    }
+
 }

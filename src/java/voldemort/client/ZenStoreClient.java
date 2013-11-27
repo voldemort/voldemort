@@ -35,6 +35,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ManifestFileReader;
+import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Version;
@@ -69,7 +70,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                           InconsistencyResolver<Versioned<V>> resolver,
                           AbstractStoreClientFactory storeFactory,
                           int maxMetadataRefreshAttempts) {
-        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0, null, null);
+        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0, null);
     }
 
     public ZenStoreClient(String storeName,
@@ -78,8 +79,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                           int maxMetadataRefreshAttempts,
                           String clientContext,
                           int clientSequence,
-                          ClientConfig config,
-                          SchedulerService scheduler) {
+                          ClientConfig config) {
 
         super();
         this.storeName = Utils.notNull(storeName);
@@ -96,19 +96,24 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
         this.clientId = generateClientId(clientInfo);
         this.config = config;
         this.sysRepository = new SystemStoreRepository(config);
-        this.scheduler = scheduler;
+        // Start up the scheduler
+        this.scheduler = new SchedulerService(config.getAsyncJobThreadPoolSize(),
+                                              SystemTime.INSTANCE,
+                                              true);
 
         // Registering self to be able to bootstrap client dynamically via JMX
-        JmxUtils.registerMbean(this,
-                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                         JmxUtils.getClassName(this.getClass())
-                                                                 + "." + storeName));
+        if(config.isJmxEnabled()) {
+            JmxUtils.registerMbean(this,
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                             JmxUtils.getClassName(this.getClass())
+                                                                     + "." + storeName));
+        }
 
         // Bootstrap this client
         bootStrap();
 
         // Initialize the background thread for checking metadata version
-        if(config != null) {
+        if(this.config != null) {
             asyncMetadataManager = scheduleAsyncMetadataVersionManager(clientId.toString(),
                                                                        config.getAsyncMetadataRefreshInMs());
             clientRegistryRefresher = registerClient(clientId,
@@ -116,6 +121,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
         }
 
         logger.info("Voldemort client created: " + clientId + "\n" + clientInfo);
+
     }
 
     private ClientRegistryRefresher registerClient(String jobId, int intervalInSecs) {
@@ -251,7 +257,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
      * Generate a unique client ID based on: 0. clientContext, if specified; 1.
      * storeName; 2. deployment path; 3. client sequence
      * 
-     * @param clientInfo 
+     * @param clientInfo
      * @return unique client ID
      */
     public String generateClientId(ClientInfo clientInfo) {
@@ -270,5 +276,27 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
         }
 
         return context.toString();
+    }
+
+    /**
+     * Do all the cleanup here upon garbage collection, since there is no
+     * close() for store clients.
+     */
+    @Override
+    public void finalize() {
+
+        // shut down the scheduler
+        try {
+            this.scheduler.stop();
+        } catch(Exception e) {
+            logger.error("Error stopping scheduler service", e);
+        }
+
+        // Also free up resources consumed by the system repository
+        try {
+            this.sysRepository.close();
+        } catch(Exception e) {
+            logger.error("Error shutting down system store factory", e);
+        }
     }
 }

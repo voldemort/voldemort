@@ -19,11 +19,11 @@ package voldemort.client;
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,7 +34,6 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.common.service.SchedulerService;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.SerializationException;
@@ -63,7 +62,7 @@ import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
-import voldemort.utils.SystemTime;
+import voldemort.utils.Pair;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.TimeBasedInconsistencyResolver;
@@ -107,9 +106,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final RoutedStoreFactory routedStoreFactory;
     private final String clientContextName;
     private final AtomicInteger clientSequencer;
-    private final HashSet<SchedulerService> clientAsyncServiceRepo;
     private final RoutedStoreConfig routedStoreConfig;
     private final Callable<Object> storeRebootstrapCallback;
+
+    private final ConcurrentMap<Pair<String, Object>, DefaultStoreClient<?, ?>> storeClientCache;
 
     private Cluster cluster;
     private List<StoreDefinition> storeDefs;
@@ -135,14 +135,16 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.routedStoreFactory.setThreadPool(this.threadPool);
 
         this.clientSequencer = new AtomicInteger(0);
-        this.clientAsyncServiceRepo = new HashSet<SchedulerService>();
-        this.storeRebootstrapCallback = new Callable<Object>(){
+
+        this.storeRebootstrapCallback = new Callable<Object>() {
+
             @Override
             public Object call() throws Exception {
                 storeClientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
                 return null;
             }
         };
+        this.storeClientCache = new ConcurrentHashMap<Pair<String, Object>, DefaultStoreClient<?, ?>>();
 
         if(this.isJmxEnabled) {
             JmxUtils.registerMbean(threadPool,
@@ -179,26 +181,42 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                    InconsistencyResolver<Versioned<V>> resolver) {
 
         DefaultStoreClient<K, V> client = null;
+
+        // If configured to cache store clients, check if we have a StoreClient
+        // created already
+        Pair<String, Object> cacheKey = Pair.create(storeName, (Object) resolver);
+        if(this.config.getCacheStoreClients() && storeClientCache.containsKey(cacheKey)) {
+            return (StoreClient<K, V>) storeClientCache.get(cacheKey);
+        }
+
+        // Else, we move on and create a store client object accordingly
         if(this.config.isDefaultClientEnabled()) {
             client = new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
         } else if(this.bootstrapUrls.length > 0
                   && this.bootstrapUrls[0].getScheme().equals(HttpStoreClientFactory.URL_SCHEME)) {
             client = new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
         } else {
-
-            SchedulerService service = new SchedulerService(config.getAsyncJobThreadPoolSize(),
-                                                            SystemTime.INSTANCE,
-                                                            true);
-            clientAsyncServiceRepo.add(service);
-
             client = new ZenStoreClient<K, V>(storeName,
                                               resolver,
                                               this,
                                               3,
                                               clientContextName,
                                               clientSequencer.getAndIncrement(),
-                                              config,
-                                              service);
+                                              config);
+        }
+
+        // if configured to cache store clients, populate the cache
+        if(config.getCacheStoreClients()) {
+            // Note: We could potentially create the store client more than once
+            // from multiple threads. But, they will all eventually pick up the
+            // first created store client and let go off the instances they
+            // created
+            StoreClient<K, V> oldValue = (StoreClient<K, V>) storeClientCache.putIfAbsent(cacheKey,
+                                                                                          client);
+            if(oldValue != null) {
+                // Losing thread(s) also pick up the winning value
+                client = (DefaultStoreClient<K, V>) storeClientCache.get(cacheKey);
+            }
         }
         client.setBeforeRebootstrapCallback(this.storeRebootstrapCallback);
 
@@ -555,15 +573,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                            + JmxUtils.getJmxId(jmxId)));
             }
         }
-        stopClientAsyncSchedulers();
-    }
-
-    private void stopClientAsyncSchedulers() {
-        Iterator<SchedulerService> it = clientAsyncServiceRepo.iterator();
-        while(it.hasNext()) {
-            it.next().stop();
-        }
-        clientAsyncServiceRepo.clear();
     }
 
     protected String getClientContext() {

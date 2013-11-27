@@ -698,7 +698,8 @@ public class AdminServiceBasicTest {
         adminClient.storeMgmtOps.addStore(definition);
 
         // now test the store
-        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(cluster.getNodeById(0)
+        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setCacheStoreClients(false)
+                                                                                    .setBootstrapUrls(cluster.getNodeById(0)
                                                                                                              .getSocketUrl()
                                                                                                              .toString()));
 
@@ -720,6 +721,8 @@ public class AdminServiceBasicTest {
                      false);
 
         // test with deleted store
+        // (Turning off store client caching above will ensures the new client
+        // will attempt to bootstrap)
         try {
             client = factory.getStoreClient("deleteTest");
             client.put("abc", "123");

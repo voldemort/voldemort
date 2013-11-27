@@ -36,12 +36,10 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.common.service.SchedulerService;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.system.SystemStoreConstants;
-import voldemort.utils.SystemTime;
 import voldemort.xml.ClusterMapper;
 
 /**
@@ -96,17 +94,13 @@ public class EndToEndRebootstrapTest {
         clientConfig.setBootstrapUrls(bootstrapUrl);
         SocketStoreClientFactory storeClientFactory = new SocketStoreClientFactory(clientConfig);
 
-        SchedulerService service = new SchedulerService(clientConfig.getAsyncJobThreadPoolSize(),
-                                                        SystemTime.INSTANCE,
-                                                        true);
         storeClient = new ZenStoreClient<String, String>(STORE_NAME,
                                                          null,
                                                          storeClientFactory,
                                                          3,
                                                          clientConfig.getClientContextName(),
                                                          0,
-                                                         clientConfig,
-                                                         service);
+                                                         clientConfig);
 
         SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
 

@@ -23,7 +23,6 @@ import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
@@ -36,7 +35,6 @@ import org.junit.Test;
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
-import voldemort.routing.RouteToAllStrategy;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
@@ -193,7 +191,8 @@ public class ClientRegistryTest {
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
                                                       .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
-                                                      .setEnableLazy(false);
+                                                      .setEnableLazy(false)
+                                                      .setCacheStoreClients(false);
         SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
         StoreClient<String, String> client1 = socketFactory.getStoreClient(TEST_STORE_NAME);
         StoreClient<String, String> client2 = socketFactory.getStoreClient(TEST_STORE_NAME);
@@ -615,7 +614,16 @@ public class ClientRegistryTest {
      * Test repeated client-registry setup due to client bounce.
      */
     @Test
-    public void testRepeatRegistrationSameFactory() {
+    public void testRepeatRegistrationSameFactoryUnCached() {
+        testRepeatRegistrationSameFactory(false, 6);
+    }
+
+    @Test
+    public void testRepeatRegistrationSameFactoryCached() {
+        testRepeatRegistrationSameFactory(true, 2);
+    }
+
+    private void testRepeatRegistrationSameFactory(boolean cached, int expectedSize) {
 
         List<Integer> emptyPartitionList = Lists.newArrayList();
         ClientConfig clientConfig = new ClientConfig().setMaxThreads(4)
@@ -626,7 +634,8 @@ public class ClientRegistryTest {
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
                                                       .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
-                                                      .setEnableLazy(false);
+                                                      .setEnableLazy(false)
+                                                      .setCacheStoreClients(cached);
         SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
 
         ClientConfig clientConfig2 = new ClientConfig().setMaxThreads(4)
@@ -637,7 +646,8 @@ public class ClientRegistryTest {
                                                        .setClientContextName(CLIENT_CONTEXT_NAME2)
                                                        .enableDefaultClient(false)
                                                        .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
-                                                       .setEnableLazy(false);
+                                                       .setEnableLazy(false)
+                                                       .setCacheStoreClients(cached);
         SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
 
         for(int i = 0; i < 3; i++) {
@@ -656,7 +666,9 @@ public class ClientRegistryTest {
                                                                                                 null,
                                                                                                 false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
-        assertEquals("Incrrect # of entries created in client registry", 6, infoList.size());
+        assertEquals("Incorrect # of entries created in client registry",
+                     expectedSize,
+                     infoList.size());
 
         socketFactory1.close();
         socketFactory2.close();
@@ -778,7 +790,7 @@ public class ClientRegistryTest {
 
     private ArrayList<ClientInfo> getClientRegistryContent(Iterator<Pair<ByteArray, Versioned<byte[]>>> it) {
         ArrayList<ClientInfo> infoList = Lists.newArrayList();
-       
+
         while(it.hasNext()) {
             String clientInfoString = (String) valueSerializer.toObject(it.next()
                                                                           .getSecond()

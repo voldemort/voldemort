@@ -42,7 +42,6 @@ import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.stats.StoreClientFactoryStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.VoldemortIOUtils;
 
@@ -52,6 +51,7 @@ import voldemort.utils.VoldemortIOUtils;
  * 
  * 
  */
+@Deprecated
 public class HttpStoreClientFactory extends AbstractStoreClientFactory {
 
     public static final String URL_SCHEME = "http";
@@ -143,6 +143,5 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
         // should timeout connections on its own
         VoldemortIOUtils.closeQuietly(this.httpClient);
     }
-
 
 }
