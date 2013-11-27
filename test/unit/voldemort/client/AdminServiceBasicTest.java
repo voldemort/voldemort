@@ -552,6 +552,266 @@ public class AdminServiceBasicTest {
     }
 
     @Test
+    public void testReplicationMappingWithNonContiguousZones() {
+        int[] zoneIds = { 1, 3 };
+        List<Zone> zones = ServerTestUtils.getZonesFromZoneIds(zoneIds);
+
+        List<Node> nodes = Lists.newArrayList();
+        nodes.add(new Node(3, "localhost", 1, 2, 3, 1, Lists.newArrayList(0, 4, 8)));
+        nodes.add(new Node(4, "localhost", 1, 2, 3, 1, Lists.newArrayList(1, 5, 9)));
+        nodes.add(new Node(5, "localhost", 1, 2, 3, 3, Lists.newArrayList(2, 6, 10)));
+        nodes.add(new Node(6, "localhost", 1, 2, 3, 3, Lists.newArrayList(3, 7, 11)));
+
+        // Node 3 - With rep-factor 1
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("consistent",
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        Cluster newCluster = new Cluster("single_zone_cluster", nodes, zones);
+
+        try {
+            adminClient.replicaOps.getReplicationMapping(3, newCluster, storeDef);
+            fail("Should have thrown an exception since rep-factor = 1");
+        } catch(VoldemortException e) {}
+
+        // Test 1 - With consistent routing strategy
+        storeDef = ServerTestUtils.getStoreDef("consistent",
+                                               2,
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        // On node 3
+        Map<Integer, List<Integer>> replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
+                                                                                                      newCluster,
+                                                                                                      storeDef);
+        {
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(4, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(6, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 4
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(4,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(3, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(5, Lists.newArrayList(1, 5, 9));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 5
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(5,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(4, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(6, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+        {
+            // On node 6
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(6,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(3, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(5, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        // Test 2 - With zone routing strategy
+        HashMap<Integer, Integer> zoneReplicationFactors = Maps.newHashMap();
+        for(int index = 0; index < zoneIds.length; index++) {
+            zoneReplicationFactors.put(zoneIds[index], 1);
+        }
+
+        storeDef = ServerTestUtils.getStoreDef("zone",
+                                               2,
+                                               1,
+                                               1,
+                                               1,
+                                               0,
+                                               0,
+                                               zoneReplicationFactors,
+                                               HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                               RoutingStrategyType.ZONE_STRATEGY);
+        newCluster = new Cluster("multi_zone_cluster", nodes, zones);
+
+        {
+            // On node 3
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(5, Lists.newArrayList(0, 4, 8, 2, 6, 10));
+            expectedMapping.put(6, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+        {
+            // On node 4
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(4,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(5, Lists.newArrayList(1, 5, 9));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 5
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(5,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(3, Lists.newArrayList(0, 4, 8, 2, 6, 10));
+            expectedMapping.put(4, Lists.newArrayList(1, 5, 9));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 6
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(6,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(3, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        // Test 3 - Consistent with rep factor 3
+        storeDef = ServerTestUtils.getStoreDef("consistent",
+                                               3,
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        newCluster = new Cluster("single_zone_cluster", nodes, zones);
+
+        {
+            // On node 3
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(4, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(6, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(5, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 4
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(4,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(3, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(6, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(5, Lists.newArrayList(1, 5, 9));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 5
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(5,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(3, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(4, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(6, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 6
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(6,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(3, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(4, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(5, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        zoneReplicationFactors = Maps.newHashMap();
+        for(int index = 0; index < zoneIds.length; index++) {
+            zoneReplicationFactors.put(zoneIds[index], 2);
+        }
+
+        storeDef = ServerTestUtils.getStoreDef("zone",
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               0,
+                                               0,
+                                               zoneReplicationFactors,
+                                               HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                               RoutingStrategyType.ZONE_STRATEGY);
+        newCluster = new Cluster("multi_zone_cluster", nodes, zones);
+        {
+            // On node 3
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(4, Lists.newArrayList(0, 4, 8, 1, 5, 9));
+            expectedMapping.put(5, Lists.newArrayList(2, 6, 10));
+            expectedMapping.put(6, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 4
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(4,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(3, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(5, Lists.newArrayList(1, 5, 9, 2, 6, 10));
+            expectedMapping.put(6, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 5
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(5,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(3, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(4, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(6, Lists.newArrayList(2, 6, 10, 3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 6
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(6,
+                                                                              newCluster,
+                                                                              storeDef);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(3, Lists.newArrayList(0, 4, 8, 3, 7, 11));
+            expectedMapping.put(4, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(5, Lists.newArrayList(2, 6, 10));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+    }
+
+    @Test
     public void testReplicationMappingWithZonePreference() {
         List<Zone> zones = ServerTestUtils.getZones(2);
 
@@ -675,6 +935,132 @@ public class AdminServiceBasicTest {
                                                                               1);
             HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
             expectedMapping.put(2, Lists.newArrayList(1, 5, 9));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+    }
+
+    @Test
+    public void testReplicationMappingWithZonePreferenceWithNonContiguousZones() {
+
+        int[] zoneIds = { 1, 3 };
+        List<Zone> zones = ServerTestUtils.getZonesFromZoneIds(zoneIds);
+
+        List<Node> nodes = Lists.newArrayList();
+        nodes.add(new Node(3, "localhost", 1, 2, 3, 1, Lists.newArrayList(0, 4, 8)));
+        nodes.add(new Node(4, "localhost", 1, 2, 3, 1, Lists.newArrayList(1, 5, 9)));
+        nodes.add(new Node(5, "localhost", 1, 2, 3, 3, Lists.newArrayList(2, 6, 10)));
+        nodes.add(new Node(6, "localhost", 1, 2, 3, 3, Lists.newArrayList(3, 7, 11)));
+
+        // Node 3 - With rep-factor 1; zone 1
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("consistent",
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        Cluster newCluster = new Cluster("single_zone_cluster", nodes, zones);
+
+        try {
+            adminClient.replicaOps.getReplicationMapping(3, newCluster, storeDef, 1);
+            fail("Should have thrown an exception since rep-factor = 1");
+        } catch(VoldemortException e) {}
+
+        // With rep-factor 1; zone 1
+        storeDef = ServerTestUtils.getStoreDef("consistent",
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        newCluster = new Cluster("single_zone_cluster", nodes, zones);
+
+        try {
+            adminClient.replicaOps.getReplicationMapping(3, newCluster, storeDef, 1);
+            fail("Should have thrown an exception since rep-factor = 1");
+        } catch(VoldemortException e) {}
+
+        // Node 1 - With consistent routing strategy
+        storeDef = ServerTestUtils.getStoreDef("consistent",
+                                               4,
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        // On node 3; zone id 1
+        Map<Integer, List<Integer>> replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
+                                                                                                      newCluster,
+                                                                                                      storeDef,
+                                                                                                      1);
+        {
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(4, Lists.newArrayList(0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        // On node 3; zone id 1
+        replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
+                                                                          newCluster,
+                                                                          storeDef,
+                                                                          1);
+        {
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(4, Lists.newArrayList(0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        // Test 2 - With zone routing strategy, and zone replication factor 1
+        HashMap<Integer, Integer> zoneReplicationFactors = Maps.newHashMap();
+        for(int index = 0; index < zoneIds.length; index++) {
+            zoneReplicationFactors.put(zoneIds[index], 1);
+        }
+        storeDef = ServerTestUtils.getStoreDef("zone",
+                                               2,
+                                               1,
+                                               1,
+                                               1,
+                                               0,
+                                               0,
+                                               zoneReplicationFactors,
+                                               HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                               RoutingStrategyType.ZONE_STRATEGY);
+        newCluster = new Cluster("multi_zone_cluster", nodes, zones);
+
+        {
+            // On node 3, zone 1 - failure case since zoneReplicationFactor is 1
+
+            try {
+                replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
+                                                                                  newCluster,
+                                                                                  storeDef,
+                                                                                  1);
+                fail("Should have thrown an exception since  zoneReplicationFactor is 1");
+            } catch(VoldemortException e) {}
+        }
+
+        {
+            // On node 3, zone 3
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(3,
+                                                                              newCluster,
+                                                                              storeDef,
+                                                                              3);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(5, Lists.newArrayList(0, 4, 8, 2, 6, 10));
+            expectedMapping.put(6, Lists.newArrayList(3, 7, 11));
+            assertEquals(expectedMapping, replicationMapping);
+        }
+
+        {
+            // On node 4, zone 3
+            replicationMapping = adminClient.replicaOps.getReplicationMapping(4,
+                                                                              newCluster,
+                                                                              storeDef,
+                                                                              3);
+            HashMap<Integer, List<Integer>> expectedMapping = Maps.newHashMap();
+            expectedMapping.put(5, Lists.newArrayList(1, 5, 9));
             assertEquals(expectedMapping, replicationMapping);
         }
     }
