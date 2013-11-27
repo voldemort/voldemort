@@ -2,10 +2,19 @@ package voldemort.server.storage;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
 import junit.framework.TestCase;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
+import voldemort.ClusterTestUtils;
 import voldemort.MockTime;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -25,6 +34,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
+@RunWith(Parameterized.class)
 public class StorageServiceTest extends TestCase {
 
     private Cluster cluster;
@@ -32,23 +42,50 @@ public class StorageServiceTest extends TestCase {
     private StorageService storage;
     private SchedulerService scheduler;
     private List<StoreDefinition> storeDefs;
+    private MetadataStore mdStore;
+    private VoldemortConfig config;
+
+    public StorageServiceTest(Cluster cluster,
+                              List<StoreDefinition> storeDefs,
+                              MetadataStore mdStore,
+                              VoldemortConfig config) {
+        this.cluster = cluster;
+        this.storeDefs = storeDefs;
+        this.mdStore = mdStore;
+        this.config = config;
+    }
+
+    @Parameterized.Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] {
+                {
+                        ServerTestUtils.getLocalCluster(1),
+                        ServerTestUtils.getStoreDefs(2),
+                        ServerTestUtils.createMetadataStore(ServerTestUtils.getLocalCluster(1),
+                                                            ServerTestUtils.getStoreDefs(2)),
+                        new VoldemortConfig(0, TestUtils.createTempDir().getAbsolutePath()) },
+                {
+                        ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(),
+                        ClusterTestUtils.getZ1Z3StoreDefsInMemory(),
+                        ServerTestUtils.createMetadataStore(ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(),
+                                                            ClusterTestUtils.getZ1Z3StoreDefsInMemory(),
+                                                            3),
+                        new VoldemortConfig(3, TestUtils.createTempDir().getAbsolutePath()) } });
+    }
 
     @Override
+    @Before
     public void setUp() {
-        File temp = TestUtils.createTempDir();
-        VoldemortConfig config = new VoldemortConfig(0, temp.getAbsolutePath());
         config.setEnableServerRouting(true); // this is turned off by default
         new File(config.getMetadataDirectory()).mkdir();
         config.setBdbCacheSize(100000);
         this.scheduler = new SchedulerService(1, new MockTime());
-        this.cluster = ServerTestUtils.getLocalCluster(1);
-        this.storeDefs = ServerTestUtils.getStoreDefs(2);
         this.storeRepository = new StoreRepository();
-        MetadataStore mdStore = ServerTestUtils.createMetadataStore(cluster, storeDefs);
         storage = new StorageService(storeRepository, mdStore, scheduler, config);
         storage.start();
     }
 
+    @Test
     public void testStores() {
         StoreRepository repo = storage.getStoreRepository();
         for(StoreDefinition def: storeDefs) {
@@ -61,14 +98,18 @@ public class StorageServiceTest extends TestCase {
                        repo.hasStorageEngine(def.getName()));
             assertEquals(def.getName(), repo.getStorageEngine(def.getName()).getName());
 
-            for(int node = 0; node < cluster.getNumberOfNodes(); node++) {
+            Integer[] nodeIds = cluster.getNodeIds().toArray(new Integer[0]);
+
+            for (int index = 0; index < cluster.getNumberOfNodes(); index++) {
                 assertTrue("Missing node store '" + def.getName() + "'.",
-                           repo.hasNodeStore(def.getName(), node));
-                assertEquals(def.getName(), repo.getNodeStore(def.getName(), node).getName());
+                           repo.hasNodeStore(def.getName(), nodeIds[index]));
+                assertEquals(def.getName(), repo.getNodeStore(def.getName(), nodeIds[index])
+                                                .getName());
             }
         }
     }
 
+    @Test
     public void testMetadataVersionsInit() {
         Store<ByteArray, byte[], byte[]> versionStore = storeRepository.getLocalStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
         Properties props = new Properties();

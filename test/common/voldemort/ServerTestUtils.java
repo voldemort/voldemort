@@ -694,6 +694,20 @@ public class ServerTestUtils {
 
         return new MetadataStore(innerStore, 0);
     }
+    
+    public static MetadataStore createMetadataStore(Cluster cluster,
+                                                    List<StoreDefinition> storeDefs,
+                                                    int nodeId) {
+        Store<String, String, String> innerStore = new InMemoryStorageEngine<String, String, String>("inner-store");
+        innerStore.put(MetadataStore.CLUSTER_KEY,
+                       new Versioned<String>(new ClusterMapper().writeCluster(cluster)),
+                       null);
+        innerStore.put(MetadataStore.STORES_KEY,
+                       new Versioned<String>(new StoreDefinitionsMapper().writeStoreList(storeDefs)),
+                       null);
+
+        return new MetadataStore(innerStore, nodeId);
+    }
 
     public static List<StoreDefinition> getStoreDefs(int numStores) {
         List<StoreDefinition> defs = new ArrayList<StoreDefinition>();
