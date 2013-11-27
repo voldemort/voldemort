@@ -37,6 +37,7 @@ public class StorageServiceTest extends TestCase {
     public void setUp() {
         File temp = TestUtils.createTempDir();
         VoldemortConfig config = new VoldemortConfig(0, temp.getAbsolutePath());
+        config.setEnableServerRouting(true); // this is turned off by default
         new File(config.getMetadataDirectory()).mkdir();
         config.setBdbCacheSize(100000);
         this.scheduler = new SchedulerService(1, new MockTime());
