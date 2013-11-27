@@ -274,6 +274,50 @@ public class RebalanceUtils {
                            newNodeList,
                            Lists.newArrayList(finalCluster.getZones()));
     }
+    
+    /**
+     * Given the current cluster and a zone id that needs to be dropped, this method will 
+     * remove all partitions from the zone that is being dropped and move it to 
+     * the existing zones. The partitions are moved intelligently so as not to avoid
+     * any data movement in the existing zones.
+     * 
+     * This is achieved by moving te partitions to nodes in the surviving zones that is zone-nry to
+     * that partition in the surviving zone.
+     * 
+     * @param currentCluster Current cluster metadata
+     * @return Returns an interim cluster with empty partition lists on the nodes 
+     *         from the zone being dropped
+     *  
+     */
+    public static Cluster dropZone(Cluster currentCluster, int dropZoneId) {
+        Cluster returnCluster = Cluster.cloneCluster(currentCluster);
+        // Go over each node in the zone being dropped
+        for (Integer nodeId: currentCluster.getNodeIdsInZone(dropZoneId)) {
+            // For each node grab all the partitions it hosts
+            for (Integer partitionId: currentCluster.getNodeById(nodeId).getPartitionIds()) {
+                // Now for each partition find a new home..which would be a node
+                // in one of the existing zones
+                int finalZoneId = -1;
+                int finalNodeId = -1;
+                int adjacentPartitionId = partitionId;
+                do {
+                    adjacentPartitionId = (adjacentPartitionId + 1) % currentCluster.getNumberOfPartitions();
+                    finalNodeId = currentCluster.getNodeForPartitionId(adjacentPartitionId).getId();
+                    finalZoneId = currentCluster.getZoneForPartitionId(adjacentPartitionId).getId();
+                    if (adjacentPartitionId == partitionId) {
+                        logger.error("ParititionId " + partitionId + "stays unchanged \n");
+                    } else {
+                        logger.info("ParititionId " + partitionId + " goes together with partition " + adjacentPartitionId
+                                    + " on node " + finalNodeId + " in zone " + finalZoneId);
+                        returnCluster = UpdateClusterUtils.createUpdatedCluster(returnCluster,
+                                                                                finalNodeId,
+                                                                                Lists.newArrayList(partitionId));
+                    }
+                } while (finalZoneId == dropZoneId);
+            }
+        }
+        return returnCluster;
+    }
 
     /**
      * For a particular stealer node find all the "primary" <replica, partition>

@@ -23,6 +23,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.GregorianCalendar;
@@ -121,6 +122,18 @@ public class Utils {
                 }
             }
         }
+    }
+    
+    
+    /**
+     * Sort a collection to a List 
+     * 
+     * @param collection to be converted to a sorted list
+     */
+    public static <T extends Comparable<? super T>> List<T> asSortedList(Collection<T> c) {
+        List<T> list = new ArrayList<T>(c);
+        Collections.sort(list);
+        return list;
     }
 
     /**

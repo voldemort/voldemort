@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.util.Iterator;
 import java.util.LinkedList;
 
-public class Zone implements Serializable {
+public class Zone implements Serializable, Comparable<Zone>  {
 
     private static final long serialVersionUID = 1;
     public static final int DEFAULT_ZONE_ID = 0;
@@ -56,6 +56,11 @@ public class Zone implements Serializable {
         }
 
         return true;
+    }
+    
+    @Override
+    public int compareTo(Zone other) {
+        return Integer.valueOf(this.zoneId).compareTo(other.getId());
     }
 
     @Override
