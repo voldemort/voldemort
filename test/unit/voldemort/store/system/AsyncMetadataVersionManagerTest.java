@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
@@ -28,6 +30,8 @@ import java.util.concurrent.Callable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
@@ -53,6 +57,7 @@ import voldemort.utils.SystemTime;
  * @author csoman
  * 
  */
+@RunWith(Parameterized.class)
 public class AsyncMetadataVersionManagerTest {
 
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
@@ -65,7 +70,7 @@ public class AsyncMetadataVersionManagerTest {
     private VoldemortServer[] servers;
     private Cluster cluster;
     public static String socketUrl = "";
-    protected final int CLIENT_ZONE_ID = 0;
+    protected int clientZoneId;
     private long newVersion = 0;
 
     private SystemStoreClient<String, String> sysVersionStore;
@@ -75,20 +80,33 @@ public class AsyncMetadataVersionManagerTest {
     private boolean callbackDone = false;
     private long updatedClusterVersion;
     private long updatedStoreVersion;
+    private List<StoreDefinition> storeDefs;
 
     // Multi store version tracking test
     List<AsyncMetadataVersionManager> asyncVersionManagers = new ArrayList<AsyncMetadataVersionManager>();
     long[] updatedVersions = new long[3];
     boolean[] callbacksDone = new boolean[3];
 
+    public AsyncMetadataVersionManagerTest(Cluster cluster,
+                                           List<StoreDefinition> storeDefs,
+                                           int clientZoneId) {
+        this.cluster = cluster;
+        this.storeDefs = storeDefs;
+        this.clientZoneId = clientZoneId;
+    }
+
+    @Parameterized.Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] {
+                { ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds(),
+                        ClusterTestUtils.getZ1Z3Z5StoreDefsBDB(), 3 },
+                { ClusterTestUtils.getZZZCluster(), ClusterTestUtils.getZZZ322StoreDefs("bdb"), 0 } });
+    }
+
     @Before
     public void setUp() throws Exception {
-        cluster = ClusterTestUtils.getZZZCluster();
         servers = new VoldemortServer[cluster.getNodeIds().size()];
-
-        List<StoreDefinition> storeDefs = ClusterTestUtils.getZZZ322StoreDefs("bdb");
         int i = 0;
-
         for(Integer nodeId: cluster.getNodeIds()) {
             VoldemortConfig config = ServerTestUtils.createServerConfigWithDefs(true,
                                                                                 nodeId,
@@ -107,7 +125,7 @@ public class AsyncMetadataVersionManagerTest {
         bootStrapUrls = new String[1];
         bootStrapUrls[0] = socketUrl;
         ClientConfig clientConfig = new ClientConfig();
-        clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.CLIENT_ZONE_ID);
+        clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(clientZoneId);
         SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
         sysVersionStore = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
         repository = new SystemStoreRepository(clientConfig);
