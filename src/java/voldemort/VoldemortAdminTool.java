@@ -49,6 +49,7 @@ import java.util.Set;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
+import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.io.FileUtils;
 import org.codehaus.jackson.JsonFactory;
@@ -1291,10 +1292,9 @@ public class VoldemortAdminTool {
 
                     @Override
                     public void writeTo(BufferedWriter out) throws IOException {
-                        final StringWriter stringWriter = new StringWriter();
-                        final JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
 
                         while(entriesIterator.hasNext()) {
+                            final JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(out);
                             Pair<ByteArray, Versioned<byte[]>> kvPair = entriesIterator.next();
                             byte[] keyBytes = kvPair.getFirst().get();
                             byte[] valueBytes = kvPair.getSecond().getValue();
@@ -1304,19 +1304,19 @@ public class VoldemortAdminTool {
                                                                                                       : keyCompressionStrategy.inflate(keyBytes));
                             Object valueObject = valueSerializer.toObject((null == valueCompressionStrategy) ? valueBytes
                                                                                                             : valueCompressionStrategy.inflate(valueBytes));
-                            generator.writeObject(keyObject);
-                            stringWriter.write(' ');
-                            stringWriter.write(version.toString());
-                            generator.writeObject(valueObject);
-
-                            StringBuffer buf = stringWriter.getBuffer();
-                            if(buf.charAt(0) == ' ') {
-                                buf.setCharAt(0, '\n');
+                            if(keyObject instanceof GenericRecord) {
+                                out.write(keyObject.toString());
+                            } else {
+                                generator.writeObject(keyObject);
                             }
-                            out.write(buf.toString());
-                            buf.setLength(0);
+                            out.write(' ' + version.toString() + ' ');
+                            if(valueObject instanceof GenericRecord) {
+                                out.write(valueObject.toString());
+                            } else {
+                                generator.writeObject(valueObject);
+                            }
+                            out.write('\n');
                         }
-                        out.write('\n');
                     }
                 });
             } else {
@@ -1522,24 +1522,21 @@ public class VoldemortAdminTool {
 
                     @Override
                     public void writeTo(BufferedWriter out) throws IOException {
-                        final StringWriter stringWriter = new StringWriter();
-                        final JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
 
                         while(keyIterator.hasNext()) {
-                            // Ugly hack to be able to separate text by newlines
-                            // vs. spaces
+                            final JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(out);
+
                             byte[] keyBytes = keyIterator.next().get();
                             Object keyObject = serializer.toObject((null == keysCompressionStrategy) ? keyBytes
                                                                                                     : keysCompressionStrategy.inflate(keyBytes));
-                            generator.writeObject(keyObject);
-                            StringBuffer buf = stringWriter.getBuffer();
-                            if(buf.charAt(0) == ' ') {
-                                buf.setCharAt(0, '\n');
+
+                            if(keyObject instanceof GenericRecord) {
+                                out.write(keyObject.toString());
+                            } else {
+                                generator.writeObject(keyObject);
                             }
-                            out.write(buf.toString());
-                            buf.setLength(0);
+                            out.write('\n');
                         }
-                        out.write('\n');
                     }
                 });
             } else {
