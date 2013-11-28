@@ -36,24 +36,22 @@ import java.io.PrintStream;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.Set;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.io.FileUtils;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.PrettyPrinter;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import voldemort.client.ClientConfig;
@@ -68,6 +66,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.StringSerializer;
 import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
+import voldemort.serialization.json.JsonReader;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StoreDefinition;
 import voldemort.store.compress.CompressionStrategy;
@@ -251,10 +250,9 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("size-in-mb")
               .ofType(Long.class);
-        parser.accepts("query-keys", "Get values of keys on specific nodes")
+        parser.accepts("query-key", "Get values of a key on specific node")
               .withRequiredArg()
-              .describedAs("query-keys")
-              .withValuesSeparatedBy(',')
+              .describedAs("query-key")
               .ofType(String.class);
         parser.accepts("mirror-from-url", "Cluster url to mirror data from")
               .withRequiredArg()
@@ -371,7 +369,7 @@ public class VoldemortAdminTool {
             }
             ops += "o";
         }
-        if(options.has("query-keys")) {
+        if(options.has("query-key")) {
             ops += "q";
         }
         if(options.has("restore")) {
@@ -616,11 +614,13 @@ public class VoldemortAdminTool {
                 adminClient.storeMntOps.reserveMemory(nodeId, storeNames, reserveMB);
             }
             if(ops.contains("q")) {
-                List<String> keyList = (List<String>) options.valuesOf("query-keys");
+                String key = (String) options.valueOf("query-key");
+                List<String> keysList = new ArrayList<String>();
+                keysList.add(key);
                 if(storeNames == null || storeNames.size() == 0) {
                     throw new VoldemortException("Must specify store name using --stores option");
                 }
-                executeQueryKeys(nodeId, adminClient, storeNames, keyList, options.has("ascii"));
+                executeQueryKeys(nodeId, adminClient, storeNames, keysList, options.has("ascii"));
             }
             if(ops.contains("h")) {
                 if(nodeId == -1) {
@@ -844,9 +844,9 @@ public class VoldemortAdminTool {
         stream.println("\t9) Update entries for a set of stores using the output from a binary dump fetch entries");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --update-entries [folder path from output of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated list of store names]");
         stream.println("\t10.a) Query stores for a set of keys on a specific node, in hexstring format");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --query-keys [comma-separated list of keys] --url [url] --node [node-id] --stores [comma-separated list of store names]");
-        stream.println("\t10.b) Query stores for a set of keys on a specific node, in ascii format");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --query-keys [comma-separated list of keys] --url [url] --node [node-id] --stores [comma-separated list of store names] --ascii");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --query-key [key] --url [url] --node [node-id] --stores [comma-separated list of store names]");
+        stream.println("\t10.b) Query stores for a set of keys on a specific node, in readable format");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --query-key [key] --url [url] --node [node-id] --stores [comma-separated list of store names] --ascii");
         stream.println("\t11) Mirror data from another voldemort server (possibly in another cluster) for specified stores");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --mirror-from-url [bootstrap url to mirror from] --mirror-node [node to mirror from] --url [url] --node [node-id] --stores [comma-separated-list-of-store-names]");
         stream.println("\t12) Mirror data from another voldemort server (possibly in another cluster) for all stores in current cluster");
@@ -1636,33 +1636,16 @@ public class VoldemortAdminTool {
                                          List<String> storeNames,
                                          List<String> keys,
                                          boolean useAscii) throws IOException {
-        List<ByteArray> listKeys = new ArrayList<ByteArray>();
-        Serializer<String> serializer = new StringSerializer();
-        for(String key: keys) {
-            try {
-                if(useAscii) {
-                    listKeys.add(new ByteArray(serializer.toBytes(key)));
-                } else {
-                    listKeys.add(new ByteArray(ByteUtils.fromHexString(key)));
-                }
-            } catch(DecoderException de) {
-                System.err.println("Error decoding key " + key);
-                de.printStackTrace();
-                return;
-            }
+        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
+                .getValue();
+        Map<String, StoreDefinition> storeDefinitions = new HashMap<String, StoreDefinition>();
+        for(StoreDefinition storeDef: storeDefinitionList) {
+            storeDefinitions.put(storeDef.getName(), storeDef);
         }
-        for(final String storeName: storeNames) {
-            final Iterator<QueryKeyResult> iterator = adminClient.streamingOps.queryKeys(nodeId.intValue(),
-                                                                                         storeName,
-                                                                                         listKeys.iterator());
-            List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
-                                                                                   .getValue();
-            StoreDefinition storeDefinition = null;
-            for(StoreDefinition storeDef: storeDefinitionList) {
-                if(storeDef.getName().equals(storeName))
-                    storeDefinition = storeDef;
-            }
 
+        for(final String storeName: storeNames) {
+            // store definition
+            StoreDefinition storeDefinition = storeDefinitions.get(storeName);
             // k-v serializer
             SerializerDefinition keySerializerDef = storeDefinition.getKeySerializer();
             SerializerDefinition valueSerializerDef = storeDefinition.getValueSerializer();
@@ -1671,6 +1654,41 @@ public class VoldemortAdminTool {
             final Serializer<Object> keySerializer = (Serializer<Object>) serializerFactory.getSerializer(keySerializerDef);
             @SuppressWarnings("unchecked")
             final Serializer<Object> valueSerializer = (Serializer<Object>) serializerFactory.getSerializer(valueSerializerDef);
+
+            List<ByteArray> listKeys = new ArrayList<ByteArray>();
+            for(String keyString: keys) {
+                try {
+                    if(useAscii) {
+                        Object keyObject;
+                        String keySerializerName = keySerializerDef.getName();
+                        if(isAvroSchema(keySerializerName)) {
+                            Schema keySchema = Schema.parse(keySerializerDef.getCurrentSchemaInfo());
+                            JsonDecoder decoder = new JsonDecoder(keySchema, keyString);
+                            GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(keySchema);
+                            keyObject = datumReader.read(null, decoder);
+                        } else if (keySerializerName.equals(DefaultSerializerFactory.JSON_SERIALIZER_TYPE_NAME)){
+                            JsonReader jsonReader = new JsonReader(new StringReader(keyString));
+                            keyObject = jsonReader.read();
+                        } else {
+                            keyObject = keyString;
+                        }
+
+                        listKeys.add(new ByteArray(keySerializer.toBytes(keyObject)));
+                    } else {
+                        listKeys.add(new ByteArray(ByteUtils.fromHexString(keyString)));
+                    }
+                } catch(DecoderException de) {
+                    System.err.println("Error decoding key " + keyString);
+                    de.printStackTrace();
+                    return;
+                } catch(IOException io) {
+                    System.err.println("Error parsing avro string " + keyString);
+                    io.printStackTrace();
+                }
+            }
+            final Iterator<QueryKeyResult> iterator = adminClient.streamingOps.queryKeys(nodeId.intValue(),
+                                                                                         storeName,
+                                                                                         listKeys.iterator());
 
             // compression strategy
             final CompressionStrategy keyCompressionStrategy;
@@ -1692,7 +1710,6 @@ public class VoldemortAdminTool {
                 @Override
                 public void writeTo(BufferedWriter out) throws IOException {
                     final StringWriter stringWriter = new StringWriter();
-                    final JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
                     stringWriter.write("Querying keys in node " + nodeId + " of " + storeName
                                        + "\n");
 
@@ -1702,46 +1719,61 @@ public class VoldemortAdminTool {
                         byte[] keyBytes = queryKeyResult.getKey().get();
                         Object keyObject = keySerializer.toObject((null == keyCompressionStrategy) ? keyBytes
                                                                                                   : keyCompressionStrategy.inflate(keyBytes));
-                        generator.writeObject(keyObject);
+
 
                         // iterate through, unserialize and write values
-                        List<Versioned<byte[]>> values = queryKeyResult.getValues();
-                        if(values != null) {
-                            if(values.size() == 0) {
-                                stringWriter.write(", null");
-                            }
-                            for(Versioned<byte[]> versioned: values) {
+                        if(queryKeyResult.hasValues() && queryKeyResult.getValues().size() > 0) {
+                            for(Versioned<byte[]> versioned: queryKeyResult.getValues()) {
+                                // write key
+                                final JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(out);
+                                if(keyObject instanceof GenericRecord) {
+                                    out.write(keyObject.toString());
+                                } else {
+                                    generator.writeObject(keyObject);
+                                }
+                                // write version
                                 VectorClock version = (VectorClock) versioned.getVersion();
+                                out.write(' ' + version.toString() + '[' + new Date(version.getTimestamp()).toString() + ']');
+                                // write value
                                 byte[] valueBytes = versioned.getValue();
                                 Object valueObject = valueSerializer.toObject((null == valueCompressionStrategy) ? valueBytes
-                                                                                                                : valueCompressionStrategy.inflate(valueBytes));
-
-                                stringWriter.write(", ");
-                                stringWriter.write(version.toString());
-                                stringWriter.write('[');
-                                stringWriter.write(new Date(version.getTimestamp()).toString());
-                                stringWriter.write(']');
-                                generator.writeObject(valueObject);
+                                        : valueCompressionStrategy.inflate(valueBytes));
+                                if(valueObject instanceof GenericRecord) {
+                                    out.write(valueObject.toString());
+                                } else {
+                                    generator.writeObject(valueObject);
+                                }
+                                out.write('\n');
                             }
                         } else {
-                            stringWriter.write(", null");
+                            // write key
+                            final JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(out);
+                            if(keyObject instanceof GenericRecord) {
+                                out.write(keyObject.toString());
+                            } else {
+                                generator.writeObject(keyObject);
+                            }
+                            // write null or exception
+                            if(queryKeyResult.hasException()) {
+                                out.write(" " + queryKeyResult.getException().toString() + '\n');
+                            } else {
+                                out.write(" null\n");
+                            }
                         }
-                        // write out exception
-                        if(queryKeyResult.hasException()) {
-                            stringWriter.write(", ");
-                            stringWriter.write(queryKeyResult.getException().toString());
-                        }
-
-                        StringBuffer buf = stringWriter.getBuffer();
-                        if(buf.charAt(0) == ' ') {
-                            buf.setCharAt(0, '\n');
-                        }
-                        out.write(buf.toString());
-                        buf.setLength(0);
                     }
-                    out.write('\n');
                 }
             });
+        }
+    }
+
+    private static boolean isAvroSchema(String serializerName) {
+        if(serializerName.equals(DefaultSerializerFactory.AVRO_GENERIC_VERSIONED_TYPE_NAME)
+                || serializerName.equals(DefaultSerializerFactory.AVRO_GENERIC_TYPE_NAME)
+                || serializerName.equals(DefaultSerializerFactory.AVRO_REFLECTIVE_TYPE_NAME)
+                || serializerName.equals(DefaultSerializerFactory.AVRO_SPECIFIC_TYPE_NAME)) {
+            return true;
+        } else {
+            return false;
         }
     }
 }
