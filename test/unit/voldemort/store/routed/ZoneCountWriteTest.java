@@ -5,6 +5,7 @@ import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -15,6 +16,8 @@ import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
@@ -37,18 +40,85 @@ import voldemort.versioning.Versioned;
  * This test verifies the zone count write policy in PipelineRoutedStore
  * 
  */
+@RunWith(Parameterized.class)
 public class ZoneCountWriteTest {
 
     private Store<String, String, byte[]> client;
     private Map<Integer, VoldemortServer> vservers = new HashMap<Integer, VoldemortServer>();
     private Cluster cluster;
     private StoreDefinition storeDef = null;
+    private List<StoreDefinition> storeDefs;
+    private ClientConfig clientConfig;
+    Set<Integer> stoppedServersForRemoteZoneNodeFail;
+    Set<Integer> stoppedServersForInsufficientZone;
+
+    public ZoneCountWriteTest(Cluster cluster,
+                              List<StoreDefinition> storeDefs,
+                              ClientConfig clientConfig,
+                              Set<Integer> stoppedServersForRemoteZoneNodeFail,
+                              Set<Integer> stoppedServersForInsufficientZone) {
+        this.cluster = cluster;
+        this.storeDefs = storeDefs;
+        this.clientConfig = clientConfig;
+        this.stoppedServersForRemoteZoneNodeFail = stoppedServersForRemoteZoneNodeFail;
+        this.stoppedServersForInsufficientZone = stoppedServersForInsufficientZone;
+    }
+
+    @Parameterized.Parameters
+    public static Collection<Object[]> configs() {
+        Cluster z1z3z5cluster = ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds();
+        List<StoreDefinition> z1z3z5StoreDefs = ClusterTestUtils.getZ1Z3Z5322StoreDefs("memory");
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.setClientZoneId(3);
+        clientConfig.setBootstrapUrls(z1z3z5cluster.getNodeById(3).getSocketUrl().toString());
+        clientConfig.getZoneAffinity().setEnableGetOpZoneAffinity(true);
+        Set<Integer> stoppedServersForRemoteZoneNodeFail = new HashSet<Integer>(Arrays.asList(4,
+                                                                                              5,
+                                                                                              9,
+                                                                                              10,
+                                                                                              11,
+                                                                                              15,
+                                                                                              16));
+        Set<Integer> stoppedServersForInsufficientZone = new HashSet<Integer>(Arrays.asList(5,
+                                                                                            9,
+                                                                                            10,
+                                                                                            11,
+                                                                                            15,
+                                                                                            16,
+                                                                                            17));
+        Cluster zzzCluster = ClusterTestUtils.getZZZCluster();
+        List<StoreDefinition> zzzStoreDefs = ClusterTestUtils.getZZZ322StoreDefs("memory");
+        ClientConfig anotherClientConfig = new ClientConfig();
+        anotherClientConfig.setClientZoneId(0);
+        anotherClientConfig.setBootstrapUrls(zzzCluster.getNodeById(0).getSocketUrl().toString());
+        anotherClientConfig.getZoneAffinity().setEnableGetOpZoneAffinity(true);
+        Set<Integer> zzzstoppedServersForRemoteZoneNodeFail = new HashSet<Integer>(Arrays.asList(1,
+                                                                                                 2,
+                                                                                                 3,
+                                                                                                 4,
+                                                                                                 5,
+                                                                                                 6,
+                                                                                                 7));
+        Set<Integer> zzzstoppedServersForInsufficientZone = new HashSet<Integer>(Arrays.asList(2,
+                                                                                               3,
+                                                                                               4,
+                                                                                               5,
+                                                                                               6,
+                                                                                               7,
+                                                                                               8));
+        return Arrays.asList(new Object[][] {
+                { z1z3z5cluster, z1z3z5StoreDefs, clientConfig,
+                        stoppedServersForRemoteZoneNodeFail, stoppedServersForInsufficientZone },
+                { zzzCluster, zzzStoreDefs, anotherClientConfig,
+                        zzzstoppedServersForRemoteZoneNodeFail,
+                        zzzstoppedServersForInsufficientZone }
+
+        });
+    }
 
     @Before
     public void setup() throws IOException {
-        List<StoreDefinition> stores = ClusterTestUtils.getZZZ322StoreDefs("memory");
-
-        storeDef = stores.get(0);
+        storeDef = storeDefs.get(0);
         Integer zoneCountWrite = 1;
         // override
         storeDef = new StoreDefinition(storeDef.getName(),
@@ -77,11 +147,7 @@ public class ZoneCountWriteTest {
                                        storeDef.getHintPrefListSize(),
                                        storeDef.getOwners(),
                                        storeDef.getMemoryFootprintMB());
-        stores.set(0, storeDef);
-        cluster = ClusterTestUtils.getZZZCluster();
-        ClientConfig clientConfig = new ClientConfig();
-        clientConfig.setBootstrapUrls(cluster.getNodeById(0).getSocketUrl().toString());
-        clientConfig.getZoneAffinity().setEnableGetOpZoneAffinity(true);
+        storeDefs.set(0, storeDef);
         SocketStoreClientFactory socketStoreClientFactory = new SocketStoreClientFactory(clientConfig);
         for(Integer nodeId: cluster.getNodeIds()) {
             SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
@@ -93,7 +159,7 @@ public class ZoneCountWriteTest {
                                                                                 TestUtils.createTempDir()
                                                                                          .getAbsolutePath(),
                                                                                 cluster,
-                                                                                stores,
+                                                                                storeDefs,
                                                                                 new Properties());
             VoldemortServer vs = ServerTestUtils.startVoldemortServer(socketStoreFactory,
                                                                       config,
@@ -136,15 +202,7 @@ public class ZoneCountWriteTest {
     @Test
     public void testRemoteZoneNodeFail() {
         try {
-            Set<Integer> stoppedServers = new HashSet<Integer>();
-            stoppedServers.add(1);
-            stoppedServers.add(2);
-            stoppedServers.add(3);
-            stoppedServers.add(4);
-            stoppedServers.add(5);
-            stoppedServers.add(6);
-            stoppedServers.add(7);
-            for(Integer nodeId: stoppedServers) {
+            for(Integer nodeId: stoppedServersForRemoteZoneNodeFail) {
                 vservers.get(nodeId).stop();
             }
             client.put("AB", new Versioned<String>("CD"), null);
@@ -153,7 +211,7 @@ public class ZoneCountWriteTest {
             } catch(InterruptedException e) {}
             for(Integer nodeId: vservers.keySet()) {
                 // skip stopped ones
-                if(stoppedServers.contains(nodeId)) {
+                if(stoppedServersForRemoteZoneNodeFail.contains(nodeId)) {
                     continue;
                 }
                 VoldemortServer vs = vservers.get(nodeId);
@@ -170,15 +228,7 @@ public class ZoneCountWriteTest {
 
     @Test
     public void testRemoteZoneNodeFailInsufficientZone() {
-        Set<Integer> stoppedServers = new HashSet<Integer>();
-        stoppedServers.add(2);
-        stoppedServers.add(3);
-        stoppedServers.add(4);
-        stoppedServers.add(5);
-        stoppedServers.add(6);
-        stoppedServers.add(7);
-        stoppedServers.add(8);
-        for(Integer nodeId: stoppedServers) {
+        for(Integer nodeId: stoppedServersForInsufficientZone) {
             vservers.get(nodeId).stop();
         }
         try {
