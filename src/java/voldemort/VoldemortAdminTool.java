@@ -43,7 +43,6 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.JsonDecoder;
@@ -51,7 +50,6 @@ import org.apache.commons.codec.DecoderException;
 import org.apache.commons.io.FileUtils;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.PrettyPrinter;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import voldemort.client.ClientConfig;
@@ -615,12 +613,10 @@ public class VoldemortAdminTool {
             }
             if(ops.contains("q")) {
                 String key = (String) options.valueOf("query-key");
-                List<String> keysList = new ArrayList<String>();
-                keysList.add(key);
                 if(storeNames == null || storeNames.size() == 0) {
                     throw new VoldemortException("Must specify store name using --stores option");
                 }
-                executeQueryKeys(nodeId, adminClient, storeNames, keysList, options.has("ascii"));
+                executeQueryKey(nodeId, adminClient, storeNames, key, options.has("ascii"));
             }
             if(ops.contains("h")) {
                 if(nodeId == -1) {
@@ -1631,11 +1627,11 @@ public class VoldemortAdminTool {
         }
     }
 
-    private static void executeQueryKeys(final Integer nodeId,
-                                         AdminClient adminClient,
-                                         List<String> storeNames,
-                                         List<String> keys,
-                                         boolean useAscii) throws IOException {
+    private static void executeQueryKey(final Integer nodeId,
+                                        AdminClient adminClient,
+                                        List<String> storeNames,
+                                        String keyString,
+                                        boolean useAscii) throws IOException {
         List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
                 .getValue();
         Map<String, StoreDefinition> storeDefinitions = new HashMap<String, StoreDefinition>();
@@ -1655,36 +1651,35 @@ public class VoldemortAdminTool {
             @SuppressWarnings("unchecked")
             final Serializer<Object> valueSerializer = (Serializer<Object>) serializerFactory.getSerializer(valueSerializerDef);
 
+            // although the streamingOps support multiple keys, we only query on key here
             List<ByteArray> listKeys = new ArrayList<ByteArray>();
-            for(String keyString: keys) {
-                try {
-                    if(useAscii) {
-                        Object keyObject;
-                        String keySerializerName = keySerializerDef.getName();
-                        if(isAvroSchema(keySerializerName)) {
-                            Schema keySchema = Schema.parse(keySerializerDef.getCurrentSchemaInfo());
-                            JsonDecoder decoder = new JsonDecoder(keySchema, keyString);
-                            GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(keySchema);
-                            keyObject = datumReader.read(null, decoder);
-                        } else if (keySerializerName.equals(DefaultSerializerFactory.JSON_SERIALIZER_TYPE_NAME)){
-                            JsonReader jsonReader = new JsonReader(new StringReader(keyString));
-                            keyObject = jsonReader.read();
-                        } else {
-                            keyObject = keyString;
-                        }
-
-                        listKeys.add(new ByteArray(keySerializer.toBytes(keyObject)));
+            try {
+                if(useAscii) {
+                    Object keyObject;
+                    String keySerializerName = keySerializerDef.getName();
+                    if(isAvroSchema(keySerializerName)) {
+                        Schema keySchema = Schema.parse(keySerializerDef.getCurrentSchemaInfo());
+                        JsonDecoder decoder = new JsonDecoder(keySchema, keyString);
+                        GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(keySchema);
+                        keyObject = datumReader.read(null, decoder);
+                    } else if (keySerializerName.equals(DefaultSerializerFactory.JSON_SERIALIZER_TYPE_NAME)){
+                        JsonReader jsonReader = new JsonReader(new StringReader(keyString));
+                        keyObject = jsonReader.read();
                     } else {
-                        listKeys.add(new ByteArray(ByteUtils.fromHexString(keyString)));
+                        keyObject = keyString;
                     }
-                } catch(DecoderException de) {
-                    System.err.println("Error decoding key " + keyString);
-                    de.printStackTrace();
-                    return;
-                } catch(IOException io) {
-                    System.err.println("Error parsing avro string " + keyString);
-                    io.printStackTrace();
+
+                    listKeys.add(new ByteArray(keySerializer.toBytes(keyObject)));
+                } else {
+                    listKeys.add(new ByteArray(ByteUtils.fromHexString(keyString)));
                 }
+            } catch(DecoderException de) {
+                System.err.println("Error decoding key " + keyString);
+                de.printStackTrace();
+                return;
+            } catch(IOException io) {
+                System.err.println("Error parsing avro string " + keyString);
+                io.printStackTrace();
             }
             final Iterator<QueryKeyResult> iterator = adminClient.streamingOps.queryKeys(nodeId.intValue(),
                                                                                          storeName,
