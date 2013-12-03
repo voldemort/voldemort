@@ -19,6 +19,8 @@ package voldemort.store.system;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
@@ -26,6 +28,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -49,6 +53,7 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
  * @author csoman
  * 
  */
+@RunWith(Parameterized.class)
 public class SystemStoreTest {
 
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
@@ -62,15 +67,32 @@ public class SystemStoreTest {
     private VoldemortServer[] servers;
     private Cluster cluster;
     public static String socketUrl = "";
-    protected final int CLIENT_ZONE_ID = 0;
+    private final Integer clientZoneId;
+    private StoreDefinition storeDef;
+    private List<StoreDefinition> storeDefs;
+
+
+    @Parameterized.Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][]{
+                {0, ClusterTestUtils.getZZZCluster(), ClusterTestUtils.getZZZ322StoreDefs("memory")},
+                {1, ClusterTestUtils.getZZZCluster(), ClusterTestUtils.getZZZ322StoreDefs("memory")},
+                {2, ClusterTestUtils.getZZZCluster(), ClusterTestUtils.getZZZ322StoreDefs("memory")},
+                {1, ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(), ClusterTestUtils.getZ1Z3322StoreDefs("memory")},
+                {3, ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(), ClusterTestUtils.getZ1Z3322StoreDefs("memory")}});
+    }
+
+    public SystemStoreTest(Integer clientZoneId, Cluster cluster, List<StoreDefinition> storeDefs) {
+        this.clientZoneId = clientZoneId;
+        this.cluster = cluster;
+        this.storeDefs = storeDefs;
+        this.storeDef = storeDefs.get(0);
+    }
 
     @Before
     public void setUp() throws Exception {
-
-        cluster = ClusterTestUtils.getZZZCluster();
         servers = new VoldemortServer[cluster.getNodeIds().size()];
 
-        List<StoreDefinition> storeDefs = ClusterTestUtils.getZZZ322StoreDefs("bdb");
         int i = 0;
 
         for(Integer nodeId: cluster.getNodeIds()) {
@@ -103,13 +125,14 @@ public class SystemStoreTest {
         for(VoldemortServer server: servers) {
             ServerTestUtils.stopVoldemortServer(server);
         }
+        ClusterTestUtils.reset();
     }
 
     @Test
     public void testBasicStore() {
         try {
             ClientConfig clientConfig = new ClientConfig();
-            clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.CLIENT_ZONE_ID);
+            clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.clientZoneId);
             SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
             SystemStoreClient<String, String> sysVersionStore = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
 
@@ -128,7 +151,7 @@ public class SystemStoreTest {
     public void testCustomClusterXmlStore() {
         try {
             ClientConfig clientConfig = new ClientConfig();
-            clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.CLIENT_ZONE_ID);
+            clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.clientZoneId);
             SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
             SystemStoreClient<String, String> sysVersionStore = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
                                                                                                this.clusterXml,
@@ -149,7 +172,7 @@ public class SystemStoreTest {
     public void testIllegalSystemStore() {
         try {
             ClientConfig clientConfig = new ClientConfig();
-            clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.CLIENT_ZONE_ID);
+            clientConfig.setBootstrapUrls(bootStrapUrls).setClientZoneId(this.clientZoneId);
             SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
             SystemStoreClient sysVersionStore = systemStoreFactory.createSystemStore("test-store",
                                                                                this.clusterXml,
