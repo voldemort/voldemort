@@ -84,6 +84,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private static AtomicInteger jmxIdCounter = new AtomicInteger(0);
 
     public static final int DEFAULT_ROUTING_TIMEOUT_MS = 5000;
+    public static final int MAX_METADATA_REFRESH_ATTEMPTS = 3;
 
     protected static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
@@ -186,20 +187,26 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         // created already
         Pair<String, Object> cacheKey = Pair.create(storeName, (Object) resolver);
         if(this.config.getCacheStoreClients() && storeClientCache.containsKey(cacheKey)) {
-            return (StoreClient<K, V>) storeClientCache.get(cacheKey);
+            return (DefaultStoreClient<K, V>) storeClientCache.get(cacheKey);
         }
 
         // Else, we move on and create a store client object accordingly
         if(this.config.isDefaultClientEnabled()) {
-            client = new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+            client = new DefaultStoreClient<K, V>(storeName,
+                                                  resolver,
+                                                  this,
+                                                  MAX_METADATA_REFRESH_ATTEMPTS);
         } else if(this.bootstrapUrls.length > 0
                   && this.bootstrapUrls[0].getScheme().equals(HttpStoreClientFactory.URL_SCHEME)) {
-            client = new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+            client = new DefaultStoreClient<K, V>(storeName,
+                                                  resolver,
+                                                  this,
+                                                  MAX_METADATA_REFRESH_ATTEMPTS);
         } else {
             client = new ZenStoreClient<K, V>(storeName,
                                               resolver,
                                               this,
-                                              3,
+                                              MAX_METADATA_REFRESH_ATTEMPTS,
                                               clientContextName,
                                               clientSequencer.getAndIncrement(),
                                               config);
