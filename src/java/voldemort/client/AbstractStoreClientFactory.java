@@ -279,7 +279,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         String storesXml = customStoresXml;
         if(storesXml == null) {
             logger.debug("Fetching stores.xml ...");
-            storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
+            storesXml = bootstrapMetadataWithRetries(storeName, bootstrapUrls);
         }
 
         if(logger.isDebugEnabled()) {
