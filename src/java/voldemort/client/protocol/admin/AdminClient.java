@@ -1442,10 +1442,20 @@ public class AdminClient {
             }
         }
 
-        private void slopPurgeJob(int destinationNodeId, int nodeId, int zoneId) {
-            VAdminProto.SlopPurgeJobRequest.Builder jobRequest = VAdminProto.SlopPurgeJobRequest.newBuilder()
-                                                                                                .setNodeId(nodeId)
-                                                                                                .setZoneId(zoneId);
+        private void slopPurgeJob(int destinationNodeId,
+                                  List<Integer> nodeList,
+                                  int zoneId,
+                                  List<String> storeNames) {
+            VAdminProto.SlopPurgeJobRequest.Builder jobRequest = VAdminProto.SlopPurgeJobRequest.newBuilder();
+            if(nodeList != null) {
+                jobRequest.addAllNodeIds(nodeList);
+            }
+            if(zoneId != -1) {
+                jobRequest.setZoneId(zoneId);
+            }
+            if(storeNames != null) {
+                jobRequest.addAllStoreNames(storeNames);
+            }
 
             VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                               .setSlopPurgeJob(jobRequest)
@@ -1454,10 +1464,13 @@ public class AdminClient {
             helperOps.sendAdminRequest(adminRequest, destinationNodeId);
         }
 
-        public void slopPurgeJob(int nodeId, int zoneId) {
+        public void slopPurgeJob(List<Integer> nodesToPurge,
+                                 int zoneToPurge,
+                                 List<String> storesToPurge) {
+            // Run this on all the nodes in the cluster
             for(Node node: currentCluster.getNodes()) {
                 logger.info("Submitting SlopPurgeJob on node " + node.getId());
-                slopPurgeJob(node.getId(), nodeId, zoneId);
+                slopPurgeJob(node.getId(), nodesToPurge, zoneToPurge, storesToPurge);
             }
         }
 

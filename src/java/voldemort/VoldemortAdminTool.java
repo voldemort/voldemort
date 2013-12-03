@@ -143,6 +143,11 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("output-directory")
               .ofType(String.class);
+        parser.accepts("nodes", "list of nodes")
+              .withRequiredArg()
+              .describedAs("nodes")
+              .withValuesSeparatedBy(',')
+              .ofType(Integer.class);
         parser.accepts("stores", "Store names")
               .withRequiredArg()
               .describedAs("store-names")
@@ -309,7 +314,6 @@ public class VoldemortAdminTool {
                                                       zone);
 
             List<String> storeNames = null;
-
             if(options.has("stores")) {
                 storeNames = (List<String>) options.valuesOf("stores");
             }
@@ -531,10 +535,14 @@ public class VoldemortAdminTool {
                                     useAscii,
                                     options.has("fetch-orphaned"));
             } else if(options.has("purge-slops")) {
-                if(nodeId == -1 && zoneId == -1) {
-                    Utils.croak("Must specify either --node or zone-id with --purge-slops");
+                List<Integer> nodesToPurge = null;
+                if(options.has("nodes")) {
+                    nodesToPurge = (List<Integer>) options.valuesOf("nodes");
                 }
-                executePurgeSlops(adminClient, nodeId, zoneId);
+                if(nodesToPurge == null && zoneId == -1 && storeNames == null) {
+                    Utils.croak("Must specify atleast one of --nodes, --zone-id or --stores with --purge-slops");
+                }
+                executePurgeSlops(adminClient, nodesToPurge, zoneId, storeNames);
             } else if(options.has("synchronize-metadata-version")) {
                 synchronizeMetadataVersion(adminClient, nodeId);
             } else if(options.has("verify-metadata-version")) {
@@ -672,8 +680,11 @@ public class VoldemortAdminTool {
         }
     }
 
-    private static void executePurgeSlops(AdminClient adminClient, Integer nodeId, Integer zoneId) {
-        adminClient.storeMntOps.slopPurgeJob(nodeId, zoneId);
+    private static void executePurgeSlops(AdminClient adminClient,
+                                          List<Integer> nodesToPurge,
+                                          Integer zoneToPurge,
+                                          List<String> storesToPurge) {
+        adminClient.storeMntOps.slopPurgeJob(nodesToPurge, zoneToPurge, storesToPurge);
     }
 
     public static void printHelp(PrintStream stream, OptionParser parser) throws IOException {

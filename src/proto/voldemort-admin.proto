@@ -244,8 +244,9 @@ message PruneJobResponse {
 }
 
 message SlopPurgeJobRequest {
-  optional int32 node_id = 1;
-  optional int32 zone_id = 2;
+  repeated int32 filter_node_ids = 1;
+  optional int32 filter_zone_id = 2;
+  repeated string filter_store_names = 3;
 }
 
 message SlopPurgeJobResponse {

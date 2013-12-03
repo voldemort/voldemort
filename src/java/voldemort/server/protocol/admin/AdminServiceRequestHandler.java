@@ -40,6 +40,7 @@ import voldemort.client.protocol.pb.VAdminProto.RebalanceTaskInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Zone;
 import voldemort.common.nio.ByteBufferBackedInputStream;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
@@ -731,7 +732,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    public VAdminProto.SlopPurgeJobResponse handleSlopPurgeJob(VAdminProto.SlopPurgeJobRequest request) {
+    public VAdminProto.SlopPurgeJobResponse handleSlopPurgeJob(final VAdminProto.SlopPurgeJobRequest request) {
         VAdminProto.SlopPurgeJobResponse.Builder response = VAdminProto.SlopPurgeJobResponse.newBuilder();
         try {
             int requestId = asyncService.getUniqueRequestId();
@@ -747,8 +748,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             logger.info(job.getJobName() + " already running .. backing off.. ");
                             return;
                         }
-                        logger.info("Starting the " + job.getJobName() + " now on ID : "
+                        logger.info("Starting the " + job.getJobName() + " now on node ID : "
                                     + metadataStore.getNodeId());
+
+                        job.setFilter(request.getNodeIdsList(),
+                                      request.hasZoneId() ? request.getZoneId()
+                                                         : Zone.UNSET_ZONE_ID,
+                                      request.getStoreNamesList());
                         job.run();
                     } else {
                         logger.error("SlopPurgeJob is not initialized.");

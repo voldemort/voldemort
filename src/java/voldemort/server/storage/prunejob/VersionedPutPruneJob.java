@@ -153,8 +153,9 @@ public class VersionedPutPruneJob extends DataMaintenanceJob {
                     }
                     itemsScanned = this.numKeysScannedThisRun.incrementAndGet();
                     throttler.maybeThrottle(1);
-                    if(itemsScanned % STAT_RECORDS_INTERVAL == 0)
+                    if(itemsScanned % STAT_RECORDS_INTERVAL == 0) {
                         logger.info("#Scanned:" + itemsScanned + " #Pruned:" + numPrunedKeys);
+                    }
                 } catch(Exception e) {
                     throw e;
                 } finally {

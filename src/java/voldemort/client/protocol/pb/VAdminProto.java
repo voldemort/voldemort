@@ -16453,12 +16453,17 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_SlopPurgeJobRequest_fieldAccessorTable;
     }
     
-    // optional int32 node_id = 1;
-    public static final int NODE_ID_FIELD_NUMBER = 1;
-    private boolean hasNodeId;
-    private int nodeId_ = 0;
-    public boolean hasNodeId() { return hasNodeId; }
-    public int getNodeId() { return nodeId_; }
+    // repeated int32 node_ids = 1;
+    public static final int NODE_IDS_FIELD_NUMBER = 1;
+    private java.util.List<java.lang.Integer> nodeIds_ =
+      java.util.Collections.emptyList();
+    public java.util.List<java.lang.Integer> getNodeIdsList() {
+      return nodeIds_;
+    }
+    public int getNodeIdsCount() { return nodeIds_.size(); }
+    public int getNodeIds(int index) {
+      return nodeIds_.get(index);
+    }
     
     // optional int32 zone_id = 2;
     public static final int ZONE_ID_FIELD_NUMBER = 2;
@@ -16466,6 +16471,18 @@ public final class VAdminProto {
     private int zoneId_ = 0;
     public boolean hasZoneId() { return hasZoneId; }
     public int getZoneId() { return zoneId_; }
+    
+    // repeated string store_names = 3;
+    public static final int STORE_NAMES_FIELD_NUMBER = 3;
+    private java.util.List<java.lang.String> storeNames_ =
+      java.util.Collections.emptyList();
+    public java.util.List<java.lang.String> getStoreNamesList() {
+      return storeNames_;
+    }
+    public int getStoreNamesCount() { return storeNames_.size(); }
+    public java.lang.String getStoreNames(int index) {
+      return storeNames_.get(index);
+    }
     
     private void initFields() {
     }
@@ -16476,11 +16493,14 @@ public final class VAdminProto {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       getSerializedSize();
-      if (hasNodeId()) {
-        output.writeInt32(1, getNodeId());
+      for (int element : getNodeIdsList()) {
+        output.writeInt32(1, element);
       }
       if (hasZoneId()) {
         output.writeInt32(2, getZoneId());
+      }
+      for (java.lang.String element : getStoreNamesList()) {
+        output.writeString(3, element);
       }
       getUnknownFields().writeTo(output);
     }
@@ -16491,13 +16511,27 @@ public final class VAdminProto {
       if (size != -1) return size;
     
       size = 0;
-      if (hasNodeId()) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt32Size(1, getNodeId());
+      {
+        int dataSize = 0;
+        for (int element : getNodeIdsList()) {
+          dataSize += com.google.protobuf.CodedOutputStream
+            .computeInt32SizeNoTag(element);
+        }
+        size += dataSize;
+        size += 1 * getNodeIdsList().size();
       }
       if (hasZoneId()) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt32Size(2, getZoneId());
+      }
+      {
+        int dataSize = 0;
+        for (java.lang.String element : getStoreNamesList()) {
+          dataSize += com.google.protobuf.CodedOutputStream
+            .computeStringSizeNoTag(element);
+        }
+        size += dataSize;
+        size += 1 * getStoreNamesList().size();
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -16641,6 +16675,14 @@ public final class VAdminProto {
           throw new IllegalStateException(
             "build() has already been called on this Builder.");
         }
+        if (result.nodeIds_ != java.util.Collections.EMPTY_LIST) {
+          result.nodeIds_ =
+            java.util.Collections.unmodifiableList(result.nodeIds_);
+        }
+        if (result.storeNames_ != java.util.Collections.EMPTY_LIST) {
+          result.storeNames_ =
+            java.util.Collections.unmodifiableList(result.storeNames_);
+        }
         voldemort.client.protocol.pb.VAdminProto.SlopPurgeJobRequest returnMe = result;
         result = null;
         return returnMe;
@@ -16657,11 +16699,20 @@ public final class VAdminProto {
       
       public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.SlopPurgeJobRequest other) {
         if (other == voldemort.client.protocol.pb.VAdminProto.SlopPurgeJobRequest.getDefaultInstance()) return this;
-        if (other.hasNodeId()) {
-          setNodeId(other.getNodeId());
+        if (!other.nodeIds_.isEmpty()) {
+          if (result.nodeIds_.isEmpty()) {
+            result.nodeIds_ = new java.util.ArrayList<java.lang.Integer>();
+          }
+          result.nodeIds_.addAll(other.nodeIds_);
         }
         if (other.hasZoneId()) {
           setZoneId(other.getZoneId());
+        }
+        if (!other.storeNames_.isEmpty()) {
+          if (result.storeNames_.isEmpty()) {
+            result.storeNames_ = new java.util.ArrayList<java.lang.String>();
+          }
+          result.storeNames_.addAll(other.storeNames_);
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -16689,11 +16740,24 @@ public final class VAdminProto {
               break;
             }
             case 8: {
-              setNodeId(input.readInt32());
+              addNodeIds(input.readInt32());
+              break;
+            }
+            case 10: {
+              int length = input.readRawVarint32();
+              int limit = input.pushLimit(length);
+              while (input.getBytesUntilLimit() > 0) {
+                addNodeIds(input.readInt32());
+              }
+              input.popLimit(limit);
               break;
             }
             case 16: {
               setZoneId(input.readInt32());
+              break;
+            }
+            case 26: {
+              addStoreNames(input.readString());
               break;
             }
           }
@@ -16701,21 +16765,37 @@ public final class VAdminProto {
       }
       
       
-      // optional int32 node_id = 1;
-      public boolean hasNodeId() {
-        return result.hasNodeId();
+      // repeated int32 node_ids = 1;
+      public java.util.List<java.lang.Integer> getNodeIdsList() {
+        return java.util.Collections.unmodifiableList(result.nodeIds_);
       }
-      public int getNodeId() {
-        return result.getNodeId();
+      public int getNodeIdsCount() {
+        return result.getNodeIdsCount();
       }
-      public Builder setNodeId(int value) {
-        result.hasNodeId = true;
-        result.nodeId_ = value;
+      public int getNodeIds(int index) {
+        return result.getNodeIds(index);
+      }
+      public Builder setNodeIds(int index, int value) {
+        result.nodeIds_.set(index, value);
         return this;
       }
-      public Builder clearNodeId() {
-        result.hasNodeId = false;
-        result.nodeId_ = 0;
+      public Builder addNodeIds(int value) {
+        if (result.nodeIds_.isEmpty()) {
+          result.nodeIds_ = new java.util.ArrayList<java.lang.Integer>();
+        }
+        result.nodeIds_.add(value);
+        return this;
+      }
+      public Builder addAllNodeIds(
+          java.lang.Iterable<? extends java.lang.Integer> values) {
+        if (result.nodeIds_.isEmpty()) {
+          result.nodeIds_ = new java.util.ArrayList<java.lang.Integer>();
+        }
+        super.addAll(values, result.nodeIds_);
+        return this;
+      }
+      public Builder clearNodeIds() {
+        result.nodeIds_ = java.util.Collections.emptyList();
         return this;
       }
       
@@ -16734,6 +16814,46 @@ public final class VAdminProto {
       public Builder clearZoneId() {
         result.hasZoneId = false;
         result.zoneId_ = 0;
+        return this;
+      }
+      
+      // repeated string store_names = 3;
+      public java.util.List<java.lang.String> getStoreNamesList() {
+        return java.util.Collections.unmodifiableList(result.storeNames_);
+      }
+      public int getStoreNamesCount() {
+        return result.getStoreNamesCount();
+      }
+      public java.lang.String getStoreNames(int index) {
+        return result.getStoreNames(index);
+      }
+      public Builder setStoreNames(int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  result.storeNames_.set(index, value);
+        return this;
+      }
+      public Builder addStoreNames(java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  if (result.storeNames_.isEmpty()) {
+          result.storeNames_ = new java.util.ArrayList<java.lang.String>();
+        }
+        result.storeNames_.add(value);
+        return this;
+      }
+      public Builder addAllStoreNames(
+          java.lang.Iterable<? extends java.lang.String> values) {
+        if (result.storeNames_.isEmpty()) {
+          result.storeNames_ = new java.util.ArrayList<java.lang.String>();
+        }
+        super.addAll(values, result.storeNames_);
+        return this;
+      }
+      public Builder clearStoreNames() {
+        result.storeNames_ = java.util.Collections.emptyList();
         return this;
       }
       
@@ -25439,111 +25559,112 @@ public final class VAdminProto {
       "rror\030\001 \001(\0132\020.voldemort.Error\"%\n\017PruneJob" +
       "Request\022\022\n\nstore_name\030\001 \001(\t\"3\n\020PruneJobR" +
       "esponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error",
-      "\"7\n\023SlopPurgeJobRequest\022\017\n\007node_id\030\001 \001(\005" +
-      "\022\017\n\007zone_id\030\002 \001(\005\"7\n\024SlopPurgeJobRespons" +
-      "e\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"=\n\024RO" +
-      "StoreVersionDirMap\022\022\n\nstore_name\030\001 \002(\t\022\021" +
-      "\n\tstore_dir\030\002 \002(\t\"/\n\031GetROMaxVersionDirR" +
-      "equest\022\022\n\nstore_name\030\001 \003(\t\"y\n\032GetROMaxVe" +
-      "rsionDirResponse\022:\n\021ro_store_versions\030\001 " +
-      "\003(\0132\037.voldemort.ROStoreVersionDirMap\022\037\n\005" +
-      "error\030\002 \001(\0132\020.voldemort.Error\"3\n\035GetROCu" +
-      "rrentVersionDirRequest\022\022\n\nstore_name\030\001 \003",
-      "(\t\"}\n\036GetROCurrentVersionDirResponse\022:\n\021" +
-      "ro_store_versions\030\001 \003(\0132\037.voldemort.ROSt" +
-      "oreVersionDirMap\022\037\n\005error\030\002 \001(\0132\020.voldem" +
-      "ort.Error\"/\n\031GetROStorageFormatRequest\022\022" +
-      "\n\nstore_name\030\001 \003(\t\"y\n\032GetROStorageFormat" +
-      "Response\022:\n\021ro_store_versions\030\001 \003(\0132\037.vo" +
-      "ldemort.ROStoreVersionDirMap\022\037\n\005error\030\002 " +
-      "\001(\0132\020.voldemort.Error\"@\n\027FailedFetchStor" +
-      "eRequest\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_di" +
-      "r\030\002 \002(\t\";\n\030FailedFetchStoreResponse\022\037\n\005e",
-      "rror\030\001 \001(\0132\020.voldemort.Error\"\356\001\n\033Rebalan" +
-      "ceStateChangeRequest\022<\n\023rebalance_task_l" +
-      "ist\030\001 \003(\0132\037.voldemort.RebalanceTaskInfoM" +
-      "ap\022\026\n\016cluster_string\030\002 \002(\t\022\025\n\rstores_str" +
-      "ing\030\003 \002(\t\022\017\n\007swap_ro\030\004 \002(\010\022\037\n\027change_clu" +
-      "ster_metadata\030\005 \002(\010\022\036\n\026change_rebalance_" +
-      "state\030\006 \002(\010\022\020\n\010rollback\030\007 \002(\010\"?\n\034Rebalan" +
-      "ceStateChangeResponse\022\037\n\005error\030\001 \001(\0132\020.v" +
-      "oldemort.Error\"G\n DeleteStoreRebalanceSt" +
-      "ateRequest\022\022\n\nstore_name\030\001 \002(\t\022\017\n\007node_i",
-      "d\030\002 \002(\005\"D\n!DeleteStoreRebalanceStateResp" +
-      "onse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"h\n" +
-      "\023NativeBackupRequest\022\022\n\nstore_name\030\001 \002(\t" +
-      "\022\022\n\nbackup_dir\030\002 \002(\t\022\024\n\014verify_files\030\003 \002" +
-      "(\010\022\023\n\013incremental\030\004 \002(\010\">\n\024ReserveMemory" +
-      "Request\022\022\n\nstore_name\030\001 \002(\t\022\022\n\nsize_in_m" +
-      "b\030\002 \002(\003\"8\n\025ReserveMemoryResponse\022\037\n\005erro" +
-      "r\030\001 \001(\0132\020.voldemort.Error\"\375\016\n\025VoldemortA" +
-      "dminRequest\022)\n\004type\030\001 \002(\0162\033.voldemort.Ad" +
-      "minRequestType\0223\n\014get_metadata\030\002 \001(\0132\035.v",
-      "oldemort.GetMetadataRequest\0229\n\017update_me" +
-      "tadata\030\003 \001(\0132 .voldemort.UpdateMetadataR" +
-      "equest\022J\n\030update_partition_entries\030\004 \001(\013" +
-      "2(.voldemort.UpdatePartitionEntriesReque" +
-      "st\022H\n\027fetch_partition_entries\030\005 \001(\0132\'.vo" +
-      "ldemort.FetchPartitionEntriesRequest\022J\n\030" +
-      "delete_partition_entries\030\006 \001(\0132(.voldemo" +
-      "rt.DeletePartitionEntriesRequest\022K\n\031init" +
-      "iate_fetch_and_update\030\007 \001(\0132(.voldemort." +
-      "InitiateFetchAndUpdateRequest\022F\n\026async_o",
-      "peration_status\030\010 \001(\0132&.voldemort.AsyncO" +
-      "perationStatusRequest\022H\n\027initiate_rebala" +
-      "nce_node\030\t \001(\0132\'.voldemort.InitiateRebal" +
-      "anceNodeRequest\022B\n\024async_operation_stop\030" +
-      "\n \001(\0132$.voldemort.AsyncOperationStopRequ" +
-      "est\022B\n\024async_operation_list\030\013 \001(\0132$.vold" +
-      "emort.AsyncOperationListRequest\022;\n\020trunc" +
-      "ate_entries\030\014 \001(\0132!.voldemort.TruncateEn" +
-      "triesRequest\022-\n\tadd_store\030\r \001(\0132\032.voldem" +
-      "ort.AddStoreRequest\0223\n\014delete_store\030\016 \001(",
-      "\0132\035.voldemort.DeleteStoreRequest\0221\n\013fetc" +
-      "h_store\030\017 \001(\0132\034.voldemort.FetchStoreRequ" +
-      "est\022/\n\nswap_store\030\020 \001(\0132\033.voldemort.Swap" +
-      "StoreRequest\0227\n\016rollback_store\030\021 \001(\0132\037.v" +
-      "oldemort.RollbackStoreRequest\022D\n\026get_ro_" +
-      "max_version_dir\030\022 \001(\0132$.voldemort.GetROM" +
-      "axVersionDirRequest\022L\n\032get_ro_current_ve" +
-      "rsion_dir\030\023 \001(\0132(.voldemort.GetROCurrent" +
-      "VersionDirRequest\022D\n\025fetch_partition_fil" +
-      "es\030\024 \001(\0132%.voldemort.FetchPartitionFiles",
-      "Request\022@\n\023update_slop_entries\030\026 \001(\0132#.v" +
-      "oldemort.UpdateSlopEntriesRequest\022>\n\022fai" +
-      "led_fetch_store\030\030 \001(\0132\".voldemort.Failed" +
-      "FetchStoreRequest\022C\n\025get_ro_storage_form" +
-      "at\030\031 \001(\0132$.voldemort.GetROStorageFormatR" +
-      "equest\022F\n\026rebalance_state_change\030\032 \001(\0132&" +
-      ".voldemort.RebalanceStateChangeRequest\022/" +
-      "\n\nrepair_job\030\033 \001(\0132\033.voldemort.RepairJob" +
-      "Request\022Q\n\034delete_store_rebalance_state\030" +
-      "\035 \001(\0132+.voldemort.DeleteStoreRebalanceSt",
-      "ateRequest\0225\n\rnative_backup\030\036 \001(\0132\036.vold" +
-      "emort.NativeBackupRequest\0227\n\016reserve_mem" +
-      "ory\030\037 \001(\0132\037.voldemort.ReserveMemoryReque" +
-      "st\022-\n\tprune_job\030  \001(\0132\032.voldemort.PruneJ" +
-      "obRequest\0226\n\016slop_purge_job\030! \001(\0132\036.vold" +
-      "emort.SlopPurgeJobRequest*\305\005\n\020AdminReque" +
-      "stType\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METAD" +
-      "ATA\020\001\022\034\n\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027F" +
-      "ETCH_PARTITION_ENTRIES\020\003\022\034\n\030DELETE_PARTI" +
-      "TION_ENTRIES\020\004\022\035\n\031INITIATE_FETCH_AND_UPD",
-      "ATE\020\005\022\032\n\026ASYNC_OPERATION_STATUS\020\006\022\033\n\027INI" +
-      "TIATE_REBALANCE_NODE\020\007\022\030\n\024ASYNC_OPERATIO" +
-      "N_STOP\020\010\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020TR" +
-      "UNCATE_ENTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELET" +
-      "E_STORE\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STORE" +
-      "\020\016\022\022\n\016ROLLBACK_STORE\020\017\022\032\n\026GET_RO_MAX_VER" +
-      "SION_DIR\020\020\022\036\n\032GET_RO_CURRENT_VERSION_DIR" +
-      "\020\021\022\031\n\025FETCH_PARTITION_FILES\020\022\022\027\n\023UPDATE_" +
-      "SLOP_ENTRIES\020\024\022\026\n\022FAILED_FETCH_STORE\020\026\022\031" +
-      "\n\025GET_RO_STORAGE_FORMAT\020\027\022\032\n\026REBALANCE_S",
-      "TATE_CHANGE\020\030\022\016\n\nREPAIR_JOB\020\031\022 \n\034DELETE_" +
-      "STORE_REBALANCE_STATE\020\033\022\021\n\rNATIVE_BACKUP" +
-      "\020\034\022\022\n\016RESERVE_MEMORY\020\035\022\r\n\tPRUNE_JOB\020\036\022\022\n" +
-      "\016SLOP_PURGE_JOB\020\037B-\n\034voldemort.client.pr" +
-      "otocol.pbB\013VAdminProtoH\001"
+      "\"M\n\023SlopPurgeJobRequest\022\020\n\010node_ids\030\001 \003(" +
+      "\005\022\017\n\007zone_id\030\002 \001(\005\022\023\n\013store_names\030\003 \003(\t\"" +
+      "7\n\024SlopPurgeJobResponse\022\037\n\005error\030\001 \001(\0132\020" +
+      ".voldemort.Error\"=\n\024ROStoreVersionDirMap" +
+      "\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\"" +
+      "/\n\031GetROMaxVersionDirRequest\022\022\n\nstore_na" +
+      "me\030\001 \003(\t\"y\n\032GetROMaxVersionDirResponse\022:" +
+      "\n\021ro_store_versions\030\001 \003(\0132\037.voldemort.RO" +
+      "StoreVersionDirMap\022\037\n\005error\030\002 \001(\0132\020.vold" +
+      "emort.Error\"3\n\035GetROCurrentVersionDirReq",
+      "uest\022\022\n\nstore_name\030\001 \003(\t\"}\n\036GetROCurrent" +
+      "VersionDirResponse\022:\n\021ro_store_versions\030" +
+      "\001 \003(\0132\037.voldemort.ROStoreVersionDirMap\022\037" +
+      "\n\005error\030\002 \001(\0132\020.voldemort.Error\"/\n\031GetRO" +
+      "StorageFormatRequest\022\022\n\nstore_name\030\001 \003(\t" +
+      "\"y\n\032GetROStorageFormatResponse\022:\n\021ro_sto" +
+      "re_versions\030\001 \003(\0132\037.voldemort.ROStoreVer" +
+      "sionDirMap\022\037\n\005error\030\002 \001(\0132\020.voldemort.Er" +
+      "ror\"@\n\027FailedFetchStoreRequest\022\022\n\nstore_" +
+      "name\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\";\n\030FailedF",
+      "etchStoreResponse\022\037\n\005error\030\001 \001(\0132\020.volde" +
+      "mort.Error\"\356\001\n\033RebalanceStateChangeReque" +
+      "st\022<\n\023rebalance_task_list\030\001 \003(\0132\037.voldem" +
+      "ort.RebalanceTaskInfoMap\022\026\n\016cluster_stri" +
+      "ng\030\002 \002(\t\022\025\n\rstores_string\030\003 \002(\t\022\017\n\007swap_" +
+      "ro\030\004 \002(\010\022\037\n\027change_cluster_metadata\030\005 \002(" +
+      "\010\022\036\n\026change_rebalance_state\030\006 \002(\010\022\020\n\010rol" +
+      "lback\030\007 \002(\010\"?\n\034RebalanceStateChangeRespo" +
+      "nse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"G\n " +
+      "DeleteStoreRebalanceStateRequest\022\022\n\nstor",
+      "e_name\030\001 \002(\t\022\017\n\007node_id\030\002 \002(\005\"D\n!DeleteS" +
+      "toreRebalanceStateResponse\022\037\n\005error\030\001 \001(" +
+      "\0132\020.voldemort.Error\"h\n\023NativeBackupReque" +
+      "st\022\022\n\nstore_name\030\001 \002(\t\022\022\n\nbackup_dir\030\002 \002" +
+      "(\t\022\024\n\014verify_files\030\003 \002(\010\022\023\n\013incremental\030" +
+      "\004 \002(\010\">\n\024ReserveMemoryRequest\022\022\n\nstore_n" +
+      "ame\030\001 \002(\t\022\022\n\nsize_in_mb\030\002 \002(\003\"8\n\025Reserve" +
+      "MemoryResponse\022\037\n\005error\030\001 \001(\0132\020.voldemor" +
+      "t.Error\"\375\016\n\025VoldemortAdminRequest\022)\n\004typ" +
+      "e\030\001 \002(\0162\033.voldemort.AdminRequestType\0223\n\014",
+      "get_metadata\030\002 \001(\0132\035.voldemort.GetMetada" +
+      "taRequest\0229\n\017update_metadata\030\003 \001(\0132 .vol" +
+      "demort.UpdateMetadataRequest\022J\n\030update_p" +
+      "artition_entries\030\004 \001(\0132(.voldemort.Updat" +
+      "ePartitionEntriesRequest\022H\n\027fetch_partit" +
+      "ion_entries\030\005 \001(\0132\'.voldemort.FetchParti" +
+      "tionEntriesRequest\022J\n\030delete_partition_e" +
+      "ntries\030\006 \001(\0132(.voldemort.DeletePartition" +
+      "EntriesRequest\022K\n\031initiate_fetch_and_upd" +
+      "ate\030\007 \001(\0132(.voldemort.InitiateFetchAndUp",
+      "dateRequest\022F\n\026async_operation_status\030\010 " +
+      "\001(\0132&.voldemort.AsyncOperationStatusRequ" +
+      "est\022H\n\027initiate_rebalance_node\030\t \001(\0132\'.v" +
+      "oldemort.InitiateRebalanceNodeRequest\022B\n" +
+      "\024async_operation_stop\030\n \001(\0132$.voldemort." +
+      "AsyncOperationStopRequest\022B\n\024async_opera" +
+      "tion_list\030\013 \001(\0132$.voldemort.AsyncOperati" +
+      "onListRequest\022;\n\020truncate_entries\030\014 \001(\0132" +
+      "!.voldemort.TruncateEntriesRequest\022-\n\tad" +
+      "d_store\030\r \001(\0132\032.voldemort.AddStoreReques",
+      "t\0223\n\014delete_store\030\016 \001(\0132\035.voldemort.Dele" +
+      "teStoreRequest\0221\n\013fetch_store\030\017 \001(\0132\034.vo" +
+      "ldemort.FetchStoreRequest\022/\n\nswap_store\030" +
+      "\020 \001(\0132\033.voldemort.SwapStoreRequest\0227\n\016ro" +
+      "llback_store\030\021 \001(\0132\037.voldemort.RollbackS" +
+      "toreRequest\022D\n\026get_ro_max_version_dir\030\022 " +
+      "\001(\0132$.voldemort.GetROMaxVersionDirReques" +
+      "t\022L\n\032get_ro_current_version_dir\030\023 \001(\0132(." +
+      "voldemort.GetROCurrentVersionDirRequest\022" +
+      "D\n\025fetch_partition_files\030\024 \001(\0132%.voldemo",
+      "rt.FetchPartitionFilesRequest\022@\n\023update_" +
+      "slop_entries\030\026 \001(\0132#.voldemort.UpdateSlo" +
+      "pEntriesRequest\022>\n\022failed_fetch_store\030\030 " +
+      "\001(\0132\".voldemort.FailedFetchStoreRequest\022" +
+      "C\n\025get_ro_storage_format\030\031 \001(\0132$.voldemo" +
+      "rt.GetROStorageFormatRequest\022F\n\026rebalanc" +
+      "e_state_change\030\032 \001(\0132&.voldemort.Rebalan" +
+      "ceStateChangeRequest\022/\n\nrepair_job\030\033 \001(\013" +
+      "2\033.voldemort.RepairJobRequest\022Q\n\034delete_" +
+      "store_rebalance_state\030\035 \001(\0132+.voldemort.",
+      "DeleteStoreRebalanceStateRequest\0225\n\rnati" +
+      "ve_backup\030\036 \001(\0132\036.voldemort.NativeBackup" +
+      "Request\0227\n\016reserve_memory\030\037 \001(\0132\037.voldem" +
+      "ort.ReserveMemoryRequest\022-\n\tprune_job\030  " +
+      "\001(\0132\032.voldemort.PruneJobRequest\0226\n\016slop_" +
+      "purge_job\030! \001(\0132\036.voldemort.SlopPurgeJob" +
+      "Request*\305\005\n\020AdminRequestType\022\020\n\014GET_META" +
+      "DATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022\034\n\030UPDATE_PA" +
+      "RTITION_ENTRIES\020\002\022\033\n\027FETCH_PARTITION_ENT" +
+      "RIES\020\003\022\034\n\030DELETE_PARTITION_ENTRIES\020\004\022\035\n\031",
+      "INITIATE_FETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPE" +
+      "RATION_STATUS\020\006\022\033\n\027INITIATE_REBALANCE_NO" +
+      "DE\020\007\022\030\n\024ASYNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_" +
+      "OPERATION_LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r" +
+      "\n\tADD_STORE\020\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH" +
+      "_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016ROLLBACK_STO" +
+      "RE\020\017\022\032\n\026GET_RO_MAX_VERSION_DIR\020\020\022\036\n\032GET_" +
+      "RO_CURRENT_VERSION_DIR\020\021\022\031\n\025FETCH_PARTIT" +
+      "ION_FILES\020\022\022\027\n\023UPDATE_SLOP_ENTRIES\020\024\022\026\n\022" +
+      "FAILED_FETCH_STORE\020\026\022\031\n\025GET_RO_STORAGE_F",
+      "ORMAT\020\027\022\032\n\026REBALANCE_STATE_CHANGE\020\030\022\016\n\nR" +
+      "EPAIR_JOB\020\031\022 \n\034DELETE_STORE_REBALANCE_ST" +
+      "ATE\020\033\022\021\n\rNATIVE_BACKUP\020\034\022\022\n\016RESERVE_MEMO" +
+      "RY\020\035\022\r\n\tPRUNE_JOB\020\036\022\022\n\016SLOP_PURGE_JOB\020\037B" +
+      "-\n\034voldemort.client.protocol.pbB\013VAdminP" +
+      "rotoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -25915,7 +26036,7 @@ public final class VAdminProto {
           internal_static_voldemort_SlopPurgeJobRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_SlopPurgeJobRequest_descriptor,
-              new java.lang.String[] { "NodeId", "ZoneId", },
+              new java.lang.String[] { "NodeIds", "ZoneId", "StoreNames", },
               voldemort.client.protocol.pb.VAdminProto.SlopPurgeJobRequest.class,
               voldemort.client.protocol.pb.VAdminProto.SlopPurgeJobRequest.Builder.class);
           internal_static_voldemort_SlopPurgeJobResponse_descriptor =
