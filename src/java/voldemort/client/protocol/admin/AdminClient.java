@@ -240,7 +240,7 @@ public class AdminClient {
                        ClientConfig clientConfig) {
         this(adminClientConfig, clientConfig);
         this.currentCluster = cluster;
-        Node node = cluster.getNodeById(0);
+        Node node = cluster.getNodeById(cluster.getNodeIds().iterator().next());
         String bootstrapURL = "tcp://" + node.getHost() + ":" + node.getSocketPort();
         helperOps.cacheSystemStoreParams(bootstrapURL, DEFAULT_ZONE_ID);
     }
