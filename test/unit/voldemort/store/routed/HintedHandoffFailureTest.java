@@ -707,7 +707,7 @@ public class HintedHandoffFailureTest {
                   failureDetector,
                   true,
                   new TimeoutConfig(routingTimeoutInMs),
-                  Zone.DEFAULT_ZONE_ID,
+                  Zone.UNSET_ZONE_ID,
                   false,
                   0,
                   new ZoneAffinity());

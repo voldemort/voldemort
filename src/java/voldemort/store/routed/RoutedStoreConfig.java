@@ -28,7 +28,7 @@ public class RoutedStoreConfig {
     private TimeoutConfig timeoutConfig = new TimeoutConfig();
     private boolean isJmxEnabled = false;
     private int jmxId = 0;
-    private int clientZoneId = Zone.DEFAULT_ZONE_ID;
+    private int clientZoneId = Zone.UNSET_ZONE_ID;
     private ZoneAffinity zoneAffinity = new ZoneAffinity();
 
     public RoutedStoreConfig() {}

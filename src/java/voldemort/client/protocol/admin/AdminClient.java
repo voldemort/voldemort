@@ -62,6 +62,7 @@ import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.RequestRoutingType;
@@ -138,7 +139,6 @@ public class AdminClient {
     private static final long PRINT_STATS_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
     private static final String CLUSTER_VERSION_KEY = "cluster.xml";
-    private static final int DEFAULT_ZONE_ID = 0;
 
     public final static List<String> restoreStoreEngineBlackList = Arrays.asList(ReadOnlyStorageConfiguration.TYPE_NAME,
                                                                                  ViewStorageConfiguration.TYPE_NAME);
@@ -218,7 +218,7 @@ public class AdminClient {
                        ClientConfig clientConfig) {
         this(adminClientConfig, clientConfig);
         this.currentCluster = helperOps.getClusterFromBootstrapURL(bootstrapURL);
-        helperOps.cacheSystemStoreParams(bootstrapURL, DEFAULT_ZONE_ID);
+        helperOps.cacheSystemStoreParams(bootstrapURL);
     }
 
     /**
@@ -242,7 +242,7 @@ public class AdminClient {
         this.currentCluster = cluster;
         Node node = cluster.getNodeById(cluster.getNodeIds().iterator().next());
         String bootstrapURL = "tcp://" + node.getHost() + ":" + node.getSocketPort();
-        helperOps.cacheSystemStoreParams(bootstrapURL, DEFAULT_ZONE_ID);
+        helperOps.cacheSystemStoreParams(bootstrapURL);
     }
 
     /**
@@ -334,6 +334,14 @@ public class AdminClient {
             bootstrapUrls[0] = bootstrapURL;
             AdminClient.this.cachedBootstrapURLs = bootstrapUrls;
             AdminClient.this.cachedZoneID = zoneID;
+        }
+
+
+        private void cacheSystemStoreParams(String bootstrapURL) {
+            String[] bootstrapUrls = new String[1];
+            bootstrapUrls[0] = bootstrapURL;
+            AdminClient.this.cachedBootstrapURLs = bootstrapUrls;
+            AdminClient.this.cachedZoneID = Zone.UNSET_ZONE_ID;
         }
 
         /**

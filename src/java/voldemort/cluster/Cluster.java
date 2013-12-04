@@ -175,14 +175,8 @@ public class Cluster implements Serializable {
     public Zone getZoneById(int id) {
         Zone zone = zonesById.get(id);
         if(zone == null) {
-            if(id == Zone.DEFAULT_ZONE_ID)
-                throw new VoldemortException("Incorrect configuration. Default zone ID:" + id
-                                             + " required but not specified.");
-            else {
-                throw new VoldemortException("No such zone in cluster: " + id
-                                             + " Available zones : " + displayZones());
-            }
-
+            throw new VoldemortException("No such zone in cluster: " + id
+                                         + " Available zones : " + displayZones());
         }
         return zone;
     }

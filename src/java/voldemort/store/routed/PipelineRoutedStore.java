@@ -139,7 +139,12 @@ public class PipelineRoutedStore extends RoutedStore {
             }
         }
         this.nonblockingSlopStores = nonblockingSlopStores;
-        this.clientZone = cluster.getZoneById(clientZoneId);
+        if(clientZoneId == Zone.UNSET_ZONE_ID) {
+            logger.warn("Client Zone is not specified. Will use first zone in cluster");
+            this.clientZone = cluster.getZones().iterator().next();
+        } else {
+            this.clientZone = cluster.getZoneById(clientZoneId);
+        }
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.slopStores = slopStores;
         if(storeDef.getRoutingStrategyType().compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
