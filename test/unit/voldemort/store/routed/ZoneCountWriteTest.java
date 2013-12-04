@@ -72,44 +72,20 @@ public class ZoneCountWriteTest {
         clientConfig.setClientZoneId(3);
         clientConfig.setBootstrapUrls(z1z3z5cluster.getNodeById(3).getSocketUrl().toString());
         clientConfig.getZoneAffinity().setEnableGetOpZoneAffinity(true);
-        Set<Integer> stoppedServersForRemoteZoneNodeFail = new HashSet<Integer>(Arrays.asList(4,
-                                                                                              5,
-                                                                                              9,
-                                                                                              10,
-                                                                                              11,
-                                                                                              15,
-                                                                                              16));
-        Set<Integer> stoppedServersForInsufficientZone = new HashSet<Integer>(Arrays.asList(5,
-                                                                                            9,
-                                                                                            10,
-                                                                                            11,
-                                                                                            15,
-                                                                                            16,
-                                                                                            17));
+        Set<Integer> stoppedServersForRemoteZoneNodeFail = new HashSet<Integer>(Arrays.asList(4, 5, 9, 10, 11, 15, 16));
+        Set<Integer> stoppedServersForInsufficientZone = new HashSet<Integer>(Arrays.asList(5, 9, 10, 11, 15, 16, 17));
         Cluster zzzCluster = ClusterTestUtils.getZZZCluster();
         List<StoreDefinition> zzzStoreDefs = ClusterTestUtils.getZZZ322StoreDefs("memory");
-        ClientConfig anotherClientConfig = new ClientConfig();
-        anotherClientConfig.setClientZoneId(0);
-        anotherClientConfig.setBootstrapUrls(zzzCluster.getNodeById(0).getSocketUrl().toString());
-        anotherClientConfig.getZoneAffinity().setEnableGetOpZoneAffinity(true);
-        Set<Integer> zzzstoppedServersForRemoteZoneNodeFail = new HashSet<Integer>(Arrays.asList(1,
-                                                                                                 2,
-                                                                                                 3,
-                                                                                                 4,
-                                                                                                 5,
-                                                                                                 6,
-                                                                                                 7));
-        Set<Integer> zzzstoppedServersForInsufficientZone = new HashSet<Integer>(Arrays.asList(2,
-                                                                                               3,
-                                                                                               4,
-                                                                                               5,
-                                                                                               6,
-                                                                                               7,
-                                                                                               8));
+        ClientConfig zzzClientConfig = new ClientConfig();
+        zzzClientConfig.setClientZoneId(0);
+        zzzClientConfig.setBootstrapUrls(zzzCluster.getNodeById(0).getSocketUrl().toString());
+        zzzClientConfig.getZoneAffinity().setEnableGetOpZoneAffinity(true);
+        Set<Integer> zzzstoppedServersForRemoteZoneNodeFail = new HashSet<Integer>(Arrays.asList(1, 2, 3, 4, 5, 6, 7));
+        Set<Integer> zzzstoppedServersForInsufficientZone = new HashSet<Integer>(Arrays.asList(2, 3, 4, 5, 6, 7, 8));
         return Arrays.asList(new Object[][] {
                 { z1z3z5cluster, z1z3z5StoreDefs, clientConfig,
                         stoppedServersForRemoteZoneNodeFail, stoppedServersForInsufficientZone },
-                { zzzCluster, zzzStoreDefs, anotherClientConfig,
+                { zzzCluster, zzzStoreDefs, zzzClientConfig,
                         zzzstoppedServersForRemoteZoneNodeFail,
                         zzzstoppedServersForInsufficientZone }
 
