@@ -70,8 +70,11 @@ public abstract class AbstractZoneAffinityTest {
 
     @Before
     public void setup() throws IOException {
-        byte[] bytes1 = { (byte) 'A', (byte) 'B' };
-        byte[] bytes2 = { (byte) 'C', (byte) 'D' };
+        byte[] v1_bytes = { (byte) 'V', (byte) '1' };
+        byte[] v2_bytes = { (byte) 'V', (byte) '2' };
+        byte[] k1_bytes = { (byte) 'K', (byte) '1' };
+        byte[] k2_bytes = { (byte) 'K', (byte) '2' };
+        byte[] k3_bytes = { (byte) 'K', (byte) '3' };
         clientConfig = new ClientConfig();
         clientConfig.setBootstrapUrls(cluster.getNodes().iterator().next().getSocketUrl().toString());
         clientConfig.setClientZoneId(clientZoneId);
@@ -103,9 +106,14 @@ public abstract class AbstractZoneAffinityTest {
             VectorClock version2 = version1.incremented(0, System.currentTimeMillis());
 
             if(node.getZoneId() == clientZoneId) {
-                store.put(new ByteArray(bytes1), new Versioned<byte[]>(bytes1, version1), null);
+                // local zone
+                store.put(new ByteArray(k1_bytes), new Versioned<byte[]>(v1_bytes, version1), null);
+                store.put(new ByteArray(k2_bytes), new Versioned<byte[]>(v1_bytes, version1), null);
             } else {
-                store.put(new ByteArray(bytes1), new Versioned<byte[]>(bytes2, version2), null);
+                // remote zone
+                store.put(new ByteArray(k1_bytes), new Versioned<byte[]>(v2_bytes, version2), null);
+                store.put(new ByteArray(k2_bytes), new Versioned<byte[]>(v1_bytes, version1), null);
+                store.put(new ByteArray(k3_bytes), new Versioned<byte[]>(v1_bytes, version1), null);
             }
         }
 

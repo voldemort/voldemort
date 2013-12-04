@@ -49,8 +49,8 @@ public class ZoneAffinityGetTest extends AbstractZoneAffinityTest {
     @Test
     public void testAllUp() {
         try {
-            List<Versioned<String>> versioneds = client.get("AB", null);
-            assertEquals(versioneds.get(0).getValue(), "AB");
+            List<Versioned<String>> versioneds = client.get("K1", null);
+            assertEquals(versioneds.get(0).getValue(), "V1");
         } catch(InsufficientOperationalNodesException e) {
             fail("Failed with exception: " + e);
         }
@@ -62,7 +62,7 @@ public class ZoneAffinityGetTest extends AbstractZoneAffinityTest {
             this.vservers.get(nodeId).stop();
         }
         try {
-            client.get("AB", null);
+            client.get("K1", null);
             fail("Did not fail fast");
         } catch(InsufficientOperationalNodesException e) {
 
@@ -75,7 +75,7 @@ public class ZoneAffinityGetTest extends AbstractZoneAffinityTest {
         // complete
         this.vservers.get(cluster.getNodeIdsInZone(clientZoneId).iterator().next()).stop();
         try {
-            client.get("AB", null);
+            client.get("K1", null);
         } catch(InsufficientOperationalNodesException e) {
             fail("Failed with exception: " + e);
         }
@@ -91,7 +91,7 @@ public class ZoneAffinityGetTest extends AbstractZoneAffinityTest {
             this.vservers.get(nodeId).stop();
         }
         try {
-            client.get("AB", null);
+            client.get("K1", null);
             fail("Did not fail fast");
         } catch(InsufficientOperationalNodesException e) {
 

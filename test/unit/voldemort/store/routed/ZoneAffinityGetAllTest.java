@@ -55,8 +55,8 @@ public class ZoneAffinityGetAllTest extends AbstractZoneAffinityTest{
             keys.add("K2");
             keys.add("K3");
             Map<String, List<Versioned<String>>> versioneds = client.getAll(keys, null);
-            assertEquals("AB", versioneds.get("K1").get(0).getValue());
-            assertEquals("AB", versioneds.get("K2").get(0).getValue());
+            assertEquals("V1", versioneds.get("K1").get(0).getValue());
+            assertEquals("V1", versioneds.get("K2").get(0).getValue());
             assertEquals(null, versioneds.get("K3"));
         } catch(InsufficientOperationalNodesException e) {
             fail("Failed with exception: " + e);
@@ -93,8 +93,8 @@ public class ZoneAffinityGetAllTest extends AbstractZoneAffinityTest{
             keys.add("K2");
             keys.add("K3");
             Map<String, List<Versioned<String>>> versioneds = client.getAll(keys, null);
-            assertEquals("AB", versioneds.get("K1").get(0).getValue());
-            assertEquals("AB", versioneds.get("K2").get(0).getValue());
+            assertEquals("V1", versioneds.get("K1").get(0).getValue());
+            assertEquals("V1", versioneds.get("K2").get(0).getValue());
             assertEquals(null, versioneds.get("K3"));
         } catch(InsufficientOperationalNodesException e) {
             fail("Failed with exception: " + e);
