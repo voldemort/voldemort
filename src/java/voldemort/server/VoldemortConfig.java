@@ -211,6 +211,7 @@ public class VoldemortConfig implements Serializable {
     private long slopMaxReadBytesPerSec;
     private int slopBatchSize;
     private int slopZonesDownToTerminate;
+    private boolean autoPurgeDeadSlops;
 
     private int adminCoreThreads;
     private int adminMaxThreads;
@@ -465,6 +466,7 @@ public class VoldemortConfig implements Serializable {
         this.slopBatchSize = props.getInt("slop.batch.size", 100);
         this.pusherType = props.getString("pusher.type", StreamingSlopPusherJob.TYPE_NAME);
         this.slopZonesDownToTerminate = props.getInt("slop.zones.terminate", 0);
+        this.autoPurgeDeadSlops = props.getBoolean("auto.purge.dead.slops", true);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 6);
         this.mayInterruptService = props.getBoolean("service.interruptible", true);
@@ -1814,6 +1816,24 @@ public class VoldemortConfig implements Serializable {
         this.slopZonesDownToTerminate = slopZonesDownToTerminate;
     }
 
+    public boolean getAutoPurgeDeadSlops() {
+        return this.autoPurgeDeadSlops;
+    }
+
+    /**
+     * if true, dead slops accumulated for nodes/stores that are no longer part
+     * of the cluster, will be automatically deleted by the slop pusher, when it
+     * runs. If false, they will be ignored.
+     * 
+     * <ul>
+     * <li>Property :"auto.purge.dead.slops"</li>
+     * <li>Default :true</li>
+     * </ul>
+     */
+    public void setAutoPurgeDeadSlops(boolean autoPurgeDeadSlops) {
+        this.autoPurgeDeadSlops = autoPurgeDeadSlops;
+    }
+
     public int getSlopBatchSize() {
         return this.slopBatchSize;
     }
@@ -3091,7 +3111,7 @@ public class VoldemortConfig implements Serializable {
     public void setPruneJobMaxKeysScannedPerSec(int maxKeysPerSecond) {
         this.pruneJobMaxKeysScannedPerSec = maxKeysPerSecond;
     }
-    
+
     /**
      * Kdc for kerberized Hadoop grids
      * 

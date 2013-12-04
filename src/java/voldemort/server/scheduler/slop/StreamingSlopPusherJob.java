@@ -53,7 +53,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
-import voldemort.utils.Utils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -64,16 +64,13 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 @SuppressWarnings("unchecked")
-public class StreamingSlopPusherJob implements Runnable {
+public class StreamingSlopPusherJob extends SlopPusherJob implements Runnable {
 
     private final static Logger logger = Logger.getLogger(StreamingSlopPusherJob.class.getName());
     public final static String TYPE_NAME = "streaming";
 
     private final static Versioned<Slop> END = Versioned.value(null);
 
-    private final MetadataStore metadataStore;
-    private final StoreRepository storeRepo;
-    private final FailureDetector failureDetector;
     private ConcurrentMap<Integer, SynchronousQueue<Versioned<Slop>>> slopQueues;
     private ExecutorService consumerExecutor;
     private final EventThrottler readThrottler;
@@ -81,11 +78,9 @@ public class StreamingSlopPusherJob implements Runnable {
     private Cluster cluster;
 
     private final List<Future> consumerResults;
-    private final VoldemortConfig voldemortConfig;
     private final Map<Integer, Set<Integer>> zoneMapping;
     private ConcurrentHashMap<Integer, Long> attemptedByNode;
     private ConcurrentHashMap<Integer, Long> succeededByNode;
-    private final ScanPermitWrapper repairPermits;
     private final StreamingStats streamStats;
 
     public StreamingSlopPusherJob(StoreRepository storeRepo,
@@ -93,11 +88,7 @@ public class StreamingSlopPusherJob implements Runnable {
                                   FailureDetector failureDetector,
                                   VoldemortConfig voldemortConfig,
                                   ScanPermitWrapper repairPermits) {
-        this.storeRepo = storeRepo;
-        this.metadataStore = metadataStore;
-        this.failureDetector = failureDetector;
-        this.voldemortConfig = voldemortConfig;
-        this.repairPermits = Utils.notNull(repairPermits);
+        super(storeRepo, metadataStore, failureDetector, voldemortConfig, repairPermits);
         if(voldemortConfig.isJmxEnabled()) {
             this.streamStats = storeRepo.getStreamingStats(this.storeRepo.getSlopStore().getName());
         } else {
@@ -180,6 +171,7 @@ public class StreamingSlopPusherJob implements Runnable {
             attemptedByNode.put(node.getId(), 0L);
             succeededByNode.put(node.getId(), 0L);
         }
+        Set<String> storeNames = StoreDefinitionUtils.getStoreNamesSet(metadataStore.getStoreDefList());
 
         acquireRepairPermit();
         try {
@@ -199,6 +191,15 @@ public class StreamingSlopPusherJob implements Runnable {
 
                     // Retrieve the node
                     int nodeId = versioned.getValue().getNodeId();
+
+                    // check for dead slops
+                    if(isSlopDead(cluster, storeNames, versioned.getValue())) {
+                        handleDeadSlop(slopStorageEngine, keyAndVal);
+                        // Move on to the next slop. we either delete it or
+                        // ignore it.
+                        continue;
+                    }
+
                     Node node = cluster.getNodeById(nodeId);
 
                     attemptedPushes.incrementAndGet();
@@ -486,5 +487,10 @@ public class StreamingSlopPusherJob implements Runnable {
                 slopQueues.remove(nodeId);
             }
         }
+    }
+
+    @Override
+    public Logger getLogger() {
+        return logger;
     }
 }

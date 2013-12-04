@@ -18,7 +18,9 @@ package voldemort.utils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import voldemort.VoldemortException;
 import voldemort.routing.RoutingStrategyType;
@@ -64,6 +66,20 @@ public class StoreDefinitionUtils {
     }
 
     /**
+     * Given a list of store definitions return a set of store names
+     * 
+     * @param storeDefList The list of store definitions
+     * @return Returns a set of store names
+     */
+    public static Set<String> getStoreNamesSet(List<StoreDefinition> storeDefList) {
+        HashSet<String> storeSet = new HashSet<String>();
+        for(StoreDefinition def: storeDefList) {
+            storeSet.add(def.getName());
+        }
+        return storeSet;
+    }
+
+    /**
      * Given a store name and a list of store definitions, returns the
      * appropriate store definition ( if it exists )
      * 
@@ -94,8 +110,7 @@ public class StoreDefinitionUtils {
      * @param storeDefs All store definitions
      * @return Map of a unique store definition + counts
      */
-    public static HashMap<StoreDefinition, Integer>
-            getUniqueStoreDefinitionsWithCounts(List<StoreDefinition> storeDefs) {
+    public static HashMap<StoreDefinition, Integer> getUniqueStoreDefinitionsWithCounts(List<StoreDefinition> storeDefs) {
 
         HashMap<StoreDefinition, Integer> uniqueStoreDefs = Maps.newHashMap();
         for(StoreDefinition storeDef: storeDefs) {

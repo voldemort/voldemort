@@ -46,7 +46,7 @@ import com.google.common.collect.Lists;
 
 public class BlockingSlopPusherTest extends TestCase {
 
-    private final static String STORE_NAME = "test";
+    private final static String STORE_NAME = "test0";
 
     private BlockingSlopPusherJob pusher;
     private StoreRepository repo;

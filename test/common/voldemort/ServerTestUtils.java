@@ -74,6 +74,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Props;
@@ -799,6 +800,14 @@ public class ServerTestUtils {
     public static List<Versioned<Slop>> createRandomSlops(int nodeId,
                                                           int numKeys,
                                                           String... storeNames) {
+        return createRandomSlops(nodeId, numKeys, true, storeNames);
+
+    }
+
+    public static List<Versioned<Slop>> createRandomSlops(int nodeId,
+                                                          int numKeys,
+                                                          boolean generateTwice,
+                                                          String... storeNames) {
         List<Versioned<Slop>> slops = new ArrayList<Versioned<Slop>>();
 
         for(int cnt = 0; cnt < numKeys; cnt++) {
@@ -823,9 +832,11 @@ public class ServerTestUtils {
                                                                  nodeId,
                                                                  new Date()));
             slops.add(versioned);
-            // Adding twice so as check if ObsoleteVersionExceptions are
-            // swallowed correctly
-            slops.add(versioned);
+            if(generateTwice) {
+                // Adding twice so as check if ObsoleteVersionExceptions are
+                // swallowed correctly
+                slops.add(versioned);
+            }
         }
 
         return slops;
@@ -1196,6 +1207,33 @@ public class ServerTestUtils {
         }
 
         return cluster;
+    }
+
+    public static VoldemortServer startStandAloneVoldemortServer(Properties serverProperties,
+                                                                 String storesXmlFile)
+            throws IOException {
+
+        VoldemortServer[] servers = new VoldemortServer[1];
+        int partitionMap[][] = { { 0, 1, 2, 3 } };
+
+        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                              10000,
+                                                                              100000,
+                                                                              32 * 1024);
+        try {
+            Cluster cluster = ServerTestUtils.startVoldemortCluster(1,
+                                                                    servers,
+                                                                    partitionMap,
+                                                                    socketStoreFactory,
+                                                                    true,
+                                                                    null,
+                                                                    storesXmlFile,
+                                                                    serverProperties);
+        } finally {
+            socketStoreFactory.close();
+        }
+
+        return servers[0];
     }
 
 }
