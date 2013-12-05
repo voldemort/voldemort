@@ -407,7 +407,7 @@ public class ClusterTestUtils {
      * 
      * @return ports for use in the cluster.
      */
-    static private int[] getClusterPorts() {
+    static public int[] getClusterPorts() {
         if(clusterPorts == null) {
             clusterPorts = ServerTestUtils.findFreePorts(MAX_NODES_IN_TEST_CLUSTER * 3);
         }

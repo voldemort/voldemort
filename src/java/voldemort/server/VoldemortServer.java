@@ -114,7 +114,7 @@ public class VoldemortServer extends AbstractService {
                                                                                         voldemortConfig.getMetadataDirectory());
         // transforms are not required here
         VectorClock version = new VectorClock();
-        version.incrementVersion(0, System.currentTimeMillis());
+        version.incrementVersion(voldemortConfig.getNodeId(), System.currentTimeMillis());
         metadataInnerEngine.put(MetadataStore.CLUSTER_KEY,
                                 new Versioned<String>(new ClusterMapper().writeCluster(cluster),
                                                       version),
