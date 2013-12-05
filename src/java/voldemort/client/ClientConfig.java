@@ -61,7 +61,7 @@ public class ClientConfig {
     private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableLazy = true;
-    private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
+    private volatile int clientZoneId = Zone.UNSET_ZONE_ID;
     private volatile boolean cacheStoreClients = true;
 
     /*
