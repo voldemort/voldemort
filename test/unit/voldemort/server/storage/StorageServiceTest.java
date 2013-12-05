@@ -2,6 +2,7 @@ package voldemort.server.storage;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -9,6 +10,8 @@ import java.util.Properties;
 
 import junit.framework.TestCase;
 
+import org.apache.commons.io.FileUtils;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,6 +47,7 @@ public class StorageServiceTest extends TestCase {
     private List<StoreDefinition> storeDefs;
     private MetadataStore mdStore;
     private VoldemortConfig config;
+    private File metadataDir;
 
     public StorageServiceTest(Cluster cluster,
                               List<StoreDefinition> storeDefs,
@@ -77,12 +81,23 @@ public class StorageServiceTest extends TestCase {
     @Before
     public void setUp() {
         config.setEnableServerRouting(true); // this is turned off by default
-        new File(config.getMetadataDirectory()).mkdir();
+        metadataDir = new File(config.getMetadataDirectory());
+        metadataDir.mkdir();
         config.setBdbCacheSize(100000);
         this.scheduler = new SchedulerService(1, new MockTime());
         this.storeRepository = new StoreRepository();
         storage = new StorageService(storeRepository, mdStore, scheduler, config);
         storage.start();
+    }
+
+    @After
+    public void cleanUp() {
+        try {
+            FileUtils.deleteDirectory(metadataDir);
+        } catch(IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 
     @Test
