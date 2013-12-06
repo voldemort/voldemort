@@ -22,7 +22,7 @@ then
 	exit 1
 fi
 
-base_dir=$(dirname $0)/..
+base_dir=$(cd $(dirname $0)/.. && pwd)
 
 for file in $base_dir/dist/*.jar;
 do
@@ -45,4 +45,4 @@ if [ -z "$VOLD_OPTS" ]; then
   VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
 fi
 
-java -Dlog4j.configuration=$base_dir/src/java/log4j.properties $VOLD_OPTS -cp $CLASSPATH voldemort.server.VoldemortServer $@
+java -Dlog4j.configuration=file://$base_dir/src/java/log4j.properties $VOLD_OPTS -cp $CLASSPATH voldemort.server.VoldemortServer $@

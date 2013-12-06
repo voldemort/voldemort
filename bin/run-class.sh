@@ -21,16 +21,7 @@ if [ $# -lt 1 ]; then
 	exit 1
 fi
 
-if [ $(uname) == 'Darwin' ]; then
-    pushd `dirname $0` > /dev/null
-    script_dir=$(pwd)
-    popd > /dev/null
-else
-    script_path=$(readlink -f "$0")
-    script_dir=`dirname "$script_path"`
-fi
-
-base_dir=`dirname "$script_dir"`
+base_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 
 for file in $base_dir/lib/*.jar;
 do
@@ -53,7 +44,7 @@ if [ -z "$VOLD_OPTS" ]; then
 fi
 
 # add '-Dlog4j.debug ' to debug log4j issues.
-LOG4JPROPERTIES="-Dlog4j.configuration=file:///${base_dir}/src/java/log4j.properties"
+LOG4JPROPERTIES="-Dlog4j.configuration=file://${base_dir}/src/java/log4j.properties"
 
 export CLASSPATH
 java $LOG4JPROPERTIES $VOLD_OPTS -cp $CLASSPATH $@
