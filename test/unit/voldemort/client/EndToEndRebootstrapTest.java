@@ -36,10 +36,12 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.common.service.SchedulerService;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.system.SystemStoreConstants;
+import voldemort.utils.SystemTime;
 import voldemort.xml.ClusterMapper;
 
 /**
@@ -68,6 +70,9 @@ public class EndToEndRebootstrapTest {
     public static String socketUrl = "";
     protected final int CLIENT_ZONE_ID = 0;
 
+    private SystemStoreRepository sysRepository;
+    private SchedulerService scheduler;
+
     @Before
     public void setUp() throws Exception {
         final int numServers = 2;
@@ -94,13 +99,21 @@ public class EndToEndRebootstrapTest {
         clientConfig.setBootstrapUrls(bootstrapUrl);
         SocketStoreClientFactory storeClientFactory = new SocketStoreClientFactory(clientConfig);
 
+        sysRepository = new SystemStoreRepository(clientConfig);
+        // Start up the scheduler
+        scheduler = new SchedulerService(clientConfig.getAsyncJobThreadPoolSize(),
+                                         SystemTime.INSTANCE,
+                                         true);
+
         storeClient = new ZenStoreClient<String, String>(STORE_NAME,
                                                          null,
                                                          storeClientFactory,
                                                          3,
                                                          clientConfig.getClientContextName(),
                                                          0,
-                                                         clientConfig);
+                                                         clientConfig,
+                                                         scheduler,
+                                                         sysRepository);
 
         SystemStoreClientFactory<String, String> systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
 
@@ -114,6 +127,9 @@ public class EndToEndRebootstrapTest {
         for(VoldemortServer server: servers) {
             ServerTestUtils.stopVoldemortServer(server);
         }
+
+        scheduler.stop();
+        sysRepository.close();
     }
 
     /*

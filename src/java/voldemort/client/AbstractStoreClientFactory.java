@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
@@ -34,6 +35,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.common.service.SchedulerService;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.SerializationException;
@@ -63,6 +65,7 @@ import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Pair;
+import voldemort.utils.SystemTime;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.TimeBasedInconsistencyResolver;
@@ -111,6 +114,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final Callable<Object> storeRebootstrapCallback;
 
     private final ConcurrentMap<Pair<String, Object>, DefaultStoreClient<?, ?>> storeClientCache;
+    private final AtomicBoolean isZenStoreResourcesInited;
+    private volatile SystemStoreRepository sysRepository;
+    private volatile SchedulerService scheduler;
 
     private Cluster cluster;
     private List<StoreDefinition> storeDefs;
@@ -162,6 +168,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                              "bootstrap-stats"
                                                                      + JmxUtils.getJmxId(jmxId)));
         }
+        this.isZenStoreResourcesInited = new AtomicBoolean(false);
+        this.scheduler = null;
+        this.sysRepository = null;
     }
 
     public int getNextJmxId() {
@@ -203,13 +212,21 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                   this,
                                                   MAX_METADATA_REFRESH_ATTEMPTS);
         } else {
+
+            // Lazily intialize the resources needed for ZenStore clients.
+            if(!isZenStoreResourcesInited.get()) {
+                initZenStoreResources();
+            }
+
             client = new ZenStoreClient<K, V>(storeName,
                                               resolver,
                                               this,
                                               MAX_METADATA_REFRESH_ATTEMPTS,
                                               clientContextName,
                                               clientSequencer.getAndIncrement(),
-                                              config);
+                                              config,
+                                              scheduler,
+                                              sysRepository);
         }
 
         // if configured to cache store clients, populate the cache
@@ -445,6 +462,42 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return result;
     }
 
+    private synchronized void initZenStoreResources() {
+        // Check once again, since multiple threads can call this method
+        // concurrently.
+        if(!isZenStoreResourcesInited.get()) {
+            // since the method is synchronized, only one winning thread will
+            // make it here.
+            this.sysRepository = new SystemStoreRepository(config);
+            // Start up the scheduler
+            this.scheduler = new SchedulerService(config.getAsyncJobThreadPoolSize(),
+                                                  SystemTime.INSTANCE,
+                                                  true);
+            isZenStoreResourcesInited.set(true);
+        }
+    }
+
+    private void releaseZenStoreResourcese() {
+
+        // shut down the scheduler
+        try {
+            if(this.scheduler != null) {
+                this.scheduler.stop();
+            }
+        } catch(Exception e) {
+            logger.error("Error stopping scheduler service", e);
+        }
+
+        // Also free up resources consumed by the system repository
+        try {
+            if(this.sysRepository != null) {
+                this.sysRepository.close();
+            }
+        } catch(Exception e) {
+            logger.error("Error shutting down system store factory", e);
+        }
+    }
+
     private CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
         return new CompressionStrategyFactory().get(serializerDef.getCompression());
     }
@@ -580,6 +633,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                            + JmxUtils.getJmxId(jmxId)));
             }
         }
+
+        releaseZenStoreResourcese();
     }
 
     protected String getClientContext() {

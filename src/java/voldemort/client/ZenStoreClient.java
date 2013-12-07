@@ -35,7 +35,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ManifestFileReader;
-import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Version;
@@ -69,17 +68,12 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
     public ZenStoreClient(String storeName,
                           InconsistencyResolver<Versioned<V>> resolver,
                           AbstractStoreClientFactory storeFactory,
-                          int maxMetadataRefreshAttempts) {
-        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0, null);
-    }
-
-    public ZenStoreClient(String storeName,
-                          InconsistencyResolver<Versioned<V>> resolver,
-                          AbstractStoreClientFactory storeFactory,
                           int maxMetadataRefreshAttempts,
                           String clientContext,
                           int clientSequence,
-                          ClientConfig config) {
+                          ClientConfig config,
+                          SchedulerService scheduler,
+                          SystemStoreRepository sysRepository) {
 
         super();
         this.storeName = Utils.notNull(storeName);
@@ -95,11 +89,9 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                          config);
         this.clientId = generateClientId(clientInfo);
         this.config = config;
-        this.sysRepository = new SystemStoreRepository(config);
+        this.sysRepository = sysRepository;
         // Start up the scheduler
-        this.scheduler = new SchedulerService(config.getAsyncJobThreadPoolSize(),
-                                              SystemTime.INSTANCE,
-                                              true);
+        this.scheduler = scheduler;
 
         // Registering self to be able to bootstrap client dynamically via JMX
         if(config.isJmxEnabled()) {
@@ -276,27 +268,5 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
         }
 
         return context.toString();
-    }
-
-    /**
-     * Do all the cleanup here upon garbage collection, since there is no
-     * close() for store clients.
-     */
-    @Override
-    public void finalize() {
-
-        // shut down the scheduler
-        try {
-            this.scheduler.stop();
-        } catch(Exception e) {
-            logger.error("Error stopping scheduler service", e);
-        }
-
-        // Also free up resources consumed by the system repository
-        try {
-            this.sysRepository.close();
-        } catch(Exception e) {
-            logger.error("Error shutting down system store factory", e);
-        }
     }
 }
