@@ -1,6 +1,7 @@
 package voldemort.scheduled;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.slop.Slop;
+import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -92,9 +94,18 @@ public class SlopPusherDeadSlopTest {
                                                                                      false,
                                                                                      "deleted_store");
 
+            // generate some valid slops and make sure they go into the
+            // destination store on the same node..(its funny.. but well, what
+            // is nt)
+            List<Versioned<Slop>> validStoreSlops = ServerTestUtils.createRandomSlops(0,
+                                                                                      40,
+                                                                                      false,
+                                                                                      "test");
+
             List<Versioned<Slop>> slops = new ArrayList<Versioned<Slop>>();
             slops.addAll(deadStoreSlops);
             slops.addAll(deadNodeSlops);
+            slops.addAll(validStoreSlops);
             SlopSerializer slopSerializer = new SlopSerializer();
 
             // Populate the store with the slops
@@ -113,12 +124,28 @@ public class SlopPusherDeadSlopTest {
             Thread.sleep(SLOP_FREQUENCY_MS * 2);
 
             // Confirm the dead slops are all gone now..
-            for(Versioned<Slop> slop: slops) {
-                List<Versioned<byte[]>> slopEntry = adminClient.storeOps.getNodeKey("slop",
+            for(List<Versioned<Slop>> deadSlops: Arrays.asList(deadStoreSlops, deadNodeSlops)) {
+                for(Versioned<Slop> slop: deadSlops) {
+                    List<Versioned<byte[]>> slopEntry = adminClient.storeOps.getNodeKey("slop",
+                                                                                        0,
+                                                                                        slop.getValue()
+                                                                                            .makeKey());
+                    assertEquals("Slop should be purged", 0, slopEntry.size());
+                }
+            }
+
+            // Confirm the valid ones made it
+            for(Versioned<Slop> slop: validStoreSlops) {
+                List<Versioned<byte[]>> slopEntry = adminClient.storeOps.getNodeKey("test",
                                                                                     0,
                                                                                     slop.getValue()
-                                                                                        .makeKey());
-                assertEquals("Slop should be purged", 0, slopEntry.size());
+                                                                                        .getKey());
+                if(slop.getValue().getOperation() == Operation.DELETE) {
+                    assertTrue("Delete Slop should have not reached destination",
+                               slopEntry.size() == 0);
+                } else {
+                    assertTrue("Put Slop should have reached destination", slopEntry.size() > 0);
+                }
             }
 
         } catch(Exception e) {
