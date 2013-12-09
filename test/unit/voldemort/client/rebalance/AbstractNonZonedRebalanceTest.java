@@ -1041,6 +1041,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
             final List<Integer> serverList = Arrays.asList(0, 1);
             Map<String, String> configProps = new HashMap<String, String>();
             configProps.put("admin.max.threads", "50");
+            configProps.put("enable.server.routing", "true");
             final Cluster updatedCurrentCluster = startServers(currentCluster,
                                                                storeDefFileWithReplication,
                                                                serverList,
