@@ -23,7 +23,7 @@ import voldemort.xml.ClusterMapper;
 import com.google.common.base.Joiner;
 
 /*
- * This tool accepts a spurce cluster.xml and a zone id that ought to be
+ * This tool accepts a source cluster.xml and a zone id that ought to be
  * dropped. It then intelligently moves the partitions that are hosted in the
  * zone being removed to the other zones such that it leads to no data movement.
  * 
@@ -87,13 +87,13 @@ public class ZoneClipperCLI {
             printUsageAndDie("Exception when parsing arguments : " + oe.getMessage());
         }
 
-        if(options.has("help")) {
+        if (options.has("help")) {
             printUsage();
             System.exit(0);
         }
 
         Set<String> missing = CmdUtils.missing(options, "current-cluster", "drop-zoneid");
-        if(missing.size() > 0) {
+        if (missing.size() > 0) {
             printUsageAndDie("Missing required arguments: " + Joiner.on(", ").join(missing));
         }
         return options;
@@ -108,14 +108,14 @@ public class ZoneClipperCLI {
 
         int dropZoneId = CmdUtils.valueOf(options, "drop-zoneid", Zone.UNSET_ZONE_ID);
         String outputDir = null;
-        if(options.has("output-dir")) {
+        if (options.has("output-dir")) {
             outputDir = (String) options.valueOf("output-dir");
         }
 
         // Create a list of current partition ids. We will use this set to
         // compare partitions ids in final cluster
         Set<Integer> originalPartitions = new HashSet<Integer>();
-        for(Integer zoneId: initialCluster.getZoneIds()) {
+        for (Integer zoneId: initialCluster.getZoneIds()) {
             originalPartitions.addAll(initialCluster.getPartitionIdsInZone(zoneId));
         }
 
@@ -124,17 +124,17 @@ public class ZoneClipperCLI {
         Cluster intermediateCluster = RebalanceUtils.dropZone(initialCluster, dropZoneId);
 
         // Filter out nodes that don't belong to the zone being dropped
-        Set<Node> nodes = new HashSet<Node>();
-        for(int nodeId: intermediateCluster.getNodeIds()) {
+        Set<Node> survivingNodes = new HashSet<Node>();
+        for (int nodeId: intermediateCluster.getNodeIds()) {
             if(intermediateCluster.getNodeById(nodeId).getZoneId() != dropZoneId) {
-                nodes.add(intermediateCluster.getNodeById(nodeId));
+                survivingNodes.add(intermediateCluster.getNodeById(nodeId));
             }
         }
 
         // Filter out dropZoneId from all zones
         Set<Zone> zones = new HashSet<Zone>();
-        for(int zoneId: intermediateCluster.getZoneIds()) {
-            if(zoneId == dropZoneId) {
+        for (int zoneId: intermediateCluster.getZoneIds()) {
+            if (zoneId == dropZoneId) {
                 continue;
             }
             LinkedList<Integer> proximityList = intermediateCluster.getZoneById(zoneId)
@@ -144,12 +144,12 @@ public class ZoneClipperCLI {
         }
 
         Cluster finalCluster = new Cluster(intermediateCluster.getName(),
-                                           Utils.asSortedList(nodes),
+                                           Utils.asSortedList(survivingNodes),
                                            Utils.asSortedList(zones));
 
         // Make sure everything is fine
-        if(initialCluster.getNumberOfPartitions() != finalCluster.getNumberOfPartitions()) {
-            System.out.println("ERROR : The number of partitions in the initial and the final cluster is not equal \n");
+        if (initialCluster.getNumberOfPartitions() != finalCluster.getNumberOfPartitions()) {
+            logger.error("The number of partitions in the initial and the final cluster is not equal \n");
         }
 
         Set<Integer> finalPartitions = new HashSet<Integer>();
@@ -158,8 +158,8 @@ public class ZoneClipperCLI {
         }
 
         // Compare to original partition ids list
-        if(!originalPartitions.equals(finalPartitions)) {
-            System.out.println("ERROR : The list of partition ids in the initial and the final cluster doesn't match \n ");
+        if (!originalPartitions.equals(finalPartitions)) {
+            logger.error("The list of partition ids in the initial and the final cluster doesn't match \n ");
         }
 
         // Finally write the final cluster to a xml file

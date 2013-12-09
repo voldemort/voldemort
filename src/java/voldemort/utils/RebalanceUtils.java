@@ -320,9 +320,8 @@ public class RebalanceUtils {
     }
 
     /**
-     * For a particular stealer node find all the "primary" <replica, partition>
-     * tuples it will steal. In other words, expect the "replica" part to be 0
-     * always.
+     * For a particular stealer node find all the primary partitions
+     * tuples it will steal.
      * 
      * @param currentCluster The cluster definition of the existing cluster
      * @param finalCluster The final cluster definition
