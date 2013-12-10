@@ -23,7 +23,6 @@ import java.io.StringReader;
 import java.net.BindException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -354,7 +353,7 @@ public class ServerTestUtils {
 
         return new Cluster(original.getName(), newNodeList);
     }
-    
+
     /**
      * Returns a list of zones with their proximity list being in increasing
      * order
@@ -365,20 +364,22 @@ public class ServerTestUtils {
     public static List<Zone> getZonesFromZoneIds(int[] zoneIds) {
         List<Zone> zones = Lists.newArrayList();
         Set<Integer> zoneIdsSet = new HashSet<Integer>();
-        for (int i : zoneIds) {
+        for(int i: zoneIds) {
             zoneIdsSet.add(i);
         }
         Set<Integer> removeSet = new HashSet<Integer>();
-        for (int i = 0; i < zoneIds.length; i++) {
+        for(int i = 0; i < zoneIds.length; i++) {
             removeSet.add(zoneIds[i]);
-            zones.add(new Zone(zoneIds[i], Lists.newLinkedList(Sets.symmetricDifference(zoneIdsSet, removeSet))));
+            zones.add(new Zone(zoneIds[i], Lists.newLinkedList(Sets.symmetricDifference(zoneIdsSet,
+                                                                                        removeSet))));
             removeSet.clear();
         }
         return zones;
     }
 
     /**
-     * Given zone ids, this method returns a list of zones with their proximity list
+     * Given zone ids, this method returns a list of zones with their proximity
+     * list
      * 
      * @param list of zone ids
      * @return List of zones
@@ -633,21 +634,21 @@ public class ServerTestUtils {
                                                             int[] ports) {
 
         int numberOfZones = zoneIds.length;
-        if (numberOfZones < 1) {
+        if(numberOfZones < 1) {
             throw new VoldemortException("The number of zones must be positive (" + numberOfZones
                                          + ")");
         }
-        if (nodeIdsPerZone.length != numberOfZones) {
+        if(nodeIdsPerZone.length != numberOfZones) {
             throw new VoldemortException("Mismatch between numberOfZones (" + numberOfZones
                                          + ") and size of nodesPerZone array ("
                                          + nodeIdsPerZone.length + ").");
         }
 
         int numNodes = 0;
-        for (int nodeIdsInZone[]: nodeIdsPerZone) {
+        for(int nodeIdsInZone[]: nodeIdsPerZone) {
             numNodes += nodeIdsInZone.length;
         }
-        if (partitionMap.length != numNodes) {
+        if(partitionMap.length != numNodes) {
             throw new VoldemortException("Mismatch between numNodes (" + numNodes
                                          + ") and size of partitionMap array (" + partitionMap
                                          + ").");
@@ -657,10 +658,10 @@ public class ServerTestUtils {
         List<Node> nodes = new ArrayList<Node>();
         int partitionOffset = 0;
         int zoneOffset = 0;
-        for (int zoneId : zoneIds) {
-            for (int nodeId: nodeIdsPerZone[zoneOffset]) {
+        for(int zoneId: zoneIds) {
+            for(int nodeId: nodeIdsPerZone[zoneOffset]) {
                 List<Integer> partitions = new ArrayList<Integer>(partitionMap[partitionOffset].length);
-                for (int p: partitionMap[partitionOffset]) {
+                for(int p: partitionMap[partitionOffset]) {
                     partitions.add(p);
                 }
                 nodes.add(new Node(nodeId,
@@ -695,7 +696,7 @@ public class ServerTestUtils {
 
         return new MetadataStore(innerStore, 0);
     }
-    
+
     public static MetadataStore createMetadataStore(Cluster cluster,
                                                     List<StoreDefinition> storeDefs,
                                                     int nodeId) {
@@ -1209,6 +1210,32 @@ public class ServerTestUtils {
         return cluster;
     }
 
+    public static Cluster startVoldemortCluster(VoldemortServer[] servers,
+                                                int[][] partitionMap,
+                                                Properties serverProperties,
+                                                String storesXmlFile) throws IOException {
+
+        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                              10000,
+                                                                              100000,
+                                                                              32 * 1024);
+        Cluster cluster = null;
+        try {
+            cluster = ServerTestUtils.startVoldemortCluster(servers.length,
+                                                            servers,
+                                                            partitionMap,
+                                                            socketStoreFactory,
+                                                            true,
+                                                            null,
+                                                            storesXmlFile,
+                                                            serverProperties);
+        } finally {
+            socketStoreFactory.close();
+        }
+
+        return cluster;
+    }
+
     public static VoldemortServer startStandAloneVoldemortServer(Properties serverProperties,
                                                                  String storesXmlFile)
             throws IOException {
@@ -1235,5 +1262,4 @@ public class ServerTestUtils {
 
         return servers[0];
     }
-
 }

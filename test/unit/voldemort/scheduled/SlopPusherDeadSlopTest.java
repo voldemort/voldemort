@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -20,19 +21,25 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.VoldemortTestConstants;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.cluster.Cluster;
+import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.VoldemortServer;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
+import voldemort.store.StoreDefinition;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ByteArray;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 @RunWith(Parameterized.class)
 public class SlopPusherDeadSlopTest {
@@ -48,7 +55,8 @@ public class SlopPusherDeadSlopTest {
     private static final Integer SLOP_FREQUENCY_MS = 5000;
 
     private String slopPusherType;
-    private VoldemortServer server;
+    private VoldemortServer[] servers;
+    private Cluster cluster;
     private AdminClient adminClient;
 
     public SlopPusherDeadSlopTest(String slopPusherType) {
@@ -63,13 +71,18 @@ public class SlopPusherDeadSlopTest {
             serverProperties.setProperty("pusher.type", slopPusherType);
             serverProperties.setProperty("slop.frequency.ms", SLOP_FREQUENCY_MS.toString());
             serverProperties.setProperty("auto.purge.dead.slops", "true");
+            serverProperties.setProperty("enable.server.routing", "true");
 
-            server = ServerTestUtils.startStandAloneVoldemortServer(serverProperties,
-                                                                    "test/common/voldemort/config/single-store.xml");
+            servers = new VoldemortServer[2];
+            int partitionMap[][] = { { 0, 1 }, { 2, 3 } };
+            cluster = ServerTestUtils.startVoldemortCluster(servers,
+                                                            partitionMap,
+                                                            serverProperties,
+                                                            "test/common/voldemort/config/single-store.xml");
 
             Properties adminProperties = new Properties();
             adminProperties.setProperty("max_connections", "2");
-            adminClient = new AdminClient(server.getMetadataStore().getCluster(),
+            adminClient = new AdminClient(servers[0].getMetadataStore().getCluster(),
                                           new AdminClientConfig(adminProperties),
                                           new ClientConfig());
         } catch(Exception e) {
@@ -82,8 +95,8 @@ public class SlopPusherDeadSlopTest {
     public void testAutoPurge() {
 
         try {
-            // generate slops for a non existent node 1.
-            List<Versioned<Slop>> deadNodeSlops = ServerTestUtils.createRandomSlops(1,
+            // generate slops for a non existent node 2.
+            List<Versioned<Slop>> deadNodeSlops = ServerTestUtils.createRandomSlops(2,
                                                                                     40,
                                                                                     false,
                                                                                     "test");
@@ -95,9 +108,8 @@ public class SlopPusherDeadSlopTest {
                                                                                      "deleted_store");
 
             // generate some valid slops and make sure they go into the
-            // destination store on the same node..(its funny.. but well, what
-            // is nt)
-            List<Versioned<Slop>> validStoreSlops = ServerTestUtils.createRandomSlops(0,
+            // destination store
+            List<Versioned<Slop>> validStoreSlops = ServerTestUtils.createRandomSlops(1,
                                                                                       40,
                                                                                       false,
                                                                                       "test");
@@ -134,18 +146,28 @@ public class SlopPusherDeadSlopTest {
                 }
             }
 
+            StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+            List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getSingleStoreDefinitionsXml()));
+            BaseStoreRoutingPlan rPlan = new BaseStoreRoutingPlan(adminClient.getAdminClientCluster(),
+                                                                  StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
+                                                                                                                  "test"));
+
             // Confirm the valid ones made it
             for(Versioned<Slop> slop: validStoreSlops) {
-                List<Versioned<byte[]>> slopEntry = adminClient.storeOps.getNodeKey("test",
-                                                                                    0,
-                                                                                    slop.getValue()
-                                                                                        .getKey());
-                if(slop.getValue().getOperation() == Operation.DELETE) {
-                    assertTrue("Delete Slop should have not reached destination",
-                               slopEntry.size() == 0);
-                } else {
-                    assertTrue("Put Slop should have reached destination", slopEntry.size() > 0);
+                ByteArray key = slop.getValue().getKey();
+
+                if(rPlan.getReplicationNodeList(key.get()).contains(1)) {
+                    List<Versioned<byte[]>> slopEntry = adminClient.storeOps.getNodeKey("test",
+                                                                                        1,
+                                                                                        key);
+                    if(slop.getValue().getOperation() == Operation.DELETE) {
+                        assertTrue("Delete Slop should have not reached destination",
+                                   slopEntry.size() == 0);
+                    } else {
+                        assertTrue("Put Slop should have reached destination", slopEntry.size() > 0);
+                    }
                 }
+
             }
 
         } catch(Exception e) {
@@ -156,7 +178,9 @@ public class SlopPusherDeadSlopTest {
 
     @After
     public void tearDown() {
-        server.stop();
+        for(VoldemortServer server: servers) {
+            server.stop();
+        }
         adminClient.close();
     }
 }
