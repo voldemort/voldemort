@@ -19,6 +19,8 @@ import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.RebalanceUtils;
 
+import com.google.common.collect.Sets;
+
 @RunWith(Parameterized.class)
 public class ZoneCLipperTest extends TestCase {
     
@@ -93,8 +95,7 @@ public class ZoneCLipperTest extends TestCase {
        // Make sure there is no data movement between nodes
        assertEquals(rebalancePlan.getPartitionStoresMoved(), 0);
        for (Integer nodeId: interimCluster.getNodeIds()) {
-           Set<Integer> remainingNodes = interimCluster.getNodeIds();
-           remainingNodes.remove(nodeId);
+           Set<Integer> remainingNodes = Sets.symmetricDifference(interimCluster.getNodeIds(), Sets.newHashSet(nodeId));
            for (Integer otherNodeId: remainingNodes ) {
                assertTrue("Something went wrong as there is data movement between nodes", 
                           rebalancePlan.getNodeMoveMap().get(nodeId, otherNodeId) == 0);
