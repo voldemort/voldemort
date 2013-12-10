@@ -473,6 +473,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             this.scheduler = new SchedulerService(config.getAsyncJobThreadPoolSize(),
                                                   SystemTime.INSTANCE,
                                                   true);
+            this.scheduler.start();
             isZenStoreResourcesInited.set(true);
         }
     }

@@ -106,17 +106,14 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
 
         // Initialize the background thread for checking metadata version
         if(this.config != null) {
-            asyncMetadataManager = scheduleAsyncMetadataVersionManager(clientId.toString(),
-                                                                       config.getAsyncMetadataRefreshInMs());
-            clientRegistryRefresher = registerClient(clientId,
-                                                     config.getClientRegistryUpdateIntervalInSecs());
+            asyncMetadataManager = scheduleAsyncMetadataVersionManager(config.getAsyncMetadataRefreshInMs());
+            clientRegistryRefresher = registerClient(config.getClientRegistryUpdateIntervalInSecs());
         }
 
         logger.info("Voldemort client created: " + clientId + "\n" + clientInfo);
-
     }
 
-    private ClientRegistryRefresher registerClient(String jobId, int intervalInSecs) {
+    private ClientRegistryRefresher registerClient(int intervalInSecs) {
         ClientRegistryRefresher refresher = null;
         if(this.sysRepository.getClientRegistryStore() != null) {
             try {
@@ -130,7 +127,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                 cal.add(Calendar.SECOND, intervalInSecs);
 
                 if(scheduler != null) {
-                    scheduler.schedule(jobId + refresher.getClass().getName(),
+                    scheduler.schedule(makeClientRegistryRefresherJobId(),
                                        refresher,
                                        cal.getTime(),
                                        TimeUnit.MILLISECONDS.convert(intervalInSecs,
@@ -150,8 +147,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
         return refresher;
     }
 
-    private AsyncMetadataVersionManager scheduleAsyncMetadataVersionManager(String jobId,
-                                                                            long interval) {
+    private AsyncMetadataVersionManager scheduleAsyncMetadataVersionManager(long interval) {
         AsyncMetadataVersionManager asyncMetadataManager = null;
         SystemStoreClient<String, String> versionStore = this.sysRepository.getMetadataVersionStore();
         if(versionStore == null) {
@@ -174,7 +170,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
             // schedule the job to run every 'checkInterval' period, starting
             // now
             if(scheduler != null) {
-                scheduler.schedule(jobId + asyncMetadataManager.getClass().getName(),
+                scheduler.schedule(makeAsyncMetadataManagerJobId(),
                                    asyncMetadataManager,
                                    new Date(),
                                    interval);
@@ -268,5 +264,33 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
         }
 
         return context.toString();
+    }
+
+    private String makeAsyncMetadataManagerJobId() {
+        return clientId + AsyncMetadataVersionManager.class.getName();
+    }
+
+    private String makeClientRegistryRefresherJobId() {
+        return clientId + ClientRegistryRefresher.class.getName();
+    }
+
+    @Override
+    public void finalize() {
+        // need to unschedule the two runnables from the scheduler
+        try {
+            if(scheduler.isStarted() && asyncMetadataManager != null) {
+                scheduler.terminate(makeAsyncMetadataManagerJobId());
+            }
+        } catch(Exception e) {
+            logger.error("Error unscheduling AsyncMetadataManager for client " + clientId, e);
+        }
+
+        try {
+            if(scheduler.isStarted() && clientRegistryRefresher != null) {
+                scheduler.terminate(makeClientRegistryRefresherJobId());
+            }
+        } catch(Exception e) {
+            logger.error("Error unscheduling ClientRegistryRefresher for client " + clientId, e);
+        }
     }
 }

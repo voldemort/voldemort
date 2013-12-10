@@ -44,7 +44,7 @@ import com.google.common.collect.Lists;
 @JmxManaged(description = "A service that runs scheduled jobs.")
 public class SchedulerService extends AbstractService {
 
-    private static final Logger logger = Logger.getLogger(VoldemortService.class);
+    private static final Logger logger = Logger.getLogger(SchedulerService.class);
     private boolean mayInterrupt;
 
     private class ScheduledRunnable {
@@ -96,7 +96,11 @@ public class SchedulerService extends AbstractService {
     }
 
     @Override
-    public void startInner() {}
+    public void startInner() {
+        // TODO note that most code does not do this. so scheduler.isStarted()
+        // returns false even after you have submitted some tasks and they are
+        // running fine.
+    }
 
     @Override
     public void stopInner() {
