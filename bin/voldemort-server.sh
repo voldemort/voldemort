@@ -45,4 +45,5 @@ if [ -z "$VOLD_OPTS" ]; then
   VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
 fi
 
-java -Dlog4j.configuration=file://$base_dir/src/java/log4j.properties $VOLD_OPTS -cp $CLASSPATH voldemort.server.VoldemortServer $@
+export CLASSPATH
+java -Dlog4j.configuration=file://$base_dir/src/java/log4j.properties $VOLD_OPTS voldemort.server.VoldemortServer $@
