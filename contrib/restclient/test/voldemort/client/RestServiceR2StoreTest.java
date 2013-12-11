@@ -25,8 +25,6 @@ import voldemort.restclient.RESTClientConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.Store;
-import voldemort.store.socket.SocketStoreFactory;
-import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
@@ -50,10 +48,6 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
     private VoldemortServer[] servers;
     private Cluster cluster;
     public static String socketUrl = "";
-    private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
-                                                                                  10000,
-                                                                                  100000,
-                                                                                  32 * 1024);
     private int nodeId;
 
     @Parameters
@@ -68,7 +62,6 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
         final int numServers = 1;
         this.nodeId = 0;
         servers = new VoldemortServer[numServers];
-        int partitionMap[][] = { { 0, 1, 2, 3, 4, 5, 6, 7 } };
         try {
 
             // Setup the cluster
@@ -78,11 +71,8 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
 
             Cluster customCluster = clusterMapper.readCluster(new FileReader(clusterXmlFile), false);
 
-            cluster = ServerTestUtils.startVoldemortCluster(numServers,
-                                                            servers,
-                                                            partitionMap,
-                                                            socketStoreFactory,
-                                                            true,
+            cluster = ServerTestUtils.startVoldemortCluster(servers,
+                                                            null,
                                                             clusterXmlFile,
                                                             storesXmlfile,
                                                             props,

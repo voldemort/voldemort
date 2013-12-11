@@ -1178,15 +1178,17 @@ public class ServerTestUtils {
      */
     // TODO: numServers is likely not needed. If this method is refactored in
     // the future, then try and drop the numServers argument.
-    public static Cluster startVoldemortCluster(int numServers,
-                                                VoldemortServer[] voldemortServers,
-                                                int[][] partitionMap,
-                                                SocketStoreFactory socketStoreFactory,
-                                                boolean useNio,
-                                                String clusterFile,
-                                                String storeFile,
-                                                Properties properties,
-                                                Cluster customCluster) throws IOException {
+    // So, is the socketStoreFactory argument.. It should be entirely hidden
+    // within the helper method
+    private static Cluster startVoldemortCluster(int numServers,
+                                                 VoldemortServer[] voldemortServers,
+                                                 int[][] partitionMap,
+                                                 SocketStoreFactory socketStoreFactory,
+                                                 boolean useNio,
+                                                 String clusterFile,
+                                                 String storeFile,
+                                                 Properties properties,
+                                                 Cluster customCluster) throws IOException {
         boolean started = false;
         Cluster cluster = null;
 
@@ -1205,6 +1207,44 @@ public class ServerTestUtils {
             } catch(BindException be) {
                 logger.debug("Caught BindException when starting cluster. Will retry.");
             }
+        }
+
+        return cluster;
+    }
+
+    public static Cluster startVoldemortCluster(VoldemortServer[] voldemortServers,
+                                                int[][] partitionMap,
+                                                String clusterFile,
+                                                String storeFile,
+                                                Properties properties,
+                                                Cluster customCluster) throws IOException {
+        boolean started = false;
+        Cluster cluster = null;
+
+        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                              10000,
+                                                                              100000,
+                                                                              32 * 1024);
+
+        try {
+            while(!started) {
+                try {
+                    cluster = internalStartVoldemortCluster(voldemortServers.length,
+                                                            voldemortServers,
+                                                            partitionMap,
+                                                            socketStoreFactory,
+                                                            true,
+                                                            clusterFile,
+                                                            storeFile,
+                                                            properties,
+                                                            customCluster);
+                    started = true;
+                } catch(BindException be) {
+                    logger.debug("Caught BindException when starting cluster. Will retry.");
+                }
+            }
+        } finally {
+            socketStoreFactory.close();
         }
 
         return cluster;

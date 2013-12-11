@@ -6,6 +6,7 @@ import java.util.Set;
 import org.apache.log4j.Logger;
 
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.cluster.Zone;
 import voldemort.server.StoreRepository;
 import voldemort.server.storage.DataMaintenanceJob;
 import voldemort.server.storage.ScanPermitWrapper;
@@ -58,18 +59,21 @@ public class SlopPurgeJob extends DataMaintenanceJob {
 
     @Override
     public void operate() throws Exception {
-        logger.info("Purging slops that match any of the following. 1) Nodes:" + nodesToPurge
-                    + ", 2) Zone:" + zoneToPurge + ", 3) Stores:" + storesToPurge);
+        logger.info("Purging slops that match any of the following. {Nodes:" + nodesToPurge
+                    + "} {Zone:" + zoneToPurge + "} {Stores:" + storesToPurge + "}");
 
         SlopStorageEngine slopStorageEngine = storeRepo.getSlopStore();
         StorageEngine<ByteArray, Slop, byte[]> slopStore = slopStorageEngine.asSlopStore();
-        ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = slopStore.entries();
-        Set<Integer> nodesInPurgeZone = metadataStore.getCluster().getNodeIdsInZone(zoneToPurge);
+        ClosableIterator<Pair<ByteArray, Versioned<Slop>>> slopIterator = slopStore.entries();
+        Set<Integer> nodesInPurgeZone = null;
+        if(zoneToPurge != Zone.UNSET_ZONE_ID) {
+            nodesInPurgeZone = metadataStore.getCluster().getNodeIdsInZone(zoneToPurge);
+        }
 
         try {
-            while(iterator.hasNext()) {
+            while(slopIterator.hasNext()) {
 
-                Pair<ByteArray, Versioned<Slop>> keyAndVal = iterator.next();
+                Pair<ByteArray, Versioned<Slop>> keyAndVal = slopIterator.next();
                 Versioned<Slop> versioned = keyAndVal.getSecond();
                 Slop slop = versioned.getValue();
 
@@ -77,7 +81,7 @@ public class SlopPurgeJob extends DataMaintenanceJob {
                 boolean purge = false;
                 if(nodesToPurge.contains(slop.getNodeId())) {
                     purge = true;
-                } else if(nodesInPurgeZone.contains(slop.getNodeId())) {
+                } else if(nodesInPurgeZone != null && nodesInPurgeZone.contains(slop.getNodeId())) {
                     purge = true;
                 } else if(storesToPurge.contains(slop.getStoreName())) {
                     purge = true;
@@ -98,6 +102,8 @@ public class SlopPurgeJob extends DataMaintenanceJob {
             }
         } catch(Exception e) {
             logger.error("Error while purging slops", e);
+        } finally {
+            slopIterator.close();
         }
 
         logger.info("Completed purging slops. " + "#Scanned:" + numKeysScannedThisRun

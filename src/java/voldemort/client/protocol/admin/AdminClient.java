@@ -336,7 +336,6 @@ public class AdminClient {
             AdminClient.this.cachedZoneID = zoneID;
         }
 
-
         private void cacheSystemStoreParams(String bootstrapURL) {
             String[] bootstrapUrls = new String[1];
             bootstrapUrls[0] = bootstrapURL;
@@ -1442,10 +1441,10 @@ public class AdminClient {
             }
         }
 
-        private void slopPurgeJob(int destinationNodeId,
-                                  List<Integer> nodeList,
-                                  int zoneId,
-                                  List<String> storeNames) {
+        public void slopPurgeJob(int destinationNodeId,
+                                 List<Integer> nodeList,
+                                 int zoneId,
+                                 List<String> storeNames) {
             VAdminProto.SlopPurgeJobRequest.Builder jobRequest = VAdminProto.SlopPurgeJobRequest.newBuilder();
             if(nodeList != null) {
                 jobRequest.addAllNodeIds(nodeList);

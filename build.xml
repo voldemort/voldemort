@@ -471,7 +471,7 @@
     </junitreport>
   </target>
 
-  <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test for class ClassName with -Dtest.name=[ClassName]  (Note: Use the class name, not the file name with the .java extension)">
+  <target name="junit-test" description="Run single junit test for class ClassName with -Dtest.name=[ClassName]  (Note: Use the class name, not the file name with the .java extension)">
     <replace-dir dir="${singletestreport.dir}" />
     <replace-dir dir="${singletesthtml.dir}" />
     <junit printsummary="on" showoutput="true" maxmemory="4096m">
