@@ -65,6 +65,7 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -307,7 +308,7 @@ public class VoldemortAdminTool {
             int parallelism = CmdUtils.valueOf(options, "restore", 5);
             Integer zoneId = CmdUtils.valueOf(options, "zone", -1);
 
-            int zone = zoneId == -1 ? 0 : zoneId;
+            int zone = zoneId == Zone.UNSET_ZONE_ID ? 0 : zoneId;
             AdminClient adminClient = new AdminClient(url,
                                                       new AdminClientConfig(),
                                                       new ClientConfig(),
@@ -808,6 +809,8 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --rollback [store-name] --url [url] --node [node-id] --version [version-num] ");
         stream.println("\t7) Prune data resulting from versioned puts, during rebalancing");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --prune-job --url [url] --node [node-id] --stores [stores_list]");
+        stream.println("\t8) Purge slops based on criteria");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --purge-slops --url [url] --nodes [destination-nodes-list] --stores [stores_list] --zone [destination-zone]");
 
         parser.printHelpOn(stream);
     }

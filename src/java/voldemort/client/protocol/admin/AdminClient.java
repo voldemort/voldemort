@@ -1449,7 +1449,7 @@ public class AdminClient {
             if(nodeList != null) {
                 jobRequest.addAllNodeIds(nodeList);
             }
-            if(zoneId != -1) {
+            if(zoneId != Zone.UNSET_ZONE_ID) {
                 jobRequest.setZoneId(zoneId);
             }
             if(storeNames != null) {
