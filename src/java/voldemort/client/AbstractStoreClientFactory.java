@@ -215,7 +215,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
             // Lazily intialize the resources needed for ZenStore clients.
             if(!isZenStoreResourcesInited.get()) {
-                initZenStoreResources();
+                initZenStoreResourcesIfNeeded();
             }
 
             client = new ZenStoreClient<K, V>(storeName,
@@ -462,7 +462,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return result;
     }
 
-    private synchronized void initZenStoreResources() {
+    private synchronized void initZenStoreResourcesIfNeeded() {
         // Check once again, since multiple threads can call this method
         // concurrently.
         if(!isZenStoreResourcesInited.get()) {
@@ -478,7 +478,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         }
     }
 
-    private void releaseZenStoreResourcese() {
+    private void releaseZenStoreResources() {
 
         // shut down the scheduler
         try {
@@ -635,7 +635,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             }
         }
 
-        releaseZenStoreResourcese();
+        releaseZenStoreResources();
     }
 
     protected String getClientContext() {
