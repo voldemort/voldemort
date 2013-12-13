@@ -1,3 +1,11 @@
+Release 1.6.1 on 12/13/2013
+
+* Avro support for fetch keys/entries admin command
+* Store Clients are now cached by default, within the same factory
+* Rigoruous tests around non contiguous node ids/zone ids
+* ZenStoreClient efficient resource managerment
+
+
 Release 1.6.0 on 11/26/2013
 
 NOTE: This is an open source release! This release can be downloaded here:
