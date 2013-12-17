@@ -32,6 +32,7 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -142,6 +143,18 @@ public class StoreUtils {
         throw new InvalidMetadataException("Client accessing key belonging to partitions "
                                            + routingStrategy.getPartitionList(key.get())
                                            + " not present at " + currentNode);
+    }
+
+    /**
+     * Check if the the nodeId is present in the cluster managed by the metadata store
+     * or throw an exception.
+     *
+     * @param nodeId The nodeId to check existence of
+     */
+    public static void assertValidNode(MetadataStore metadataStore, Integer nodeId) {
+        if(!metadataStore.getCluster().hasNodeWithId(nodeId)) {
+            throw new InvalidMetadataException("NodeId " + nodeId + " is not or no longer in this cluster");
+        }
     }
 
     public static <V> List<Version> getVersions(List<Versioned<V>> versioneds) {

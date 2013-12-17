@@ -22,6 +22,7 @@ import java.util.concurrent.Callable;
 import org.apache.log4j.Logger;
 
 import voldemort.client.SystemStoreRepository;
+import voldemort.store.InvalidMetadataException;
 import voldemort.utils.MetadataVersionStoreUtils;
 
 /**
@@ -177,6 +178,12 @@ public class AsyncMetadataVersionManager implements Runnable {
                 }
             }
 
+        } catch(InvalidMetadataException e) {
+            try {
+                this.storeClientThunk.call();
+            } catch(Exception e2) {
+                logger.error("Exception occurred while invoking the rebootstrap callback.", e);
+            }
         } catch(Exception e) {
             if(logger.isDebugEnabled()) {
                 logger.debug("Could not retrieve metadata versions from the server.", e);
