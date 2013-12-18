@@ -65,6 +65,9 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
+import voldemort.routing.BaseStoreRoutingPlan;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -85,6 +88,7 @@ import voldemort.utils.ByteUtils;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.Pair;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -280,6 +284,11 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("query-key")
               .ofType(String.class);
+        parser.accepts("show-routing-plan", "Routing plan of the specified keys")
+              .withRequiredArg()
+              .describedAs("keys-to-be-routed")
+              .withValuesSeparatedBy(',')
+              .ofType(String.class);
         parser.accepts("mirror-from-url", "Cluster url to mirror data from")
               .withRequiredArg()
               .describedAs("mirror-cluster-bootstrap-url")
@@ -308,7 +317,8 @@ public class VoldemortAdminTool {
                      || options.has("set-metadata-pair") || options.has("get-metadata") || options.has("check-metadata"))
                  || options.has("truncate") || options.has("clear-rebalancing-metadata")
                  || options.has("async") || options.has("native-backup") || options.has("rollback")
-                 || options.has("verify-metadata-version") || options.has("reserve-memory") || options.has("purge-slops"))) {
+                 || options.has("verify-metadata-version") || options.has("reserve-memory")
+                 || options.has("purge-slops") || options.has("show-routing-plan"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 printHelp(System.err, parser);
                 System.exit(1);
@@ -407,48 +417,49 @@ public class VoldemortAdminTool {
                                  options.has("fetch-orphaned"));
             } else if(options.has("repair-job")) {
                 executeRepairJob(nodeId, adminClient);
-            } else if (options.has("set-metadata-pair")) {
+            } else if(options.has("set-metadata-pair")) {
                 List<String> metadataKeyPair = (List<String>) options.valuesOf("set-metadata-pair");
-                if (metadataKeyPair.size() != 2) {
+                if(metadataKeyPair.size() != 2) {
                     throw new VoldemortException("Missing set-metadata-pair keys (only two keys are needed and allowed)");
                 }
-                if (!options.has("set-metadata-value-pair")) {
+                if(!options.has("set-metadata-value-pair")) {
                     throw new VoldemortException("Missing set-metadata-value-pair");
                 } else {
-                    
+
                     List<String> metadataValuePair = (List<String>) options.valuesOf("set-metadata-value-pair");
-                    if (metadataValuePair.size() != 2) {
+                    if(metadataValuePair.size() != 2) {
                         throw new VoldemortException("Missing set-metadata--value-pair values (only two values are needed and allowed)");
                     }
-                    
-                    if (metadataKeyPair.contains(MetadataStore.CLUSTER_KEY) && metadataKeyPair.contains(MetadataStore.STORES_KEY)) {
+
+                    if(metadataKeyPair.contains(MetadataStore.CLUSTER_KEY)
+                       && metadataKeyPair.contains(MetadataStore.STORES_KEY)) {
 
                         String clusterXMLPath = metadataValuePair.get(metadataKeyPair.indexOf(MetadataStore.CLUSTER_KEY));
-                        clusterXMLPath = clusterXMLPath.replace("~", System.getProperty("user.home"));
-                        if (!Utils.isReadableFile(clusterXMLPath))
+                        clusterXMLPath = clusterXMLPath.replace("~",
+                                                                System.getProperty("user.home"));
+                        if(!Utils.isReadableFile(clusterXMLPath))
                             throw new VoldemortException("Cluster xml file path incorrect");
                         ClusterMapper clusterMapper = new ClusterMapper();
                         Cluster cluster = clusterMapper.readCluster(new File(clusterXMLPath));
-                        
+
                         String storesXMLPath = metadataValuePair.get(metadataKeyPair.indexOf(MetadataStore.STORES_KEY));
                         storesXMLPath = storesXMLPath.replace("~", System.getProperty("user.home"));
-                        if (!Utils.isReadableFile(storesXMLPath))
+                        if(!Utils.isReadableFile(storesXMLPath))
                             throw new VoldemortException("Stores definition xml file path incorrect");
                         StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
                         List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new File(storesXMLPath));
                         checkSchemaCompatibility(storeDefs);
-                        
+
                         executeSetMetadataPair(nodeId,
                                                adminClient,
                                                MetadataStore.CLUSTER_KEY,
                                                clusterMapper.writeCluster(cluster),
                                                MetadataStore.STORES_KEY,
                                                storeDefsMapper.writeStoreList(storeDefs));
-                                              
-                    }
-                    else {
+
+                    } else {
                         throw new VoldemortException("set-metadata-pair keys should be <cluster.xml, stores.xml>");
-                    }   
+                    }
                 }
             } else if(options.has("set-metadata")) {
 
@@ -485,8 +496,9 @@ public class VoldemortAdminTool {
                                            mapper.writeStoreList(storeDefs));
 
                         /*
-                         * This is a hack to update the metadata version of the requested stores. 
-                         * TODO: Add the functionality to Admin Client and Server to update one individual 
+                         * This is a hack to update the metadata version of the
+                         * requested stores. TODO: Add the functionality to
+                         * Admin Client and Server to update one individual
                          * store definition.
                          */
                         if(storeNames != null) {
@@ -583,7 +595,19 @@ public class VoldemortAdminTool {
                 synchronizeMetadataVersion(adminClient, nodeId);
             } else if(options.has("verify-metadata-version")) {
                 checkMetadataVersion(adminClient);
+            } else if(options.has("show-routing-plan")) {
+                if(!options.has("store")) {
+                    Utils.croak("Must specify the store the keys belong to using --store ");
+                }
+                String storeName = (String) options.valueOf("store");
+                List<String> keysToRoute = (List<String>) options.valuesOf("show-routing-plan");
+                if(keysToRoute == null || keysToRoute.size() == 0) {
+                    Utils.croak("Must specify comma separated keys list in hex format");
+                }
+                executeShowRoutingPlan(adminClient, storeName, keysToRoute);
+
             } else {
+
                 Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                             + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
                             + "set-metadata, check-metadata, clear-rebalancing-metadata, async, "
@@ -595,16 +619,16 @@ public class VoldemortAdminTool {
             Utils.croak(e.getMessage());
         }
     }
-    
+
     private static void checkSchemaCompatibility(List<StoreDefinition> storeDefs) {
         String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
-        for (StoreDefinition storeDef: storeDefs) {
+        for(StoreDefinition storeDef: storeDefs) {
             SerializerDefinition keySerDef = storeDef.getKeySerializer();
             SerializerDefinition valueSerDef = storeDef.getValueSerializer();
-            if (keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+            if(keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
                 SchemaEvolutionValidator.checkSchemaCompatibility(keySerDef);
             }
-            if (valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+            if(valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
                 SchemaEvolutionValidator.checkSchemaCompatibility(valueSerDef);
             }
         }
@@ -964,7 +988,7 @@ public class VoldemortAdminTool {
             System.out.println("false");
         }
     }
-    
+
     /*
      * Update <cluster.xml,stores.xml> pair atomically
      */
@@ -978,12 +1002,12 @@ public class VoldemortAdminTool {
         List<Integer> nodeIds = Lists.newArrayList();
         VectorClock updatedClusterVersion = null;
         VectorClock updatedStoresVersion = null;
-        if (nodeId < 0) {
-            for (Node node: adminClient.getAdminClientCluster().getNodes()) {
-                
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+
                 nodeIds.add(node.getId());
-                
-                if (updatedClusterVersion == null && updatedStoresVersion == null) {
+
+                if(updatedClusterVersion == null && updatedStoresVersion == null) {
                     updatedClusterVersion = (VectorClock) adminClient.metadataMgmtOps.getRemoteMetadata(node.getId(),
                                                                                                         clusterKey)
                                                                                      .getVersion();
@@ -1001,10 +1025,11 @@ public class VoldemortAdminTool {
                                                                                                                .getVersion());
                 }
             }
-            //TODO: This will work for now but we should take a step back and think about a uniform clock for the metadata values.
+            // TODO: This will work for now but we should take a step back and
+            // think about a uniform clock for the metadata values.
             updatedClusterVersion = updatedClusterVersion.incremented(0, System.currentTimeMillis());
             updatedStoresVersion = updatedStoresVersion.incremented(0, System.currentTimeMillis());
-            
+
         } else {
             updatedClusterVersion = ((VectorClock) adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
                                                                                                  clusterKey)
@@ -1122,9 +1147,9 @@ public class VoldemortAdminTool {
     }
 
     public static void executeGetMetadata(Integer nodeId,
-                                           AdminClient adminClient,
-                                           String metadataKey,
-                                           String outputDir) throws IOException {
+                                          AdminClient adminClient,
+                                          String metadataKey,
+                                          String outputDir) throws IOException {
         File directory = null;
         if(outputDir != null) {
             directory = new File(outputDir);
@@ -1364,14 +1389,15 @@ public class VoldemortAdminTool {
                         while(entriesIterator.hasNext()) {
                             Pair<ByteArray, Versioned<byte[]>> kvPair = entriesIterator.next();
                             byte[] keyBytes = kvPair.getFirst().get();
-                            byte[] versionBytes = ((VectorClock) kvPair.getSecond().getVersion()).toBytes();
+                            VectorClock clock = ((VectorClock) kvPair.getSecond().getVersion());
                             byte[] valueBytes = kvPair.getSecond().getValue();
-                            out.writeInt(keyBytes.length);
-                            out.write(keyBytes);
-                            out.writeInt(versionBytes.length);
-                            out.write(versionBytes);
-                            out.writeInt(valueBytes.length);
-                            out.write(valueBytes);
+
+                            out.writeChars(ByteUtils.toHexString(keyBytes));
+                            out.writeChars(",");
+                            out.writeChars(clock.toString());
+                            out.writeChars(",");
+                            out.writeChars(ByteUtils.toHexString(valueBytes));
+                            out.writeChars("\n");
                         }
                     }
                 });
@@ -1583,8 +1609,7 @@ public class VoldemortAdminTool {
                     public void printTo(DataOutputStream out) throws IOException {
                         while(keyIterator.hasNext()) {
                             byte[] keyBytes = keyIterator.next().get();
-                            out.writeInt(keyBytes.length);
-                            out.write(keyBytes);
+                            out.writeChars(ByteUtils.toHexString(keyBytes) + "\n");
                         }
                     }
                 });
@@ -1800,6 +1825,59 @@ public class VoldemortAdminTool {
                     }
                 }
             });
+        }
+    }
+
+    private static void executeShowRoutingPlan(AdminClient adminClient,
+                                               String storeName,
+                                               List<String> keyList) throws DecoderException {
+
+        Cluster cluster = adminClient.getAdminClientCluster();
+        List<StoreDefinition> storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
+                                                                     .getValue();
+        StoreDefinition storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
+                                                                                   storeName);
+        StoreRoutingPlan routingPlan = new StoreRoutingPlan(cluster, storeDef);
+        BaseStoreRoutingPlan bRoutingPlan = new BaseStoreRoutingPlan(cluster, storeDef);
+
+        for(String keyStr: keyList) {
+            byte[] key = ByteUtils.fromHexString(keyStr);
+            System.out.println("Key :" + keyStr);
+            System.out.println("Replicating Partitions :"
+                               + routingPlan.getReplicatingPartitionList(key));
+            System.out.println("Replicating Nodes :");
+            List<Integer> nodeList = routingPlan.getReplicationNodeList(routingPlan.getMasterPartitionId(key));
+            for(int i = 0; i < nodeList.size(); i++) {
+                System.out.println(nodeList.get(i) + "\t"
+                                   + cluster.getNodeById(nodeList.get(i)).getHost());
+            }
+
+            System.out.println("Zone Nary information :");
+            HashMap<Integer, Integer> zoneRepMap = storeDef.getZoneReplicationFactor();
+
+            for(Zone zone: cluster.getZones()) {
+                System.out.println("\tZone #" + zone.getId());
+                int numReplicas = -1;
+                if(zoneRepMap == null) {
+                    // non zoned cluster
+                    numReplicas = storeDef.getReplicationFactor();
+                } else {
+                    // zoned cluster
+                    if(!zoneRepMap.containsKey(zone.getId())) {
+                        Utils.croak("Repfactor for Zone " + zone.getId() + " not found in storedef");
+                    }
+                    numReplicas = zoneRepMap.get(zone.getId());
+                }
+
+                for(int i = 0; i < numReplicas; i++) {
+                    System.out.println("\tReplica " + i + " Node "
+                                       + bRoutingPlan.getNodeIdForZoneNary(zone.getId(), i, key));
+                }
+                System.out.println();
+            }
+
+            System.out.println("-----------------------------------------------");
+            System.out.println();
         }
     }
 
