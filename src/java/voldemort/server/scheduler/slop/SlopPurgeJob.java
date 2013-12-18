@@ -120,7 +120,7 @@ public class SlopPurgeJob extends DataMaintenanceJob {
         return "SlopPurgeJob";
     }
 
-    @JmxGetter(name = "numSlopsPurges", description = "Returns number of slops purged")
+    @JmxGetter(name = "numSlopsPurges", description = "Returns total number of slops purged")
     public synchronized long getSlopsPurged() {
         return totalKeysUpdated + numKeysUpdatedThisRun.get();
     }
