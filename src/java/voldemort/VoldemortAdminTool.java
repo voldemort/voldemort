@@ -803,6 +803,8 @@ public class VoldemortAdminTool {
                        + ", " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
                        + MetadataStore.REBALANCING_STEAL_INFO + "] on a particular node ");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url] --node [node-id]");
+        stream.println("\t10) View detailed routing information for a given set of keys.");
+        stream.println("bin/voldemort-admin-tool.sh --url <url> --show-routing-plan key1,key2,.. --store <store-name>");
         stream.println();
         stream.println("ADD / DELETE STORES");
         stream.println("\t1) Add store(s) on all nodes");
