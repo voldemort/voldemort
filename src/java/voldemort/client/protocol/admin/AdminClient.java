@@ -149,7 +149,7 @@ public class AdminClient {
     private final NetworkClassLoader networkClassLoader;
     private final AdminClientConfig adminClientConfig;
     private Cluster currentCluster;
-    private SystemStoreClient<String, String> sysStoreVersion = null;
+    private SystemStoreClient<String, String> sysStoreClient = null;
     private String[] cachedBootstrapURLs = null;
     private int cachedZoneID = -1;
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
@@ -357,7 +357,7 @@ public class AdminClient {
                         systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
                     }
 
-                    sysStoreVersion = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
+                    sysStoreClient = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
                 } catch(Exception e) {
                     logger.debug("Error while creating a system store client for metadata version store.");
                 }
@@ -869,7 +869,7 @@ public class AdminClient {
          */
         public void updateMetadataversion(String versionKey) {
             helperOps.initSystemStoreClient();
-            Properties props = MetadataVersionStoreUtils.getProperties(AdminClient.this.sysStoreVersion);
+            Properties props = MetadataVersionStoreUtils.getProperties(AdminClient.this.sysStoreClient);
             long newValue = 0;
             if(props != null && props.getProperty(versionKey) != null) {
                 logger.debug("Version obtained = " + props.getProperty(versionKey));
@@ -881,7 +881,7 @@ public class AdminClient {
                 }
             }
             props.setProperty(versionKey, Long.toString(newValue));
-            MetadataVersionStoreUtils.setProperties(AdminClient.this.sysStoreVersion, props);
+            MetadataVersionStoreUtils.setProperties(AdminClient.this.sysStoreClient, props);
         }
 
         /**
@@ -892,7 +892,7 @@ public class AdminClient {
          */
         public void setMetadataversion(Properties newProperties) {
             helperOps.initSystemStoreClient();
-            MetadataVersionStoreUtils.setProperties(AdminClient.this.sysStoreVersion, newProperties);
+            MetadataVersionStoreUtils.setProperties(AdminClient.this.sysStoreClient, newProperties);
         }
 
         /**

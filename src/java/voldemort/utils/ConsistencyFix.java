@@ -74,7 +74,7 @@ public class ConsistencyFix {
                    boolean parseOnly) {
         this.storeName = storeName;
         logger.info("Connecting to bootstrap server: " + url);
-        this.adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig(), 0);
+        this.adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
         Cluster cluster = adminClient.getAdminClientCluster();
         logger.info("Cluster determined to be: " + cluster.getName());
 

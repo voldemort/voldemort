@@ -65,7 +65,6 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.Zone;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -308,11 +307,9 @@ public class VoldemortAdminTool {
             int parallelism = CmdUtils.valueOf(options, "restore", 5);
             Integer zoneId = CmdUtils.valueOf(options, "zone", -1);
 
-            int zone = zoneId == Zone.UNSET_ZONE_ID ? 0 : zoneId;
             AdminClient adminClient = new AdminClient(url,
                                                       new AdminClientConfig(),
-                                                      new ClientConfig(),
-                                                      zone);
+                                                      new ClientConfig());
 
             List<String> storeNames = null;
             if(options.has("stores")) {

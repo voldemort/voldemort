@@ -95,8 +95,7 @@ public class ConsistencyCheck {
             }
             AdminClient adminClient = new AdminClient(url,
                                                       new AdminClientConfig(),
-                                                      new ClientConfig(),
-                                                      0);
+                                                      new ClientConfig());
             adminClients.add(adminClient);
             /* get Cluster */
             Cluster cluster = adminClient.getAdminClientCluster();
@@ -112,7 +111,7 @@ public class ConsistencyCheck {
         int partitionCount = 0;
         for(Entry<String, Cluster> entry: clusterMap.entrySet()) {
             int currentPartitionCount = entry.getValue().getNumberOfPartitions();
-            if (partitionCount == 0) {
+            if(partitionCount == 0) {
                 partitionCount = currentPartitionCount;
             }
             if(partitionCount != currentPartitionCount) {
@@ -603,11 +602,10 @@ public class ConsistencyCheck {
             }
         }
 
-        public void
-                processInconsistentKeys(String storeName,
-                                        Integer partitionId,
-                                        Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap)
-                        throws IOException {
+        public void processInconsistentKeys(String storeName,
+                                            Integer partitionId,
+                                            Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap)
+                throws IOException {
             if(logger.isDebugEnabled()) {
                 logger.debug("TYPE,Store,ParId,Key,ServerSet,VersionTS,VectorClock[,ValueHash]");
             }
@@ -699,9 +697,8 @@ public class ConsistencyCheck {
      * @param replicationFactor Total replication factor for the set of clusters
      * @return ConsistencyLevel Enum
      */
-    public static ConsistencyLevel
-            determineConsistency(Map<Version, Set<ClusterNode>> versionNodeSetMap,
-                                 int replicationFactor) {
+    public static ConsistencyLevel determineConsistency(Map<Version, Set<ClusterNode>> versionNodeSetMap,
+                                                        int replicationFactor) {
         boolean fullyConsistent = true;
         Version latestVersion = null;
         for(Map.Entry<Version, Set<ClusterNode>> versionNodeSetEntry: versionNodeSetMap.entrySet()) {
@@ -736,9 +733,8 @@ public class ConsistencyCheck {
      *        that maps versions to set of PrefixNodes
      * @param requiredWrite Required Write configuration
      */
-    public static void
-            cleanIneligibleKeys(Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap,
-                                int requiredWrite) {
+    public static void cleanIneligibleKeys(Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap,
+                                           int requiredWrite) {
         Set<ByteArray> keysToDelete = new HashSet<ByteArray>();
         for(Map.Entry<ByteArray, Map<Version, Set<ClusterNode>>> entry: keyVersionNodeSetMap.entrySet()) {
             Set<Version> versionsToDelete = new HashSet<Version>();
