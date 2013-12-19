@@ -23,6 +23,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.util.List;
 import java.util.Properties;
 
 import org.junit.After;
@@ -38,11 +40,13 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.common.service.SchedulerService;
 import voldemort.server.VoldemortServer;
+import voldemort.store.StoreDefinition;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.SystemTime;
 import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * Test class to verify that the Zenstore client rebootstraps when needed (on
@@ -55,6 +59,7 @@ public class EndToEndRebootstrapTest {
 
     private static final String STORE_NAME = "test-replication-persistent";
     private static final String CLUSTER_KEY = "cluster.xml";
+    private static final String STORES_KEY = "stores.xml";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
     String[] bootStrapUrls = null;
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
@@ -73,6 +78,8 @@ public class EndToEndRebootstrapTest {
     private SystemStoreRepository sysRepository;
     private SchedulerService scheduler;
 
+    
+    
     @Before
     public void setUp() throws Exception {
         final int numServers = 2;
@@ -131,85 +138,120 @@ public class EndToEndRebootstrapTest {
         scheduler.stop();
         sysRepository.close();
     }
+    
+    private void sanityTestClientOps() {
+        // Do a sample get, put to check client is correctly initialized.
+        String key = "city";
+        String value = "SF";
+        try {
+            storeClient.put(key, value);
+            String received = storeClient.getValue(key);
+            assertEquals(value, received);
+        } catch(VoldemortException ve) {
+            fail("Error in doing basic get, put");
+        }
+    }
+    
+    private String getPropertyFromClientInfo(String propertyName) {
+        String bootstrapTime = "";
+        try {
+            String clientInfo = clientRegistryStore.getSysStore(storeClient.getClientId())
+                                                    .getValue();
+
+            Properties props = new Properties();
+            props.load(new ByteArrayInputStream(clientInfo.getBytes()));
+            bootstrapTime = props.getProperty(propertyName);
+            assertNotNull(bootstrapTime);
+        } catch(Exception e) {
+            fail("Error in retrieving bootstrap time: " + e);
+        }
+        return bootstrapTime;
+    }
 
     /*
-     * Test to validate that the client bootstraps on metadata change. First do
-     * some operations to validate that the client is correctly initialized.
-     * Then update the cluster.xml using the Admin Tool (which should update the
-     * metadata version as well). Verify that the client bootstraps after this
-     * update.
-     * 
-     * Whether the client has automatically bootstrapped is verified by checking
+     * Test to validate that the client bootstraps on metadata change. 
+     * 1. Do some operations to validate that the client is correctly initialized.
+     * 2. Update the cluster.xml using the Admin Tool (which should update the
+     *    metadata version as well). 
+     * 3. Verify that the client bootstraps after this update.
+     * 4. Whether the client has automatically bootstrapped is verified by checking
      * the new bootstrap time in the client registry.
      */
     @Test
     public void testEndToEndRebootstrap() {
         try {
-            // Do a sample get, put to check client is correctly initialized.
-            String key = "city";
-            String value = "SF";
-            String bootstrapTime = "";
-            String newBootstrapTime = "";
+            sanityTestClientOps();
+            // Get bootstraptime at start
+            String bootstrapTime = getPropertyFromClientInfo("bootstrapTime");
+            // Update cluster.xml metadata
             AdminClient adminClient = new AdminClient(bootStrapUrls[0],
                                                       new AdminClientConfig(),
                                                       new ClientConfig(),
                                                       CLIENT_ZONE_ID);
-
-            try {
-                storeClient.put(key, value);
-                String received = storeClient.getValue(key);
-                assertEquals(value, received);
-            } catch(VoldemortException ve) {
-                fail("Error in doing basic get, put");
-            }
-
-            String originalClientInfo = null;
-
-            try {
-                originalClientInfo = clientRegistryStore.getSysStore(storeClient.getClientId())
-                                                        .getValue();
-
-                Properties props = new Properties();
-                props.load(new ByteArrayInputStream(originalClientInfo.getBytes()));
-
-                bootstrapTime = props.getProperty("bootstrapTime");
-                assertNotNull(bootstrapTime);
-            } catch(Exception e) {
-                fail("Error in retrieving bootstrap time: " + e);
-            }
-
-            // Update cluster.xml metadata
-            VoldemortAdminTool adminTool = new VoldemortAdminTool();
-            ClusterMapper mapper = new ClusterMapper();
             for(Node node: cluster.getNodes()) {
                 VoldemortAdminTool.executeSetMetadata(node.getId(),
                                                       adminClient,
                                                       CLUSTER_KEY,
-                                                      mapper.writeCluster(cluster));
+                                                      new ClusterMapper().writeCluster(cluster));
             }
-
             // Wait for about 15 seconds to be sure
             try {
                 Thread.sleep(15000);
             } catch(Exception e) {
                 fail("Interrupted .");
             }
-
-            // // Retrieve the new client bootstrap timestamp
-            String newClientInfo = null;
-
-            try {
-                newClientInfo = clientRegistryStore.getSysStore(storeClient.getClientId())
-                                                   .getValue();
-                Properties newProps = new Properties();
-                newProps.load(new ByteArrayInputStream(newClientInfo.getBytes()));
-                newBootstrapTime = newProps.getProperty("bootstrapTime");
-                assertNotNull(newBootstrapTime);
-            } catch(Exception e) {
-                fail("Error in retrieving bootstrap time: " + e);
-            }
-
+            // Get bootstraptime again
+            String newBootstrapTime = getPropertyFromClientInfo("bootstrapTime");
             assertFalse(bootstrapTime.equals(newBootstrapTime));
+            
+            long origTime = Long.parseLong(bootstrapTime);
+            long newTime = Long.parseLong(newBootstrapTime);
+            assertTrue(newTime > origTime);
+
+        } catch(Exception e) {
+            fail("Error in validating end to end client rebootstrap : " + e);
+        }
+    }
+    
+    /*
+     * Test to validate that the client bootstraps on metadata change. 
+     * 1. Do some operations to validate that the client is correctly initialized.
+     * 2. Update the <cluster.xml, stores.xml> pair using the Admin Tool. 
+     * 3. Verify that the client bootstraps after this update.
+     * 4. Whether the client has automatically bootstrapped is verified by checking
+     *    the new bootstrap time in the client registry.
+     */
+    @Test
+    public void testEndToEndRebootstrapWithSetMetadataPair() {
+        try {
+            sanityTestClientOps();
+            // Get bootstraptime at start
+            String bootstrapTime = getPropertyFromClientInfo("bootstrapTime");
+            // Update cluster.xml metadata
+            AdminClient adminClient = new AdminClient(bootStrapUrls[0],
+                                                      new AdminClientConfig(),
+                                                      new ClientConfig(),
+                                                      CLIENT_ZONE_ID);
+            StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
+            List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new File(storesXmlfile));
+            for (Node node: cluster.getNodes()) {
+                VoldemortAdminTool.executeSetMetadataPair(node.getId(),
+                                                          adminClient,
+                                                          CLUSTER_KEY,
+                                                          new ClusterMapper().writeCluster(cluster),
+                                                          STORES_KEY,
+                                                          storeDefsMapper.writeStoreList(storeDefs));
+            }
+            // Wait for about 15 seconds to be sure
+            try {
+                Thread.sleep(15000);
+            } catch(Exception e) {
+                fail("Interrupted .");
+            }
+            // Get bootstraptime again
+            String newBootstrapTime = getPropertyFromClientInfo("bootstrapTime");
+            assertFalse(bootstrapTime.equals(newBootstrapTime));
+            
             long origTime = Long.parseLong(bootstrapTime);
             long newTime = Long.parseLong(newBootstrapTime);
             assertTrue(newTime > origTime);

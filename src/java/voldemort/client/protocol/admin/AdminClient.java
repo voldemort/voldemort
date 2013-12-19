@@ -139,6 +139,7 @@ public class AdminClient {
     private static final long PRINT_STATS_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
     private static final String CLUSTER_VERSION_KEY = "cluster.xml";
+    private static final String STORES_VERSION_KEY = "stores.xml";
 
     public final static List<String> restoreStoreEngineBlackList = Arrays.asList(ReadOnlyStorageConfiguration.TYPE_NAME,
                                                                                  ViewStorageConfiguration.TYPE_NAME);
@@ -956,7 +957,7 @@ public class AdminClient {
                                          String key,
                                          Versioned<String> value) {
             for(Integer currentNodeId: remoteNodeIds) {
-                System.out.println("Setting " + key + " for "
+               logger.info("Setting " + key + " for "
                                    + getAdminClientCluster().getNodeById(currentNodeId).getHost()
                                    + ":"
                                    + getAdminClientCluster().getNodeById(currentNodeId).getId());
@@ -969,6 +970,93 @@ public class AdminClient {
              */
             if(key.equals(CLUSTER_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(key);
+            }
+        }
+
+        /**
+         * Update metadata pair <cluster,stores> at the given remoteNodeId.
+         * 
+         * @param remoteNodeId Id of the node
+         * @param clusterKey cluster key to update
+         * @param clusterValue value of the cluster metadata key
+         * @param storesKey stores key to update
+         * @param storesValue value of the stores metadata key
+         * 
+         */
+        public void updateRemoteMetadataPair(int remoteNodeId,
+                                             String clusterKey,
+                                             Versioned<String> clusterValue,
+                                             String storesKey,
+                                             Versioned<String> storesValue) {
+            ByteArray clusterKeyBytes = new ByteArray(ByteUtils.getBytes(clusterKey, "UTF-8"));
+            Versioned<byte[]> clusterValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(clusterValue.getValue(), "UTF-8"),
+                                                                        clusterValue.getVersion());
+
+            ByteArray storesKeyBytes = new ByteArray(ByteUtils.getBytes(storesKey, "UTF-8"));
+            Versioned<byte[]> storesValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(storesValue.getValue(), "UTF-8"),
+                                                                       storesValue.getVersion());
+
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setType(VAdminProto.AdminRequestType.UPDATE_METADATA_PAIR)
+                                                                                         .setUpdateMetadataPair(VAdminProto.UpdateMetadataPairRequest.newBuilder()
+                                                                                                                                                     .setClusterKey(ByteString.copyFrom(clusterKeyBytes.get()))
+                                                                                                                                                     .setClusterValue(ProtoUtils.encodeVersioned(clusterValueBytes))
+                                                                                                                                                     .setStoresKey(ByteString.copyFrom(storesKeyBytes.get()))
+                                                                                                                                                     .setStoresValue((ProtoUtils.encodeVersioned(storesValueBytes)))
+                                                                                                                                                     .build())
+                                                                                         .build();
+            VAdminProto.UpdateMetadataPairResponse.Builder response = rpcOps.sendAndReceive(remoteNodeId,
+                                                                                            request,
+                                                                                            VAdminProto.UpdateMetadataPairResponse.newBuilder());
+            if (response.hasError())
+                helperOps.throwException(response.getError());
+        }
+
+
+        /**
+         * Wrapper for updateRemoteMetadataPair function used against a single Node
+         * It basically loops over the entire list of Nodes that we need to
+         * execute the required operation against. It also increments the
+         * version of the corresponding metadata in the system store.
+         * 
+         * @param remoteNodeIds Ids of the nodes
+         * @param clusterKey cluster key to update
+         * @param clusterValue value of the cluster metadata key
+         * @param storesKey stores key to update
+         * @param storesValue value of the stores metadata key
+         * 
+         * */
+        public void updateRemoteMetadataPair(List<Integer> remoteNodeIds,
+                                             String clusterKey,
+                                             Versioned<String> clusterValue,
+                                             String storesKey,
+                                             Versioned<String> storesValue) {
+            for (Integer currentNodeId: remoteNodeIds) {
+                logger.info("Setting " + clusterKey + " and " + storesKey + " for "
+                                   + getAdminClientCluster().getNodeById(currentNodeId).getHost()
+                                   + ":" + getAdminClientCluster().getNodeById(currentNodeId).getId());
+                updateRemoteMetadataPair(currentNodeId, clusterKey, clusterValue, storesKey, storesValue);
+            }
+            /*
+             * Assuming everything is fine, we now increment the metadata
+             * version for the cluster and the stores
+             */
+            if (clusterKey.equals(CLUSTER_VERSION_KEY)) {
+                metadataMgmtOps.updateMetadataversion(clusterKey);
+            }
+            if (storesKey.equals(STORES_VERSION_KEY)) {
+                StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
+                List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new StringReader(storesValue.getValue()));
+                if (storeDefs != null) {
+                    try {
+                        for(StoreDefinition storeDef: storeDefs) {
+                            logger.info("Updating metadata version for stores: " + storeDef.getName());
+                            metadataMgmtOps.updateMetadataversion(storeDef.getName());
+                        }
+                    } catch(Exception e) {
+                        System.err.println("Error while updating metadata version for the specified store.");
+                    }
+                }
             }
         }
 
@@ -1447,13 +1535,13 @@ public class AdminClient {
                                  List<String> storeNames) {
             VAdminProto.SlopPurgeJobRequest.Builder jobRequest = VAdminProto.SlopPurgeJobRequest.newBuilder();
             if(nodeList != null) {
-                jobRequest.addAllNodeIds(nodeList);
+                jobRequest.addAllFilterNodeIds(nodeList);
             }
             if(zoneId != Zone.UNSET_ZONE_ID) {
-                jobRequest.setZoneId(zoneId);
+                jobRequest.setFilterZoneId(zoneId);
             }
             if(storeNames != null) {
-                jobRequest.addAllStoreNames(storeNames);
+                jobRequest.addAllFilterStoreNames(storeNames);
             }
 
             VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()

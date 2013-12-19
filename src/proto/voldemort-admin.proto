@@ -25,6 +25,17 @@ message UpdateMetadataRequest {
   required Versioned versioned = 2;
 }
 
+message UpdateMetadataPairRequest {
+  required bytes cluster_key = 1;
+  required Versioned cluster_value = 2;
+  required bytes stores_key = 3;
+  required Versioned stores_value = 4;
+}
+
+message UpdateMetadataPairResponse {
+  optional Error error = 1;
+}
+
 message UpdateMetadataResponse {
   optional Error error = 1;
 }
@@ -365,6 +376,7 @@ enum AdminRequestType {
   RESERVE_MEMORY = 29;
   PRUNE_JOB = 30;
   SLOP_PURGE_JOB = 31;
+  UPDATE_METADATA_PAIR = 32;
 }
 
 message VoldemortAdminRequest {
@@ -399,4 +411,5 @@ message VoldemortAdminRequest {
   optional ReserveMemoryRequest reserve_memory = 31;
   optional PruneJobRequest prune_job = 32;
   optional SlopPurgeJobRequest slop_purge_job = 33;
+  optional UpdateMetadataPairRequest update_metadata_pair = 34;
 }
