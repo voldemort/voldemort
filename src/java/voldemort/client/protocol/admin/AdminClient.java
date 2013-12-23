@@ -26,15 +26,8 @@ import java.net.Socket;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -869,19 +862,32 @@ public class AdminClient {
          *        incremented
          */
         public void updateMetadataversion(String versionKey) {
+            updateMetadataversion(Arrays.asList(new String[]{versionKey}));
+        }
+
+        /**
+         * Update the metadata versions for the given keys (cluster or store). The
+         * new value set is the current timestamp.
+         *
+         * @param versionKeys The metadata keys for which Version should be
+         *        incremented
+         */
+        public void updateMetadataversion(Collection<String> versionKeys) {
             helperOps.initSystemStoreClient();
             Properties props = MetadataVersionStoreUtils.getProperties(AdminClient.this.sysStoreClient);
-            long newValue = 0;
-            if(props != null && props.getProperty(versionKey) != null) {
-                logger.debug("Version obtained = " + props.getProperty(versionKey));
-                newValue = System.currentTimeMillis();
-            } else {
-                logger.debug("Current version is null. Assuming version 0.");
-                if(props == null) {
-                    props = new Properties();
+            for(String versionKey: versionKeys) {
+                long newValue = 0;
+                if(props != null && props.getProperty(versionKey) != null) {
+                    logger.debug("Version obtained = " + props.getProperty(versionKey));
+                    newValue = System.currentTimeMillis();
+                } else {
+                    logger.debug("Current version is null. Assuming version 0.");
+                    if(props == null) {
+                        props = new Properties();
+                    }
                 }
+                props.setProperty(versionKey, Long.toString(newValue));
             }
-            props.setProperty(versionKey, Long.toString(newValue));
             MetadataVersionStoreUtils.setProperties(AdminClient.this.sysStoreClient, props);
         }
 
@@ -968,7 +974,7 @@ public class AdminClient {
              * Assuming everything is fine, we now increment the metadata
              * version for the key
              */
-            if(key.equals(CLUSTER_VERSION_KEY)) {
+            if(key.equals(CLUSTER_VERSION_KEY) || key.equals(STORES_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(key);
             }
         }
