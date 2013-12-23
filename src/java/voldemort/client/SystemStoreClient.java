@@ -21,6 +21,7 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.versioning.InconsistentDataException;
@@ -115,6 +116,8 @@ public class SystemStoreClient<K, V> {
                              + " on store name : " + this.storeName);
             else
                 logger.debug("Got null value");
+        } catch(InvalidMetadataException e){
+            throw(e);
         } catch(Exception e) {
             if(logger.isDebugEnabled()) {
                 logger.debug("Exception caught during getSysStore: " + e);

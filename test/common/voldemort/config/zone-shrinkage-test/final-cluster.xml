@@ -1,0 +1,83 @@
+<cluster>
+    <name>zone-shrinkage-test-initial-cluster</name>
+    <zone>
+        <zone-id>1</zone-id>
+        <proximity-list>2</proximity-list>
+    </zone>
+    <zone>
+        <zone-id>2</zone-id>
+        <proximity-list>1</proximity-list>
+    </zone>
+    <server>
+        <id>1</id>
+        <host>localhost</host>
+        <http-port>6011</http-port>
+        <socket-port>6012</socket-port>
+        <admin-port>6013</admin-port>
+        <partitions>0, 1, 12, 13, 24, 25, 36, 37, 48, 49</partitions>
+        <zone-id>1</zone-id>
+    </server>
+    <server>
+        <id>2</id>
+        <host>localhost</host>
+        <http-port>6021</http-port>
+        <socket-port>6022</socket-port>
+        <admin-port>6023</admin-port>
+        <partitions>2, 14, 26, 38, 50</partitions>
+        <zone-id>2</zone-id>
+    </server>
+    <server>
+        <id>4</id>
+        <host>localhost</host>
+        <http-port>6041</http-port>
+        <socket-port>6042</socket-port>
+        <admin-port>6043</admin-port>
+        <partitions>3, 4, 15, 16, 27, 28, 39, 40, 51, 52</partitions>
+        <zone-id>1</zone-id>
+    </server>
+    <server>
+        <id>5</id>
+        <host>localhost</host>
+        <http-port>6051</http-port>
+        <socket-port>6052</socket-port>
+        <admin-port>6053</admin-port>
+        <partitions>5, 17, 29, 41, 53</partitions>
+        <zone-id>2</zone-id>
+    </server>
+    <server>
+        <id>7</id>
+        <host>localhost</host>
+        <http-port>6071</http-port>
+        <socket-port>6072</socket-port>
+        <admin-port>6073</admin-port>
+        <partitions>6, 7, 18, 19, 30, 31, 42, 43, 54, 55</partitions>
+        <zone-id>1</zone-id>
+    </server>
+    <server>
+        <id>8</id>
+        <host>localhost</host>
+        <http-port>6081</http-port>
+        <socket-port>6082</socket-port>
+        <admin-port>6083</admin-port>
+        <partitions>8, 20, 32, 44, 56</partitions>
+        <zone-id>2</zone-id>
+    </server>
+    <server>
+        <id>10</id>
+        <host>localhost</host>
+        <http-port>6101</http-port>
+        <socket-port>6102</socket-port>
+        <admin-port>6103</admin-port>
+        <partitions>9, 10, 21, 22, 33, 34, 45, 46, 57, 58</partitions>
+        <zone-id>1</zone-id>
+    </server>
+    <server>
+        <id>11</id>
+        <host>localhost</host>
+        <http-port>6111</http-port>
+        <socket-port>6112</socket-port>
+        <admin-port>6113</admin-port>
+        <partitions>11, 23, 35, 47, 59</partitions>
+        <zone-id>2</zone-id>
+    </server>
+</cluster>

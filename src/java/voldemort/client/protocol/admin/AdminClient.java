@@ -342,7 +342,7 @@ public class AdminClient {
          * Zone ID
          */
         private void initSystemStoreClient() {
-            if(AdminClient.this.cachedBootstrapURLs != null && AdminClient.this.cachedZoneID >= 0) {
+            if(AdminClient.this.cachedBootstrapURLs != null) {
                 try {
                     if(systemStoreFactory == null) {
                         ClientConfig clientConfig = new ClientConfig();

@@ -57,6 +57,11 @@ import voldemort.utils.pool.ResourcePoolConfig;
  */
 public class ClientRequestExecutorPool implements SocketStoreFactory {
 
+    public static final Integer DEFAULT_SELECTORS = 2;
+    public static final Boolean DEFAULT_SOCKET_KEEP_ALIVE = false;
+    public static final Boolean DEFAULT_JMX_ENABLED = false;
+    public static final Integer DEFAULT_JMX_ID = 0;
+
     private final QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> queuedPool;
     private final ClientRequestExecutorFactory factory;
     private final ClientSocketStats stats;
@@ -115,8 +120,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
              soTimeoutMs,
              socketBufferSize,
              socketKeepAlive,
-             false,
-             0);
+             DEFAULT_JMX_ENABLED,
+             DEFAULT_JMX_ID);
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,
@@ -124,7 +129,14 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                      int soTimeoutMs,
                                      int socketBufferSize) {
         // maintain backward compatibility of API
-        this(2, maxConnectionsPerNode, connectionTimeoutMs, soTimeoutMs, socketBufferSize, false);
+        this(DEFAULT_SELECTORS,
+                maxConnectionsPerNode,
+                connectionTimeoutMs,
+                soTimeoutMs,
+                socketBufferSize,
+                DEFAULT_SOCKET_KEEP_ALIVE,
+                DEFAULT_JMX_ENABLED,
+                DEFAULT_JMX_ID);
     }
 
     public ClientRequestExecutorFactory getFactory() {

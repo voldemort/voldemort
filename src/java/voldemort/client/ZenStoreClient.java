@@ -241,6 +241,10 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
         return result;
     }
 
+    public AsyncMetadataVersionManager getAsyncMetadataVersionManager() {
+        return asyncMetadataManager;
+    }
+
     /**
      * Generate a unique client ID based on: 0. clientContext, if specified; 1.
      * storeName; 2. deployment path; 3. client sequence

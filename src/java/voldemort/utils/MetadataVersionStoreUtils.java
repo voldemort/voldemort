@@ -22,6 +22,8 @@ import java.util.Properties;
 import org.apache.log4j.Logger;
 
 import voldemort.client.SystemStoreClient;
+import voldemort.store.InvalidMetadataException;
+import voldemort.versioning.Versioned;
 
 /**
  * A Utils class that facilitates conversion between the string containing
@@ -45,15 +47,15 @@ public class MetadataVersionStoreUtils {
      */
     public static Properties getProperties(SystemStoreClient<String, String> versionStore) {
         Properties props = null;
-        try {
-            String versionList = versionStore.getSysStore(VERSIONS_METADATA_KEY).getValue();
-
-            if(versionList != null) {
+        Versioned<String> versioned = versionStore.getSysStore(VERSIONS_METADATA_KEY);
+        String versionList = versioned.getValue();
+        if(versionList != null) {
+            try {
                 props = new Properties();
                 props.load(new ByteArrayInputStream(versionList.getBytes()));
+            } catch(Exception e) {
+                logger.debug("Got exception in getting properties : " + e.getMessage() + " " + e.getClass());
             }
-        } catch(Exception e) {
-            logger.debug("Got exception in getting properties : " + e.getMessage());
         }
 
         return props;

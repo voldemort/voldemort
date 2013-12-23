@@ -123,7 +123,7 @@ public class AsyncMetadataVersionManager implements Runnable {
                  * Check if the new version is greater than the current one. We
                  * should not re-bootstrap on a stale version.
                  */
-                if(newVersion > curVersion) {
+                if(curVersion == null || newVersion > curVersion) {
                     return newVersion;
                 }
             } else {
