@@ -20,13 +20,18 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortAdminTool;
@@ -36,44 +41,86 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
-import voldemort.store.socket.SocketStoreFactory;
-import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
 
+/*
+ * This class tests that the metadata pair <cluster.xml, stores.xml> is update atomically.
+ * It starts with an olderCluster, updates the metdata on each node and then makes sure that
+ * the new metadata operation was successful. It does so by matching the partition list before
+ * and after the metadata update. It also tests for stores.xml update. 
+ * 
+ * There are three configuration that it checks : (i) Cluster with non contiguous zone/node ids
+ * (ii) Cluster with contiguous zone/node ids and (iii) Cluster with a non zoned topology
+ * 
+ */
 
+@RunWith(Parameterized.class)
 public class AtomicSetMetadataPairTest {
 
     private static final String CLUSTER_KEY = "cluster.xml";
     private static final String STORES_KEY = "stores.xml";
-    
-    private static String oldStoresXmlfile = "test/common/voldemort/config/stores.xml";
-    private static String newStoresXmlfile = "test/common/voldemort/config/two-stores.xml";
-    
+
+    private static String oldStoresXmlfile = "test/common/voldemort/config/three-stores-with-zones.xml";
+    private static String newStoresXmlfile = "test/common/voldemort/config/two-stores-with-zones.xml";
+
     String[] bootStrapUrls = null;
     public static String socketUrl = "";
-    private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
-                                                                                  10000,
-                                                                                  100000,
-                                                                                  32 * 1024);
     private VoldemortServer[] servers;
+
     private Cluster oldCluster;
- 
+    private Cluster newCluster;
+    private List<Integer> oldPartitionIds;
+    private List<Integer> newPartitionIds;
+
+    public AtomicSetMetadataPairTest(Cluster oldCluster,
+                                     Cluster newCluster,
+                                     List<Integer> oldPartitionIds,
+                                     List<Integer> newPartitionIds) {
+        this.oldCluster = oldCluster;
+        this.newCluster = newCluster;
+        this.oldPartitionIds = oldPartitionIds;
+        this.newPartitionIds = newPartitionIds;
+
+    }
+
+    @Parameterized.Parameters
+    public static Collection<Object[]> configs() {
+        
+        int originalPartitionMap[][] = { { 0, 1 }, { 2, 3 }, { 4, 5 }, { 6, 7 }, { 8, 9 }, { 10, 11 } };
+        int swappedPartitionMap[][] = { { 0, 1 }, { 2, 3 }, { 4, 5 }, { 6, 7 }, { 8, 10 }, { 9, 11 } };
+        
+        return Arrays.asList(new Object[][] {
+                {
+                    ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIds(),
+                    ClusterTestUtils.getZ1Z3Z5ClusterWithNonContiguousNodeIdsWithSwappedPartitions(),
+                    Lists.newArrayList(2, 11, 7), Lists.newArrayList(2, 11, 23) 
+                },
+                {   ClusterTestUtils.getZZZCluster(),
+                    ClusterTestUtils.getZZZClusterWithSwappedPartitions(),
+                    Lists.newArrayList(5, 14), Lists.newArrayList(14)
+                },
+                {
+                    ServerTestUtils.getLocalCluster(6, originalPartitionMap),
+                    ServerTestUtils.getLocalCluster(6, swappedPartitionMap),
+                    Lists.newArrayList(10, 11), Lists.newArrayList(9, 11)
+                }
+                });
+    }
+
     @Before
     public void setUp() throws Exception {
-        final int numServers = 2;
-        servers = new VoldemortServer[numServers];
-        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
-        oldCluster = ServerTestUtils.startVoldemortCluster(numServers,
-                                                        servers,
-                                                        partitionMap,
-                                                        socketStoreFactory,
-                                                        true, // useNio
-                                                        null,
-                                                        oldStoresXmlfile,
-                                                        new Properties());
+
+        servers = new VoldemortServer[oldCluster.getNodes().size()];
+        oldCluster = ServerTestUtils.startVoldemortCluster(servers,
+                                                           null,
+                                                           null,
+                                                           oldStoresXmlfile,
+                                                           new Properties(),
+                                                           oldCluster);
+
         socketUrl = servers[0].getIdentityNode().getSocketUrl().toString();
         bootStrapUrls = new String[1];
         bootStrapUrls[0] = socketUrl;
@@ -82,49 +129,50 @@ public class AtomicSetMetadataPairTest {
 
     @After
     public void tearDown() throws Exception {
-        for(VoldemortServer server: servers) {
+        for (VoldemortServer server: servers) {
             ServerTestUtils.stopVoldemortServer(server);
         }
     }
-   
+
     @Test
     public void testClusterAndStoresAreSetAtomically() {
         try {
-        
-            // Update cluster.xml metadata
-            AdminClient adminClient = new AdminClient(bootStrapUrls[0],
-                                                      new AdminClientConfig(),
-                                                      new ClientConfig());
+
+            AdminClient adminClient = new AdminClient(bootStrapUrls[0], new AdminClientConfig(), new ClientConfig());
+            
             StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
             List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new File(newStoresXmlfile));
-            
-            
-            final int numServers = 2;
-            int partitionMap[][] = { { 0, 1, 6, 7 }, { 4, 5, 2, 3 } };
-            Cluster newCluster = ServerTestUtils.getLocalCluster(numServers, partitionMap);
-            
             ClusterMapper clusterMapper = new ClusterMapper();
             
             for (Node node: oldCluster.getNodes()) {
-                VoldemortAdminTool.executeSetMetadataPair(node.getId(),
-                                                          adminClient,
-                                                          CLUSTER_KEY,
-                                                          clusterMapper.writeCluster(newCluster),
-                                                          STORES_KEY,
-                                                          storeDefsMapper.writeStoreList(storeDefs));
+                VoldemortAdminTool.executeSetMetadataPair(node.getId(), adminClient, 
+                                                          CLUSTER_KEY, clusterMapper.writeCluster(newCluster),
+                                                          STORES_KEY, storeDefsMapper.writeStoreList(storeDefs));
             }
-            String dirPath = TestUtils.createTempDir().getAbsolutePath();
             
-            for (Node node: oldCluster.getNodes()) {
+            String dirPath = TestUtils.createTempDir().getAbsolutePath();
+
+            for (Node node: newCluster.getNodes()) {
+                
                 VoldemortAdminTool.executeGetMetadata(node.getId(), adminClient, CLUSTER_KEY, dirPath);
-                // Make sure cluster metadata was updated                
-                Cluster newClusterFromMetadataRepo = clusterMapper.readCluster(new File(dirPath, CLUSTER_KEY + "_" + node.getId()));
-                assertTrue(newClusterFromMetadataRepo.getNodeById(0).getPartitionIds().equals(Lists.newArrayList(0, 1, 6, 7 )));
+                
+                // Make sure cluster metadata was updated
+                Cluster newClusterFromMetadataRepo = clusterMapper.readCluster(new File(dirPath,
+                                                                                        CLUSTER_KEY + "_" + node.getId()));
+                // All nodes should have this old list
+                assertTrue(oldCluster.getNodeById(5).getPartitionIds().equals(oldPartitionIds));
+                
+                // As per the new metadata node 5 should have this list
+                assertTrue(newClusterFromMetadataRepo.getNodeById(5).getPartitionIds().equals(newPartitionIds));
+
                 // Make sure store metadata was updated
                 VoldemortAdminTool.executeGetMetadata(node.getId(), adminClient, STORES_KEY, dirPath);
-                List<StoreDefinition> newStoreDefsFromMetadatRepo = storeDefsMapper.readStoreList(new File(dirPath, STORES_KEY + "_" + node.getId()));
-                assertTrue(newStoreDefsFromMetadatRepo.size() == 2); 
-                assertTrue(newStoreDefsFromMetadatRepo.get(1).getName().equals("best"));
+                List<StoreDefinition> newStoreDefsFromMetadatRepo = storeDefsMapper.readStoreList(new File(dirPath,
+                                                                                                           STORES_KEY 
+                                                                                                           + "_"
+                                                                                                           + node.getId()));
+                assertTrue(newStoreDefsFromMetadatRepo.size() == 2);
+                assertTrue(newStoreDefsFromMetadatRepo.get(1).getName().equals("zstore"));
             }
         } catch(Exception e) {
             fail("Error in validating end to end client rebootstrap : " + e);

@@ -1131,16 +1131,19 @@ public class ServerTestUtils {
             cluster = ServerTestUtils.getLocalCluster(numServers, partitionMap);
         }
 
-        for(int i = 0; i < numServers; i++) {
-            voldemortServers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                       ServerTestUtils.createServerConfig(useNio,
-                                                                                                          i,
-                                                                                                          TestUtils.createTempDir()
-                                                                                                                   .getAbsolutePath(),
-                                                                                                          clusterFile,
-                                                                                                          storeFile,
-                                                                                                          properties),
-                                                                       cluster);
+        int count = 0;
+        for (int nodeId: cluster.getNodeIds()) {
+
+            voldemortServers[count] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                           ServerTestUtils.createServerConfig(useNio,
+                                                                                                              nodeId,
+                                                                                                              TestUtils.createTempDir()
+                                                                                                                       .getAbsolutePath(),
+                                                                                                              clusterFile,
+                                                                                                              storeFile,
+                                                                                                              properties),
+                                                                           cluster);
+            count++;
         }
         return cluster;
     }
