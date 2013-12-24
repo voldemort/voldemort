@@ -22,7 +22,6 @@ import java.util.Properties;
 import org.apache.log4j.Logger;
 
 import voldemort.client.SystemStoreClient;
-import voldemort.store.InvalidMetadataException;
 import voldemort.versioning.Versioned;
 
 /**
@@ -48,13 +47,14 @@ public class MetadataVersionStoreUtils {
     public static Properties getProperties(SystemStoreClient<String, String> versionStore) {
         Properties props = null;
         Versioned<String> versioned = versionStore.getSysStore(VERSIONS_METADATA_KEY);
-        String versionList = versioned.getValue();
-        if(versionList != null) {
+        if(versioned != null && versioned.getValue() != null) {
             try {
+                String versionList = versioned.getValue();
                 props = new Properties();
                 props.load(new ByteArrayInputStream(versionList.getBytes()));
             } catch(Exception e) {
-                logger.debug("Got exception in getting properties : " + e.getMessage() + " " + e.getClass());
+                logger.debug("Got exception in getting properties : " + e.getMessage());
+                e.printStackTrace();
             }
         }
 

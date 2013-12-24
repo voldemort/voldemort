@@ -20,7 +20,7 @@ import voldemort.cluster.Node;
 import voldemort.server.RequestRoutingType;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 
-public class SocketStoreFactoryForTest extends ClientRequestExecutorPool {
+public class TestSocketStoreFactory extends ClientRequestExecutorPool {
     static final Integer DEFAULT_MAX_CONNECTIONS_PER_NODE = 2;
     static final Integer DEFAULT_CONNECTION_TIMEOUT_MS = 10000;
     static final Integer DEFAULT_SO_TIMEOUT_MS = 100000;
@@ -28,7 +28,7 @@ public class SocketStoreFactoryForTest extends ClientRequestExecutorPool {
     static final ClientConfig DEFAULT_CLIENT_CONFIG = new ClientConfig();
 
 
-    public SocketStoreFactoryForTest() {
+    public TestSocketStoreFactory() {
         super(DEFAULT_SELECTORS,
                 DEFAULT_MAX_CONNECTIONS_PER_NODE,
                 DEFAULT_CONNECTION_TIMEOUT_MS,

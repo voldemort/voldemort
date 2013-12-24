@@ -145,7 +145,6 @@ public class AdminClient {
     private Cluster currentCluster;
     private SystemStoreClient<String, String> sysStoreClient = null;
     private String[] cachedBootstrapURLs = null;
-    private int cachedZoneID = -1;
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
 
     final public AdminClient.HelperOperations helperOps;
@@ -327,14 +326,12 @@ public class AdminClient {
             String[] bootstrapUrls = new String[1];
             bootstrapUrls[0] = bootstrapURL;
             AdminClient.this.cachedBootstrapURLs = bootstrapUrls;
-            AdminClient.this.cachedZoneID = zoneID;
         }
 
         private void cacheSystemStoreParams(String bootstrapURL) {
             String[] bootstrapUrls = new String[1];
             bootstrapUrls[0] = bootstrapURL;
             AdminClient.this.cachedBootstrapURLs = bootstrapUrls;
-            AdminClient.this.cachedZoneID = Zone.UNSET_ZONE_ID;
         }
 
         /**
@@ -347,7 +344,6 @@ public class AdminClient {
                     if(systemStoreFactory == null) {
                         ClientConfig clientConfig = new ClientConfig();
                         clientConfig.setBootstrapUrls(AdminClient.this.cachedBootstrapURLs);
-                        clientConfig.setClientZoneId(AdminClient.this.cachedZoneID);
                         systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
                     }
 

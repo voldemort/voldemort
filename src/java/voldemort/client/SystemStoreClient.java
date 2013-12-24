@@ -117,7 +117,7 @@ public class SystemStoreClient<K, V> {
             else
                 logger.debug("Got null value");
         } catch(InvalidMetadataException e){
-            throw(e);
+            throw e;
         } catch(Exception e) {
             if(logger.isDebugEnabled()) {
                 logger.debug("Exception caught during getSysStore: " + e);

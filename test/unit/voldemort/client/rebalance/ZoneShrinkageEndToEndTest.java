@@ -17,12 +17,10 @@ package voldemort.client.rebalance;
 
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 import voldemort.*;
 import voldemort.client.*;
 import voldemort.client.protocol.admin.AdminClient;
@@ -44,7 +42,7 @@ import voldemort.store.slop.Slop;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.SocketStoreFactory;
-import voldemort.store.socket.SocketStoreFactoryForTest;
+import voldemort.store.socket.TestSocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -60,6 +58,7 @@ import java.util.*;
 
 
 public class ZoneShrinkageEndToEndTest {
+    static Logger logger = Logger.getLogger(ZoneShrinkageEndToEndTest.class);
     static String INITIAL_CLUSTER_XML_FILE = "config/zone-shrinkage-test/initial-cluster.xml";
     static String INITIAL_STORES_XML_FILE = "config/zone-shrinkage-test/initial-stores.xml";
     static String FINAL_CLUSTER_XML_FILE = "config/zone-shrinkage-test/final-cluster.xml";
@@ -79,12 +78,10 @@ public class ZoneShrinkageEndToEndTest {
     ClusterMapper clusterMapper = new ClusterMapper();
     StoreDefinitionsMapper storeDefinitionsMapper = new StoreDefinitionsMapper();
     List<Node> survivingNodes = new ArrayList<Node>();
-    List<Node> droppingNodes = new ArrayList<Node>();
     Integer droppingZoneId = 0;
 
-
-    @Before
-    public void setup() throws IOException {
+    @BeforeClass
+    public void load() throws IOException  {
         initialClusterXML = IOUtils.toString(ClusterTestUtils.class.getResourceAsStream(INITIAL_CLUSTER_XML_FILE));
         initialStoresXML = IOUtils.toString(ClusterTestUtils.class.getResourceAsStream(INITIAL_STORES_XML_FILE));
         finalClusterXML = IOUtils.toString(ClusterTestUtils.class.getResourceAsStream(FINAL_CLUSTER_XML_FILE));
@@ -92,11 +89,15 @@ public class ZoneShrinkageEndToEndTest {
         // setup cluster and stores
         cluster =  clusterMapper.readCluster(new StringReader(initialClusterXML));
         storeDefs = storeDefinitionsMapper.readStoreList(new StringReader(initialStoresXML));
+    }
+
+    @Before
+    public void setup() throws IOException {
         // setup and start servers
         for(Node node: cluster.getNodes()) {
             String tempFolderPath = TestUtils.createTempDir().getAbsolutePath();
             // setup servers
-            SocketStoreFactory ssf = new SocketStoreFactoryForTest();
+            SocketStoreFactory ssf = new TestSocketStoreFactory();
             VoldemortConfig config = ServerTestUtils.createServerConfigWithDefs(true, node.getId(), tempFolderPath, cluster, storeDefs,new Properties());
             Assert.assertTrue(config.isSlopEnabled());
             Assert.assertTrue(config.isSlopPusherJobEnabled());
@@ -109,18 +110,15 @@ public class ZoneShrinkageEndToEndTest {
         }
 
         for(Node node: cluster.getNodes()) {
-            if(node.getZoneId() == droppingZoneId) {
-                droppingNodes.add(node);
-            } else {
+            if(node.getZoneId() != droppingZoneId) {
                 survivingNodes.add(node);
             }
         }
 
         bootstrapURL = survivingNodes.get(0).getSocketUrl().toString();
-
     }
 
-    static class DummyTestClient implements Runnable{
+    static class DummyTestClient implements Runnable {
         class PrintableHashMap extends HashMap<String, Integer> {
             @Override
             public String toString() {
@@ -156,7 +154,6 @@ public class ZoneShrinkageEndToEndTest {
             this.clientName = clientName;
 
             int i = 0;
-
             while (i < KV_POOL_SIZE) {
                 String k = TestUtils.randomString("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 40);
                 String v = TestUtils.randomString("abcdefghijklmnopqrstuvwxyz", 40);
@@ -199,7 +196,7 @@ public class ZoneShrinkageEndToEndTest {
                             }
                             kvUpdateCount.put(k, kvUpdateCount.get(k) + 1);
                             client.put(k, kvMap.get(k) + "_" + kvUpdateCount.get(k).toString());
-                            requestCount.put("GET", requestCount.get("GET") + 1);
+                            requestCount.put("PUT", requestCount.get("PUT") + 1);
                             break;
                         case 1:  // get
                             if((operationMode & MODE_ALLOW_GET) == 0) {
@@ -213,7 +210,7 @@ public class ZoneShrinkageEndToEndTest {
                                     throw new RuntimeException("Versioned has empty value inside for key ["+k+"]"){};
                                 }
                             }
-                            requestCount.put("PUT", requestCount.get("PUT") + 1);
+                            requestCount.put("GET", requestCount.get("GET") + 1);
                             break;
                         case 2:  // get all
                             if((operationMode & MODE_ALLOW_GETALL) == 0) {
@@ -240,7 +237,7 @@ public class ZoneShrinkageEndToEndTest {
                     }
                 } catch(ObsoleteVersionException e) {
                 } catch(Exception e) {
-                    System.out.println("CLIENT EXCEPTION FAILURE on key ["+ k +"]" + e.toString());
+                    logger.info("CLIENT EXCEPTION FAILURE on key ["+ k +"]" + e.toString());
                     e.printStackTrace();
                     String exceptionName = e.getClass().toString();
                     if(exceptionCount.containsKey(exceptionName)) {
@@ -288,17 +285,17 @@ public class ZoneShrinkageEndToEndTest {
         clients.add(new DummyTestClient("4nd_CLIENT_322_STORE_ZONE_1", bootstrapURL, STORE322_NAME, 1).setOperationMode(DummyTestClient.MODE_ALLOW_GETALL));
         clients.add(new DummyTestClient("4nd_CLIENT_322_STORE_ZONE_2", bootstrapURL, STORE322_NAME, 2).setOperationMode(DummyTestClient.MODE_ALLOW_GETALL));
         try {
-            System.out.println("-------------------------------");
-            System.out.println("       STARTING CLIENT         ");
-            System.out.println("-------------------------------");
+            logger.info("-------------------------------");
+            logger.info("       STARTING CLIENT         ");
+            logger.info("-------------------------------");
             // start clients
             for(DummyTestClient client: clients) {
                 client.initialize();
                 client.start();
             }
-            System.out.println("-------------------------------");
-            System.out.println("        CLIENT STARTED         ");
-            System.out.println("-------------------------------");
+            logger.info("-------------------------------");
+            logger.info("        CLIENT STARTED         ");
+            logger.info("-------------------------------");
 
             // warm up
             Thread.sleep(5000);
@@ -308,17 +305,17 @@ public class ZoneShrinkageEndToEndTest {
             // cool down
             Thread.sleep(15000);
 
-            System.out.println("-------------------------------");
-            System.out.println("         STOPPING CLIENT       ");
-            System.out.println("-------------------------------");
+            logger.info("-------------------------------");
+            logger.info("         STOPPING CLIENT       ");
+            logger.info("-------------------------------");
 
             for(DummyTestClient client: clients) {
                 client.stop();
             }
 
-            System.out.println("-------------------------------");
-            System.out.println("         STOPPED CLIENT        ");
-            System.out.println("-------------------------------");
+            logger.info("-------------------------------");
+            logger.info("         STOPPED CLIENT        ");
+            logger.info("-------------------------------");
 
             // verify that all clients has new cluster now
             Integer failCount = 0;
@@ -330,7 +327,7 @@ public class ZoneShrinkageEndToEndTest {
                         Long clusterMetadataVersion = zsc.getAsyncMetadataVersionManager().getClusterMetadataVersion();
                         if(clusterMetadataVersion == 0) {
                             failCount++;
-                            System.err.format("The client %s did not pick up the new cluster metadata\n", client.clientName);
+                            logger.error(String.format("The client %s did not pick up the new cluster metadata\n", client.clientName));
                         }
                     } else {
                         Assert.fail("There is problem with DummyClient's real client's real client, which should be ZenStoreClient but not");
@@ -341,44 +338,7 @@ public class ZoneShrinkageEndToEndTest {
             }
             Assert.assertTrue(failCount.toString() + " client(s) did not pickup new metadata", failCount == 0);
 
-
-            System.out.println("-------------------------------");
-            System.out.println("   WAITING FOR SLOPS TO DRAIN  ");
-            System.out.println("-------------------------------");
-
-            // wait for all servers's slop to go away
-            long slopDrainTimoutMs = 40000L;
-            long timeStart = System.currentTimeMillis();
-            boolean allSlopsEmpty = false;
-            while(System.currentTimeMillis() < timeStart + slopDrainTimoutMs) {
-                allSlopsEmpty = true;
-                for(Integer nodeId: vservers.keySet()) {
-                    VoldemortServer vs = vservers.get(nodeId);
-                    SlopStorageEngine sse = vs.getStoreRepository().getSlopStore();
-                    ClosableIterator<ByteArray> keys = sse.keys();
-                    int count = 0;
-                    while(keys.hasNext()) {
-                        keys.next();
-                        count++;
-                    }
-                    keys.close();
-                    if(count > 0) {
-                        allSlopsEmpty = false;
-                        System.out.format("Slop engine for node %d is not yet empty with %d slops\n", nodeId, count);
-                    }
-                }
-                if(allSlopsEmpty) {
-                    break;
-                }
-                Thread.sleep(1000);
-            }
-            if(!allSlopsEmpty) {
-                Assert.fail("Timeout while waiting for all slops to drain");
-            }
-
-            System.out.println("-------------------------------");
-            System.out.println("     SLOPS FINISHED DRAINED    ");
-            System.out.println("-------------------------------");
+            waitSlopDrain(vservers, 30000L);
         } catch (InterruptedException e) {
             e.printStackTrace();
             Assert.fail(e.toString());
@@ -394,18 +354,18 @@ public class ZoneShrinkageEndToEndTest {
 
             for (DummyTestClient client : clients) {
                 Map<String, Integer> eMap = client.exceptionCount;
-                System.out.println("-------------------------------------------------------------------");
-                System.out.println("Client Operation Info of [" + client.clientName + "]");
-                System.out.print(client.requestCount.toString());
+                logger.info("-------------------------------------------------------------------");
+                logger.info("Client Operation Info of [" + client.clientName + "]");
+                logger.info(client.requestCount.toString());
                 if (eMap.size() == 0) {
-                    System.out.println("No Exception reported by DummyTestClient(ObsoleteVersionException are ignored)");
+                    logger.info("No Exception reported by DummyTestClient(ObsoleteVersionException are ignored)");
                 } else {
-                    System.out.println("Exceptions Count Map of the client: ");
-                    System.out.println(eMap.toString());
+                    logger.info("Exceptions Count Map of the client: ");
+                    logger.info(eMap.toString());
                     Assert.fail("Found Exceptions by Client");
                 }
 
-                System.out.println("-------------------------------------------------------------------");
+                logger.info("-------------------------------------------------------------------");
             }
         }
     }
@@ -417,7 +377,7 @@ public class ZoneShrinkageEndToEndTest {
         final SlopSerializer slopSerializer = new SlopSerializer();
 
         StoreDefinition storeDef = storeDefs.get(0);
-        SocketStoreFactoryForTest ssf = new SocketStoreFactoryForTest();
+        TestSocketStoreFactory ssf = new TestSocketStoreFactory();
 
         Map<Integer, SocketStore> slopStoresCreatedBeforeShrink = new HashMap<Integer, SocketStore>();
         Map<Integer, SocketStore> slopStoresCreatedAfterShrink = new HashMap<Integer, SocketStore>();
@@ -453,9 +413,9 @@ public class ZoneShrinkageEndToEndTest {
         // update metadata
         executeShrinkZone();
 
-        System.out.println("-------------------------------");
-        System.out.println("    CONNECTING SLOP STORES     ");
-        System.out.println("-------------------------------");
+        logger.info("-------------------------------");
+        logger.info("    CONNECTING SLOP STORES     ");
+        logger.info("-------------------------------");
 
         // make socket stores to all servers after shrink
         for(Integer nodeId: vservers.keySet()) {
@@ -464,13 +424,13 @@ public class ZoneShrinkageEndToEndTest {
             slopStoresCreatedAfterShrink.put(nodeId, slopStore);
         }
 
-        System.out.println("-------------------------------");
-        System.out.println("     CONNECTED SLOP STORES     ");
-        System.out.println("-------------------------------");
+        logger.info("-------------------------------");
+        logger.info("     CONNECTED SLOP STORES     ");
+        logger.info("-------------------------------");
 
-        System.out.println("-------------------------------");
-        System.out.println("         SENDING SLOPS         ");
-        System.out.println("-------------------------------");
+        logger.info("-------------------------------");
+        logger.info("         SENDING SLOPS         ");
+        logger.info("-------------------------------");
 
         for(int i = 0; i < 2; i++) {
             for(Integer slopHostId: vservers.keySet()) {
@@ -486,48 +446,11 @@ public class ZoneShrinkageEndToEndTest {
             }
         }
 
-        System.out.println("-------------------------------");
-        System.out.println("           SENT SLOPS          ");
-        System.out.println("-------------------------------");
+        logger.info("-------------------------------");
+        logger.info("           SENT SLOPS          ");
+        logger.info("-------------------------------");
 
-        System.out.println("-------------------------------");
-        System.out.println("  WAITING FOR SLOPS TO DRAIN   ");
-        System.out.println("-------------------------------");
-
-
-        long slopDrainTimoutMs = 30000L;
-        long timeStart = System.currentTimeMillis();
-        boolean allSlopsEmpty = false;
-        while(System.currentTimeMillis() < timeStart + slopDrainTimoutMs) {
-            allSlopsEmpty = true;
-            for(Integer nodeId: vservers.keySet()) {
-                VoldemortServer vs = vservers.get(nodeId);
-                SlopStorageEngine sse = vs.getStoreRepository().getSlopStore();
-                ClosableIterator<ByteArray> keys = sse.keys();
-                long count = 0;
-                while(keys.hasNext()) {
-                    keys.next();
-                    count++;
-                }
-                keys.close();
-                if(count > 0) {
-                    allSlopsEmpty = false;
-                    System.out.format("Slop engine for node %d is not yet empty with %d slops\n", nodeId, count);
-                }
-            }
-            if(allSlopsEmpty) {
-                break;
-            }
-            Thread.sleep(1000);
-        }
-        if(!allSlopsEmpty) {
-            Assert.fail("Timeout while waiting for all slops to drain");
-        }
-
-
-        System.out.println("-------------------------------");
-        System.out.println("        ALL SLOPS DRAINED      ");
-        System.out.println("-------------------------------");
+        waitSlopDrain(vservers, 30000L);
 
         // verify all proper slops is processed properly (arrived or dropped)
         boolean hasError = false;
@@ -544,8 +467,8 @@ public class ZoneShrinkageEndToEndTest {
                 List<Versioned<byte[]>> result = store.get(key, null);
                 if(cluster.getNodeById(nodeId).getZoneId() == droppingZoneId) {
                     if(!result.isEmpty()) {
-                        System.err.format("Key %s for Node %d (zone %d) slopped on Node %d should be gone but exists\n",
-                                key.toString(), nodeId, nodeZoneId, hostId);
+                        logger.error(String.format("Key %s for Node %d (zone %d) slopped on Node %d should be gone but exists\n",
+                                key.toString(), nodeId, nodeZoneId, hostId));
                         hasError = true;
                         errorCount++;
                     } else {
@@ -553,8 +476,8 @@ public class ZoneShrinkageEndToEndTest {
                     }
                 } else {
                     if(result.isEmpty()) {
-                        System.err.format("Key %s for Node %d (zone %d) slopped on Node %d should exist but not\n",
-                                key.toString(), nodeId, nodeZoneId, hostId);
+                        logger.error(String.format("Key %s for Node %d (zone %d) slopped on Node %d should exist but not\n",
+                                key.toString(), nodeId, nodeZoneId, hostId));
                         hasError = true;
                         errorCount++;
                     } else {
@@ -563,21 +486,20 @@ public class ZoneShrinkageEndToEndTest {
                 }
             }
         }
-        System.out.format("Good keys count: %d; Error keys count: %d", goodCount, errorCount);
+        logger.info(String.format("Good keys count: %d; Error keys count: %d", goodCount, errorCount));
         Assert.assertFalse("Error Occurred BAD:" + errorCount + "; GOOD: " + goodCount + ". Check log.", hasError);
     }
 
     public void executeShrinkZone() {
         AdminClient adminClient;
 
-        System.out.println("-------------------------------");
-        System.out.println("        UPDATING BOTH XML      ");
-        System.out.println("-------------------------------");
+        logger.info("-------------------------------");
+        logger.info("        UPDATING BOTH XML      ");
+        logger.info("-------------------------------");
 
         // get admin client
         AdminClientConfig adminClientConfig = new AdminClientConfig();
         ClientConfig clientConfigForAdminClient = new ClientConfig();
-        clientConfigForAdminClient.setClientZoneId(survivingNodes.get(0).getZoneId());
         adminClient = new AdminClient(bootstrapURL, adminClientConfig, clientConfigForAdminClient);
 
         // set stores metadata (simulating admin tools)
@@ -587,9 +509,9 @@ public class ZoneShrinkageEndToEndTest {
 
         adminClient.close();
 
-        System.out.println("-------------------------------");
-        System.out.println("       UPDATED CLUSTER.XML     ");
-        System.out.println("-------------------------------");
+        logger.info("-------------------------------");
+        logger.info("        UPDATED BOTH XML       ");
+        logger.info("-------------------------------");
     }
 
     @After
@@ -612,5 +534,44 @@ public class ZoneShrinkageEndToEndTest {
                 return key;
             }
         }
+    }
+
+    public static void waitSlopDrain(Map<Integer, VoldemortServer> vservers, Long slopDrainTimoutMs) throws InterruptedException {
+        logger.info("-------------------------------");
+        logger.info("  WAITING FOR SLOPS TO DRAIN   ");
+        logger.info("-------------------------------");
+
+        long timeStart = System.currentTimeMillis();
+        boolean allSlopsEmpty = false;
+        while(System.currentTimeMillis() < timeStart + slopDrainTimoutMs) {
+            allSlopsEmpty = true;
+            for(Integer nodeId: vservers.keySet()) {
+                VoldemortServer vs = vservers.get(nodeId);
+                SlopStorageEngine sse = vs.getStoreRepository().getSlopStore();
+                ClosableIterator<ByteArray> keys = sse.keys();
+                long count = 0;
+                while(keys.hasNext()) {
+                    keys.next();
+                    count++;
+                }
+                keys.close();
+                if(count > 0) {
+                    allSlopsEmpty = false;
+                    logger.info(String.format("Slop engine for node %d is not yet empty with %d slops\n", nodeId, count));
+                }
+            }
+            if(allSlopsEmpty) {
+                break;
+            }
+            Thread.sleep(1000);
+        }
+        if(!allSlopsEmpty) {
+            Assert.fail("Timeout while waiting for all slops to drain");
+        }
+
+
+        logger.info("-------------------------------");
+        logger.info("        ALL SLOPS DRAINED      ");
+        logger.info("-------------------------------");
     }
 }
