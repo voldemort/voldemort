@@ -25,6 +25,7 @@ import java.util.Set;
 import voldemort.VoldemortException;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 
 import com.google.common.collect.Lists;
@@ -161,6 +162,31 @@ public class StoreDefinitionUtils {
         }
 
         return uniqueStoreDefs;
+    }
+
+    public static StoreDefinitionBuilder getBuilderForStoreDef(StoreDefinition storeDef) {
+        return new StoreDefinitionBuilder().setName(storeDef.getName())
+                                           .setType(storeDef.getType())
+                                           .setDescription(storeDef.getDescription())
+                                           .setOwners(storeDef.getOwners())
+                                           .setKeySerializer(storeDef.getKeySerializer())
+                                           .setValueSerializer(storeDef.getValueSerializer())
+                                           .setRoutingPolicy(storeDef.getRoutingPolicy())
+                                           .setRoutingStrategyType(storeDef.getRoutingStrategyType())
+                                           .setReplicationFactor(storeDef.getReplicationFactor())
+                                           .setPreferredReads(storeDef.getPreferredReads())
+                                           .setRequiredReads(storeDef.getRequiredReads())
+                                           .setPreferredWrites(storeDef.getPreferredWrites())
+                                           .setRequiredWrites(storeDef.getRequiredWrites())
+                                           .setRetentionPeriodDays(storeDef.getRetentionDays())
+                                           .setRetentionScanThrottleRate(storeDef.getRetentionScanThrottleRate())
+                                           .setRetentionFrequencyDays(storeDef.getRetentionFrequencyDays())
+                                           .setZoneReplicationFactor(storeDef.getZoneReplicationFactor())
+                                           .setZoneCountReads(storeDef.getZoneCountReads())
+                                           .setZoneCountWrites(storeDef.getZoneCountWrites())
+                                           .setHintedHandoffStrategy(storeDef.getHintedHandoffStrategyType())
+                                           .setHintPrefListSize(storeDef.getHintPrefListSize())
+                                           .setMemoryFootprintMB(storeDef.getMemoryFootprintMB());
     }
 
 }

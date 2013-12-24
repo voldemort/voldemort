@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -42,10 +43,12 @@ import voldemort.cluster.Zone;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.tools.PartitionBalance;
 import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -63,6 +66,7 @@ public class RebalanceUtils {
 
     public final static String currentClusterFileName = "current-cluster.xml";
     public final static String finalClusterFileName = "final-cluster.xml";
+    public final static String finalStoresFileName = "final-stores.xml";
 
     /**
      * Verify store definitions are congruent with cluster definition.
@@ -274,54 +278,137 @@ public class RebalanceUtils {
                            newNodeList,
                            Lists.newArrayList(finalCluster.getZones()));
     }
-    
+
     /**
-     * Given the current cluster and a zone id that needs to be dropped, this method will 
-     * remove all partitions from the zone that is being dropped and move it to 
-     * the existing zones. The partitions are moved intelligently so as not to avoid
-     * any data movement in the existing zones.
+     * Given the current cluster and a zone id that needs to be dropped, this
+     * method will remove all partitions from the zone that is being dropped and
+     * move it to the existing zones. The partitions are moved intelligently so
+     * as not to avoid any data movement in the existing zones.
      * 
-     * This is achieved by moving te partitions to nodes in the surviving zones that is zone-nry to
-     * that partition in the surviving zone.
+     * This is achieved by moving the partitions to nodes in the surviving zones
+     * that is zone-nry to that partition in the surviving zone.
      * 
      * @param currentCluster Current cluster metadata
-     * @return Returns an interim cluster with empty partition lists on the nodes 
-     *         from the zone being dropped
-     *  
+     * @return Returns an interim cluster with empty partition lists on the
+     *         nodes from the zone being dropped
+     * 
      */
-    public static Cluster dropZone(Cluster currentCluster, int dropZoneId) {
+    public static Cluster vacateZone(Cluster currentCluster, int dropZoneId) {
         Cluster returnCluster = Cluster.cloneCluster(currentCluster);
         // Go over each node in the zone being dropped
-        for (Integer nodeId: currentCluster.getNodeIdsInZone(dropZoneId)) {
+        for(Integer nodeId: currentCluster.getNodeIdsInZone(dropZoneId)) {
             // For each node grab all the partitions it hosts
-            for (Integer partitionId: currentCluster.getNodeById(nodeId).getPartitionIds()) {
+            for(Integer partitionId: currentCluster.getNodeById(nodeId).getPartitionIds()) {
                 // Now for each partition find a new home..which would be a node
                 // in one of the existing zones
                 int finalZoneId = -1;
                 int finalNodeId = -1;
                 int adjacentPartitionId = partitionId;
                 do {
-                    adjacentPartitionId = (adjacentPartitionId + 1) % currentCluster.getNumberOfPartitions();
+                    adjacentPartitionId = (adjacentPartitionId + 1)
+                                          % currentCluster.getNumberOfPartitions();
                     finalNodeId = currentCluster.getNodeForPartitionId(adjacentPartitionId).getId();
                     finalZoneId = currentCluster.getZoneForPartitionId(adjacentPartitionId).getId();
-                    if (adjacentPartitionId == partitionId) {
+                    if(adjacentPartitionId == partitionId) {
                         logger.error("ParititionId " + partitionId + "stays unchanged \n");
                     } else {
-                        logger.info("ParititionId " + partitionId + " goes together with partition " + adjacentPartitionId
+                        logger.info("ParititionId " + partitionId
+                                    + " goes together with partition " + adjacentPartitionId
                                     + " on node " + finalNodeId + " in zone " + finalZoneId);
                         returnCluster = UpdateClusterUtils.createUpdatedCluster(returnCluster,
                                                                                 finalNodeId,
                                                                                 Lists.newArrayList(partitionId));
                     }
-                } while (finalZoneId == dropZoneId);
+                } while(finalZoneId == dropZoneId);
             }
         }
         return returnCluster;
     }
 
     /**
-     * For a particular stealer node find all the primary partitions
-     * tuples it will steal.
+     * Given a interim cluster with a previously vacated zone, constructs a new
+     * cluster object with the drop zone completely removed
+     * 
+     * @param intermediateCluster
+     * @param dropZoneId
+     * @return adjusted cluster with the zone dropped
+     */
+    public static Cluster dropZone(Cluster intermediateCluster, int dropZoneId) {
+        // Filter out nodes that don't belong to the zone being dropped
+        Set<Node> survivingNodes = new HashSet<Node>();
+        for(int nodeId: intermediateCluster.getNodeIds()) {
+            if(intermediateCluster.getNodeById(nodeId).getZoneId() != dropZoneId) {
+                survivingNodes.add(intermediateCluster.getNodeById(nodeId));
+            }
+        }
+
+        // Filter out dropZoneId from all zones
+        Set<Zone> zones = new HashSet<Zone>();
+        for(int zoneId: intermediateCluster.getZoneIds()) {
+            if(zoneId == dropZoneId) {
+                continue;
+            }
+            LinkedList<Integer> proximityList = intermediateCluster.getZoneById(zoneId)
+                                                                   .getProximityList();
+            proximityList.remove(new Integer(dropZoneId));
+            zones.add(new Zone(zoneId, proximityList));
+        }
+
+        return new Cluster(intermediateCluster.getName(),
+                           Utils.asSortedList(survivingNodes),
+                           Utils.asSortedList(zones));
+    }
+
+    /**
+     * Similar to {@link RebalanceUtils#vacateZone(Cluster, int)}, takes the
+     * current store definitions in the cluster and creates store definitions
+     * with the specified zone effectively dropped.
+     * 
+     * In order to drop a zone, we adjust the total replication factor and
+     * remove zone replication factor for the dropped zone
+     * 
+     * 
+     * @param currentStoreDefs
+     * @param dropZoneId
+     * @return the adjusted list of store definitions
+     */
+    public static List<StoreDefinition> dropZone(List<StoreDefinition> currentStoreDefs,
+                                                 int dropZoneId) {
+
+        List<StoreDefinition> adjustedStoreDefList = new ArrayList<StoreDefinition>();
+        for(StoreDefinition storeDef: currentStoreDefs) {
+            HashMap<Integer, Integer> zoneRepFactorMap = storeDef.getZoneReplicationFactor();
+            if(!zoneRepFactorMap.containsKey(dropZoneId)) {
+                throw new VoldemortException("Store " + storeDef.getName()
+                                             + " does not have replication factor for zone "
+                                             + dropZoneId);
+            }
+
+            StoreDefinitionBuilder adjustedStoreDefBuilder = StoreDefinitionUtils.getBuilderForStoreDef(storeDef);
+
+            // Copy all zone replication factor entries except for dropped zone
+            HashMap<Integer, Integer> adjustedZoneRepFactorMap = new HashMap<Integer, Integer>();
+            for(Integer zoneId: zoneRepFactorMap.keySet()) {
+                if(zoneId != dropZoneId) {
+                    adjustedZoneRepFactorMap.put(zoneId, zoneRepFactorMap.get(zoneId));
+                }
+            }
+            adjustedStoreDefBuilder.setZoneReplicationFactor(adjustedZoneRepFactorMap);
+
+            // adjust the replication factor
+            int zoneRepFactor = zoneRepFactorMap.get(dropZoneId);
+            adjustedStoreDefBuilder.setReplicationFactor(adjustedStoreDefBuilder.getReplicationFactor()
+                                                         - zoneRepFactor);
+
+            adjustedStoreDefList.add(adjustedStoreDefBuilder.build());
+        }
+
+        return adjustedStoreDefList;
+    }
+
+    /**
+     * For a particular stealer node find all the primary partitions tuples it
+     * will steal.
      * 
      * @param currentCluster The cluster definition of the existing cluster
      * @param finalCluster The final cluster definition
@@ -336,7 +423,7 @@ public class RebalanceUtils {
                                                                      .getPartitionIds());
 
         List<Integer> currentList = new ArrayList<Integer>();
-        if (currentCluster.hasNodeWithId(stealNodeId)) {
+        if(currentCluster.hasNodeWithId(stealNodeId)) {
             currentList = currentCluster.getNodeById(stealNodeId).getPartitionIds();
         } else {
             if(logger.isDebugEnabled()) {
@@ -348,7 +435,7 @@ public class RebalanceUtils {
 
         return finalList;
     }
-    
+
     /**
      * Print log to the following logger ( Info level )
      * 
@@ -467,6 +554,32 @@ public class RebalanceUtils {
     }
 
     /**
+     * Prints a stores xml to a file.
+     * 
+     * @param outputDirName
+     * @param fileName
+     * @param list of storeDefs
+     */
+    public static void dumpStoreDefsToFile(String outputDirName,
+                                           String fileName,
+                                           List<StoreDefinition> storeDefs) {
+
+        if(outputDirName != null) {
+            File outputDir = new File(outputDirName);
+            if(!outputDir.exists()) {
+                Utils.mkdirs(outputDir);
+            }
+
+            try {
+                FileUtils.writeStringToFile(new File(outputDirName, fileName),
+                                            new StoreDefinitionsMapper().writeStoreList(storeDefs));
+            } catch(IOException e) {
+                logger.error("IOException during dumpStoreDefsToFile: " + e);
+            }
+        }
+    }
+
+    /**
      * Prints a balance analysis to a file.
      * 
      * @param outputDirName
@@ -510,7 +623,7 @@ public class RebalanceUtils {
             }
         }
     }
- 
+
     public static int countTaskStores(List<RebalanceTaskInfo> infos) {
         int count = 0;
         for(RebalanceTaskInfo info: infos) {

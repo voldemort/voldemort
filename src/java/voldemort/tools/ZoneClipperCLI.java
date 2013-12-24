@@ -3,7 +3,7 @@ package voldemort.tools;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
-import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 
 import joptsimple.OptionException;
@@ -13,12 +13,13 @@ import joptsimple.OptionSet;
 import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 
@@ -46,6 +47,9 @@ public class ZoneClipperCLI {
         parser.accepts("current-cluster", "Path to current cluster xml")
               .withRequiredArg()
               .describedAs("cluster.xml");
+        parser.accepts("current-stores", "Path to current stores xml")
+              .withRequiredArg()
+              .describedAs("stores.xml");
         parser.accepts("output-dir", "Specify the output directory for the new cluster.xml")
               .withRequiredArg()
               .ofType(String.class)
@@ -63,9 +67,10 @@ public class ZoneClipperCLI {
         help.append("Options:\n");
         help.append("  Required:\n");
         help.append("    --current-cluster <clusterXML>\n");
+        help.append("    --current-stores <storesXML>\n");
         help.append("    --drop-zoneid zoneId \n");
         help.append("  Optional:\n");
-        help.append("    --output-dir [ Output directory is where we store the final cluster ]\n");
+        help.append("    --output-dir [ Output directory is where we store the final cluster/stores xml ]\n");
         try {
             parser.printHelpOn(System.out);
         } catch(IOException e) {
@@ -87,13 +92,16 @@ public class ZoneClipperCLI {
             printUsageAndDie("Exception when parsing arguments : " + oe.getMessage());
         }
 
-        if (options.has("help")) {
+        if(options.has("help")) {
             printUsage();
             System.exit(0);
         }
 
-        Set<String> missing = CmdUtils.missing(options, "current-cluster", "drop-zoneid");
-        if (missing.size() > 0) {
+        Set<String> missing = CmdUtils.missing(options,
+                                               "current-cluster",
+                                               "current-stores",
+                                               "drop-zoneid");
+        if(missing.size() > 0) {
             printUsageAndDie("Missing required arguments: " + Joiner.on(", ").join(missing));
         }
         return options;
@@ -103,52 +111,32 @@ public class ZoneClipperCLI {
         setupParser();
         OptionSet options = getValidOptions(args);
 
-        String initialClusterXML = (String) options.valueOf("current-cluster");
-        Cluster initialCluster = new ClusterMapper().readCluster(new File(initialClusterXML));
-
         int dropZoneId = CmdUtils.valueOf(options, "drop-zoneid", Zone.UNSET_ZONE_ID);
         String outputDir = null;
-        if (options.has("output-dir")) {
+        if(options.has("output-dir")) {
             outputDir = (String) options.valueOf("output-dir");
         }
+
+        /*
+         * A. Generate the clipped cluster.xml
+         */
+        String initialClusterXML = (String) options.valueOf("current-cluster");
+        Cluster initialCluster = new ClusterMapper().readCluster(new File(initialClusterXML));
 
         // Create a list of current partition ids. We will use this set to
         // compare partitions ids in final cluster
         Set<Integer> originalPartitions = new HashSet<Integer>();
-        for (Integer zoneId: initialCluster.getZoneIds()) {
+        for(Integer zoneId: initialCluster.getZoneIds()) {
             originalPartitions.addAll(initialCluster.getPartitionIdsInZone(zoneId));
         }
 
         // Get an intermediate cluster where parititions that belong to the zone
         // that is being dropped have been moved to the existing zones
-        Cluster intermediateCluster = RebalanceUtils.dropZone(initialCluster, dropZoneId);
-
-        // Filter out nodes that don't belong to the zone being dropped
-        Set<Node> survivingNodes = new HashSet<Node>();
-        for (int nodeId: intermediateCluster.getNodeIds()) {
-            if(intermediateCluster.getNodeById(nodeId).getZoneId() != dropZoneId) {
-                survivingNodes.add(intermediateCluster.getNodeById(nodeId));
-            }
-        }
-
-        // Filter out dropZoneId from all zones
-        Set<Zone> zones = new HashSet<Zone>();
-        for (int zoneId: intermediateCluster.getZoneIds()) {
-            if (zoneId == dropZoneId) {
-                continue;
-            }
-            LinkedList<Integer> proximityList = intermediateCluster.getZoneById(zoneId)
-                                                                   .getProximityList();
-            proximityList.remove(new Integer(dropZoneId));
-            zones.add(new Zone(zoneId, proximityList));
-        }
-
-        Cluster finalCluster = new Cluster(intermediateCluster.getName(),
-                                           Utils.asSortedList(survivingNodes),
-                                           Utils.asSortedList(zones));
+        Cluster intermediateCluster = RebalanceUtils.vacateZone(initialCluster, dropZoneId);
+        Cluster finalCluster = RebalanceUtils.dropZone(intermediateCluster, dropZoneId);
 
         // Make sure everything is fine
-        if (initialCluster.getNumberOfPartitions() != finalCluster.getNumberOfPartitions()) {
+        if(initialCluster.getNumberOfPartitions() != finalCluster.getNumberOfPartitions()) {
             logger.error("The number of partitions in the initial and the final cluster is not equal \n");
         }
 
@@ -158,7 +146,7 @@ public class ZoneClipperCLI {
         }
 
         // Compare to original partition ids list
-        if (!originalPartitions.equals(finalPartitions)) {
+        if(!originalPartitions.equals(finalPartitions)) {
             logger.error("The list of partition ids in the initial and the final cluster doesn't match \n ");
         }
 
@@ -166,5 +154,15 @@ public class ZoneClipperCLI {
         RebalanceUtils.dumpClusterToFile(outputDir,
                                          RebalanceUtils.finalClusterFileName,
                                          finalCluster);
+
+        /*
+         * B. Generate the clipped stores.xml
+         */
+        String initialStoresXML = (String) options.valueOf("current-stores");
+        List<StoreDefinition> initialStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(initialStoresXML));
+        List<StoreDefinition> finalStoreDefs = RebalanceUtils.dropZone(initialStoreDefs, dropZoneId);
+        RebalanceUtils.dumpStoreDefsToFile(outputDir,
+                                           RebalanceUtils.finalStoresFileName,
+                                           finalStoreDefs);
     }
 }

@@ -1157,6 +1157,17 @@ public class ClientConfig {
         return this.zoneAffinity;
     }
 
+    /**
+     * 
+     * @param zoneAffinity controls whether the client will fail fast, if all
+     *        the servers in the client's local zone have failed.
+     * @return
+     */
+    public ClientConfig setZoneAffinity(ZoneAffinity zoneAffinity) {
+        this.zoneAffinity = zoneAffinity;
+        return this;
+    }
+
     public int getFatClientWrapperMaxPoolSize() {
         return fatClientWrapperMaxPoolSize;
     }
