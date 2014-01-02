@@ -1842,6 +1842,8 @@ public class VoldemortAdminTool {
         StoreRoutingPlan routingPlan = new StoreRoutingPlan(cluster, storeDef);
         BaseStoreRoutingPlan bRoutingPlan = new BaseStoreRoutingPlan(cluster, storeDef);
 
+        final int COLUMN_WIDTH = 30;
+
         for(String keyStr: keyList) {
             byte[] key = ByteUtils.fromHexString(keyStr);
             System.out.println("Key :" + keyStr);
@@ -1871,9 +1873,19 @@ public class VoldemortAdminTool {
                     numReplicas = zoneRepMap.get(zone.getId());
                 }
 
+                System.out.format("%s%s%s\n",
+                                  Utils.paddedString("REPLICA#", COLUMN_WIDTH),
+                                  Utils.paddedString("PARTITION", COLUMN_WIDTH),
+                                  Utils.paddedString("NODE", COLUMN_WIDTH));
                 for(int i = 0; i < numReplicas; i++) {
-                    System.out.println("\tReplica " + i + " Node "
-                                       + bRoutingPlan.getNodeIdForZoneNary(zone.getId(), i, key));
+                    Integer nodeId = bRoutingPlan.getNodeIdForZoneNary(zone.getId(), i, key);
+                    Integer partitionId = routingPlan.getNodesPartitionIdForKey(nodeId, key);
+                    System.out.format("%s%s%s\n",
+                                      Utils.paddedString(i + "", COLUMN_WIDTH),
+                                      Utils.paddedString(partitionId.toString(), COLUMN_WIDTH),
+                                      Utils.paddedString(nodeId + "("
+                                                         + cluster.getNodeById(nodeId).getHost()
+                                                         + ")", COLUMN_WIDTH));
                 }
                 System.out.println();
             }

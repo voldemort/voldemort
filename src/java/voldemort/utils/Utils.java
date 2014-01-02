@@ -123,10 +123,9 @@ public class Utils {
             }
         }
     }
-    
-    
+
     /**
-     * Sort a collection to a List 
+     * Sort a collection to a List
      * 
      * @param collection to be converted to a sorted list
      */
@@ -591,6 +590,19 @@ public class Utils {
         }
     }
 
+    public static String paddedString(String str, int totalWidth) {
+        int padLength = totalWidth - str.length();
+        if(padLength <= 0) {
+            return str;
+        }
+        StringBuilder paddedStr = new StringBuilder();
+        for(int i = 0; i < padLength; i++) {
+            paddedStr.append(' ');
+        }
+        paddedStr.append(str);
+        return paddedStr.toString();
+    }
+
     @SuppressWarnings("unchecked")
     public static <T1, T2> T1 uncheckedCast(T2 t2) {
         return (T1) t2;
@@ -777,8 +789,8 @@ public class Utils {
      * number of elements (peanut butter) over some number of buckets (bread
      * slices).
      * 
-     * @param mapKeys The keys of the map over which which to evenly distribute the
-     *        elements.
+     * @param mapKeys The keys of the map over which which to evenly distribute
+     *        the elements.
      * @param numElements The number of elements to distribute.
      * @return A Map with keys specified by breadSlices each integer entry of
      *         which indicates the number of elements
