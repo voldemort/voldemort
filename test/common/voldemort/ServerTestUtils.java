@@ -314,6 +314,39 @@ public class ServerTestUtils {
         return new Cluster("test-cluster", nodes);
     }
 
+    public static Cluster getLocalNonContiguousNodesCluster(int[] nodeIds, int[][] partitionMap) {
+        return getLocalNonContiguousNodesCluster(nodeIds,
+                                                 findFreePorts(3 * nodeIds.length),
+                                                 partitionMap);
+    }
+
+    public static Cluster getLocalNonContiguousNodesCluster(int[] nodeIds,
+                                                            int[] ports,
+                                                            int[][] partitionMap) {
+        if(3 * nodeIds.length != ports.length)
+            throw new IllegalArgumentException(3 * nodeIds.length + " ports required but only "
+                                               + ports.length + " given.");
+        List<Node> nodes = new ArrayList<Node>();
+        for(int i = 0; i < nodeIds.length; i++) {
+            List<Integer> partitions = ImmutableList.of(i);
+            if(null != partitionMap) {
+                partitions = new ArrayList<Integer>(partitionMap[i].length);
+                for(int p: partitionMap[i]) {
+                    partitions.add(p);
+                }
+            }
+
+            nodes.add(new Node(nodeIds[i],
+                               "localhost",
+                               ports[3 * i],
+                               ports[3 * i + 1],
+                               ports[3 * i + 2],
+                               partitions));
+        }
+
+        return new Cluster("test-cluster", nodes);
+    }
+
     /**
      * Update a cluster by replacing the specified server with a new host, i.e.
      * new ports since they are all localhost

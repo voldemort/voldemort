@@ -1,10 +1,9 @@
 package voldemort.client.protocol.admin;
 
-import static org.junit.Assert.assertEquals;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -12,11 +11,16 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
-import org.apache.commons.io.FileUtils;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import junit.framework.TestCase;
 
+import org.apache.commons.io.FileUtils;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
+import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.RoutingTier;
@@ -35,6 +39,7 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
+import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
@@ -47,50 +52,108 @@ import com.google.common.collect.Lists;
 /*
  * Starts a streaming session and inserts some keys Using fetchKeys we check if
  * they keys made it to the responsible node
+ * Three scenarios are tested :
+ * (i) Non zoned cluster with contiguous node ids
+ * (ii) Non zoned cluster with non contiguous node ids
+ * (iii) Zoned cluster with contiguous zone/node ids
+ * 
  */
-public class StreamingClientTest {
+@RunWith(Parameterized.class)
+public class StreamingClientTest extends TestCase {
 
-    private static long startTime;
-    public static final String SERVER_LOCAL_URL = "tcp://localhost:";
-    public static final String TEST_STORE_NAME = "test-store-streaming-1";
-    public static final String STORES_XML_FILE = "test/common/voldemort/config/stores.xml";
+    private long startTime;
+    public final String SERVER_LOCAL_URL = "tcp://localhost:";
+    public final static String TEST_STORE_NAME = "test-store-streaming-1";
+    public final String STORES_XML_FILE = "test/common/voldemort/config/stores.xml";
+    public int numServers;
+    private int NUM_KEYS_1 = 4000;
+    private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(6,
+                                                                                  10000,
+                                                                                  100000,
+                                                                                  32 * 1024);
+    private VoldemortServer[] servers = null;
+    private int[] serverPorts = null;
+    private Cluster cluster;
+    private AdminClient adminClient;
+    private SerializerFactory serializerFactory = new DefaultSerializerFactory();
+    private StoreDefinition storeDef;
+    private int nodeIdOnWhichToVerifyKey;
 
-    public static final int TOTAL_SERVERS = 2;
+    public StreamingClientTest(int numServers,
+                               Cluster cluster,
+                               int nodeIdOnWhichToVerifyKey,
+                               StoreDefinition storeDef) {
+        this.numServers = numServers;
+        this.cluster = cluster;
+        this.nodeIdOnWhichToVerifyKey = nodeIdOnWhichToVerifyKey;
+        this.storeDef = storeDef;
+    }
 
-    private static int NUM_KEYS_1 = 4000;
-    private static SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(TOTAL_SERVERS,
-                                                                                         10000,
-                                                                                         100000,
-                                                                                         32 * 1024);
-    private static VoldemortServer[] servers = null;
-    private static int[] serverPorts = null;
-    private static Cluster cluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-            { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
-    private static AdminClient adminClient;
+    @Parameterized.Parameters
+    public static Collection<Object[]> configs() {
+        StoreDefinition storeDefConsistestStrategy = new StoreDefinitionBuilder().setName(TEST_STORE_NAME)
+                                                                                 .setType(BdbStorageConfiguration.TYPE_NAME)
+                                                                                 .setKeySerializer(new SerializerDefinition("string"))
+                                                                                 .setValueSerializer(new SerializerDefinition("string"))
+                                                                                 .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                                 .setReplicationFactor(2)
+                                                                                 .setPreferredReads(1)
+                                                                                 .setRequiredReads(1)
+                                                                                 .setPreferredWrites(2)
+                                                                                 .setRequiredWrites(2)
+                                                                                 .build();
 
-    private static SerializerFactory serializerFactory = new DefaultSerializerFactory();
+        HashMap<Integer, Integer> zoneReplicationFactor = new HashMap<Integer, Integer>();
+        zoneReplicationFactor.put(1, 2);
+        zoneReplicationFactor.put(3, 2);
+        StoreDefinition storeDefZoneStrategy = new StoreDefinitionBuilder().setName(TEST_STORE_NAME)
+                                                                           .setType(BdbStorageConfiguration.TYPE_NAME)
+                                                                           .setKeySerializer(new SerializerDefinition("string"))
+                                                                           .setValueSerializer(new SerializerDefinition("string"))
+                                                                           .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                           .setRoutingStrategyType(RoutingStrategyType.ZONE_STRATEGY)
+                                                                           .setReplicationFactor(4)
+                                                                           .setPreferredReads(1)
+                                                                           .setRequiredReads(1)
+                                                                           .setPreferredWrites(1)
+                                                                           .setRequiredWrites(1)
+                                                                           .setZoneCountReads(0)
+                                                                           .setZoneCountWrites(0)
+                                                                           .setZoneReplicationFactor(zoneReplicationFactor)
+                                                                           .setHintedHandoffStrategy(HintedHandoffStrategyType.PROXIMITY_STRATEGY)
+                                                                           .build();
 
-    private static StoreDefinition storeDef;
+        return Arrays.asList(new Object[][] {
 
-    @BeforeClass
-    public static void testSetup() {
+                { 2,
+                  ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 },
+                                                  { 4, 5, 6, 7 } }),
+                  0,
+                  storeDefConsistestStrategy
+                },
+                {
+                  2,
+                  ServerTestUtils.getLocalNonContiguousNodesCluster(new int[] { 1, 3 },
+                                                                          new int[][] {
+                                                                                  { 0, 1, 2, 3 },
+                                                                                  { 4, 5, 6, 7 } }),
+                  1, storeDefConsistestStrategy
+                },
+                { 6,
+                  ClusterTestUtils.getZ1Z3ClusterWithNonContiguousNodeIds(),
+                  3,
+                  storeDefZoneStrategy
+                }
+        });
+    }
+
+    @Before
+    public void testSetup() {
 
         if(null == servers) {
-            servers = new VoldemortServer[TOTAL_SERVERS];
-            serverPorts = new int[TOTAL_SERVERS];
-
-            storeDef = new StoreDefinitionBuilder().setName(TEST_STORE_NAME)
-                                                   .setType(BdbStorageConfiguration.TYPE_NAME)
-                                                   .setKeySerializer(new SerializerDefinition("string"))
-                                                   .setValueSerializer(new SerializerDefinition("string"))
-                                                   .setRoutingPolicy(RoutingTier.CLIENT)
-                                                   .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
-                                                   .setReplicationFactor(2)
-                                                   .setPreferredReads(1)
-                                                   .setRequiredReads(1)
-                                                   .setPreferredWrites(2)
-                                                   .setRequiredWrites(2)
-                                                   .build();
+            servers = new VoldemortServer[numServers];
+            serverPorts = new int[numServers];
 
             File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
             try {
@@ -101,22 +164,24 @@ public class StreamingClientTest {
                 e1.printStackTrace();
             }
 
-            for(int i = 0; i < TOTAL_SERVERS; i++) {
+            int count = 0;
+            for(int nodeId: cluster.getNodeIds()) {
                 try {
-                    servers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                      ServerTestUtils.createServerConfig(true,
-                                                                                                         i,
-                                                                                                         TestUtils.createTempDir()
-                                                                                                                  .getAbsolutePath(),
-                                                                                                         null,
-                                                                                                         tempStoreXml.getAbsolutePath(),
-                                                                                                         new Properties()),
-                                                                      cluster);
+                    servers[count] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                          ServerTestUtils.createServerConfig(true,
+                                                                                                             nodeId,
+                                                                                                             TestUtils.createTempDir()
+                                                                                                                      .getAbsolutePath(),
+                                                                                                             null,
+                                                                                                             tempStoreXml.getAbsolutePath(),
+                                                                                                             new Properties()),
+                                                                          cluster);
                 } catch(IOException e) {
                     // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
-                serverPorts[i] = servers[i].getIdentityNode().getSocketPort();
+                serverPorts[count] = servers[count].getIdentityNode().getSocketPort();
+                count++;
             }
             adminClient = ServerTestUtils.getAdminClient(cluster);
         }
@@ -125,8 +190,8 @@ public class StreamingClientTest {
 
     }
 
-    @AfterClass
-    public static void testCleanup() {
+    @After
+    public void testCleanup() {
         // Teardown for data used by the unit tests
     }
 
@@ -166,7 +231,7 @@ public class StreamingClientTest {
         }
         streamer.commitToVoldemort();
         streamer.closeStreamingSession();
-        assertEquals(verifyKeysExist(), true);
+        assertEquals(verifyKeysExist(nodeIdOnWhichToVerifyKey), true);
 
     }
 
@@ -174,7 +239,7 @@ public class StreamingClientTest {
      * Checks if each node has the keys it is reponsible for returns false
      * otherwise
      */
-    public boolean verifyKeysExist() {
+    public boolean verifyKeysExist(int nodeIdToVerifyOn) {
         RoutingStrategyFactory factory = new RoutingStrategyFactory();
         RoutingStrategy storeRoutingStrategy = factory.updateRoutingStrategy(storeDef,
                                                                              adminClient.getAdminClientCluster());
@@ -237,7 +302,7 @@ public class StreamingClientTest {
 
         }
 
-        ArrayList<String> keysForNode = expectedNodeIdToKeys.get(0);
+        ArrayList<String> keysForNode = expectedNodeIdToKeys.get(nodeIdToVerifyOn);
         if(!fetchedKeysForNode.containsAll(keysForNode))
             return false;
         else
