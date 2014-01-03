@@ -24,15 +24,16 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.base.Joiner;
 
 /*
- * This tool accepts a source cluster.xml and a zone id that ought to be
- * dropped. It then intelligently moves the partitions that are hosted in the
- * zone being removed to the other zones such that it leads to no data movement.
+ * This tool accepts a source cluster.xml-stores.xml pair and a zone id that
+ * ought to be dropped. It then intelligently moves the partitions that are
+ * hosted in the zone being removed to the other zones such that it leads to no
+ * data movement.
  * 
  * The partitions are moved to nodes in the surviving zones that is zone-nry to
  * that partition in the surviving zone.
  * 
  * Finally it drops the zone and the corresponding nodes that belong to the zone
- * and writes a final-cluster.xml in the output directory.
+ * and writes a final-cluster.xml and final-stores.xml in the output directory.
  */
 
 public class ZoneClipperCLI {
@@ -158,6 +159,7 @@ public class ZoneClipperCLI {
         /*
          * B. Generate the clipped stores.xml
          */
+        logger.info("Generating the adjusted stores.xml..");
         String initialStoresXML = (String) options.valueOf("current-stores");
         List<StoreDefinition> initialStoreDefs = new StoreDefinitionsMapper().readStoreList(new File(initialStoresXML));
         List<StoreDefinition> finalStoreDefs = RebalanceUtils.dropZone(initialStoreDefs, dropZoneId);
