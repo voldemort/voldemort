@@ -65,29 +65,29 @@ public class ZoneShrinkageEndToEndTest {
     static String FINAL_STORES_XML_FILE = "config/zone-shrinkage-test/final-stores.xml";
     static String STORE322_NAME = "test322";
     static String STORE211_NAME = "test211";
-    String initialClusterXML;
-    String initialStoresXML;
-    String finalClusterXML;
-    String finalStoresXML;
-    Cluster cluster;
-    List<StoreDefinition> storeDefs;
+    static String initialClusterXML;
+    static String initialStoresXML;
+    static String finalClusterXML;
+    static String finalStoresXML;
+    static Cluster cluster;
+    static List<StoreDefinition> storeDefs;
     Map<Integer, VoldemortServer> vservers = new HashMap<Integer, VoldemortServer>();
     Map<Integer, SocketStoreFactory> socketStoreFactories = new HashMap<Integer, SocketStoreFactory>();
     Map<Integer, VoldemortConfig> voldemortConfigs = new HashMap<Integer, VoldemortConfig>();
     String bootstrapURL;
-    ClusterMapper clusterMapper = new ClusterMapper();
-    StoreDefinitionsMapper storeDefinitionsMapper = new StoreDefinitionsMapper();
+    static ClusterMapper clusterMapper = new ClusterMapper();
+    static StoreDefinitionsMapper storeDefinitionsMapper = new StoreDefinitionsMapper();
     List<Node> survivingNodes = new ArrayList<Node>();
     Integer droppingZoneId = 0;
 
     @BeforeClass
-    public void load() throws IOException  {
+    public static void load() throws IOException {
         initialClusterXML = IOUtils.toString(ClusterTestUtils.class.getResourceAsStream(INITIAL_CLUSTER_XML_FILE));
         initialStoresXML = IOUtils.toString(ClusterTestUtils.class.getResourceAsStream(INITIAL_STORES_XML_FILE));
         finalClusterXML = IOUtils.toString(ClusterTestUtils.class.getResourceAsStream(FINAL_CLUSTER_XML_FILE));
         finalStoresXML = IOUtils.toString(ClusterTestUtils.class.getResourceAsStream(FINAL_STORES_XML_FILE));
         // setup cluster and stores
-        cluster =  clusterMapper.readCluster(new StringReader(initialClusterXML));
+        cluster = clusterMapper.readCluster(new StringReader(initialClusterXML));
         storeDefs = storeDefinitionsMapper.readStoreList(new StringReader(initialStoresXML));
     }
 
