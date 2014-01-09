@@ -278,7 +278,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
         String storesXml = customStoresXml;
         if(storesXml == null) {
-            logger.debug("Fetching stores.xml ...");
+            logger.debug("Fetching definition for store: " + storeName);
             storesXml = bootstrapMetadataWithRetries(storeName, bootstrapUrls);
         }
 

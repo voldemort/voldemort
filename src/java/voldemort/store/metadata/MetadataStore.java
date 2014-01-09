@@ -116,7 +116,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
     private final Store<String, String, String> innerStore;
     private final Map<String, Versioned<Object>> metadataCache;
-    private final StorageEngine<String, String, String> storeDefinitionsManager;
+    private final StorageEngine<String, String, String> storeDefinitionsStorageEngine;
     private final List<String> storeNames;
 
     private static final ClusterMapper clusterMapper = new ClusterMapper();
@@ -134,13 +134,13 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
     public MetadataStore(Store<String, String, String> innerStore,
-                         StorageEngine<String, String, String> storeDefinitionsManager,
+                         StorageEngine<String, String, String> storeDefinitionsStorageEngine,
                          int nodeId) {
         super(innerStore.getName());
         this.innerStore = innerStore;
         this.metadataCache = new HashMap<String, Versioned<Object>>();
         this.storeNameTolisteners = new ConcurrentHashMap<String, List<MetadataStoreListener>>();
-        this.storeDefinitionsManager = storeDefinitionsManager;
+        this.storeDefinitionsStorageEngine = storeDefinitionsStorageEngine;
         this.storeNames = new ArrayList<String>();
 
         init(nodeId);
@@ -166,7 +166,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 storesRepo.put(storeDef.getName(), versionedStoreValue, null);
             }
         }
-        this.storeDefinitionsManager = storesRepo;
+        this.storeDefinitionsStorageEngine = storesRepo;
 
         init(nodeId);
     }
@@ -289,7 +289,9 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                     String storeDefStr = mapper.writeStore(storeDef);
                     Versioned<String> versionedValueStr = new Versioned<String>(storeDefStr,
                                                                                 value.getVersion());
-                    this.storeDefinitionsManager.put(storeDef.getName(), versionedValueStr, "");
+                    this.storeDefinitionsStorageEngine.put(storeDef.getName(),
+                                                           versionedValueStr,
+                                                           "");
 
                     // Update the metadata cache
                     this.metadataCache.put(storeDef.getName(),
@@ -360,7 +362,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 String storeDefStr = mapper.writeStore(storeDef);
                 Versioned<String> versionedValueStr = new Versioned<String>(storeDefStr,
                                                                             value.getVersion());
-                this.storeDefinitionsManager.put(storeDef.getName(), versionedValueStr, "");
+                this.storeDefinitionsStorageEngine.put(storeDef.getName(), versionedValueStr, "");
 
                 // Update the metadata cache
                 this.metadataCache.put(storeDef.getName(),
@@ -371,6 +373,8 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             initStoreDefinitions(value.getVersion());
 
             // Update routing strategies
+            // TODO: Make this more fine grained.. i.e only update listeners for
+            // a specific store.
             updateRoutingStrategies(getCluster(), storeDefinitions);
         } finally {
             writeLock.unlock();
@@ -815,7 +819,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
             String storeDefStr = mapper.writeStore(storeDef);
             Versioned<String> versionedValueStr = new Versioned<String>(storeDefStr);
-            this.storeDefinitionsManager.put(storeDef.getName(), versionedValueStr, null);
+            this.storeDefinitionsStorageEngine.put(storeDef.getName(), versionedValueStr, null);
 
             // Update the metadata cache
             this.metadataCache.put(storeDef.getName(), new Versioned<Object>(storeDefStr));
@@ -855,7 +859,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             // Otherwise remove from the STORES directory. Note: The version
             // argument is not required here since the
             // ConfigurationStorageEngine simply ignores this.
-            this.storeDefinitionsManager.delete(storeName, null);
+            this.storeDefinitionsStorageEngine.delete(storeName, null);
 
             // Update the metadata cache
             this.metadataCache.remove(storeName);
@@ -925,7 +929,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
         // If stores definition storage engine is not null, initialize metadata
         // Add the mapping from key to the storage engine used
-        if(this.storeDefinitionsManager != null) {
+        if(this.storeDefinitionsStorageEngine != null) {
             initStoreDefinitions(null);
         } else {
             initCache(STORES_KEY);
@@ -971,7 +975,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * use locks to deal with any concurrency related issues.
      */
     private void initStoreDefinitions(Version storesXmlVersion) {
-        if(this.storeDefinitionsManager == null) {
+        if(this.storeDefinitionsStorageEngine == null) {
             throw new VoldemortException("The store definitions directory is empty");
         }
 
@@ -982,7 +986,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         }
         this.storeNames.clear();
 
-        ClosableIterator<Pair<String, Versioned<String>>> storesIterator = this.storeDefinitionsManager.entries();
+        ClosableIterator<Pair<String, Versioned<String>>> storesIterator = this.storeDefinitionsStorageEngine.entries();
 
         // Some test setups may result in duplicate entries for 'store' element.
         // Do the de-dup here
@@ -1046,7 +1050,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         // Clear entries in the metadata cache
         for(String storeName: storeNamesToDelete) {
             this.metadataCache.remove(storeName);
-            this.storeDefinitionsManager.delete(storeName, null);
+            this.storeDefinitionsStorageEngine.delete(storeName, null);
             this.storeNames.remove(storeName);
         }
     }
