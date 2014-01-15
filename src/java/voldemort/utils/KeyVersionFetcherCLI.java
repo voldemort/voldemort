@@ -108,7 +108,10 @@ public class KeyVersionFetcherCLI {
                                            new AdminClientConfig(),
                                            new ClientConfig(clientProps));
         this.cluster = adminClient.getAdminClientCluster();
-        this.storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue();
+        this.storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(cluster.getNodeIds()
+                                                                                         .iterator()
+                                                                                         .next())
+                                                           .getValue();
         this.storeNamesSet = new HashSet<String>();
         for(StoreDefinition storeDefinition: storeDefinitions) {
             String storeName = storeDefinition.getName();
