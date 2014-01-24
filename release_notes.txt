@@ -1,3 +1,7 @@
+Release 1.6.3 on 01/24/2014
+
+* Fix KeyVersionFetcher to not depend on nodeid 0 
+
 Release 1.6.2 on 01/10/2014
 
 * Slops stored for nodes no longer in cluster, will die automatically
