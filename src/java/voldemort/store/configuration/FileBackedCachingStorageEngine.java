@@ -24,17 +24,18 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.concurrency.NotThreadsafe;
 import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
@@ -56,9 +57,9 @@ import voldemort.versioning.Versioned;
  * The primary purpose of this storage engine is for maintaining the cluster
  * metadata which is characterized by low QPS and not latency sensitive.
  * 
- * @author csoman
  * 
  */
+@NotThreadsafe
 public class FileBackedCachingStorageEngine extends
         AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
@@ -68,7 +69,7 @@ public class FileBackedCachingStorageEngine extends
 
     private final String inputPath;
     private final String inputDirectory;
-    private Map<String, String> metadataMap;
+    private ConcurrentHashMap<String, String> metadataMap;
     private VectorClock cachedVersion = null;
 
     public FileBackedCachingStorageEngine(String name, String inputDirectory) {
@@ -81,7 +82,7 @@ public class FileBackedCachingStorageEngine extends
         }
 
         this.inputPath = inputDirectory + System.getProperty("file.separator") + name;
-        this.metadataMap = new HashMap<String, String>();
+        this.metadataMap = new ConcurrentHashMap<String, String>();
         this.loadData();
         if(logger.isDebugEnabled()) {
             logger.debug("Created a new File backed caching engine. File location = " + inputPath);
@@ -127,8 +128,9 @@ public class FileBackedCachingStorageEngine extends
 
     private void loadData() {
 
+        BufferedReader reader = null;
         try {
-            BufferedReader reader = new BufferedReader(new FileReader(new File(this.inputPath)));
+            reader = new BufferedReader(new FileReader(new File(this.inputPath)));
             String line = reader.readLine();
 
             while(line != null) {
@@ -162,7 +164,15 @@ public class FileBackedCachingStorageEngine extends
         } catch(FileNotFoundException e) {
             logger.debug("File used for persistence does not exist !!");
         } catch(IOException e) {
-            logger.debug("Error in flushing data to file : " + e);
+            logger.info("Error in flushing data to file for store " + getName(), e);
+        } finally {
+            if(reader != null) {
+                try {
+                    reader.close();
+                } catch(IOException e) {
+                    logger.debug("Error closing reader!", e);
+                }
+            }
         }
     }
 
@@ -223,6 +233,10 @@ public class FileBackedCachingStorageEngine extends
             found.add(new Versioned<byte[]>(resultBytes, readVersion()));
         }
         return found;
+    }
+
+    public String cacheGet(String key) {
+        return this.metadataMap.get(key);
     }
 
     @Override
@@ -290,6 +304,8 @@ public class FileBackedCachingStorageEngine extends
         }
         if(deleteSuccessful) {
             this.flushData();
+            // Reset the vector clock and persist it.
+            writeVersion(new VectorClock());
         }
         return deleteSuccessful;
     }

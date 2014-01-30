@@ -36,8 +36,17 @@ import java.io.PrintStream;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.Set;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -74,6 +83,7 @@ import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.quota.QuotaUtils;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
@@ -291,6 +301,22 @@ public class VoldemortAdminTool {
               .describedAs("id-of-mirror-node")
               .ofType(Integer.class);
         parser.accepts("fetch-orphaned", "Fetch any orphaned keys/entries in the node");
+        parser.accepts("set-quota", "Enforce some quota on the servers")
+              .withRequiredArg()
+              .describedAs("quota-type")
+              .ofType(String.class);
+        parser.accepts("quota-value", "Value of the quota enforced on the servers")
+              .withRequiredArg()
+              .describedAs("quota-value")
+              .ofType(String.class);
+        parser.accepts("unset-quota", "Remove some quota already enforced on the servers")
+              .withRequiredArg()
+              .describedAs("quota-type")
+              .ofType(String.class);
+        parser.accepts("get-quota", "Retrieve some quota already enforced on the servers")
+              .withRequiredArg()
+              .describedAs("quota-type")
+              .ofType(String.class);
 
         OptionSet options = parser.parse(args);
 
@@ -311,7 +337,8 @@ public class VoldemortAdminTool {
                  || options.has("truncate") || options.has("clear-rebalancing-metadata")
                  || options.has("async") || options.has("native-backup") || options.has("rollback")
                  || options.has("verify-metadata-version") || options.has("reserve-memory")
-                 || options.has("purge-slops") || options.has("show-routing-plan"))) {
+                 || options.has("purge-slops") || options.has("show-routing-plan")
+                 || options.has("set-quota") || options.has("unset-quota") || options.has("get-quota"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 printHelp(System.err, parser);
                 System.exit(1);
@@ -363,7 +390,7 @@ public class VoldemortAdminTool {
                     Utils.croak("Specify the list of stores to reserve memory");
                 }
                 long reserveMB = (Long) options.valueOf("reserve-memory");
-                adminClient.storeMntOps.reserveMemory(nodeId, storeNames, reserveMB);
+                adminClient.quotaMgmtOps.reserveMemory(nodeId, storeNames, reserveMB);
             } else if(options.has("get-metadata")) {
                 String metadataKey = ALL_METADATA;
                 if(options.hasArgument("get-metadata")) {
@@ -437,8 +464,8 @@ public class VoldemortAdminTool {
                                 nodeIdToGetStoreXMLFrom = nodes.iterator().next().getId();
                             }
                         }
-                        Versioned<String> storesXML = adminClient.metadataMgmtOps
-                                .getRemoteMetadata(nodeIdToGetStoreXMLFrom, MetadataStore.STORES_KEY);
+                        Versioned<String> storesXML = adminClient.metadataMgmtOps.getRemoteMetadata(nodeIdToGetStoreXMLFrom,
+                                                                                                    MetadataStore.STORES_KEY);
                         List<StoreDefinition> oldStoreDefs = storeDefsMapper.readStoreList(new StringReader(storesXML.getValue()));
 
                         String clusterXMLPath = metadataValuePair.get(metadataKeyPair.indexOf(MetadataStore.CLUSTER_KEY));
@@ -454,14 +481,16 @@ public class VoldemortAdminTool {
                             throw new VoldemortException("Stores definition xml file path incorrect");
                         List<StoreDefinition> newStoreDefs = storeDefsMapper.readStoreList(new File(storesXMLPath));
                         checkSchemaCompatibility(newStoreDefs);
-                        
+
                         executeSetMetadataPair(nodeId,
                                                adminClient,
                                                MetadataStore.CLUSTER_KEY,
                                                clusterMapper.writeCluster(cluster),
                                                MetadataStore.STORES_KEY,
                                                storeDefsMapper.writeStoreList(newStoreDefs));
-                        executeUpdateMetadataVersionsOnStores(adminClient, oldStoreDefs, newStoreDefs);
+                        executeUpdateMetadataVersionsOnStores(adminClient,
+                                                              oldStoreDefs,
+                                                              newStoreDefs);
                     } else {
                         throw new VoldemortException("set-metadata-pair keys should be <cluster.xml, stores.xml>");
                     }
@@ -507,8 +536,8 @@ public class VoldemortAdminTool {
                             }
                         }
 
-                        Versioned<String> storesXML = adminClient.metadataMgmtOps
-                                .getRemoteMetadata(nodeIdToGetStoreXMLFrom, MetadataStore.STORES_KEY);
+                        Versioned<String> storesXML = adminClient.metadataMgmtOps.getRemoteMetadata(nodeIdToGetStoreXMLFrom,
+                                                                                                    MetadataStore.STORES_KEY);
 
                         List<StoreDefinition> oldStoreDefs = mapper.readStoreList(new StringReader(storesXML.getValue()));
                         executeSetMetadata(nodeId,
@@ -516,10 +545,13 @@ public class VoldemortAdminTool {
                                            MetadataStore.STORES_KEY,
                                            mapper.writeStoreList(newStoreDefs));
                         if(nodeId >= 0) {
-                            System.err.println("WARNING: Metadata version update of stores goes to all servers, " +
-                                    "although this set-metadata oprations only goes to node " + nodeId);
+                            System.err.println("WARNING: Metadata version update of stores goes to all servers, "
+                                               + "although this set-metadata oprations only goes to node "
+                                               + nodeId);
                         }
-                        executeUpdateMetadataVersionsOnStores(adminClient, oldStoreDefs, newStoreDefs);
+                        executeUpdateMetadataVersionsOnStores(adminClient,
+                                                              oldStoreDefs,
+                                                              newStoreDefs);
                     } else if(metadataKey.compareTo(MetadataStore.REBALANCING_STEAL_INFO) == 0) {
                         if(!Utils.isReadableFile(metadataValue))
                             throw new VoldemortException("Rebalancing steal info file path incorrect");
@@ -614,6 +646,44 @@ public class VoldemortAdminTool {
                 }
                 executeShowRoutingPlan(adminClient, storeName, keysToRoute);
 
+            } else if(options.has("set-quota")) {
+                String quotaType = (String) options.valueOf("set-quota");
+                Set<String> validQuotaTypes = QuotaUtils.validQuotaTypes();
+                if(!validQuotaTypes.contains(quotaType)) {
+                    Utils.croak("Specify a valid quota type from :" + validQuotaTypes);
+                }
+                if(!options.has("store")) {
+                    Utils.croak("Must specify the store to enforce the quota on. ");
+                }
+                if(!options.has("quota-value")) {
+                    Utils.croak("Must specify the value of the quota being set");
+                }
+                String storeName = (String) options.valueOf("store");
+                String quotaValue = (String) options.valueOf("quota-value");
+                executeSetQuota(adminClient, storeName, quotaType, quotaValue);
+
+            } else if(options.has("unset-quota")) {
+                String quotaType = (String) options.valueOf("unset-quota");
+                Set<String> validQuotaTypes = QuotaUtils.validQuotaTypes();
+                if(!validQuotaTypes.contains(quotaType)) {
+                    Utils.croak("Specify a valid quota type from :" + validQuotaTypes);
+                }
+                if(!options.has("store")) {
+                    Utils.croak("Must specify the store to enforce the quota on. ");
+                }
+                String storeName = (String) options.valueOf("store");
+                executeUnsetQuota(adminClient, storeName, quotaType);
+            } else if(options.has("get-quota")) {
+                String quotaType = (String) options.valueOf("get-quota");
+                Set<String> validQuotaTypes = QuotaUtils.validQuotaTypes();
+                if(!validQuotaTypes.contains(quotaType)) {
+                    Utils.croak("Specify a valid quota type from :" + validQuotaTypes);
+                }
+                if(!options.has("store")) {
+                    Utils.croak("Must specify the store to enforce the quota on. ");
+                }
+                String storeName = (String) options.valueOf("store");
+                executeGetQuota(adminClient, storeName, quotaType);
             } else {
 
                 Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
@@ -706,7 +776,6 @@ public class VoldemortAdminTool {
         } else {
             System.err.println("All the nodes have the same metadata versions .");
         }
-
     }
 
     private static void synchronizeMetadataVersion(AdminClient adminClient, int baseNodeId) {
@@ -767,6 +836,41 @@ public class VoldemortAdminTool {
                                           Integer zoneToPurge,
                                           List<String> storesToPurge) {
         adminClient.storeMntOps.slopPurgeJob(nodesToPurge, zoneToPurge, storesToPurge);
+    }
+
+    private static void executeSetQuota(AdminClient adminClient,
+                                        String storeName,
+                                        String quotaType,
+                                        String quotaValue) {
+        if(!adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
+            Utils.croak("Store " + storeName + " not in cluster.");
+        }
+
+        adminClient.quotaMgmtOps.setQuota(storeName, quotaType, quotaValue);
+    }
+
+    private static void executeUnsetQuota(AdminClient adminClient,
+                                          String storeName,
+                                          String quotaType) {
+        if(!adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
+            Utils.croak("Store " + storeName + " not in cluster.");
+        }
+
+        adminClient.quotaMgmtOps.unsetQuota(storeName, quotaType);
+    }
+
+    private static void executeGetQuota(AdminClient adminClient, String storeName, String quotaType) {
+        if(!adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
+            Utils.croak("Store " + storeName + " not in cluster.");
+        }
+
+        Versioned<String> quotaVal = adminClient.quotaMgmtOps.getQuota(storeName, quotaType);
+        if(quotaVal == null) {
+            System.out.println("No quota set for " + quotaType + " on store " + storeName);
+        } else {
+            System.out.println("Quota value  for " + quotaType + " on store " + storeName + " : "
+                               + quotaVal.getValue());
+        }
     }
 
     public static void printHelp(PrintStream stream, OptionParser parser) throws IOException {
@@ -894,6 +998,15 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --prune-job --url [url] --node [node-id] --stores [stores_list]");
         stream.println("\t8) Purge slops based on criteria");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --purge-slops --url [url] --nodes [destination-nodes-list] --stores [stores_list] --zone [destination-zone]");
+        stream.println("\t9) Set Quota limits on the servers. One of "
+                       + QuotaUtils.validQuotaTypes());
+        stream.println("\t\t bin/voldemort-admin-tool.sh --url [url] --set-quota [quota-type] --quota-value [value] --store [store-name]");
+        stream.println("\t10) Unset Quota limits on the servers. One of "
+                       + QuotaUtils.validQuotaTypes());
+        stream.println("\t\t bin/voldemort-admin-tool.sh --url [url] --unset-quota [quota-type] --store [store-name]");
+        stream.println("\t11) Get Quota limits on the servers. One of "
+                       + QuotaUtils.validQuotaTypes());
+        stream.println("\t\t bin/voldemort-admin-tool.sh --url [url] --get-quota [quota-type] --store [store-name]");
 
         parser.printHelpOn(stream);
     }
@@ -1097,7 +1210,6 @@ public class VoldemortAdminTool {
                                                                          updatedVersion));
     }
 
-
     private static void executeUpdateMetadataVersionsOnStores(AdminClient adminClient,
                                                               List<StoreDefinition> oldStoreDefs,
                                                               List<StoreDefinition> newStoreDefs) {
@@ -1118,8 +1230,9 @@ public class VoldemortAdminTool {
         for(String storeName: storeNamesUnion) {
             StoreDefinition oldStoreDef = oldStoreDefinitionMap.get(storeName);
             StoreDefinition newStoreDef = newStoreDefinitionMap.get(storeName);
-            if(oldStoreDef == null && newStoreDef != null || oldStoreDef != null && newStoreDef == null
-                    || oldStoreDef != null && newStoreDef !=null && !oldStoreDef.equals(newStoreDef)) {
+            if(oldStoreDef == null && newStoreDef != null || oldStoreDef != null
+               && newStoreDef == null || oldStoreDef != null && newStoreDef != null
+               && !oldStoreDef.equals(newStoreDef)) {
                 storesChanged.add(storeName);
             }
         }

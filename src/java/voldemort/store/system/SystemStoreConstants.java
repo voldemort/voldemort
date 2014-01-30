@@ -34,7 +34,8 @@ public class SystemStoreConstants {
 
     public static enum SystemStoreName {
         voldsys$_client_registry,
-        voldsys$_metadata_version_persistence;
+        voldsys$_metadata_version_persistence,
+        voldsys$_store_quotas;
     }
 
     // The route to all strategy does not bother about zones or rep factor
@@ -59,6 +60,23 @@ public class SystemStoreConstants {
 
                                                      + "  <store>"
                                                      + "    <name>voldsys$_metadata_version_persistence</name>"
+                                                     + "    <routing-strategy>local-pref-all-routing</routing-strategy>"
+                                                     + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
+                                                     + "    <persistence>file-backed-cache</persistence>"
+                                                     + "    <routing>client</routing>"
+                                                     + "    <replication-factor>1</replication-factor>"
+                                                     + "    <required-reads>1</required-reads>"
+                                                     + "    <required-writes>1</required-writes>"
+                                                     + "    <key-serializer>"
+                                                     + "      <type>string</type>"
+                                                     + "    </key-serializer>"
+                                                     + "    <value-serializer>"
+                                                     + "      <type>string</type>"
+                                                     + "    </value-serializer>"
+                                                     + "  </store>"
+
+                                                     + "  <store>"
+                                                     + "    <name>voldsys$_store_quotas</name>"
                                                      + "    <routing-strategy>local-pref-all-routing</routing-strategy>"
                                                      + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
                                                      + "    <persistence>file-backed-cache</persistence>"

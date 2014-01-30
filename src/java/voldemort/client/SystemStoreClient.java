@@ -70,7 +70,9 @@ public class SystemStoreClient<K, V> {
     public Version putSysStore(K key, V value) {
         Version version = null;
         try {
-            logger.debug("Invoking Put for key : " + key + " on store name : " + this.storeName);
+            if(logger.isDebugEnabled()) {
+                logger.debug("Invoking Put for key : " + key + " on store name : " + this.storeName);
+            }
             Versioned<V> versioned = getSysStore(key);
             if(versioned == null)
                 versioned = Versioned.value(value, new VectorClock());
@@ -89,15 +91,39 @@ public class SystemStoreClient<K, V> {
     public Version putSysStore(K key, Versioned<V> value) {
         Version version = null;
         try {
-            logger.debug("Invoking Put for key : " + key + " on store name : " + this.storeName);
+            if(logger.isDebugEnabled()) {
+                logger.debug("Invoking Put for key : " + key + " on store name : " + this.storeName);
+            }
             this.sysStore.put(key, value, null);
             version = value.getVersion();
         } catch(Exception e) {
             if(logger.isDebugEnabled()) {
                 logger.debug("Exception caught during putSysStore: " + e);
             }
+            logger.info("Exception during put", e);
         }
         return version;
+    }
+
+    public boolean deleteSysStore(K key) {
+        try {
+            if(logger.isDebugEnabled()) {
+                logger.debug("Invoking Delete for key : " + key + " on store name : "
+                             + this.storeName);
+            }
+            Versioned<V> versioned = getSysStore(key);
+            if(versioned == null) {
+                // Nothing to delete
+                return true;
+            }
+            return this.sysStore.delete(key, versioned.getVersion());
+        } catch(Exception e) {
+            if(logger.isDebugEnabled()) {
+                logger.debug("Exception caught during deleteSysStore: " + e);
+            }
+            logger.info("Exception during delete", e);
+            return false;
+        }
     }
 
     public Versioned<V> getSysStore(K key) {
@@ -116,7 +142,7 @@ public class SystemStoreClient<K, V> {
                              + " on store name : " + this.storeName);
             else
                 logger.debug("Got null value");
-        } catch(InvalidMetadataException e){
+        } catch(InvalidMetadataException e) {
             throw e;
         } catch(Exception e) {
             if(logger.isDebugEnabled()) {

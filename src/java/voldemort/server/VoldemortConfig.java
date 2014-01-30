@@ -202,6 +202,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableGossip;
     private boolean enableRebalanceService;
     private boolean enableJmxClusterName;
+    private boolean enableQuotaLimiting;
 
     private List<String> storageConfigurations;
 
@@ -460,6 +461,7 @@ public class VoldemortConfig implements Serializable {
         this.enablePruneJob = props.getBoolean("enable.prunejob", true);
         this.enableSlopPurgeJob = props.getBoolean("enable.slop.purge.job", true);
         this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
+        this.enableQuotaLimiting = props.getBoolean("enable.quota.limiting", true);
 
         this.gossipIntervalMs = props.getInt("gossip.interval.ms", 30 * 1000);
 
@@ -2950,6 +2952,23 @@ public class VoldemortConfig implements Serializable {
      */
     public void setEnableJmxClusterName(boolean enableJmxClusterName) {
         this.enableJmxClusterName = enableJmxClusterName;
+    }
+
+    public boolean isEnableQuotaLimiting() {
+        return enableQuotaLimiting;
+    }
+
+    /**
+     * If enabled, provides the ability to enforce quotas per operation, per
+     * store on the server, via Admin tool. Also needs stat tracking enabled
+     * 
+     * <ul>
+     * <li>Property :"enable.quota.limit"</li>
+     * <li>Default :true</li>
+     * </ul>
+     */
+    public void setEnableQuotaLimit(boolean enableQuotaLimiting) {
+        this.enableQuotaLimiting = enableQuotaLimiting;
     }
 
     public OpTimeMap testingGetSlowQueueingDelays() {

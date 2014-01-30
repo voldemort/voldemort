@@ -78,6 +78,8 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.quota.QuotaType;
+import voldemort.store.quota.QuotaUtils;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
@@ -151,8 +153,8 @@ public class AdminClient {
     private final NetworkClassLoader networkClassLoader;
     private final AdminClientConfig adminClientConfig;
     private Cluster currentCluster;
-    private SystemStoreClient<String, String> sysStoreClient = null;
-    private String[] cachedBootstrapURLs = null;
+    private SystemStoreClient<String, String> metadataVersionSysStoreClient = null;
+    private SystemStoreClient<String, String> quotaSysStoreClient = null;
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
 
     final public AdminClient.HelperOperations helperOps;
@@ -167,6 +169,7 @@ public class AdminClient {
     final public AdminClient.RestoreOperations restoreOps;
     final public AdminClient.RebalancingOperations rebalanceOps;
     final public AdminClient.ReadOnlySpecificOperations readonlyOps;
+    final public AdminClient.QuotaManagementOperations quotaMgmtOps;
 
     /**
      * Common initialization of AdminClient.
@@ -190,6 +193,7 @@ public class AdminClient {
         this.restoreOps = this.new RestoreOperations();
         this.rebalanceOps = this.new RebalancingOperations();
         this.readonlyOps = this.new ReadOnlySpecificOperations();
+        this.quotaMgmtOps = this.new QuotaManagementOperations();
 
         this.errorMapper = new ErrorCodeMapper();
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
@@ -219,7 +223,7 @@ public class AdminClient {
                        ClientConfig clientConfig) {
         this(adminClientConfig, clientConfig);
         this.currentCluster = helperOps.getClusterFromBootstrapURL(bootstrapURL);
-        helperOps.cacheSystemStoreParams(bootstrapURL);
+        helperOps.initSystemStoreClient(bootstrapURL, Zone.UNSET_ZONE_ID);
     }
 
     /**
@@ -243,7 +247,7 @@ public class AdminClient {
         this.currentCluster = cluster;
         Node node = cluster.getNodeById(cluster.getNodeIds().iterator().next());
         String bootstrapURL = "tcp://" + node.getHost() + ":" + node.getSocketPort();
-        helperOps.cacheSystemStoreParams(bootstrapURL);
+        helperOps.initSystemStoreClient(bootstrapURL, Zone.UNSET_ZONE_ID);
     }
 
     /**
@@ -266,7 +270,7 @@ public class AdminClient {
                        ClientConfig clientConfig,
                        int zoneID) {
         this(bootstrapURL, adminClientConfig, clientConfig);
-        helperOps.cacheSystemStoreParams(bootstrapURL, zoneID);
+        helperOps.initSystemStoreClient(bootstrapURL, zoneID);
     }
 
     /**
@@ -275,6 +279,10 @@ public class AdminClient {
     public void close() {
         this.socketPool.close();
         this.adminStoreClient.close();
+
+        if(systemStoreFactory != null) {
+            systemStoreFactory.close();
+        }
     }
 
     /**
@@ -323,43 +331,34 @@ public class AdminClient {
     public class HelperOperations {
 
         /**
-         * Cache the paramater values for the internal system store client.
-         * These cached values are used every time the system store client needs
-         * to be initialized (useful when the cluster.xml changes).
-         * 
-         * @param bootstrapURL The URL to bootstrap from
-         * @param zoneID Indicates the primary zone of the sytem store client
-         */
-        private void cacheSystemStoreParams(String bootstrapURL, int zoneID) {
-            String[] bootstrapUrls = new String[1];
-            bootstrapUrls[0] = bootstrapURL;
-            AdminClient.this.cachedBootstrapURLs = bootstrapUrls;
-        }
-
-        private void cacheSystemStoreParams(String bootstrapURL) {
-            String[] bootstrapUrls = new String[1];
-            bootstrapUrls[0] = bootstrapURL;
-            AdminClient.this.cachedBootstrapURLs = bootstrapUrls;
-        }
-
-        /**
          * Create a system store client based on the cached bootstrap URLs and
          * Zone ID
+         * 
+         * Two system store clients are created currently.
+         * 
+         * 1) metadata version store
+         * 
+         * 2) quota store
          */
-        private void initSystemStoreClient() {
-            if(AdminClient.this.cachedBootstrapURLs != null) {
-                try {
-                    if(systemStoreFactory == null) {
-                        ClientConfig clientConfig = new ClientConfig();
-                        clientConfig.setBootstrapUrls(AdminClient.this.cachedBootstrapURLs);
-                        systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
-                    }
+        private void initSystemStoreClient(String bootstrapURL, int zoneId) {
 
-                    sysStoreClient = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
-                } catch(Exception e) {
-                    logger.debug("Error while creating a system store client for metadata version store.");
+            String[] bootstrapUrls = new String[1];
+            bootstrapUrls[0] = bootstrapURL;
+
+            try {
+                if(systemStoreFactory == null) {
+                    ClientConfig clientConfig = new ClientConfig();
+                    clientConfig.setBootstrapUrls(bootstrapUrls);
+                    clientConfig.setClientZoneId(zoneId);
+                    systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
                 }
+
+                metadataVersionSysStoreClient = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
+                quotaSysStoreClient = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name());
+            } catch(Exception e) {
+                logger.debug("Error while creating a system store client for metadata version store/quota store.");
             }
+
         }
 
         private Cluster getClusterFromBootstrapURL(String bootstrapURL) {
@@ -430,6 +429,19 @@ public class AdminClient {
                                               .build();
         }
 
+        public List<StoreDefinition> getStoresInCluster() {
+            int firstRemoteNodeId = currentCluster.getNodeIds().iterator().next();
+            return metadataMgmtOps.getRemoteStoreDefList(firstRemoteNodeId).getValue();
+        }
+
+        public boolean checkStoreExistsInCluster(String storeName) {
+            List<String> storesInCluster = StoreDefinitionUtils.getStoreNames(getStoresInCluster());
+            if(storesInCluster.contains(storeName)) {
+                return true;
+            } else {
+                return false;
+            }
+        }
     }
 
     public class ReplicationOperations {
@@ -877,8 +889,7 @@ public class AdminClient {
          *        incremented
          */
         public void updateMetadataversion(Collection<String> versionKeys) {
-            helperOps.initSystemStoreClient();
-            Properties props = MetadataVersionStoreUtils.getProperties(AdminClient.this.sysStoreClient);
+            Properties props = MetadataVersionStoreUtils.getProperties(AdminClient.this.metadataVersionSysStoreClient);
             for(String versionKey: versionKeys) {
                 long newValue = 0;
                 if(props != null && props.getProperty(versionKey) != null) {
@@ -892,7 +903,8 @@ public class AdminClient {
                 }
                 props.setProperty(versionKey, Long.toString(newValue));
             }
-            MetadataVersionStoreUtils.setProperties(AdminClient.this.sysStoreClient, props);
+            MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
+                                                    props);
         }
 
         /**
@@ -902,8 +914,8 @@ public class AdminClient {
          *        the nodes in the cluster
          */
         public void setMetadataversion(Properties newProperties) {
-            helperOps.initSystemStoreClient();
-            MetadataVersionStoreUtils.setProperties(AdminClient.this.sysStoreClient, newProperties);
+            MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
+                                                    newProperties);
         }
 
         /**
@@ -1672,44 +1684,6 @@ public class AdminClient {
 
             int asyncId = response.getRequestId();
             rpcOps.waitForCompletion(nodeId, asyncId, timeOut, TimeUnit.MINUTES);
-        }
-
-        /**
-         * Reserve memory for the stores
-         * 
-         * @param nodeId The node id to reserve, -1 for entire cluster
-         * @param stores list of stores for which to reserve
-         * @param sizeInMB size of reservation
-         */
-        public void reserveMemory(int nodeId, List<String> stores, long sizeInMB) {
-
-            List<Integer> reserveNodes = new ArrayList<Integer>();
-            if(nodeId == -1) {
-                // if no node is specified send it to the entire cluster
-                for(Node node: currentCluster.getNodes())
-                    reserveNodes.add(node.getId());
-            } else {
-                reserveNodes.add(nodeId);
-            }
-            for(String storeName: stores) {
-                for(Integer reserveNodeId: reserveNodes) {
-
-                    VAdminProto.ReserveMemoryRequest reserveRequest = VAdminProto.ReserveMemoryRequest.newBuilder()
-                                                                                                      .setStoreName(storeName)
-                                                                                                      .setSizeInMb(sizeInMB)
-                                                                                                      .build();
-                    VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                                      .setReserveMemory(reserveRequest)
-                                                                                                      .setType(VAdminProto.AdminRequestType.RESERVE_MEMORY)
-                                                                                                      .build();
-                    VAdminProto.ReserveMemoryResponse.Builder response = rpcOps.sendAndReceive(reserveNodeId,
-                                                                                               adminRequest,
-                                                                                               VAdminProto.ReserveMemoryResponse.newBuilder());
-                    if(response.hasError())
-                        helperOps.throwException(response.getError());
-                }
-                logger.info("Finished reserving memory for store : " + storeName);
-            }
         }
     }
 
@@ -3635,6 +3609,67 @@ public class AdminClient {
                 socketPool.checkin(destination, sands);
             }
 
+        }
+    }
+
+    public class QuotaManagementOperations {
+
+        public void setQuota(String storeName, String quotaType, String quotaValue) {
+            quotaSysStoreClient.putSysStore(QuotaUtils.makeQuotaKey(storeName,
+                                                                    QuotaType.valueOf(quotaType)),
+                                            quotaValue);
+            logger.info("Set quota " + quotaType + " to " + quotaValue + " for store " + storeName);
+        }
+
+        public void unsetQuota(String storeName, String quotaType) {
+            quotaSysStoreClient.deleteSysStore(QuotaUtils.makeQuotaKey(storeName,
+                                                                       QuotaType.valueOf(quotaType)));
+            logger.info("Unset quota " + quotaType + " for store " + storeName);
+        }
+
+        public Versioned<String> getQuota(String storeName, String quotaType) {
+            return quotaSysStoreClient.getSysStore(QuotaUtils.makeQuotaKey(storeName,
+                                                                           QuotaType.valueOf(quotaType)));
+        }
+
+        /**
+         * Reserve memory for the stores
+         * 
+         * TODO this should also now use the voldsys$_quotas system store
+         * 
+         * @param nodeId The node id to reserve, -1 for entire cluster
+         * @param stores list of stores for which to reserve
+         * @param sizeInMB size of reservation
+         */
+        public void reserveMemory(int nodeId, List<String> stores, long sizeInMB) {
+
+            List<Integer> reserveNodes = new ArrayList<Integer>();
+            if(nodeId == -1) {
+                // if no node is specified send it to the entire cluster
+                for(Node node: currentCluster.getNodes())
+                    reserveNodes.add(node.getId());
+            } else {
+                reserveNodes.add(nodeId);
+            }
+            for(String storeName: stores) {
+                for(Integer reserveNodeId: reserveNodes) {
+
+                    VAdminProto.ReserveMemoryRequest reserveRequest = VAdminProto.ReserveMemoryRequest.newBuilder()
+                                                                                                      .setStoreName(storeName)
+                                                                                                      .setSizeInMb(sizeInMB)
+                                                                                                      .build();
+                    VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                                      .setReserveMemory(reserveRequest)
+                                                                                                      .setType(VAdminProto.AdminRequestType.RESERVE_MEMORY)
+                                                                                                      .build();
+                    VAdminProto.ReserveMemoryResponse.Builder response = rpcOps.sendAndReceive(reserveNodeId,
+                                                                                               adminRequest,
+                                                                                               VAdminProto.ReserveMemoryResponse.newBuilder());
+                    if(response.hasError())
+                        helperOps.throwException(response.getError());
+                }
+                logger.info("Finished reserving memory for store : " + storeName);
+            }
         }
     }
 }

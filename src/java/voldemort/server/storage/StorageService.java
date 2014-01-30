@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2010 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -72,12 +72,15 @@ import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.configuration.FileBackedCachingStorageConfiguration;
+import voldemort.store.configuration.FileBackedCachingStorageEngine;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStoreListener;
 import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.quota.QuotaLimitStats;
+import voldemort.store.quota.QuotaLimitingStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.rebalancing.ProxyPutStats;
@@ -116,8 +119,8 @@ import voldemort.versioning.Versioned;
 
 /**
  * The service responsible for managing all storage types
- *
- *
+ * 
+ * 
  */
 @JmxManaged(description = "Start and stop all stores.")
 public class StorageService extends AbstractService {
@@ -142,6 +145,7 @@ public class StorageService extends AbstractService {
     private final ClientThreadPool clientThreadPool;
     private final FailureDetector failureDetector;
     private final StoreStats storeStats;
+    private final QuotaLimitStats aggregatedQuotaStats;
     private final RoutedStoreFactory routedStoreFactory;
     private final RoutedStoreConfig routedStoreConfig;
     private final ExecutorService proxyPutWorkerPool;
@@ -176,7 +180,8 @@ public class StorageService extends AbstractService {
         this.storeStats = new StoreStats();
         this.routedStoreFactory = new RoutedStoreFactory();
         this.routedStoreFactory.setThreadPool(this.clientThreadPool);
-        this.routedStoreConfig = new RoutedStoreConfig(this.voldemortConfig, this.metadata.getCluster());
+        this.routedStoreConfig = new RoutedStoreConfig(this.voldemortConfig,
+                                                       this.metadata.getCluster());
 
         /*
          * Initialize the dynamic throttle limit based on the per node limit
@@ -197,6 +202,13 @@ public class StorageService extends AbstractService {
             JmxUtils.registerMbean(this.aggregatedProxyPutStats,
                                    JmxUtils.createObjectName("voldemort.store.rebalancing",
                                                              "aggregate-proxy-puts"));
+        }
+
+        this.aggregatedQuotaStats = new QuotaLimitStats(null);
+        if(config.isJmxEnabled()) {
+            JmxUtils.registerMbean(this.aggregatedQuotaStats,
+                                   JmxUtils.createObjectName("voldemort.store.quota",
+                                                             "aggregate-quota-limit-stats"));
         }
 
     }
@@ -837,8 +849,9 @@ public class StorageService extends AbstractService {
                 }
             }
 
-            if(voldemortConfig.isMetadataCheckingEnabled() && !isMetadata)
+            if(voldemortConfig.isMetadataCheckingEnabled() && !isMetadata) {
                 store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
+            }
         }
 
         if(voldemortConfig.isStatTrackingEnabled()) {
@@ -865,6 +878,24 @@ public class StorageService extends AbstractService {
                                            JmxUtils.createModelMBean(new StoreStatsJmx(statStore.getStats())),
                                            name);
                 }
+            }
+
+            // Wrap everything under the rate limiting store (barring the
+            // metadata store)
+            if(voldemortConfig.isEnableQuotaLimiting() && !isMetadata) {
+                FileBackedCachingStorageEngine quotaStore = (FileBackedCachingStorageEngine) storeRepository.getStorageEngine(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.toString());
+                QuotaLimitStats quotaStats = new QuotaLimitStats(this.aggregatedQuotaStats);
+                QuotaLimitingStore rateLimitingStore = new QuotaLimitingStore(store,
+                                                                              this.storeStats,
+                                                                              quotaStats,
+                                                                              quotaStore);
+                if(voldemortConfig.isJmxEnabled()) {
+                    JmxUtils.registerMbean(this.aggregatedQuotaStats,
+                                           JmxUtils.createObjectName("voldemort.store.quota",
+                                                                     store.getName()
+                                                                             + "-quota-limit-stats"));
+                }
+                store = rateLimitingStore;
             }
         }
 
