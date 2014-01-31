@@ -15,7 +15,6 @@
  */
 package voldemort.tools;
 
-import org.junit.Before;
 import org.junit.Test;
 import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;

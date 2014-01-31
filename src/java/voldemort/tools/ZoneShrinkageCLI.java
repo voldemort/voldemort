@@ -203,6 +203,9 @@ public class ZoneShrinkageCLI {
         String initialStoresXml = adminClient.metadataMgmtOps.getRemoteMetadata(initialClusterFirstNodeId, STORES_KEY).getValue();
         logger.info("End fetching metadata for server " + initialClusterFirstNodeId);
 
+        logger.info("Original cluster.xml: \n" + initialClusterXml + "\n");
+        logger.info("Original stores.xml: \n" + initialStoresXml + "\n");
+
         // Query the servers to see if all have the same XML
         shouldContinue = verifyMetadataConsistency(adminClient, initialClusterNodes, initialClusterXml, initialStoresXml);
         if(!shouldContinue) {
@@ -214,8 +217,8 @@ public class ZoneShrinkageCLI {
         String newStoresXml = shrinkStoresXml(initialStoresXml, droppingZoneId);
         String newClusterXml = shrinkClusterXml(initialClusterXml, droppingZoneId);
 
-        logger.info("New cluster.xml: \n" + newClusterXml);
-        logger.info("New stores.xml: \n" + newStoresXml);
+        logger.info("New cluster.xml: \n" + newClusterXml + "\n");
+        logger.info("New stores.xml: \n" + newStoresXml + "\n");
 
         // Verifying Server rebalancing states
         shouldContinue = verifyRebalanceState(adminClient, initialClusterNodes);
