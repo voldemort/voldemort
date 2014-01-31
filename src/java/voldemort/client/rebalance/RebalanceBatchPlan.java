@@ -24,6 +24,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.MoveMap;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
@@ -183,7 +184,7 @@ public class RebalanceBatchPlan {
     public int getTaskCount() {
         return batchPlan.size();
     }
-    
+
     /**
      * Gathers all of the state necessary to build a
      * List<RebalanceTaskInfo> which is effectively a (batch) plan.
@@ -270,24 +271,28 @@ public class RebalanceBatchPlan {
                     // ... and all nary partition-stores,
                     // now steal what is needed
 
-                    // Optimization: Do not steal a partition-store you already
-                    // host!
-                    if(currentSRP.getReplicationNodeList(stealerPartitionId)
-                                 .contains(stealerNodeId)) {
-                        continue;
+                    // Optimization for RW stores: Do not steal a partition-store you already host!
+                    if (!storeDef.getType().equalsIgnoreCase(ReadOnlyStorageConfiguration.TYPE_NAME)) {
+                        if (currentSRP.getReplicationNodeList(stealerPartitionId)
+                                      .contains(stealerNodeId)) {
+                            continue;
+                        }
                     }
-
-                    // Determine which node to steal from.
+                    // Determine which node to steal from. This will find node that hosts the appropriate zone-nary
                     int donorNodeId = getDonorId(currentSRP,
                                                  finalSRP,
                                                  stealerZoneId,
                                                  stealerNodeId,
                                                  stealerPartitionId);
-
-                    rpiBuilder.addPartitionStoreMove(stealerNodeId,
-                                                     donorNodeId,
-                                                     storeDef.getName(),
-                                                     stealerPartitionId);
+                    // Make sure that both donor and stealer aren't the same node
+                    // Since optimization on line 275 wouldn't apply for RO stores, there is a chance that donorNodeId 
+                    // and stealerNodeId are the same, hence this check is needed for RO stores
+                    if (donorNodeId != stealerNodeId) {
+                        rpiBuilder.addPartitionStoreMove(stealerNodeId,
+                                                         donorNodeId,
+                                                         storeDef.getName(),
+                                                         stealerPartitionId);
+                    }
                 }
             }
         }

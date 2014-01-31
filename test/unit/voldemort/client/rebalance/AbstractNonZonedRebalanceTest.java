@@ -324,15 +324,51 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
     public void testRORebalanceWithReplication() throws Exception {
         logger.info("Starting testRORebalanceWithReplication");
         try {
-            Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                    { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
+            Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] {
+                    { 0, 2, 4 }, { 1, 3, 5 },{}});
+            /*  pre-rebalance routing:
+                partition -> nodes (ordered)
+                0 -> 0, 1
+                1 -> 1, 0
+                2 -> 0, 1
+                3 -> 1, 0
+                4 -> 0, 1
+                5 -> 1, 0
+            */
 
             Cluster finalCluster = UpdateClusterUtils.createUpdatedCluster(currentCluster,
-                                                                           1,
+                                                                           2,
                                                                            Lists.newArrayList(2, 3));
+            /*
+            post-rebalance partitioning:
+                nodes -> partitions
+                0 -> 0, 4
+                1 -> 1, 5
+                2 -> 2, 3
+            post-rebalance routing:
+                partition -> nodes (ordered)
+                0 -> 0, 1
+                1 -> 1, 2  (changed from 1, 0)
+                2 -> 2, 0  (changed from 0, 1)
+                3 -> 2, 0  (changed from 1, 0)
+                4 -> 0, 1
+                5 -> 1, 0
+            supposed non-optimized moves:
+                partition_reptype: node -> node (reptype is replica type, or the n-ary replica in routing)
+                1_second: 0 -> 2
+                2_first:  0 -> 2
+                2_second: 1 -> 0
+                3_first:  1 -> 2
+            supposed optimized moves:
+                partition: node(reptype) -> node(reptype)
+                1: 0(second) -> 2(second)
+                2: 0(first)  -> 0(second)
+                2: 1(second) -> 2(first)
+                3: 1(first)  -> 2(first)
+            */
 
-            // start servers 0 , 1 only
-            List<Integer> serverList = Arrays.asList(0, 1);
+            // start servers 0 , 1, 2 only
+            List<Integer> serverList = Arrays.asList(0, 1, 2);
 
             // If this test fails, consider increasing the number of admin
             // threads.
@@ -362,7 +398,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                              rebalanceKit.controller.getAdminClient(),
                              true);
 
-                rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, Arrays.asList(0, 1));
+                rebalanceAndCheck(rebalanceKit.plan, rebalanceKit.controller, Arrays.asList(0, 1, 2));
                 checkConsistentMetadata(finalCluster, serverList);
             } finally {
                 // stop servers
