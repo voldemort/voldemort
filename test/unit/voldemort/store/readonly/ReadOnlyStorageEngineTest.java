@@ -357,6 +357,21 @@ public class ReadOnlyStorageEngineTest {
     }
 
     @Test
+    public void testNodeNotInRoutingStrategy() throws IOException {
+        File versionDir = new File(dir, "version-0");
+        createStoreFiles(versionDir, this.indexEntrySize * 5, 4 * 5 * 10, this.node, 2);
+
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
+                                                                strategy,
+                                                                routingStrategy,
+                                                                1,
+                                                                dir,
+                                                                2);
+        // should not have exceptions
+        engine.get(new ByteArray("ab".getBytes()), null);
+    }
+
+    @Test
     public void testSwapRollbackFail() throws IOException {
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
                                                                  strategy,

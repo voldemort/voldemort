@@ -482,6 +482,9 @@ public class ChunkedFileSet {
                 return ReadOnlyUtils.chunk(ByteUtils.md5(key), numChunks);
             }
             case READONLY_V1: {
+                if(nodePartitionIds == null) {
+                    return -1;
+                }
                 List<Integer> routingPartitionList = routingStrategy.getPartitionList(key);
                 routingPartitionList.retainAll(nodePartitionIds);
 
@@ -498,7 +501,9 @@ public class ChunkedFileSet {
 
                 Pair<Integer, Integer> bucket = null;
                 for(int replicaType = 0; replicaType < routingPartitionList.size(); replicaType++) {
-
+                    if(nodePartitionIds == null) {
+                        return -1;
+                    }
                     if(nodePartitionIds.contains(routingPartitionList.get(replicaType))) {
                         if(bucket == null) {
                             bucket = Pair.create(routingPartitionList.get(0), replicaType);
