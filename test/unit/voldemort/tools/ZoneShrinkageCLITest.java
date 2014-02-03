@@ -15,6 +15,7 @@
  */
 package voldemort.tools;
 
+import org.junit.After;
 import org.junit.Test;
 import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
@@ -104,5 +105,15 @@ public class ZoneShrinkageCLITest {
 
         AdminClient adminClient = new AdminClient(bsURL, new AdminClientConfig(), new ClientConfig());
         assertEquals(1, adminClient.getAdminClientCluster().getZoneIds().size());
+    }
+
+    @After
+    public void shutdown() {
+        for(VoldemortServer vserver: vservers.values()) {
+            vserver.stop();
+        }
+        for(SocketStoreFactory ssf: socketStoreFactories.values()) {
+            ssf.close();
+        }
     }
 }
