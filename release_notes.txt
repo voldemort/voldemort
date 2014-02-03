@@ -1,3 +1,8 @@
+Release 1.6.4 on 02/03/2014
+
+* Fix bug when RO server NPE when rolled back
+* RO bug fix caused by RW optimization code 
+
 Release 1.6.3 on 01/24/2014
 
 * Fix KeyVersionFetcher to not depend on nodeid 0 
