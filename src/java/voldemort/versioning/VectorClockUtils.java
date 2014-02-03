@@ -18,6 +18,7 @@ package voldemort.versioning;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedSet;
 
 import com.google.common.collect.Sets;
@@ -123,6 +124,22 @@ public class VectorClockUtils {
         }
 
         return resolvedVersions;
+    }
+
+    /**
+     * Generates a vector clock with the provided values
+     * 
+     * @param serverIds servers in the clock
+     * @param clockValue value of the clock for each server entry
+     * @param timestamp ts value to be set for the clock
+     * @return
+     */
+    public static VectorClock makeClock(Set<Integer> serverIds, long clockValue, long timestamp) {
+        List<ClockEntry> clockEntries = new ArrayList<ClockEntry>(serverIds.size());
+        for(Integer serverId: serverIds) {
+            clockEntries.add(new ClockEntry(serverId.shortValue(), clockValue));
+        }
+        return new VectorClock(clockEntries, timestamp);
     }
 
 }

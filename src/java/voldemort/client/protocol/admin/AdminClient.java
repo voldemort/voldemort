@@ -101,6 +101,7 @@ import voldemort.utils.RebalanceUtils;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.VectorClockUtils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -3615,9 +3616,15 @@ public class AdminClient {
     public class QuotaManagementOperations {
 
         public void setQuota(String storeName, String quotaType, String quotaValue) {
+            // FIXME This is a temporary workaround for System store client not
+            // being able to do a second insert. We simply generate a super
+            // clock that will trump what is on storage
+            VectorClock denseClock = VectorClockUtils.makeClock(currentCluster.getNodeIds(),
+                                                                System.currentTimeMillis(),
+                                                                System.currentTimeMillis());
             quotaSysStoreClient.putSysStore(QuotaUtils.makeQuotaKey(storeName,
                                                                     QuotaType.valueOf(quotaType)),
-                                            quotaValue);
+                                            new Versioned<String>(quotaValue, denseClock));
             logger.info("Set quota " + quotaType + " to " + quotaValue + " for store " + storeName);
         }
 

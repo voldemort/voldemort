@@ -264,6 +264,11 @@ public class FileBackedCachingStorageEngine extends
     }
 
     @Override
+    /**
+     * FIXME There is a problem here.. Since the versioning is on the file level, SystemStoreClient.put() 
+     * will throw OVE, on the insert of the second key, value pair.Ideally, the version should be persisted 
+     * along with the entries in the file too.. 
+     */
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
@@ -305,6 +310,8 @@ public class FileBackedCachingStorageEngine extends
         if(deleteSuccessful) {
             this.flushData();
             // Reset the vector clock and persist it.
+            // FIXME this also needs to be done per entry, as opposed to
+            // versioning the file.
             writeVersion(new VectorClock());
         }
         return deleteSuccessful;

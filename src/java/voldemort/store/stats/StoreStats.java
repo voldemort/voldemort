@@ -46,7 +46,7 @@ public class StoreStats {
         counters = new EnumMap<Tracked, RequestCounter>(Tracked.class);
 
         for(Tracked tracked: Tracked.values()) {
-            counters.put(tracked, new RequestCounter(120000, true));
+            counters.put(tracked, new RequestCounter(60000, true));
         }
         this.parent = parent;
 

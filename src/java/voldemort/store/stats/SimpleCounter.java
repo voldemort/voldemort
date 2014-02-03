@@ -7,7 +7,7 @@ import voldemort.utils.Time;
 /**
  * A simple concurrent, non-blocking event counter that resets itself every
  * interval, and provides eventRate and average event value metrics over the
- * last interval
+ * last complete interval
  * 
  */
 public class SimpleCounter {
