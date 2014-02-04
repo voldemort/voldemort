@@ -1,3 +1,7 @@
+Release 1.6.5 on 02/04/2014
+
+* Adding AdminClient functionality to update store definitions
+
 Release 1.6.4 on 02/03/2014
 
 * Fix bug when RO server NPE when rolled back
