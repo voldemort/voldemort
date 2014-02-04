@@ -70,6 +70,7 @@ import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
@@ -235,6 +236,50 @@ public class AdminServiceBasicTest {
                          client.metadataMgmtOps.getRemoteCluster(0).getVersion());
         }
 
+    }
+
+    @Test
+    public void testFetchAndUpdateStoresMetadata() {
+        AdminClient client = getAdminClient();
+        int nodeId = 0;
+        String storeNameToBeUpdated = "users";
+
+        // Fetch the original list of stores
+        Versioned<List<StoreDefinition>> originalStoreDefinitions = client.metadataMgmtOps.getRemoteStoreDefList(nodeId);
+        List<StoreDefinition> updatedStoreDefList = new ArrayList<StoreDefinition>();
+
+        // Create an updated store definition for store: 'users'
+        StoreDefinition newDefinition = new StoreDefinitionBuilder().setName(storeNameToBeUpdated)
+                                                                    .setType(BdbStorageConfiguration.TYPE_NAME)
+                                                                    .setKeySerializer(new SerializerDefinition("string"))
+                                                                    .setValueSerializer(new SerializerDefinition("string"))
+                                                                    .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                    .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                    .setReplicationFactor(2)
+                                                                    .setPreferredReads(1)
+                                                                    .setRequiredReads(1)
+                                                                    .setPreferredWrites(2)
+                                                                    .setRequiredWrites(2)
+                                                                    .build();
+
+        updatedStoreDefList.add(newDefinition);
+
+        // Update the 'users' store
+        client.metadataMgmtOps.fetchAndUpdateRemoteStore(nodeId, updatedStoreDefList);
+
+        // Fetch the stores list again and check that the 'users' store has been
+        // updated
+        Versioned<List<StoreDefinition>> newStoreDefinitions = client.metadataMgmtOps.getRemoteStoreDefList(nodeId);
+        assertFalse(originalStoreDefinitions.getValue().equals(newStoreDefinitions.getValue()));
+
+        for(StoreDefinition def: newStoreDefinitions.getValue()) {
+            if(def.getName().equalsIgnoreCase(storeNameToBeUpdated)) {
+                assertTrue(def.equals(newDefinition));
+            }
+        }
+
+        // Restore the old set of store definitions
+        client.metadataMgmtOps.updateRemoteStoreDefList(nodeId, originalStoreDefinitions.getValue());
     }
 
     @Test

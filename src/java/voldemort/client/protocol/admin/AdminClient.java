@@ -26,8 +26,16 @@ import java.net.Socket;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -858,13 +866,13 @@ public class AdminClient {
          *        incremented
          */
         public void updateMetadataversion(String versionKey) {
-            updateMetadataversion(Arrays.asList(new String[]{versionKey}));
+            updateMetadataversion(Arrays.asList(new String[] { versionKey }));
         }
 
         /**
-         * Update the metadata versions for the given keys (cluster or store). The
-         * new value set is the current timestamp.
-         *
+         * Update the metadata versions for the given keys (cluster or store).
+         * The new value set is the current timestamp.
+         * 
          * @param versionKeys The metadata keys for which Version should be
          *        incremented
          */
@@ -959,10 +967,9 @@ public class AdminClient {
                                          String key,
                                          Versioned<String> value) {
             for(Integer currentNodeId: remoteNodeIds) {
-               logger.info("Setting " + key + " for "
-                                   + getAdminClientCluster().getNodeById(currentNodeId).getHost()
-                                   + ":"
-                                   + getAdminClientCluster().getNodeById(currentNodeId).getId());
+                logger.info("Setting " + key + " for "
+                            + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
+                            + getAdminClientCluster().getNodeById(currentNodeId).getId());
                 updateRemoteMetadata(currentNodeId, key, value);
             }
 
@@ -991,11 +998,13 @@ public class AdminClient {
                                              String storesKey,
                                              Versioned<String> storesValue) {
             ByteArray clusterKeyBytes = new ByteArray(ByteUtils.getBytes(clusterKey, "UTF-8"));
-            Versioned<byte[]> clusterValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(clusterValue.getValue(), "UTF-8"),
+            Versioned<byte[]> clusterValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(clusterValue.getValue(),
+                                                                                           "UTF-8"),
                                                                         clusterValue.getVersion());
 
             ByteArray storesKeyBytes = new ByteArray(ByteUtils.getBytes(storesKey, "UTF-8"));
-            Versioned<byte[]> storesValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(storesValue.getValue(), "UTF-8"),
+            Versioned<byte[]> storesValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(storesValue.getValue(),
+                                                                                          "UTF-8"),
                                                                        storesValue.getVersion());
 
             VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
@@ -1010,14 +1019,13 @@ public class AdminClient {
             VAdminProto.UpdateMetadataPairResponse.Builder response = rpcOps.sendAndReceive(remoteNodeId,
                                                                                             request,
                                                                                             VAdminProto.UpdateMetadataPairResponse.newBuilder());
-            if (response.hasError())
+            if(response.hasError())
                 helperOps.throwException(response.getError());
         }
 
-
         /**
-         * Wrapper for updateRemoteMetadataPair function used against a single Node
-         * It basically loops over the entire list of Nodes that we need to
+         * Wrapper for updateRemoteMetadataPair function used against a single
+         * Node It basically loops over the entire list of Nodes that we need to
          * execute the required operation against. It also increments the
          * version of the corresponding metadata in the system store.
          * 
@@ -1033,32 +1041,96 @@ public class AdminClient {
                                              Versioned<String> clusterValue,
                                              String storesKey,
                                              Versioned<String> storesValue) {
-            for (Integer currentNodeId: remoteNodeIds) {
+            for(Integer currentNodeId: remoteNodeIds) {
                 logger.info("Setting " + clusterKey + " and " + storesKey + " for "
-                                   + getAdminClientCluster().getNodeById(currentNodeId).getHost()
-                                   + ":" + getAdminClientCluster().getNodeById(currentNodeId).getId());
-                updateRemoteMetadataPair(currentNodeId, clusterKey, clusterValue, storesKey, storesValue);
+                            + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
+                            + getAdminClientCluster().getNodeById(currentNodeId).getId());
+                updateRemoteMetadataPair(currentNodeId,
+                                         clusterKey,
+                                         clusterValue,
+                                         storesKey,
+                                         storesValue);
             }
             /*
              * Assuming everything is fine, we now increment the metadata
              * version for the cluster and the stores
              */
-            if (clusterKey.equals(CLUSTER_VERSION_KEY)) {
+            if(clusterKey.equals(CLUSTER_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(clusterKey);
             }
-            if (storesKey.equals(STORES_VERSION_KEY)) {
+            if(storesKey.equals(STORES_VERSION_KEY)) {
                 StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
                 List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new StringReader(storesValue.getValue()));
-                if (storeDefs != null) {
+                if(storeDefs != null) {
                     try {
                         for(StoreDefinition storeDef: storeDefs) {
-                            logger.info("Updating metadata version for stores: " + storeDef.getName());
+                            logger.info("Updating metadata version for stores: "
+                                        + storeDef.getName());
                             metadataMgmtOps.updateMetadataversion(storeDef.getName());
                         }
                     } catch(Exception e) {
                         System.err.println("Error while updating metadata version for the specified store.");
                     }
                 }
+            }
+        }
+
+        /**
+         * Helper method to fetch the current stores xml list and update the
+         * specified stores
+         * 
+         * @param nodeId ID of the node for which the stores list has to be
+         *        updated
+         * @param updatedStores New version of the stores to be updated
+         */
+        public synchronized void fetchAndUpdateRemoteStore(int nodeId,
+                                                           List<StoreDefinition> updatedStores) {
+            Map<String, StoreDefinition> updatedStoresMap = new HashMap<String, StoreDefinition>();
+
+            // Fetch the original store definition list
+            Versioned<List<StoreDefinition>> originalStoreDefinitions = getRemoteStoreDefList(nodeId);
+            if(originalStoreDefinitions == null) {
+                throw new VoldemortException("No stores found at this node ID : " + nodeId);
+            }
+
+            List<StoreDefinition> originalstoreDefList = originalStoreDefinitions.getValue();
+            List<StoreDefinition> finalStoreDefList = new ArrayList<StoreDefinition>();
+            VectorClock oldClock = (VectorClock) originalStoreDefinitions.getVersion();
+
+            // Build a map of store name to the new store definitions
+            for(StoreDefinition def: updatedStores) {
+                updatedStoresMap.put(def.getName(), def);
+            }
+
+            // Iterate through the original store definitions. Replace the old
+            // ones with the ones specified in 'updatedStores'
+            for(StoreDefinition def: originalstoreDefList) {
+                StoreDefinition updatedDef = updatedStoresMap.get(def.getName());
+                if(updatedDef == null) {
+                    finalStoreDefList.add(def);
+                } else {
+                    finalStoreDefList.add(updatedDef);
+                }
+            }
+
+            // Set the new store definition on the given nodeId
+            updateRemoteMetadata(nodeId,
+                                 MetadataStore.STORES_KEY,
+                                 new Versioned<String>(storeMapper.writeStoreList(finalStoreDefList),
+                                                       oldClock.incremented(nodeId, 1)));
+
+        }
+
+        /**
+         * Helper method to fetch the current stores xml list and update the
+         * specified stores. This is done for all the nodes in the current
+         * cluster.
+         * 
+         * @param updatedStores New version of the stores to be updated
+         */
+        public synchronized void fetchAndUpdateRemoteStores(List<StoreDefinition> updatedStores) {
+            for(Integer nodeId: currentCluster.getNodeIds()) {
+                fetchAndUpdateRemoteStore(nodeId, updatedStores);
             }
         }
 
