@@ -386,6 +386,13 @@ public class RebalanceUtils {
 
             StoreDefinitionBuilder adjustedStoreDefBuilder = StoreDefinitionUtils.getBuilderForStoreDef(storeDef);
 
+            if(!storeDef.hasPreferredReads()) {
+                adjustedStoreDefBuilder.setPreferredReads(null);
+            }
+            if(!storeDef.hasPreferredWrites()) {
+                adjustedStoreDefBuilder.setPreferredWrites(null);
+            }
+
             // Copy all zone replication factor entries except for dropped zone
             HashMap<Integer, Integer> adjustedZoneRepFactorMap = new HashMap<Integer, Integer>();
             for(Integer zoneId: zoneRepFactorMap.keySet()) {
