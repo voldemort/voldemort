@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -64,25 +65,33 @@ public class ChunkedFileSet {
 
         this.enforceMlock = enforceMlock;
         this.baseDir = directory;
-        if(!Utils.isReadableDir(directory))
-            throw new VoldemortException(directory.getAbsolutePath()
-                                         + " is not a readable directory.");
-
-        // Check if format file exists
+        if (!Utils.isReadableDir(directory)) {
+            throw new VoldemortException(directory.getAbsolutePath() + " is not a readable directory.");
+        }
+       
         File metadataFile = new File(baseDir, ".metadata");
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
-        if(Utils.isReadableFile(metadataFile)) {
+        
+        // Check if metadata file exists. If not, create one with RO2 format.
+        if (!metadataFile.exists()) {
+            metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V2.getCode());
+            try {
+                FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
+            } catch(IOException e) {
+                e.printStackTrace();
+            }
+        }
+        // Read metadata file to populate metadata object
+        if (Utils.isReadableFile(metadataFile)) {
             try {
                 metadata = new ReadOnlyStorageMetadata(metadataFile);
             } catch(IOException e) {
                 logger.warn("Cannot read metadata file, assuming default values");
             }
-        } else {
-            logger.warn("Metadata file not found. Assuming default settings");
         }
 
         this.storageFormat = ReadOnlyStorageFormat.fromCode((String) metadata.get(ReadOnlyStorageMetadata.FORMAT,
-                                                                                  ReadOnlyStorageFormat.READONLY_V0.getCode()));
+                                                                                  ReadOnlyStorageFormat.READONLY_V2.getCode()));
         this.indexFileSizes = new ArrayList<Integer>();
         this.dataFileSizes = new ArrayList<Integer>();
         this.indexFiles = new ArrayList<MappedByteBuffer>();
