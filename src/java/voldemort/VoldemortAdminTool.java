@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Scanner;
 import java.util.Set;
 
 import joptsimple.OptionParser;
@@ -83,7 +84,6 @@ import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.quota.QuotaUtils;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
@@ -116,6 +116,7 @@ public class VoldemortAdminTool {
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
+        parser.accepts("auto", "enable auto mode. Useful for scripting");
         parser.accepts("help", "print help information");
         parser.accepts("url", "[REQUIRED] bootstrap URL")
               .withRequiredArg()
@@ -509,10 +510,23 @@ public class VoldemortAdminTool {
                             throw new VoldemortException("Cluster xml file path incorrect");
                         ClusterMapper mapper = new ClusterMapper();
                         Cluster newCluster = mapper.readCluster(new File(metadataValue));
-                        executeSetMetadata(nodeId,
-                                           adminClient,
-                                           metadataKey,
-                                           mapper.writeCluster(newCluster));
+                        if(!options.has("auto")) {
+                            if(metadataUpdateSummary(nodeId,
+                                                     adminClient,
+                                                     mapper.writeCluster(newCluster))) {
+                                executeSetMetadata(nodeId,
+                                                   adminClient,
+                                                   metadataKey,
+                                                   mapper.writeCluster(newCluster));
+
+                            } else {
+                                System.out.println("New metadata has not been set");
+                            }
+                        } else
+                            executeSetMetadata(nodeId,
+                                               adminClient,
+                                               metadataKey,
+                                               mapper.writeCluster(newCluster));
                     } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
                         VoldemortState newState = VoldemortState.valueOf(metadataValue);
                         executeSetMetadata(nodeId,
@@ -541,10 +555,21 @@ public class VoldemortAdminTool {
                                                                                                     MetadataStore.STORES_KEY);
 
                         List<StoreDefinition> oldStoreDefs = mapper.readStoreList(new StringReader(storesXML.getValue()));
-                        executeSetMetadata(nodeId,
-                                           adminClient,
-                                           MetadataStore.STORES_KEY,
-                                           mapper.writeStoreList(newStoreDefs));
+                        if(!options.has("auto")) {
+                            if(metadataUpdateSummary(nodeId, adminClient, storesXML.getValue())) {
+                                executeSetMetadata(nodeId,
+                                                   adminClient,
+                                                   MetadataStore.STORES_KEY,
+                                                   mapper.writeStoreList(newStoreDefs));
+                            } else {
+                                System.out.println("New metadata has not been set");
+                            }
+
+                        } else
+                            executeSetMetadata(nodeId,
+                                               adminClient,
+                                               MetadataStore.STORES_KEY,
+                                               mapper.writeStoreList(newStoreDefs));
                         if(nodeId >= 0) {
                             System.err.println("WARNING: Metadata version update of stores goes to all servers, "
                                                + "although this set-metadata oprations only goes to node "
@@ -2058,6 +2083,45 @@ public class VoldemortAdminTool {
            || serializerName.equals(DefaultSerializerFactory.AVRO_SPECIFIC_TYPE_NAME)) {
             return true;
         } else {
+            return false;
+        }
+    }
+
+    private static boolean metadataUpdateSummary(Integer nodeId,
+                                                 AdminClient adminClient,
+                                                 Object value) {
+        List<Integer> nodeIds = Lists.newArrayList();
+
+        System.out.print("\nNew metadata: \n" + value.toString() + "\n");
+        System.out.print("\nAffected nodes:\n");
+        System.out.format("+-------+------+---------------------------------+----------+---------+------------------+%n");
+        System.out.printf("|Id     |Zone  |Host                             |SocketPort|AdminPort|NumberOfPartitions|%n");
+        System.out.format("+-------+------+---------------------------------+----------+---------+------------------+%n");
+
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                nodeIds.add(node.getId());
+                System.out.format("| %-5d | %-4d | %-31s | %-5d    | %-5d   | %-5d            |%n",
+                                  node.getId(),
+                                  node.getZoneId(),
+                                  node.getHost(),
+                                  node.getSocketPort(),
+                                  node.getAdminPort(),
+                                  node.getNumberOfPartitions());
+                System.out.format("+-------+------+---------------------------------+----------+---------+------------------+%n");
+            }
+        }
+
+        System.out.print("Do you want to proceed? [Y/N]: ");
+        Scanner in = new Scanner(System.in);
+        String choice = in.nextLine();
+
+        if(choice.equals("Y") || choice.equals("y")) {
+            return true;
+        } else if(choice.equals("N") || choice.equals("n")) {
+            return false;
+        } else {
+            System.out.println("Incorrect response detected. Exiting.");
             return false;
         }
     }
