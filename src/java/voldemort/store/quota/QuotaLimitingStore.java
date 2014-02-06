@@ -80,8 +80,8 @@ public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[
             // But, if it does
             float currentRate = this.storeStats.getThroughput(trackedOp);
             float allowedRate = Float.parseFloat(quotaValue);
-            // FIXME VC the histogram should be reasonably accurate to do all
-            // these things..
+            // TODO the histogram should be reasonably accurate to do all
+            // these things.. (ghost qps and all)
             if(currentRate > allowedRate) {
                 quotaStats.reportRateLimitedOp(trackedOp);
                 // TODO should be throwing a whole new class of Exception here.

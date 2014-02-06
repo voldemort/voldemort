@@ -313,6 +313,7 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("quota-type")
               .ofType(String.class);
+        // TODO add a way to retrieve all quotas for a given store.
         parser.accepts("get-quota", "Retrieve some quota already enforced on the servers")
               .withRequiredArg()
               .describedAs("quota-type")
