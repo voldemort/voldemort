@@ -61,7 +61,7 @@ public class ChunkedFileSet {
     public ChunkedFileSet(File directory,
                           RoutingStrategy routingStrategy,
                           int nodeId,
-                          boolean enforceMlock) {
+                          boolean enforceMlock) throws IOException {
 
         this.enforceMlock = enforceMlock;
         this.baseDir = directory;
@@ -78,7 +78,8 @@ public class ChunkedFileSet {
             try {
                 FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
             } catch(IOException e) {
-                e.printStackTrace();
+                logger.error("Cannot create metadata file ", e);
+                throw new IOException("Unable to create metadata file " + metadataFile);
             }
         }
         // Read metadata file to populate metadata object
@@ -122,7 +123,7 @@ public class ChunkedFileSet {
                      + " chunks and format  " + storageFormat);
     }
 
-    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId) {
+    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId) throws IOException {
         this(directory, routingStrategy, nodeId, false);
 
     }

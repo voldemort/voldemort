@@ -17,6 +17,7 @@
 package voldemort.store.readonly;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -203,6 +204,8 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
             this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId, enforceMlock);
             this.lastSwapped = System.currentTimeMillis();
             this.isOpen = true;
+        } catch(IOException e) {
+            logger.error("Error in opening store", e);
         } finally {
             fileModificationLock.writeLock().unlock();
         }
