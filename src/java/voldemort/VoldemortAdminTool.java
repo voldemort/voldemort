@@ -511,23 +511,23 @@ public class VoldemortAdminTool {
                             throw new VoldemortException("Cluster xml file path incorrect");
                         ClusterMapper mapper = new ClusterMapper();
                         Cluster newCluster = mapper.readCluster(new File(metadataValue));
-                        if(!options.has("auto")) {
-                            if(metadataUpdateSummary(nodeId,
+                        if(options.has("auto")) {
+                            executeSetMetadata(nodeId,
+                                               adminClient,
+                                               metadataKey,
+                                               mapper.writeCluster(newCluster));
+                        } else {
+                            if(confirmMetadataUpdate(nodeId,
                                                      adminClient,
                                                      mapper.writeCluster(newCluster))) {
                                 executeSetMetadata(nodeId,
                                                    adminClient,
                                                    metadataKey,
                                                    mapper.writeCluster(newCluster));
-
                             } else {
                                 System.out.println("New metadata has not been set");
                             }
-                        } else
-                            executeSetMetadata(nodeId,
-                                               adminClient,
-                                               metadataKey,
-                                               mapper.writeCluster(newCluster));
+                        }
                     } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
                         VoldemortState newState = VoldemortState.valueOf(metadataValue);
                         executeSetMetadata(nodeId,
@@ -556,8 +556,13 @@ public class VoldemortAdminTool {
                                                                                                     MetadataStore.STORES_KEY);
 
                         List<StoreDefinition> oldStoreDefs = mapper.readStoreList(new StringReader(storesXML.getValue()));
-                        if(!options.has("auto")) {
-                            if(metadataUpdateSummary(nodeId, adminClient, storesXML.getValue())) {
+                        if(options.has("auto")) {
+                            executeSetMetadata(nodeId,
+                                               adminClient,
+                                               MetadataStore.STORES_KEY,
+                                               mapper.writeStoreList(newStoreDefs));
+                        } else {
+                            if(confirmMetadataUpdate(nodeId, adminClient, storesXML.getValue())) {
                                 executeSetMetadata(nodeId,
                                                    adminClient,
                                                    MetadataStore.STORES_KEY,
@@ -565,12 +570,8 @@ public class VoldemortAdminTool {
                             } else {
                                 System.out.println("New metadata has not been set");
                             }
+                        }
 
-                        } else
-                            executeSetMetadata(nodeId,
-                                               adminClient,
-                                               MetadataStore.STORES_KEY,
-                                               mapper.writeStoreList(newStoreDefs));
                         if(nodeId >= 0) {
                             System.err.println("WARNING: Metadata version update of stores goes to all servers, "
                                                + "although this set-metadata oprations only goes to node "
@@ -2088,7 +2089,7 @@ public class VoldemortAdminTool {
         }
     }
 
-    private static boolean metadataUpdateSummary(Integer nodeId,
+    private static boolean confirmMetadataUpdate(Integer nodeId,
                                                  AdminClient adminClient,
                                                  Object value) {
         List<Integer> nodeIds = Lists.newArrayList();
