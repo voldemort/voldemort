@@ -1870,19 +1870,26 @@ public class VoldemortAdminTool {
                                         List<String> storeNames,
                                         String keyString,
                                         String keyFormat) throws IOException {
-        // handle node < 0
-        int storeDefNodeId = nodeId;
-        List<Integer> queryingNodes = Arrays.asList(nodeId);
+        // decide queryNode for storeDef
+        int storeDefNodeId;
         if(nodeId < 0) {
             Iterator<Node> nodeIterator = adminClient.getAdminClientCluster().getNodes().iterator();
             if(!nodeIterator.hasNext()) {
                 throw new VoldemortException("No nodes in this cluster");
             }
             storeDefNodeId = nodeIterator.next().getId();
-            queryingNodes = new ArrayList<Integer>();
+        } else {
+            storeDefNodeId = nodeId;
+        }
+
+        // decide queryingNode(s) for Key
+        List<Integer> queryingNodes = new ArrayList<Integer>();
+        if(nodeId < 0) {  // means all nodes
             for(Node node: adminClient.getAdminClientCluster().getNodes()) {
                 queryingNodes.add(node.getId());
             }
+        } else {
+            queryingNodes.add(nodeId);
         }
 
         // get basic info
@@ -1905,7 +1912,7 @@ public class VoldemortAdminTool {
                 throw new StoreNotFoundException("Store "+ storeName + " not found");
             }
 
-            out.write("STORE_NAME: " + storeDefinition.getName());
+            out.write("STORE_NAME: " + storeDefinition.getName() + "\n");
 
             // k-v serializer
             final SerializerDefinition keySerializerDef = storeDefinition.getKeySerializer();
@@ -1938,7 +1945,7 @@ public class VoldemortAdminTool {
             }
             out.write("KEY_SERIALIZER_NAME: " + keySerializerDef.getName() + "\n");
             for(Map.Entry<Integer, String> entry: keySerializerDef.getAllSchemaInfoVersions().entrySet()) {
-                out.write(String.format("KEY_SCHEMA %d\n", entry.getKey()));
+                out.write(String.format("KEY_SCHEMA VERSION=%d\n", entry.getKey()));
                 out.write("====================================\n");
                 out.write(entry.getValue());
                 out.write("\n====================================\n");
