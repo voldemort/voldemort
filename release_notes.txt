@@ -1,3 +1,9 @@
+Release 1.6.6 on 02/07/2014
+
+* Quota management in Voldemort
+* Creation of read only stores in RO2 format
+* Updation of query key feature in admin tool
+
 Release 1.6.5 on 02/04/2014
 
 * Adding AdminClient functionality to update store definitions
