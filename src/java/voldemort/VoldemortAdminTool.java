@@ -37,6 +37,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -48,7 +49,6 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 
-import com.sleepycat.persist.StoreNotFoundException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
@@ -71,7 +71,12 @@ import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.routing.StoreRoutingPlan;
-import voldemort.serialization.*;
+import voldemort.serialization.DefaultSerializerFactory;
+import voldemort.serialization.SerializationException;
+import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.SerializerFactory;
+import voldemort.serialization.StringSerializer;
 import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.serialization.json.JsonReader;
 import voldemort.server.rebalance.RebalancerState;
@@ -101,6 +106,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.sleepycat.persist.StoreNotFoundException;
 
 /**
  * Provides a command line interface to the
