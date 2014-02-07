@@ -118,8 +118,8 @@ public class VoldemortAdminTool {
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
         // This is a generic argument that should be eventually supported by all RW operations. 
-        // If you omit this argument you will be presented with a summary of changes and with a Y/N prompt
-        // Otherwise, you the operation will be executed in a "batch" mode which is useful for scripting
+        // If you omit this argument the operation will be executed in a "batch" mode which is useful for scripting
+        // Otherwise you will be presented with a summary of changes and with a Y/N prompt
         parser.accepts("auto", "[OPTIONAL] enable auto/batch mode"); 
         parser.accepts("help", "print help information");
         parser.accepts("url", "[REQUIRED] bootstrap URL")
