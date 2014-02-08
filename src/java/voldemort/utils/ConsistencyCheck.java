@@ -17,6 +17,7 @@ package voldemort.utils;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
+import java.io.Writer;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,36 +50,38 @@ import voldemort.versioning.Versioned;
 
 public class ConsistencyCheck {
 
+    private static final String ComparisonTypeArgument = "comparison-type";
     private static Logger logger = Logger.getLogger(ConsistencyCheck.class);
     private final List<String> urls;
     private final String storeName;
     private final Integer partitionId;
+    private final ComparisonType comparisonType;
     private final Reporter reporter;
 
     private Integer retentionDays = null;
     private Integer replicationFactor = 0;
     private Integer requiredWrites = 0;
-
     private List<AdminClient> adminClients;
     private List<ClusterNode> clusterNodeList = new ArrayList<ClusterNode>();
-    private final Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap = new HashMap<ByteArray, Map<Version, Set<ClusterNode>>>();
+    private final Map<ByteArray, Map<Value, Set<ClusterNode>>> keyValueNodeSetMap =
+            new HashMap<ByteArray, Map<Value, Set<ClusterNode>>>();
     private RetentionChecker retentionChecker;
     private KeyFetchTracker keyFetchTracker;
 
     public ConsistencyCheck(List<String> urls,
-                            String storeName,
-                            int partitionId,
-                            BufferedWriter badKeyWriter) {
+            String storeName,
+            int partitionId, Writer badKeyWriter, ComparisonType comparisonType) {
         this.urls = urls;
         this.storeName = storeName;
         this.partitionId = partitionId;
         this.reporter = new Reporter(badKeyWriter);
+        this.comparisonType = comparisonType;
     }
 
     /**
      * Connect to the clusters using given urls and start fetching process on
      * correct nodes
-     * 
+     *
      * @throws Exception When no such store is found
      */
 
@@ -94,16 +97,18 @@ public class ConsistencyCheck {
                 logger.info("Connecting to bootstrap server: " + url);
             }
             AdminClient adminClient = new AdminClient(url,
-                                                      new AdminClientConfig(),
-                                                      new ClientConfig());
+                    new AdminClientConfig(),
+                    new ClientConfig());
             adminClients.add(adminClient);
             /* get Cluster */
             Cluster cluster = adminClient.getAdminClientCluster();
             clusterMap.put(url, cluster);
+
+            Integer nodeId = cluster.getNodeIds().iterator().next();
             /* get StoreDefinition */
-            Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
+            Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId);
             StoreDefinition storeDefinition = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefinitions.getValue(),
-                                                                                              storeName);
+                    storeName);
             storeDefinitionMap.put(url, storeDefinition);
         }
 
@@ -116,7 +121,7 @@ public class ConsistencyCheck {
             }
             if(partitionCount != currentPartitionCount) {
                 logger.error("Partition count of different clusters is not the same: "
-                             + partitionCount + " vs " + currentPartitionCount);
+                        + partitionCount + " vs " + currentPartitionCount);
                 throw new VoldemortException("Will not connect because partition counts differ among clusters.");
             }
         }
@@ -129,8 +134,8 @@ public class ConsistencyCheck {
 
             /* find list of nodeId hosting partition */
             List<Integer> partitionList = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
-                                                                                             cluster)
-                                                                      .getReplicatingPartitionList(partitionId);
+                    cluster)
+                    .getReplicatingPartitionList(partitionId);
             for(int partition: partitionList) {
                 Integer nodeId = partitionToNodeMap.get(partition);
                 Node node = cluster.getNodeById(nodeId);
@@ -188,7 +193,7 @@ public class ConsistencyCheck {
 
     /**
      * Run consistency check on connected key-value iterators
-     * 
+     *
      * @return Results in form of ConsistencyCheckStats
      */
     public Reporter execute() throws IOException {
@@ -201,15 +206,15 @@ public class ConsistencyCheck {
             singlePartition.add(partitionId);
             if(logger.isDebugEnabled()) {
                 logger.debug("Start fetch request to Node[" + clusterNode.toString()
-                             + "] for partition[" + partitionId + "] of store[" + storeName + "]");
+                        + "] for partition[" + partitionId + "] of store[" + storeName + "]");
             }
 
             Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIterator;
             fetchIterator = adminClient.bulkFetchOps.fetchEntries(clusterNode.getNode().getId(),
-                                                                  storeName,
-                                                                  singlePartition,
-                                                                  null,
-                                                                  false);
+                    storeName,
+                    singlePartition,
+                    null,
+                    false);
             nodeFetchIteratorMap.put(clusterNode, fetchIterator);
         }
         keyFetchTracker = new KeyFetchTracker(clusterNodeList.size());
@@ -236,11 +241,11 @@ public class ConsistencyCheck {
                     keyFetchTracker.recordFetch(clusterNode, key);
                     if(logger.isTraceEnabled()) {
                         logger.trace("fetched " + new String(key.get()));
-                        logger.trace("map has keys: " + keyVersionNodeSetMap.size());
+                        logger.trace("map has keys: " + keyValueNodeSetMap.size());
                     }
                     trySweepAll();
                     if(logger.isTraceEnabled()) {
-                        logger.trace("sweeped; keys left: " + keyVersionNodeSetMap.size());
+                        logger.trace("sweeped; keys left: " + keyValueNodeSetMap.size());
                     }
                 }
             }
@@ -264,23 +269,23 @@ public class ConsistencyCheck {
         }
 
         // clean keys not sufficient for write
-        cleanIneligibleKeys(keyVersionNodeSetMap, requiredWrites);
+        cleanIneligibleKeys(keyValueNodeSetMap, requiredWrites);
 
         keyFetchTracker.finishAll();
         trySweepAll();
 
-        reporter.processInconsistentKeys(storeName, partitionId, keyVersionNodeSetMap);
+        reporter.processInconsistentKeys(storeName, partitionId, keyValueNodeSetMap);
 
         return reporter;
     }
 
     public void trySweepAll() {
         for(ByteArray finishedKey = keyFetchTracker.nextFinished(); finishedKey != null; finishedKey = keyFetchTracker.nextFinished()) {
-            if(keyVersionNodeSetMap.containsKey(finishedKey)) {
-                ConsistencyLevel level = determineConsistency(keyVersionNodeSetMap.get(finishedKey),
-                                                              replicationFactor);
+            if (keyValueNodeSetMap.containsKey(finishedKey)) {
+                ConsistencyLevel level = determineConsistency(keyValueNodeSetMap.get(finishedKey),
+                        replicationFactor);
                 if(level == ConsistencyLevel.FULL || level == ConsistencyLevel.LATEST_CONSISTENT) {
-                    keyVersionNodeSetMap.remove(finishedKey);
+                    keyValueNodeSetMap.remove(finishedKey);
                     reporter.recordGoodKey(1);
                 }
             }
@@ -288,44 +293,45 @@ public class ConsistencyCheck {
     }
 
     public void recordFetch(ClusterNode clusterNode, ByteArray key, Versioned<byte[]> versioned) {
-        Version version;
-        if(urls.size() == 1) {
-            version = versioned.getVersion();
-        } else {
-            version = new HashedValue(versioned);
-        }
+
+        Value value = new ValueFactory().Create(versioned, comparisonType);
 
         // skip version if expired
-        if(retentionChecker.isExpired(version)) {
+        if (retentionChecker.isExpired(value)) {
             reporter.recordExpired(1);
             return;
         }
 
         // initialize key -> Map<Version, Set<nodeId>>
-        if(!keyVersionNodeSetMap.containsKey(key)) {
-            keyVersionNodeSetMap.put(key, new HashMap<Version, Set<ClusterNode>>());
+        if (!keyValueNodeSetMap.containsKey(key)) {
+            keyValueNodeSetMap.put(key, new HashMap<Value, Set<ClusterNode>>());
         }
-        Map<Version, Set<ClusterNode>> versionNodeSetMap = keyVersionNodeSetMap.get(key);
+        Map<Value, Set<ClusterNode>> versionNodeSetMap = keyValueNodeSetMap.get(key);
 
-        // check existing version
-        if(!versionNodeSetMap.containsKey(version) && versionNodeSetMap.size() != 0) {
-            // if this version is new, sweep old version
-            // if this version is old, ignore this version
-            Version oneExistingVersion = versionNodeSetMap.keySet().iterator().next();
-            if(version.compare(oneExistingVersion) == Occurred.AFTER) {
-                versionNodeSetMap.clear();
-            } else if(oneExistingVersion.compare(version) == Occurred.AFTER) {
+        List<Value> valuesToDiscard = new ArrayList<Value>();
+        for(Map.Entry<Value, Set<ClusterNode>> versionNode : versionNodeSetMap.entrySet()) {
+            Value existingValue = versionNode.getKey();
+            // Check for each existing value, if the existing value happened after current. If so the current value can be discarded
+            if(existingValue.compare(value) == Occurred.AFTER) {
                 return;
+            } else if ( value.compare(existingValue) == Occurred.AFTER) {
+            // Check for each existing value, if the current value happened after existing. If so the existing value can be discarded
+                valuesToDiscard.add(existingValue);
             }
         }
 
-        if(!versionNodeSetMap.containsKey(version)) {
+        for(Value valueToDiscard: valuesToDiscard)
+        {
+            versionNodeSetMap.remove(valueToDiscard);
+        }
+
+        if (!versionNodeSetMap.containsKey(value)) {
             // insert nodeSet into the map
-            versionNodeSetMap.put(version, new HashSet<ClusterNode>());
+            versionNodeSetMap.put(value, new HashSet<ClusterNode>());
         }
 
         // add node to set
-        versionNodeSetMap.get(version).add(clusterNode);
+        versionNodeSetMap.get(value).add(clusterNode);
     }
 
     /**
@@ -346,7 +352,7 @@ public class ConsistencyCheck {
 
         /**
          * Record a fetched result
-         * 
+         *
          * @param clusterNode The clusterNode from which the key has been
          *        fetched
          * @param key The key itself
@@ -386,7 +392,7 @@ public class ConsistencyCheck {
 
         /**
          * Get a key that are completed in fetching
-         * 
+         *
          * @return key considered finished; otherwise null
          */
         public ByteArray nextFinished() {
@@ -406,9 +412,14 @@ public class ConsistencyCheck {
         INSUFFICIENT_WRITE
     }
 
+    public static enum ComparisonType {
+        VERSION,
+        HASH,
+    }
+
     /**
      * Used to track nodes that may share the same nodeId in different clusters
-     * 
+     *
      */
     protected static class ClusterNode {
 
@@ -450,61 +461,12 @@ public class ConsistencyCheck {
 
     }
 
-    /**
-     * A class to save version and value hash It is used to compare versions by
-     * the value hash
-     * 
-     */
-    protected static class HashedValue implements Version {
 
-        final private Version innerVersion;
-        final private Integer valueHash;
-
-        /**
-         * @param versioned Versioned value with version information and value
-         *        itself
-         */
-        public HashedValue(Versioned<byte[]> versioned) {
-            innerVersion = versioned.getVersion();
-            valueHash = new FnvHashFunction().hash(versioned.getValue());
-        }
-
-        public int getValueHash() {
-            return valueHash;
-        }
-
-        public Version getInner() {
-            return innerVersion;
-        }
-
-        @Override
-        public boolean equals(Object object) {
-            if(this == object)
-                return true;
-            if(object == null)
-                return false;
-            if(!object.getClass().equals(HashedValue.class))
-                return false;
-            HashedValue hash = (HashedValue) object;
-            boolean result = valueHash.equals(hash.getValueHash());
-            return result;
-        }
-
-        @Override
-        public int hashCode() {
-            return valueHash;
-        }
-
-        @Override
-        public Occurred compare(Version v) {
-            return Occurred.CONCURRENTLY; // always regard as conflict
-        }
-    }
 
     /**
      * A checker to determine if a key is to be cleaned according to retention
      * policy
-     * 
+     *
      */
     protected static class RetentionChecker {
 
@@ -526,32 +488,23 @@ public class ConsistencyCheck {
 
         /**
          * Determine if a version is expired
-         * 
+         *
          * @param v version to be checked
          * @return if the version is expired according to retention policy
          */
-        public boolean isExpired(Version v) {
-            if(v instanceof VectorClock) {
-                return ((VectorClock) v).getTimestamp() < expiredTimeMs;
-            } else if(v instanceof HashedValue) {
-                return false;
-            } else {
-                logger.error("Version type is not supported for checking expiration");
-                throw new VoldemortException("Version type is not supported for checking expiration"
-                                             + v.getClass().getCanonicalName());
-            }
+        public boolean isExpired(Value v) {
+            return v.isExpired(expiredTimeMs);
         }
     }
 
     /**
      * Used to report bad keys, progress, and statistics
-     * 
+     *
      */
     protected static class Reporter {
 
-        final BufferedWriter badKeyWriter;
+        final Writer badKeyWriter;
         final long reportPeriodMs;
-
         long lastReportTimeMs = 0;
         long numRecordsScanned = 0;
         long numRecordsScannedLast = 0;
@@ -561,10 +514,10 @@ public class ConsistencyCheck {
 
         /**
          * Will output progress reports every 5 seconds.
-         * 
+         *
          * @param badKeyWriter Writer to which to output bad keys. Null is OK.
          */
-        public Reporter(BufferedWriter badKeyWriter) {
+        public Reporter(Writer badKeyWriter) {
             this(badKeyWriter, 5000);
         }
 
@@ -572,7 +525,7 @@ public class ConsistencyCheck {
          * @param badKeyWriter Writer to which to output bad keys. Null is OK.
          * @param intervalMs Milliseconds between progress reports.
          */
-        public Reporter(BufferedWriter badKeyWriter, long intervalMs) {
+        public Reporter(Writer badKeyWriter, long intervalMs) {
             this.badKeyWriter = badKeyWriter;
             this.reportPeriodMs = intervalMs;
         }
@@ -593,7 +546,7 @@ public class ConsistencyCheck {
                 s.append("Records Scanned: " + numRecordsScanned + "\n");
                 s.append("Records Ignored: " + numExpiredRecords + " (Out of Retention)\n");
                 s.append("Last Fetch Rate: " + (numRecordsScanned - numRecordsScannedLast)
-                         / ((currentTimeMs - lastReportTimeMs) / 1000) + " (records/s)\n");
+                        / ((currentTimeMs - lastReportTimeMs) / 1000) + " (records/s)\n");
                 lastReportTimeMs = currentTimeMs;
                 numRecordsScannedLast = numRecordsScanned;
                 return s.toString();
@@ -603,19 +556,19 @@ public class ConsistencyCheck {
         }
 
         public void processInconsistentKeys(String storeName,
-                                            Integer partitionId,
-                                            Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap)
+                Integer partitionId,
+                Map<ByteArray, Map<Value, Set<ClusterNode>>> keyVersionNodeSetMap)
                 throws IOException {
             if(logger.isDebugEnabled()) {
                 logger.debug("TYPE,Store,ParId,Key,ServerSet,VersionTS,VectorClock[,ValueHash]");
             }
-            for(Map.Entry<ByteArray, Map<Version, Set<ClusterNode>>> entry: keyVersionNodeSetMap.entrySet()) {
+            for (Map.Entry<ByteArray, Map<Value, Set<ClusterNode>>> entry : keyVersionNodeSetMap.entrySet()) {
                 ByteArray key = entry.getKey();
                 if(badKeyWriter != null) {
                     badKeyWriter.write(ByteUtils.toHexString(key.get()) + "\n");
                 }
                 if(logger.isDebugEnabled()) {
-                    Map<Version, Set<ClusterNode>> versionMap = entry.getValue();
+                    Map<Value, Set<ClusterNode>> versionMap = entry.getValue();
                     logger.debug(keyVersionToString(key, versionMap, storeName, partitionId));
                 }
             }
@@ -635,7 +588,7 @@ public class ConsistencyCheck {
 
     /**
      * Return args parser
-     * 
+     *
      * @return program parser
      * */
     private static OptionParser getParser() {
@@ -643,23 +596,27 @@ public class ConsistencyCheck {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
         parser.accepts("urls", "[REQUIRED] bootstrap URLs")
-              .withRequiredArg()
-              .describedAs("bootstrap-url")
-              .withValuesSeparatedBy(',')
-              .ofType(String.class);
+                .withRequiredArg()
+                .describedAs("bootstrap-url")
+                .withValuesSeparatedBy(',')
+                .ofType(String.class);
         parser.accepts("partitions", "partition-id")
-              .withRequiredArg()
-              .describedAs("partition-id")
-              .withValuesSeparatedBy(',')
-              .ofType(Integer.class);
+                .withRequiredArg()
+                .describedAs("partition-id")
+                .withValuesSeparatedBy(',')
+                .ofType(Integer.class);
         parser.accepts("store", "store name")
-              .withRequiredArg()
-              .describedAs("store-name")
-              .ofType(String.class);
+                .withRequiredArg()
+                .describedAs("store-name")
+                .ofType(String.class);
         parser.accepts("bad-key-file", "File name to which inconsistent keys are to be written.")
-              .withRequiredArg()
-              .describedAs("badKeyFileOut")
-              .ofType(String.class);
+                .withRequiredArg()
+                .describedAs("badKeyFileOut")
+                .ofType(String.class);
+        parser.accepts(ComparisonTypeArgument, "type of comparison to compare the values for the same key")
+                .withRequiredArg()
+                .describedAs("comparisonType")
+                .ofType(ComparisonType.class);
         return parser;
     }
 
@@ -678,6 +635,7 @@ public class ConsistencyCheck {
         help.append("    --store <storeName>\n");
         help.append("    --bad-key-file <badKeyFileOut>\n");
         help.append("  Optional:\n");
+        help.append("    --comparison-type [version | hash ]\n");
         help.append("    --help\n");
         help.append("  Note:\n");
         help.append("    If you have two or more clusters to scan for consistency across them,\n");
@@ -692,32 +650,30 @@ public class ConsistencyCheck {
 
     /**
      * Determine the consistency level of a key
-     * 
+     *
      * @param versionNodeSetMap A map that maps version to set of PrefixNodes
      * @param replicationFactor Total replication factor for the set of clusters
      * @return ConsistencyLevel Enum
      */
-    public static ConsistencyLevel determineConsistency(Map<Version, Set<ClusterNode>> versionNodeSetMap,
-                                                        int replicationFactor) {
+    public static ConsistencyLevel determineConsistency(Map<Value, Set<ClusterNode>> versionNodeSetMap,
+            int replicationFactor) {
         boolean fullyConsistent = true;
-        Version latestVersion = null;
-        for(Map.Entry<Version, Set<ClusterNode>> versionNodeSetEntry: versionNodeSetMap.entrySet()) {
-            Version version = versionNodeSetEntry.getKey();
-            if(version instanceof VectorClock) {
-                if(latestVersion == null
-                   || ((VectorClock) latestVersion).getTimestamp() < ((VectorClock) version).getTimestamp()) {
-                    latestVersion = version;
-                }
+        Value latestVersion = null;
+        for (Map.Entry<Value, Set<ClusterNode>> versionNodeSetEntry : versionNodeSetMap.entrySet()) {
+            Value value = versionNodeSetEntry.getKey();
+            if (latestVersion == null) {
+                latestVersion = value;
+            } else if (value.isTimeStampLaterThan(latestVersion)) {
+                latestVersion = value;
             }
             Set<ClusterNode> nodeSet = versionNodeSetEntry.getValue();
             fullyConsistent = fullyConsistent && (nodeSet.size() == replicationFactor);
         }
-        if(fullyConsistent) {
+        if (fullyConsistent) {
             return ConsistencyLevel.FULL;
         } else {
             // latest write consistent, effectively consistent
-            if(latestVersion != null
-               && versionNodeSetMap.get(latestVersion).size() == replicationFactor) {
+            if (latestVersion != null && versionNodeSetMap.get(latestVersion).size() == replicationFactor) {
                 return ConsistencyLevel.LATEST_CONSISTENT;
             }
             // all other states inconsistent
@@ -725,55 +681,57 @@ public class ConsistencyCheck {
         }
     }
 
+
     /**
      * Determine if a key version is invalid by comparing the version's
      * existance and required writes configuration
-     * 
+     *
      * @param keyVersionNodeSetMap A map that contains keys mapping to a map
      *        that maps versions to set of PrefixNodes
      * @param requiredWrite Required Write configuration
      */
-    public static void cleanIneligibleKeys(Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap,
-                                           int requiredWrite) {
+    public static void cleanIneligibleKeys(Map<ByteArray, Map<Value, Set<ClusterNode>>> keyVersionNodeSetMap,
+            int requiredWrite) {
         Set<ByteArray> keysToDelete = new HashSet<ByteArray>();
-        for(Map.Entry<ByteArray, Map<Version, Set<ClusterNode>>> entry: keyVersionNodeSetMap.entrySet()) {
-            Set<Version> versionsToDelete = new HashSet<Version>();
+        for (Map.Entry<ByteArray, Map<Value, Set<ClusterNode>>> entry : keyVersionNodeSetMap.entrySet()) {
+            Set<Value> valuesToDelete = new HashSet<Value>();
 
             ByteArray key = entry.getKey();
-            Map<Version, Set<ClusterNode>> versionNodeSetMap = entry.getValue();
+            Map<Value, Set<ClusterNode>> valueNodeSetMap = entry.getValue();
             // mark version for deletion if not enough writes
-            for(Map.Entry<Version, Set<ClusterNode>> versionNodeSetEntry: versionNodeSetMap.entrySet()) {
+            for (Map.Entry<Value, Set<ClusterNode>> versionNodeSetEntry : valueNodeSetMap.entrySet()) {
                 Set<ClusterNode> nodeSet = versionNodeSetEntry.getValue();
-                if(nodeSet.size() < requiredWrite) {
-                    versionsToDelete.add(versionNodeSetEntry.getKey());
+                if (nodeSet.size() < requiredWrite) {
+                    valuesToDelete.add(versionNodeSetEntry.getKey());
                 }
             }
             // delete versions
-            for(Version v: versionsToDelete) {
-                versionNodeSetMap.remove(v);
+            for (Value v : valuesToDelete) {
+                valueNodeSetMap.remove(v);
             }
             // mark key for deletion if no versions left
-            if(versionNodeSetMap.size() == 0) {
+            if (valueNodeSetMap.size() == 0) {
                 keysToDelete.add(key);
             }
         }
         // delete keys
-        for(ByteArray k: keysToDelete) {
+        for (ByteArray k : keysToDelete) {
             keyVersionNodeSetMap.remove(k);
         }
     }
+
 
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
         OptionSet options = getParser().parse(args);
 
         /* validate options */
-        if(options.hasArgument("help")) {
+        if (options.hasArgument("help")) {
             printUsage();
             return;
         }
-        if(!options.hasArgument("urls") || !options.hasArgument("partitions")
-           || !options.hasArgument("store") || !options.hasArgument("bad-key-file")) {
+        if (!options.hasArgument("urls") || !options.hasArgument("partitions")
+                || !options.hasArgument("store") || !options.hasArgument("bad-key-file")) {
             printUsage();
             return;
         }
@@ -783,26 +741,32 @@ public class ConsistencyCheck {
         List<Integer> partitionIds = (List<Integer>) options.valuesOf("partitions");
         String badKeyFile = (String) options.valueOf("bad-key-file");
 
+        ComparisonType comparisonType = ComparisonType.VERSION;
+        if (options.hasArgument(ComparisonTypeArgument)) {
+            comparisonType = (ComparisonType) options.valueOf(ComparisonTypeArgument);
+        }
+
         BufferedWriter badKeyWriter = null;
         try {
             badKeyWriter = new BufferedWriter(new FileWriter(badKeyFile));
-        } catch(IOException e) {
+        } catch (IOException e) {
             Utils.croak("Failure to open output file : " + e.getMessage());
         }
 
         Map<Integer, Reporter> partitionStatsMap = new HashMap<Integer, Reporter>();
         /* scan each partitions */
         try {
-            for(Integer partitionId: partitionIds) {
+            for (Integer partitionId : partitionIds) {
                 ConsistencyCheck checker = new ConsistencyCheck(urls,
-                                                                storeName,
-                                                                partitionId,
-                                                                badKeyWriter);
+                        storeName,
+                        partitionId,
+                        badKeyWriter,
+                        comparisonType);
                 checker.connect();
                 Reporter reporter = checker.execute();
                 partitionStatsMap.put(partitionId, reporter);
             }
-        } catch(Exception e) {
+        } catch (Exception e) {
             Utils.croak("Exception during consistency checking : " + e.getMessage());
         } finally {
             badKeyWriter.close();
@@ -814,7 +778,7 @@ public class ConsistencyCheck {
         long totalTotalKeys = 0;
         // each partition
         statsString.append("TYPE,Store,ParitionId,KeysConsistent,KeysTotal,Consistency\n");
-        for(Map.Entry<Integer, Reporter> entry: partitionStatsMap.entrySet()) {
+        for (Map.Entry<Integer, Reporter> entry : partitionStatsMap.entrySet()) {
             Integer partitionId = entry.getKey();
             Reporter reporter = entry.getValue();
             totalGoodKeys += reporter.numGoodKeys;
@@ -836,14 +800,14 @@ public class ConsistencyCheck {
         statsString.append((double) (totalGoodKeys) / (double) totalTotalKeys);
         statsString.append("\n");
 
-        for(String line: statsString.toString().split("\n")) {
+        for (String line : statsString.toString().split("\n")) {
             logger.info(line);
         }
     }
 
     /**
      * Convert a key-version-nodeSet information to string
-     * 
+     *
      * @param key The key
      * @param versionMap mapping versions to set of PrefixNodes
      * @param storeName store's name
@@ -851,12 +815,12 @@ public class ConsistencyCheck {
      * @return a string that describe the information passed in
      */
     public static String keyVersionToString(ByteArray key,
-                                            Map<Version, Set<ClusterNode>> versionMap,
-                                            String storeName,
-                                            Integer partitionId) {
+            Map<Value, Set<ClusterNode>> versionMap,
+            String storeName,
+            Integer partitionId) {
         StringBuilder record = new StringBuilder();
-        for(Map.Entry<Version, Set<ClusterNode>> versionSet: versionMap.entrySet()) {
-            Version version = versionSet.getKey();
+        for (Map.Entry<Value, Set<ClusterNode>> versionSet : versionMap.entrySet()) {
+            Value value = versionSet.getKey();
             Set<ClusterNode> nodeSet = versionSet.getValue();
 
             record.append("BAD_KEY,");
@@ -864,25 +828,168 @@ public class ConsistencyCheck {
             record.append(partitionId + ",");
             record.append(ByteUtils.toHexString(key.get()) + ",");
             record.append(nodeSet.toString().replace(", ", ";") + ",");
-            if(version instanceof VectorClock) {
-                record.append(((VectorClock) version).getTimestamp() + ",");
-                record.append(version.toString()
-                                     .replaceAll(", ", ";")
-                                     .replaceAll(" ts:[0-9]*", "")
-                                     .replaceAll("version\\((.*)\\)", "[$1]"));
-            }
-            if(version instanceof HashedValue) {
-                Integer hashValue = ((HashedValue) version).getValueHash();
-                Version realVersion = ((HashedValue) version).getInner();
-                record.append(((VectorClock) realVersion).getTimestamp() + ",");
-                record.append(realVersion.toString()
-                                         .replaceAll(", ", ";")
-                                         .replaceAll(" ts:[0-9]*", "")
-                                         .replaceAll("version\\((.*)\\)", "[$1],"));
-                record.append(hashValue);
-            }
+            record.append(value.toString());
         }
         return record.toString();
     }
 
+    public static abstract class Value {
+        abstract Occurred compare(Value v);
+
+        public abstract boolean equals(Object obj);
+
+        public abstract int hashCode();
+
+        public abstract String toString();
+
+        public abstract boolean isExpired(long expiredTimeMs);
+
+        public abstract boolean isTimeStampLaterThan(Value v);
+    }
+
+    public static class VersionValue extends Value {
+
+        protected final Version version;
+
+        protected VersionValue(Versioned<byte[]> versioned) {
+            this.version = versioned.getVersion();
+        }
+
+        public Occurred compare(Value v) {
+            if (!(v instanceof VersionValue)) {
+                throw new VoldemortException(" Expected type VersionValue found type " + v.getClass().getCanonicalName());
+            }
+
+            VersionValue other = (VersionValue) v;
+            return version.compare(other.version);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == this) {
+                return true;
+            } else if (!(o instanceof VersionValue)) {
+                return false;
+            }
+
+            VersionValue other = (VersionValue) o;
+            return version.equals(other.version);
+        }
+
+        @Override
+        public int hashCode() {
+            return version.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder record = new StringBuilder();
+            record.append(((VectorClock) version).getTimestamp() + ",");
+            record.append(version.toString().replaceAll(", ", ";").replaceAll(" ts:[0-9]*", "")
+                    .replaceAll("version\\((.*)\\)", "[$1]"));
+            return record.toString();
+        }
+
+        public boolean isExpired(long expiredTimeMs) {
+            return ((VectorClock) version).getTimestamp() < expiredTimeMs;
+        }
+
+        public boolean isTimeStampLaterThan(Value currentLatest) {
+            if (!(currentLatest instanceof VersionValue)) {
+                throw new VoldemortException(
+                        " Expected type VersionValue found type " + currentLatest.getClass().getCanonicalName());
+            }
+
+            VersionValue latestVersion = (VersionValue) currentLatest;
+            long latestTimeStamp = ((VectorClock) latestVersion.version).getTimestamp();
+            long myTimeStamp = ((VectorClock) version).getTimestamp();
+            return myTimeStamp > latestTimeStamp;
+        }
+    }
+
+    /**
+     * A class to save version and value hash It is used to compare versions by
+     * the value hash
+     *
+     */
+    public static class HashedValue extends Value {
+
+        final private Version innerVersion;
+        final private Integer valueHash;
+
+        /**
+         * @param versioned Versioned value with version information and value
+         *        itself
+         */
+        public HashedValue(Versioned<byte[]> versioned) {
+            innerVersion = versioned.getVersion();
+            valueHash = new FnvHashFunction().hash(versioned.getValue());
+        }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) {
+                return true;
+            }
+            if (object == null) {
+                return false;
+            }
+            if (!object.getClass().equals(HashedValue.class)) {
+                return false;
+            }
+            HashedValue hash = (HashedValue) object;
+            boolean result = valueHash.equals(hash.hashCode());
+            return result;
+        }
+
+        public Occurred compare(Value v) {
+            // TODO: Return before if they are equal.
+            return Occurred.CONCURRENTLY; // always regard as conflict
+        }
+
+        @Override
+        public int hashCode() {
+            return valueHash;
+        }
+
+        public boolean isExpired(long expiredTimeMs) {
+            return ((VectorClock) innerVersion).getTimestamp() < expiredTimeMs;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder record = new StringBuilder();
+            record.append(((VectorClock) innerVersion).getTimestamp() + ",");
+            record.append(innerVersion.toString().replaceAll(", ", ";").replaceAll(" ts:[0-9]*", "")
+                    .replaceAll("version\\((.*)\\)", "[$1],"));
+            record.append(valueHash);
+            return record.toString();
+        }
+
+
+        public boolean isTimeStampLaterThan(Value currentLatest) {
+            if (!(currentLatest instanceof HashedValue)) {
+                throw new VoldemortException(
+                        " Expected type HashedValue found type " + currentLatest.getClass().getCanonicalName());
+            }
+
+            HashedValue latestVersion = (HashedValue) currentLatest;
+            long latestTimeStamp = ((VectorClock) latestVersion.innerVersion).getTimestamp();
+            long myTimeStamp = ((VectorClock) innerVersion).getTimestamp();
+            return myTimeStamp > latestTimeStamp;
+        }
+    }
+
+    public class ValueFactory {
+        public Value Create(Versioned<byte[]> versioned, ComparisonType type) {
+            if (type == ComparisonType.HASH) {
+                return new HashedValue(versioned);
+            } else if (type == ComparisonType.VERSION) {
+                return new VersionValue(versioned);
+            } else {
+                throw new VoldemortException("ComparisonType:" + type.name() + " is not handled by ValueFactory");
+            }
+        }
+    }
 }
+

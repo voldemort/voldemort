@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -71,21 +72,23 @@ public class ConsistencyCheckTest {
     ClusterNode cn0_4 = new ClusterNode(0, n4);
     ClusterNode cn1_2 = new ClusterNode(1, n2); // 1.1
 
+    long now = System.currentTimeMillis();
+
     byte[] value1 = { 0, 1, 2, 3, 4 };
     byte[] value2 = { 0, 1, 2, 3, 5 };
     byte[] value3 = { 0, 1, 2, 3, 6 };
     byte[] value4 = { 0, 1, 2, 3, 7 };
-    Versioned<byte[]> versioned1 = new Versioned<byte[]>(value1);
-    Versioned<byte[]> versioned2 = new Versioned<byte[]>(value2);
-    Version hv1 = new ConsistencyCheck.HashedValue(versioned1);
-    Version hv1_dup = new ConsistencyCheck.HashedValue(versioned1);
-    Version hv2 = new ConsistencyCheck.HashedValue(versioned2);
+    VectorClock vc1 = new VectorClock(now - Time.MS_PER_DAY);
+    VectorClock vc2 = new VectorClock(now);
+    VectorClock vc3 = new VectorClock(now - Time.MS_PER_HOUR * 24 + 500 * Time.MS_PER_SECOND);
+    Versioned<byte[]> versioned1 = new Versioned<byte[]>(value1, vc1);
+    Versioned<byte[]> versioned2 = new Versioned<byte[]>(value2, vc2);
+    Versioned<byte[]> versioned3 = new Versioned<byte[]>(value3, vc3);
+    ConsistencyCheck.Value hv1 = new ConsistencyCheck.HashedValue(versioned1);
+    ConsistencyCheck.Value hv1_dup = new ConsistencyCheck.HashedValue(versioned1);
+    ConsistencyCheck.Value hv2 = new ConsistencyCheck.HashedValue(versioned2);
 
-    long now = System.currentTimeMillis();
-    Version vc1 = new VectorClock(now - Time.MS_PER_DAY);
-    Version vc2 = new VectorClock(now);
-    Version hv3 = new ConsistencyCheck.HashedValue(new Versioned<byte[]>(value1));
-    Version vc3 = new VectorClock(now - Time.MS_PER_HOUR * 24 + 500 * Time.MS_PER_SECOND);
+    ConsistencyCheck.Value hv3 = new ConsistencyCheck.HashedValue(new Versioned<byte[]>(value1,vc3));
 
     // make set
     Set<ConsistencyCheck.ClusterNode> setFourNodes = new HashSet<ConsistencyCheck.ClusterNode>();
@@ -135,9 +138,6 @@ public class ConsistencyCheckTest {
         assertFalse(hv1.equals(null));
         assertFalse(hv1.equals(new Versioned<byte[]>(null)));
         assertFalse(hv1.equals(new Integer(0)));
-
-        assertEquals(versioned1.getVersion(), ((ConsistencyCheck.HashedValue) hv1).getInner());
-        assertEquals(((ConsistencyCheck.HashedValue) hv1).getValueHash(), hv1.hashCode());
     }
 
     @Test
@@ -145,31 +145,39 @@ public class ConsistencyCheckTest {
         ConsistencyCheck.RetentionChecker rc1 = new ConsistencyCheck.RetentionChecker(0);
         ConsistencyCheck.RetentionChecker rc2 = new ConsistencyCheck.RetentionChecker(1);
 
-        assertFalse(rc1.isExpired(vc1));
-        assertFalse(rc1.isExpired(vc2));
+        // Test HashedValue timestamp
         assertFalse(rc1.isExpired(hv3));
-        assertFalse(rc1.isExpired(vc3));
-        assertTrue(rc2.isExpired(vc1));
-        assertFalse(rc2.isExpired(vc2));
-        assertFalse(rc2.isExpired(hv3));
-        assertTrue(rc2.isExpired(vc3));
+        assertTrue(rc2.isExpired(hv3));
+
+        // Test VersionValue time stamp
+        assertFalse(rc1.isExpired(new ConsistencyCheck.VersionValue(versioned1)));
+        assertFalse(rc1.isExpired(new ConsistencyCheck.VersionValue(versioned2)));
+        assertFalse(rc1.isExpired(new ConsistencyCheck.VersionValue(versioned3)));
+        assertTrue (rc2.isExpired(new ConsistencyCheck.VersionValue(versioned1)));
+        assertFalse(rc2.isExpired(new ConsistencyCheck.VersionValue(versioned2)));
+        assertTrue (rc2.isExpired(new ConsistencyCheck.VersionValue(versioned3)));
     }
 
     @Test
     public void testDetermineConsistencyVectorClock() {
-        Map<Version, Set<ConsistencyCheck.ClusterNode>> versionNodeSetMap = new HashMap<Version, Set<ConsistencyCheck.ClusterNode>>();
+        Map<ConsistencyCheck.Value, Set<ConsistencyCheck.ClusterNode>> versionNodeSetMap = new HashMap<ConsistencyCheck.Value, Set<ConsistencyCheck.ClusterNode>>();
         int replicationFactor = 4;
 
         // Version is vector clock
-        Version v1 = new VectorClock();
-        ((VectorClock) v1).incrementVersion(1, 100000001);
-        ((VectorClock) v1).incrementVersion(2, 100000003);
-        Version v2 = new VectorClock();
-        ((VectorClock) v2).incrementVersion(1, 100000001);
-        ((VectorClock) v2).incrementVersion(3, 100000002);
-        Version v3 = new VectorClock();
-        ((VectorClock) v3).incrementVersion(1, 100000001);
-        ((VectorClock) v3).incrementVersion(4, 100000001);
+        VectorClock vc1 = new VectorClock();
+        vc1.incrementVersion(1, 100000001);
+        vc1.incrementVersion(2, 100000003);
+
+        VectorClock vc2= new VectorClock();
+        vc2.incrementVersion(1, 100000001);
+        vc2.incrementVersion(3, 100000002);
+        VectorClock vc3 = new VectorClock();
+        vc3.incrementVersion(1, 100000001);
+        vc3.incrementVersion(4, 100000001);
+
+        ConsistencyCheck.Value v1 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value1, vc1));
+        ConsistencyCheck.Value v2 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value2, vc2));
+        ConsistencyCheck.Value v3 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value3, vc3));
 
         // FULL: simple
         versionNodeSetMap.put(v1, setFourNodes);
@@ -213,8 +221,9 @@ public class ConsistencyCheckTest {
                      ConsistencyCheck.determineConsistency(versionNodeSetMap, replicationFactor));
     }
 
+    @Test
     public void testDetermineConsistencyHashValue() {
-        Map<Version, Set<ConsistencyCheck.ClusterNode>> versionNodeSetMap = new HashMap<Version, Set<ConsistencyCheck.ClusterNode>>();
+        Map<ConsistencyCheck.Value, Set<ConsistencyCheck.ClusterNode>> versionNodeSetMap = new HashMap<ConsistencyCheck.Value, Set<ConsistencyCheck.ClusterNode>>();
         int replicationFactor = 4;
 
         // vector clocks
@@ -232,9 +241,9 @@ public class ConsistencyCheckTest {
         Versioned<byte[]> versioned1 = new Versioned<byte[]>(value1, v1);
         Versioned<byte[]> versioned2 = new Versioned<byte[]>(value2, v2);
         Versioned<byte[]> versioned3 = new Versioned<byte[]>(value3, v3);
-        Version hv1 = new ConsistencyCheck.HashedValue(versioned1);
-        Version hv2 = new ConsistencyCheck.HashedValue(versioned2);
-        Version hv3 = new ConsistencyCheck.HashedValue(versioned3);
+        ConsistencyCheck.Value hv1 = new ConsistencyCheck.HashedValue(versioned1);
+        ConsistencyCheck.Value hv2 = new ConsistencyCheck.HashedValue(versioned2);
+        ConsistencyCheck.Value hv3 = new ConsistencyCheck.HashedValue(versioned3);
 
         // FULL
         // one version
@@ -262,22 +271,26 @@ public class ConsistencyCheckTest {
         versionNodeSetMap.clear();
         versionNodeSetMap.put(hv1, setFourNodes);
         versionNodeSetMap.put(hv2, setThreeNodes);
-        assertEquals(ConsistencyCheck.ConsistencyLevel.INCONSISTENT,
+        assertEquals(ConsistencyCheck.ConsistencyLevel.LATEST_CONSISTENT,
                      ConsistencyCheck.determineConsistency(versionNodeSetMap, replicationFactor));
     }
 
     @Test
     public void testCleanInlegibleKeys() {
         // versions
-        Version v1 = new VectorClock();
-        ((VectorClock) v1).incrementVersion(1, 100000001);
-        ((VectorClock) v1).incrementVersion(2, 100000003);
-        Version v2 = new VectorClock();
-        ((VectorClock) v2).incrementVersion(1, 100000002);
+        VectorClock vc1 = new VectorClock();
+        vc1.incrementVersion(1, 100000001);
+        vc1.incrementVersion(2, 100000003);
+        VectorClock vc2 = new VectorClock();
+        vc2.incrementVersion(1, 100000002);
+
+        ConsistencyCheck.Value v1 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value1, vc1));
+        ConsistencyCheck.Value v2 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value2, vc2));
+
 
         // setup
-        Map<ByteArray, Map<Version, Set<ClusterNode>>> map = new HashMap<ByteArray, Map<Version, Set<ClusterNode>>>();
-        Map<Version, Set<ClusterNode>> nodeSetMap = new HashMap<Version, Set<ClusterNode>>();
+        Map<ByteArray, Map<ConsistencyCheck.Value, Set<ClusterNode>>> map = new HashMap<ByteArray, Map<ConsistencyCheck.Value, Set<ClusterNode>>>();
+        Map<ConsistencyCheck.Value, Set<ClusterNode>> nodeSetMap = new HashMap<ConsistencyCheck.Value, Set<ClusterNode>>();
         Set<ClusterNode> oneNodeSet = new HashSet<ClusterNode>();
         oneNodeSet.add(cn0_1);
         Set<ClusterNode> twoNodeSet = new HashSet<ClusterNode>();
@@ -315,9 +328,13 @@ public class ConsistencyCheckTest {
         byte[] keyBytes = { 0, 1, 2, 17, 4 };
         ByteArray key = new ByteArray(keyBytes);
         long now = System.currentTimeMillis();
-        Version v1 = new VectorClock(now);
-        Version v2 = new VectorClock(now + 1);
-        Versioned<byte[]> versioned = new Versioned<byte[]>(value1, v1);
+        VectorClock vc1 = new VectorClock(now);
+        VectorClock vc2 = new VectorClock(now + 1);
+        Versioned<byte[]> versioned = new Versioned<byte[]>(value1, vc1);
+
+        ConsistencyCheck.Value v1 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value1, vc1));
+        ConsistencyCheck.Value v2 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value2, vc2));
+
 
         // make Prefix Nodes
         Set<ClusterNode> set = new HashSet<ClusterNode>();
@@ -326,16 +343,19 @@ public class ConsistencyCheckTest {
         set.add(cn0_3);
 
         // test vector clock
-        Map<Version, Set<ClusterNode>> mapVector = new HashMap<Version, Set<ClusterNode>>();
+        Map<ConsistencyCheck.Value, Set<ClusterNode>> mapVector = new HashMap<ConsistencyCheck.Value, Set<ClusterNode>>();
         mapVector.put(v1, set);
-        ((VectorClock) v1).incrementVersion(1, now);
+        vc1.incrementVersion(1, now);
+        v1 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value1, vc1));
         String sVector = ConsistencyCheck.keyVersionToString(key, mapVector, "testStore", 99);
         assertEquals("BAD_KEY,testStore,99,0001021104," + set.toString().replace(", ", ";") + ","
                      + now + ",[1:1]", sVector);
 
         // test two lines
-        ((VectorClock) v2).incrementVersion(1, now);
-        ((VectorClock) v2).incrementVersion(1, now + 1);
+        vc2.incrementVersion(1, now);
+        vc2.incrementVersion(1, now + 1);
+        v2 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value2, vc2));
+
         mapVector.put(v2, set);
         String sVector2 = ConsistencyCheck.keyVersionToString(key, mapVector, "testStore", 99);
         String s1 = "BAD_KEY,testStore,99,0001021104," + set.toString().replace(", ", ";") + ","
@@ -346,8 +366,8 @@ public class ConsistencyCheckTest {
         assertTrue(sVector2.equals(s1 + s2) || sVector2.equals(s2 + s1));
 
         // test value hash
-        Version v3 = new HashedValue(versioned);
-        Map<Version, Set<ClusterNode>> mapHashed = new HashMap<Version, Set<ClusterNode>>();
+        ConsistencyCheck.Value v3 = new HashedValue(versioned);
+        Map<ConsistencyCheck.Value, Set<ClusterNode>> mapHashed = new HashMap<ConsistencyCheck.Value, Set<ClusterNode>>();
         mapHashed.put(v3, set);
         assertEquals("BAD_KEY,testStore,99,0001021104," + set.toString().replace(", ", ";") + ","
                              + now + ",[1:1],-1172398097",
@@ -391,7 +411,7 @@ public class ConsistencyCheckTest {
     }
 
     @Test
-    public void testOnePartitionEndToEnd() throws Exception {
+    public void testOnePartitionEndToEndBasedOnVersion() throws Exception {
         long now = System.currentTimeMillis();
 
         // setup four nodes with one store and one partition
@@ -417,6 +437,7 @@ public class ConsistencyCheckTest {
                                                   new ClientConfig());
 
         byte[] value = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+        byte[] value2 = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
         // make versions
         VectorClock vc1 = new VectorClock();
@@ -472,8 +493,8 @@ public class ConsistencyCheckTest {
         n1store.add(Pair.create(k6, v6));
         n2store.add(Pair.create(k6, v6));
 
-        // insert K6(conflicting but not latest version) into node 0,1,2,3
-        Versioned<byte[]> v6ConflictEarly = new Versioned<byte[]>(value, vc2);
+        // insert K6(conflicting value and version) into node 0,1,2,3
+        Versioned<byte[]> v6ConflictEarly = new Versioned<byte[]>(value2, vc2);
         n0store.add(Pair.create(k6, v6ConflictEarly));
         n1store.add(Pair.create(k6, v6ConflictEarly));
         n2store.add(Pair.create(k6, v6ConflictEarly));
@@ -516,6 +537,8 @@ public class ConsistencyCheckTest {
         // insert K0(out of retention) into node 0,1,2
         Versioned<byte[]> v0 = new Versioned<byte[]>(value, vc3);
         n0store.add(Pair.create(k0, v0));
+        n1store.add(Pair.create(k0, v0));
+        n2store.add(Pair.create(k0, v0));
 
         // stream to store
         adminClient.streamingOps.updateEntries(0, STORE_NAME, n0store.iterator(), null);
@@ -527,12 +550,18 @@ public class ConsistencyCheckTest {
         // INCONSISTENT:2(K6,K2), ignored(K1,K0)
         List<String> urls = new ArrayList<String>();
         urls.add(bootstrapUrl);
-        ConsistencyCheck checker = new ConsistencyCheck(urls, STORE_NAME, 0, null);
-        Reporter reporter = null;
-        checker.connect();
-        reporter = checker.execute();
+        ConsistencyCheck.ComparisonType[] comparisonTypes = ConsistencyCheck.ComparisonType.values();
 
-        assertEquals(7 - 2, reporter.numTotalKeys);
-        assertEquals(3, reporter.numGoodKeys);
+        for(ConsistencyCheck.ComparisonType type : comparisonTypes)
+        {
+            StringWriter sw = new StringWriter();
+            ConsistencyCheck checker = new ConsistencyCheck(urls, STORE_NAME, 0, sw, type);
+            Reporter reporter = null;
+            checker.connect();
+            reporter = checker.execute();
+
+            assertEquals(7 - 2, reporter.numTotalKeys);
+            assertEquals(3, reporter.numGoodKeys);
+        }
     }
 }
