@@ -55,7 +55,7 @@ public class ConsistencyCheck {
     private final List<String> urls;
     private final String storeName;
     private final Integer partitionId;
-    private final ComparisonType comparisonType;
+    private final ValueFactory valueFactory;
     private final Reporter reporter;
 
     private Integer retentionDays = null;
@@ -75,7 +75,7 @@ public class ConsistencyCheck {
         this.storeName = storeName;
         this.partitionId = partitionId;
         this.reporter = new Reporter(badKeyWriter);
-        this.comparisonType = comparisonType;
+        this.valueFactory = new ValueFactory(comparisonType);
     }
 
     /**
@@ -294,7 +294,7 @@ public class ConsistencyCheck {
 
     public void recordFetch(ClusterNode clusterNode, ByteArray key, Versioned<byte[]> versioned) {
 
-        Value value = new ValueFactory().Create(versioned, comparisonType);
+        Value value = valueFactory.Create(versioned);
 
         // skip version if expired
         if (retentionChecker.isExpired(value)) {
@@ -616,7 +616,7 @@ public class ConsistencyCheck {
         parser.accepts(ComparisonTypeArgument, "type of comparison to compare the values for the same key")
                 .withRequiredArg()
                 .describedAs("comparisonType")
-                .ofType(ComparisonType.class);
+                .ofType(String.class);
         return parser;
     }
 
@@ -743,7 +743,9 @@ public class ConsistencyCheck {
 
         ComparisonType comparisonType = ComparisonType.VERSION;
         if (options.hasArgument(ComparisonTypeArgument)) {
-            comparisonType = (ComparisonType) options.valueOf(ComparisonTypeArgument);
+            String comparisonArgument = (String) options.valueOf(ComparisonTypeArgument);
+            comparisonArgument = comparisonArgument.toUpperCase();
+            comparisonType = ComparisonType.valueOf(comparisonArgument) ;
         }
 
         BufferedWriter badKeyWriter = null;
@@ -981,7 +983,14 @@ public class ConsistencyCheck {
     }
 
     public class ValueFactory {
-        public Value Create(Versioned<byte[]> versioned, ComparisonType type) {
+        private  final  ComparisonType type;
+
+        public ValueFactory(ComparisonType type)
+        {
+            this.type = type;
+        }
+
+        public Value Create(Versioned<byte[]> versioned) {
             if (type == ComparisonType.HASH) {
                 return new HashedValue(versioned);
             } else if (type == ComparisonType.VERSION) {
