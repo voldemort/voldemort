@@ -174,9 +174,11 @@ public class ImportTextDumpToBDB {
         StorageEngine<ByteArray, byte[], byte[]> engine = bdbConfiguration.getStore(mockStoreDef, routingStrategy);
         long reportIntervalMs = 10000L;
         long lastCount = 0;
+        long lastInserted = 0;
         Reporter<Boolean> rp = new Reporter<Boolean>(reportIntervalMs);
 
         long count = 0;
+        long inserted = 0;
         for(File f: dataFiles) {
             try {
                 BufferedReader bufferedReader = new BufferedReader(new FileReader(f), READER_BUFFER_SIZE);
@@ -200,6 +202,7 @@ public class ImportTextDumpToBDB {
                         if(nodeId == node.getId()) {
                             try {
                                 engine.put(key, entry.getSecond(), null);
+                                inserted++;
                             } catch(ObsoleteVersionException e) {
                                 e.printStackTrace();
                             }
@@ -208,16 +211,20 @@ public class ImportTextDumpToBDB {
                     }
                     count++;
                     final Long countObject = count;
+                    final Long insertedObject = inserted;
                     Boolean reported = rp.tryReport(new Callable<Boolean>() {
                         @Override
                         public Boolean call() throws Exception {
-                            System.out.print(String.format("Imported %15d entries", countObject));
+                            System.out.print(String.format("Imported %15d entries; Inserted %15d entries", countObject, insertedObject));
                             return true;
                         }
                     });
                     if(reported != null) {
-                        System.out.println(String.format("; Speed: %8d/s", (count - lastCount)/ (reportIntervalMs / 1000)));
+                        long importSpeed = (count - lastCount)/ (reportIntervalMs / 1000);
+                        long insertSpeed = (inserted - lastInserted)/ (reportIntervalMs / 1000);
+                        System.out.println(String.format("; ImportSpeed: %8d/s; InsertSpeed: %8d/s ", importSpeed, insertSpeed));
                         lastCount = count;
+                        lastInserted = inserted;
                     }
                 }
                 bufferedReader.close();
@@ -229,7 +236,7 @@ public class ImportTextDumpToBDB {
         }
         engine.close();
 
-        System.out.println(String.format("Finished exporting %d entries", count));
+        System.out.println(String.format("Finished importing %d entries (%d inserted, rest discarded)", count, inserted));
     }
 
     static private class Reporter<T> {
