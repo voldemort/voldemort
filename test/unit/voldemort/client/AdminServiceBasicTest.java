@@ -73,6 +73,7 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
@@ -305,6 +306,7 @@ public class AdminServiceBasicTest {
             fail("Should have thrown an exception because we cannot add a store with a replication factor greater than number of nodes");
         } catch(Exception e) {}
 
+        // Try adding a legit store using inmemorystorage engine
         definition = new StoreDefinitionBuilder().setName("updateTest")
                                                  .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                                  .setKeySerializer(new SerializerDefinition("string"))
@@ -344,6 +346,36 @@ public class AdminServiceBasicTest {
         // make sure that the store list we get back from AdminClient
         Versioned<List<StoreDefinition>> list = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
         assertTrue(list.getValue().contains(definition));
+
+        // Now add a RO store
+        definition = new StoreDefinitionBuilder().setName("addStoreROFormatTest")
+                                                 .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
+                                                 .setKeySerializer(new SerializerDefinition("string"))
+                                                 .setValueSerializer(new SerializerDefinition("string"))
+                                                 .setRoutingPolicy(RoutingTier.CLIENT)
+                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                 .setReplicationFactor(1)
+                                                 .setPreferredReads(1)
+                                                 .setRequiredReads(1)
+                                                 .setPreferredWrites(1)
+                                                 .setRequiredWrites(1)
+                                                 .build();
+
+        adminClient.storeMgmtOps.addStore(definition);
+
+        // Retrieve list of read-only stores
+        List<String> storeNames = Lists.newArrayList();
+        for (StoreDefinition storeDef: adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue()) {
+            if (storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+                storeNames.add(storeDef.getName());
+            }
+        }
+
+        Map<String, String> storeToStorageFormat = adminClient.readonlyOps.getROStorageFormat(0, storeNames);
+        for (String storeName: storeToStorageFormat.keySet()) {
+            assertEquals(storeToStorageFormat.get(storeName), "ro2");
+        }
+
     }
 
     @Test
@@ -1141,15 +1173,13 @@ public class AdminServiceBasicTest {
         // delete the store
         assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
                                                 .getValue()
-                                                .contains(definition),
-                     true);
+                                                .contains(definition), true);
         adminClient.storeMgmtOps.deleteStore("deleteTest");
         assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue().size(),
                      numStores - 1);
         assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
                                                 .getValue()
-                                                .contains(definition),
-                     false);
+                                                .contains(definition), false);
 
         // test with deleted store
         // (Turning off store client caching above will ensures the new client
@@ -1266,9 +1296,8 @@ public class AdminServiceBasicTest {
         store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             if(isKeyPartition(entry.getKey(), 0, testStoreName, deletePartitionsList)) {
-                assertEquals("deleted partitions should be missing.",
-                             0,
-                             store.get(entry.getKey(), null).size());
+                assertEquals("deleted partitions should be missing.", 0, store.get(entry.getKey(),
+                                                                                   null).size());
             }
         }
     }
@@ -1538,9 +1567,9 @@ public class AdminServiceBasicTest {
                                                                                                                        "test-readonly-versions"));
         assertEquals(storesToStorageFormat.size(), 2);
         assertEquals(storesToStorageFormat.get("test-readonly-fetchfiles"),
-                     ReadOnlyStorageFormat.READONLY_V0.getCode());
+                     ReadOnlyStorageFormat.READONLY_V2.getCode());
         assertEquals(storesToStorageFormat.get("test-readonly-versions"),
-                     ReadOnlyStorageFormat.READONLY_V0.getCode());
+                     ReadOnlyStorageFormat.READONLY_V2.getCode());
     }
 
     @Test
@@ -1849,8 +1878,9 @@ public class AdminServiceBasicTest {
             assertNotNull("This key should exist in the results: " + key, entries.get(key));
             assertEquals("Two byte[] should be equal for key: " + key,
                          0,
-                         ByteUtils.compare(belongToAndInsideServer1.get(key),
-                                           entries.get(key).get(0).getValue()));
+                         ByteUtils.compare(belongToAndInsideServer1.get(key), entries.get(key)
+                                                                                     .get(0)
+                                                                                     .getValue()));
         }
 
         // test multiple keys, mixed situation
@@ -2072,9 +2102,8 @@ public class AdminServiceBasicTest {
             Store<ByteArray, byte[], byte[]> store = getStore(0, nextSlop.getStoreName());
 
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store",
-                              0,
-                              store.get(nextSlop.getKey(), null).size());
+                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
+                                                                               null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
