@@ -579,6 +579,9 @@ public class VoldemortAdminTool {
                                                adminClient,
                                                MetadataStore.STORES_KEY,
                                                mapper.writeStoreList(newStoreDefs));
+                            executeUpdateMetadataVersionsOnStores(adminClient,
+                                                                  oldStoreDefs,
+                                                                  newStoreDefs);
                         } else {
                             if(confirmMetadataUpdate(nodeId, adminClient, storesXML.getValue())) {
                                 executeSetMetadata(nodeId,
