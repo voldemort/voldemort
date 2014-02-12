@@ -49,6 +49,12 @@ public final class Pair<F, S> implements Serializable, Function<F, S> {
         this.second = second;
     }
 
+    /**
+     * @param from
+     * @return {@code this.second} if {@code from == this.first} even if
+     *         {@code from} and {@code this.first} are both null
+     */
+    @Override
     public S apply(F from) {
         if(from == null ? first == null : from.equals(first))
             return second;
