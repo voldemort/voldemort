@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Scanner;
 import java.util.Set;
 
 import joptsimple.OptionParser;
@@ -119,6 +120,13 @@ public class VoldemortAdminTool {
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
+        // This is a generic argument that should be eventually supported by all
+        // RW operations.
+        // If you omit this argument the operation will be executed in a "batch"
+        // mode which is useful for scripting
+        // Otherwise you will be presented with a summary of changes and with a
+        // Y/N prompt
+        parser.accepts("auto", "[OPTIONAL] enable auto/batch mode");
         parser.accepts("help", "print help information");
         parser.accepts("url", "[REQUIRED] bootstrap URL")
               .withRequiredArg()
@@ -345,8 +353,9 @@ public class VoldemortAdminTool {
                  || options.has("truncate") || options.has("clear-rebalancing-metadata")
                  || options.has("async") || options.has("native-backup") || options.has("rollback")
                  || options.has("verify-metadata-version") || options.has("reserve-memory")
-                 || options.has("purge-slops") || options.has("show-routing-plan") || options.has("query-key")
-                 || options.has("set-quota") || options.has("unset-quota") || options.has("get-quota"))) {
+                 || options.has("purge-slops") || options.has("show-routing-plan")
+                 || options.has("query-key") || options.has("set-quota")
+                 || options.has("unset-quota") || options.has("get-quota"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 printHelp(System.err, parser);
                 System.exit(1);
@@ -363,15 +372,12 @@ public class VoldemortAdminTool {
                                                       new AdminClientConfig(),
                                                       new ClientConfig());
 
-
             List<String> storeNames = null;
             if(options.has("store") && options.has("stores")) {
                 throw new VoldemortException("Must not specify both --stores and --store options");
-            }
-            else if(options.has("stores")) {
+            } else if(options.has("stores")) {
                 storeNames = (List<String>) options.valuesOf("stores");
-            }
-            else if(options.has("store")) {
+            } else if(options.has("store")) {
                 storeNames = Arrays.asList((String) options.valueOf("store"));
             }
 
@@ -523,10 +529,23 @@ public class VoldemortAdminTool {
                             throw new VoldemortException("Cluster xml file path incorrect");
                         ClusterMapper mapper = new ClusterMapper();
                         Cluster newCluster = mapper.readCluster(new File(metadataValue));
-                        executeSetMetadata(nodeId,
-                                           adminClient,
-                                           metadataKey,
-                                           mapper.writeCluster(newCluster));
+                        if(options.has("auto")) {
+                            executeSetMetadata(nodeId,
+                                               adminClient,
+                                               metadataKey,
+                                               mapper.writeCluster(newCluster));
+                        } else {
+                            if(confirmMetadataUpdate(nodeId,
+                                                     adminClient,
+                                                     mapper.writeCluster(newCluster))) {
+                                executeSetMetadata(nodeId,
+                                                   adminClient,
+                                                   metadataKey,
+                                                   mapper.writeCluster(newCluster));
+                            } else {
+                                System.out.println("New metadata has not been set");
+                            }
+                        }
                     } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
                         VoldemortState newState = VoldemortState.valueOf(metadataValue);
                         executeSetMetadata(nodeId,
@@ -555,18 +574,33 @@ public class VoldemortAdminTool {
                                                                                                     MetadataStore.STORES_KEY);
 
                         List<StoreDefinition> oldStoreDefs = mapper.readStoreList(new StringReader(storesXML.getValue()));
-                        executeSetMetadata(nodeId,
-                                           adminClient,
-                                           MetadataStore.STORES_KEY,
-                                           mapper.writeStoreList(newStoreDefs));
-                        if(nodeId >= 0) {
-                            System.err.println("WARNING: Metadata version update of stores goes to all servers, "
-                                               + "although this set-metadata oprations only goes to node "
-                                               + nodeId);
+                        if(options.has("auto")) {
+                            executeSetMetadata(nodeId,
+                                               adminClient,
+                                               MetadataStore.STORES_KEY,
+                                               mapper.writeStoreList(newStoreDefs));
+                            executeUpdateMetadataVersionsOnStores(adminClient,
+                                                                  oldStoreDefs,
+                                                                  newStoreDefs);
+                        } else {
+                            if(confirmMetadataUpdate(nodeId, adminClient, storesXML.getValue())) {
+                                executeSetMetadata(nodeId,
+                                                   adminClient,
+                                                   MetadataStore.STORES_KEY,
+                                                   mapper.writeStoreList(newStoreDefs));
+                                if(nodeId >= 0) {
+                                    System.err.println("WARNING: Metadata version update of stores goes to all servers, "
+                                                       + "although this set-metadata oprations only goes to node "
+                                                       + nodeId);
+                                }
+                                executeUpdateMetadataVersionsOnStores(adminClient,
+                                                                      oldStoreDefs,
+                                                                      newStoreDefs);
+                            } else {
+                                System.out.println("New metadata has not been set");
+                            }
                         }
-                        executeUpdateMetadataVersionsOnStores(adminClient,
-                                                              oldStoreDefs,
-                                                              newStoreDefs);
+
                     } else if(metadataKey.compareTo(MetadataStore.REBALANCING_STEAL_INFO) == 0) {
                         if(!Utils.isReadableFile(metadataValue))
                             throw new VoldemortException("Rebalancing steal info file path incorrect");
@@ -1890,7 +1924,7 @@ public class VoldemortAdminTool {
 
         // decide queryingNode(s) for Key
         List<Integer> queryingNodes = new ArrayList<Integer>();
-        if(nodeId < 0) {  // means all nodes
+        if(nodeId < 0) { // means all nodes
             for(Node node: adminClient.getAdminClientCluster().getNodes()) {
                 queryingNodes.add(node.getId());
             }
@@ -1906,8 +1940,6 @@ public class VoldemortAdminTool {
             storeDefinitions.put(storeDef.getName(), storeDef);
         }
 
-
-
         BufferedWriter out = new BufferedWriter(new OutputStreamWriter(System.out));
 
         // iterate through stores
@@ -1915,7 +1947,7 @@ public class VoldemortAdminTool {
             // store definition
             StoreDefinition storeDefinition = storeDefinitions.get(storeName);
             if(storeDefinition == null) {
-                throw new StoreNotFoundException("Store "+ storeName + " not found");
+                throw new StoreNotFoundException("Store " + storeName + " not found");
             }
 
             out.write("STORE_NAME: " + storeDefinition.getName() + "\n");
@@ -1943,14 +1975,14 @@ public class VoldemortAdminTool {
                 valueCompressionStrategy = null;
             }
 
-
             if(keyCompressionStrategy == null) {
                 out.write("KEY_COMPRESSION_STRATEGY: None\n");
             } else {
                 out.write("KEY_COMPRESSION_STRATEGY: " + keyCompressionStrategy.getType() + "\n");
             }
             out.write("KEY_SERIALIZER_NAME: " + keySerializerDef.getName() + "\n");
-            for(Map.Entry<Integer, String> entry: keySerializerDef.getAllSchemaInfoVersions().entrySet()) {
+            for(Map.Entry<Integer, String> entry: keySerializerDef.getAllSchemaInfoVersions()
+                                                                  .entrySet()) {
                 out.write(String.format("KEY_SCHEMA VERSION=%d\n", entry.getKey()));
                 out.write("====================================\n");
                 out.write(entry.getValue());
@@ -1960,10 +1992,12 @@ public class VoldemortAdminTool {
             if(valueCompressionStrategy == null) {
                 out.write("VALUE_COMPRESSION_STRATEGY: None\n");
             } else {
-                out.write("VALUE_COMPRESSION_STRATEGY: " + valueCompressionStrategy.getType() + "\n");
+                out.write("VALUE_COMPRESSION_STRATEGY: " + valueCompressionStrategy.getType()
+                          + "\n");
             }
             out.write("VALUE_SERIALIZER_NAME: " + valueSerializerDef.getName() + "\n");
-            for(Map.Entry<Integer, String> entry: valueSerializerDef.getAllSchemaInfoVersions().entrySet()) {
+            for(Map.Entry<Integer, String> entry: valueSerializerDef.getAllSchemaInfoVersions()
+                                                                    .entrySet()) {
                 out.write(String.format("VALUE_SCHEMA %d\n", entry.getKey()));
                 out.write("====================================\n");
                 out.write(entry.getValue());
@@ -1971,7 +2005,8 @@ public class VoldemortAdminTool {
             }
             out.write("\n");
 
-            // although the streamingOps support multiple keys, we only query one
+            // although the streamingOps support multiple keys, we only query
+            // one
             // key here
             ByteArray key;
             try {
@@ -1994,7 +2029,7 @@ public class VoldemortAdminTool {
                 } else {
                     key = new ByteArray(ByteUtils.fromHexString(keyString));
                 }
-            } catch(SerializationException se){
+            } catch(SerializationException se) {
                 System.err.println("Error serializing key " + keyString);
                 System.err.println("If this is a JSON key, you need to include escaped quotation marks in the command line if it is a string");
                 se.printStackTrace();
@@ -2009,11 +2044,12 @@ public class VoldemortAdminTool {
                 return;
             }
 
-
             boolean printedKey = false;
             for(final Integer queryNodeId: queryingNodes) {
                 Iterator<QueryKeyResult> iterator;
-                iterator = adminClient.streamingOps.queryKeys(queryNodeId, storeName, Arrays.asList(key).iterator());
+                iterator = adminClient.streamingOps.queryKeys(queryNodeId,
+                                                              storeName,
+                                                              Arrays.asList(key).iterator());
                 final StringWriter stringWriter = new StringWriter();
 
                 QueryKeyResult queryKeyResult = iterator.next();
@@ -2030,7 +2066,8 @@ public class VoldemortAdminTool {
                     if(keyObject instanceof GenericRecord) {
                         out.write(keyObject.toString());
                     } else {
-                        new JsonFactory(new ObjectMapper()).createJsonGenerator(out).writeObject(keyObject);
+                        new JsonFactory(new ObjectMapper()).createJsonGenerator(out)
+                                                           .writeObject(keyObject);
                     }
                     out.write("\n====================================\n\n");
                     printedKey = true;
@@ -2047,8 +2084,10 @@ public class VoldemortAdminTool {
 
                         // write version
                         VectorClock version = (VectorClock) versioned.getVersion();
-                        out.write("VECTOR_CLOCK_BYTE: " + ByteUtils.toHexString(version.toBytes()) + "\n");
-                        out.write("VECTOR_CLOCK_TEXT: " + version.toString() + '[' + new Date(version.getTimestamp()).toString() + "]\n");
+                        out.write("VECTOR_CLOCK_BYTE: " + ByteUtils.toHexString(version.toBytes())
+                                  + "\n");
+                        out.write("VECTOR_CLOCK_TEXT: " + version.toString() + '['
+                                  + new Date(version.getTimestamp()).toString() + "]\n");
 
                         // write value
                         byte[] valueBytes = versioned.getValue();
@@ -2061,7 +2100,8 @@ public class VoldemortAdminTool {
                         if(valueObject instanceof GenericRecord) {
                             out.write(valueObject.toString());
                         } else {
-                            new JsonFactory(new ObjectMapper()).createJsonGenerator(out).writeObject(valueObject);
+                            new JsonFactory(new ObjectMapper()).createJsonGenerator(out)
+                                                               .writeObject(valueObject);
                         }
                         out.write("\n====================================\n");
                         versionCount++;
@@ -2153,6 +2193,45 @@ public class VoldemortAdminTool {
            || serializerName.equals(DefaultSerializerFactory.AVRO_SPECIFIC_TYPE_NAME)) {
             return true;
         } else {
+            return false;
+        }
+    }
+
+    private static boolean confirmMetadataUpdate(Integer nodeId,
+                                                 AdminClient adminClient,
+                                                 Object value) {
+        List<Integer> nodeIds = Lists.newArrayList();
+
+        System.out.print("\nNew metadata: \n" + value.toString() + "\n");
+        System.out.print("\nAffected nodes:\n");
+        System.out.format("+-------+------+---------------------------------+----------+---------+------------------+%n");
+        System.out.printf("|Id     |Zone  |Host                             |SocketPort|AdminPort|NumberOfPartitions|%n");
+        System.out.format("+-------+------+---------------------------------+----------+---------+------------------+%n");
+
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                nodeIds.add(node.getId());
+                System.out.format("| %-5d | %-4d | %-31s | %-5d    | %-5d   | %-5d            |%n",
+                                  node.getId(),
+                                  node.getZoneId(),
+                                  node.getHost(),
+                                  node.getSocketPort(),
+                                  node.getAdminPort(),
+                                  node.getNumberOfPartitions());
+                System.out.format("+-------+------+---------------------------------+----------+---------+------------------+%n");
+            }
+        }
+
+        System.out.print("Do you want to proceed? [Y/N]: ");
+        Scanner in = new Scanner(System.in);
+        String choice = in.nextLine();
+
+        if(choice.equals("Y") || choice.equals("y")) {
+            return true;
+        } else if(choice.equals("N") || choice.equals("n")) {
+            return false;
+        } else {
+            System.out.println("Incorrect response detected. Exiting.");
             return false;
         }
     }

@@ -1,12 +1,12 @@
 /**
  * Copyright 2013 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -15,10 +15,21 @@
  */
 package voldemort.tools.admin;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
 import voldemort.ClusterTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -39,13 +50,6 @@ import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.*;
-import java.util.logging.Logger;
-
 public class SetMetadataTest {
 
     HashMap<Integer, VoldemortServer> vservers = new HashMap<Integer, VoldemortServer>();
@@ -53,8 +57,10 @@ public class SetMetadataTest {
     String bsURL;
     Cluster cluster;
     List<StoreDefinition> oldStores;
+
     /**
-     * This test is to partially test the functionality of SetMetadata feature of the VoldemortAdminTool
+     * This test is to partially test the functionality of SetMetadata feature
+     * of the VoldemortAdminTool
      */
 
     @Before
@@ -65,15 +71,14 @@ public class SetMetadataTest {
         bsURL = cluster.getNodes().iterator().next().getSocketUrl().toString();
 
         for(Node node: cluster.getNodes()) {
-            SocketStoreFactory ssf = new ClientRequestExecutorPool(2,10000,100000,1024);
-            VoldemortConfig config = ServerTestUtils.createServerConfigWithDefs(
-                    true,
-                    node.getId(),
-                    TestUtils.createTempDir().getAbsolutePath(),
-                    cluster,
-                    oldStores,
-                    new Properties()
-            );
+            SocketStoreFactory ssf = new ClientRequestExecutorPool(2, 10000, 100000, 1024);
+            VoldemortConfig config = ServerTestUtils.createServerConfigWithDefs(true,
+                                                                                node.getId(),
+                                                                                TestUtils.createTempDir()
+                                                                                         .getAbsolutePath(),
+                                                                                cluster,
+                                                                                oldStores,
+                                                                                new Properties());
             VoldemortServer vs = ServerTestUtils.startVoldemortServer(ssf, config, cluster);
             vservers.put(node.getId(), vs);
             socketStoreFactories.put(node.getId(), ssf);
@@ -97,53 +102,69 @@ public class SetMetadataTest {
         }
 
         File newStoresXMLFolder = TestUtils.createTempDir();
-        File newStoreXMLFile = File.createTempFile(newStoreXMLFilePrefix, newStoreXMLFileSuffix, newStoresXMLFolder);
+        File newStoreXMLFile = File.createTempFile(newStoreXMLFilePrefix,
+                                                   newStoreXMLFileSuffix,
+                                                   newStoresXMLFolder);
         FileWriter fwriter = new FileWriter(newStoreXMLFile);
         fwriter.write(new StoreDefinitionsMapper().writeStoreList(newStores));
         fwriter.close();
 
         // check version
         String sysStoreName = SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name();
-        ByteArray metadataKey = new ByteArray(ByteUtils.getBytes(MetadataVersionStoreUtils.VERSIONS_METADATA_KEY, "utf-8"));
+        ByteArray metadataKey = new ByteArray(ByteUtils.getBytes(MetadataVersionStoreUtils.VERSIONS_METADATA_KEY,
+                                                                 "utf-8"));
         for(VoldemortServer vs: vservers.values()) {
-            List<Versioned<byte[]>> result = vs.getStoreRepository().getLocalStore(sysStoreName).get(metadataKey, null);
+            List<Versioned<byte[]>> result = vs.getStoreRepository()
+                                               .getLocalStore(sysStoreName)
+                                               .get(metadataKey, null);
             String versionInfo = new String(result.get(0).getValue());
-            System.out.format("[INITIAL]Version values on node [%d] is: \n %s\n", vs.getIdentityNode().getId(), versionInfo);
+            System.out.format("[INITIAL]Version values on node [%d] is: \n %s\n",
+                              vs.getIdentityNode().getId(),
+                              versionInfo);
 
             Properties props = new Properties();
             props.load(new ByteArrayInputStream(versionInfo.getBytes()));
             for(StoreDefinition sd: oldStores) {
                 if(!props.getProperty(sd.getName()).equals("0")) {
-                    Assert.fail("Initial version of key [" + sd.getName() + "] on node [" + vs.getIdentityNode().getId() + "] is expected to be 0 but not");
+                    Assert.fail("Initial version of key [" + sd.getName() + "] on node ["
+                                + vs.getIdentityNode().getId() + "] is expected to be 0 but not");
                 }
             }
             if(!props.getProperty("cluster.xml").equals("0")) {
-                Assert.fail("Final version of key [stores.xml] on node [" + vs.getIdentityNode().getId() + "] is expected to greater than 0 but not");
+                Assert.fail("Final version of key [stores.xml] on node ["
+                            + vs.getIdentityNode().getId()
+                            + "] is expected to greater than 0 but not");
             }
         }
 
         // update the stores xml
-        VoldemortAdminTool.main(new String[]{
-                "--set-metadata", MetadataStore.STORES_KEY,
-                "--set-metadata-value", newStoreXMLFile.getAbsolutePath(),
-                "--url", bsURL
-        });
+        VoldemortAdminTool.main(new String[] { "--auto", "--set-metadata",
+                MetadataStore.STORES_KEY, "--set-metadata-value",
+                newStoreXMLFile.getAbsolutePath(), "--url", bsURL });
 
         // check version
         for(VoldemortServer vs: vservers.values()) {
-            List<Versioned<byte[]>> result = vs.getStoreRepository().getLocalStore(sysStoreName).get(metadataKey, null);
+            List<Versioned<byte[]>> result = vs.getStoreRepository()
+                                               .getLocalStore(sysStoreName)
+                                               .get(metadataKey, null);
             String versionInfo = new String(result.get(0).getValue());
-            System.out.format("[FINAL]Version values on node [%d] is: \n %s\n", vs.getIdentityNode().getId(), versionInfo);
+            System.out.format("[FINAL]Version values on node [%d] is: \n %s\n",
+                              vs.getIdentityNode().getId(),
+                              versionInfo);
 
             Properties props = new Properties();
             props.load(new ByteArrayInputStream(versionInfo.getBytes()));
             for(StoreDefinition sd: oldStores) {
                 if(!(Long.parseLong(props.getProperty(sd.getName())) > 0)) {
-                    Assert.fail("Final version of key [" + sd.getName() + "] on node [" + vs.getIdentityNode().getId() + "] is expected to greater than 0 but not");
+                    Assert.fail("Final version of key [" + sd.getName() + "] on node ["
+                                + vs.getIdentityNode().getId()
+                                + "] is expected to greater than 0 but not");
                 }
             }
             if(!(Long.parseLong(props.getProperty("stores.xml")) > 0)) {
-                Assert.fail("Final version of key [stores.xml] on node [" + vs.getIdentityNode().getId() + "] is expected to greater than 0 but not");
+                Assert.fail("Final version of key [stores.xml] on node ["
+                            + vs.getIdentityNode().getId()
+                            + "] is expected to greater than 0 but not");
             }
         }
     }
@@ -164,18 +185,18 @@ public class SetMetadataTest {
     private StoreDefinitionBuilder storeDefToBuilder(StoreDefinition sd) {
         StoreDefinitionBuilder sb = new StoreDefinitionBuilder();
         sb.setName(sd.getName())
-                .setDescription(sd.getDescription())
-                .setType(sd.getType())
-                .setRoutingPolicy(sd.getRoutingPolicy())
-                .setRoutingStrategyType(sd.getRoutingStrategyType())
-                .setKeySerializer(sd.getKeySerializer())
-                .setValueSerializer(sd.getKeySerializer())
-                .setReplicationFactor(sd.getReplicationFactor())
-                .setZoneReplicationFactor(sd.getZoneReplicationFactor())
-                .setRequiredReads(sd.getRequiredReads())
-                .setRequiredWrites(sd.getRequiredWrites())
-                .setZoneCountReads(sd.getZoneCountReads())
-                .setZoneCountWrites(sd.getZoneCountWrites());
+          .setDescription(sd.getDescription())
+          .setType(sd.getType())
+          .setRoutingPolicy(sd.getRoutingPolicy())
+          .setRoutingStrategyType(sd.getRoutingStrategyType())
+          .setKeySerializer(sd.getKeySerializer())
+          .setValueSerializer(sd.getKeySerializer())
+          .setReplicationFactor(sd.getReplicationFactor())
+          .setZoneReplicationFactor(sd.getZoneReplicationFactor())
+          .setRequiredReads(sd.getRequiredReads())
+          .setRequiredWrites(sd.getRequiredWrites())
+          .setZoneCountReads(sd.getZoneCountReads())
+          .setZoneCountWrites(sd.getZoneCountWrites());
         return sb;
     }
 }
