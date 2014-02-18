@@ -76,34 +76,42 @@ public class Props implements Map<String, String> {
                 this.props.put((String) e.getKey(), (String) e.getValue());
     }
 
+    @Override
     public void clear() {
         props.clear();
     }
 
+    @Override
     public boolean containsKey(Object k) {
         return props.containsKey(k);
     }
 
+    @Override
     public boolean containsValue(Object value) {
         return props.containsValue(value);
     }
 
+    @Override
     public Set<Entry<String, String>> entrySet() {
         return props.entrySet();
     }
 
+    @Override
     public String get(Object key) {
         return props.get(key);
     }
 
+    @Override
     public boolean isEmpty() {
         return props.isEmpty();
     }
 
+    @Override
     public Set<String> keySet() {
         return props.keySet();
     }
 
+    @Override
     public String put(String key, String value) {
         return props.put(key, value);
     }
@@ -140,18 +148,22 @@ public class Props implements Map<String, String> {
         return this;
     }
 
+    @Override
     public void putAll(Map<? extends String, ? extends String> m) {
         props.putAll(m);
     }
 
+    @Override
     public String remove(Object s) {
         return props.remove(s);
     }
 
+    @Override
     public int size() {
         return props.size();
     }
 
+    @Override
     public Collection<String> values() {
         return props.values();
     }
