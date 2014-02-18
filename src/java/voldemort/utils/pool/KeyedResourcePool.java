@@ -281,10 +281,12 @@ public class KeyedResourcePool<K, V> {
      * @param key The key for the pool to reset.
      */
     public void reset(K key) {
-        Pool<V> resourcePool = getResourcePoolForExistingKey(key);
-        List<V> list = resourcePool.close();
-        for(V value: list)
-            destroyResource(key, resourcePool, value);
+        if(resourcePoolMap.containsKey(key)) {
+            Pool<V> resourcePool = getResourcePoolForExistingKey(key);
+            List<V> list = resourcePool.close();
+            for(V value: list)
+                destroyResource(key, resourcePool, value);
+        }
     }
 
     /**

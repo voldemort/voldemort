@@ -67,9 +67,19 @@ public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implem
                              + node.getId() + " (" + node.getHost() + ") : " + e.getMessage());
             }
         } else {
+            // Printing Call Stack causes EKG ticket to be opened. So only include the call stack for Debug level or Inner exceptions.
             if(logger.isEnabledFor(Level.WARN)) {
-                logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
-                            + node.getId() + " (" + node.getHost() + ")", e);
+                String errorMessage = "Error in " + pipeline.getOperation().getSimpleName() + " on node "
+                        + node.getId() + " (" + node.getHost() + ")";
+
+                if(logger.isEnabledFor(Level.DEBUG) || e.getCause() != null) {
+                    logger.warn(errorMessage, e);
+                }
+                else {
+                    errorMessage += " : ExceptionType " + e.getClass().getSimpleName();
+                    errorMessage += " : ExceptionMessage " + e.getMessage();
+                    logger.warn(errorMessage);
+                }
             }
         }
 
