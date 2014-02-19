@@ -36,12 +36,14 @@ import java.util.TreeSet;
 import junit.framework.AssertionFailedError;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.ClockEntry;
 import voldemort.versioning.VectorClock;
@@ -372,6 +374,29 @@ public class TestUtils {
         }
 
         return nodes;
+    }
+
+    public List<Pair<Zone, List<Node>>> createZonesWithNodes(final int zonesCount,
+                                                             final int nodesPerZone) {
+
+        final int[] zoneIds = randomInts(Integer.MAX_VALUE, zonesCount);
+        final int[] nodeIds = randomInts(Integer.MAX_VALUE, nodesPerZone);
+
+        final List<Pair<Zone, List<Node>>> zonesWithNodes = new ArrayList<Pair<Zone, List<Node>>>(zonesCount);
+
+        for(int i = 0, length = zoneIds.length; i < length; i++) {
+            Zone zone = new Zone(zoneIds[i], null);
+            List<Node> nodes = new ArrayList<Node>(nodesPerZone);
+
+            for(int j = 0; j < nodesPerZone; j++) {
+                Node node = new Node(nodeIds[j], "", 0, 0, 0, 0, null);
+                nodes.add(node);
+            }
+
+            zonesWithNodes.add(Pair.create(zone, nodes));
+        }
+
+        return zonesWithNodes;
     }
 
     public static int getMissingPartitionsSize(Cluster orig, Cluster updated) {
