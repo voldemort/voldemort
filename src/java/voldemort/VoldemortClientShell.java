@@ -290,8 +290,10 @@ public class VoldemortClientShell {
 
     private void processCommands(boolean printCommands) throws IOException {
         for(String line = commandReader.readLine(); line != null; line = commandReader.readLine()) {
-            if(line.trim().equals(""))
+            if(line.trim().equals("")) {
+                commandOutput.print(PROMPT);
                 continue;
+            }
             if(printCommands)
                 commandOutput.println(line);
             try {
