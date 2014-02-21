@@ -108,11 +108,11 @@ public class CoordinatorConfig {
         }
 
         if(props.containsKey(NETTY_SERVER_PORT)) {
-            setMetadataCheckIntervalInMs(props.getInt(NETTY_SERVER_PORT, this.nettyServerPort));
+            setServerPort(props.getInt(NETTY_SERVER_PORT, this.nettyServerPort));
         }
 
         if(props.containsKey(NETTY_SERVER_BACKLOG)) {
-            setMetadataCheckIntervalInMs(props.getInt(NETTY_SERVER_BACKLOG, this.nettyServerBacklog));
+            setNettyServerBacklog(props.getInt(NETTY_SERVER_BACKLOG, this.nettyServerBacklog));
         }
 
         if(props.containsKey(COORDINATOR_CORE_THREADS)) {
