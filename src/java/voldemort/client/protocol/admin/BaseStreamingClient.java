@@ -644,7 +644,7 @@ public class BaseStreamingClient {
      * every Commit batch size of entries, It is also called on the close
      * session call
      * 
-     * @param storeNameToCommit List of stores to be flushed and committed
+     * @param storeNamesToCommit List of stores to be flushed and committed
      * 
      */
     @SuppressWarnings({ "unchecked", "rawtypes", "unused" })
@@ -655,7 +655,7 @@ public class BaseStreamingClient {
         }
 
         boolean hasError = false;
-        if(nodesToStream == null) {
+        if(nodesToStream == null || nodesToStream.size() == 0) {
             if(logger.isDebugEnabled()) {
                 logger.debug("No nodes to stream to. Returning.");
             }
@@ -694,10 +694,15 @@ public class BaseStreamingClient {
 
         }
 
+        if(streamingresults == null) {
+            logger.warn("StreamingSession may not have been initialized since Variable streamingresults is null. Skipping callback ");
+            return;
+        }
+
         // remove redundant callbacks
         if(hasError) {
 
-            logger.warn("Invoking the Recovery Callback");
+            logger.info("Invoking the Recovery Callback");
             Future future = streamingresults.submit(recoveryCallback);
             try {
                 future.get();
@@ -778,7 +783,7 @@ public class BaseStreamingClient {
      * Helper method to Close all open socket connections and checkin back to
      * the pool
      * 
-     * @param storeNameToCleanUp List of stores to be cleanedup from the current
+     * @param storeNamesToCleanUp List of stores to be cleanedup from the current
      *        streaming session
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
