@@ -34,6 +34,7 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
         ExecutorService executor = Executors.newFixedThreadPool(nThreads);
         final TestStats testStats = new TestStats();
         final AtomicBoolean passed = new AtomicBoolean(true);
+        final AtomicInteger errVal = new AtomicInteger();
 
         for(int i = 0; i < nRequests; i++) {
             final K key = getRequestKey();
@@ -46,17 +47,12 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
                         V resource = pool.checkout(key);
                         resourceInHand.get(key).incrementAndGet();
 
-                        // assert that resourceInHand is less than equal to pool
-                        // Size
+                        // check that resourceInHand is less than equal to pool
+                        // size
                         if(resourceInHand.get(key).get() > config.getMaxPoolSize()) {
                             passed.set(false);
+                            errVal.set(resourceInHand.get(key).get());
                         }
-
-                        assertEquals("resources In Hand(" + resourceInHand.get(key).get()
-                                             + ") should be less than equal to pool size("
-                                             + config.getMaxPoolSize() + ")",
-                                     true,
-                                     resourceInHand.get(key).get() <= config.getMaxPoolSize());
 
                         // do something
                         doSomethingWithResource(key, resource);
@@ -78,7 +74,10 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
         executor.awaitTermination(5 * 60, TimeUnit.SECONDS);
 
         if(!passed.get()) {
-            fail();
+            String errMsg = String.format("resources In Hand(%d) should be less than equal to pool size(%d)",
+                                          errVal.get(),
+                                          config.getMaxPoolSize());
+            fail(errMsg);
         }
         return testStats;
     }
