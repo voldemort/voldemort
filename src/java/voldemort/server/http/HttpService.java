@@ -17,6 +17,7 @@
 package voldemort.server.http;
 
 import org.apache.log4j.Logger;
+import org.mortbay.jetty.AbstractConnector;
 import org.mortbay.jetty.Connector;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.nio.SelectChannelConnector;
@@ -81,9 +82,10 @@ public class HttpService extends AbstractService {
     @Override
     public void startInner() {
         try {
-            Connector connector = new SelectChannelConnector();
+            SelectChannelConnector connector = new SelectChannelConnector();
             connector.setLowResourceMaxIdleTime(3000);
             connector.setPort(this.port);
+            connector.setReuseAddress(true);
             QueuedThreadPool threadPool = new QueuedThreadPool();
             threadPool.setName("VoldemortHttp");
             threadPool.setMaxThreads(this.numberOfThreads);
@@ -116,8 +118,12 @@ public class HttpService extends AbstractService {
     @Override
     public void stopInner() {
         try {
-            if(httpServer != null)
+            if(httpServer != null) {
                 httpServer.stop();
+                for(Connector c: httpServer.getConnectors()) {
+                    c.close();
+                }
+            }
             if(context != null)
                 context.destroy();
         } catch(Exception e) {
