@@ -194,7 +194,7 @@ public class VoldemortClientShell {
 
     private Object parseObject(SerializerDefinition serializerDef,
                                String argStr,
-                               MutableInt parsePos) {
+                               MutableInt parsePos) throws IOException {
         Object obj = null;
         try {
             // TODO everything is read as json string now..
@@ -218,6 +218,7 @@ public class VoldemortClientShell {
                 } catch(IOException io) {
                     errorStream.println("Error parsing avro string " + avroString);
                     io.printStackTrace();
+                    throw io;
                 }
             } else {
                 // all json processing does some numeric type tightening
@@ -231,15 +232,15 @@ public class VoldemortClientShell {
         return obj;
     }
 
-    private Object parseKey(String argStr, MutableInt parsePos) {
+    private Object parseKey(String argStr, MutableInt parsePos) throws IOException {
         return parseObject(storeDef.getKeySerializer(), argStr, parsePos);
     }
 
-    private Object parseValue(String argStr, MutableInt parsePos) {
+    private Object parseValue(String argStr, MutableInt parsePos) throws IOException {
         return parseObject(storeDef.getValueSerializer(), argStr, parsePos);
     }
 
-    private void processPut(String putArgStr) {
+    private void processPut(String putArgStr) throws IOException {
         MutableInt parsePos = new MutableInt(0);
         Object key = parseKey(putArgStr, parsePos);
         putArgStr = putArgStr.substring(parsePos.intValue());
@@ -251,7 +252,7 @@ public class VoldemortClientShell {
      * 
      * @param getAllArgStr space separated list of key strings
      */
-    private void processGetAll(String getAllArgStr) {
+    private void processGetAll(String getAllArgStr) throws IOException {
         List<Object> keys = new ArrayList<Object>();
         MutableInt parsePos = new MutableInt(0);
 
@@ -276,13 +277,13 @@ public class VoldemortClientShell {
         }
     }
 
-    private void processGet(String getArgStr) {
+    private void processGet(String getArgStr) throws IOException {
         MutableInt parsePos = new MutableInt(0);
         Object key = parseKey(getArgStr, parsePos);
         printVersioned(client.get(key));
     }
 
-    private void processDelete(String deleteArgStr) {
+    private void processDelete(String deleteArgStr) throws IOException {
         MutableInt parsePos = new MutableInt(0);
         Object key = parseKey(deleteArgStr, parsePos);
         client.delete(key);
