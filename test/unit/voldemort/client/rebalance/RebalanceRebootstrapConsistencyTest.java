@@ -92,7 +92,6 @@ public class RebalanceRebootstrapConsistencyTest {
     private StoreDefinition rwStoreDefWithReplication2;
 
     protected static String testStoreNameRW = "test";
-    protected static String testStoreNameRW2 = "test2";
 
     private static final String CLUSTER_VERSION_KEY = "cluster.xml";
     int maxRetries = 0;
@@ -127,15 +126,20 @@ public class RebalanceRebootstrapConsistencyTest {
                                                                 .setRequiredWrites(1)
                                                                 .build();
 
-        rwStoreDefWithReplication2 = new StoreDefinitionBuilder().setName(testStoreNameRW2)
+        /*
+         * Bug fix: The old code was trying to rename a store during rebalance !
+         * God knows why Renaming it back to the original store name and
+         * changing other preferences (required reads = 2)
+         */
+        rwStoreDefWithReplication2 = new StoreDefinitionBuilder().setName(testStoreNameRW)
                                                                  .setType(BdbStorageConfiguration.TYPE_NAME)
                                                                  .setKeySerializer(new SerializerDefinition("string"))
                                                                  .setValueSerializer(new SerializerDefinition("string"))
                                                                  .setRoutingPolicy(RoutingTier.CLIENT)
                                                                  .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                                  .setReplicationFactor(2)
-                                                                 .setPreferredReads(1)
-                                                                 .setRequiredReads(1)
+                                                                 .setPreferredReads(2)
+                                                                 .setRequiredReads(2)
                                                                  .setPreferredWrites(1)
                                                                  .setRequiredWrites(1)
                                                                  .build();

@@ -1244,6 +1244,20 @@ public class AdminClient {
         }
 
         /**
+         * Wrapper for updateRemoteStoreDefList : update this for all the nodes
+         * <p>
+         * 
+         * @param storesList The new store list
+         * @throws VoldemortException
+         */
+        public void updateRemoteStoreDefList(List<StoreDefinition> storesList)
+                throws VoldemortException {
+            for(Node node: currentCluster.getNodes()) {
+                updateRemoteStoreDefList(node.getId(), storesList);
+            }
+        }
+
+        /**
          * Retrieve the store definitions from a remote node.
          * <p>
          * 

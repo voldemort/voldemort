@@ -340,9 +340,7 @@ public class AdminServiceBasicTest {
 
         // Update the definitions on all the nodes
         AdminClient adminClient = getAdminClient();
-        for(int nodeId: this.cluster.getNodeIds()) {
-            adminClient.metadataMgmtOps.updateRemoteStoreDefList(nodeId, storesToBeUpdatedList);
-        }
+        adminClient.metadataMgmtOps.updateRemoteStoreDefList(storesToBeUpdatedList);
 
         // Retrieve stores list and check that other definitions are unchanged
         String allStoresDefStr = bootstrapMetadata(MetadataStore.STORES_KEY);
@@ -569,14 +567,16 @@ public class AdminServiceBasicTest {
 
         // Retrieve list of read-only stores
         List<String> storeNames = Lists.newArrayList();
-        for (StoreDefinition storeDef: adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue()) {
-            if (storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+        for(StoreDefinition storeDef: adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
+                                                                 .getValue()) {
+            if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
                 storeNames.add(storeDef.getName());
             }
         }
 
-        Map<String, String> storeToStorageFormat = adminClient.readonlyOps.getROStorageFormat(0, storeNames);
-        for (String storeName: storeToStorageFormat.keySet()) {
+        Map<String, String> storeToStorageFormat = adminClient.readonlyOps.getROStorageFormat(0,
+                                                                                              storeNames);
+        for(String storeName: storeToStorageFormat.keySet()) {
             assertEquals(storeToStorageFormat.get(storeName), "ro2");
         }
 
@@ -1377,13 +1377,15 @@ public class AdminServiceBasicTest {
         // delete the store
         assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
                                                 .getValue()
-                                                .contains(definition), true);
+                                                .contains(definition),
+                     true);
         adminClient.storeMgmtOps.deleteStore("deleteTest");
         assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue().size(),
                      numStores - 1);
         assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
                                                 .getValue()
-                                                .contains(definition), false);
+                                                .contains(definition),
+                     false);
 
         // test with deleted store
         // (Turning off store client caching above will ensures the new client
@@ -1500,8 +1502,9 @@ public class AdminServiceBasicTest {
         store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             if(isKeyPartition(entry.getKey(), 0, testStoreName, deletePartitionsList)) {
-                assertEquals("deleted partitions should be missing.", 0, store.get(entry.getKey(),
-                                                                                   null).size());
+                assertEquals("deleted partitions should be missing.",
+                             0,
+                             store.get(entry.getKey(), null).size());
             }
         }
     }
@@ -2082,9 +2085,8 @@ public class AdminServiceBasicTest {
             assertNotNull("This key should exist in the results: " + key, entries.get(key));
             assertEquals("Two byte[] should be equal for key: " + key,
                          0,
-                         ByteUtils.compare(belongToAndInsideServer1.get(key), entries.get(key)
-                                                                                     .get(0)
-                                                                                     .getValue()));
+                         ByteUtils.compare(belongToAndInsideServer1.get(key),
+                                           entries.get(key).get(0).getValue()));
         }
 
         // test multiple keys, mixed situation
@@ -2306,8 +2308,9 @@ public class AdminServiceBasicTest {
             Store<ByteArray, byte[], byte[]> store = getStore(0, nextSlop.getStoreName());
 
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));

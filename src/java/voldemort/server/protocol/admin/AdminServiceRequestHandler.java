@@ -1255,7 +1255,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     logger.info("Updating metadata for keys '" + clusterKeyString + "'" + " and '"
                                 + storesKeyString + "'");
                     metadataStore.put(clusterKey, clusterVersionedValue, null);
-                    metadataStore.put(storesKey, storesVersionedValue, null);
+                    metadataStore.updateStoreDefinitions(storesVersionedValue);
                     logger.info("Successfully updated metadata for keys '" + clusterKeyString + "'"
                                 + " and '" + storesKeyString + "'");
                 } finally {
