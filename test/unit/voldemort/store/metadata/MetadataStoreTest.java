@@ -20,15 +20,19 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
+import org.apache.log4j.Logger;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
+import voldemort.VoldemortException;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.rebalance.RebalancerState;
@@ -44,6 +48,7 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.collect.Maps;
 
 public class MetadataStoreTest {
+    private Logger logger = Logger.getLogger(MetadataStore.class);
 
     private static int TEST_RUNS = 100;
 
@@ -209,6 +214,43 @@ public class MetadataStoreTest {
                      "",
                      new String(sourceClusterVersions.get(0).getValue()));
 
+    }
+
+    /**
+     * Test update stores.xml with incompatible avro versions. Should reject and throw exceptions
+     */
+    @Test
+    public void testUpdateStoresXmlWithIncompatibleAvroSchema() {
+        String storesXml = "<stores>\n" +
+        "  <store>\n" +
+        "    <name>test</name>\n" +
+        "    <persistence>bdb</persistence>\n" +
+        "    <description>Test store</description>\n" +
+        "    <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>\n" +
+        "    <routing-strategy>consistent-routing</routing-strategy>\n" +
+        "    <routing>client</routing>\n" +
+        "    <replication-factor>1</replication-factor>\n" +
+        "    <required-reads>1</required-reads>\n" +
+        "    <required-writes>1</required-writes>\n" +
+        "      <key-serializer>\n" +
+        "          <type>avro-generic-versioned</type>\n" +
+        "          <schema-info version=\"0\">\"int32\"</schema-info>\n" +
+        "      </key-serializer>\n" +
+        "      <value-serializer>\n" +
+        "          <type>avro-generic-versioned</type>\n" +
+        "          <schema-info version=\"0\">\"int\"</schema-info>\n" +
+        "          <schema-info version=\"1\">\"string\"</schema-info>\n" +
+        "      </value-serializer>\n" +
+        "    <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>\n" +
+        "  </store>\n" +
+        "</stores>";
+        try{
+            logger.info("Now inserting stores with non backward compatible schema. Should see exception");
+            metadataStore.put(MetadataStore.STORES_KEY, new StoreDefinitionsMapper().readStoreList(new StringReader(storesXml)));
+            Assert.fail("Did not throw exception");
+        } catch(VoldemortException e) {
+
+        }
     }
 
     private void checkValues(Versioned<byte[]> value, List<Versioned<byte[]>> list, ByteArray key) {

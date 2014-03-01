@@ -41,6 +41,8 @@ import voldemort.cluster.Cluster;
 import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.AbstractStorageEngine;
 import voldemort.store.Store;
@@ -177,6 +179,25 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
         try {
             if(METADATA_KEYS.contains(key)) {
+                // pre checking
+                if(STORES_KEY.equals(key)) {
+                    List<StoreDefinition> storeDefs = (List<StoreDefinition>) value.getValue();
+                    String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
+                    for(StoreDefinition storeDef: storeDefs) {
+                        SerializerDefinition keySerDef = storeDef.getKeySerializer();
+                        SerializerDefinition valueSerDef = storeDef.getValueSerializer();
+
+                        if(keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+                            SchemaEvolutionValidator.checkSchemaCompatibility(keySerDef);
+                        }
+
+                        if(valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+                            SchemaEvolutionValidator.checkSchemaCompatibility(valueSerDef);
+                        }
+                    }
+
+                }
+
 
                 // try inserting into inner store first
                 putInner(key, convertObjectToString(key, value));
