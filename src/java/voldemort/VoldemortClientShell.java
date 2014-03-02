@@ -44,8 +44,8 @@ import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.lang.mutable.MutableInt;
 
 import voldemort.client.ClientConfig;
-import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
+import voldemort.client.StoreClient;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -73,21 +73,29 @@ import com.google.common.collect.Lists;
  */
 public class VoldemortClientShell {
 
-    private static final String PROMPT = "> ";
+    protected static final String PROMPT = "> ";
 
-    private DefaultStoreClient<Object, Object> client;
+    protected StoreClient<Object, Object> client;
 
     private SocketStoreClientFactory factory;
 
     private StoreDefinition storeDef;
 
-    private final BufferedReader commandReader;
+    protected final BufferedReader commandReader;
 
-    private final PrintStream commandOutput;
+    protected final PrintStream commandOutput;
 
-    private final PrintStream errorStream;
+    protected final PrintStream errorStream;
 
     private AdminClient adminClient;
+
+    protected VoldemortClientShell(BufferedReader commandReader,
+                                   PrintStream commandOutput,
+                                   PrintStream errorStream) {
+        this.commandReader = commandReader;
+        this.commandOutput = commandOutput;
+        this.errorStream = errorStream;
+    }
 
     public VoldemortClientShell(ClientConfig clientConfig,
                                 String storeName,
@@ -103,7 +111,7 @@ public class VoldemortClientShell {
 
         try {
             factory = new SocketStoreClientFactory(clientConfig);
-            client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
+            client = factory.getStoreClient(storeName);
             adminClient = new AdminClient(bootstrapUrl, new AdminClientConfig(), new ClientConfig());
 
             storeDef = StoreUtils.getStoreDef(factory.getStoreDefs(), storeName);
@@ -116,7 +124,7 @@ public class VoldemortClientShell {
         }
     }
 
-    private void safeClose() {
+    protected void safeClose() {
         if(adminClient != null)
             adminClient.close();
         if(factory != null)
@@ -181,7 +189,7 @@ public class VoldemortClientShell {
         shell.process(fileInput);
     }
 
-    private boolean isAvroSchema(String serializerName) {
+    protected boolean isAvroSchema(String serializerName) {
         if(serializerName.equals(DefaultSerializerFactory.AVRO_GENERIC_VERSIONED_TYPE_NAME)
            || serializerName.equals(DefaultSerializerFactory.AVRO_GENERIC_TYPE_NAME)
            || serializerName.equals(DefaultSerializerFactory.AVRO_REFLECTIVE_TYPE_NAME)
@@ -192,9 +200,9 @@ public class VoldemortClientShell {
         }
     }
 
-    private Object parseObject(SerializerDefinition serializerDef,
-                               String argStr,
-                               MutableInt parsePos) throws IOException {
+    protected Object parseObject(SerializerDefinition serializerDef,
+                                 String argStr,
+                                 MutableInt parsePos) {
         Object obj = null;
         try {
             // TODO everything is read as json string now..
@@ -218,7 +226,6 @@ public class VoldemortClientShell {
                 } catch(IOException io) {
                     errorStream.println("Error parsing avro string " + avroString);
                     io.printStackTrace();
-                    throw io;
                 }
             } else {
                 // all json processing does some numeric type tightening
@@ -232,15 +239,15 @@ public class VoldemortClientShell {
         return obj;
     }
 
-    private Object parseKey(String argStr, MutableInt parsePos) throws IOException {
+    protected Object parseKey(String argStr, MutableInt parsePos) {
         return parseObject(storeDef.getKeySerializer(), argStr, parsePos);
     }
 
-    private Object parseValue(String argStr, MutableInt parsePos) throws IOException {
+    protected Object parseValue(String argStr, MutableInt parsePos) {
         return parseObject(storeDef.getValueSerializer(), argStr, parsePos);
     }
 
-    private void processPut(String putArgStr) throws IOException {
+    protected void processPut(String putArgStr) {
         MutableInt parsePos = new MutableInt(0);
         Object key = parseKey(putArgStr, parsePos);
         putArgStr = putArgStr.substring(parsePos.intValue());
@@ -252,7 +259,8 @@ public class VoldemortClientShell {
      * 
      * @param getAllArgStr space separated list of key strings
      */
-    private void processGetAll(String getAllArgStr) throws IOException {
+
+    protected void processGetAll(String getAllArgStr) {
         List<Object> keys = new ArrayList<Object>();
         MutableInt parsePos = new MutableInt(0);
 
@@ -277,19 +285,19 @@ public class VoldemortClientShell {
         }
     }
 
-    private void processGet(String getArgStr) throws IOException {
+    protected void processGet(String getArgStr) {
         MutableInt parsePos = new MutableInt(0);
         Object key = parseKey(getArgStr, parsePos);
         printVersioned(client.get(key));
     }
 
-    private void processDelete(String deleteArgStr) throws IOException {
+    protected void processDelete(String deleteArgStr) {
         MutableInt parsePos = new MutableInt(0);
         Object key = parseKey(deleteArgStr, parsePos);
         client.delete(key);
     }
 
-    private void processCommands(boolean printCommands) throws IOException {
+    protected void processCommands(boolean printCommands) throws IOException {
         for(String line = commandReader.readLine(); line != null; line = commandReader.readLine()) {
             if(line.trim().equals("")) {
                 commandOutput.print(PROMPT);
@@ -452,7 +460,7 @@ public class VoldemortClientShell {
         }
     }
 
-    private List<Integer> parseCsv(String csv) {
+    protected List<Integer> parseCsv(String csv) {
         return Lists.transform(Arrays.asList(csv.split(",")), new Function<String, Integer>() {
 
             public Integer apply(String input) {
@@ -477,7 +485,7 @@ public class VoldemortClientShell {
         }
     }
 
-    private void printVersioned(Versioned<Object> v) {
+    protected void printVersioned(Versioned<Object> v) {
         if(v == null) {
             commandOutput.println("null");
         } else {
@@ -489,7 +497,7 @@ public class VoldemortClientShell {
     }
 
     @SuppressWarnings("unchecked")
-    private void printObject(Object o) {
+    protected void printObject(Object o) {
         if(o == null) {
             commandOutput.print("null");
         } else if(o instanceof String) {
@@ -533,7 +541,7 @@ public class VoldemortClientShell {
      * schema coerce them to the proper
      */
     @SuppressWarnings("unchecked")
-    private static Object tightenNumericTypes(Object o) {
+    protected static Object tightenNumericTypes(Object o) {
         if(o == null) {
             return null;
         } else if(o instanceof List) {

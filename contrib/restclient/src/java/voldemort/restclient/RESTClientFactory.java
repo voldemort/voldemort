@@ -62,6 +62,9 @@ public class RESTClientFactory implements StoreClientFactory {
      */
     private List<R2Store> rawStoreList = null;
 
+    private HashMap<String, SerializerDefinition> keySerializerMap;
+    private HashMap<String, SerializerDefinition> valueSerializerMap;
+
     public RESTClientFactory(Config config) {
         this.config = new RESTClientConfig(config.getClientConfig());
         this.d2Client = config.getD2Client();
@@ -77,6 +80,8 @@ public class RESTClientFactory implements StoreClientFactory {
                        Integer.toString(this.config.getMaxR2ConnectionPoolSize()));
         transportClient = _clientFactory.getClient(properties);
         this.RESTClientFactoryStats = new StoreClientFactoryStats();
+        keySerializerMap = new HashMap<String, SerializerDefinition>();
+        valueSerializerMap = new HashMap<String, SerializerDefinition>();
     }
 
     /**
@@ -134,6 +139,11 @@ public class RESTClientFactory implements StoreClientFactory {
         String serializerInfoXml = r2store.getSerializerInfoXml();
         SerializerDefinition keySerializerDefinition = RestUtils.parseKeySerializerDefinition(serializerInfoXml);
         SerializerDefinition valueSerializerDefinition = RestUtils.parseValueSerializerDefinition(serializerInfoXml);
+
+        synchronized(this) {
+            keySerializerMap.put(storeName, keySerializerDefinition);
+            valueSerializerMap.put(storeName, valueSerializerDefinition);
+        }
 
         if(logger.isDebugEnabled()) {
             logger.debug("Bootstrapping for " + storeName + ": Key serializer "
@@ -197,6 +207,20 @@ public class RESTClientFactory implements StoreClientFactory {
 
     @Override
     public FailureDetector getFailureDetector() {
+        return null;
+    }
+
+    public SerializerDefinition getKeySerializer(String storeName) {
+        if(keySerializerMap.containsKey(storeName)) {
+            return keySerializerMap.get(storeName);
+        }
+        return null;
+    }
+
+    public SerializerDefinition getValueSerializer(String storeName) {
+        if(valueSerializerMap.containsKey(storeName)) {
+            return valueSerializerMap.get(storeName);
+        }
         return null;
     }
 
