@@ -62,16 +62,13 @@ public class VoldemortThinClientShell extends VoldemortClientShell {
 
     @Override
     protected void safeClose() {
-        if(restClientFactory != null)
+        if(restClientFactory != null) {
             restClientFactory.close();
+        }
     }
 
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
-        /*
-         * parser.accepts("client-zone-id", "client zone id for zone routing")
-         * .withRequiredArg() .describedAs("zone-id") .ofType(Integer.class);
-         */
         OptionSet options = parser.parse(args);
 
         List<String> nonOptions = options.nonOptionArguments();
