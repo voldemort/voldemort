@@ -258,6 +258,7 @@ public class KeyVersionFetcherCLI {
                 StringBuilder sb = new StringBuilder();
                 sb.append(ByteUtils.toHexString(key));
                 for(Versioned<byte[]> value: values) {
+                    // TODO : This needs to be fixed for RO stores
                     Version version = value.getVersion();
                     sb.append(" : ").append(version.toString());
                 }
