@@ -62,8 +62,7 @@ public class SystemStoreClientFactory<K, V> {
     }
 
     public SystemStoreClient<K, V> createSystemStore(String storeName) {
-        Store<K, V, Object> sysStore = this.socketStoreFactory.getSystemStore(storeName, null, null);
-        return new SystemStoreClient<K, V>(storeName, sysStore);
+        return createSystemStore(storeName, null, null);
     }
 
     public void close() {

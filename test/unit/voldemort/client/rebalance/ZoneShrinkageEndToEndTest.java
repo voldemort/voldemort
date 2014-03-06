@@ -124,7 +124,7 @@ public class ZoneShrinkageEndToEndTest {
             public String toString() {
                 StringBuilder builder = new StringBuilder();
                 for(Object key: this.keySet()) {
-                    builder.append(key.toString() + ": " + this.get(key) + "\n");
+                    builder.append(key.toString() + ": " + this.get(key) + "; ");
                 }
                 return builder.toString();
             }
@@ -266,7 +266,7 @@ public class ZoneShrinkageEndToEndTest {
     }
 
     @Test(timeout = 60000)
-    public void endToEndTestUpdateTogether() {
+    public void endToEndTestUpdateTogether() throws InterruptedException {
         List<DummyTestClient> clients = new ArrayList<DummyTestClient>();
         clients.add(new DummyTestClient("1st_CLIENT_211_STORE_ZONE_1", bootstrapURL, STORE211_NAME, 1));
         clients.add(new DummyTestClient("1st_CLIENT_211_STORE_ZONE_2", bootstrapURL, STORE211_NAME, 2));
@@ -341,10 +341,10 @@ public class ZoneShrinkageEndToEndTest {
             waitSlopDrain(vservers, 30000L);
         } catch (InterruptedException e) {
             e.printStackTrace();
-            Assert.fail(e.toString());
+            throw e;
         } catch (RuntimeException e) {
             e.printStackTrace();
-            Assert.fail(e.toString());
+            throw e;
         } finally {
             for (DummyTestClient client : clients) {
                 if(!client.stopped) {

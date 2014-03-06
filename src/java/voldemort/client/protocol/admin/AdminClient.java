@@ -157,6 +157,7 @@ public class AdminClient {
     private SystemStoreClient<String, String> metadataVersionSysStoreClient = null;
     private SystemStoreClient<String, String> quotaSysStoreClient = null;
     private SystemStoreClientFactory<String, String> systemStoreFactory = null;
+    private String mainBootstrapUrl = null;
 
     final public AdminClient.HelperOperations helperOps;
     final public AdminClient.ReplicationOperations replicaOps;
@@ -203,6 +204,12 @@ public class AdminClient {
         this.adminClientConfig = adminClientConfig;
         this.socketPool = helperOps.createSocketPool(adminClientConfig);
         this.adminStoreClient = new AdminStoreClient(clientConfig);
+        try {
+            if(clientConfig.getBootstrapUrls().length > 0) {
+                this.mainBootstrapUrl = clientConfig.getBootstrapUrls()[0];
+            }
+        }
+        catch(IllegalStateException e) {}
     }
 
     /**
@@ -223,8 +230,9 @@ public class AdminClient {
                        AdminClientConfig adminClientConfig,
                        ClientConfig clientConfig) {
         this(adminClientConfig, clientConfig);
+        this.mainBootstrapUrl = bootstrapURL;
         this.currentCluster = helperOps.getClusterFromBootstrapURL(bootstrapURL);
-        helperOps.initSystemStoreClient(bootstrapURL, Zone.UNSET_ZONE_ID);
+        helperOps.initSystemStoreClient(this.mainBootstrapUrl, Zone.UNSET_ZONE_ID);
     }
 
     /**
@@ -245,10 +253,9 @@ public class AdminClient {
                        AdminClientConfig adminClientConfig,
                        ClientConfig clientConfig) {
         this(adminClientConfig, clientConfig);
+        this.mainBootstrapUrl = cluster.getNodes().iterator().next().getSocketUrl().toString();
         this.currentCluster = cluster;
-        Node node = cluster.getNodeById(cluster.getNodeIds().iterator().next());
-        String bootstrapURL = "tcp://" + node.getHost() + ":" + node.getSocketPort();
-        helperOps.initSystemStoreClient(bootstrapURL, Zone.UNSET_ZONE_ID);
+        helperOps.initSystemStoreClient(mainBootstrapUrl, Zone.UNSET_ZONE_ID);
     }
 
     /**
@@ -353,9 +360,10 @@ public class AdminClient {
                     clientConfig.setClientZoneId(zoneId);
                     systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
                 }
-
-                metadataVersionSysStoreClient = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
-                quotaSysStoreClient = systemStoreFactory.createSystemStore(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name());
+                String metadataVersionStoreName = SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name();
+                String quotaStoreName = SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name();
+                metadataVersionSysStoreClient = systemStoreFactory.createSystemStore(metadataVersionStoreName, null, null);
+                quotaSysStoreClient = systemStoreFactory.createSystemStore(quotaStoreName, null, null);
             } catch(Exception e) {
                 logger.debug("Error while creating a system store client for metadata version store/quota store.");
             }
@@ -979,19 +987,19 @@ public class AdminClient {
         public void updateRemoteMetadata(List<Integer> remoteNodeIds,
                                          String key,
                                          Versioned<String> value) {
+
+            /*
+             * Assume everything will be fine, increment the metadata version for the key
+             * Would not harm even if the operation fails
+             */
+            if(key.equals(CLUSTER_VERSION_KEY) || key.equals(STORES_VERSION_KEY)) {
+                metadataMgmtOps.updateMetadataversion(key);
+            }
             for(Integer currentNodeId: remoteNodeIds) {
                 logger.info("Setting " + key + " for "
                             + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
                             + getAdminClientCluster().getNodeById(currentNodeId).getId());
                 updateRemoteMetadata(currentNodeId, key, value);
-            }
-
-            /*
-             * Assuming everything is fine, we now increment the metadata
-             * version for the key
-             */
-            if(key.equals(CLUSTER_VERSION_KEY) || key.equals(STORES_VERSION_KEY)) {
-                metadataMgmtOps.updateMetadataversion(key);
             }
         }
 
@@ -1054,19 +1062,10 @@ public class AdminClient {
                                              Versioned<String> clusterValue,
                                              String storesKey,
                                              Versioned<String> storesValue) {
-            for(Integer currentNodeId: remoteNodeIds) {
-                logger.info("Setting " + clusterKey + " and " + storesKey + " for "
-                            + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
-                            + getAdminClientCluster().getNodeById(currentNodeId).getId());
-                updateRemoteMetadataPair(currentNodeId,
-                                         clusterKey,
-                                         clusterValue,
-                                         storesKey,
-                                         storesValue);
-            }
+
             /*
-             * Assuming everything is fine, we now increment the metadata
-             * version for the cluster and the stores
+             * We first increment the metadata version for the cluster and the stores
+             * which does not harm even if the operation fail
              */
             if(clusterKey.equals(CLUSTER_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(clusterKey);
@@ -1085,6 +1084,16 @@ public class AdminClient {
                         System.err.println("Error while updating metadata version for the specified store.");
                     }
                 }
+            }
+            for(Integer currentNodeId: remoteNodeIds) {
+                logger.info("Setting " + clusterKey + " and " + storesKey + " for "
+                        + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
+                        + getAdminClientCluster().getNodeById(currentNodeId).getId());
+                updateRemoteMetadataPair(currentNodeId,
+                        clusterKey,
+                        clusterValue,
+                        storesKey,
+                        storesValue);
             }
         }
 
@@ -2764,7 +2773,7 @@ public class AdminClient {
          * 
          * @param nodeId Stealer node id
          * @param cluster Cluster information which we need to update
-         * @param rebalancePartitionPlanList The list of rebalance partition
+         * @param rebalanceTaskPlanList The list of rebalance partition
          *        info plans
          * @param swapRO Boolean indicating if we need to swap RO stores
          * @param changeClusterMetadata Boolean indicating if we need to change
