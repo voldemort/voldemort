@@ -142,6 +142,12 @@ public class SetMetadataTest {
                 MetadataStore.STORES_KEY, "--set-metadata-value",
                 newStoreXMLFile.getAbsolutePath(), "--url", bsURL });
 
+        // Sleep for 10 seconds in order to let the versions to be propagated
+        // properly
+        try {
+            Thread.sleep(10000);
+        } catch(Exception e) {}
+
         // check version
         for(VoldemortServer vs: vservers.values()) {
             List<Versioned<byte[]>> result = vs.getStoreRepository()
