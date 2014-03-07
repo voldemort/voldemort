@@ -61,8 +61,8 @@ public class CachingStoreClientFactoryTest {
             assertNotNull(cachingFactory.getStoreClient("foo", resolver));
         }
 
-        verify(spyFactory, times(1)).getStoreClient("foo");
-        verify(spyFactory, times(2)).getStoreClient("foo", resolver);
+        verify(spyFactory, times(1)).getStoreClient("foo", resolver);
+        verify(spyFactory, times(1)).getStoreClient("foo", null);
     }
 
     @Test
@@ -75,11 +75,11 @@ public class CachingStoreClientFactoryTest {
         StoreClientFactory mocked = mock(StoreClientFactory.class);
 
         if(useLazy) {
-            when(mocked.<Object, Object>getStoreClient("test1")).thenReturn(createLazyStoreClient(aStoreClient));
-            when(mocked.<Object, Object>getStoreClient("test2")).thenReturn(createLazyStoreClient(bStoreClient));
+            when(mocked.<Object, Object>getStoreClient("test1", null)).thenReturn(createLazyStoreClient(aStoreClient));
+            when(mocked.<Object, Object>getStoreClient("test2", null)).thenReturn(createLazyStoreClient(bStoreClient));
         } else {
-            when(mocked.<Object, Object>getStoreClient("test1")).thenReturn(aStoreClient);
-            when(mocked.<Object, Object>getStoreClient("test2")).thenReturn(bStoreClient);
+            when(mocked.<Object, Object>getStoreClient("test1", null)).thenReturn(aStoreClient);
+            when(mocked.<Object, Object>getStoreClient("test2", null)).thenReturn(bStoreClient);
         }
 
         CachingStoreClientFactory cachingFactory = new CachingStoreClientFactory(mocked);
