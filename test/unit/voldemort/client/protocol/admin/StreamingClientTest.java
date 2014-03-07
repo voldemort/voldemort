@@ -192,6 +192,11 @@ public class StreamingClientTest {
     @After
     public void testCleanup() {
         // Teardown for data used by the unit tests
+        if(servers != null) {
+            for(VoldemortServer server: servers) {
+                server.stop();
+            }
+        }
     }
 
     @Test
