@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package voldemort.utils;
+package voldemort.tools;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -47,6 +47,10 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
+import voldemort.utils.EventThrottler;
+import voldemort.utils.Utils;
 
 /**
  * The KeySamplerCLI tool samples keys for every partition for every store on a

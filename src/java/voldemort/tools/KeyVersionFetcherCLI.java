@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package voldemort.utils;
+package voldemort.tools;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -51,6 +51,9 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ByteUtils;
+import voldemort.utils.Utils;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
