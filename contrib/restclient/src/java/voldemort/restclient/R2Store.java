@@ -507,15 +507,16 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
 
         try {
             Iterator<ByteArray> it = keys.iterator();
-            String keyArgs = null;
+            StringBuilder keyArgs = null;
 
             while(it.hasNext()) {
                 ByteArray key = it.next();
                 String base64Key = RestUtils.encodeVoldemortKey(key.get());
                 if(keyArgs == null) {
-                    keyArgs = base64Key;
+                    keyArgs = new StringBuilder();
+                    keyArgs.append(base64Key);
                 } else {
-                    keyArgs += "," + base64Key;
+                    keyArgs.append("," + base64Key);
                 }
                 numberOfKeys++;
             }
@@ -534,49 +535,50 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 }
                 resultList = this.get(key, singleKeyTransforms);
                 resultMap.put(key, resultList);
-                return resultMap;
-            }
+            } else {
 
-            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.restBootstrapURL + "/"
-                                                                   + getName() + "/" + keyArgs));
+                RestRequestBuilder rb = new RestRequestBuilder(new URI(this.restBootstrapURL + "/"
+                                                                       + getName() + "/"
+                                                                       + keyArgs.toString()));
 
-            rb.setMethod(GET);
-            rb.setHeader("Accept", MULTIPART_CONTENT_TYPE);
-            String timeoutStr = Long.toString(this.config.getTimeoutConfig()
-                                                         .getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE));
-            rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-            rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
-                         String.valueOf(System.currentTimeMillis()));
-            if(this.routingTypeCode != null) {
-                rb.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
-            }
-            if(this.zoneId != INVALID_ZONE_ID) {
-                rb.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID, String.valueOf(this.zoneId));
-            }
-
-            RestRequest request = rb.build();
-            Future<RestResponse> f = client.restRequest(request);
-
-            // This will block
-            RestResponse response = f.get();
-
-            // Parse the response
-            final ByteString entity = response.getEntity();
-
-            String contentType = response.getHeader(CONTENT_TYPE);
-            if(entity != null) {
-                if(contentType.equalsIgnoreCase(MULTIPART_CONTENT_TYPE)) {
-
-                    resultMap = parseGetAllResults(entity);
-                } else {
-                    if(logger.isDebugEnabled()) {
-                        logger.debug("Did not receive a multipart response");
-                    }
+                rb.setMethod(GET);
+                rb.setHeader("Accept", MULTIPART_CONTENT_TYPE);
+                String timeoutStr = Long.toString(this.config.getTimeoutConfig()
+                                                             .getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE));
+                rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
+                rb.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
+                             String.valueOf(System.currentTimeMillis()));
+                if(this.routingTypeCode != null) {
+                    rb.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE, this.routingTypeCode);
+                }
+                if(this.zoneId != INVALID_ZONE_ID) {
+                    rb.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID, String.valueOf(this.zoneId));
                 }
 
-            } else {
-                if(logger.isDebugEnabled()) {
-                    logger.debug("Did not get any response!");
+                RestRequest request = rb.build();
+                Future<RestResponse> f = client.restRequest(request);
+
+                // This will block
+                RestResponse response = f.get();
+
+                // Parse the response
+                final ByteString entity = response.getEntity();
+
+                String contentType = response.getHeader(CONTENT_TYPE);
+                if(entity != null) {
+                    if(contentType.equalsIgnoreCase(MULTIPART_CONTENT_TYPE)) {
+
+                        resultMap = parseGetAllResults(entity);
+                    } else {
+                        if(logger.isDebugEnabled()) {
+                            logger.debug("Did not receive a multipart response");
+                        }
+                    }
+
+                } else {
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Did not get any response!");
+                    }
                 }
             }
         } catch(ExecutionException e) {
