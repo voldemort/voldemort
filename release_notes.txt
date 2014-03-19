@@ -1,3 +1,11 @@
+Release 1.6.9 on 03/19/2014
+
+* Fix a big where StreamingClient will throw NPE if not initialized
+* Fix multiple broken tests
+* Modified RO Rebalance Test to cover one more case 
+* Adding thin client shell for Voldemort Coordinator
+* Move to tusk-0.0.2
+
 Release 1.6.8 on 02/21/2014
 
 * Add a tool to dump BDB data to Text and the reverse
