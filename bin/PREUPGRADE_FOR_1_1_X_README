@@ -62,6 +62,15 @@ performance
 IMPORTANT: IT IS REQUIRED TO CONVERT TO EITHER 'NewDup' or 'PidScan' TO RUN 
 VOLDEMORT WITH BDB, STARTING RELEASE 1.1.x
 
+4) BDB 5 Support
+------------------------------------
+From versions 1.6.0+, Voldemort has moved to BDB JE 5, offering superior
+compaction and generally faster online operations. 
+
+If you are upgrading from a version prior to 1.1.x to 1.6.0+, then you 
+also need to include a step to preupgrade from BDB 4 to BDB 5 before
+running the conversion utility below. (See BDB JE documentation for details)
+
 Running the Conversion Utility
 ------------------------------
 The tool provides the ability to convert one database from a source environment
