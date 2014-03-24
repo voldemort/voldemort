@@ -16,14 +16,13 @@
 
 package voldemort.utils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import voldemort.VoldemortException;
 import voldemort.routing.RoutingStrategyType;
+import voldemort.serialization.DefaultSerializerFactory;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -162,6 +161,33 @@ public class StoreDefinitionUtils {
         }
 
         return uniqueStoreDefs;
+    }
+
+    /**
+     * Validate store schema backward compatibility if it is AVRO generic versioned
+     * @param storeDefinition the store definition to check on
+     */
+    public static void validateSchemaBackwardCompatibilityIfNeeded(StoreDefinition storeDefinition) {
+        String AVRO_GENERIC_VERSIONED_TYPE_NAME = DefaultSerializerFactory.AVRO_GENERIC_VERSIONED_TYPE_NAME;
+        SerializerDefinition keySerDef = storeDefinition.getKeySerializer();
+        SerializerDefinition valueSerDef = storeDefinition.getValueSerializer();
+        if(keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+            SchemaEvolutionValidator.checkSchemaCompatibility(keySerDef);
+        }
+        if(valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+            SchemaEvolutionValidator.checkSchemaCompatibility(valueSerDef);
+        }
+    }
+
+
+    /**
+     * Validate store schema backward compatibility if it is AVRO generic versioned
+     * @param storeDefinitions the list of store definition to check on
+     */
+    public static void validateSchemaBackwardCompatibilityIfNeeded(Collection<StoreDefinition> storeDefinitions) {
+        for(StoreDefinition storeDefinition: storeDefinitions) {
+            validateSchemaBackwardCompatibilityIfNeeded(storeDefinition);
+        }
     }
 
     public static StoreDefinitionBuilder getBuilderForStoreDef(StoreDefinition storeDef) {

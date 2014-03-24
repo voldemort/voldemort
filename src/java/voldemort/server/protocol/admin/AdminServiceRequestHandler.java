@@ -43,6 +43,9 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.common.nio.ByteBufferBackedInputStream;
 import voldemort.routing.StoreRoutingPlan;
+import voldemort.serialization.DefaultSerializerFactory;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
@@ -1416,7 +1419,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                     logger.info("Adding new store '" + def.getName() + "'");
                     // open the store
-                    storageService.openStore(def);
+                    StorageEngine<ByteArray, byte[], byte[]> engine = storageService.openStore(def);
 
                     // update stores list in metadata store (this also has the
                     // effect of updating the stores.xml file)
@@ -1434,6 +1437,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     try {
                         metadataStore.put(MetadataStore.STORES_KEY, currentStoreDefs);
                     } catch(Exception e) {
+                        // rollback open store operation
+                        boolean isReadOnly = ReadOnlyStorageConfiguration.TYPE_NAME.equals(def.getType());
+                        storageService.removeEngine(engine, isReadOnly, def.getType(), true);
                         throw new VoldemortException(e);
                     }
                     logger.info("Successfully added new store '" + def.getName() + "'");

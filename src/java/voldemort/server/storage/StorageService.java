@@ -101,18 +101,7 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.store.views.ViewStorageEngine;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ClosableIterator;
-import voldemort.utils.ConfigurationException;
-import voldemort.utils.DaemonThreadFactory;
-import voldemort.utils.DynamicThrottleLimit;
-import voldemort.utils.EventThrottler;
-import voldemort.utils.JmxUtils;
-import voldemort.utils.Pair;
-import voldemort.utils.ReflectUtils;
-import voldemort.utils.SystemTime;
-import voldemort.utils.Time;
-import voldemort.utils.Utils;
+import voldemort.utils.*;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -395,24 +384,7 @@ public class StorageService extends AbstractService {
         logger.info("Initializing stores:");
 
         logger.info("Validating schemas:");
-        String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
-
-        for(StoreDefinition storeDef: storeDefs) {
-            SerializerDefinition keySerDef = storeDef.getKeySerializer();
-            SerializerDefinition valueSerDef = storeDef.getValueSerializer();
-
-            if(keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
-
-                SchemaEvolutionValidator.checkSchemaCompatibility(keySerDef);
-
-            }
-
-            if(valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
-
-                SchemaEvolutionValidator.checkSchemaCompatibility(valueSerDef);
-
-            }
-        }
+        StoreDefinitionUtils.validateSchemaBackwardCompatibilityIfNeeded(storeDefs);
         // first initialize non-view stores
         for(StoreDefinition def: storeDefs)
             if(!def.isView())
@@ -636,7 +608,7 @@ public class StorageService extends AbstractService {
         config.update(storeDef);
     }
 
-    public void openStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> openStore(StoreDefinition storeDef) {
 
         logger.info("Opening store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
 
@@ -679,6 +651,7 @@ public class StorageService extends AbstractService {
             removeEngine(engine, isReadOnly, storeDef.getType(), false);
             throw new VoldemortException(e);
         }
+        return engine;
     }
 
     /**

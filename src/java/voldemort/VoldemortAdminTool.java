@@ -501,7 +501,7 @@ public class VoldemortAdminTool {
                         if(!Utils.isReadableFile(storesXMLPath))
                             throw new VoldemortException("Stores definition xml file path incorrect");
                         List<StoreDefinition> newStoreDefs = storeDefsMapper.readStoreList(new File(storesXMLPath));
-                        checkSchemaCompatibility(newStoreDefs);
+                        StoreDefinitionUtils.validateSchemaBackwardCompatibilityIfNeeded(newStoreDefs);
 
                         executeSetMetadataPair(nodeId,
                                                adminClient,
@@ -557,7 +557,7 @@ public class VoldemortAdminTool {
                             throw new VoldemortException("Stores definition xml file path incorrect");
                         StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
                         List<StoreDefinition> newStoreDefs = mapper.readStoreList(new File(metadataValue));
-                        checkSchemaCompatibility(newStoreDefs);
+                        StoreDefinitionUtils.validateSchemaBackwardCompatibilityIfNeeded(newStoreDefs);
 
                         // original metadata
                         Integer nodeIdToGetStoreXMLFrom = nodeId;
@@ -748,20 +748,6 @@ public class VoldemortAdminTool {
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
-        }
-    }
-
-    private static void checkSchemaCompatibility(List<StoreDefinition> storeDefs) {
-        String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
-        for(StoreDefinition storeDef: storeDefs) {
-            SerializerDefinition keySerDef = storeDef.getKeySerializer();
-            SerializerDefinition valueSerDef = storeDef.getValueSerializer();
-            if(keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
-                SchemaEvolutionValidator.checkSchemaCompatibility(keySerDef);
-            }
-            if(valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
-                SchemaEvolutionValidator.checkSchemaCompatibility(valueSerDef);
-            }
         }
     }
 

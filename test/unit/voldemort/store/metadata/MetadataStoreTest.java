@@ -37,6 +37,7 @@ import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.tools.admin.AddStoreTest;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.ObsoleteVersionException;
@@ -49,6 +50,10 @@ import com.google.common.collect.Maps;
 
 public class MetadataStoreTest {
     private Logger logger = Logger.getLogger(MetadataStore.class);
+
+    public static String storesXmlWithBackwardIncompatibleSchema = "<stores>\n" + AddStoreTest.storeXmlWithBackwardIncompatibleSchema + "</stores>";
+
+    public static String storesXmlWithBackwardCompatibleSchema = "<stores>\n" + AddStoreTest.storeXmlWithBackwardCompatibleSchema + "</stores>";
 
     private static int TEST_RUNS = 100;
 
@@ -221,36 +226,15 @@ public class MetadataStoreTest {
      */
     @Test
     public void testUpdateStoresXmlWithIncompatibleAvroSchema() {
-        String storesXml = "<stores>\n" +
-        "  <store>\n" +
-        "    <name>test</name>\n" +
-        "    <persistence>bdb</persistence>\n" +
-        "    <description>Test store</description>\n" +
-        "    <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>\n" +
-        "    <routing-strategy>consistent-routing</routing-strategy>\n" +
-        "    <routing>client</routing>\n" +
-        "    <replication-factor>1</replication-factor>\n" +
-        "    <required-reads>1</required-reads>\n" +
-        "    <required-writes>1</required-writes>\n" +
-        "      <key-serializer>\n" +
-        "          <type>avro-generic-versioned</type>\n" +
-        "          <schema-info version=\"0\">\"int32\"</schema-info>\n" +
-        "      </key-serializer>\n" +
-        "      <value-serializer>\n" +
-        "          <type>avro-generic-versioned</type>\n" +
-        "          <schema-info version=\"0\">\"int\"</schema-info>\n" +
-        "          <schema-info version=\"1\">\"string\"</schema-info>\n" +
-        "      </value-serializer>\n" +
-        "    <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>\n" +
-        "  </store>\n" +
-        "</stores>";
         try{
             logger.info("Now inserting stores with non backward compatible schema. Should see exception");
-            metadataStore.put(MetadataStore.STORES_KEY, new StoreDefinitionsMapper().readStoreList(new StringReader(storesXml)));
+            metadataStore.put(MetadataStore.STORES_KEY, new StoreDefinitionsMapper().readStoreList(new StringReader(storesXmlWithBackwardIncompatibleSchema)));
             Assert.fail("Did not throw exception");
         } catch(VoldemortException e) {
 
         }
+        logger.info("Now inserting stores with backward compatible schema. Should not see exception");
+        metadataStore.put(MetadataStore.STORES_KEY, new StoreDefinitionsMapper().readStoreList(new StringReader(storesXmlWithBackwardCompatibleSchema)));
     }
 
     private void checkValues(Versioned<byte[]> value, List<Versioned<byte[]>> list, ByteArray key) {
@@ -266,7 +250,7 @@ public class MetadataStoreTest {
 
     /**
      * helper function to auto update version and put()
-     * 
+     *
      * @param key
      * @param value
      */

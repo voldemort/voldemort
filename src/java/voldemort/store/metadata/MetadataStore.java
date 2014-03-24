@@ -51,11 +51,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.system.SystemStoreConstants;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
-import voldemort.utils.ClosableIterator;
-import voldemort.utils.Pair;
-import voldemort.utils.Utils;
+import voldemort.utils.*;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -182,22 +178,8 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 // pre checking
                 if(STORES_KEY.equals(key)) {
                     List<StoreDefinition> storeDefs = (List<StoreDefinition>) value.getValue();
-                    String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
-                    for(StoreDefinition storeDef: storeDefs) {
-                        SerializerDefinition keySerDef = storeDef.getKeySerializer();
-                        SerializerDefinition valueSerDef = storeDef.getValueSerializer();
-
-                        if(keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
-                            SchemaEvolutionValidator.checkSchemaCompatibility(keySerDef);
-                        }
-
-                        if(valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
-                            SchemaEvolutionValidator.checkSchemaCompatibility(valueSerDef);
-                        }
-                    }
-
+                    StoreDefinitionUtils.validateSchemaBackwardCompatibilityIfNeeded(storeDefs);
                 }
-
 
                 // try inserting into inner store first
                 putInner(key, convertObjectToString(key, value));
