@@ -41,7 +41,7 @@ public abstract class AbstractBdbConversion {
         EnvironmentConfig envConfig = new EnvironmentConfig();
         envConfig.setTransactional(true);
         envConfig.setAllowCreate(false);
-        envConfig.setReadOnly(true);
+        envConfig.setReadOnly(false);
         envConfig.setCacheSize(1024 * 1024 * 1024);
 
         DatabaseConfig dbConfig = new DatabaseConfig();
