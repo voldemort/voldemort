@@ -384,7 +384,7 @@ public class StorageService extends AbstractService {
         logger.info("Initializing stores:");
 
         logger.info("Validating schemas:");
-        StoreDefinitionUtils.validateSchemaBackwardCompatibilityIfNeeded(storeDefs);
+        StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
         // first initialize non-view stores
         for(StoreDefinition def: storeDefs)
             if(!def.isView())

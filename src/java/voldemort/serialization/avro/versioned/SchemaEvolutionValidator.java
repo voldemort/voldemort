@@ -817,6 +817,29 @@ public class SchemaEvolutionValidator {
         return expectedVal;
     }
 
+    /**
+     * Given an AVRO serializer definition, validates if all the avro schemas
+     * are valid i.e parseable.
+     * 
+     * @param avroSerDef
+     */
+    public static void validateAllAvroSchemas(SerializerDefinition avroSerDef) {
+        Map<Integer, String> schemaVersions = avroSerDef.getAllSchemaInfoVersions();
+        if(schemaVersions.size() < 1) {
+            throw new VoldemortException("No schema specified");
+        }
+        for(Integer schemaVersionNumber: schemaVersions.keySet()) {
+            String schemaStr = schemaVersions.get(schemaVersionNumber);
+            try {
+                Schema.parse(schemaStr);
+            } catch(Exception e) {
+                throw new VoldemortException("Unable to parse Avro schema version :"
+                                             + schemaVersionNumber + ", schema string :"
+                                             + schemaStr);
+            }
+        }
+    }
+
     public static void checkSchemaCompatibility(SerializerDefinition serDef) {
 
         Map<Integer, String> schemaVersions = serDef.getAllSchemaInfoVersions();

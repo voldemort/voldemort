@@ -37,7 +37,7 @@ import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.tools.admin.AddStoreTest;
+import voldemort.tools.admin.AvroAddStoreTest;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.ObsoleteVersionException;
@@ -51,9 +51,9 @@ import com.google.common.collect.Maps;
 public class MetadataStoreTest {
     private Logger logger = Logger.getLogger(MetadataStore.class);
 
-    public static String storesXmlWithBackwardIncompatibleSchema = "<stores>\n" + AddStoreTest.storeXmlWithBackwardIncompatibleSchema + "</stores>";
+    public static String storesXmlWithBackwardIncompatibleSchema = "<stores>\n" + AvroAddStoreTest.storeXmlWithBackwardIncompatibleSchema + "</stores>";
 
-    public static String storesXmlWithBackwardCompatibleSchema = "<stores>\n" + AddStoreTest.storeXmlWithBackwardCompatibleSchema + "</stores>";
+    public static String storesXmlWithBackwardCompatibleSchema = "<stores>\n" + AvroAddStoreTest.storeXmlWithBackwardCompatibleSchema + "</stores>";
 
     private static int TEST_RUNS = 100;
 

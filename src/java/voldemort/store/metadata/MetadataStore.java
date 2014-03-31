@@ -178,7 +178,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 // pre checking
                 if(STORES_KEY.equals(key)) {
                     List<StoreDefinition> storeDefs = (List<StoreDefinition>) value.getValue();
-                    StoreDefinitionUtils.validateSchemaBackwardCompatibilityIfNeeded(storeDefs);
+                    StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
                 }
 
                 // try inserting into inner store first

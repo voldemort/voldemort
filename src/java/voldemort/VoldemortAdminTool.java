@@ -501,7 +501,7 @@ public class VoldemortAdminTool {
                         if(!Utils.isReadableFile(storesXMLPath))
                             throw new VoldemortException("Stores definition xml file path incorrect");
                         List<StoreDefinition> newStoreDefs = storeDefsMapper.readStoreList(new File(storesXMLPath));
-                        StoreDefinitionUtils.validateSchemaBackwardCompatibilityIfNeeded(newStoreDefs);
+                        StoreDefinitionUtils.validateSchemasAsNeeded(newStoreDefs);
 
                         executeSetMetadataPair(nodeId,
                                                adminClient,
@@ -557,7 +557,7 @@ public class VoldemortAdminTool {
                             throw new VoldemortException("Stores definition xml file path incorrect");
                         StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
                         List<StoreDefinition> newStoreDefs = mapper.readStoreList(new File(metadataValue));
-                        StoreDefinitionUtils.validateSchemaBackwardCompatibilityIfNeeded(newStoreDefs);
+                        StoreDefinitionUtils.validateSchemasAsNeeded(newStoreDefs);
 
                         // original metadata
                         Integer nodeIdToGetStoreXMLFrom = nodeId;

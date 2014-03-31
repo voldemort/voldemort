@@ -16,11 +16,20 @@
 
 package voldemort.utils;
 
-import java.util.*;
+import static voldemort.serialization.DefaultSerializerFactory.AVRO_GENERIC_TYPE_NAME;
+import static voldemort.serialization.DefaultSerializerFactory.AVRO_GENERIC_VERSIONED_TYPE_NAME;
+import static voldemort.serialization.DefaultSerializerFactory.AVRO_REFLECTIVE_TYPE_NAME;
+import static voldemort.serialization.DefaultSerializerFactory.AVRO_SPECIFIC_TYPE_NAME;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import voldemort.VoldemortException;
 import voldemort.routing.RoutingStrategyType;
-import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.store.StoreDefinition;
@@ -164,29 +173,74 @@ public class StoreDefinitionUtils {
     }
 
     /**
-     * Validate store schema backward compatibility if it is AVRO generic versioned
-     * @param storeDefinition the store definition to check on
+     * Determine whether or not a given serializedr is "AVRO" based
+     * 
+     * @param serializerName
+     * @return
      */
-    public static void validateSchemaBackwardCompatibilityIfNeeded(StoreDefinition storeDefinition) {
-        String AVRO_GENERIC_VERSIONED_TYPE_NAME = DefaultSerializerFactory.AVRO_GENERIC_VERSIONED_TYPE_NAME;
-        SerializerDefinition keySerDef = storeDefinition.getKeySerializer();
-        SerializerDefinition valueSerDef = storeDefinition.getValueSerializer();
-        if(keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
-            SchemaEvolutionValidator.checkSchemaCompatibility(keySerDef);
-        }
-        if(valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
-            SchemaEvolutionValidator.checkSchemaCompatibility(valueSerDef);
+    public static boolean isAvroSchema(String serializerName) {
+        if(serializerName.equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)
+           || serializerName.equals(AVRO_GENERIC_TYPE_NAME)
+           || serializerName.equals(AVRO_REFLECTIVE_TYPE_NAME)
+           || serializerName.equals(AVRO_SPECIFIC_TYPE_NAME)) {
+            return true;
+        } else {
+            return false;
         }
     }
 
+    /**
+     * If provided with an AVRO schema, validates it and checks if there are
+     * backwards compatible.
+     * 
+     * TODO should probably place some similar checks for other serializer types
+     * as well?
+     * 
+     * @param serializerDef
+     */
+    private static void validateIfAvroSchema(SerializerDefinition serializerDef) {
+        if(isAvroSchema(serializerDef.getName())) {
+            SchemaEvolutionValidator.validateAllAvroSchemas(serializerDef);
+            // check backwards compatibility if needed
+            if(serializerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+                SchemaEvolutionValidator.checkSchemaCompatibility(serializerDef);
+            }
+        }
+    }
 
     /**
-     * Validate store schema backward compatibility if it is AVRO generic versioned
+     * Validate store schema -- backward compatibility if it is AVRO generic
+     * versioned -- sanity checks for avro in general
+     * 
+     * @param storeDefinition the store definition to check on
+     */
+    public static void validateSchemaAsNeeded(StoreDefinition storeDefinition) {
+        SerializerDefinition keySerDef = storeDefinition.getKeySerializer();
+        // validate the key schemas
+        try {
+            validateIfAvroSchema(keySerDef);
+        } catch(Exception e) {
+            throw new VoldemortException("Error validating key schema, " + e.getMessage(), e);
+        }
+
+        // validate the value schemas
+        SerializerDefinition valueSerDef = storeDefinition.getValueSerializer();
+        try {
+            validateIfAvroSchema(valueSerDef);
+        } catch(Exception e) {
+            throw new VoldemortException("Error validating value schema, " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Validate store schema for things like backwards compatibility,
+     * parseability
+     * 
      * @param storeDefinitions the list of store definition to check on
      */
-    public static void validateSchemaBackwardCompatibilityIfNeeded(Collection<StoreDefinition> storeDefinitions) {
+    public static void validateSchemasAsNeeded(Collection<StoreDefinition> storeDefinitions) {
         for(StoreDefinition storeDefinition: storeDefinitions) {
-            validateSchemaBackwardCompatibilityIfNeeded(storeDefinition);
+            validateSchemaAsNeeded(storeDefinition);
         }
     }
 

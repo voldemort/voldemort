@@ -51,7 +51,6 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.EndOfFileException;
@@ -61,6 +60,7 @@ import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
@@ -189,17 +189,6 @@ public class VoldemortClientShell {
         shell.process(fileInput);
     }
 
-    protected boolean isAvroSchema(String serializerName) {
-        if(serializerName.equals(DefaultSerializerFactory.AVRO_GENERIC_VERSIONED_TYPE_NAME)
-           || serializerName.equals(DefaultSerializerFactory.AVRO_GENERIC_TYPE_NAME)
-           || serializerName.equals(DefaultSerializerFactory.AVRO_REFLECTIVE_TYPE_NAME)
-           || serializerName.equals(DefaultSerializerFactory.AVRO_SPECIFIC_TYPE_NAME)) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
     protected Object parseObject(SerializerDefinition serializerDef,
                                  String argStr,
                                  MutableInt parsePos) {
@@ -212,7 +201,7 @@ public class VoldemortClientShell {
             // extract the avrostring.
             parsePos.setValue(jsonReader.getCurrentLineOffset() - 1);
 
-            if(isAvroSchema(serializerDef.getName())) {
+            if(StoreDefinitionUtils.isAvroSchema(serializerDef.getName())) {
                 // TODO Need to check all the avro siblings work
                 // For avro, we hack and extract avro key/value as a string,
                 // before we do the actual parsing with the schema
