@@ -1,0 +1,77 @@
+Trying to override old definition of datatype resources
+Buildfile: build.xml
+
+clean:
+   [delete] Deleting directory /vagrant/voldemort/dist
+   [delete] Deleting directory /vagrant/voldemort/docs/javadoc
+    [mkdir] Created dir: /vagrant/voldemort/docs/javadoc
+
+build:
+    [mkdir] Created dir: /vagrant/voldemort/dist/classes
+     [copy] Copying 7 files to /vagrant/voldemort/dist/classes
+     [copy] Copied 88 empty directories to 68 empty directories under /vagrant/voldemort/dist/classes
+   [delete] Deleting directory /vagrant/voldemort/META-INF
+    [mkdir] Created dir: /vagrant/voldemort/META-INF
+     [echo] creating manifest
+    [mkdir] Created dir: /vagrant/voldemort/dist/resources
+     [copy] Copying 1 file to /vagrant/voldemort/dist/resources
+    [javac] Compiling 533 source files to /vagrant/voldemort/dist/classes
+    [javac] /vagrant/voldemort/src/java/voldemort/store/readonly/io/ByteBufferCloser.java:21: warning: sun.misc.Cleaner is internal proprietary API and may be removed in a future release
+    [javac]         sun.misc.Cleaner cl = ((sun.nio.ch.DirectBuffer) buff).cleaner();
+    [javac]                 ^
+    [javac] /vagrant/voldemort/src/java/voldemort/store/readonly/io/ByteBufferCloser.java:21: warning: sun.nio.ch.DirectBuffer is internal proprietary API and may be removed in a future release
+    [javac]         sun.misc.Cleaner cl = ((sun.nio.ch.DirectBuffer) buff).cleaner();
+    [javac]                                           ^
+    [javac] Note: Some input files use or override a deprecated API.
+    [javac] Note: Recompile with -Xlint:deprecation for details.
+    [javac] Note: Some input files use unchecked or unsafe operations.
+    [javac] Note: Recompile with -Xlint:unchecked for details.
+    [javac] 2 warnings
+   [scalac] Compiling 2 source files to /vagrant/voldemort/dist/classes
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:8: error: ILoop is not a member of scala.tools.nsc.interpreter
+   [scalac] import scala.tools.nsc.interpreter.ILoop
+   [scalac]        ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:17: warning: imported `VoldemortClientShell' is permanently hidden by definition of object VoldemortClientShell in package voldemort
+   [scalac] import voldemort.VoldemortClientShell
+   [scalac]        ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:20: warning: imported `VoldemortScalaShellHelper' is permanently hidden by definition of object VoldemortScalaShellHelper in package voldemort
+   [scalac] import voldemort.VoldemortScalaShellHelper
+   [scalac]        ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:22: error: not found: type App
+   [scalac] object VoldemortScalaShell extends App {
+   [scalac]                                    ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:24: error: value usejavacp is not a member of scala.tools.nsc.Settings
+   [scalac] 	settings.usejavacp.value = true
+   [scalac]                  ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:30: error: not found: type ILoop
+   [scalac] class ClientLoop extends ILoop {
+   [scalac]                          ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:27: error: value process is not a member of voldemort.ClientLoop
+   [scalac] 	new ClientLoop().process(settings)
+   [scalac]                          ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:32: error: not found: value addThunk
+   [scalac] 	addThunk {
+   [scalac]         ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:41: error: not found: value echo
+   [scalac] 		echo("Scala shell for Project-Voldemort")
+   [scalac]                 ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:44: error: not found: type Result
+   [scalac] 	override def command(line: String): Result = {
+   [scalac]                                             ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShellHelper.scala:8: error: ILoop is not a member of scala.tools.nsc.interpreter
+   [scalac] import scala.tools.nsc.interpreter.ILoop
+   [scalac]        ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShellHelper.scala:17: warning: imported `VoldemortClientShell' is permanently hidden by definition of object VoldemortClientShell in package voldemort
+   [scalac] import voldemort.VoldemortClientShell;
+   [scalac]        ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShell.scala:50: error: value command is not a member of AnyRef with ScalaObject
+   [scalac] 			val result = super.command(line)
+   [scalac]                                            ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShellHelper.scala:51: error: value getStoreClient is not a member of voldemort.VoldemortClientShell
+   [scalac] 	def getStoreClient(): DefaultStoreClient[Object, Object] = clientShell.getStoreClient()
+   [scalac]                                                                                ^
+   [scalac] /vagrant/voldemort/src/scala/voldemort/VoldemortScalaShellHelper.scala:61: error: value evaluateCommand is not a member of voldemort.VoldemortClientShell
+   [scalac] 		clientShell.evaluateCommand(line, this.printCommands)
+   [scalac]                             ^
+   [scalac] three warnings found
+   [scalac] 12 errors found

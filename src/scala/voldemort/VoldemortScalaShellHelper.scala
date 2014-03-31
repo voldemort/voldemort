@@ -14,6 +14,7 @@ import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.lang.mutable.MutableInt;
 // voldemort related imports
 import voldemort.client.DefaultStoreClient;
+import voldemort.client.StoreClient;
 import voldemort.VoldemortClientShell;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
@@ -48,7 +49,7 @@ object VoldemortScalaShellHelper {
                                                               System.err)
 	}
 
-	def getStoreClient(): DefaultStoreClient[Object, Object] = clientShell.getStoreClient()
+	def getStoreClient(): StoreClient[Object, Object] = clientShell.getStoreClient()
 
 	/* Used for evaluating commands to the client shell from scala itself
 	 * Currently ugle \" marks are needed for adding strings"	
