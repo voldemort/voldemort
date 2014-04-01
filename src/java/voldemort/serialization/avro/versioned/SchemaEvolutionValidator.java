@@ -828,8 +828,9 @@ public class SchemaEvolutionValidator {
         if(schemaVersions.size() < 1) {
             throw new VoldemortException("No schema specified");
         }
-        for(Integer schemaVersionNumber: schemaVersions.keySet()) {
-            String schemaStr = schemaVersions.get(schemaVersionNumber);
+        for(Map.Entry<Integer, String> entry: schemaVersions.entrySet()) {
+            Integer schemaVersionNumber = entry.getKey();
+            String schemaStr = entry.getValue();
             try {
                 Schema.parse(schemaStr);
             } catch(Exception e) {
