@@ -46,6 +46,5 @@ fi
 # add '-Dlog4j.debug ' to debug log4j issues.
 LOG4JPROPERTIES="-Dlog4j.configuration=file://${base_dir}/src/java/log4j.properties"
 
-# If it is the scala shell is being launched use the scala command else java
 export CLASSPATH
 java $LOG4JPROPERTIES $VOLD_OPTS -cp $CLASSPATH $@
