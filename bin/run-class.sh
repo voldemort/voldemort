@@ -15,7 +15,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-export scala_shell="voldemort.VoldemortScalaShell"
 
 if [ $# -lt 1 ]; then
 	echo $0 java-class-name [options]
@@ -49,8 +48,4 @@ LOG4JPROPERTIES="-Dlog4j.configuration=file://${base_dir}/src/java/log4j.propert
 
 # If it is the scala shell is being launched use the scala command else java
 export CLASSPATH
-if [ $1 == "$scala_shell" ]; then 
-	scala $LOG4JPROPERTIES -cp $CLASSPATH $@
-else
-	java $LOG4JPROPERTIES $VOLD_OPTS -cp $CLASSPATH $@
-fi
+java $LOG4JPROPERTIES $VOLD_OPTS -cp $CLASSPATH $@
