@@ -7,6 +7,10 @@
   <property name="display.name" value="Voldemort" />
   <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao, Chinmay Soman, Vinoth Chandar, Zhongjie Wu" />
   <property environment="env" />
+  <!-- Files needed for building scala files with ant -->
+  <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler-${scalac.version}.jar"/>
+  <property name="scala-library.jar" value="${scala.home}/lib/scala-library-${scalac.version}.jar"/>
+  <property name="scala-reflect.jar" value="${scala.home}/lib/scala-reflect-${scalac.version}.jar"/>
 
   <path id="main-classpath">
     <fileset dir="${lib.dir}">
@@ -14,6 +18,20 @@
     </fileset>
     <pathelement path="${classes.dir}" />
   </path>
+
+  <!-- set the scala classpath -->
+  <path id="scala.classpath">
+    <pathelement location="${scala-compiler.jar}"/>
+    <pathelement location="${scala-library.jar}"/>
+    <pathelement location="${scala-reflect.jar}"/>
+    <fileset dir="${lib.dir}">
+      <include name="*.jar" />
+    </fileset>
+    <pathelement path="${classes.dir}" />
+  </path>
+  <taskdef resource="scala/tools/ant/antlib.xml">
+  <classpath refid="scala.classpath"/>
+  </taskdef>
 
   <!-- set the build number based on environment variable, otherwise blank -->
   <property environment="env" description="System environment variables (including those set by Hudson)"/>
@@ -75,6 +93,7 @@
       <fileset dir="${java.dir}">
         <exclude name="**/*.java" />
         <exclude name="**/*.html" />
+        <exclude name="**/*.scala" />
         <exclude name="**/log4j.properties" />
       </fileset>
     </copy>
@@ -89,10 +108,15 @@
     <!-- place to put log4j.properties -->
     <replace-dir dir="${resources.dir}"/>
     <copy file="${java.dir}/log4j.properties" todir="${resources.dir}"/>
+    <!-- regular java files compiled with javac task -->
     <javac destdir="${classes.dir}" target="${javac.version}" source="${javac.version}" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
       <src path="${java.dir}" />
       <classpath refid="main-classpath" />
     </javac>
+    <!-- compile scala files with the scalac task -->
+    <scalac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="scala.classpath">
+    <include name="**/*.scala"/>
+    </scalac>
   </target>
 
   <target name="buildtest" description="Compile test classes">

@@ -43,6 +43,7 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.lang.mutable.MutableInt;
 
+import voldemort.client.DefaultStoreClient;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
@@ -123,6 +124,12 @@ public class VoldemortClientShell {
             Utils.croak("Could not connect to server: " + e.getMessage());
         }
     }
+
+	// getter method for the Store
+    public StoreClient<Object, Object> getStoreClient() {
+        return this.client;
+    }
+
 
     protected void safeClose() {
         if(adminClient != null)
@@ -294,6 +301,14 @@ public class VoldemortClientShell {
             }
             if(printCommands)
                 commandOutput.println(line);
+            evaluateCommand(line, printCommands);
+            commandOutput.print(PROMPT);
+        }
+    }
+
+    // useful as this separates the repeated prompt from the evaluation
+    // using no modifier as no sub-class will have access but all classes within package will
+    boolean evaluateCommand(String line, boolean printCommands) {
             try {
                 if(line.toLowerCase().startsWith("put")) {
                     processPut(line.substring("put".length()));
@@ -430,6 +445,7 @@ public class VoldemortClientShell {
                     System.exit(0);
                 } else {
                     errorStream.println("Invalid command. (Try 'help' for usage.)");
+                    return false;
                 }
             } catch(EndOfFileException e) {
                 errorStream.println("Expected additional token.");
@@ -445,9 +461,10 @@ public class VoldemortClientShell {
                 errorStream.println("Unexpected error:");
                 e.printStackTrace(errorStream);
             }
-            commandOutput.print(PROMPT);
-        }
+            return true;
     }
+
+
 
     protected List<Integer> parseCsv(String csv) {
         return Lists.transform(Arrays.asList(csv.split(",")), new Function<String, Integer>() {
