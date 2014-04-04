@@ -15,7 +15,6 @@ import org.apache.commons.lang.mutable.MutableInt;
 // voldemort related imports
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.StoreClient;
-import voldemort.VoldemortClientShell;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
 

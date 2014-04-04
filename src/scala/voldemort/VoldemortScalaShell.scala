@@ -14,10 +14,8 @@ import org.apache.avro.generic.GenericDatumReader
 import org.apache.avro.io.JsonDecoder
 import org.apache.commons.lang.mutable.MutableInt
 // voldemort related imports
-import voldemort.VoldemortClientShell
 import voldemort.client.ClientConfig
 import voldemort.client.protocol.RequestFormatType
-import voldemort.VoldemortScalaShellHelper
 
 object VoldemortScalaShell extends App {
 	val settings = new Settings
