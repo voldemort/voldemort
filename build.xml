@@ -8,9 +8,9 @@
   <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao, Chinmay Soman, Vinoth Chandar, Zhongjie Wu" />
   <property environment="env" />
   <!-- Files needed for building scala files with ant -->
-  <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar"/>
-  <property name="scala-library.jar" value="${scala.home}/lib/scala-library.jar"/>
-  <property name="scala-reflect.jar" value="${scala.home}/lib/scala-reflect.jar"/>
+  <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler-${scalac.version}.jar"/>
+  <property name="scala-library.jar" value="${scala.home}/lib/scala-library-${scalac.version}.jar"/>
+  <property name="scala-reflect.jar" value="${scala.home}/lib/scala-reflect-${scalac.version}.jar"/>
 
   <path id="main-classpath">
     <fileset dir="${lib.dir}">
