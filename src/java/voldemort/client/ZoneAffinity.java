@@ -17,9 +17,7 @@
 package voldemort.client;
 
 /**
- * Encapsulates the zone affinity configuiration for various Voldemort
- * operations
- * 
+ * Encapsulates the zone affinity configuration for various Voldemort operations
  */
 public class ZoneAffinity {
 
@@ -41,6 +39,12 @@ public class ZoneAffinity {
         this.getOpZoneAffinity = getOpZoneAffinity;
         this.getAllOpZoneAffinity = getAllOpZoneAffinity;
         this.getVersionsOpZoneAffinity = getVersionsOpZoneAffinity;
+    }
+
+    public ZoneAffinity(ZoneAffinity source) {
+        this(source.getOpZoneAffinity,
+             source.getAllOpZoneAffinity,
+             source.getVersionsOpZoneAffinity);
     }
 
     public boolean isGetOpZoneAffinityEnabled() {
@@ -77,5 +81,46 @@ public class ZoneAffinity {
     public ZoneAffinity setEnableGetVersionsOpZoneAffinity(boolean enabled) {
         getVersionsOpZoneAffinity = enabled;
         return this;
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + " [getOpZoneAffinity=" + getOpZoneAffinity
+               + ", getAllOpZoneAffinity=" + getAllOpZoneAffinity + ", getVersionsOpZoneAffinity="
+               + getVersionsOpZoneAffinity + "]";
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(this == obj) {
+            return true;
+        }
+        if(obj == null) {
+            return false;
+        }
+        if(getClass() != obj.getClass()) {
+            return false;
+        }
+        ZoneAffinity other = (ZoneAffinity) obj;
+        if(getAllOpZoneAffinity != other.getAllOpZoneAffinity) {
+            return false;
+        }
+        if(getOpZoneAffinity != other.getOpZoneAffinity) {
+            return false;
+        }
+        if(getVersionsOpZoneAffinity != other.getVersionsOpZoneAffinity) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + (getAllOpZoneAffinity ? 1231 : 1237);
+        result = prime * result + (getOpZoneAffinity ? 1231 : 1237);
+        result = prime * result + (getVersionsOpZoneAffinity ? 1231 : 1237);
+        return result;
     }
 }

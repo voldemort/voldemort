@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -208,6 +209,65 @@ public class ClientConfig {
      */
     public ClientConfig(Properties properties) {
         setProperties(properties);
+    }
+
+    /**
+     * Initialize this {@code ClientConfig} as a deep copy of the given one.
+     * 
+     * @param source The configuration from which to copy.
+     */
+    public ClientConfig(ClientConfig source) {
+        // Copy time fields with highest precision to avoid loss:
+        final TimeUnit nanos = TimeUnit.NANOSECONDS;
+
+        setAsyncJobThreadPoolSize(source.getAsyncJobThreadPoolSize());
+        setAsyncMetadataRefreshInMs(source.getAsyncMetadataRefreshInMs());
+        setBootstrapUrls(source.getBootstrapUrls()); // "get" is copy already
+        setCacheStoreClients(source.getCacheStoreClients());
+        setClientContextName(source.getClientContextName());
+        setClientRegistryUpdateIntervalInSecs(source.getClientRegistryUpdateIntervalInSecs());
+        setClientZoneId(source.getClientZoneId());
+        setConnectionTimeout(source.getConnectionTimeout(nanos), nanos);
+        setEnableCompressionLayer(source.isEnableCompressionLayer());
+        setEnableInconsistencyResolvingLayer(source.isEnableInconsistencyResolvingLayer());
+        setEnableJmx(source.isJmxEnabled());
+        setEnableLazy(source.isLazyEnabled());
+        setEnableSerializationLayer(source.isEnableSerializationLayer());
+        enableDefaultClient(source.isDefaultClientEnabled());
+        setFailureDetectorAsyncRecoveryInterval(source.getFailureDetectorAsyncRecoveryInterval());
+        setFailureDetectorBannagePeriod(source.getFailureDetectorBannagePeriod());
+        setFailureDetectorCatastrophicErrorTypes(new ArrayList<String>(source.getFailureDetectorCatastrophicErrorTypes()));
+        setFailureDetectorImplementation(source.getFailureDetectorImplementation());
+        setFailureDetectorRequestLengthThreshold(source.getFailureDetectorRequestLengthThreshold());
+        setFailureDetectorThreshold(source.getFailureDetectorThreshold());
+        setFailureDetectorThresholdCountMinimum(source.getFailureDetectorThresholdCountMinimum());
+        setFailureDetectorThresholdInterval(source.getFailureDetectorThresholdInterval());
+        setFatClientWrapperCorePoolSize(source.getFatClientWrapperCorePoolSize());
+        setFatClientWrapperKeepAliveInSecs(source.getFatClientWrapperKeepAliveInSecs());
+        setFatClientWrapperMaxPoolSize(source.getFatClientWrapperMaxPoolSize());
+        setMaxBootstrapRetries(source.getMaxBootstrapRetries());
+        setMaxConnectionsPerNode(source.getMaxConnectionsPerNode());
+        setMaximumTolerableFatalFailures(source.getMaximumTolerableFatalFailures());
+        setMaxQueuedRequests(source.getMaxQueuedRequests());
+        setMaxThreads(source.getMaxThreads());
+        setMaxTotalConnections(source.getMaxTotalConnections());
+        setNodeBannagePeriod(source.getNodeBannagePeriod(nanos), nanos);
+        setRequestFormatType(source.getRequestFormatType());
+        setRoutingTier(source.getRoutingTier());
+        setRoutingTimeout(source.getRoutingTimeout(nanos), nanos);
+        setSelectors(source.getSelectors());
+        setSerializerFactory(source.getSerializerFactory());
+        setSocketBufferSize(source.getSocketBufferSize());
+        setSocketKeepAlive(source.getSocketKeepAlive());
+        setSocketTimeout(source.getSocketTimeout(nanos), nanos);
+        setSysConnectionTimeout(source.getSysConnectionTimeout());
+        setSysEnableJmx(source.getSysEnableJmx());
+        setSysMaxConnectionsPerNode(source.getSysMaxConnectionsPerNode());
+        setSysRoutingTimeout(source.getSysRoutingTimeout());
+        setSysSocketTimeout(source.getSysSocketTimeout());
+        setThreadIdleTime(source.getThreadIdleTime(nanos), nanos);
+        setTimeoutConfig(new TimeoutConfig(source.getTimeoutConfig()));
+        setZoneAffinity(new ZoneAffinity(source.getZoneAffinity()));
     }
 
     private void setProperties(Properties properties) {
@@ -1215,5 +1275,253 @@ public class ClientConfig {
         clientConfigInfo.append("Socket timeout : " + this.socketTimeoutMs + "\n");
         clientConfigInfo.append("Routing timeout : " + this.routingTimeoutMs + "\n");
         return clientConfigInfo.toString();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(this == obj) {
+            return true;
+        }
+        if(obj == null) {
+            return false;
+        }
+        if(getClass() != obj.getClass()) {
+            return false;
+        }
+        ClientConfig other = (ClientConfig) obj;
+        if(asyncCheckMetadataIntervalInMs != other.asyncCheckMetadataIntervalInMs) {
+            return false;
+        }
+        if(asyncJobThreadPoolSize != other.asyncJobThreadPoolSize) {
+            return false;
+        }
+        if(bootstrapUrls == null) {
+            if(other.bootstrapUrls != null) {
+                return false;
+            }
+        } else if(!bootstrapUrls.equals(other.bootstrapUrls)) {
+            return false;
+        }
+        if(cacheStoreClients != other.cacheStoreClients) {
+            return false;
+        }
+        if(clientContextName == null) {
+            if(other.clientContextName != null) {
+                return false;
+            }
+        } else if(!clientContextName.equals(other.clientContextName)) {
+            return false;
+        }
+        if(clientRegistryRefreshIntervalInSecs != other.clientRegistryRefreshIntervalInSecs) {
+            return false;
+        }
+        if(clientZoneId != other.clientZoneId) {
+            return false;
+        }
+        if(connectionTimeoutMs != other.connectionTimeoutMs) {
+            return false;
+        }
+        if(enableCompressionLayer != other.enableCompressionLayer) {
+            return false;
+        }
+        if(enableInconsistencyResolvingLayer != other.enableInconsistencyResolvingLayer) {
+            return false;
+        }
+        if(enableJmx != other.enableJmx) {
+            return false;
+        }
+        if(enableLazy != other.enableLazy) {
+            return false;
+        }
+        if(enableSerializationLayer != other.enableSerializationLayer) {
+            return false;
+        }
+        if(failureDetectorAsyncRecoveryIntervalMs != other.failureDetectorAsyncRecoveryIntervalMs) {
+            return false;
+        }
+        if(failureDetectorBannagePeriod != other.failureDetectorBannagePeriod) {
+            return false;
+        }
+        if(failureDetectorCatastrophicErrorTypes == null) {
+            if(other.failureDetectorCatastrophicErrorTypes != null) {
+                return false;
+            }
+        } else if(!failureDetectorCatastrophicErrorTypes.equals(other.failureDetectorCatastrophicErrorTypes)) {
+            return false;
+        }
+        if(failureDetectorImplementation == null) {
+            if(other.failureDetectorImplementation != null) {
+                return false;
+            }
+        } else if(!failureDetectorImplementation.equals(other.failureDetectorImplementation)) {
+            return false;
+        }
+        if(failureDetectorRequestLengthThreshold != other.failureDetectorRequestLengthThreshold) {
+            return false;
+        }
+        if(failureDetectorThreshold != other.failureDetectorThreshold) {
+            return false;
+        }
+        if(failureDetectorThresholdCountMinimum != other.failureDetectorThresholdCountMinimum) {
+            return false;
+        }
+        if(failureDetectorThresholdIntervalMs != other.failureDetectorThresholdIntervalMs) {
+            return false;
+        }
+        if(fatClientWrapperCorePoolSize != other.fatClientWrapperCorePoolSize) {
+            return false;
+        }
+        if(fatClientWrapperKeepAliveInSecs != other.fatClientWrapperKeepAliveInSecs) {
+            return false;
+        }
+        if(fatClientWrapperMaxPoolSize != other.fatClientWrapperMaxPoolSize) {
+            return false;
+        }
+        if(maxBootstrapRetries != other.maxBootstrapRetries) {
+            return false;
+        }
+        if(maxConnectionsPerNode != other.maxConnectionsPerNode) {
+            return false;
+        }
+        if(maxQueuedRequests != other.maxQueuedRequests) {
+            return false;
+        }
+        if(maxThreads != other.maxThreads) {
+            return false;
+        }
+        if(maxTotalConnections != other.maxTotalConnections) {
+            return false;
+        }
+        if(maximumTolerableFatalFailures != other.maximumTolerableFatalFailures) {
+            return false;
+        }
+        if(requestFormatType != other.requestFormatType) {
+            return false;
+        }
+        if(routingTier != other.routingTier) {
+            return false;
+        }
+        if(routingTimeoutMs != other.routingTimeoutMs) {
+            return false;
+        }
+        if(selectors != other.selectors) {
+            return false;
+        }
+        if(!serializerFactory.equals(other.serializerFactory)) {
+            return false;
+        }
+        if(socketBufferSize != other.socketBufferSize) {
+            return false;
+        }
+        if(socketKeepAlive != other.socketKeepAlive) {
+            return false;
+        }
+        if(socketTimeoutMs != other.socketTimeoutMs) {
+            return false;
+        }
+        if(sysConnectionTimeoutMs != other.sysConnectionTimeoutMs) {
+            return false;
+        }
+        if(sysEnableJmx != other.sysEnableJmx) {
+            return false;
+        }
+        if(sysMaxConnectionsPerNode != other.sysMaxConnectionsPerNode) {
+            return false;
+        }
+        if(sysRoutingTimeoutMs != other.sysRoutingTimeoutMs) {
+            return false;
+        }
+        if(sysSocketTimeoutMs != other.sysSocketTimeoutMs) {
+            return false;
+        }
+        if(threadIdleMs != other.threadIdleMs) {
+            return false;
+        }
+        if(timeoutConfig == null) {
+            if(other.timeoutConfig != null) {
+                return false;
+            }
+        } else if(!timeoutConfig.equals(other.timeoutConfig)) {
+            return false;
+        }
+        if(useDefaultClient != other.useDefaultClient) {
+            return false;
+        }
+        if(zoneAffinity == null) {
+            if(other.zoneAffinity != null) {
+                return false;
+            }
+        } else if(!zoneAffinity.equals(other.zoneAffinity)) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result
+                 + (int) (asyncCheckMetadataIntervalInMs ^ (asyncCheckMetadataIntervalInMs >>> 32));
+        result = prime * result + asyncJobThreadPoolSize;
+        result = prime * result + ((bootstrapUrls == null) ? 0 : bootstrapUrls.hashCode());
+        result = prime * result + (cacheStoreClients ? 1231 : 1237);
+        result = prime * result + ((clientContextName == null) ? 0 : clientContextName.hashCode());
+        result = prime * result + clientRegistryRefreshIntervalInSecs;
+        result = prime * result + clientZoneId;
+        result = prime * result + (int) (connectionTimeoutMs ^ (connectionTimeoutMs >>> 32));
+        result = prime * result + (enableCompressionLayer ? 1231 : 1237);
+        result = prime * result + (enableInconsistencyResolvingLayer ? 1231 : 1237);
+        result = prime * result + (enableJmx ? 1231 : 1237);
+        result = prime * result + (enableLazy ? 1231 : 1237);
+        result = prime * result + (enableSerializationLayer ? 1231 : 1237);
+        result = prime
+                 * result
+                 + (int) (failureDetectorAsyncRecoveryIntervalMs ^ (failureDetectorAsyncRecoveryIntervalMs >>> 32));
+        result = prime * result
+                 + (int) (failureDetectorBannagePeriod ^ (failureDetectorBannagePeriod >>> 32));
+        result = prime
+                 * result
+                 + ((failureDetectorCatastrophicErrorTypes == null) ? 0
+                                                                   : failureDetectorCatastrophicErrorTypes.hashCode());
+        result = prime
+                 * result
+                 + ((failureDetectorImplementation == null) ? 0
+                                                           : failureDetectorImplementation.hashCode());
+        result = prime
+                 * result
+                 + (int) (failureDetectorRequestLengthThreshold ^ (failureDetectorRequestLengthThreshold >>> 32));
+        result = prime * result + failureDetectorThreshold;
+        result = prime * result + failureDetectorThresholdCountMinimum;
+        result = prime
+                 * result
+                 + (int) (failureDetectorThresholdIntervalMs ^ (failureDetectorThresholdIntervalMs >>> 32));
+        result = prime * result + fatClientWrapperCorePoolSize;
+        result = prime * result + fatClientWrapperKeepAliveInSecs;
+        result = prime * result + fatClientWrapperMaxPoolSize;
+        result = prime * result + maxBootstrapRetries;
+        result = prime * result + maxConnectionsPerNode;
+        result = prime * result + maxQueuedRequests;
+        result = prime * result + maxThreads;
+        result = prime * result + maxTotalConnections;
+        result = prime * result + maximumTolerableFatalFailures;
+        result = prime * result + ((requestFormatType == null) ? 0 : requestFormatType.hashCode());
+        result = prime * result + ((routingTier == null) ? 0 : routingTier.hashCode());
+        result = prime * result + (int) (routingTimeoutMs ^ (routingTimeoutMs >>> 32));
+        result = prime * result + selectors;
+        result = prime * result + serializerFactory.hashCode();
+        result = prime * result + socketBufferSize;
+        result = prime * result + (socketKeepAlive ? 1231 : 1237);
+        result = prime * result + (int) (socketTimeoutMs ^ (socketTimeoutMs >>> 32));
+        result = prime * result + sysConnectionTimeoutMs;
+        result = prime * result + (sysEnableJmx ? 1231 : 1237);
+        result = prime * result + sysMaxConnectionsPerNode;
+        result = prime * result + sysRoutingTimeoutMs;
+        result = prime * result + sysSocketTimeoutMs;
+        result = prime * result + (int) (threadIdleMs ^ (threadIdleMs >>> 32));
+        result = prime * result + ((timeoutConfig == null) ? 0 : timeoutConfig.hashCode());
+        result = prime * result + (useDefaultClient ? 1231 : 1237);
+        result = prime * result + ((zoneAffinity == null) ? 0 : zoneAffinity.hashCode());
+        return result;
     }
 }
