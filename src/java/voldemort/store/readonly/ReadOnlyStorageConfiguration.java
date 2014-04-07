@@ -99,4 +99,15 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
         throw new VoldemortException("Storage config updates not permitted for "
                                      + this.getClass().getCanonicalName());
     }
+
+    /**
+     * Cleanup the Jmx bean registered previously
+     */
+    @Override
+    public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
+        ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) engine;
+        ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                       store.getName() + nodeId);
+        JmxUtils.unregisterMbean(ManagementFactory.getPlatformMBeanServer(), objName);
+    }
 }

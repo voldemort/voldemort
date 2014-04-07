@@ -60,4 +60,11 @@ public interface StorageConfiguration {
      * Close the storage configuration
      */
     public void close();
+
+    /**
+     * Remove the storage engine from the underlying storage configuration
+     * 
+     * @param engine Specifies the storage engine to be removed
+     */
+    public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine);
 }

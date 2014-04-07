@@ -65,4 +65,8 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         throw new VoldemortException("Storage config updates not permitted for "
                                      + this.getClass().getCanonicalName());
     }
+
+    // Nothing to do here: we're not tracking the created storage engine.
+    @Override
+    public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {}
 }

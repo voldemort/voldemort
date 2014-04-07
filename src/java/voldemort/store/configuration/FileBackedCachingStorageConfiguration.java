@@ -53,4 +53,8 @@ public class FileBackedCachingStorageConfiguration implements StorageConfigurati
     public void update(StoreDefinition storeDef) {
 
     }
+
+    // Nothing to do here: we're not tracking the created storage engine.
+    @Override
+    public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {}
 }

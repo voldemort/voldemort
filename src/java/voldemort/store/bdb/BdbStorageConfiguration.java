@@ -17,11 +17,13 @@
 package voldemort.store.bdb;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -198,6 +200,52 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 return engine;
             } catch(DatabaseException d) {
                 throw new StorageInitializationException(d);
+            }
+        }
+    }
+
+    /**
+     * Clean up the environment object for the given storage engine
+     */
+    @Override
+    public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
+        String storeName = engine.getName();
+
+        synchronized(lock) {
+            if(useOneEnvPerStore) {
+
+                Environment environment = this.environments.get(storeName);
+                if(environment == null) {
+                    // Nothing to clean up.
+                    return;
+                }
+
+                // Remove from the set of unreserved stores if needed.
+                if(this.unreservedStores.remove(environment)) {
+                    logger.info("Removed environment for store name: " + storeName
+                                + " from unreserved stores");
+                } else {
+                    logger.info("No environment found in unreserved stores for store name: "
+                                + storeName);
+                }
+
+                // Try to delete the BDB directory associated
+                File bdbDir = environment.getHome();
+                if(bdbDir.exists() && bdbDir.isDirectory()) {
+                    String bdbDirPath = bdbDir.getPath();
+                    try {
+                        FileUtils.deleteDirectory(bdbDir);
+                        logger.info("Successfully deleted BDB directory : " + bdbDirPath
+                                    + " for store name: " + storeName);
+                    } catch(IOException e) {
+                        logger.error("Unable to delete BDB directory: " + bdbDirPath
+                                     + " for store name: " + storeName);
+                    }
+                }
+
+                // Cleanup the environment
+                environment.close();
+                this.environments.remove(storeName);
             }
         }
     }
@@ -434,4 +482,5 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     public long getReservedCacheSize() {
         return this.reservedCacheSize;
     }
+
 }

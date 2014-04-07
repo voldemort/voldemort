@@ -56,8 +56,6 @@ import voldemort.common.service.ServiceType;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
-import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -101,7 +99,19 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.store.views.ViewStorageEngine;
-import voldemort.utils.*;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.ConfigurationException;
+import voldemort.utils.DaemonThreadFactory;
+import voldemort.utils.DynamicThrottleLimit;
+import voldemort.utils.EventThrottler;
+import voldemort.utils.JmxUtils;
+import voldemort.utils.Pair;
+import voldemort.utils.ReflectUtils;
+import voldemort.utils.StoreDefinitionUtils;
+import voldemort.utils.SystemTime;
+import voldemort.utils.Time;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -725,9 +735,21 @@ public class StorageService extends AbstractService {
         }
 
         storeRepository.removeStorageEngine(storeName);
+
+        // Also remove any state in the StorageConfiguration (if required)
+        StorageConfiguration config = storageConfigs.get(storeType);
+        if(config == null) {
+            throw new ConfigurationException("Attempt to close storage engine " + engine.getName()
+                                             + " but " + storeType
+                                             + " storage engine has not been enabled.");
+        }
+        config.removeStorageEngine(engine);
+
+        // Then truncate (if needed) and close
         if(truncate)
             engine.truncate();
         engine.close();
+
     }
 
     /**
