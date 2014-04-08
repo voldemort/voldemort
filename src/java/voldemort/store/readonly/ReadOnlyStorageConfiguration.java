@@ -47,6 +47,7 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
     private RoutingStrategy routingStrategy = null;
     private final int deleteBackupMs;
     private boolean enforceMlock = false;
+    private final VoldemortConfig voldConfig;
 
     public ReadOnlyStorageConfiguration(VoldemortConfig config) {
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
@@ -57,6 +58,7 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
         this.nodeId = config.getNodeId();
         this.deleteBackupMs = config.getReadOnlyDeleteBackupMs();
         this.enforceMlock = config.isUseMlock();
+        this.voldConfig = config;
     }
 
     public void close() {
@@ -106,8 +108,11 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
     @Override
     public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
         ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) engine;
-        ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                       store.getName() + nodeId);
-        JmxUtils.unregisterMbean(ManagementFactory.getPlatformMBeanServer(), objName);
+
+        if(this.voldConfig.isJmxEnabled()) {
+            ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                           store.getName() + nodeId);
+            JmxUtils.unregisterMbean(ManagementFactory.getPlatformMBeanServer(), objName);
+        }
     }
 }

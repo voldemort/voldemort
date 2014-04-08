@@ -216,6 +216,9 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         BdbStorageEngine bdbEngine = (BdbStorageEngine) engine;
 
         synchronized(lock) {
+
+            // Only cleanup the environment if it is per store. We cannot
+            // cleanup a shared 'Environment' object
             if(useOneEnvPerStore) {
 
                 Environment environment = this.environments.get(storeName);
@@ -247,6 +250,8 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                     }
                 }
 
+                // Remove the reference to BdbEnvironmentStats, which holds a
+                // reference to the Environment
                 BdbEnvironmentStats bdbEnvStats = bdbEngine.getBdbEnvironmentStats();
                 this.aggBdbStats.unTrackEnvironment(bdbEnvStats);
 
