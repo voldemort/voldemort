@@ -736,6 +736,11 @@ public class StorageService extends AbstractService {
 
         storeRepository.removeStorageEngine(storeName);
 
+        // Then truncate (if needed) and close
+        if(truncate)
+            engine.truncate();
+        engine.close();
+
         // Also remove any state in the StorageConfiguration (if required)
         StorageConfiguration config = storageConfigs.get(storeType);
         if(config == null) {
@@ -744,11 +749,6 @@ public class StorageService extends AbstractService {
                                              + " storage engine has not been enabled.");
         }
         config.removeStorageEngine(engine);
-
-        // Then truncate (if needed) and close
-        if(truncate)
-            engine.truncate();
-        engine.close();
 
     }
 

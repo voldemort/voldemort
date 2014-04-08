@@ -24,6 +24,10 @@ public class AggregatedBdbEnvironmentStats {
         environmentStatsTracked.add(stats);
     }
 
+    public void unTrackEnvironment(BdbEnvironmentStats stats) {
+        environmentStatsTracked.remove(stats);
+    }
+
     /**
      * Calls the provided metric getter on all the tracked environments and
      * obtains their values

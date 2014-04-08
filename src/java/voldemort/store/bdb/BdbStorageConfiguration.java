@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import javax.management.ObjectName;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
@@ -35,6 +37,7 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StorageInitializationException;
 import voldemort.store.StoreDefinition;
 import voldemort.store.bdb.stats.AggregatedBdbEnvironmentStats;
+import voldemort.store.bdb.stats.BdbEnvironmentStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.JmxUtils;
@@ -210,6 +213,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     @Override
     public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
         String storeName = engine.getName();
+        BdbStorageEngine bdbEngine = (BdbStorageEngine) engine;
 
         synchronized(lock) {
             if(useOneEnvPerStore) {
@@ -243,9 +247,22 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                     }
                 }
 
+                BdbEnvironmentStats bdbEnvStats = bdbEngine.getBdbEnvironmentStats();
+                this.aggBdbStats.unTrackEnvironment(bdbEnvStats);
+
+                // Unregister the JMX bean for Environment
+                if(voldemortConfig.isJmxEnabled()) {
+                    ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(bdbEnvStats.getClass()),
+                                                                storeName);
+                    // Un-register the environment stats mbean
+                    JmxUtils.unregisterMbean(name);
+                }
+
                 // Cleanup the environment
                 environment.close();
                 this.environments.remove(storeName);
+                logger.info("Successfully closed the environment for store name : " + storeName);
+
             }
         }
     }
