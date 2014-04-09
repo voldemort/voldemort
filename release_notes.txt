@@ -1,3 +1,9 @@
+Release 1.7.0 on 04/09/2014
+
+* Improves BDB coversion process and documentations
+* Adds scala build support and shell (Saurabh Bhatia)
+* Add removeStorageEngine call to StorageConfiguration
+
 Release 1.6.9 on 03/19/2014
 
 * Fix a big where StreamingClient will throw NPE if not initialized
