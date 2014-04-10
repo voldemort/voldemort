@@ -48,6 +48,12 @@ public class Node implements Serializable, Comparable<Node> {
     private final List<Integer> partitions;
     private int restPort = -1;
 
+    // cached method calls
+    private URI cachedHttpUrl;
+    private URI cachedSocketUrl;
+    private String cachedToString;
+    private String cachedStateString;
+
     public Node(int id,
                 String host,
                 int httpPort,
@@ -69,7 +75,12 @@ public class Node implements Serializable, Comparable<Node> {
         this.httpPort = httpPort;
         this.socketPort = socketPort;
         this.zoneId = zoneId;
-        this.partitions = ImmutableList.copyOf(partitions);
+
+        if(partitions == null) {
+            throw new IllegalArgumentException("partitions null for node" + id + ".");
+        } else {
+            this.partitions = ImmutableList.copyOf(partitions);
+        }
 
         // fix default value for adminPort if not defined
         if(adminPort == -1) {
@@ -139,7 +150,10 @@ public class Node implements Serializable, Comparable<Node> {
 
     public URI getHttpUrl() {
         try {
-            return new URI("http://" + getHost() + ":" + getHttpPort());
+            if(cachedHttpUrl == null) {
+                cachedHttpUrl = new URI("http://" + getHost() + ":" + getHttpPort());
+            }
+            return cachedHttpUrl;
         } catch(URISyntaxException e) {
             throw new IllegalStateException("Invalid host format for node " + id + ".", e);
         }
@@ -147,7 +161,10 @@ public class Node implements Serializable, Comparable<Node> {
 
     public URI getSocketUrl() {
         try {
-            return new URI("tcp://" + getHost() + ":" + getSocketPort());
+            if(cachedSocketUrl == null) {
+                cachedSocketUrl = new URI("tcp://" + getHost() + ":" + getSocketPort());
+            }
+            return cachedSocketUrl;
         } catch(URISyntaxException e) {
             throw new IllegalStateException("Invalid host format for node " + id + ".", e);
         }
@@ -155,14 +172,20 @@ public class Node implements Serializable, Comparable<Node> {
 
     @Override
     public String toString() {
-        return "Node " + getHost() + " Id:" + getId() + " in zone " + getZoneId()
-               + " partitionList:" + partitions;
+        if(cachedToString == null) {
+            cachedToString = "Node " + getHost() + " Id:" + getId() + " in zone " + getZoneId()
+                             + " partitionList:" + partitions;
+        }
+        return cachedToString;
     }
 
     public String getStateString() {
-        return "Node " + getHost() + " Id:" + getId() + " in zone " + getZoneId()
-               + " with admin port " + getAdminPort() + ", socket port " + getSocketPort()
-               + ", and http port " + getHttpPort();
+        if(cachedStateString == null) {
+            cachedStateString = "Node " + getHost() + " Id:" + getId() + " in zone " + getZoneId()
+                                + " with admin port " + getAdminPort() + ", socket port "
+                                + getSocketPort() + ", and http port " + getHttpPort();
+        }
+        return cachedStateString;
     }
 
     @Override
