@@ -1,3 +1,7 @@
+Release 1.7.1 on 04/10/2014
+
+* Same as 1.7.0
+
 Release 1.7.0 on 04/09/2014
 
 * Improves BDB coversion process and documentations
