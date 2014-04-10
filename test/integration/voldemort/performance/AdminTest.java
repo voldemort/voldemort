@@ -165,6 +165,7 @@ public class AdminTest {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
 
@@ -181,7 +182,7 @@ public class AdminTest {
               .withValuesSeparatedBy(',');
         OptionSet options = parser.parse(args);
 
-        List<String> nonOptions = options.nonOptionArguments();
+        List<String> nonOptions = (List<String>) options.nonOptionArguments();
 
         if(args.length < 2) {
             System.out.println(usageStr);
