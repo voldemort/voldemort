@@ -461,7 +461,7 @@ public class VoldemortConfig implements Serializable {
         this.enablePruneJob = props.getBoolean("enable.prunejob", true);
         this.enableSlopPurgeJob = props.getBoolean("enable.slop.purge.job", true);
         this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
-        this.enableQuotaLimiting = props.getBoolean("enable.quota.limiting", false);
+        this.enableQuotaLimiting = props.getBoolean("enable.quota.limiting", true);
 
         this.gossipIntervalMs = props.getInt("gossip.interval.ms", 30 * 1000);
 
