@@ -41,6 +41,72 @@ public class AdminUtils {
     private static final String QUOTATYPE_ALL = "all";
     
     /**
+     * Utility function copies a string array except for the first element
+     * 
+     * @param arr Original array of strings
+     * @return Copied array of strings
+     */
+    public static String[] copyArrayCutFirst(String[] arr) {
+    	if (arr.length > 1) {
+	    	String[] arrCopy = new String[arr.length - 1];
+	    	System.arraycopy(arr, 1, arrCopy, 0, arrCopy.length);
+	    	return arrCopy;
+    	} else {
+    		return new String[0];
+    	}
+    }
+    
+    /**
+     * Utility function copies a string array and add another string to first
+     * 
+     * @param arr Original array of strings
+     * @param add
+     * @return Copied array of strings
+     */
+    public static String[] copyArrayAddFirst(String[] arr, String add) {
+	    String[] arrCopy = new String[arr.length + 1];
+	    arrCopy[0] = add;
+    	System.arraycopy(arr, 0, arrCopy, 1, arr.length);
+    	return arrCopy;
+    }
+    
+    /**
+     * Utility function pauses and asks for confirmation on dangerous operations.
+     * 
+     * @param confirm User has already confirmed in command-line input
+     * @param opDesc Description of the dangerous operation
+     * @throws IOException
+     * @return True if user confirms the operation in either command-line input or here.
+     *
+     */
+    public static Boolean askConfirm(Boolean confirm, String opDesc) throws IOException {
+        if (confirm) {
+            System.out.println("Confirmed " + opDesc + " in command-line.");
+            return true;
+        } else {
+            System.out.println("Are you sure you want to " + opDesc + "? (yes/no)");
+            BufferedReader buffer = new BufferedReader(new InputStreamReader(System.in));
+            String text = buffer.readLine();
+            return text.compareTo("yes") == 0;
+        }
+    }
+    
+    /**
+     * Utility function converts a list to a map.
+     * 
+     * @param list The list in which even elements are keys and odd elements are values.
+     * @rturn The map container that maps even elements to odd elements, e.g. 0->1, 2->3, etc.
+     */
+    public static <V> Map<V, V> convertListToMap(List<V> list) {
+        Map<V, V> map = new HashMap<V, V>();
+        if (list.size() % 2 != 0) throw new VoldemortException("Failed to convert list to map.");
+        for (int i = 0;i < list.size();i += 2) {
+            map.put(list.get(i), list.get(i + 1));
+        }
+        return map;
+    }
+
+    /**
      * Utility function constructs AdminClient.
      * 
      * @param url URL pointing to the bootstrap node
@@ -163,42 +229,6 @@ public class AdminUtils {
             }
         }
         return directory;
-    }
-    
-    /**
-     * Utility function pauses and asks for confirmation on dangerous operations.
-     * 
-     * @param confirm User has already confirmed in command-line input
-     * @param opDesc Description of the dangerous operation
-     * @throws IOException
-     * @return True if user confirms the operation in either command-line input or here.
-     *
-     */
-    public static Boolean askConfirm(Boolean confirm, String opDesc) throws IOException {
-        if (confirm) {
-            System.out.println("Confirmed " + opDesc + " in command-line.");
-            return true;
-        } else {
-            System.out.println("Are you sure you want to " + opDesc + "? (yes/no)");
-            BufferedReader buffer = new BufferedReader(new InputStreamReader(System.in));
-            String text = buffer.readLine();
-            return text.compareTo("yes") == 0;
-        }
-    }
-    
-    /**
-     * Utility function converts a list to a map.
-     * 
-     * @param list The list in which even elements are keys and odd elements are values.
-     * @rturn The map container that maps even elements to odd elements, e.g. 0->1, 2->3, etc.
-     */
-    public static <V> Map<V, V> convertListToMap(List<V> list) {
-        Map<V, V> map = new HashMap<V, V>();
-        if (list.size() % 2 != 0) throw new VoldemortException("Failed to convert list to map.");
-        for (int i = 0;i < list.size();i += 2) {
-            map.put(list.get(i), list.get(i + 1));
-        }
-        return map;
     }
     
     /** 

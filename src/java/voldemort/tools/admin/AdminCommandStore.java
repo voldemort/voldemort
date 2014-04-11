@@ -41,9 +41,8 @@ public class AdminCommandStore {
      * 
      */
     public static void execute(String[] args, Boolean printHelp) throws Exception {
-        String subCmd = new String();
-        if (args.length >= 2) subCmd = args[1];
-        
+    	String subCmd = (args.length > 0) ? args[0] : "";
+        args = AdminUtils.copyArrayCutFirst(args);
         if (subCmd.compareTo("add") == 0) executeStoreAdd(args, printHelp);
         else if (subCmd.compareTo("delete") == 0) executeStoreDelete(args, printHelp);
         else if (subCmd.compareTo("rollback-ro") == 0) executeStoreRollbackReadOnly(args, printHelp);
@@ -203,7 +202,7 @@ public class AdminCommandStore {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -266,7 +265,7 @@ public class AdminCommandStore {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -334,7 +333,7 @@ public class AdminCommandStore {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -404,7 +403,7 @@ public class AdminCommandStore {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -474,7 +473,7 @@ public class AdminCommandStore {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);

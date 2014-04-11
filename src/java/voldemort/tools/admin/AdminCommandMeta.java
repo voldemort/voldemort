@@ -62,9 +62,8 @@ public class AdminCommandMeta {
      * @throws Exception
      */
     public static void execute(String[] args, Boolean printHelp) throws Exception {
-        String subCmd = new String();
-        if (args.length >= 2) subCmd = args[1];
-        
+    	String subCmd = (args.length > 0) ? args[0] : "";
+        args = AdminUtils.copyArrayCutFirst(args);
         if (subCmd.compareTo("check") == 0) executeMetaCheck(args, printHelp);
         else if (subCmd.compareTo("clear-rebalance") == 0) executeMetaClearRebalance(args, printHelp);
         else if (subCmd.compareTo("get") == 0) executeMetaGet(args, printHelp);
@@ -474,7 +473,7 @@ public class AdminCommandMeta {
         String url = null;
         
         // add parameters to parser
-        parser.addRequired(AdminOptionParser.OPT_HEAD_META_CHECK);
+        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_META_CHECK);
         parser.addRequired(AdminOptionParser.OPT_URL);
         
         // print help menu if help command executed
@@ -499,7 +498,7 @@ public class AdminCommandMeta {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -564,7 +563,7 @@ public class AdminCommandMeta {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -595,7 +594,7 @@ public class AdminCommandMeta {
      */
     @SuppressWarnings("unchecked")
     private static void executeMetaGet(String[] args, Boolean printHelp) throws IOException {
-
+    	
         AdminOptionParser parser = new AdminOptionParser();
         
         // declare parameters
@@ -607,7 +606,7 @@ public class AdminCommandMeta {
         Boolean verbose = false;
         
         // add parameters to parser
-        parser.addRequired(AdminOptionParser.OPT_HEAD_META_GET);
+        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_META_GET);
         parser.addRequired(AdminOptionParser.OPT_URL);
         parser.addOptional(AdminOptionParser.OPT_DIR);
         parser.addOptional(AdminOptionParser.OPT_NODE_MULTIPLE, AdminOptionParser.OPT_ALL_NODES);
@@ -633,10 +632,10 @@ public class AdminCommandMeta {
             System.out.println();
             return;
         }
-        
+
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -691,7 +690,7 @@ public class AdminCommandMeta {
         Boolean confirm = false;
         
         // add parameters to parser
-        parser.addRequired(AdminOptionParser.OPT_HEAD_META_SET);
+        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_META_SET);
         parser.addRequired(AdminOptionParser.OPT_URL);
         parser.addOptional(AdminOptionParser.OPT_NODE_MULTIPLE, AdminOptionParser.OPT_ALL_NODES);
         parser.addOptional(AdminOptionParser.OPT_CONFIRM);
@@ -724,7 +723,7 @@ public class AdminCommandMeta {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -881,7 +880,7 @@ public class AdminCommandMeta {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -934,7 +933,7 @@ public class AdminCommandMeta {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);

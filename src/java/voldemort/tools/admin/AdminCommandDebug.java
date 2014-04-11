@@ -70,9 +70,8 @@ public class AdminCommandDebug {
      * @throws Exception
      */
     public static void execute(String[] args, Boolean printHelp) throws Exception {
-        String subCmd = new String();
-        if (args.length >= 2) subCmd = args[1];
-        
+    	String subCmd = (args.length > 0) ? args[0] : "";
+        args = AdminUtils.copyArrayCutFirst(args);
         if (subCmd.compareTo("query-keys") == 0) executeDebugQueryKeys(args, printHelp);
         else if (subCmd.compareTo("route") == 0) executeDebugRoute(args, printHelp);
         else executeDebugHelp();
@@ -423,7 +422,7 @@ public class AdminCommandDebug {
 
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -493,7 +492,7 @@ public class AdminCommandDebug {
 
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);

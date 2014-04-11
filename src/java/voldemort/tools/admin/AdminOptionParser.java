@@ -43,6 +43,9 @@ public class AdminOptionParser {
     public static final String OPT_HEAD_QUOTA_UNSET = "quota-unset";
     
     // options without argument
+    public static final String OPT_ALL_NODES = "all-nodes";
+    public static final String OPT_ALL_PARTITIONS = "all-partitions";
+    public static final String OPT_ALL_STORES = "all-stores";
     public static final String OPT_CONFIRM = "confirm";
     public static final String OPT_INCREMENTAL = "incremental";
     public static final String OPT_ORPHANED = "orphaned";
@@ -50,9 +53,6 @@ public class AdminOptionParser {
     public static final String OPT_VERIFY = "verify";
 
     // options with one argument
-    public static final String OPT_ALL_NODES = "all-nodes";
-    public static final String OPT_ALL_PARTITIONS = "all-partitions";
-    public static final String OPT_ALL_STORES = "all-stores";
     public static final String OPT_DIR = "dir";
     public static final String OPT_FILE = "file";
     public static final String OPT_FORMAT = "format";
@@ -128,6 +128,7 @@ public class AdminOptionParser {
                 "select all partitions", Boolean.class));
         optMap.put(OPT_ALL_STORES, new AdminOption<Boolean>(OPT_ALL_STORES,
                 "select all stores", Boolean.class));
+        
         optMap.put(OPT_CONFIRM, new AdminOption<Boolean>(OPT_CONFIRM,
                 "confirm dangerous operations", Boolean.class));
         optMap.put(OPT_INCREMENTAL, new AdminOption<String>(OPT_INCREMENTAL,
@@ -289,7 +290,7 @@ public class AdminOptionParser {
             argCopy = new String[args.length - start];
             System.arraycopy(args,  start, argCopy, 0, argCopy.length);
         }
-        
+
         Iterator<List<String>> iter;
         
         // jopt parser parses command-line

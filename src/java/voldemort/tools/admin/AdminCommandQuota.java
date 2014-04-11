@@ -41,9 +41,8 @@ public class AdminCommandQuota {
      * @throws Exception
      */
     public static void execute(String[] args, Boolean printHelp) throws Exception {
-        String subCmd = new String();
-        if (args.length >= 2) subCmd = args[1];
-        
+    	String subCmd = (args.length > 0) ? args[0] : "";
+        args = AdminUtils.copyArrayCutFirst(args);
         if (subCmd.compareTo("get") == 0) executeQuotaGet(args, printHelp);
         else if (subCmd.compareTo("set") == 0) executeQuotaSet(args, printHelp);
         else if (subCmd.compareTo("reserve-memory") == 0) executeQuotaReserveMemory(args, printHelp);
@@ -174,7 +173,7 @@ public class AdminCommandQuota {
         String url = null;
         
         // add parameters to parser
-        parser.addRequired(AdminOptionParser.OPT_HEAD_QUOTA_GET);
+        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_QUOTA_GET);
         parser.addRequired(AdminOptionParser.OPT_STORE_MULTIPLE);
         parser.addRequired(AdminOptionParser.OPT_URL);
         
@@ -200,7 +199,7 @@ public class AdminCommandQuota {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -240,7 +239,7 @@ public class AdminCommandQuota {
         Boolean confirm = false;
         
         // add parameters to parser
-        parser.addRequired(AdminOptionParser.OPT_HEAD_QUOTA_RESERVE_MEMORY);
+        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_QUOTA_RESERVE_MEMORY);
         parser.addRequired(AdminOptionParser.OPT_STORE_MULTIPLE);
         parser.addRequired(AdminOptionParser.OPT_URL);
         parser.addOptional(AdminOptionParser.OPT_NODE_MULTIPLE, AdminOptionParser.OPT_ALL_NODES);
@@ -263,7 +262,7 @@ public class AdminCommandQuota {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -307,7 +306,7 @@ public class AdminCommandQuota {
         Boolean confirm = false;
         
         // add parameters to parser
-        parser.addRequired(AdminOptionParser.OPT_HEAD_QUOTA_SET);
+        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_QUOTA_SET);
         parser.addRequired(AdminOptionParser.OPT_STORE_MULTIPLE);
         parser.addRequired(AdminOptionParser.OPT_URL);
         parser.addOptional(AdminOptionParser.OPT_CONFIRM);
@@ -335,7 +334,7 @@ public class AdminCommandQuota {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -383,7 +382,7 @@ public class AdminCommandQuota {
         Boolean confirm = false;
         
         // add parameters to parser
-        parser.addRequired(AdminOptionParser.OPT_HEAD_QUOTA_UNSET);
+        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_QUOTA_UNSET);
         parser.addRequired(AdminOptionParser.OPT_STORE_MULTIPLE);
         parser.addRequired(AdminOptionParser.OPT_URL);
         parser.addOptional(AdminOptionParser.OPT_CONFIRM);
@@ -411,7 +410,7 @@ public class AdminCommandQuota {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);

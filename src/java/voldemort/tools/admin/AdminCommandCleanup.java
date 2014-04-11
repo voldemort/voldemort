@@ -39,9 +39,8 @@ public class AdminCommandCleanup {
      * 
      */
     public static void execute(String[] args, Boolean printHelp) throws Exception {
-        String subCmd = new String();
-        if (args.length >= 2) subCmd = args[1];
-        
+    	String subCmd = (args.length > 0) ? args[0] : "";
+        args = AdminUtils.copyArrayCutFirst(args);
         if (subCmd.equals("orphaned-data")) executeCleanupOrphanedData(args, printHelp);
         else if (subCmd.equals("vector-clocks")) executeCleanupVectorClocks(args, printHelp);
         else if (subCmd.equals("slops")) executeCleanupSlops(args, printHelp);
@@ -132,7 +131,7 @@ public class AdminCommandCleanup {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -199,7 +198,7 @@ public class AdminCommandCleanup {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
@@ -268,7 +267,7 @@ public class AdminCommandCleanup {
         
         // parse command-line input
         try {
-            parser.parse(args, 2);
+            parser.parse(args, 0);
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);
