@@ -26,44 +26,47 @@ import voldemort.VoldemortException;
  */
 public abstract class AbstractAdminCommand {
 
-	/**
-	 * Initializes parser
-	 * @throws Exception
-	 */
-	protected static OptionParser getParser() throws Exception {
-    	throw new VoldemortException("Parser initializer not implemented.");
-	}
-	
     /**
-     * Prints help menu for command.
-     * If not overwritten by inherited classes, it throws exception by default.
+     * Initializes parser
      * 
-     * @param args Array of arguments for this command
      * @throws Exception
      */
-	public static void printHelp(PrintStream stream) throws Exception {
-    	throw new VoldemortException("Help menu not implemented.");
+    protected static OptionParser getParser() throws Exception {
+        throw new VoldemortException("Parser initializer not implemented.");
     }
 
     /**
-     * Parses command-line and decides what help menu to be printed out.
-     * If not overwritten by inherited classes, it throws exception by default.
+     * Prints help menu for command. If not overwritten by inherited classes, it
+     * throws exception by default.
      * 
      * @param args Array of arguments for this command
      * @throws Exception
      */
-	public static void executeHelp(PrintStream stream, String[] args) throws Exception {
-    	throw new VoldemortException("Help menu not implemented.");
+    @SuppressWarnings("unused")
+    public static void printHelp(PrintStream stream) throws Exception {
+        throw new VoldemortException("Help menu not implemented.");
     }
-    
+
     /**
-     * Parses command-line and executes command with arguments.
-     * If not overwritten by inherited classes, it throws exception by default.
+     * Parses command-line and decides what help menu to be printed out. If not
+     * overwritten by inherited classes, it throws exception by default.
+     * 
+     * @param args Array of arguments for this command
+     * @throws Exception
+     */
+    @SuppressWarnings("unused")
+    public static void executeHelp(String[] args, PrintStream stream) throws Exception {
+        throw new VoldemortException("Help menu not implemented.");
+    }
+
+    /**
+     * Parses command-line and executes command with arguments. If not
+     * overwritten by inherited classes, it throws exception by default.
      * 
      * @param args Array of arguments for this command
      * @throws Exception
      */
     public static void executeCommand(String[] args) throws Exception {
-    	throw new VoldemortException("Command not implemented.");
+        throw new VoldemortException("Command not implemented.");
     }
 }

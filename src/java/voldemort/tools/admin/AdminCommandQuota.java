@@ -16,10 +16,17 @@
 
 package voldemort.tools.admin;
 
-import java.io.*;
-import java.util.*;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Node;
@@ -27,48 +34,186 @@ import voldemort.store.quota.QuotaUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
+
 /**
- * Implements all functionality of admin quota operations.
- * 
+ * Implements all quota commands.
  */
-public class AdminCommandQuota {
+public class AdminCommandQuota extends AbstractAdminCommand {
 
     /**
-     * Main entry of group command 'quota', directs to sub-commands
+     * Parses command-line and directs to sub-commands.
      * 
      * @param args Command-line input
-     * @param printHelp Tells whether to print help only or execute command actually
      * @throws Exception
      */
-    public static void execute(String[] args, Boolean printHelp) throws Exception {
-    	String subCmd = (args.length > 0) ? args[0] : "";
+    public static void executeCommand(String[] args) throws Exception {
+        String subCmd = (args.length > 0) ? args[0] : "";
         args = AdminUtils.copyArrayCutFirst(args);
-        if (subCmd.compareTo("get") == 0) executeQuotaGet(args, printHelp);
-        else if (subCmd.compareTo("set") == 0) executeQuotaSet(args, printHelp);
-        else if (subCmd.compareTo("reserve-memory") == 0) executeQuotaReserveMemory(args, printHelp);
-        else if (subCmd.compareTo("unset") == 0) executeQuotaUnset(args, printHelp);
-        else executeQuotaHelp();
+        if(subCmd.equals("get")) {
+            SubCommandQuotaGet.executeCommand(args);
+        } else if(subCmd.equals("set")) {
+            SubCommandQuotaSet.executeCommand(args);
+        } else if(subCmd.equals("reserve-memory")) {
+            SubCommandQuotaReserveMemory.executeCommand(args);
+        } else if(subCmd.equals("unset")) {
+            SubCommandQuotaUnset.executeCommand(args);
+        } else {
+            printHelp(System.out);
+        }
     }
 
     /**
-     * Gets quota for given quota types on given stores.
-     * 
-     * @param adminClient An instance of AdminClient points to given cluster
-     * @param storeNames List of stores to query quota
-     * @param quotaType List of quota types to fetch
+     * Prints command-line help menu.
      */
-    private static void doQuotaGet(AdminClient adminClient, List<String> storeNames, List<String> quotaTypes) {
-        for (String storeName: storeNames) {
-            if (!adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
-                System.out.println("Store " + storeName + " not in cluster.");
-            } else {
-                System.out.println("Store " + storeName);
-                for (String quotaType: quotaTypes) {
-                    Versioned<String> quotaVal = adminClient.quotaMgmtOps.getQuota(storeName, quotaType);
-                    if (quotaVal == null) {
-                        System.out.println("No quota set for " + quotaType);
-                    } else {
-                        System.out.println("Quota value  for " + quotaType + " : " + quotaVal.getValue());
+    public static void printHelp(PrintStream stream) {
+        stream.println();
+        stream.println("Voldemort Admin Tool Quota Commands");
+        stream.println("-----------------------------------");
+        stream.println("get              Get quota values of stores.");
+        stream.println("reserve-memory   Reserve memory for stores.");
+        stream.println("set              Set quota values for stores.");
+        stream.println("unset            Clear quota settings for stores.");
+        stream.println();
+        stream.println("To get more information on each command,");
+        stream.println("please try \'help quota <command-name>\'.");
+        stream.println();
+    }
+
+    /**
+     * Parses command-line input and prints help menu.
+     * 
+     * @throws Exception
+     */
+    public static void executeHelp(String[] args, PrintStream stream) throws Exception {
+        String subCmd = (args.length > 0) ? args[0] : "";
+        if(subCmd.equals("get")) {
+            SubCommandQuotaGet.printHelp(stream);
+        } else if(subCmd.equals("set")) {
+            SubCommandQuotaSet.printHelp(stream);
+        } else if(subCmd.equals("reserve-memory")) {
+            SubCommandQuotaReserveMemory.printHelp(stream);
+        } else if(subCmd.equals("unset")) {
+            SubCommandQuotaUnset.printHelp(stream);
+        } else {
+            printHelp(stream);
+        }
+    }
+
+    /**
+     * quota get command
+     */
+    private static class SubCommandQuotaGet extends AbstractAdminCommand {
+
+        public static final String OPT_HEAD_QUOTA_GET = "quota-get";
+
+        /**
+         * Initializes parser
+         * 
+         * @return OptionParser object with all available options
+         */
+        protected static OptionParser getParser() {
+            OptionParser parser = new OptionParser();
+            // required options
+            parser.accepts(OPT_HEAD_QUOTA_GET, "quota types to fetch")
+                  .withRequiredArg()
+                  .describedAs("quota-type-list")
+                  .withValuesSeparatedBy(',')
+                  .ofType(String.class);
+            AdminParserUtils.acceptsStoreMultiple(parser, true);
+            AdminParserUtils.acceptsUrl(parser, true);
+            return parser;
+        }
+
+        /**
+         * Prints help menu for command.
+         * 
+         * @param stream PrintStream object for output
+         * @throws IOException
+         */
+        public static void printHelp(PrintStream stream) throws IOException {
+            stream.println();
+            stream.println("NAME");
+            stream.println("  quota get - Get quota values of stores");
+            stream.println();
+            stream.println("SYNOPSIS");
+            stream.println("  quota get (<quota-type-list> | all) -s <store-name-list> -u <url>");
+            stream.println();
+            stream.println("COMMENTS");
+            stream.println("  Valid quota types are:");
+            for(String quotaType: QuotaUtils.validQuotaTypes()) {
+                stream.println("    " + quotaType);
+            }
+            stream.println();
+            getParser().printHelpOn(stream);
+            stream.println();
+        }
+
+        /**
+         * Parses command-line and gets quota.
+         * 
+         * @param args Command-line input
+         * @param printHelp Tells whether to print help only or execute command
+         *        actually
+         * @throws IOException
+         * 
+         */
+        @SuppressWarnings("unchecked")
+        public static void executeCommand(String[] args) throws IOException {
+
+            OptionParser parser = getParser();
+            List<String> requiredAll = Lists.newArrayList();
+            requiredAll.add(OPT_HEAD_QUOTA_GET);
+            requiredAll.add(AdminParserUtils.OPT_STORE);
+            requiredAll.add(AdminParserUtils.OPT_URL);
+
+            // declare parameters
+            List<String> quotaTypes = null;
+            List<String> storeNames = null;
+            String url = null;
+
+            // parse command-line input
+            args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_GET);
+            OptionSet options = parser.parse(args);
+
+            // load parameters
+            quotaTypes = AdminUtils.getQuotaTypes((List<String>) options.valuesOf(OPT_HEAD_QUOTA_GET));
+            storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
+            url = (String) options.valueOf(AdminParserUtils.OPT_URL);
+
+            // check correctness
+            AdminParserUtils.checkRequiredAll(options, requiredAll);
+
+            // execute command
+            AdminClient adminClient = AdminUtils.getAdminClient(url);
+
+            doQuotaGet(adminClient, storeNames, quotaTypes);
+        }
+
+        /**
+         * Gets quota for given quota types on given stores.
+         * 
+         * @param adminClient An instance of AdminClient points to given cluster
+         * @param storeNames List of stores to query quota
+         * @param quotaType List of quota types to fetch
+         */
+        private static void doQuotaGet(AdminClient adminClient,
+                                       List<String> storeNames,
+                                       List<String> quotaTypes) {
+            for(String storeName: storeNames) {
+                if(!adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
+                    System.out.println("Store " + storeName + " not in cluster.");
+                } else {
+                    System.out.println("Store " + storeName);
+                    for(String quotaType: quotaTypes) {
+                        Versioned<String> quotaVal = adminClient.quotaMgmtOps.getQuota(storeName,
+                                                                                       quotaType);
+                        if(quotaVal == null) {
+                            System.out.println("No quota set for " + quotaType);
+                        } else {
+                            System.out.println("Quota value  for " + quotaType + " : "
+                                               + quotaVal.getValue());
+                        }
                     }
                 }
             }
@@ -76,359 +221,394 @@ public class AdminCommandQuota {
     }
 
     /**
-     * Reserves memory for given stores on given nodes.
-     * 
-     * @param adminClient An instance of AdminClient points to given cluster
-     * @param nodes List of nodes to reserve memory on
-     * @param storeNames List of stores to reserve memory on
-     * @param memoryMBSize Size of memory to be reserved
-     * 
+     * quota reserve-memory command
      */
-    private static void doQuotaReserveMemory(AdminClient adminClient,
-        Collection<Node> nodes, List<String> storeNames, long memoryMBSize) {
-        for (Node node: nodes) {
-            adminClient.quotaMgmtOps.reserveMemory(node.getId(), storeNames, memoryMBSize);
+    private static class SubCommandQuotaReserveMemory extends AbstractAdminCommand {
+
+        public static final String OPT_HEAD_QUOTA_RESERVE_MEMORY = "quota-reserve-memory";
+
+        /**
+         * Initializes parser
+         * 
+         * @return OptionParser object with all available options
+         */
+        protected static OptionParser getParser() {
+            OptionParser parser = new OptionParser();
+            // required options
+            parser.accepts(OPT_HEAD_QUOTA_RESERVE_MEMORY, "memory size in MB to be reserved")
+                  .withRequiredArg()
+                  .describedAs("memory-size")
+                  .ofType(Integer.class);
+            AdminParserUtils.acceptsStoreMultiple(parser, true);
+            AdminParserUtils.acceptsUrl(parser, true);
+            // optional options
+            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
+                                                                 // --node or
+                                                                 // --all-nodes
+            AdminParserUtils.acceptsAllNodes(parser); // either --node or
+                                                      // --all-nodes
+            AdminParserUtils.acceptsConfirm(parser);
+            return parser;
+        }
+
+        /**
+         * Prints help menu for command.
+         * 
+         * @param stream PrintStream object for output
+         * @throws IOException
+         */
+        public static void printHelp(PrintStream stream) throws IOException {
+            stream.println();
+            stream.println("NAME");
+            stream.println("  quota reserve-memory - Reserve memory for stores");
+            stream.println();
+            stream.println("SYNOPSIS");
+            stream.println("  quota reserve-memory <memory-size> -s <store-name-list> -u <url>");
+            stream.println("                       [-n <node-id-list> | --all-nodes] [--confirm]");
+            stream.println();
+            getParser().printHelpOn(stream);
+            stream.println();
+        }
+
+        /**
+         * Parses command-line and reserves memory for given stores on given
+         * nodes.
+         * 
+         * @param args Command-line input
+         * @param printHelp Tells whether to print help only or execute command
+         *        actually
+         * @throws IOException
+         * 
+         */
+        @SuppressWarnings("unchecked")
+        public static void executeCommand(String[] args) throws IOException {
+
+            OptionParser parser = getParser();
+            List<String> requiredAll = Lists.newArrayList();
+            List<String> optionalNode = Lists.newArrayList();
+            requiredAll.add(OPT_HEAD_QUOTA_RESERVE_MEMORY);
+            requiredAll.add(AdminParserUtils.OPT_STORE);
+            requiredAll.add(AdminParserUtils.OPT_URL);
+            optionalNode.add(AdminParserUtils.OPT_NODE);
+            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
+
+            // declare parameters
+            long memoryMBSize = 0;
+            List<String> storeNames = null;
+            String url = null;
+            List<Integer> nodeIds = null;
+            Boolean allNodes = true;
+            Boolean confirm = false;
+
+            // parse command-line input
+            args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_RESERVE_MEMORY);
+            OptionSet options = parser.parse(args);
+
+            // load parameters
+            memoryMBSize = (Integer) options.valueOf(OPT_HEAD_QUOTA_RESERVE_MEMORY);
+            storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
+            url = (String) options.valueOf(AdminParserUtils.OPT_URL);
+            if(options.has(AdminParserUtils.OPT_NODE)) {
+                nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
+                allNodes = false;
+            }
+            if(options.has(AdminParserUtils.OPT_CONFIRM)) {
+                confirm = true;
+            }
+
+            // check correctness
+            AdminParserUtils.checkRequiredAll(options, requiredAll);
+            AdminParserUtils.checkOptionalOne(options, optionalNode);
+
+            // execute command
+            if(!AdminUtils.askConfirm(confirm, "reserve memory"))
+                return;
+
+            AdminClient adminClient = AdminUtils.getAdminClient(url);
+            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
+
+            doQuotaReserveMemory(adminClient, nodes, storeNames, memoryMBSize);
+        }
+
+        /**
+         * Reserves memory for given stores on given nodes.
+         * 
+         * @param adminClient An instance of AdminClient points to given cluster
+         * @param nodes List of nodes to reserve memory on
+         * @param storeNames List of stores to reserve memory on
+         * @param memoryMBSize Size of memory to be reserved
+         * 
+         */
+        private static void doQuotaReserveMemory(AdminClient adminClient,
+                                                 Collection<Node> nodes,
+                                                 List<String> storeNames,
+                                                 long memoryMBSize) {
+            for(Node node: nodes) {
+                adminClient.quotaMgmtOps.reserveMemory(node.getId(), storeNames, memoryMBSize);
+            }
         }
     }
-    
+
     /**
-     * Sets quota for given quota types on given stores.
-     * 
-     * @param adminClient An instance of AdminClient points to given cluster
-     * @param storeNames The list of target stores to set quota
-     * @param quotaMap Pairs of quota type-value to set
-     * 
+     * quota set command
      */
-    private static void doQuotaSet(AdminClient adminClient, List<String> storeNames, Map<String, String> quotaMap) {
-        for (String storeName: storeNames) {
-            if (adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
-                Iterator<Entry<String, String>> iter = quotaMap.entrySet().iterator();
-                while (iter.hasNext()) {
-                    @SuppressWarnings("rawtypes")
-                    Map.Entry entry = (Map.Entry) iter.next();
-                    adminClient.quotaMgmtOps.setQuota(storeName,
-                                                      (String) entry.getKey(),
-                                                      (String) entry.getValue());
+    private static class SubCommandQuotaSet extends AbstractAdminCommand {
+
+        public static final String OPT_HEAD_QUOTA_SET = "quota-set";
+
+        /**
+         * Initializes parser
+         * 
+         * @return OptionParser object with all available options
+         */
+        protected static OptionParser getParser() {
+            OptionParser parser = new OptionParser();
+            // required options
+            parser.accepts(OPT_HEAD_QUOTA_SET, "quota type-value pairs")
+                  .withRequiredArg()
+                  .describedAs("quota-type>=<quota-value")
+                  .withValuesSeparatedBy(',')
+                  .ofType(String.class);
+            AdminParserUtils.acceptsStoreMultiple(parser, true);
+            AdminParserUtils.acceptsUrl(parser, true);
+            // optional options
+            AdminParserUtils.acceptsConfirm(parser);
+            return parser;
+        }
+
+        /**
+         * Prints help menu for command.
+         * 
+         * @param stream PrintStream object for output
+         * @throws IOException
+         */
+        public static void printHelp(PrintStream stream) throws IOException {
+            stream.println();
+            stream.println("NAME");
+            stream.println("  quota set - Set quota values for stores");
+            stream.println();
+            stream.println("SYNOPSIS");
+            stream.println("  quota set (<quota-type1>=<quota-value1>,...) -s <store-name-list> -u <url>");
+            stream.println("            [--confirm]");
+            stream.println();
+            stream.println("COMMENTS");
+            stream.println("  Valid quota types are:");
+            for(String quotaType: QuotaUtils.validQuotaTypes()) {
+                stream.println("    " + quotaType);
+            }
+            stream.println();
+            getParser().printHelpOn(stream);
+            stream.println();
+        }
+
+        /**
+         * Parses command-line and sets quota.
+         * 
+         * @param args Command-line input
+         * @param printHelp Tells whether to print help only or execute command
+         *        actually
+         * @throws IOException
+         * 
+         */
+        @SuppressWarnings("unchecked")
+        public static void executeCommand(String[] args) throws IOException {
+
+            OptionParser parser = getParser();
+            List<String> requiredAll = Lists.newArrayList();
+            requiredAll.add(OPT_HEAD_QUOTA_SET);
+            requiredAll.add(AdminParserUtils.OPT_STORE);
+            requiredAll.add(AdminParserUtils.OPT_URL);
+
+            // declare parameters
+            List<String> quota = null;
+            List<String> storeNames = null;
+            String url = null;
+            Boolean confirm = false;
+
+            // parse command-line input
+            args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_SET);
+            OptionSet options = parser.parse(args);
+
+            // load parameters
+            quota = AdminUtils.getValueList((List<String>) options.valuesOf(OPT_HEAD_QUOTA_SET),
+                                            "=");
+            if(quota.size() % 2 != 0)
+                throw new VoldemortException("Invalid quota type-value pair.");
+            Set<String> validQuotaTypes = QuotaUtils.validQuotaTypes();
+            for(Integer i = 0; i < quota.size(); i += 2) {
+                if(!validQuotaTypes.contains(quota.get(i))) {
+                    Utils.croak("Invalid quota type: " + quota.get(i));
                 }
-            } else {
-                System.err.println("Store " + storeName + " not in cluster.");
             }
-        }
-    }
 
-    /**
-     * Unsets quota for given quota types on given stores.
-     * 
-     * @param adminClient An instance of AdminClient points to given cluster
-     * @param storeNames The list of target stores to unset quota
-     * @param quotaTypes Quota types to unset
-     * 
-     */
-    private static void doQuotaUnset(AdminClient adminClient, List<String> storeNames, List<String> quotaTypes) {
-        for (String storeName: storeNames) {
-            if (adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
-                for (String quotaType: quotaTypes) {
-                    adminClient.quotaMgmtOps.unsetQuota(storeName, quotaType);
+            storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
+            url = (String) options.valueOf(AdminParserUtils.OPT_URL);
+            if(options.has(AdminParserUtils.OPT_CONFIRM)) {
+                confirm = true;
+            }
+
+            // check correctness
+            AdminParserUtils.checkRequiredAll(options, requiredAll);
+
+            // execute command
+            if(!AdminUtils.askConfirm(confirm, "set quota"))
+                return;
+
+            AdminClient adminClient = AdminUtils.getAdminClient(url);
+            Map<String, String> quotaMap = AdminUtils.convertListToMap(quota);
+
+            doQuotaSet(adminClient, storeNames, quotaMap);
+        }
+
+        /**
+         * Sets quota for given quota types on given stores.
+         * 
+         * @param adminClient An instance of AdminClient points to given cluster
+         * @param storeNames The list of target stores to set quota
+         * @param quotaMap Pairs of quota type-value to set
+         * 
+         */
+        @SuppressWarnings({ "cast", "rawtypes" })
+        private static void doQuotaSet(AdminClient adminClient,
+                                       List<String> storeNames,
+                                       Map<String, String> quotaMap) {
+            for(String storeName: storeNames) {
+                if(adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
+                    Iterator<Entry<String, String>> iter = quotaMap.entrySet().iterator();
+                    while(iter.hasNext()) {
+                        Map.Entry entry = (Map.Entry) iter.next();
+                        adminClient.quotaMgmtOps.setQuota(storeName,
+                                                          (String) entry.getKey(),
+                                                          (String) entry.getValue());
+                    }
+                } else {
+                    System.err.println("Store " + storeName + " not in cluster.");
                 }
-            } else {
-                System.err.println("Store " + storeName + " not in cluster.");
             }
         }
     }
-    
-    /**
-     * Prints command-line help menu.
-     * 
-     */
-    private static void executeQuotaHelp() {
-        System.out.println();
-        System.out.println("Voldemort Admin Tool Quota Commands");
-        System.out.println("-----------------------------------");
-        System.out.println("get              Get quota values of stores.");
-        System.out.println("reserve-memory   Reserve memory for stores.");
-        System.out.println("set              Set quota values for stores.");
-        System.out.println("unset            Clear quota settings for stores.");
-        System.out.println();
-        System.out.println("To get more information on each command,");
-        System.out.println("please try \'help quota <command-name>\'.");
-        System.out.println();
-    }
-    
-    /**
-     * Parses command-line and gets quota.
-     * 
-     * @param args Command-line input
-     * @param printHelp Tells whether to print help only or execute command actually
-     * @throws IOException 
-     * 
-     */
-    @SuppressWarnings("unchecked")
-    private static void executeQuotaGet(String[] args, Boolean printHelp) throws IOException {
 
-        AdminOptionParser parser = new AdminOptionParser();
-        
-        // declare parameters
-        List<String> quotaTypes = null;
-        List<String> storeNames = null;
-        String url = null;
-        
-        // add parameters to parser
-        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_QUOTA_GET);
-        parser.addRequired(AdminOptionParser.OPT_STORE_MULTIPLE);
-        parser.addRequired(AdminOptionParser.OPT_URL);
-        
-        // print help menu if help command executed
-        if (printHelp) {
-            System.out.println();
-            System.out.println("NAME");
-            System.out.println("  quota get - Get quota values of stores");
-            System.out.println();
-            System.out.println("SYNOPSIS");
-            System.out.println("  quota get (<quota-type-list> | all) -s <store-name-list> -u <url>");
-            System.out.println();
-            System.out.println("COMMENTS");
-            System.out.println("  Valid quota types are:");
-            for (String quotaType: QuotaUtils.validQuotaTypes()) {
-                System.out.println("    " + quotaType);
+    /**
+     * quota unset command
+     */
+    private static class SubCommandQuotaUnset extends AbstractAdminCommand {
+
+        public static final String OPT_HEAD_QUOTA_UNSET = "quota-unset";
+
+        /**
+         * Initializes parser
+         * 
+         * @return OptionParser object with all available options
+         */
+        protected static OptionParser getParser() {
+            OptionParser parser = new OptionParser();
+            // required options
+            parser.accepts(OPT_HEAD_QUOTA_UNSET, "quota types to unset")
+                  .withRequiredArg()
+                  .describedAs("quota-type-list")
+                  .withValuesSeparatedBy(',')
+                  .ofType(String.class);
+            AdminParserUtils.acceptsStoreMultiple(parser, true);
+            AdminParserUtils.acceptsUrl(parser, true);
+            // optional options
+            AdminParserUtils.acceptsConfirm(parser);
+            return parser;
+        }
+
+        /**
+         * Prints help menu for command.
+         * 
+         * @param stream PrintStream object for output
+         * @throws IOException
+         */
+        public static void printHelp(PrintStream stream) throws IOException {
+            stream.println();
+            stream.println("NAME");
+            stream.println("  quota unset - Clear quota settings for stores");
+            stream.println();
+            stream.println("SYNOPSIS");
+            stream.println("  quota unset (<quota-type-list> | all) -s <store-name-list> -u <url>");
+            stream.println("              [--confirm]");
+            stream.println();
+            stream.println("COMMENTS");
+            stream.println("  Valid quota types are:");
+            for(String quotaType: QuotaUtils.validQuotaTypes()) {
+                stream.println("    " + quotaType);
             }
-            System.out.println();
-            parser.printHelp();
-            System.out.println();
-            return;
+            stream.println();
+            getParser().printHelpOn(stream);
+            stream.println();
         }
-        
-        // parse command-line input
-        try {
-            parser.parse(args, 0);
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-        
-        // load parameters
-        quotaTypes = (List<String>) parser.getValueList(AdminOptionParser.OPT_HEAD_QUOTA_GET);
-        storeNames = (List<String>) parser.getValueList(AdminOptionParser.OPT_STORE);
-        url = (String) parser.getValue(AdminOptionParser.OPT_URL);
-        
-        quotaTypes = AdminUtils.getQuotaTypes(quotaTypes);
 
-        AdminClient adminClient = AdminUtils.getAdminClient(url);
-        
-        doQuotaGet(adminClient, storeNames, quotaTypes);
-    }
+        /**
+         * Parses command-line and unsets quota.
+         * 
+         * @param args Command-line input
+         * @param printHelp Tells whether to print help only or execute command
+         *        actually
+         * @throws IOException
+         * 
+         */
+        @SuppressWarnings("unchecked")
+        public static void executeCommand(String[] args) throws IOException {
 
-    /**
-     * Parses command-line and reserves memory for given stores on given nodes.
-     * 
-     * @param args Command-line input
-     * @param printHelp Tells whether to print help only or execute command actually
-     * @throws IOException 
-     * 
-     */
-    @SuppressWarnings("unchecked")
-    private static void executeQuotaReserveMemory(String[] args, Boolean printHelp) throws IOException {
+            OptionParser parser = getParser();
+            List<String> requiredAll = Lists.newArrayList();
+            requiredAll.add(OPT_HEAD_QUOTA_UNSET);
+            requiredAll.add(AdminParserUtils.OPT_STORE);
+            requiredAll.add(AdminParserUtils.OPT_URL);
 
-        AdminOptionParser parser = new AdminOptionParser();
-        
-        // declare parameters
-        long memoryMBSize = 0;
-        List<String> storeNames = null;
-        String url = null;
-        List<Integer> nodeIds = null;
-        Boolean allNodes = true;
-        Boolean confirm = false;
-        
-        // add parameters to parser
-        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_QUOTA_RESERVE_MEMORY);
-        parser.addRequired(AdminOptionParser.OPT_STORE_MULTIPLE);
-        parser.addRequired(AdminOptionParser.OPT_URL);
-        parser.addOptional(AdminOptionParser.OPT_NODE_MULTIPLE, AdminOptionParser.OPT_ALL_NODES);
-        parser.addOptional(AdminOptionParser.OPT_CONFIRM);
-        
-        // print help menu if help command executed
-        if (printHelp) {
-            System.out.println();
-            System.out.println("NAME");
-            System.out.println("  quota reserve-memory - Reserve memory for stores");
-            System.out.println();
-            System.out.println("SYNOPSIS");
-            System.out.println("  quota reserve-memory <memory-size> -s <store-name-list> -u <url>");
-            System.out.println("                       [-n <node-id-list> | --all-nodes] [--confirm]");
-            System.out.println();
-            parser.printHelp();
-            System.out.println();
-            return;
-        }
-        
-        // parse command-line input
-        try {
-            parser.parse(args, 0);
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-        
-        // load parameters
-        memoryMBSize = (Integer) parser.getValue(AdminOptionParser.OPT_HEAD_QUOTA_RESERVE_MEMORY);
-        storeNames = (List<String>) parser.getValueList(AdminOptionParser.OPT_STORE);
-        url = (String) parser.getValue(AdminOptionParser.OPT_URL);
-        if (parser.hasOption(AdminOptionParser.OPT_NODE)) {
-            nodeIds = (List<Integer>) parser.getValueList(AdminOptionParser.OPT_NODE);
-            allNodes = false;
-        }
-        if (parser.hasOption(AdminOptionParser.OPT_CONFIRM)) confirm = true;
+            // declare parameters
+            List<String> quotaTypes = null;
+            List<String> storeNames = null;
+            String url = null;
+            Boolean confirm = false;
 
-        if (!AdminUtils.askConfirm(confirm, "reserve memory")) return;
-        
-        AdminClient adminClient = AdminUtils.getAdminClient(url);
-        Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
-        
-        doQuotaReserveMemory(adminClient, nodes, storeNames, memoryMBSize);
-    }
+            // parse command-line input
+            args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_UNSET);
+            OptionSet options = parser.parse(args);
 
-    /**
-     * Parses command-line and sets quota.
-     * 
-     * @param args Command-line input
-     * @param printHelp Tells whether to print help only or execute command actually
-     * @throws IOException 
-     * 
-     */
-    @SuppressWarnings("unchecked")
-    private static void executeQuotaSet(String[] args, Boolean printHelp) throws IOException {
-
-        AdminOptionParser parser = new AdminOptionParser();
-        
-        // declare parameters
-        List<String> quota = null;
-        List<String> storeNames = null;
-        String url = null;
-        Boolean confirm = false;
-        
-        // add parameters to parser
-        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_QUOTA_SET);
-        parser.addRequired(AdminOptionParser.OPT_STORE_MULTIPLE);
-        parser.addRequired(AdminOptionParser.OPT_URL);
-        parser.addOptional(AdminOptionParser.OPT_CONFIRM);
-        
-        // print help menu if help command executed
-        if (printHelp) {
-            System.out.println();
-            System.out.println("NAME");
-            System.out.println("  quota set - Set quota values for stores");
-            System.out.println();
-            System.out.println("SYNOPSIS");
-            System.out.println("  quota set (<quota-type1>=<quota-value1>,...) -s <store-name-list> -u <url>");
-            System.out.println("            [--confirm]");
-            System.out.println();
-            System.out.println("COMMENTS");
-            System.out.println("  Valid quota types are:");
-            for (String quotaType: QuotaUtils.validQuotaTypes()) {
-                System.out.println("    " + quotaType);
+            // load parameters
+            quotaTypes = AdminUtils.getQuotaTypes((List<String>) options.valuesOf(OPT_HEAD_QUOTA_UNSET));
+            storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
+            url = (String) options.valueOf(AdminParserUtils.OPT_URL);
+            if(options.has(AdminParserUtils.OPT_CONFIRM)) {
+                confirm = true;
             }
-            System.out.println();
-            parser.printHelp();
-            System.out.println();
-            return;
+
+            // check correctness
+            AdminParserUtils.checkRequiredAll(options, requiredAll);
+
+            // execute command
+            if(!AdminUtils.askConfirm(confirm, "unset quota")) {
+                return;
+            }
+
+            AdminClient adminClient = AdminUtils.getAdminClient(url);
+
+            doQuotaUnset(adminClient, storeNames, quotaTypes);
         }
-        
-        // parse command-line input
-        try {
-            parser.parse(args, 0);
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-        
-        // load parameters
-        quota = parser.getValuePairList(AdminOptionParser.OPT_HEAD_QUOTA_SET, "=");
-        if (quota.size() % 2 != 0) throw new VoldemortException("Invalid quota type-value pair.");
-        Set<String> validQuotaTypes = QuotaUtils.validQuotaTypes();
-        for (Integer i = 0;i < quota.size();i += 2) {
-            if (!validQuotaTypes.contains(quota.get(i))) {
-                Utils.croak("Invalid quota type: " + quota.get(i));
+
+        /**
+         * Unsets quota for given quota types on given stores.
+         * 
+         * @param adminClient An instance of AdminClient points to given cluster
+         * @param storeNames The list of target stores to unset quota
+         * @param quotaTypes Quota types to unset
+         * 
+         */
+        private static void doQuotaUnset(AdminClient adminClient,
+                                         List<String> storeNames,
+                                         List<String> quotaTypes) {
+            for(String storeName: storeNames) {
+                if(adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
+                    for(String quotaType: quotaTypes) {
+                        adminClient.quotaMgmtOps.unsetQuota(storeName, quotaType);
+                    }
+                } else {
+                    System.err.println("Store " + storeName + " not in cluster.");
+                }
             }
         }
-        
-        storeNames = (List<String>) parser.getValueList(AdminOptionParser.OPT_STORE);
-        url = (String) parser.getValue(AdminOptionParser.OPT_URL);
-        if (parser.hasOption(AdminOptionParser.OPT_CONFIRM)) confirm = true;
-
-        if (!AdminUtils.askConfirm(confirm, "set quota")) return;
-        
-        AdminClient adminClient = AdminUtils.getAdminClient(url);
-        Map<String, String> quotaMap = AdminUtils.convertListToMap(quota);
-        
-        doQuotaSet(adminClient, storeNames, quotaMap);
     }
-
-    /**
-     * Parses command-line and unsets quota.
-     * 
-     * @param args Command-line input
-     * @param printHelp Tells whether to print help only or execute command actually
-     * @throws IOException 
-     * 
-     */
-    @SuppressWarnings("unchecked")
-    private static void executeQuotaUnset(String[] args, Boolean printHelp) throws IOException {
-
-        AdminOptionParser parser = new AdminOptionParser();
-        
-        // declare parameters
-        List<String> quotaTypes = null;
-        List<String> storeNames = null;
-        String url = null;
-        Boolean confirm = false;
-        
-        // add parameters to parser
-        parser.addHeadArgument(AdminOptionParser.OPT_HEAD_QUOTA_UNSET);
-        parser.addRequired(AdminOptionParser.OPT_STORE_MULTIPLE);
-        parser.addRequired(AdminOptionParser.OPT_URL);
-        parser.addOptional(AdminOptionParser.OPT_CONFIRM);
-        
-        // print help menu if help command executed
-        if (printHelp) {
-            System.out.println();
-            System.out.println("NAME");
-            System.out.println("  quota unset - Clear quota settings for stores");
-            System.out.println();
-            System.out.println("SYNOPSIS");
-            System.out.println("  quota unset (<quota-type-list> | all) -s <store-name-list> -u <url>");
-            System.out.println("              [--confirm]");
-            System.out.println();
-            System.out.println("COMMENTS");
-            System.out.println("  Valid quota types are:");
-            for (String quotaType: QuotaUtils.validQuotaTypes()) {
-                System.out.println("    " + quotaType);
-            }
-            System.out.println();
-            parser.printHelp();
-            System.out.println();
-            return;
-        }
-        
-        // parse command-line input
-        try {
-            parser.parse(args, 0);
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-        
-        // load parameters
-        quotaTypes = (List<String>) parser.getValueList(AdminOptionParser.OPT_HEAD_QUOTA_UNSET);
-        storeNames = (List<String>) parser.getValueList(AdminOptionParser.OPT_STORE);
-        url = (String) parser.getValue(AdminOptionParser.OPT_URL);
-        if (parser.hasOption(AdminOptionParser.OPT_CONFIRM)) confirm = true;
-
-        if (!AdminUtils.askConfirm(confirm, "unset quota")) return;
-        
-        quotaTypes = AdminUtils.getQuotaTypes(quotaTypes);
-        
-        AdminClient adminClient = AdminUtils.getAdminClient(url);
-        
-        doQuotaUnset(adminClient, storeNames, quotaTypes);
-    }
-
 }

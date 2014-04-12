@@ -93,6 +93,7 @@ public class ClientConnectionStressTest {
         executor.shutdown();
     }
 
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
 
         OptionParser parser = new OptionParser();
@@ -125,7 +126,7 @@ public class ClientConnectionStressTest {
         parser.accepts("help");
 
         OptionSet options = parser.parse(args);
-        List<String> rest = options.nonOptionArguments();
+        List<String> rest = (List<String>) options.nonOptionArguments();
         if(rest.size() < 2 || options.has("help")) {
             parser.printHelpOn(System.err);
             System.err.println("Usage: ClientConnectionStressTest <options> url store-name");

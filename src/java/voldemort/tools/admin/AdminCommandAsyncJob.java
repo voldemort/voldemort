@@ -18,15 +18,15 @@ package voldemort.tools.admin;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-
-import com.google.common.collect.Lists;
-
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Node;
+
+import com.google.common.collect.Lists;
 
 /**
  * Implements all admin async-job commands.
@@ -42,14 +42,17 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
     public static void executeCommand(String[] args) throws Exception {
         String subCmd = (args.length > 0) ? args[0] : "";
         args = AdminUtils.copyArrayCutFirst(args);
-        if (subCmd.equals("list")) SubCommandAsyncJobList.executeCommand(args);
-        else if (subCmd.equals("stop")) SubCommandAsyncJobStop.executeCommand(args);
-        else if (subCmd.equals("help") || subCmd.equals("--help") || subCmd.equals("-h")) executeHelp(System.out, args);
-        else printHelp(System.out);
+        if(subCmd.equals("list")) {
+            SubCommandAsyncJobList.executeCommand(args);
+        } else if(subCmd.equals("stop")) {
+            SubCommandAsyncJobStop.executeCommand(args);
+        } else {
+            printHelp(System.out);
+        }
     }
 
     /**
-     * Prints command-line help menu for all async-job commands.
+     * Prints command-line help menu.
      */
     public static void printHelp(PrintStream stream) {
         stream.println();
@@ -66,13 +69,17 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
     /**
      * Parses command-line input and prints help menu.
      * 
-     * @throws Exception 
+     * @throws IOException
      */
-    public static void executeHelp(PrintStream stream, String[] args) throws Exception {
+    public static void executeHelp(String[] args, PrintStream stream) throws IOException {
         String subCmd = (args.length > 0) ? args[0] : "";
-        if (subCmd.equals("list")) SubCommandAsyncJobList.printHelp(stream);
-        else if (subCmd.equals("stop")) SubCommandAsyncJobStop.printHelp(stream);
-        else printHelp(stream);
+        if(subCmd.equals("list")) {
+            SubCommandAsyncJobList.printHelp(stream);
+        } else if(subCmd.equals("stop")) {
+            SubCommandAsyncJobStop.printHelp(stream);
+        } else {
+            printHelp(stream);
+        }
     }
 
     /**
@@ -80,18 +87,23 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
      */
     private static class SubCommandAsyncJobList extends AbstractAdminCommand {
 
-    	/**
-    	 * Initializes parser
-    	 * 
-    	 * @return OptionParser object with all available options
-    	 */
-    	protected static OptionParser getParser() {
+        /**
+         * Initializes parser
+         * 
+         * @return OptionParser object with all available options
+         */
+        protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // required options
             AdminParserUtils.acceptsUrl(parser, true);
-            AdminParserUtils.acceptsNodeMultiple(parser, false);
-            AdminParserUtils.acceptsAllNodes(parser);
+            // optional options
+            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
+                                                                 // --node or
+                                                                 // --all-nodes
+            AdminParserUtils.acceptsAllNodes(parser); // either --node or
+                                                      // --all-nodes
             return parser;
-    	}
+        }
 
         /**
          * Prints help menu for command.
@@ -99,7 +111,7 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
          * @param stream PrintStream object for output
          * @throws IOException
          */
-    	public static void printHelp(PrintStream stream) throws IOException {
+        public static void printHelp(PrintStream stream) throws IOException {
             stream.println();
             stream.println("NAME");
             stream.println("  async-job list - Get async job list from nodes");
@@ -109,13 +121,13 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
             stream.println();
             getParser().printHelpOn(stream);
             stream.println();
-    	}
+        }
 
         /**
          * Parses command-line and gets async job list from nodes.
          * 
          * @param args Command-line input
-         * @throws IOException 
+         * @throws IOException
          * 
          */
         @SuppressWarnings("unchecked")
@@ -135,14 +147,14 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
-            
+
             // load parameters
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
-            if (options.has(AdminParserUtils.OPT_NODE)) {
+            if(options.has(AdminParserUtils.OPT_NODE)) {
                 nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
                 allNodes = false;
             }
-            
+
             // check correctness
             AdminParserUtils.checkRequiredAll(options, requiredAll);
             AdminParserUtils.checkOptionalOne(options, optionalNode);
@@ -150,7 +162,7 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
             // execute command
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
-            
+
             doAsyncJobList(adminClient, nodes);
         }
 
@@ -167,8 +179,11 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
                 List<Integer> asyncIds = adminClient.rpcOps.getAsyncRequestList(node.getId());
                 System.out.println("Async Job Ids on node " + node.getId() + " : " + asyncIds);
                 for(int asyncId: asyncIds) {
-                    System.out.println("Async Job Id " + asyncId + " ] "
-                                       + adminClient.rpcOps.getAsyncRequestStatus(node.getId(), asyncId));
+                    System.out.println("Async Job Id "
+                                       + asyncId
+                                       + " ] "
+                                       + adminClient.rpcOps.getAsyncRequestStatus(node.getId(),
+                                                                                  asyncId));
                     System.out.println();
                 }
             }
@@ -179,26 +194,28 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
      * async-job stop command
      */
     private static class SubCommandAsyncJobStop extends AbstractAdminCommand {
-    	
-    	private static final String OPT_HEAD_ASYNC_JOB_STOP = "async-job-stop";
-    	
-    	/**
-    	 * Initializes parser
-    	 * 
-    	 * @return OptionParser object with all available options
-    	 */
-    	protected static OptionParser getParser() {
+
+        private static final String OPT_HEAD_ASYNC_JOB_STOP = "async-job-stop";
+
+        /**
+         * Initializes parser
+         * 
+         * @return OptionParser object with all available options
+         */
+        protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // required options
             parser.accepts(OPT_HEAD_ASYNC_JOB_STOP, "list of job ids to be stopped")
                   .withRequiredArg()
                   .describedAs("job-id-list")
                   .withValuesSeparatedBy(',')
                   .ofType(Integer.class);
-            AdminParserUtils.acceptsNodeSingle(parser, false);
+            AdminParserUtils.acceptsNodeSingle(parser, true);
             AdminParserUtils.acceptsUrl(parser, true);
+            // optional options
             AdminParserUtils.acceptsConfirm(parser);
             return parser;
-    	}
+        }
 
         /**
          * Prints help menu for command.
@@ -206,7 +223,7 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
          * @param stream PrintStream object for output
          * @throws IOException
          */
-    	public static void printHelp(PrintStream stream) throws IOException {
+        public static void printHelp(PrintStream stream) throws IOException {
             stream.println();
             stream.println("NAME");
             stream.println("  async-job stop - Stop async jobs on one node");
@@ -216,7 +233,7 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
             stream.println();
             getParser().printHelpOn(stream);
             stream.println();
-    	}
+        }
 
         /**
          * Parses command-line and stops async jobs on one node.
@@ -240,27 +257,27 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
             Boolean confirm = false;
 
             // parse command-line input
-            args = AdminUtils.copyArrayAddFirst(args, OPT_HEAD_ASYNC_JOB_STOP);
+            args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_ASYNC_JOB_STOP);
             OptionSet options = parser.parse(args);
-            
+
             // load parameters
             jobIds = (List<Integer>) options.valuesOf(OPT_HEAD_ASYNC_JOB_STOP);
             nodeId = (Integer) options.valueOf(AdminParserUtils.OPT_NODE);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
-            if (options.has(AdminParserUtils.OPT_CONFIRM)) {
-            	confirm = true;
+            if(options.has(AdminParserUtils.OPT_CONFIRM)) {
+                confirm = true;
             }
-            
+
             // checks correctness
             AdminParserUtils.checkRequiredAll(options, requiredAll);
-            
+
             // execute command
-            if (!AdminUtils.askConfirm(confirm, "stop async job")) {
-            	return;
+            if(!AdminUtils.askConfirm(confirm, "stop async job")) {
+                return;
             }
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Node node = adminClient.getAdminClientCluster().getNodeById(nodeId);
-            
+
             doAsyncJobStop(adminClient, node, jobIds);
         }
 

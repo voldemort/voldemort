@@ -90,6 +90,28 @@ public class AdminUtils {
             return text.compareTo("yes") == 0;
         }
     }
+
+    /**
+     * Utility function gives list of values from list of value-pair strings.
+     * 
+     * @param valueList List of value-pair strings
+     * @param delim Delimiter that separates the value pair
+     * @returns The list of values; empty if no value-pair is present,
+     *  The even elements are the first ones of the value pair, and the odd elements are the second ones.
+     *  For example, if the list of value-pair is ["cluster.xml=file1", "stores.xml=file2"],
+     *  and the pair delimiter is '=', we will then have the list of values in return:
+     *  ["cluster.xml", "file1", "stores.xml", "file2"].
+     */
+    public static List<String> getValueList(List<String> valuePairs, String delim) {
+        List<String> valueList = Lists.newArrayList();
+        for (String valuePair: valuePairs) {
+            String[] value = valuePair.split(delim, 2);
+            if (value.length != 2) throw new VoldemortException("Invalid argument pair: " + value);
+            valueList.add(value[0]);
+            valueList.add(value[1]);            
+        }
+        return valueList;
+    }
     
     /**
      * Utility function converts a list to a map.
