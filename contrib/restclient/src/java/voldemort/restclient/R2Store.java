@@ -635,7 +635,14 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
 
                 // Get the nested Multi-part object. This contains one part for
                 // each unique versioned value.
-                ByteArrayDataSource nestedDS = new ByteArrayDataSource((String) part.getContent(),
+
+                // GetContent method corrupts the embedded data, for example
+                // 0x8c will be converted to 0xc2, 0x8c. so use getRawInputStream
+                // This thread tracks this question
+                // http://stackoverflow.com/questions/23023583/mimebodypart-getcontent-corrupts-binary-data
+                // TODO: Understand the difference between getInputStream and getRawInputStream.
+
+                ByteArrayDataSource nestedDS = new ByteArrayDataSource(part.getRawInputStream(),
                                                                        "multipart/mixed");
                 MimeMultipart valueParts = new MimeMultipart(nestedDS);
 

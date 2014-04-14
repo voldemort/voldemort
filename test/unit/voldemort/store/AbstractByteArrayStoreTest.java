@@ -60,4 +60,12 @@ public abstract class AbstractByteArrayStoreTest extends
         assertEquals("Get doesn't equal put.", bytes, found.get(0));
     }
 
+    public byte[] getAllPossibleBytes() {
+        byte[] allPossibleBytes = new byte[(Byte.MAX_VALUE - Byte.MIN_VALUE) + 1];
+        int index = 0;
+        for (int b = Byte.MIN_VALUE; b <= Byte.MAX_VALUE; b++, index++) {
+            allPossibleBytes[index] = (byte) b;
+        }
+        return allPossibleBytes;
+    }
 }
