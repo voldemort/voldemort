@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.tools.admin;
+package voldemort.tools.admin.command;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -55,6 +55,8 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.store.StoreDefinition;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
+import voldemort.tools.admin.AdminParserUtils;
+import voldemort.tools.admin.AdminUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
@@ -142,9 +144,11 @@ public class AdminCommandStream extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsNodeSingle(parser, true);
-            AdminParserUtils.acceptsPartition(parser, false); // --partition or
+            AdminParserUtils.acceptsNodeSingle(parser);
+            AdminParserUtils.acceptsPartition(parser); // --partition or
                                                               // --all-partitions
                                                               // or --orphaned
             AdminParserUtils.acceptsAllPartitions(parser); // --partition or
@@ -153,15 +157,15 @@ public class AdminCommandStream extends AbstractAdminCommand {
             AdminParserUtils.acceptsOrphaned(parser); // --partition or
                                                       // --all-partitions or
                                                       // --orphaned
-            AdminParserUtils.acceptsStoreMultiple(parser, false); // either
+            AdminParserUtils.acceptsStoreMultiple(parser); // either
                                                                   // --store or
                                                                   // --all-stores
             AdminParserUtils.acceptsAllStores(parser); // either --store or
                                                        // --all-stores
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsDir(parser, false);
-            AdminParserUtils.acceptsFormat(parser, false);
+            AdminParserUtils.acceptsDir(parser);
+            AdminParserUtils.acceptsFormat(parser);
             return parser;
         }
 
@@ -199,16 +203,6 @@ public class AdminCommandStream extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> requiredPart = Lists.newArrayList();
-            List<String> requiredStore = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_NODE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            requiredPart.add(AdminParserUtils.OPT_PARTITION);
-            requiredPart.add(AdminParserUtils.OPT_ALL_PARTITIONS);
-            requiredPart.add(AdminParserUtils.OPT_ORPHANED);
-            requiredStore.add(AdminParserUtils.OPT_STORE);
-            requiredStore.add(AdminParserUtils.OPT_ALL_STORES);
 
             // declare parameters
             Integer nodeId = null;
@@ -223,6 +217,21 @@ public class AdminCommandStream extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_NODE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkRequired(options,
+                                           AdminParserUtils.OPT_PARTITION,
+                                           AdminParserUtils.OPT_ALL_PARTITIONS,
+                                           AdminParserUtils.OPT_ORPHANED);
+            AdminParserUtils.checkRequired(options,
+                                           AdminParserUtils.OPT_STORE,
+                                           AdminParserUtils.OPT_ALL_STORES);
 
             // load parameters
             nodeId = (Integer) options.valueOf(AdminParserUtils.OPT_NODE);
@@ -252,11 +261,6 @@ public class AdminCommandStream extends AbstractAdminCommand {
             } else {
                 format = AdminParserUtils.ARG_FORMAT_JSON;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkRequiredOne(options, requiredPart);
-            AdminParserUtils.checkRequiredOne(options, requiredStore);
 
             // execute command
             File directory = AdminUtils.createDir(dir);
@@ -430,9 +434,11 @@ public class AdminCommandStream extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsNodeSingle(parser, true);
-            AdminParserUtils.acceptsPartition(parser, false); // --partition or
+            AdminParserUtils.acceptsNodeSingle(parser);
+            AdminParserUtils.acceptsPartition(parser); // --partition or
                                                               // --all-partitions
                                                               // or --orphaned
             AdminParserUtils.acceptsAllPartitions(parser); // --partition or
@@ -441,15 +447,15 @@ public class AdminCommandStream extends AbstractAdminCommand {
             AdminParserUtils.acceptsOrphaned(parser); // --partition or
                                                       // --all-partitions or
                                                       // --orphaned
-            AdminParserUtils.acceptsStoreMultiple(parser, false); // either
+            AdminParserUtils.acceptsStoreMultiple(parser); // either
                                                                   // --store or
                                                                   // --all-stores
             AdminParserUtils.acceptsAllStores(parser); // either --store or
                                                        // --all-stores
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsDir(parser, false);
-            AdminParserUtils.acceptsFormat(parser, false);
+            AdminParserUtils.acceptsDir(parser);
+            AdminParserUtils.acceptsFormat(parser);
             return parser;
         }
 
@@ -487,16 +493,6 @@ public class AdminCommandStream extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> requiredPart = Lists.newArrayList();
-            List<String> requiredStore = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_NODE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            requiredPart.add(AdminParserUtils.OPT_PARTITION);
-            requiredPart.add(AdminParserUtils.OPT_ALL_PARTITIONS);
-            requiredPart.add(AdminParserUtils.OPT_ORPHANED);
-            requiredStore.add(AdminParserUtils.OPT_STORE);
-            requiredStore.add(AdminParserUtils.OPT_ALL_STORES);
 
             // declare parameters
             Integer nodeId = null;
@@ -511,6 +507,21 @@ public class AdminCommandStream extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_NODE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkRequired(options,
+                                           AdminParserUtils.OPT_PARTITION,
+                                           AdminParserUtils.OPT_ALL_PARTITIONS,
+                                           AdminParserUtils.OPT_ORPHANED);
+            AdminParserUtils.checkRequired(options,
+                                           AdminParserUtils.OPT_STORE,
+                                           AdminParserUtils.OPT_ALL_STORES);
 
             // load parameters
             nodeId = (Integer) options.valueOf(AdminParserUtils.OPT_NODE);
@@ -540,11 +551,6 @@ public class AdminCommandStream extends AbstractAdminCommand {
             } else {
                 format = AdminParserUtils.ARG_FORMAT_JSON;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkRequiredOne(options, requiredPart);
-            AdminParserUtils.checkRequiredOne(options, requiredStore);
 
             // execute command
             File directory = AdminUtils.createDir(dir);
@@ -685,6 +691,8 @@ public class AdminCommandStream extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
             parser.accepts(OPT_FROM_URL, "mirror source bootstrap url")
                   .withRequiredArg()
@@ -702,7 +710,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
                   .withRequiredArg()
                   .describedAs("dest-node-id")
                   .ofType(Integer.class);
-            AdminParserUtils.acceptsStoreMultiple(parser, false); // either
+            AdminParserUtils.acceptsStoreMultiple(parser); // either
                                                                   // --store or
                                                                   // --all-stores
             AdminParserUtils.acceptsAllStores(parser); // either --store or
@@ -745,14 +753,6 @@ public class AdminCommandStream extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> requiredStore = Lists.newArrayList();
-            requiredAll.add(OPT_FROM_URL);
-            requiredAll.add(OPT_FROM_NODE);
-            requiredAll.add(OPT_TO_URL);
-            requiredAll.add(OPT_TO_NODE);
-            requiredStore.add(AdminParserUtils.OPT_STORE);
-            requiredStore.add(AdminParserUtils.OPT_ALL_STORES);
 
             // declare parameters
             Integer srcNodeId = null, destNodeId = null;
@@ -763,6 +763,19 @@ public class AdminCommandStream extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, OPT_FROM_NODE);
+            AdminParserUtils.checkRequired(options, OPT_FROM_URL);
+            AdminParserUtils.checkRequired(options, OPT_TO_NODE);
+            AdminParserUtils.checkRequired(options, OPT_TO_URL);
+            AdminParserUtils.checkRequired(options,
+                                           AdminParserUtils.OPT_STORE,
+                                           AdminParserUtils.OPT_ALL_STORES);
 
             // load parameters
             srcUrl = (String) options.valueOf(OPT_FROM_URL);
@@ -778,10 +791,6 @@ public class AdminCommandStream extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkRequiredOne(options, requiredStore);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "mirror stores from " + srcUrl + ":" + srcNodeId
@@ -815,12 +824,14 @@ public class AdminCommandStream extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsDir(parser, true);
-            AdminParserUtils.acceptsNodeSingle(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsDir(parser);
+            AdminParserUtils.acceptsNodeSingle(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsStoreMultiple(parser, false);
+            AdminParserUtils.acceptsStoreMultiple(parser);
             AdminParserUtils.acceptsConfirm(parser);
             return parser;
         }
@@ -857,10 +868,6 @@ public class AdminCommandStream extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws Exception {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_DIR);
-            requiredAll.add(AdminParserUtils.OPT_NODE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
 
             // declare parameters
             String dir = null;
@@ -871,6 +878,15 @@ public class AdminCommandStream extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_DIR);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_NODE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
             dir = (String) options.valueOf(AdminParserUtils.OPT_DIR);
@@ -883,9 +899,6 @@ public class AdminCommandStream extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "update entries")) {

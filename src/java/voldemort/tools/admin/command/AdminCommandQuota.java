@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.tools.admin;
+package voldemort.tools.admin.command;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -31,10 +31,10 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Node;
 import voldemort.store.quota.QuotaUtils;
+import voldemort.tools.admin.AdminParserUtils;
+import voldemort.tools.admin.AdminUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
-
-import com.google.common.collect.Lists;
 
 /**
  * Implements all quota commands.
@@ -114,14 +114,16 @@ public class AdminCommandQuota extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
             parser.accepts(OPT_HEAD_QUOTA_GET, "quota types to fetch")
-                  .withRequiredArg()
+                  .withOptionalArg()
                   .describedAs("quota-type-list")
                   .withValuesSeparatedBy(',')
                   .ofType(String.class);
-            AdminParserUtils.acceptsStoreMultiple(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsStoreMultiple(parser);
+            AdminParserUtils.acceptsUrl(parser);
             return parser;
         }
 
@@ -162,10 +164,6 @@ public class AdminCommandQuota extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            requiredAll.add(OPT_HEAD_QUOTA_GET);
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
 
             // declare parameters
             List<String> quotaTypes = null;
@@ -175,14 +173,20 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             // parse command-line input
             args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_GET);
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, OPT_HEAD_QUOTA_GET);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
             quotaTypes = AdminUtils.getQuotaTypes((List<String>) options.valuesOf(OPT_HEAD_QUOTA_GET));
             storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
 
             // execute command
             AdminClient adminClient = AdminUtils.getAdminClient(url);
@@ -234,17 +238,19 @@ public class AdminCommandQuota extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
             parser.accepts(OPT_HEAD_QUOTA_RESERVE_MEMORY, "memory size in MB to be reserved")
-                  .withRequiredArg()
+                  .withOptionalArg()
                   .describedAs("memory-size")
                   .ofType(Integer.class);
-            AdminParserUtils.acceptsStoreMultiple(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsStoreMultiple(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             AdminParserUtils.acceptsConfirm(parser);
@@ -284,13 +290,6 @@ public class AdminCommandQuota extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(OPT_HEAD_QUOTA_RESERVE_MEMORY);
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             long memoryMBSize = 0;
@@ -303,6 +302,18 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             // parse command-line input
             args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_RESERVE_MEMORY);
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, OPT_HEAD_QUOTA_RESERVE_MEMORY);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             memoryMBSize = (Integer) options.valueOf(OPT_HEAD_QUOTA_RESERVE_MEMORY);
@@ -315,10 +326,6 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "reserve memory"))
@@ -363,14 +370,16 @@ public class AdminCommandQuota extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
             parser.accepts(OPT_HEAD_QUOTA_SET, "quota type-value pairs")
-                  .withRequiredArg()
+                  .withOptionalArg()
                   .describedAs("quota-type>=<quota-value")
                   .withValuesSeparatedBy(',')
                   .ofType(String.class);
-            AdminParserUtils.acceptsStoreMultiple(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsStoreMultiple(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
             AdminParserUtils.acceptsConfirm(parser);
             return parser;
@@ -414,10 +423,6 @@ public class AdminCommandQuota extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            requiredAll.add(OPT_HEAD_QUOTA_SET);
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
 
             // declare parameters
             List<String> quota = null;
@@ -428,12 +433,22 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             // parse command-line input
             args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_SET);
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, OPT_HEAD_QUOTA_SET);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
             quota = AdminUtils.getValueList((List<String>) options.valuesOf(OPT_HEAD_QUOTA_SET),
                                             "=");
-            if(quota.size() % 2 != 0)
+            if(quota.size() % 2 != 0) {
                 throw new VoldemortException("Invalid quota type-value pair.");
+            }
             Set<String> validQuotaTypes = QuotaUtils.validQuotaTypes();
             for(Integer i = 0; i < quota.size(); i += 2) {
                 if(!validQuotaTypes.contains(quota.get(i))) {
@@ -447,12 +462,10 @@ public class AdminCommandQuota extends AbstractAdminCommand {
                 confirm = true;
             }
 
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "set quota"))
+            if(!AdminUtils.askConfirm(confirm, "set quota")) {
                 return;
+            }
 
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Map<String, String> quotaMap = AdminUtils.convertListToMap(quota);
@@ -502,14 +515,16 @@ public class AdminCommandQuota extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
             parser.accepts(OPT_HEAD_QUOTA_UNSET, "quota types to unset")
-                  .withRequiredArg()
+                  .withOptionalArg()
                   .describedAs("quota-type-list")
                   .withValuesSeparatedBy(',')
                   .ofType(String.class);
-            AdminParserUtils.acceptsStoreMultiple(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsStoreMultiple(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
             AdminParserUtils.acceptsConfirm(parser);
             return parser;
@@ -553,10 +568,6 @@ public class AdminCommandQuota extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            requiredAll.add(OPT_HEAD_QUOTA_UNSET);
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
 
             // declare parameters
             List<String> quotaTypes = null;
@@ -567,6 +578,15 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             // parse command-line input
             args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_UNSET);
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, OPT_HEAD_QUOTA_UNSET);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
             quotaTypes = AdminUtils.getQuotaTypes((List<String>) options.valuesOf(OPT_HEAD_QUOTA_UNSET));
@@ -575,9 +595,6 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "unset quota")) {

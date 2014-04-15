@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.tools.admin;
+package voldemort.tools.admin.command;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -25,6 +25,8 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Node;
+import voldemort.tools.admin.AdminParserUtils;
+import voldemort.tools.admin.AdminUtils;
 
 import com.google.common.collect.Lists;
 
@@ -99,12 +101,13 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = getParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+            AdminParserUtils.acceptsNodeMultiple(parser); // either --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             AdminParserUtils.acceptsConfirm(parser);
@@ -144,11 +147,6 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             String url = null;
@@ -158,6 +156,16 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
@@ -165,12 +173,9 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
                 nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
                 allNodes = false;
             }
-            if(options.has(AdminParserUtils.OPT_CONFIRM))
+            if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
+            }
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "cleanup orphaned data"))
@@ -207,13 +212,15 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsStoreMultiple(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsStoreMultiple(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             AdminParserUtils.acceptsConfirm(parser);
@@ -254,12 +261,6 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             List<String> storeNames = null;
@@ -270,6 +271,17 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
@@ -278,12 +290,9 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
                 nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
                 allNodes = false;
             }
-            if(options.has(AdminParserUtils.OPT_CONFIRM))
+            if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
+            }
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "cleanup vector clocks"))
@@ -323,14 +332,16 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsStoreMultiple(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
-            AdminParserUtils.acceptsZone(parser, true);
+            AdminParserUtils.acceptsStoreMultiple(parser);
+            AdminParserUtils.acceptsUrl(parser);
+            AdminParserUtils.acceptsZone(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             AdminParserUtils.acceptsConfirm(parser);
@@ -370,13 +381,6 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            requiredAll.add(AdminParserUtils.OPT_ZONE);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             List<String> storeNames = null;
@@ -388,6 +392,18 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_ZONE);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
@@ -397,12 +413,9 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
                 nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
                 allNodes = false;
             }
-            if(options.has(AdminParserUtils.OPT_CONFIRM))
+            if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkRequiredOne(options, optionalNode);
+            }
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "cleanup slops"))

@@ -16,6 +16,8 @@
 
 package voldemort.tools.admin;
 
+import voldemort.tools.admin.command.AdminCommand;
+
 /**
  * Provides a command line interface to the
  * {@link voldemort.client.protocol.admin.AdminClient}

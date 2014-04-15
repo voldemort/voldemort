@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.tools.admin;
+package voldemort.tools.admin.command;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -25,8 +25,8 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Node;
-
-import com.google.common.collect.Lists;
+import voldemort.tools.admin.AdminParserUtils;
+import voldemort.tools.admin.AdminUtils;
 
 /**
  * Implements all admin async-job commands.
@@ -94,12 +94,14 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             return parser;
@@ -134,11 +136,6 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             String url = null;
@@ -147,6 +144,16 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
@@ -154,10 +161,6 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
                 nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
                 allNodes = false;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
 
             // execute command
             AdminClient adminClient = AdminUtils.getAdminClient(url);
@@ -204,14 +207,16 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
             parser.accepts(OPT_HEAD_ASYNC_JOB_STOP, "list of job ids to be stopped")
-                  .withRequiredArg()
+                  .withOptionalArg()
                   .describedAs("job-id-list")
                   .withValuesSeparatedBy(',')
                   .ofType(Integer.class);
-            AdminParserUtils.acceptsNodeSingle(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsNodeSingle(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
             AdminParserUtils.acceptsConfirm(parser);
             return parser;
@@ -245,10 +250,6 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            requiredAll.add(OPT_HEAD_ASYNC_JOB_STOP);
-            requiredAll.add(AdminParserUtils.OPT_NODE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
 
             // declare parameters
             List<Integer> jobIds = null;
@@ -259,6 +260,15 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
             // parse command-line input
             args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_ASYNC_JOB_STOP);
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, OPT_HEAD_ASYNC_JOB_STOP);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_NODE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
             jobIds = (List<Integer>) options.valuesOf(OPT_HEAD_ASYNC_JOB_STOP);
@@ -267,9 +277,6 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // checks correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "stop async job")) {

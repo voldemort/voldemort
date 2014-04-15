@@ -19,10 +19,12 @@ package voldemort.tools.admin;
 import java.util.Arrays;
 import java.util.List;
 
-import joptsimple.ArgumentAcceptingOptionSpec;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.VoldemortException;
+import voldemort.utils.Utils;
+
+import com.google.common.collect.Lists;
 
 /**
  * Parser utility class for AdminCommand
@@ -42,6 +44,8 @@ public class AdminParserUtils {
     public static final String OPT_ALL_PARTITIONS = "all-partitions";
     public static final String OPT_ALL_STORES = "all-stores";
     public static final String OPT_CONFIRM = "confirm";
+    public static final String OPT_H = "h";
+    public static final String OPT_HELP = "help";
     public static final String OPT_ORPHANED = "orphaned";
 
     // options with one argument
@@ -115,6 +119,16 @@ public class AdminParserUtils {
     }
 
     /**
+     * Adds OPT_H | OPT_HELP option to OptionParser, without argument.
+     * 
+     * @param parser OptionParser to be modified
+     * @param required Tells if this option is required or optional
+     */
+    public static void acceptsHelp(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_H, OPT_HELP), "show help menu");
+    }
+
+    /**
      * Adds OPT_ORPHANED option to OptionParser, without argument.
      * 
      * @param parser OptionParser to be modified
@@ -130,15 +144,11 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsDir(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<String> opt = parser.acceptsAll(Arrays.asList(OPT_D, OPT_DIR),
-                                                                    "directory path for input/output")
-                                                        .withRequiredArg()
-                                                        .describedAs("dir-path")
-                                                        .ofType(String.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsDir(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_D, OPT_DIR), "directory path for input/output")
+              .withRequiredArg()
+              .describedAs("dir-path")
+              .ofType(String.class);
     }
 
     /**
@@ -147,15 +157,11 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsFile(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<String> opt = parser.acceptsAll(Arrays.asList(OPT_F, OPT_FILE),
-                                                                    "file path for input/output")
-                                                        .withRequiredArg()
-                                                        .describedAs("file-path")
-                                                        .ofType(String.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsFile(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_F, OPT_FILE), "file path for input/output")
+              .withRequiredArg()
+              .describedAs("file-path")
+              .ofType(String.class);
     }
 
     /**
@@ -164,15 +170,11 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsFormat(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<String> opt = parser.accepts(OPT_FORMAT,
-                                                                 "format of key or entry, could be binary, hex or json")
-                                                        .withRequiredArg()
-                                                        .describedAs("binary | hex | json")
-                                                        .ofType(String.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsFormat(OptionParser parser) {
+        parser.accepts(OPT_FORMAT, "format of key or entry, could be binary, hex or json")
+              .withRequiredArg()
+              .describedAs("binary | hex | json")
+              .ofType(String.class);
     }
 
     /**
@@ -181,15 +183,11 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsNodeSingle(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<Integer> opt = parser.acceptsAll(Arrays.asList(OPT_N, OPT_NODE),
-                                                                     "node id")
-                                                         .withRequiredArg()
-                                                         .describedAs("node-id")
-                                                         .ofType(Integer.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsNodeSingle(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_N, OPT_NODE), "node id")
+              .withRequiredArg()
+              .describedAs("node-id")
+              .ofType(Integer.class);
     }
 
     /**
@@ -198,15 +196,11 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsStoreSingle(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<String> opt = parser.acceptsAll(Arrays.asList(OPT_S, OPT_STORE),
-                                                                    "store name")
-                                                        .withRequiredArg()
-                                                        .describedAs("store-name")
-                                                        .ofType(String.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsStoreSingle(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_S, OPT_STORE), "store name")
+              .withRequiredArg()
+              .describedAs("store-name")
+              .ofType(String.class);
     }
 
     /**
@@ -215,15 +209,11 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsUrl(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<String> opt = parser.acceptsAll(Arrays.asList(OPT_U, OPT_URL),
-                                                                    "bootstrap url")
-                                                        .withRequiredArg()
-                                                        .describedAs("url")
-                                                        .ofType(String.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsUrl(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_U, OPT_URL), "bootstrap url")
+              .withRequiredArg()
+              .describedAs("url")
+              .ofType(String.class);
     }
 
     /**
@@ -232,15 +222,11 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsZone(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<Integer> opt = parser.acceptsAll(Arrays.asList(OPT_Z, OPT_ZONE),
-                                                                     "zone id")
-                                                         .withRequiredArg()
-                                                         .describedAs("zone-id")
-                                                         .ofType(Integer.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsZone(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_Z, OPT_ZONE), "zone id")
+              .withRequiredArg()
+              .describedAs("zone-id")
+              .ofType(Integer.class);
     }
 
     /**
@@ -249,16 +235,12 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsHex(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<String> opt = parser.acceptsAll(Arrays.asList(OPT_X, OPT_HEX),
-                                                                    "fetch key/entry by key value of hex type")
-                                                        .withRequiredArg()
-                                                        .describedAs("key-list")
-                                                        .withValuesSeparatedBy(',')
-                                                        .ofType(String.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsHex(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_X, OPT_HEX), "fetch key/entry by key value of hex type")
+              .withRequiredArg()
+              .describedAs("key-list")
+              .withValuesSeparatedBy(',')
+              .ofType(String.class);
     }
 
     /**
@@ -267,16 +249,13 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsJson(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<String> opt = parser.acceptsAll(Arrays.asList(OPT_J, OPT_JSON),
-                                                                    "fetch key/entry by key value of json type")
-                                                        .withRequiredArg()
-                                                        .describedAs("key-list")
-                                                        .withValuesSeparatedBy(',')
-                                                        .ofType(String.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsJson(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_J, OPT_JSON),
+                          "fetch key/entry by key value of json type")
+              .withRequiredArg()
+              .describedAs("key-list")
+              .withValuesSeparatedBy(',')
+              .ofType(String.class);
     }
 
     /**
@@ -285,16 +264,12 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsNodeMultiple(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<Integer> opt = parser.acceptsAll(Arrays.asList(OPT_N, OPT_NODE),
-                                                                     "node id")
-                                                         .withRequiredArg()
-                                                         .describedAs("node-id")
-                                                         .withValuesSeparatedBy(',')
-                                                         .ofType(Integer.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsNodeMultiple(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_N, OPT_NODE), "node id")
+              .withRequiredArg()
+              .describedAs("node-id")
+              .withValuesSeparatedBy(',')
+              .ofType(Integer.class);
     }
 
     /**
@@ -303,17 +278,12 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsPartition(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<Integer> opt = parser.acceptsAll(Arrays.asList(OPT_P,
-                                                                                   OPT_PARTITION),
-                                                                     "partition id list")
-                                                         .withRequiredArg()
-                                                         .describedAs("partition-id-list")
-                                                         .withValuesSeparatedBy(',')
-                                                         .ofType(Integer.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsPartition(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_P, OPT_PARTITION), "partition id list")
+              .withRequiredArg()
+              .describedAs("partition-id-list")
+              .withValuesSeparatedBy(',')
+              .ofType(Integer.class);
     }
 
     /**
@@ -322,16 +292,59 @@ public class AdminParserUtils {
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
      */
-    public static void acceptsStoreMultiple(OptionParser parser, Boolean required) {
-        ArgumentAcceptingOptionSpec<String> opt = parser.acceptsAll(Arrays.asList(OPT_S, OPT_STORE),
-                                                                    "store name")
-                                                        .withRequiredArg()
-                                                        .describedAs("store-name")
-                                                        .withValuesSeparatedBy(',')
-                                                        .ofType(String.class);
-        if(required) {
-            opt = opt.required();
-        }
+    public static void acceptsStoreMultiple(OptionParser parser) {
+        parser.acceptsAll(Arrays.asList(OPT_S, OPT_STORE), "store name")
+              .withRequiredArg()
+              .describedAs("store-name")
+              .withValuesSeparatedBy(',')
+              .ofType(String.class);
+    }
+
+    /**
+     * Checks if the required option exists.
+     * 
+     * @param options OptionSet to checked
+     * @param opt Required option to check
+     * @throws VoldemortException
+     */
+    public static void checkRequired(OptionSet options, String opt) throws VoldemortException {
+        List<String> opts = Lists.newArrayList();
+        opts.add(opt);
+        checkRequired(options, opts);
+    }
+
+    /**
+     * Checks if there's exactly one option exists among all possible opts.
+     * 
+     * @param options OptionSet to checked
+     * @param opt1 Possible required option to check
+     * @param opt2 Possible required option to check
+     * @throws VoldemortException
+     */
+    public static void checkRequired(OptionSet options, String opt1, String opt2)
+            throws VoldemortException {
+        List<String> opts = Lists.newArrayList();
+        opts.add(opt1);
+        opts.add(opt2);
+        checkRequired(options, opts);
+    }
+
+    /**
+     * Checks if there's exactly one option exists among all possible opts.
+     * 
+     * @param options OptionSet to checked
+     * @param opt1 Possible required option to check
+     * @param opt2 Possible required option to check
+     * @param opt3 Possible required option to check
+     * @throws VoldemortException
+     */
+    public static void checkRequired(OptionSet options, String opt1, String opt2, String opt3)
+            throws VoldemortException {
+        List<String> opts = Lists.newArrayList();
+        opts.add(opt1);
+        opts.add(opt2);
+        opts.add(opt3);
+        checkRequired(options, opts);
     }
 
     /**
@@ -339,39 +352,29 @@ public class AdminParserUtils {
      * 
      * @param options OptionSet to checked
      * @param opts List of options to be checked
-     * @return True if exactly one option appears
      * @throws VoldemortException
      */
-    public static void checkRequiredOne(OptionSet options, List<String> opts)
+    public static void checkRequired(OptionSet options, List<String> opts)
             throws VoldemortException {
-        int count = 0;
+        List<String> optCopy = Lists.newArrayList();
         for(String opt: opts) {
             if(options.has(opt)) {
-                count++;
+                optCopy.add(opt);
             }
         }
-        if(count > 1) {
-            throw new VoldemortException("Conflicting options detected.");
-        }
-        if(count < 1) {
-            throw new VoldemortException("Insufficient options.");
-        }
-    }
-
-    /**
-     * Checks if all required options exist.
-     * 
-     * @param options OptionSet to checked
-     * @param opts List of options to be checked
-     * @return True if exactly one option appears
-     * @throws VoldemortException
-     */
-    public static void checkRequiredAll(OptionSet options, List<String> opts)
-            throws VoldemortException {
-        for(String opt: opts) {
-            if(!options.has(opt)) {
-                throw new VoldemortException("Insufficient options.");
+        if(optCopy.size() < 1) {
+            System.err.println("Please specify one of the following options:");
+            for(String opt: opts) {
+                System.err.println("--" + opt);
             }
+            Utils.croak("Missing required option.");
+        }
+        if(optCopy.size() > 1) {
+            System.err.println("Conflicting options:");
+            for(String opt: optCopy) {
+                System.err.println("--" + opt);
+            }
+            Utils.croak("Conflicting options detected.");
         }
     }
 
@@ -379,19 +382,54 @@ public class AdminParserUtils {
      * Checks if there's at most one option exists among all opts.
      * 
      * @param parser OptionParser to checked
-     * @param opts List of options to be checked
-     * @return True if exactly one option appears
+     * @param opt1 Optional option to check
+     * @param opt2 Optional option to check
      * @throws VoldemortException
      */
-    public static void checkOptionalOne(OptionSet options, List<String> opts)
+    public static void checkOptional(OptionSet options, String opt1, String opt2) {
+        List<String> opts = Lists.newArrayList();
+        opts.add(opt1);
+        opts.add(opt2);
+        checkOptional(options, opts);
+    }
+
+    /**
+     * Checks if there's at most one option exists among all opts.
+     * 
+     * @param parser OptionParser to checked
+     * @param opt1 Optional option to check
+     * @param opt2 Optional option to check
+     * @param opt3 Optional option to check
+     * @throws VoldemortException
+     */
+    public static void checkOptional(OptionSet options, String opt1, String opt2, String opt3) {
+        List<String> opts = Lists.newArrayList();
+        opts.add(opt1);
+        opts.add(opt2);
+        opts.add(opt3);
+        checkOptional(options, opts);
+    }
+
+    /**
+     * Checks if there's at most one option exists among all opts.
+     * 
+     * @param parser OptionParser to checked
+     * @param opts List of options to be checked
+     * @throws VoldemortException
+     */
+    public static void checkOptional(OptionSet options, List<String> opts)
             throws VoldemortException {
-        int count = 0;
+        List<String> optCopy = Lists.newArrayList();
         for(String opt: opts) {
             if(options.has(opt)) {
-                count++;
+                optCopy.add(opt);
             }
         }
-        if(count > 1) {
+        if(optCopy.size() > 1) {
+            System.err.println("Conflicting options:");
+            for(String opt: optCopy) {
+                System.err.println("--" + opt);
+            }
             throw new VoldemortException("Conflicting options detected.");
         }
     }

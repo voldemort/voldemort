@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.tools.admin;
+package voldemort.tools.admin.command;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -48,6 +48,8 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.system.SystemStoreConstants;
+import voldemort.tools.admin.AdminParserUtils;
+import voldemort.tools.admin.AdminUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.Pair;
@@ -152,13 +154,15 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
             parser.accepts(OPT_HEAD_META_CHECK, "metadata keys to be checked")
-                  .withRequiredArg()
+                  .withOptionalArg()
                   .describedAs("meta-key-list")
                   .withValuesSeparatedBy(',')
                   .ofType(String.class);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsUrl(parser);
             return parser;
         }
 
@@ -200,9 +204,6 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            requiredAll.add(OPT_HEAD_META_CHECK);
-            requiredAll.add(AdminParserUtils.OPT_URL);
 
             // declare parameters
             List<String> metaKeys = null;
@@ -211,13 +212,18 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             // parse command-line input
             args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_META_CHECK);
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, OPT_HEAD_META_CHECK);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
             metaKeys = (List<String>) options.valuesOf(OPT_HEAD_META_CHECK);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
 
             // execute command
             if(metaKeys.size() == 1 && metaKeys.get(0).compareTo(METAKEY_ALL) == 0) {
@@ -285,12 +291,14 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             AdminParserUtils.acceptsConfirm(parser);
@@ -328,11 +336,6 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             String url = null;
@@ -342,6 +345,16 @@ public class AdminCommandMeta extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
@@ -349,12 +362,9 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
                 allNodes = false;
             }
-            if(options.has(AdminParserUtils.OPT_CONFIRM))
+            if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
+            }
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "remove metadata related to rebalancing"))
@@ -407,18 +417,20 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
             parser.accepts(OPT_HEAD_META_GET, "metadata keys to fetch")
-                  .withRequiredArg()
+                  .withOptionalArg()
                   .describedAs("meta-key-list")
                   .withValuesSeparatedBy(',')
                   .ofType(String.class);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsDir(parser, false);
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+            AdminParserUtils.acceptsDir(parser);
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             parser.accepts(OPT_VERBOSE, "print all metadata");
@@ -462,12 +474,6 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(OPT_HEAD_META_GET);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             List<String> metaKeys = null;
@@ -480,6 +486,17 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             // parse command-line input
             args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_META_GET);
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, OPT_HEAD_META_GET);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             metaKeys = (List<String>) options.valuesOf(OPT_HEAD_META_GET);
@@ -491,12 +508,9 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
                 allNodes = false;
             }
-            if(options.has(OPT_VERBOSE))
+            if(options.has(OPT_VERBOSE)) {
                 verbose = true;
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
+            }
 
             // execute command
             File directory = AdminUtils.createDir(dir);
@@ -602,17 +616,19 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
             parser.accepts(OPT_HEAD_META_SET, "metadata key-file pairs")
-                  .withRequiredArg()
+                  .withOptionalArg()
                   .describedAs("meta-key>=<meta-file")
                   .withValuesSeparatedBy(',')
                   .ofType(String.class);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             AdminParserUtils.acceptsConfirm(parser);
@@ -662,12 +678,6 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws Exception {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(OPT_HEAD_META_SET);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             List<String> meta = null;
@@ -679,6 +689,17 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             // parse command-line input
             args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_META_SET);
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, OPT_HEAD_META_SET);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             meta = AdminUtils.getValueList((List<String>) options.valuesOf(OPT_HEAD_META_SET), "=");
@@ -693,10 +714,6 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "set metadata")) {
@@ -916,9 +933,11 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsNodeSingle(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsNodeSingle(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
             AdminParserUtils.acceptsConfirm(parser);
             return parser;
@@ -955,9 +974,6 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_NODE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
 
             // declare parameters
             Integer nodeId = null;
@@ -966,15 +982,21 @@ public class AdminCommandMeta extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_NODE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
             nodeId = (Integer) options.valueOf(AdminParserUtils.OPT_NODE);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
-            if(options.has(AdminParserUtils.OPT_CONFIRM))
+            if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
+            }
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "synchronize metadata version"))
@@ -1025,8 +1047,10 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsUrl(parser);
             return parser;
         }
 
@@ -1061,20 +1085,22 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_URL);
 
             // declare parameters
             String url = null;
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
 
             // execute command
             AdminClient adminClient = AdminUtils.getAdminClient(url);

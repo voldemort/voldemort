@@ -14,17 +14,16 @@
  * the License.
  */
 
-package voldemort.tools.admin;
+package voldemort.tools.admin.command;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.List;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.protocol.admin.AdminClient;
-
-import com.google.common.collect.Lists;
+import voldemort.tools.admin.AdminParserUtils;
+import voldemort.tools.admin.AdminUtils;
 
 /**
  * Implements all admin commands.
@@ -138,11 +137,13 @@ public class AdminCommand extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsDir(parser, true);
-            AdminParserUtils.acceptsNodeSingle(parser, true);
-            AdminParserUtils.acceptsStoreSingle(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsDir(parser);
+            AdminParserUtils.acceptsNodeSingle(parser);
+            AdminParserUtils.acceptsStoreSingle(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
             parser.accepts(OPT_TIMEOUT, "native-backup timeout in minute, defaults to 30")
                   .withRequiredArg()
@@ -182,11 +183,6 @@ public class AdminCommand extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_DIR);
-            requiredAll.add(AdminParserUtils.OPT_NODE);
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
 
             // declare parameters
             String dir = null;
@@ -200,6 +196,16 @@ public class AdminCommand extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_DIR);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_NODE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
             dir = (String) options.valueOf(AdminParserUtils.OPT_DIR);
@@ -218,9 +224,6 @@ public class AdminCommand extends AbstractAdminCommand {
             if(options.has(OPT_VERIFY)) {
                 verify = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "backup bdb data natively")) {
@@ -251,10 +254,12 @@ public class AdminCommand extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsNodeSingle(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
-            AdminParserUtils.acceptsZone(parser, true);
+            AdminParserUtils.acceptsNodeSingle(parser);
+            AdminParserUtils.acceptsUrl(parser);
+            AdminParserUtils.acceptsZone(parser);
             // optional options
             parser.accepts(OPT_PARALLEL,
                            "parallism parameter for restore-from-replica, defaults to 5")
@@ -293,10 +298,6 @@ public class AdminCommand extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_NODE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            requiredAll.add(AdminParserUtils.OPT_ZONE);
 
             // declare parameters
             Integer nodeId = null;
@@ -307,6 +308,15 @@ public class AdminCommand extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_NODE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_ZONE);
 
             // load parameters
             nodeId = (Integer) options.valueOf(AdminParserUtils.OPT_NODE);
@@ -318,9 +328,6 @@ public class AdminCommand extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "restore node from replica")) {

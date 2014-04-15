@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.tools.admin;
+package voldemort.tools.admin.command;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -57,6 +57,8 @@ import voldemort.serialization.json.JsonReader;
 import voldemort.store.StoreDefinition;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
+import voldemort.tools.admin.AdminParserUtils;
+import voldemort.tools.admin.AdminUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.StoreDefinitionUtils;
@@ -64,7 +66,6 @@ import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-import com.google.common.collect.Lists;
 import com.sleepycat.persist.StoreNotFoundException;
 
 /**
@@ -133,15 +134,17 @@ public class AdminCommandDebug extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsHex(parser, false); // either --hex or
+            AdminParserUtils.acceptsHex(parser); // either --hex or
                                                         // --json
-            AdminParserUtils.acceptsJson(parser, false); // either --hex or
+            AdminParserUtils.acceptsJson(parser); // either --hex or
                                                          // --json
-            AdminParserUtils.acceptsStoreMultiple(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsStoreMultiple(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
                                                                  // --node or
                                                                  // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
@@ -181,15 +184,6 @@ public class AdminCommandDebug extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> requiredKey = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            requiredKey.add(AdminParserUtils.OPT_HEX);
-            requiredKey.add(AdminParserUtils.OPT_JSON);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             String keyType = null;
@@ -201,6 +195,20 @@ public class AdminCommandDebug extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkRequired(options,
+                                           AdminParserUtils.OPT_HEX,
+                                           AdminParserUtils.OPT_JSON);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             if(options.has(AdminParserUtils.OPT_HEX)) {
@@ -216,11 +224,6 @@ public class AdminCommandDebug extends AbstractAdminCommand {
                 nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
                 allNodes = false;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkRequiredOne(options, requiredKey);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
 
             // execute command
             AdminClient adminClient = AdminUtils.getAdminClient(url);
@@ -467,13 +470,15 @@ public class AdminCommandDebug extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsHex(parser, false); // either --hex or
+            AdminParserUtils.acceptsHex(parser); // either --hex or
                                                         // --json
-            AdminParserUtils.acceptsJson(parser, false); // either --hex or
+            AdminParserUtils.acceptsJson(parser); // either --hex or
                                                          // --json
-            AdminParserUtils.acceptsStoreSingle(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsStoreSingle(parser);
+            AdminParserUtils.acceptsUrl(parser);
             return parser;
         }
 
@@ -511,12 +516,6 @@ public class AdminCommandDebug extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws Exception {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> requiredKey = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            requiredKey.add(AdminParserUtils.OPT_HEX);
-            requiredKey.add(AdminParserUtils.OPT_JSON);
 
             // declare parameters
             String keyType = null;
@@ -526,6 +525,17 @@ public class AdminCommandDebug extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkRequired(options,
+                                           AdminParserUtils.OPT_HEX,
+                                           AdminParserUtils.OPT_JSON);
 
             // load parameters
             if(options.has(AdminParserUtils.OPT_HEX)) {
@@ -538,10 +548,6 @@ public class AdminCommandDebug extends AbstractAdminCommand {
             }
             storeName = (String) options.valueOf(AdminParserUtils.OPT_STORE);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkRequiredOne(options, requiredKey);
 
             // execute command
             AdminClient adminClient = AdminUtils.getAdminClient(url);

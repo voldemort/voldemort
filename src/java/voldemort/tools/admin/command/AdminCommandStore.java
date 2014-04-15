@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.tools.admin;
+package voldemort.tools.admin.command;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,10 +27,11 @@ import joptsimple.OptionSet;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
+import voldemort.tools.admin.AdminParserUtils;
+import voldemort.tools.admin.AdminUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
 
 /**
  * Implements all functionality of admin store operations.
@@ -114,11 +115,13 @@ public class AdminCommandStore extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsFile(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsFile(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
                                                                  // --node or
                                                                  // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
@@ -158,12 +161,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_FILE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             String storesFile = null;
@@ -173,6 +170,17 @@ public class AdminCommandStore extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_FILE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             storesFile = (String) options.valueOf(AdminParserUtils.OPT_FILE);
@@ -181,10 +189,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
                 allNodes = false;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
 
             // execute command
             AdminClient adminClient = AdminUtils.getAdminClient(url);
@@ -228,11 +232,13 @@ public class AdminCommandStore extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsStoreMultiple(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsStoreMultiple(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
                                                                  // --node or
                                                                  // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
@@ -273,12 +279,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             List<String> storeNames = null;
@@ -289,6 +289,17 @@ public class AdminCommandStore extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
@@ -300,10 +311,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "delete store")) {
@@ -351,15 +358,17 @@ public class AdminCommandStore extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsStoreSingle(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsStoreSingle(parser);
+            AdminParserUtils.acceptsUrl(parser);
             parser.accepts(OPT_VERSION, "rollback read-only store to version")
                   .withRequiredArg()
                   .describedAs("store-version")
                   .ofType(Long.class);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
                                                                  // --node or
                                                                  // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
@@ -401,13 +410,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            requiredAll.add(OPT_VERSION);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             String storeName = null;
@@ -419,6 +421,18 @@ public class AdminCommandStore extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkRequired(options, OPT_VERSION);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             storeName = (String) options.valueOf(AdminParserUtils.OPT_STORE);
@@ -431,10 +445,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "rollback read-only store")) {
@@ -479,15 +489,17 @@ public class AdminCommandStore extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsPartition(parser, true);
-            AdminParserUtils.acceptsNodeSingle(parser, true);
-            AdminParserUtils.acceptsStoreMultiple(parser, false); // either
+            AdminParserUtils.acceptsPartition(parser);
+            AdminParserUtils.acceptsNodeSingle(parser);
+            AdminParserUtils.acceptsStoreMultiple(parser); // either
                                                                   // --store or
                                                                   // --all-stores
             AdminParserUtils.acceptsAllStores(parser); // either --store or
                                                        // --all-stores
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
             AdminParserUtils.acceptsConfirm(parser);
             return parser;
@@ -527,13 +539,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> requiredStore = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_PARTITION);
-            requiredAll.add(AdminParserUtils.OPT_NODE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            requiredStore.add(AdminParserUtils.OPT_STORE);
-            requiredStore.add(AdminParserUtils.OPT_ALL_STORES);
 
             // declare parameters
             List<Integer> partIds = null;
@@ -545,6 +550,18 @@ public class AdminCommandStore extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_PARTITION);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_NODE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkRequired(options,
+                                           AdminParserUtils.OPT_STORE,
+                                           AdminParserUtils.OPT_ALL_STORES);
 
             // load parameters
             partIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_PARTITION);
@@ -559,10 +576,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkRequiredOne(options, requiredStore);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "truncate partition")) {
@@ -609,11 +622,13 @@ public class AdminCommandStore extends AbstractAdminCommand {
          */
         protected static OptionParser getParser() {
             OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
             // required options
-            AdminParserUtils.acceptsStoreMultiple(parser, true);
-            AdminParserUtils.acceptsUrl(parser, true);
+            AdminParserUtils.acceptsStoreMultiple(parser);
+            AdminParserUtils.acceptsUrl(parser);
             // optional options
-            AdminParserUtils.acceptsNodeMultiple(parser, false); // either
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
                                                                  // --node or
                                                                  // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
@@ -654,12 +669,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-            List<String> requiredAll = Lists.newArrayList();
-            List<String> optionalNode = Lists.newArrayList();
-            requiredAll.add(AdminParserUtils.OPT_STORE);
-            requiredAll.add(AdminParserUtils.OPT_URL);
-            optionalNode.add(AdminParserUtils.OPT_NODE);
-            optionalNode.add(AdminParserUtils.OPT_ALL_NODES);
 
             // declare parameters
             List<String> storeNames = null;
@@ -670,6 +679,17 @@ public class AdminCommandStore extends AbstractAdminCommand {
 
             // parse command-line input
             OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
 
             // load parameters
             storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
@@ -681,10 +701,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
-
-            // check correctness
-            AdminParserUtils.checkRequiredAll(options, requiredAll);
-            AdminParserUtils.checkOptionalOne(options, optionalNode);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "truncate store")) {
