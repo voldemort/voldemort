@@ -55,7 +55,7 @@ public class VoldemortThinClientShell extends VoldemortClientShell {
         Properties properties = new Properties();
         properties.setProperty(ClientConfig.BOOTSTRAP_URLS_PROPERTY, bootstrapUrl);
         properties.setProperty(ClientConfig.ROUTING_TIMEOUT_MS_PROPERTY, "1500");
-        RESTClientFactory.Config mainConfig = new RESTClientFactory.Config(properties, null);
+        RESTClientFactoryConfig mainConfig = new RESTClientFactoryConfig(properties, null);
         restClientFactory = new RESTClientFactory(mainConfig);
         this.client = restClientFactory.getStoreClient(storeName);
     }

@@ -41,7 +41,7 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
     private StoreClient<K, V> storeClient;
 
     public LazyStoreClient(Callable<StoreClient<K, V>> storeClientThunk) {
-        this(storeClientThunk, true);
+        this(storeClientThunk, false);
     }
 
     /**
@@ -53,15 +53,17 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
      * @param instantInit A boolean flag when set indicates that we should try
      *        to immediately bootstrap
      */
-    public LazyStoreClient(Callable<StoreClient<K, V>> storeClientThunk, boolean instantInit) {
+    public LazyStoreClient(Callable<StoreClient<K, V>> storeClientThunk, boolean wrapsRESTClient) {
         this.storeClientThunk = storeClientThunk;
 
-        if(instantInit) {
-            try {
-                storeClient = initStoreClient();
-            } catch(Exception e) {
-                storeClient = null;
-                e.printStackTrace();
+        try {
+            storeClient = initStoreClient();
+        } catch(Exception e) {
+            storeClient = null;
+            logger.info(e.getMessage());
+            if(wrapsRESTClient) {
+                logger.info("D2 client might not have been completely initialized. Trying on the next call ...");
+            } else {
                 logger.info("Could not bootstrap right away. Trying on the next call ... ");
             }
         }

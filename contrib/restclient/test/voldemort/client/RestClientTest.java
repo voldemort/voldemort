@@ -21,6 +21,7 @@ import voldemort.cluster.Cluster;
 import voldemort.rest.coordinator.CoordinatorConfig;
 import voldemort.rest.coordinator.CoordinatorService;
 import voldemort.restclient.RESTClientFactory;
+import voldemort.restclient.RESTClientFactoryConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -93,9 +94,8 @@ public class RestClientTest extends DefaultStoreClientTest {
         props.setProperty(ClientConfig.BOOTSTRAP_URLS_PROPERTY, "http://localhost:9999");
         props.setProperty(ClientConfig.ROUTING_TIMEOUT_MS_PROPERTY, "1500");
 
-        RESTClientFactory.Config mainConfig = new RESTClientFactory.Config(props, null);
+        RESTClientFactoryConfig mainConfig = new RESTClientFactoryConfig(props, null);
         RESTClientFactory factory = new RESTClientFactory(mainConfig);
-
 
         this.client = factory.getStoreClient(STORE_NAME);
     }

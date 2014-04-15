@@ -40,7 +40,7 @@ public class SampleRESTClient {
         props.setProperty(ClientConfig.BOOTSTRAP_URLS_PROPERTY, "http://localhost:8080");
         props.setProperty(ClientConfig.ROUTING_TIMEOUT_MS_PROPERTY, "1500");
 
-        RESTClientFactory.Config mainConfig = new RESTClientFactory.Config(props, null);
+        RESTClientFactoryConfig mainConfig = new RESTClientFactoryConfig(props, null);
         RESTClientFactory factory = new RESTClientFactory(mainConfig);
         StoreClient<String, String> clientStore = factory.getStoreClient("test");
 

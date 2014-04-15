@@ -4,11 +4,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.log4j.Logger;
 
+import voldemort.client.LazyStoreClient;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -54,6 +55,7 @@ public class RESTClientFactory implements StoreClientFactory {
     private final TransportClient transportClient;
     private final StoreClientFactoryStats RESTClientFactoryStats;
     private Client d2Client;
+    private RESTClientFactoryConfig restClientFactoryConfig;
 
     /**
      * This list holds a reference to all the raw stores created by this
@@ -65,10 +67,9 @@ public class RESTClientFactory implements StoreClientFactory {
     private HashMap<String, SerializerDefinition> keySerializerMap;
     private HashMap<String, SerializerDefinition> valueSerializerMap;
 
-    public RESTClientFactory(Config config) {
-        this.config = new RESTClientConfig(config.getClientConfig());
-        this.d2Client = config.getD2Client();
-
+    public RESTClientFactory(RESTClientFactoryConfig config) {
+        this.restClientFactoryConfig = config;
+        this.config = new RESTClientConfig(restClientFactoryConfig.getClientConfig());
         this.stats = new StoreStats();
         this.rawStoreList = new ArrayList<R2Store>();
 
@@ -92,8 +93,15 @@ public class RESTClientFactory implements StoreClientFactory {
      * @return
      */
     @Override
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
-        return getStoreClient(storeName, null);
+    public <K, V> StoreClient<K, V> getStoreClient(final String storeName) {
+        return new LazyStoreClient<K, V>(new Callable<StoreClient<K, V>>() {
+
+            @Override
+            public StoreClient<K, V> call() throws Exception {
+                return getStoreClient(storeName, null);
+            }
+        }, true);
+
     }
 
     /**
@@ -120,6 +128,7 @@ public class RESTClientFactory implements StoreClientFactory {
 
         // The lowest layer : Transporting request to coordinator
         R2Store r2store = null;
+        this.d2Client = restClientFactoryConfig.getD2Client();
         if(this.d2Client == null) {
             r2store = new R2Store(storeName,
                                   this.config.getHttpBootstrapURL(),
@@ -222,39 +231,6 @@ public class RESTClientFactory implements StoreClientFactory {
             return valueSerializerMap.get(storeName);
         }
         return null;
-    }
-
-    /**
-     * Inner configuration class.
-     */
-    public static class Config {
-
-        private Properties clientConfig;
-        private Client d2Client;
-
-        public Config() {}
-
-        public Config(Properties clientConfig, Client d2Client) {
-            setClientConfig(clientConfig);
-            setD2Client(d2Client);
-        }
-
-        public Properties getClientConfig() {
-            return clientConfig;
-        }
-
-        public void setClientConfig(Properties clientConfig) {
-            this.clientConfig = clientConfig;
-        }
-
-        public Client getD2Client() {
-            return d2Client;
-        }
-
-        public void setD2Client(Client d2Client) {
-            this.d2Client = d2Client;
-        }
-
     }
 
 }
