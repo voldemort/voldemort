@@ -99,6 +99,7 @@ public class RemoteDataGenerator {
         return output.toString();
     }
 
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) throws IOException {
         OptionParser parser = new OptionParser();
         parser.accepts("k", "key size").withRequiredArg().ofType(Integer.class);
@@ -106,7 +107,7 @@ public class RemoteDataGenerator {
         parser.accepts("p", "prefix").withRequiredArg();
 
         OptionSet options = parser.parse(args);
-        List<String> nonOptions = options.nonOptionArguments();
+        List<String> nonOptions = (List<String>) options.nonOptionArguments();
 
         if(nonOptions.size() != 3) {
             printUsage(System.err, parser);
