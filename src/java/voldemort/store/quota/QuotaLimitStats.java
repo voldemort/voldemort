@@ -19,9 +19,12 @@ package voldemort.store.quota;
 import java.util.concurrent.atomic.AtomicLong;
 
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.store.stats.SimpleCounter;
 import voldemort.store.stats.Tracked;
 
 public class QuotaLimitStats {
+
+    private static final int QUOTA_STATS_RESET_INTERVAL_MS = 60000;
 
     private final AtomicLong rateLimitedGets;
 
@@ -31,13 +34,31 @@ public class QuotaLimitStats {
 
     private final AtomicLong rateLimitedDeletes;
 
+    private final SimpleCounter pctGetQuotaUsed;
+
+    private final SimpleCounter pctPutQuotaUsed;
+
+    private final SimpleCounter pctGetAllQuotaUsed;
+
+    private final SimpleCounter pctDeleteQuotaUsed;
+
     private final QuotaLimitStats parent;
 
     public QuotaLimitStats(QuotaLimitStats parent) {
+        this(parent, QUOTA_STATS_RESET_INTERVAL_MS);
+    }
+
+    public QuotaLimitStats(QuotaLimitStats parent, long resetIntervalMs) {
         rateLimitedGets = new AtomicLong();
         rateLimitedPuts = new AtomicLong();
         rateLimitedGetAlls = new AtomicLong();
         rateLimitedDeletes = new AtomicLong();
+
+        pctGetQuotaUsed = new SimpleCounter(resetIntervalMs);
+        pctPutQuotaUsed = new SimpleCounter(resetIntervalMs);
+        pctDeleteQuotaUsed = new SimpleCounter(resetIntervalMs);
+        pctGetAllQuotaUsed = new SimpleCounter(resetIntervalMs);
+
         this.parent = parent;
     }
 
@@ -81,6 +102,46 @@ public class QuotaLimitStats {
         }
     }
 
+    private void reportGetQuotaUsedPct(long pctUsed) {
+        pctGetQuotaUsed.count(pctUsed);
+        if(parent != null) {
+            parent.reportGetQuotaUsedPct(pctUsed);
+        }
+    }
+
+    private void reportPutQuotaUsedPct(long pctUsed) {
+        pctPutQuotaUsed.count(pctUsed);
+        if(parent != null) {
+            parent.reportPutQuotaUsedPct(pctUsed);
+        }
+    }
+
+    private void reportGetAllQuotaUsedPct(long pctUsed) {
+        pctGetAllQuotaUsed.count(pctUsed);
+        if(parent != null) {
+            parent.reportGetAllQuotaUsedPct(pctUsed);
+        }
+    }
+
+    private void reportDeleteQuotaUsedPct(long pctUsed) {
+        pctDeleteQuotaUsed.count(pctUsed);
+        if(parent != null) {
+            parent.reportDeleteQuotaUsedPct(pctUsed);
+        }
+    }
+
+    public void reportQuotaUsed(Tracked op, long pctUsed) {
+        if(Tracked.GET == op) {
+            reportGetQuotaUsedPct(pctUsed);
+        } else if(Tracked.PUT == op) {
+            reportPutQuotaUsedPct(pctUsed);
+        } else if(Tracked.GET_ALL == op) {
+            reportGetAllQuotaUsedPct(pctUsed);
+        } else if(Tracked.DELETE == op) {
+            reportDeleteQuotaUsedPct(pctUsed);
+        }
+    }
+
     @JmxGetter(name = "rateLimitedGets", description = "Counter of Number of GETs rate limited")
     public long getRateLimitedGets() {
         return rateLimitedGets.get();
@@ -99,5 +160,39 @@ public class QuotaLimitStats {
     @JmxGetter(name = "rateLimitedDeletes", description = "Counter of Number of DELETEs rate limited")
     public long getRateLimitedDeletes() {
         return rateLimitedDeletes.get();
+    }
+
+    /**
+     * Defensive checks against measured usage pct
+     * 
+     * @param pctUsedVal
+     * @return
+     */
+    private long computePctUsed(Double pctUsedVal) {
+        if(pctUsedVal <= 1.0) {
+            return 0;
+        } else {
+            return Math.round(pctUsedVal);
+        }
+    }
+
+    @JmxGetter(name = "GetQuotaUsedPct", description = "Average usage of Get quota in the last 60 secs")
+    public long getQuotaPctUsedGet() {
+        return computePctUsed(pctGetQuotaUsed.getAvgEventValue());
+    }
+
+    @JmxGetter(name = "GetAllQuotaUsedPct", description = "Average usage of GetAll quota in the last 60 secs")
+    public long getQuotaPctUsedGetAll() {
+        return computePctUsed(pctGetAllQuotaUsed.getAvgEventValue());
+    }
+
+    @JmxGetter(name = "PutQuotaUsedPct", description = "Average usage of Put quota in the last 60 secs")
+    public long getQuotaPctUsedPut() {
+        return computePctUsed(pctPutQuotaUsed.getAvgEventValue());
+    }
+
+    @JmxGetter(name = "DeleteQuotaUsedPct", description = "Average usage of Delete quota in the last 60 secs")
+    public long getQuotaPctUsedDelete() {
+        return computePctUsed(pctDeleteQuotaUsed.getAvgEventValue());
     }
 }

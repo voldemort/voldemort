@@ -303,6 +303,15 @@ public class Utils {
     }
 
     /**
+     * Computes the percentage, taking care of division by 0.
+     * 
+     * @return number between 0-100+
+     */
+    public static int safeGetPercentage(float rawNum, float total) {
+        return total == 0f ? 0 : Math.round(rawNum * 100f / total);
+    }
+
+    /**
      * Computes sum of a {@link java.lang.Long} list
      * 
      * @param list

@@ -306,4 +306,11 @@ public class UtilsTest {
         assertTrue(caught);
     }
 
+    @Test
+    public void testSafePercentage() {
+        assertEquals(Utils.safeGetPercentage(0.0f, 0.0f), 0);
+        assertEquals(Utils.safeGetPercentage(100.0f, 0.0f), 0);
+        assertEquals(Utils.safeGetPercentage(100.0f, 200.0f), 50);
+        assertEquals(Utils.safeGetPercentage(100.0f, 50.0f), 200);
+    }
 }

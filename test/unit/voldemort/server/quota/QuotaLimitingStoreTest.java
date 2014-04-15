@@ -1,8 +1,10 @@
 package voldemort.server.quota;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Properties;
 
@@ -11,6 +13,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
 import voldemort.VoldemortApplicationException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
@@ -18,7 +21,16 @@ import voldemort.client.StoreClient;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.server.VoldemortServer;
+import voldemort.store.configuration.FileBackedCachingStorageEngine;
+import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.quota.QuotaLimitStats;
+import voldemort.store.quota.QuotaLimitingStore;
 import voldemort.store.quota.QuotaType;
+import voldemort.store.quota.QuotaUtils;
+import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.stats.Tracked;
+import voldemort.utils.ByteArray;
+import voldemort.versioning.Versioned;
 
 /**
  * Does basic tests on the rate limiting implementation. More real performance
@@ -121,6 +133,52 @@ public class QuotaLimitingStoreTest {
         adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.GET_THROUGHPUT.toString());
         adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.PUT_THROUGHPUT.toString());
         ensureNotThrottled();
+    }
+
+    @Test
+    /**
+     *  PS: Test will fail if for some reason we cannot do 50 ops/sec against a hash map. So yeah, pretty unlikely.
+     */
+    public void testQuotaPctUsageCalculation() throws Exception {
+        File tempDir = TestUtils.createTempDir();
+
+        FileBackedCachingStorageEngine quotaStore = new FileBackedCachingStorageEngine("quota-usage-test-store",
+                                                                                       tempDir.getAbsolutePath());
+        InMemoryStorageEngine<ByteArray, byte[], byte[]> inMemoryEngine = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("inMemoryBackingStore");
+        QuotaLimitStats quotaStats = new QuotaLimitStats(null, 1000);
+        StatTrackingStore statTrackingStore = new StatTrackingStore(inMemoryEngine, null);
+
+        QuotaLimitingStore quotaLimitingStore = new QuotaLimitingStore(statTrackingStore,
+                                                                       statTrackingStore.getStats(),
+                                                                       quotaStats,
+                                                                       quotaStore);
+
+        int targetRate = 50;
+        // provide a quota of 100 gets/sec
+        quotaStore.put(new ByteArray(QuotaUtils.makeQuotaKey(statTrackingStore.getName(),
+                                                             QuotaType.GET_THROUGHPUT).getBytes()),
+                       new Versioned<byte[]>("100.0".getBytes()),
+                       null);
+
+        long testIntervalMs = 5000;
+        long timeToSleepMs = 1000 / targetRate;
+        long startMs = System.currentTimeMillis();
+        ByteArray key = new ByteArray("some key".getBytes());
+        while((System.currentTimeMillis() - startMs) <= testIntervalMs) {
+            quotaLimitingStore.get(key, null);
+            Thread.sleep(timeToSleepMs);
+        }
+
+        assertEquals("No get operations should be throttled", 0, quotaStats.getRateLimitedGets());
+        assertEquals("Put usage should be 0", 0, quotaStats.getQuotaPctUsedPut());
+        assertEquals("delete usage should be 0", 0, quotaStats.getQuotaPctUsedDelete());
+        assertEquals("getall usage should be 0", 0, quotaStats.getQuotaPctUsedGetAll());
+
+        assertEquals("Computed usage pct must be close to actual observed qps",
+                     statTrackingStore.getStats().getThroughput(Tracked.GET),
+                     quotaStats.getQuotaPctUsedGet(),
+                     1.0);
+
     }
 
     @After

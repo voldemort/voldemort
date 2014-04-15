@@ -29,6 +29,7 @@ import voldemort.store.configuration.FileBackedCachingStorageEngine;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -82,6 +83,11 @@ public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[
             float allowedRate = Float.parseFloat(quotaValue);
             // TODO the histogram should be reasonably accurate to do all
             // these things.. (ghost qps and all)
+
+            // Report the current quota usage level
+            quotaStats.reportQuotaUsed(trackedOp, Utils.safeGetPercentage(currentRate, allowedRate));
+
+            // check if we have exceeded rate.
             if(currentRate > allowedRate) {
                 quotaStats.reportRateLimitedOp(trackedOp);
                 // TODO should be throwing a whole new class of Exception here.
