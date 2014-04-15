@@ -225,6 +225,27 @@ public class AdminCommand extends AbstractAdminCommand {
                 verify = true;
             }
 
+            // print summary
+            System.out.println("Backup bdb data natively");
+            System.out.println("Store:");
+            System.out.println("  " + storeName);
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            System.out.println("  node = " + nodeId);
+            System.out.println("Settings:");
+            System.out.println("  backup directory is \'" + dir + "\'");
+            System.out.println("  timeout is " + timeout + " minutes");
+            if(options.has(OPT_INCREMENTAL)) {
+                System.out.println("  incremental backup");
+            } else {
+                System.out.println("  do not backup incrementally");
+            }
+            if(options.has(OPT_VERIFY)) {
+                System.out.println("  verify backup checksum");
+            } else {
+                System.out.println("  do not verify backup checksum");
+            }
+
             // execute command
             if(!AdminUtils.askConfirm(confirm, "backup bdb data natively")) {
                 return;
@@ -328,6 +349,15 @@ public class AdminCommand extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
+
+            // print summary
+            System.out.println("Restore from peer replica");
+            System.out.println("Location:");
+            System.out.println("  zone = " + zoneId);
+            System.out.println("  bootstrap url = " + url);
+            System.out.println("  node = " + nodeId);
+            System.out.println("Settings:");
+            System.out.println("  parallelism is " + parallel);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "restore node from replica")) {

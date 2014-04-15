@@ -149,8 +149,8 @@ public class AdminCommandStream extends AbstractAdminCommand {
             // required options
             AdminParserUtils.acceptsNodeSingle(parser);
             AdminParserUtils.acceptsPartition(parser); // --partition or
-                                                              // --all-partitions
-                                                              // or --orphaned
+                                                       // --all-partitions
+                                                       // or --orphaned
             AdminParserUtils.acceptsAllPartitions(parser); // --partition or
                                                            // --all-partitions
                                                            // or --orphaned
@@ -158,8 +158,8 @@ public class AdminCommandStream extends AbstractAdminCommand {
                                                       // --all-partitions or
                                                       // --orphaned
             AdminParserUtils.acceptsStoreMultiple(parser); // either
-                                                                  // --store or
-                                                                  // --all-stores
+                                                           // --store or
+                                                           // --all-stores
             AdminParserUtils.acceptsAllStores(parser); // either --store or
                                                        // --all-stores
             AdminParserUtils.acceptsUrl(parser);
@@ -439,8 +439,8 @@ public class AdminCommandStream extends AbstractAdminCommand {
             // required options
             AdminParserUtils.acceptsNodeSingle(parser);
             AdminParserUtils.acceptsPartition(parser); // --partition or
-                                                              // --all-partitions
-                                                              // or --orphaned
+                                                       // --all-partitions
+                                                       // or --orphaned
             AdminParserUtils.acceptsAllPartitions(parser); // --partition or
                                                            // --all-partitions
                                                            // or --orphaned
@@ -448,8 +448,8 @@ public class AdminCommandStream extends AbstractAdminCommand {
                                                       // --all-partitions or
                                                       // --orphaned
             AdminParserUtils.acceptsStoreMultiple(parser); // either
-                                                                  // --store or
-                                                                  // --all-stores
+                                                           // --store or
+                                                           // --all-stores
             AdminParserUtils.acceptsAllStores(parser); // either --store or
                                                        // --all-stores
             AdminParserUtils.acceptsUrl(parser);
@@ -711,8 +711,8 @@ public class AdminCommandStream extends AbstractAdminCommand {
                   .describedAs("dest-node-id")
                   .ofType(Integer.class);
             AdminParserUtils.acceptsStoreMultiple(parser); // either
-                                                                  // --store or
-                                                                  // --all-stores
+                                                           // --store or
+                                                           // --all-stores
             AdminParserUtils.acceptsAllStores(parser); // either --store or
                                                        // --all-stores
             // optional options
@@ -792,9 +792,22 @@ public class AdminCommandStream extends AbstractAdminCommand {
                 confirm = true;
             }
 
+            // print summary
+            System.out.println("Mirror data from one node to another");
+            System.out.println("Store:");
+            if(allStores) {
+                System.out.println("  all stores");
+            } else {
+                System.out.println("  " + Joiner.on(", ").join(storeNames));
+            }
+            System.out.println("Location:");
+            System.out.println("  source bootstrap url = " + srcUrl);
+            System.out.println("  source node = " + srcNodeId);
+            System.out.println("  destination bootstrap url = " + destUrl);
+            System.out.println("  destination node = " + destNodeId);
+
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "mirror stores from " + srcUrl + ":" + srcNodeId
-                                               + " to " + destUrl + ":" + destNodeId)) {
+            if(!AdminUtils.askConfirm(confirm, "mirror stores")) {
                 return;
             }
 
@@ -899,6 +912,19 @@ public class AdminCommandStream extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
+
+            // print summary
+            System.out.println("Update entries from file");
+            System.out.println("Input directory = \'" + dir + "\'");
+            System.out.println("Store:");
+            if(storeNames == null) {
+                System.out.println("  all stores available from input files");
+            } else {
+                System.out.println("  " + Joiner.on(", ").join(storeNames));
+            }
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            System.out.println("  node = " + nodeId);
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "update entries")) {

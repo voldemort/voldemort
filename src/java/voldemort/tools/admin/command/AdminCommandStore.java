@@ -122,8 +122,8 @@ public class AdminCommandStore extends AbstractAdminCommand {
             AdminParserUtils.acceptsUrl(parser);
             // optional options
             AdminParserUtils.acceptsNodeMultiple(parser); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             return parser;
@@ -239,8 +239,8 @@ public class AdminCommandStore extends AbstractAdminCommand {
             AdminParserUtils.acceptsUrl(parser);
             // optional options
             AdminParserUtils.acceptsNodeMultiple(parser); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             AdminParserUtils.acceptsConfirm(parser);
@@ -312,6 +312,18 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 confirm = true;
             }
 
+            // print summary
+            System.out.println("Delete stores");
+            System.out.println("Store:");
+            System.out.println("  " + Joiner.on(", ").join(storeNames));
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            if(allNodes) {
+                System.out.println("  node = all nodes");
+            } else {
+                System.out.println("  node = " + Joiner.on(", ").join(nodeIds));
+            }
+
             // execute command
             if(!AdminUtils.askConfirm(confirm, "delete store")) {
                 return;
@@ -369,8 +381,8 @@ public class AdminCommandStore extends AbstractAdminCommand {
                   .ofType(Long.class);
             // optional options
             AdminParserUtils.acceptsNodeMultiple(parser); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             AdminParserUtils.acceptsConfirm(parser);
@@ -446,6 +458,19 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 confirm = true;
             }
 
+            // print summary
+            System.out.println("Rollback read-only stores");
+            System.out.println("Push Version = " + pushVersion);
+            System.out.println("Store:");
+            System.out.println("  " + storeName);
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            if(allNodes) {
+                System.out.println("  node = allnodes");
+            } else {
+                System.out.println("  node = " + Joiner.on(", ").join(nodeIds));
+            }
+
             // execute command
             if(!AdminUtils.askConfirm(confirm, "rollback read-only store")) {
                 return;
@@ -495,8 +520,8 @@ public class AdminCommandStore extends AbstractAdminCommand {
             AdminParserUtils.acceptsPartition(parser);
             AdminParserUtils.acceptsNodeSingle(parser);
             AdminParserUtils.acceptsStoreMultiple(parser); // either
-                                                                  // --store or
-                                                                  // --all-stores
+                                                           // --store or
+                                                           // --all-stores
             AdminParserUtils.acceptsAllStores(parser); // either --store or
                                                        // --all-stores
             AdminParserUtils.acceptsUrl(parser);
@@ -577,6 +602,22 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 confirm = true;
             }
 
+            // print summary
+            System.out.println("Remove contents of partitions");
+            System.out.println("Partition:");
+            for(Integer partId: partIds) {
+                System.out.println("  " + partId);
+            }
+            System.out.println("Store:");
+            if(allStores) {
+                System.out.println("  all stores");
+            } else {
+                System.out.println("  " + Joiner.on(", ").join(storeNames));
+            }
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            System.out.println("  node = " + nodeId);
+
             // execute command
             if(!AdminUtils.askConfirm(confirm, "truncate partition")) {
                 return;
@@ -629,8 +670,8 @@ public class AdminCommandStore extends AbstractAdminCommand {
             AdminParserUtils.acceptsUrl(parser);
             // optional options
             AdminParserUtils.acceptsNodeMultiple(parser); // either
-                                                                 // --node or
-                                                                 // --all-nodes
+                                                          // --node or
+                                                          // --all-nodes
             AdminParserUtils.acceptsAllNodes(parser); // either --node or
                                                       // --all-nodes
             AdminParserUtils.acceptsConfirm(parser);
@@ -700,6 +741,18 @@ public class AdminCommandStore extends AbstractAdminCommand {
             }
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
+            }
+
+            // print summary
+            System.out.println("Remove contents of stores");
+            System.out.println("Store:");
+            System.out.println("  " + Joiner.on(", ").join(storeNames));
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            if(allNodes) {
+                System.out.println("  node = all nodes");
+            } else {
+                System.out.println("  node = " + Joiner.on(", ").join(nodeIds));
             }
 
             // execute command

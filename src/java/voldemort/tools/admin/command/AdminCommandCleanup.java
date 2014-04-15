@@ -28,6 +28,7 @@ import voldemort.cluster.Node;
 import voldemort.tools.admin.AdminParserUtils;
 import voldemort.tools.admin.AdminUtils;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 
 /**
@@ -100,7 +101,7 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
          * @return OptionParser object with all available options
          */
         protected static OptionParser getParser() {
-            OptionParser parser = getParser();
+            OptionParser parser = new OptionParser();
             // help options
             AdminParserUtils.acceptsHelp(parser);
             // required options
@@ -175,6 +176,16 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
             }
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
+            }
+
+            // print summary
+            System.out.println("Remove orphaned data after rebalancing");
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            if(allNodes) {
+                System.out.println("  node = all nodes");
+            } else {
+                System.out.println("  node = " + Joiner.on(", ").join(nodeIds));
             }
 
             // execute command
@@ -294,6 +305,18 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
                 confirm = true;
             }
 
+            // print summary
+            System.out.println("Prune data resulting from versioned puts");
+            System.out.println("Store:");
+            System.out.println("  " + Joiner.on(", ").join(storeNames));
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            if(allNodes) {
+                System.out.println("  node = all nodes");
+            } else {
+                System.out.println("  node = " + Joiner.on(", ").join(nodeIds));
+            }
+
             // execute command
             if(!AdminUtils.askConfirm(confirm, "cleanup vector clocks"))
                 return;
@@ -368,8 +391,8 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
         }
 
         /**
-         * Parses command-line and purges slops Previously known as
-         * "--purge-slops".
+         * Parses command-line and purges slops; the command is previously known
+         * as "--purge-slops".
          * 
          * @param args Command-line input
          * @param printHelp Tells whether to print help only or execute command
@@ -415,6 +438,19 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
             }
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
+            }
+
+            // print summary
+            System.out.println("Purge slops");
+            System.out.println("Store:");
+            System.out.println("  " + Joiner.on(", ").join(storeNames));
+            System.out.println("Location:");
+            System.out.println("  zone = " + zoneId);
+            System.out.println("  bootstrap url = " + url);
+            if(allNodes) {
+                System.out.println("  node = all nodes");
+            } else {
+                System.out.println("  node = " + Joiner.on(",").join(nodeIds));
             }
 
             // execute command

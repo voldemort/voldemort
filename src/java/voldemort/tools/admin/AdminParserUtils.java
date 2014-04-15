@@ -265,9 +265,9 @@ public class AdminParserUtils {
      * @param required Tells if this option is required or optional
      */
     public static void acceptsNodeMultiple(OptionParser parser) {
-        parser.acceptsAll(Arrays.asList(OPT_N, OPT_NODE), "node id")
+        parser.acceptsAll(Arrays.asList(OPT_N, OPT_NODE), "node id list")
               .withRequiredArg()
-              .describedAs("node-id")
+              .describedAs("node-id-list")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
     }
@@ -293,9 +293,9 @@ public class AdminParserUtils {
      * @param required Tells if this option is required or optional
      */
     public static void acceptsStoreMultiple(OptionParser parser) {
-        parser.acceptsAll(Arrays.asList(OPT_S, OPT_STORE), "store name")
+        parser.acceptsAll(Arrays.asList(OPT_S, OPT_STORE), "store name list")
               .withRequiredArg()
-              .describedAs("store-name")
+              .describedAs("store-name-list")
               .withValuesSeparatedBy(',')
               .ofType(String.class);
     }

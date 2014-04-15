@@ -23,10 +23,13 @@ import java.util.List;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Node;
 import voldemort.tools.admin.AdminParserUtils;
 import voldemort.tools.admin.AdminUtils;
+
+import com.google.common.base.Joiner;
 
 /**
  * Implements all admin async-job commands.
@@ -272,11 +275,22 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
 
             // load parameters
             jobIds = (List<Integer>) options.valuesOf(OPT_HEAD_ASYNC_JOB_STOP);
+            if(jobIds.size() < 1) {
+                throw new VoldemortException("Please specify async jobs to stop.");
+            }
             nodeId = (Integer) options.valueOf(AdminParserUtils.OPT_NODE);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
+
+            // print summary
+            System.out.println("Stop async jobs");
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            System.out.println("  node = " + nodeId);
+            System.out.println("Jobs to stop:");
+            System.out.println("  " + Joiner.on(", ").join(jobIds));
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "stop async job")) {

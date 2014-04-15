@@ -61,6 +61,7 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
@@ -226,7 +227,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
 
             // execute command
-            if(metaKeys.size() == 1 && metaKeys.get(0).compareTo(METAKEY_ALL) == 0) {
+            if(metaKeys.size() == 1 && metaKeys.get(0).equals(METAKEY_ALL)) {
                 metaKeys = Lists.newArrayList();
                 metaKeys.add(MetadataStore.CLUSTER_KEY);
                 metaKeys.add(MetadataStore.STORES_KEY);
@@ -366,9 +367,20 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 confirm = true;
             }
 
+            // print summary
+            System.out.println("Remove metadata related to rebalancing");
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            if(allNodes) {
+                System.out.println("  node = all nodes");
+            } else {
+                System.out.println("  node = " + Joiner.on(", ").join(nodeIds));
+            }
+
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "remove metadata related to rebalancing"))
+            if(!AdminUtils.askConfirm(confirm, "remove metadata related to rebalancing")) {
                 return;
+            }
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
 
@@ -715,6 +727,21 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 confirm = true;
             }
 
+            // print summary
+            System.out.println("Set metadata");
+            System.out.println("Metadata:");
+            for(Integer i = 0; i < meta.size(); i += 2) {
+                System.out.println("  set \'" + meta.get(i) + "\' from file \'" + meta.get(i + 1)
+                                   + "\'");
+            }
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            if(allNodes) {
+                System.out.println("  node = all nodes");
+            } else {
+                System.out.println("  node = " + Joiner.on(", ").join(nodeIds));
+            }
+
             // execute command
             if(!AdminUtils.askConfirm(confirm, "set metadata")) {
                 return;
@@ -727,18 +754,18 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 String metaKey = meta.get(0), metaFile = meta.get(1);
                 metaFile = metaFile.replace("~", System.getProperty("user.home"));
 
-                if(metaKey.compareTo(MetadataStore.CLUSTER_KEY) == 0
-                   || metaKey.compareTo(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML) == 0) {
+                if(metaKey.equals(MetadataStore.CLUSTER_KEY)
+                   || metaKey.equals(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML)) {
                     if(!Utils.isReadableFile(metaFile)) {
                         throw new VoldemortException("Cluster xml file path incorrect");
                     }
                     ClusterMapper mapper = new ClusterMapper();
                     Cluster newCluster = mapper.readCluster(new File(metaFile));
                     doMetaSet(adminClient, nodes, metaKey, mapper.writeCluster(newCluster));
-                } else if(metaKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
+                } else if(metaKey.equals(MetadataStore.SERVER_STATE_KEY)) {
                     VoldemortState newState = VoldemortState.valueOf(metaFile);
                     doMetaSet(adminClient, nodes, metaKey, newState.toString());
-                } else if(metaKey.compareTo(MetadataStore.STORES_KEY) == 0) {
+                } else if(metaKey.equals(MetadataStore.STORES_KEY)) {
                     if(!Utils.isReadableFile(metaFile)) {
                         throw new VoldemortException("Stores definition xml file path incorrect");
                     }
@@ -762,7 +789,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                         }
                     }
                     doMetaUpdateVersionsOnStores(adminClient, oldStoreDefs, newStoreDefs);
-                } else if(metaKey.compareTo(MetadataStore.REBALANCING_STEAL_INFO) == 0) {
+                } else if(metaKey.equals(MetadataStore.REBALANCING_STEAL_INFO)) {
                     if(!Utils.isReadableFile(metaFile)) {
                         throw new VoldemortException("Rebalancing steal info file path incorrect");
                     }
@@ -776,16 +803,16 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 // set metadata pair cluster.xml, stores.xml
                 String clusterFile, storesFile;
 
-                if(meta.get(0).compareTo(MetadataStore.CLUSTER_KEY) == 0
-                   && meta.get(2).compareTo(MetadataStore.STORES_KEY) == 0) {
+                if(meta.get(0).equals(MetadataStore.CLUSTER_KEY)
+                   && meta.get(2).equals(MetadataStore.STORES_KEY)) {
                     clusterFile = meta.get(1);
                     storesFile = meta.get(3);
-                } else if(meta.get(0).compareTo(MetadataStore.STORES_KEY) == 0
-                          && meta.get(2).compareTo(MetadataStore.CLUSTER_KEY) == 0) {
+                } else if(meta.get(0).equals(MetadataStore.STORES_KEY)
+                          && meta.get(2).equals(MetadataStore.CLUSTER_KEY)) {
                     storesFile = meta.get(1);
                     clusterFile = meta.get(3);
                 } else {
-                    throw new VoldemortException("meta set-pair keys should be <cluster.xml, stores.xml>");
+                    throw new VoldemortException("meta set-pair keys must be <cluster.xml, stores.xml>");
                 }
 
                 clusterFile = clusterFile.replace("~", System.getProperty("user.home"));
@@ -997,6 +1024,13 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
+
+            // print summary
+            System.out.println("Synchronize metadata versions across all nodes");
+            System.out.println("Base node id = " + nodeId);
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            System.out.println("  node = all nodes");
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "synchronize metadata version"))

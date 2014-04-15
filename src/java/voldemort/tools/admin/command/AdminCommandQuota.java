@@ -36,6 +36,8 @@ import voldemort.tools.admin.AdminUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
+import com.google.common.base.Joiner;
+
 /**
  * Implements all quota commands.
  */
@@ -327,6 +329,19 @@ public class AdminCommandQuota extends AbstractAdminCommand {
                 confirm = true;
             }
 
+            // print summary
+            System.out.println("Reserve memory for stores");
+            System.out.println("Memory to reserve = " + memoryMBSize + " MBytes");
+            System.out.println("Store:");
+            System.out.println("  " + Joiner.on(", ").join(storeNames));
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            if(allNodes) {
+                System.out.println("  node = all nodes");
+            } else {
+                System.out.println("  node = " + Joiner.on(", ").join(nodeIds));
+            }
+
             // execute command
             if(!AdminUtils.askConfirm(confirm, "reserve memory"))
                 return;
@@ -462,6 +477,18 @@ public class AdminCommandQuota extends AbstractAdminCommand {
                 confirm = true;
             }
 
+            // print summary
+            System.out.println("Set quota for stores");
+            System.out.println("Quota:");
+            for(Integer i = 0; i < quota.size(); i += 2) {
+                System.out.println("  set " + quota.get(i) + " = " + quota.get(i + 1));
+            }
+            System.out.println("Store:");
+            System.out.println("  " + Joiner.on(", ").join(storeNames));
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            System.out.println("  node = all nodes");
+
             // execute command
             if(!AdminUtils.askConfirm(confirm, "set quota")) {
                 return;
@@ -595,6 +622,16 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
             }
+
+            // print summary
+            System.out.println("Unset quota for stores");
+            System.out.println("Quota:");
+            System.out.println("  " + Joiner.on(", ").join(quotaTypes));
+            System.out.println("Store:");
+            System.out.println("  " + Joiner.on(", ").join(storeNames));
+            System.out.println("Location:");
+            System.out.println("  bootstrap url = " + url);
+            System.out.println("  node = all nodes");
 
             // execute command
             if(!AdminUtils.askConfirm(confirm, "unset quota")) {
