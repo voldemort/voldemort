@@ -1,3 +1,7 @@
+Release 1.7.3 on 04/16/2014
+
+* Fix RESTClientFactory to return a LazyStoreClient
+
 Release 1.7.2 on 04/15/2014
 
 * Quota limiting related fix
