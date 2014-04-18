@@ -199,7 +199,8 @@ public class StoreDefinitionUtils {
      * @param serializerDef
      */
     private static void validateIfAvroSchema(SerializerDefinition serializerDef) {
-        if(isAvroSchema(serializerDef.getName())) {
+        if(serializerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)
+           || serializerDef.getName().equals(AVRO_GENERIC_TYPE_NAME)) {
             SchemaEvolutionValidator.validateAllAvroSchemas(serializerDef);
             // check backwards compatibility if needed
             if(serializerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {

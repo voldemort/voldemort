@@ -815,6 +815,9 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 throw new VoldemortException("Store already exists !");
             }
 
+            // Check for backwards compatibility
+            StoreDefinitionUtils.validateSchemaAsNeeded(storeDef);
+
             // Otherwise add to the STORES directory
             StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
             String storeDefStr = mapper.writeStore(storeDef);
