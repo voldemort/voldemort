@@ -78,7 +78,6 @@ import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.StringSerializer;
-import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.serialization.json.JsonReader;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StoreDefinition;
@@ -227,6 +226,15 @@ public class VoldemortAdminTool {
                                + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)
               .withRequiredArg()
               .describedAs("metadata-value")
+              .ofType(String.class);
+        parser.accepts("update-store-defs",
+                       "Update the ["
+                               + MetadataStore.STORES_KEY
+                               + "] with the new value for only the specified stores in update-value.");
+        parser.accepts("update-store-value",
+                       "The value for update-store-defs ] - xml file location")
+              .withRequiredArg()
+              .describedAs("stores-xml-value")
               .ofType(String.class);
         parser.accepts("set-metadata-pair",
                        "Atomic setting of metadata pair [ " + MetadataStore.CLUSTER_KEY + " & "
@@ -614,6 +622,34 @@ public class VoldemortAdminTool {
                         throw new VoldemortException("Incorrect metadata key");
                     }
                 }
+            } else if(options.has("update-store-defs")) {
+                if(!options.has("update-store-value")) {
+                    throw new VoldemortException("Missing update-store-value for update-store-defs");
+                } else {
+                    String storesXmlValue = (String) options.valueOf("update-store-value");
+
+                    if(!Utils.isReadableFile(storesXmlValue))
+                        throw new VoldemortException("Stores definition xml file path incorrect");
+
+                    StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+                    List<StoreDefinition> newStoreDefs = mapper.readStoreList(new File(storesXmlValue));
+                    StoreDefinitionUtils.validateSchemasAsNeeded(newStoreDefs);
+
+                    if(options.has("auto")) {
+                        executeUpdateStoreDefinitions(nodeId, adminClient, newStoreDefs);
+                    } else {
+                        if(confirmMetadataUpdate(nodeId, adminClient, newStoreDefs)) {
+                            executeUpdateStoreDefinitions(nodeId, adminClient, newStoreDefs);
+                            if(nodeId >= 0) {
+                                System.err.println("WARNING: Metadata version update of stores goes to all servers, "
+                                                   + "although this set-metadata oprations only goes to node "
+                                                   + nodeId);
+                            }
+                        } else {
+                            System.out.println("New metadata has not been set");
+                        }
+                    }
+                }
             } else if(options.has("native-backup")) {
                 if(!options.has("backup-dir")) {
                     Utils.croak("A backup directory must be specified with backup-dir option");
@@ -749,6 +785,17 @@ public class VoldemortAdminTool {
             e.printStackTrace();
             Utils.croak(e.getMessage());
         }
+    }
+
+    private static void executeUpdateStoreDefinitions(Integer nodeId,
+                                                      AdminClient adminClient,
+                                                      List<StoreDefinition> storesList) {
+        if(nodeId < 0) {
+            adminClient.metadataMgmtOps.updateRemoteStoreDefList(storesList);
+        } else {
+            adminClient.metadataMgmtOps.updateRemoteStoreDefList(nodeId, storesList);
+        }
+
     }
 
     private static String getMetadataVersionsForNode(AdminClient adminClient, int nodeId) {
@@ -942,19 +989,21 @@ public class VoldemortAdminTool {
                        + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
                        + MetadataStore.REBALANCING_STEAL_INFO
                        + "] --set-metadata-value [metadata-value] --url [url] --node [node-id]");
-        stream.println("\t7) Check if metadata is same on all nodes");
+        stream.println("\t7) Update store definitions on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --update-store-defs --update-store-value [Updated store definitions XML] --url [url]");
+        stream.println("\t8) Check if metadata is same on all nodes");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --check-metadata ["
                        + MetadataStore.CLUSTER_KEY + ", " + MetadataStore.SERVER_STATE_KEY + ", "
                        + MetadataStore.STORES_KEY + "] --url [url]");
-        stream.println("\t8) Clear rebalancing metadata [" + MetadataStore.SERVER_STATE_KEY + ", "
+        stream.println("\t9) Clear rebalancing metadata [" + MetadataStore.SERVER_STATE_KEY + ", "
                        + ", " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
                        + MetadataStore.REBALANCING_STEAL_INFO + "] on all node ");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url]");
-        stream.println("\t9) Clear rebalancing metadata [" + MetadataStore.SERVER_STATE_KEY + ", "
+        stream.println("\t10) Clear rebalancing metadata [" + MetadataStore.SERVER_STATE_KEY + ", "
                        + ", " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML + ", "
                        + MetadataStore.REBALANCING_STEAL_INFO + "] on a particular node ");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url] --node [node-id]");
-        stream.println("\t10) View detailed routing information for a given set of keys.");
+        stream.println("\t11) View detailed routing information for a given set of keys.");
         stream.println("bin/voldemort-admin-tool.sh --url <url> --show-routing-plan key1,key2,.. --store <store-name>");
         stream.println();
         stream.println("ADD / DELETE STORES");

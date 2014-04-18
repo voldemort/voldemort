@@ -171,7 +171,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 break;
             case UPDATE_METADATA:
                 ProtoUtils.writeMessage(outputStream,
-                                        handleUpdateMetadata(request.getUpdateMetadata()));
+                                        handleSetMetadata(request.getUpdateMetadata()));
+                break;
+            case UPDATE_STORE_DEFINITIONS:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleUpdateStoreDefinitions(request.getUpdateMetadata()));
                 break;
             case UPDATE_METADATA_PAIR:
                 ProtoUtils.writeMessage(outputStream,
@@ -1207,7 +1211,30 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    public VAdminProto.UpdateMetadataResponse handleUpdateMetadata(VAdminProto.UpdateMetadataRequest request) {
+    public VAdminProto.UpdateMetadataResponse handleSetMetadata(VAdminProto.UpdateMetadataRequest request) {
+        VAdminProto.UpdateMetadataResponse.Builder response = VAdminProto.UpdateMetadataResponse.newBuilder();
+
+        try {
+            ByteArray key = ProtoUtils.decodeBytes(request.getKey());
+            String keyString = ByteUtils.getString(key.get(), "UTF-8");
+            if(MetadataStore.METADATA_KEYS.contains(keyString)) {
+                Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(request.getVersioned());
+
+                logger.info("Updating metadata for key '" + keyString + "'");
+                metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
+                                  versionedValue,
+                                  null);
+                logger.info("Successfully updated metadata for key '" + keyString + "'");
+            }
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleUpdateMetadata failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.UpdateMetadataResponse handleUpdateStoreDefinitions(VAdminProto.UpdateMetadataRequest request) {
         VAdminProto.UpdateMetadataResponse.Builder response = VAdminProto.UpdateMetadataResponse.newBuilder();
 
         try {
@@ -1220,11 +1247,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 // corresponding put
                 if(keyString.equals(MetadataStore.STORES_KEY)) {
                     metadataStore.updateStoreDefinitions(versionedValue);
-                } else {
-                    logger.info("Updating metadata for key '" + keyString + "'");
-                    metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
-                                      versionedValue,
-                                      null);
                 }
                 logger.info("Successfully updated metadata for key '" + keyString + "'");
             }
@@ -1255,7 +1277,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     logger.info("Updating metadata for keys '" + clusterKeyString + "'" + " and '"
                                 + storesKeyString + "'");
                     metadataStore.put(clusterKey, clusterVersionedValue, null);
-                    metadataStore.updateStoreDefinitions(storesVersionedValue);
+
+                    // replace this with put
+                    metadataStore.put(storesKey, storesVersionedValue, null);
+                    // metadataStore.updateStoreDefinitions(storesVersionedValue);
                     logger.info("Successfully updated metadata for keys '" + clusterKeyString + "'"
                                 + " and '" + storesKeyString + "'");
                 } finally {

@@ -25,6 +25,11 @@ message UpdateMetadataRequest {
   required Versioned versioned = 2;
 }
 
+message UpdateStoreDefinitions {
+  required bytes key = 1;
+  required Versioned versioned = 2;
+}
+
 message UpdateMetadataPairRequest {
   required bytes cluster_key = 1;
   required Versioned cluster_value = 2;
@@ -377,6 +382,7 @@ enum AdminRequestType {
   PRUNE_JOB = 30;
   SLOP_PURGE_JOB = 31;
   UPDATE_METADATA_PAIR = 32;
+  UPDATE_STORE_DEFINITIONS = 33;
 }
 
 message VoldemortAdminRequest {
@@ -412,4 +418,5 @@ message VoldemortAdminRequest {
   optional PruneJobRequest prune_job = 32;
   optional SlopPurgeJobRequest slop_purge_job = 33;
   optional UpdateMetadataPairRequest update_metadata_pair = 34;
+  optional UpdateStoreDefinitions update_store_definitions = 35;
 }

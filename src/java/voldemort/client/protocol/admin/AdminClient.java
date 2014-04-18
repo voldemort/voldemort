@@ -208,8 +208,7 @@ public class AdminClient {
             if(clientConfig.getBootstrapUrls().length > 0) {
                 this.mainBootstrapUrl = clientConfig.getBootstrapUrls()[0];
             }
-        }
-        catch(IllegalStateException e) {}
+        } catch(IllegalStateException e) {}
     }
 
     /**
@@ -362,8 +361,12 @@ public class AdminClient {
                 }
                 String metadataVersionStoreName = SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name();
                 String quotaStoreName = SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name();
-                metadataVersionSysStoreClient = systemStoreFactory.createSystemStore(metadataVersionStoreName, null, null);
-                quotaSysStoreClient = systemStoreFactory.createSystemStore(quotaStoreName, null, null);
+                metadataVersionSysStoreClient = systemStoreFactory.createSystemStore(metadataVersionStoreName,
+                                                                                     null,
+                                                                                     null);
+                quotaSysStoreClient = systemStoreFactory.createSystemStore(quotaStoreName,
+                                                                           null,
+                                                                           null);
             } catch(Exception e) {
                 logger.debug("Error while creating a system store client for metadata version store/quota store.");
             }
@@ -989,8 +992,8 @@ public class AdminClient {
                                          Versioned<String> value) {
 
             /*
-             * Assume everything will be fine, increment the metadata version for the key
-             * Would not harm even if the operation fails
+             * Assume everything will be fine, increment the metadata version
+             * for the key Would not harm even if the operation fails
              */
             if(key.equals(CLUSTER_VERSION_KEY) || key.equals(STORES_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(key);
@@ -1064,8 +1067,8 @@ public class AdminClient {
                                              Versioned<String> storesValue) {
 
             /*
-             * We first increment the metadata version for the cluster and the stores
-             * which does not harm even if the operation fail
+             * We first increment the metadata version for the cluster and the
+             * stores which does not harm even if the operation fail
              */
             if(clusterKey.equals(CLUSTER_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(clusterKey);
@@ -1087,13 +1090,13 @@ public class AdminClient {
             }
             for(Integer currentNodeId: remoteNodeIds) {
                 logger.info("Setting " + clusterKey + " and " + storesKey + " for "
-                        + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
-                        + getAdminClientCluster().getNodeById(currentNodeId).getId());
+                            + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
+                            + getAdminClientCluster().getNodeById(currentNodeId).getId());
                 updateRemoteMetadataPair(currentNodeId,
-                        clusterKey,
-                        clusterValue,
-                        storesKey,
-                        storesValue);
+                                         clusterKey,
+                                         clusterValue,
+                                         storesKey,
+                                         storesValue);
             }
         }
 
@@ -1237,10 +1240,26 @@ public class AdminClient {
             VectorClock oldClock = (VectorClock) metadataMgmtOps.getRemoteStoreDefList(nodeId)
                                                                 .getVersion();
 
-            updateRemoteMetadata(nodeId,
-                                 MetadataStore.STORES_KEY,
-                                 new Versioned<String>(storeMapper.writeStoreList(storesList),
-                                                       oldClock.incremented(nodeId, 1)));
+            Versioned<String> value = new Versioned<String>(storeMapper.writeStoreList(storesList),
+                                                            oldClock.incremented(nodeId, 1));
+
+            ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(MetadataStore.STORES_KEY, "UTF-8"));
+            Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
+                                                                                    "UTF-8"),
+                                                                 value.getVersion());
+
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setType(VAdminProto.AdminRequestType.UPDATE_STORE_DEFINITIONS)
+                                                                                         .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
+                                                                                                                                             .setKey(ByteString.copyFrom(keyBytes.get()))
+                                                                                                                                             .setVersioned(ProtoUtils.encodeVersioned(valueBytes))
+                                                                                                                                             .build())
+                                                                                         .build();
+            VAdminProto.UpdateMetadataResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                        request,
+                                                                                        VAdminProto.UpdateMetadataResponse.newBuilder());
+            if(response.hasError())
+                helperOps.throwException(response.getError());
         }
 
         /**
@@ -2787,8 +2806,8 @@ public class AdminClient {
          * 
          * @param nodeId Stealer node id
          * @param cluster Cluster information which we need to update
-         * @param rebalanceTaskPlanList The list of rebalance partition
-         *        info plans
+         * @param rebalanceTaskPlanList The list of rebalance partition info
+         *        plans
          * @param swapRO Boolean indicating if we need to swap RO stores
          * @param changeClusterMetadata Boolean indicating if we need to change
          *        cluster metadata
