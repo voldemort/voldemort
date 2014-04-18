@@ -357,7 +357,8 @@ public class VoldemortAdminTool {
             if(!(missing.equals(ImmutableSet.of("node"))
                  && (options.has("add-stores") || options.has("delete-store")
                      || options.has("ro-metadata") || options.has("set-metadata")
-                     || options.has("set-metadata-pair") || options.has("get-metadata") || options.has("check-metadata"))
+                     || options.has("update-store-defs") || options.has("set-metadata-pair")
+                     || options.has("get-metadata") || options.has("check-metadata"))
                  || options.has("truncate") || options.has("clear-rebalancing-metadata")
                  || options.has("async") || options.has("native-backup") || options.has("rollback")
                  || options.has("verify-metadata-version") || options.has("reserve-memory")
@@ -649,6 +650,7 @@ public class VoldemortAdminTool {
                             System.out.println("New metadata has not been set");
                         }
                     }
+                    System.out.println("The store definitions have been successfully updated.");
                 }
             } else if(options.has("native-backup")) {
                 if(!options.has("backup-dir")) {

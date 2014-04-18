@@ -1272,6 +1272,8 @@ public class AdminClient {
         public void updateRemoteStoreDefList(List<StoreDefinition> storesList)
                 throws VoldemortException {
             for(Node node: currentCluster.getNodes()) {
+                logger.info("Updating stores.xml for " + node.getHost() + ":" + node.getId());
+
                 updateRemoteStoreDefList(node.getId(), storesList);
             }
         }
