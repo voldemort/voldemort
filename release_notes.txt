@@ -1,3 +1,10 @@
+Release 1.8.0 on 04/21/2014
+
+* Split the stores.xml into individual stores on Voldemort server
+* Maintaing backwards compatibility of MetadataStore
+* DefaultStoreClient bootstraps using store name (instead of stores.xml)
+* New Admin tool functionality to update stores (instead of replace)
+
 Release 1.7.3 on 04/16/2014
 
 * Fix RESTClientFactory to return a LazyStoreClient
