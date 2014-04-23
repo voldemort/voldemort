@@ -204,8 +204,8 @@ public class AdminCommandQuota extends AbstractAdminCommand {
          * @param quotaType List of quota types to fetch
          */
         public static void doQuotaGet(AdminClient adminClient,
-                                       List<String> storeNames,
-                                       List<String> quotaTypes) {
+                                      List<String> storeNames,
+                                      List<String> quotaTypes) {
             for(String storeName: storeNames) {
                 if(!adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
                     System.out.println("Store " + storeName + " not in cluster.");
@@ -349,6 +349,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
 
+            AdminUtils.checkServerInNormalState(adminClient, nodes);
             doQuotaReserveMemory(adminClient, nodes, storeNames, memoryMBSize);
         }
 
@@ -362,9 +363,9 @@ public class AdminCommandQuota extends AbstractAdminCommand {
          * 
          */
         public static void doQuotaReserveMemory(AdminClient adminClient,
-                                                 Collection<Node> nodes,
-                                                 List<String> storeNames,
-                                                 long memoryMBSize) {
+                                                Collection<Node> nodes,
+                                                List<String> storeNames,
+                                                long memoryMBSize) {
             for(Node node: nodes) {
                 adminClient.quotaMgmtOps.reserveMemory(node.getId(), storeNames, memoryMBSize);
             }
@@ -497,6 +498,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Map<String, String> quotaMap = AdminUtils.convertListToMap(quota);
 
+            AdminUtils.checkServerInNormalState(adminClient);
             doQuotaSet(adminClient, storeNames, quotaMap);
         }
 
@@ -510,8 +512,8 @@ public class AdminCommandQuota extends AbstractAdminCommand {
          */
         @SuppressWarnings({ "cast", "rawtypes" })
         public static void doQuotaSet(AdminClient adminClient,
-                                       List<String> storeNames,
-                                       Map<String, String> quotaMap) {
+                                      List<String> storeNames,
+                                      Map<String, String> quotaMap) {
             for(String storeName: storeNames) {
                 if(adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
                     Iterator<Entry<String, String>> iter = quotaMap.entrySet().iterator();
@@ -640,6 +642,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
 
             AdminClient adminClient = AdminUtils.getAdminClient(url);
 
+            AdminUtils.checkServerInNormalState(adminClient);
             doQuotaUnset(adminClient, storeNames, quotaTypes);
         }
 
@@ -652,8 +655,8 @@ public class AdminCommandQuota extends AbstractAdminCommand {
          * 
          */
         public static void doQuotaUnset(AdminClient adminClient,
-                                         List<String> storeNames,
-                                         List<String> quotaTypes) {
+                                        List<String> storeNames,
+                                        List<String> quotaTypes) {
             for(String storeName: storeNames) {
                 if(adminClient.helperOps.checkStoreExistsInCluster(storeName)) {
                     for(String quotaType: quotaTypes) {

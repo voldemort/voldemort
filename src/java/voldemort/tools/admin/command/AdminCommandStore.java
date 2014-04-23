@@ -194,6 +194,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
 
+            AdminUtils.checkServerInNormalState(adminClient, nodes);
             doStoreAdd(adminClient, nodes, storesFile);
         }
 
@@ -207,8 +208,8 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * 
          */
         public static void doStoreAdd(AdminClient adminClient,
-                                       Collection<Node> nodes,
-                                       String storesFile) throws IOException {
+                                      Collection<Node> nodes,
+                                      String storesFile) throws IOException {
             List<StoreDefinition> storeDefinitionList = new StoreDefinitionsMapper().readStoreList(new File(storesFile));
             for(StoreDefinition storeDef: storeDefinitionList) {
                 System.out.println("Adding " + storeDef.getName());
@@ -332,6 +333,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
 
+            AdminUtils.checkServerInNormalState(adminClient, nodes);
             doStoreDelete(adminClient, nodes, storeNames);
         }
 
@@ -344,8 +346,8 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * 
          */
         public static void doStoreDelete(AdminClient adminClient,
-                                          Collection<Node> nodes,
-                                          List<String> storeNames) {
+                                         Collection<Node> nodes,
+                                         List<String> storeNames) {
             for(String storeName: storeNames) {
                 System.out.println("Deleting " + storeName);
                 for(Node node: nodes) {
@@ -479,6 +481,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
 
+            AdminUtils.checkServerInNormalState(adminClient, nodes);
             doStoreRollbackReadOnly(adminClient, nodes, storeName, pushVersion);
         }
 
@@ -492,9 +495,9 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * 
          */
         public static void doStoreRollbackReadOnly(AdminClient adminClient,
-                                                    Collection<Node> nodes,
-                                                    String storeName,
-                                                    long pushVersion) {
+                                                   Collection<Node> nodes,
+                                                   String storeName,
+                                                   long pushVersion) {
             for(Node node: nodes) {
                 System.out.println("Rollback store " + storeName + " on node " + node.getId());
                 adminClient.readonlyOps.rollbackStore(node.getId(), storeName, pushVersion);
@@ -627,6 +630,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
             Node node = adminClient.getAdminClientCluster().getNodeById(nodeId);
             storeNames = AdminUtils.getUserStoresOnNode(adminClient, node, storeNames, allStores);
 
+            AdminUtils.checkServerInNormalState(adminClient, node);
             doStoreTruncatePartition(adminClient, node, storeNames, partIds);
         }
 
@@ -640,9 +644,9 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * 
          */
         public static void doStoreTruncatePartition(AdminClient adminClient,
-                                                     Node node,
-                                                     List<String> storeNames,
-                                                     List<Integer> partIds) {
+                                                    Node node,
+                                                    List<String> storeNames,
+                                                    List<Integer> partIds) {
             for(String storeName: storeNames) {
                 System.out.println("Truncating partition " + Joiner.on(", ").join(partIds) + " of "
                                    + storeName);
@@ -763,6 +767,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
 
+            AdminUtils.checkServerInNormalState(adminClient, nodes);
             doStoreTruncateStore(adminClient, nodes, storeNames);
         }
 
@@ -775,8 +780,8 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * 
          */
         public static void doStoreTruncateStore(AdminClient adminClient,
-                                                 Collection<Node> nodes,
-                                                 List<String> storeNames) {
+                                                Collection<Node> nodes,
+                                                List<String> storeNames) {
             for(String storeName: storeNames) {
                 System.out.println("Truncating store " + storeName);
                 for(Node node: nodes) {

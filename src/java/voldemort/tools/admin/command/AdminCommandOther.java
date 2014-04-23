@@ -196,6 +196,8 @@ public class AdminCommandOther extends AbstractAdminCommand {
                 return;
             }
             AdminClient adminClient = AdminUtils.getAdminClient(url);
+            AdminUtils.checkServerInNormalState(adminClient, adminClient.getAdminClientCluster()
+                                                                        .getNodeById(nodeId));
 
             adminClient.storeMntOps.nativeBackup(nodeId,
                                                  storeName,
@@ -309,6 +311,8 @@ public class AdminCommandOther extends AbstractAdminCommand {
                 return;
             }
             AdminClient adminClient = AdminUtils.getAdminClient(url);
+            AdminUtils.checkServerInNormalState(adminClient, adminClient.getAdminClientCluster()
+                                                                        .getNodeById(nodeId));
 
             System.out.println("Starting restore");
             adminClient.restoreOps.restoreDataFromReplications(nodeId, parallel, zoneId);

@@ -384,6 +384,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
 
+            AdminUtils.checkServerInNormalState(adminClient, nodes);
             doMetaClearRebalance(adminClient, nodes);
         }
 
@@ -551,10 +552,10 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          */
         @SuppressWarnings({ "unchecked", "cast", "rawtypes" })
         public static void doMetaGet(AdminClient adminClient,
-                                      Collection<Node> nodes,
-                                      List<String> metaKeys,
-                                      File directory,
-                                      Boolean verbose) throws IOException {
+                                     Collection<Node> nodes,
+                                     List<String> metaKeys,
+                                     File directory,
+                                     Boolean verbose) throws IOException {
             Map<String, List<Node>> nodeMap = new HashMap<String, List<Node>>();
             Map<Node, Version> versionMap = new HashMap<Node, Version>();
             for(String key: metaKeys) {
@@ -750,6 +751,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
 
+            AdminUtils.checkServerInNormalState(adminClient, nodes);
+
             if(meta.size() == 2) {
                 String metaKey = meta.get(0), metaFile = meta.get(1);
                 metaFile = metaFile.replace("~", System.getProperty("user.home"));
@@ -864,9 +867,9 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          * @param storesValue Stores value to set
          */
         public static void doMetaSetPair(AdminClient adminClient,
-                                          Collection<Node> nodes,
-                                          Object clusterValue,
-                                          Object storesValue) {
+                                         Collection<Node> nodes,
+                                         Object clusterValue,
+                                         Object storesValue) {
             List<Integer> nodeIds = Lists.newArrayList();
             VectorClock updatedClusterVersion = null;
             VectorClock updatedStoresVersion = null;
@@ -913,8 +916,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          * @param newStoreDefs List of new store definitions
          */
         public static void doMetaUpdateVersionsOnStores(AdminClient adminClient,
-                                                         List<StoreDefinition> oldStoreDefs,
-                                                         List<StoreDefinition> newStoreDefs) {
+                                                        List<StoreDefinition> oldStoreDefs,
+                                                        List<StoreDefinition> newStoreDefs) {
             Set<String> storeNamesUnion = new HashSet<String>();
             Map<String, StoreDefinition> oldStoreDefinitionMap = new HashMap<String, StoreDefinition>();
             Map<String, StoreDefinition> newStoreDefinitionMap = new HashMap<String, StoreDefinition>();
@@ -1039,6 +1042,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Node node = adminClient.getAdminClientCluster().getNodeById(nodeId);
 
+            AdminUtils.checkServerInNormalState(adminClient);
             doMetaSyncVersion(adminClient, node);
         }
 
@@ -1187,9 +1191,9 @@ public class AdminCommandMeta extends AbstractAdminCommand {
      * @param metaValue Metadata value to set
      */
     public static void doMetaSet(AdminClient adminClient,
-                                  Collection<Node> nodes,
-                                  String metaKey,
-                                  Object metaValue) {
+                                 Collection<Node> nodes,
+                                 String metaKey,
+                                 Object metaValue) {
         List<Integer> nodeIds = Lists.newArrayList();
         VectorClock updatedVersion = null;
         for(Node node: nodes) {

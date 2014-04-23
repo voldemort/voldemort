@@ -299,6 +299,7 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Node node = adminClient.getAdminClientCluster().getNodeById(nodeId);
 
+            AdminUtils.checkServerInNormalState(adminClient, node);
             doAsyncJobStop(adminClient, node, jobIds);
         }
 

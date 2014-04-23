@@ -292,12 +292,12 @@ public class AdminCommandStream extends AbstractAdminCommand {
          * @throws IOException
          */
         public static void doStreamFetchEntries(AdminClient adminClient,
-                                                 Node node,
-                                                 List<String> storeNames,
-                                                 List<Integer> partIds,
-                                                 Boolean orphaned,
-                                                 File directory,
-                                                 String format) throws IOException {
+                                                Node node,
+                                                List<String> storeNames,
+                                                List<Integer> partIds,
+                                                Boolean orphaned,
+                                                File directory,
+                                                String format) throws IOException {
             HashMap<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
             storeDefinitionMap.putAll(AdminUtils.getUserStoreDefs(adminClient, node));
             storeDefinitionMap.putAll(AdminUtils.getSystemStoreDefs());
@@ -574,12 +574,12 @@ public class AdminCommandStream extends AbstractAdminCommand {
          * @throws IOException
          */
         public static void doStreamFetchKeys(AdminClient adminClient,
-                                              Node node,
-                                              List<String> storeNames,
-                                              List<Integer> partIds,
-                                              Boolean orphaned,
-                                              File directory,
-                                              String format) throws IOException {
+                                             Node node,
+                                             List<String> storeNames,
+                                             List<Integer> partIds,
+                                             Boolean orphaned,
+                                             File directory,
+                                             String format) throws IOException {
             HashMap<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
             storeDefinitionMap.putAll(AdminUtils.getUserStoreDefs(adminClient, node));
             storeDefinitionMap.putAll(AdminUtils.getSystemStoreDefs());
@@ -817,6 +817,12 @@ public class AdminCommandStream extends AbstractAdminCommand {
                                                         storeNames,
                                                         allStores);
 
+            AdminUtils.checkServerInNormalState(srcAdminClient,
+                                                srcAdminClient.getAdminClientCluster()
+                                                              .getNodeById(srcNodeId));
+            AdminUtils.checkServerInNormalState(destAdminClient,
+                                                destAdminClient.getAdminClientCluster()
+                                                               .getNodeById(destNodeId));
             destAdminClient.restoreOps.mirrorData(destNodeId, srcNodeId, srcUrl, storeNames);
         }
     }
@@ -934,6 +940,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
                 throw new FileNotFoundException("Input directory " + dir + " doesn't exist");
             }
 
+            AdminUtils.checkServerInNormalState(adminClient, node);
             doStreamUpdateEntries(adminClient, node, storeNames, inDir);
         }
 
@@ -948,9 +955,9 @@ public class AdminCommandStream extends AbstractAdminCommand {
          * 
          */
         public static void doStreamUpdateEntries(AdminClient adminClient,
-                                                  Node node,
-                                                  List<String> storeNames,
-                                                  File inDir) throws IOException {
+                                                 Node node,
+                                                 List<String> storeNames,
+                                                 File inDir) throws IOException {
             if(storeNames == null) {
                 storeNames = Lists.newArrayList();
                 for(File storeFile: inDir.listFiles()) {

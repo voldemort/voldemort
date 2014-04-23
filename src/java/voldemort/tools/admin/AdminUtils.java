@@ -34,9 +34,12 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.quota.QuotaUtils;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.Utils;
+import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -50,7 +53,7 @@ public class AdminUtils {
     private static final String QUOTATYPE_ALL = "all";
 
     /**
-     * Utility function copies a string array except for the first element
+     * Utility function that copies a string array except for the first element
      * 
      * @param arr Original array of strings
      * @return Copied array of strings
@@ -66,7 +69,8 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function copies a string array and add another string to first
+     * Utility function that copies a string array and add another string to
+     * first
      * 
      * @param arr Original array of strings
      * @param add
@@ -80,7 +84,7 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function pauses and asks for confirmation on dangerous
+     * Utility function that pauses and asks for confirmation on dangerous
      * operations.
      * 
      * @param confirm User has already confirmed in command-line input
@@ -103,7 +107,8 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function gives list of values from list of value-pair strings.
+     * Utility function that gives list of values from list of value-pair
+     * strings.
      * 
      * @param valueList List of value-pair strings
      * @param delim Delimiter that separates the value pair
@@ -127,7 +132,7 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function converts a list to a map.
+     * Utility function that converts a list to a map.
      * 
      * @param list The list in which even elements are keys and odd elements are
      *        values.
@@ -145,7 +150,7 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function constructs AdminClient.
+     * Utility function that constructs AdminClient.
      * 
      * @param url URL pointing to the bootstrap node
      * @return Newly constructed AdminClient
@@ -155,7 +160,7 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function fetches nodes.
+     * Utility function that fetches nodes.
      * 
      * @param adminClient An instance of AdminClient points to given cluster
      * @param nodeIds List of node IDs parsed from command-line input
@@ -181,7 +186,7 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function fetches stores on a node.
+     * Utility function that fetches stores on a node.
      * 
      * @param adminClient An instance of AdminClient points to given cluster
      * @param node Node to fetch stores from
@@ -210,7 +215,7 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function fetches partitions.
+     * Utility function that fetches partitions.
      * 
      * @param adminClient An instance of AdminClient points to given cluster
      * @param partIds List of partitions read from command-line input
@@ -230,7 +235,7 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function fetches quota types.
+     * Utility function that fetches quota types.
      * 
      * @param nodeIds List of IDs of nodes parsed from command-line input
      * @param allNodes Tells if all nodes are selected
@@ -258,7 +263,7 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function creates directory.
+     * Utility function that creates directory.
      * 
      * @param dir Directory path
      * @return File object of directory.
@@ -276,7 +281,7 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function fetches system store definitions
+     * Utility function that fetches system store definitions
      * 
      * @return The map container that maps store names to store definitions
      */
@@ -290,7 +295,7 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function fetches user defined store definitions
+     * Utility function that fetches user defined store definitions
      * 
      * @param adminClient An instance of AdminClient points to given cluster
      * @param node Store definitions to fetch from
@@ -304,5 +309,61 @@ public class AdminUtils {
             storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
         }
         return storeDefinitionMap;
+    }
+
+    /**
+     * Utility function that checks the execution state of the server by
+     * checking the state of {@link VoldemortState} <br>
+     * 
+     * This function checks if all nodes of the cluster are in normal state (
+     * {@link VoldemortState#NORMAL_SERVER}).
+     * 
+     * @param adminClient An instance of AdminClient points to given cluster
+     * @throws VoldemortException if any node is not in normal state
+     */
+    public static void checkServerInNormalState(AdminClient adminClient) {
+        checkServerInNormalState(adminClient, adminClient.getAdminClientCluster().getNodes());
+    }
+
+    /**
+     * Utility function that checks the execution state of the server by
+     * checking the state of {@link VoldemortState} <br>
+     * 
+     * This function checks if a node is in normal state (
+     * {@link VoldemortState#NORMAL_SERVER}).
+     * 
+     * @param adminClient An instance of AdminClient points to given cluster
+     * @param node Node to be checked
+     * @throws VoldemortException if any node is not in normal state
+     */
+    public static void checkServerInNormalState(AdminClient adminClient, Node node) {
+        List<Node> nodes = Lists.newArrayList();
+        nodes.add(node);
+        checkServerInNormalState(adminClient, nodes);
+    }
+
+    /**
+     * Utility function that checks the execution state of the server by
+     * checking the state of {@link VoldemortState} <br>
+     * 
+     * This function checks if the nodes are in normal state (
+     * {@link VoldemortState#NORMAL_SERVER}).
+     * 
+     * @param adminClient An instance of AdminClient points to given cluster
+     * @param nodes List of nodes to be checked
+     * @throws VoldemortException if any node is not in normal state
+     */
+    public static void checkServerInNormalState(AdminClient adminClient, Collection<Node> nodes) {
+        for(Node node: nodes) {
+            Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(node.getId(),
+                                                                                        MetadataStore.SERVER_STATE_KEY);
+            VoldemortState state = VoldemortState.valueOf(versioned.getValue());
+            if(!state.equals(VoldemortState.NORMAL_SERVER)) {
+                throw new VoldemortException("Cannot execute admin operation: " + node.getId()
+                                             + " (" + node.getHost()
+                                             + ") is not in normal state, but in "
+                                             + versioned.getValue());
+            }
+        }
     }
 }

@@ -195,6 +195,7 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
 
+            AdminUtils.checkServerInNormalState(adminClient, nodes);
             doCleanupOrphanedData(adminClient, nodes);
         }
 
@@ -324,6 +325,7 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
             AdminClient adminClient = AdminUtils.getAdminClient(url);
             Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
 
+            AdminUtils.checkServerInNormalState(adminClient, nodes);
             doCleanupVectorClocks(adminClient, nodes, storeNames);
         }
 
@@ -458,13 +460,15 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
                 return;
 
             AdminClient adminClient = AdminUtils.getAdminClient(url);
+            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
             if(allNodes) {
-                Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
                 nodeIds = Lists.newArrayList();
-                for(Node node: nodes)
+                for(Node node: nodes) {
                     nodeIds.add(node.getId());
+                }
             }
 
+            AdminUtils.checkServerInNormalState(adminClient, nodes);
             adminClient.storeMntOps.slopPurgeJob(nodeIds, zoneId, storeNames);
         }
     }
