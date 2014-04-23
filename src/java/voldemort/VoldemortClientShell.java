@@ -43,7 +43,6 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.lang.mutable.MutableInt;
 
-import voldemort.client.DefaultStoreClient;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
@@ -125,11 +124,10 @@ public class VoldemortClientShell {
         }
     }
 
-	// getter method for the Store
+    // getter method for the Store
     public StoreClient<Object, Object> getStoreClient() {
         return this.client;
     }
-
 
     protected void safeClose() {
         if(adminClient != null)
@@ -148,6 +146,7 @@ public class VoldemortClientShell {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
 
         OptionParser parser = new OptionParser();
@@ -157,7 +156,7 @@ public class VoldemortClientShell {
               .ofType(Integer.class);
         OptionSet options = parser.parse(args);
 
-        List<String> nonOptions = options.nonOptionArguments();
+        List<String> nonOptions = (List<String>) options.nonOptionArguments();
         if(nonOptions.size() < 2 || nonOptions.size() > 3) {
             System.err.println("Usage: java VoldemortClientShell store_name bootstrap_url [command_file] [options]");
             parser.printHelpOn(System.err);
@@ -307,164 +306,163 @@ public class VoldemortClientShell {
     }
 
     // useful as this separates the repeated prompt from the evaluation
-    // using no modifier as no sub-class will have access but all classes within package will
+    // using no modifier as no sub-class will have access but all classes within
+    // package will
     boolean evaluateCommand(String line, boolean printCommands) {
-            try {
-                if(line.toLowerCase().startsWith("put")) {
-                    processPut(line.substring("put".length()));
-                } else if(line.toLowerCase().startsWith("getall")) {
-                    processGetAll(line.substring("getall".length()));
-                } else if(line.toLowerCase().startsWith("get")) {
-                    processGet(line.substring("get".length()));
-                } else if(line.toLowerCase().startsWith("delete")) {
-                    processDelete(line.substring("delete".length()));
-                } else if(line.toLowerCase().startsWith("getmetadata")) {
-                    String[] args = line.substring("getmetadata".length() + 1).split("\\s+");
-                    int remoteNodeId = Integer.valueOf(args[0]);
-                    String key = args[1];
-                    Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(remoteNodeId,
-                                                                                                key);
-                    if(versioned == null) {
-                        commandOutput.println("null");
-                    } else {
-                        commandOutput.println(versioned.getVersion());
-                        commandOutput.print(": ");
-                        commandOutput.println(versioned.getValue());
-                        commandOutput.println();
-                    }
-                } else if(line.startsWith("preflist")) {
-                    JsonReader jsonReader = new JsonReader(new StringReader(line.substring("preflist".length())));
-                    Object key = tightenNumericTypes(jsonReader.read());
-                    printNodeList(client.getResponsibleNodes(key), factory.getFailureDetector());
-                } else if(line.toLowerCase().startsWith("fetchkeys")) {
-                    String[] args = line.substring("fetchkeys".length() + 1).split("\\s+");
-                    int remoteNodeId = Integer.valueOf(args[0]);
-                    String storeName = args[1];
-                    List<Integer> partititionList = parseCsv(args[2]);
-                    Iterator<ByteArray> partitionKeys = adminClient.bulkFetchOps.fetchKeys(remoteNodeId,
-                                                                                           storeName,
-                                                                                           partititionList,
-                                                                                           null,
-                                                                                           false);
-
-                    BufferedWriter writer = null;
-                    try {
-                        if(args.length > 3) {
-                            writer = new BufferedWriter(new FileWriter(new File(args[3])));
-                        } else
-                            writer = new BufferedWriter(new OutputStreamWriter(commandOutput));
-                    } catch(IOException e) {
-                        errorStream.println("Failed to open the output stream");
-                        e.printStackTrace(errorStream);
-                    }
-                    if(writer != null) {
-                        while(partitionKeys.hasNext()) {
-                            ByteArray keyByteArray = partitionKeys.next();
-                            StringBuilder lineBuilder = new StringBuilder();
-                            lineBuilder.append(ByteUtils.getString(keyByteArray.get(), "UTF-8"));
-                            lineBuilder.append("\n");
-                            writer.write(lineBuilder.toString());
-                        }
-                        writer.flush();
-                    }
-                } else if(line.toLowerCase().startsWith("fetch")) {
-                    String[] args = line.substring("fetch".length() + 1).split("\\s+");
-                    int remoteNodeId = Integer.valueOf(args[0]);
-                    String storeName = args[1];
-                    List<Integer> partititionList = parseCsv(args[2]);
-                    Iterator<Pair<ByteArray, Versioned<byte[]>>> partitionEntries = adminClient.bulkFetchOps.fetchEntries(remoteNodeId,
-                                                                                                                          storeName,
-                                                                                                                          partititionList,
-                                                                                                                          null,
-                                                                                                                          false);
-                    BufferedWriter writer = null;
-                    try {
-                        if(args.length > 3) {
-                            writer = new BufferedWriter(new FileWriter(new File(args[3])));
-                        } else
-                            writer = new BufferedWriter(new OutputStreamWriter(commandOutput));
-                    } catch(IOException e) {
-                        errorStream.println("Failed to open the output stream");
-                        e.printStackTrace(errorStream);
-                    }
-                    if(writer != null) {
-                        while(partitionEntries.hasNext()) {
-                            Pair<ByteArray, Versioned<byte[]>> pair = partitionEntries.next();
-                            ByteArray keyByteArray = pair.getFirst();
-                            Versioned<byte[]> versioned = pair.getSecond();
-                            StringBuilder lineBuilder = new StringBuilder();
-                            lineBuilder.append(ByteUtils.getString(keyByteArray.get(), "UTF-8"));
-                            lineBuilder.append("\t");
-                            lineBuilder.append(versioned.getVersion());
-                            lineBuilder.append("\t");
-                            lineBuilder.append(ByteUtils.getString(versioned.getValue(), "UTF-8"));
-                            lineBuilder.append("\n");
-                            writer.write(lineBuilder.toString());
-                        }
-                        writer.flush();
-                    }
-                } else if(line.startsWith("help")) {
-                    commandOutput.println();
-                    commandOutput.println("Commands:");
-                    commandOutput.println(PROMPT
-                                          + "put key value --- Associate the given value with the key.");
-                    commandOutput.println(PROMPT
-                                          + "get key --- Retrieve the value associated with the key.");
-                    commandOutput.println(PROMPT
-                                          + "getall key1 [key2...] --- Retrieve the value(s) associated with the key(s).");
-                    commandOutput.println(PROMPT
-                                          + "delete key --- Remove all values associated with the key.");
-                    commandOutput.println(PROMPT
-                                          + "preflist key --- Get node preference list for given key.");
-                    String metaKeyValues = voldemort.store.metadata.MetadataStore.METADATA_KEYS.toString();
-                    commandOutput.println(PROMPT
-                                          + "getmetadata node_id meta_key --- Get store metadata associated "
-                                          + "with meta_key from node_id. meta_key may be one of "
-                                          + metaKeyValues.substring(1, metaKeyValues.length() - 1)
-                                          + ".");
-                    commandOutput.println(PROMPT
-                                          + "fetchkeys node_id store_name partitions <file_name> --- Fetch all keys "
-                                          + "from given partitions (a comma separated list) of store_name on "
-                                          + "node_id. Optionally, write to file_name. "
-                                          + "Use getmetadata to determine appropriate values for store_name and partitions");
-                    commandOutput.println(PROMPT
-                                          + "fetch node_id store_name partitions <file_name> --- Fetch all entries "
-                                          + "from given partitions (a comma separated list) of store_name on "
-                                          + "node_id. Optionally, write to file_name. "
-                                          + "Use getmetadata to determine appropriate values for store_name and partitions");
-                    commandOutput.println(PROMPT + "help --- Print this message.");
-                    commandOutput.println(PROMPT + "exit --- Exit from this shell.");
-                    commandOutput.println();
-                    commandOutput.println("Avro usage:");
-                    commandOutput.println("For avro keys or values, ensure that the entire json string is enclosed within single quotes (').");
-                    commandOutput.println("Also, the field names and strings should STRICTLY be enclosed by double quotes(\")");
-                    commandOutput.println("eg: > put '{\"id\":1,\"name\":\"Vinoth Chandar\"}' '[{\"skill\":\"java\", \"score\":90.27, \"isendorsed\": true}]'");
-
-                } else if(line.equals("quit") || line.equals("exit")) {
-                    commandOutput.println("bye.");
-                    System.exit(0);
+        try {
+            if(line.toLowerCase().startsWith("put")) {
+                processPut(line.substring("put".length()));
+            } else if(line.toLowerCase().startsWith("getall")) {
+                processGetAll(line.substring("getall".length()));
+            } else if(line.toLowerCase().startsWith("get")) {
+                processGet(line.substring("get".length()));
+            } else if(line.toLowerCase().startsWith("delete")) {
+                processDelete(line.substring("delete".length()));
+            } else if(line.toLowerCase().startsWith("getmetadata")) {
+                String[] args = line.substring("getmetadata".length() + 1).split("\\s+");
+                int remoteNodeId = Integer.valueOf(args[0]);
+                String key = args[1];
+                Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(remoteNodeId,
+                                                                                            key);
+                if(versioned == null) {
+                    commandOutput.println("null");
                 } else {
-                    errorStream.println("Invalid command. (Try 'help' for usage.)");
-                    return false;
+                    commandOutput.println(versioned.getVersion());
+                    commandOutput.print(": ");
+                    commandOutput.println(versioned.getValue());
+                    commandOutput.println();
                 }
-            } catch(EndOfFileException e) {
-                errorStream.println("Expected additional token.");
-            } catch(SerializationException e) {
-                errorStream.print("Error serializing values: ");
-                e.printStackTrace(errorStream);
-            } catch(VoldemortException e) {
-                errorStream.println("Exception thrown during operation.");
-                e.printStackTrace(errorStream);
-            } catch(ArrayIndexOutOfBoundsException e) {
+            } else if(line.startsWith("preflist")) {
+                JsonReader jsonReader = new JsonReader(new StringReader(line.substring("preflist".length())));
+                Object key = tightenNumericTypes(jsonReader.read());
+                printNodeList(client.getResponsibleNodes(key), factory.getFailureDetector());
+            } else if(line.toLowerCase().startsWith("fetchkeys")) {
+                String[] args = line.substring("fetchkeys".length() + 1).split("\\s+");
+                int remoteNodeId = Integer.valueOf(args[0]);
+                String storeName = args[1];
+                List<Integer> partititionList = parseCsv(args[2]);
+                Iterator<ByteArray> partitionKeys = adminClient.bulkFetchOps.fetchKeys(remoteNodeId,
+                                                                                       storeName,
+                                                                                       partititionList,
+                                                                                       null,
+                                                                                       false);
+
+                BufferedWriter writer = null;
+                try {
+                    if(args.length > 3) {
+                        writer = new BufferedWriter(new FileWriter(new File(args[3])));
+                    } else
+                        writer = new BufferedWriter(new OutputStreamWriter(commandOutput));
+                } catch(IOException e) {
+                    errorStream.println("Failed to open the output stream");
+                    e.printStackTrace(errorStream);
+                }
+                if(writer != null) {
+                    while(partitionKeys.hasNext()) {
+                        ByteArray keyByteArray = partitionKeys.next();
+                        StringBuilder lineBuilder = new StringBuilder();
+                        lineBuilder.append(ByteUtils.getString(keyByteArray.get(), "UTF-8"));
+                        lineBuilder.append("\n");
+                        writer.write(lineBuilder.toString());
+                    }
+                    writer.flush();
+                }
+            } else if(line.toLowerCase().startsWith("fetch")) {
+                String[] args = line.substring("fetch".length() + 1).split("\\s+");
+                int remoteNodeId = Integer.valueOf(args[0]);
+                String storeName = args[1];
+                List<Integer> partititionList = parseCsv(args[2]);
+                Iterator<Pair<ByteArray, Versioned<byte[]>>> partitionEntries = adminClient.bulkFetchOps.fetchEntries(remoteNodeId,
+                                                                                                                      storeName,
+                                                                                                                      partititionList,
+                                                                                                                      null,
+                                                                                                                      false);
+                BufferedWriter writer = null;
+                try {
+                    if(args.length > 3) {
+                        writer = new BufferedWriter(new FileWriter(new File(args[3])));
+                    } else
+                        writer = new BufferedWriter(new OutputStreamWriter(commandOutput));
+                } catch(IOException e) {
+                    errorStream.println("Failed to open the output stream");
+                    e.printStackTrace(errorStream);
+                }
+                if(writer != null) {
+                    while(partitionEntries.hasNext()) {
+                        Pair<ByteArray, Versioned<byte[]>> pair = partitionEntries.next();
+                        ByteArray keyByteArray = pair.getFirst();
+                        Versioned<byte[]> versioned = pair.getSecond();
+                        StringBuilder lineBuilder = new StringBuilder();
+                        lineBuilder.append(ByteUtils.getString(keyByteArray.get(), "UTF-8"));
+                        lineBuilder.append("\t");
+                        lineBuilder.append(versioned.getVersion());
+                        lineBuilder.append("\t");
+                        lineBuilder.append(ByteUtils.getString(versioned.getValue(), "UTF-8"));
+                        lineBuilder.append("\n");
+                        writer.write(lineBuilder.toString());
+                    }
+                    writer.flush();
+                }
+            } else if(line.startsWith("help")) {
+                commandOutput.println();
+                commandOutput.println("Commands:");
+                commandOutput.println(PROMPT
+                                      + "put key value --- Associate the given value with the key.");
+                commandOutput.println(PROMPT
+                                      + "get key --- Retrieve the value associated with the key.");
+                commandOutput.println(PROMPT
+                                      + "getall key1 [key2...] --- Retrieve the value(s) associated with the key(s).");
+                commandOutput.println(PROMPT
+                                      + "delete key --- Remove all values associated with the key.");
+                commandOutput.println(PROMPT
+                                      + "preflist key --- Get node preference list for given key.");
+                String metaKeyValues = voldemort.store.metadata.MetadataStore.METADATA_KEYS.toString();
+                commandOutput.println(PROMPT
+                                      + "getmetadata node_id meta_key --- Get store metadata associated "
+                                      + "with meta_key from node_id. meta_key may be one of "
+                                      + metaKeyValues.substring(1, metaKeyValues.length() - 1)
+                                      + ".");
+                commandOutput.println(PROMPT
+                                      + "fetchkeys node_id store_name partitions <file_name> --- Fetch all keys "
+                                      + "from given partitions (a comma separated list) of store_name on "
+                                      + "node_id. Optionally, write to file_name. "
+                                      + "Use getmetadata to determine appropriate values for store_name and partitions");
+                commandOutput.println(PROMPT
+                                      + "fetch node_id store_name partitions <file_name> --- Fetch all entries "
+                                      + "from given partitions (a comma separated list) of store_name on "
+                                      + "node_id. Optionally, write to file_name. "
+                                      + "Use getmetadata to determine appropriate values for store_name and partitions");
+                commandOutput.println(PROMPT + "help --- Print this message.");
+                commandOutput.println(PROMPT + "exit --- Exit from this shell.");
+                commandOutput.println();
+                commandOutput.println("Avro usage:");
+                commandOutput.println("For avro keys or values, ensure that the entire json string is enclosed within single quotes (').");
+                commandOutput.println("Also, the field names and strings should STRICTLY be enclosed by double quotes(\")");
+                commandOutput.println("eg: > put '{\"id\":1,\"name\":\"Vinoth Chandar\"}' '[{\"skill\":\"java\", \"score\":90.27, \"isendorsed\": true}]'");
+
+            } else if(line.equals("quit") || line.equals("exit")) {
+                commandOutput.println("bye.");
+                System.exit(0);
+            } else {
                 errorStream.println("Invalid command. (Try 'help' for usage.)");
-            } catch(Exception e) {
-                errorStream.println("Unexpected error:");
-                e.printStackTrace(errorStream);
+                return false;
             }
-            return true;
+        } catch(EndOfFileException e) {
+            errorStream.println("Expected additional token.");
+        } catch(SerializationException e) {
+            errorStream.print("Error serializing values: ");
+            e.printStackTrace(errorStream);
+        } catch(VoldemortException e) {
+            errorStream.println("Exception thrown during operation.");
+            e.printStackTrace(errorStream);
+        } catch(ArrayIndexOutOfBoundsException e) {
+            errorStream.println("Invalid command. (Try 'help' for usage.)");
+        } catch(Exception e) {
+            errorStream.println("Unexpected error:");
+            e.printStackTrace(errorStream);
+        }
+        return true;
     }
-
-
 
     protected List<Integer> parseCsv(String csv) {
         return Lists.transform(Arrays.asList(csv.split(",")), new Function<String, Integer>() {

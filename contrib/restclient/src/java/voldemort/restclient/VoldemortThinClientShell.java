@@ -67,11 +67,12 @@ public class VoldemortThinClientShell extends VoldemortClientShell {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
         OptionSet options = parser.parse(args);
 
-        List<String> nonOptions = options.nonOptionArguments();
+        List<String> nonOptions = (List<String>) options.nonOptionArguments();
         if(nonOptions.size() < 2 || nonOptions.size() > 3) {
             System.err.println("Usage: java VoldemortThinClientShell store_name coordinator_url [command_file] [options]");
             parser.printHelpOn(System.err);
