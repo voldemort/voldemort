@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <project name="voldemort" basedir="." default="all">
-  <property file="build.properties" />
+  <property file="gradle.properties" />
 
   <property name="name" value="voldemort" />
   <property name="display.name" value="Voldemort" />
@@ -99,7 +99,7 @@
     </copy>
     <replace-dir dir="META-INF" />
   	<echo message="creating manifest"/>
-    <manifest file="META-INF/MANIFEST.MF">   
+    <manifest file="META-INF/MANIFEST.MF">
       <attribute name="Voldemort-Implementation-Version" value="${curr.release}" />
       <attribute name="Implementation-Title" value="Voldemort" />
       <attribute name="Implementation-Version" value="${curr.release}" />
@@ -182,7 +182,7 @@
       <fileset dir="${java.dir}">
         <include name="**/*.xsd" />
       </fileset>
-    	
+
     	<fileset dir=".">
     	 		<include name="META-INF/MANIFEST.MF" />
       </fileset>
@@ -226,7 +226,6 @@
   <target name="contrib-build" depends="build, buildtest" description="Compile contrib packages (java and test) ">
     <replace-dir dir="${contrib.classes.dir}" />
     <javac destdir="${contrib.classes.dir}" target="${javac.version}" source="${javac.version}" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
-      <src path="${contrib.root.dir}" />
       <src path="${contrib.root.dir}" />
       <classpath refid="main-classpath" />
       <classpath refid="contrib-classpath" />
@@ -369,7 +368,9 @@
       <zipfileset dir="." prefix="voldemort-@{version}" includes="**">
         <exclude name="${dist.dir}/*classes/"/>
         <exclude name="bin/*"/>
+        <exclude name="build/*"/>
         <exclude name=".git*/**"/>
+        <exclude name=".gradle*/**"/>
       </zipfileset>
     </zip>
     <tar destfile="${dist.dir}/${name}-@{version}.tar.gz" compression="gzip" longfile="gnu">
@@ -378,7 +379,9 @@
         <exclude name="${dist.dir}/*classes/"/>
         <exclude name="${dist.dir}/*.zip"/>
         <exclude name="bin/*"/>
+        <exclude name="build/*"/>
         <exclude name=".git*/**"/>
+        <exclude name=".gradle*/**"/>
       </tarfileset>
     </tar>
     </sequential>
@@ -433,7 +436,7 @@
       <report todir="${testhtml.dir}" format="frames" />
     </junitreport>
   </target>
- 
+
   <target name="junit-long" depends="build, buildtest, junit" description="Run long junit tests that uses larger data sets than normal junit tests.">
     <replace-dir dir="${longtestreport.dir}" />
     <replace-dir dir="${longtesthtml.dir}" />
@@ -474,7 +477,7 @@
       <report todir="${testhtml.dir}" format="frames" />
     </junitreport>
   </target>
- 
+
   <target name="junit-long-rebalance" depends="build, buildtest, junit-rebalance" description="Run long junit rebalance tests that uses larger data sets than normal junit tests.">
     <replace-dir dir="${longtestreport.dir}" />
     <replace-dir dir="${longtesthtml.dir}" />
