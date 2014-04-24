@@ -21,3 +21,5 @@ voldsys$_*
 .project
 .settings
 .pydevproject
+.gradle
+build

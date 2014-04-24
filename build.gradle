@@ -1,0 +1,238 @@
+import java.util.jar.JarEntry;
+
+apply plugin: 'java'
+apply plugin: 'scala'
+
+def String getProjectProperty(String propertyName) {
+    String propertyValue = "null"
+    if (hasProperty(propertyName)) {
+        propertyValue = this.properties[propertyName]
+    }
+    else {
+        throw GradleScriptException("PropertyName " + propertyName + " is not defined in properties file")
+    }
+    return propertyValue
+}
+def projectName = "voldemort"
+
+def sourceDir = getProjectProperty('src.dir')
+def distDir = getProjectProperty('dist.dir')
+def classesDir = getProjectProperty('classes.dir')
+def javaDir = getProjectProperty('java.dir')
+def libDir = getProjectProperty('lib.dir')
+def resourcesDir = getProjectProperty('resources.dir')
+def javaDocDir = getProjectProperty('javadoc.dir')
+
+def testClassesDir = getProjectProperty('testclasses.dir')
+def commonTestSrcDir = getProjectProperty('commontestsrc.dir')
+def unitTestSrcDir = getProjectProperty('unittestsrc.dir')
+def intTestSrcDir = getProjectProperty('inttestsrc.dir')
+def longTestSrcDir = getProjectProperty('longtestsrc.dir')
+
+def contribClassesDir = getProjectProperty('contrib.classes.dir')
+def contribRootDir = getProjectProperty('contrib.root.dir')
+
+def voldVersion = getProjectProperty('curr.release')
+def javacVersion = getProjectProperty('javac.version')
+def scalaVersion = getProjectProperty('scalac.version')
+
+//This is the javaCompile variable version. Directly defining 'def version' will override this and cause nightmare
+version = voldVersion
+
+def archiveDirectoryName = projectName + '-' + version
+def archiveDirectoryPath = distDir + "/" + archiveDirectoryName
+
+def deleteDirectoryContents(directory) {
+    project.file(directory).deleteDir()
+    project.file(directory).mkdirs()
+}
+
+plugins.withType(JavaPlugin) {
+    println 'java source target compatibility version ' + javacVersion
+    sourceCompatibility = javacVersion
+    targetCompatibility = javacVersion
+    compileJava.options.debug = true
+}
+
+
+tasks.withType(ScalaCompile) {
+    scalaClasspath = files("lib/scala-compiler-${scalaVersion}.jar",
+            "lib/scala-reflect-${scalaVersion}.jar",
+            "lib/scala-library-${scalaVersion}.jar")
+}
+
+repositories {
+    flatDir { dirs libDir }
+    flatDir { dirs contribRootDir }
+}
+
+
+sourceSets {
+    main {
+        java { srcDirs = [javaDir]}
+        scala {
+            srcDirs = [sourceDir]
+            include '**/*.scala'
+        }
+        resources {
+            srcDirs = [javaDir]
+            include '**/*.xsd'
+        }
+        output.classesDir = classesDir
+    }
+    buildTest {
+        java {
+            srcDirs = [
+                commonTestSrcDir ,
+                unitTestSrcDir,
+                intTestSrcDir ,
+                longTestSrcDir
+            ]
+        }
+        output.classesDir = testClassesDir
+        compileClasspath += sourceSets.main.runtimeClasspath
+    }
+    contrib {
+        java { srcDirs = [contribRootDir]}
+        compileClasspath += sourceSets.main.runtimeClasspath
+        output.classesDir = contribClassesDir
+    }
+}
+
+compileJava.dependsOn clean
+
+task compileJava.doLast {
+    project.copy {
+        from (javaDir) { exclude '**/*.java','**/*.html','**/*.scala', '**/log4j.properties' }
+        into classesDir
+    }
+
+    project.copy {
+        from (javaDir) { include 'log4j.properties' }
+        into resourcesDir
+    }
+}
+
+compileBuildTestJava.doLast {
+        project.copy {
+            from (commonTestSrcDir) { exclude '**/*.java','**/*.html' }
+            from (unitTestSrcDir) { exclude '**/*.java','**/*.html' }
+            into testClassesDir
+        }
+}
+
+compileContribJava.doLast {
+        project.copy {
+            from (contribRootDir + '/ec2-testing/resources')
+            into contribClassesDir
+        }
+}
+
+
+dependencies {
+    compile fileTree(dir: libDir, includes: ['**/*.jar'])
+
+    buildTestCompile sourceSets.main.output
+
+    contribCompile sourceSets.main.output
+    contribCompile sourceSets.buildTest.output
+    contribCompile fileTree(dir: contribRootDir, includes: ['**/*.jar'])
+}
+
+test{
+    // workingDir = new File(rootDir , "src/");
+    println "working directory is:" + rootDir
+    minHeapSize = "1g"
+    maxHeapSize = "2g"
+    // scanForTestClasses = false
+}
+
+task testJar(type: Jar) {
+    dependsOn sourceSets.buildTest.output
+    baseName = projectName + "-test"
+    from sourceSets.buildTest.output
+    destinationDir = project.file(distDir)
+}
+
+task voldJar(type:Jar) {
+    baseName = projectName
+    manifest {
+        attributes 'Voldemort-Implementation-Version' : version,
+        'Implementation-Title': 'Voldemort',
+        'Implementation-Version': version,
+        'Implementation-Vendor' :'LinkedIn'
+    }
+    from sourceSets.main.output
+    destinationDir = project.file(distDir)
+}
+
+task contribJar(type:Jar) {
+    dependsOn voldJar, testJar, sourceSets.contrib.output
+    baseName = projectName + "-contrib"
+    from sourceSets.contrib.output
+    destinationDir = project.file(distDir)
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'src'
+    from sourceSets.main.java.srcDirs
+    destinationDir = project.file(distDir)
+}
+
+artifacts {
+    archives voldJar
+    archives testJar
+    archives contribJar
+    archives sourcesJar
+}
+
+clean {
+    project.file(distDir).deleteDir()
+    deleteDirectoryContents(javaDocDir)
+}
+
+task copySources (type: Copy) {
+    println 'doing the copy now'
+    from ('.') { include 'bin/**' }
+    from ('.') { include  distDir + '/*.jar'}
+    from ('.') { exclude distDir + '/**' ,'bin/**' , 'build/**', '.git/**' , '.gradle/**' }
+    into archiveDirectoryPath
+}
+
+task zip (type: Zip) {
+    dependsOn copySources
+    baseName = projectName
+
+    from(distDir) {
+        include archiveDirectoryName + '/bin/**'
+        fileMode = 0755
+    }
+    from(distDir) {
+        include archiveDirectoryName + '/**'
+        exclude archiveDirectoryName + '/bin/**'
+    }
+
+    destinationDir = project.file(distDir)
+}
+
+task tar (type: Tar) {
+    dependsOn copySources
+    compression = Compression.GZIP
+    baseName = projectName
+    extension = "tar.gz"
+
+    from(distDir) {
+        include archiveDirectoryName + '/bin/**'
+        fileMode = 0755
+    }
+    from(distDir) {
+        include archiveDirectoryName + '/**'
+        exclude archiveDirectoryName + '/bin/**'
+    }
+
+    destinationDir = project.file(distDir)
+}
+
+jar.dependsOn contribJar,sourcesJar
+compileContribJava.dependsOn voldJar
+copySources.dependsOn jar
