@@ -1,0 +1,1332 @@
+---
+layout: default
+title: Voldemort Admin Tool Reference
+---
+
+<h1 id="VoldemortAdminToolReference-VoldemortAdminToolReference">
+  Voldemort Admin Tool Reference
+</h1>
+<h2 id="VoldemortAdminToolReference-NewVoldemortAdminTool">
+  New Voldemort Admin Tool
+</h2>
+<p>
+  This page shows all available admin tool commands and their synopsis.
+</p>
+<p>
+  To see the options corresponding to each command, please use help command.
+</p>
+<h3 id="VoldemortAdminToolReference-1.Howtoshowhelpmenusorcommand-lineusages">
+  1. How to show help menus or command-line usages
+</h3>
+<p>
+  The new voldemort admin tool has 3 levels of help menus.
+</p>
+<p>
+  The top level help menu shows a list of all group commands.
+</p>
+<p>
+  Type
+  <code>
+    <span style="color: rgb(51,51,153);">
+      ./bin/vadmin.sh
+    </span>
+  </code>
+  to see it.
+</p>
+<p>
+  The group help menu shows a list of sub-commands within this command group.
+</p>
+<p>
+  Type
+  <code>
+    <span style="color: rgb(51,51,153);">
+      ./bin/vadmin.sh &lt;group-name&gt;
+    </span>
+  </code>
+  to see it, e.g.
+  <code>
+    <span style="color: rgb(51,51,153);">
+      ./bin/vadmin.sh quota
+    </span>
+  </code>
+  .
+</p>
+<p>
+  The sub-command help info shows description, synopsis and options for
+  the sub-command.
+</p>
+<p>
+  Type
+  <code>
+    <span style="color: rgb(51,51,153);">
+      ./bin/vadmin.sh &lt;group-name&gt; &lt;sub-command&gt; -h
+    </span>
+  </code>
+  to see it, e.g.
+  <code>
+    <span style="color: rgb(51,51,153);">
+      ./bin/vadmin.sh quota get -h
+    </span>
+  </code>
+  .
+</p>
+<h3 id="VoldemortAdminToolReference-2.CommandGroups">
+  2. Command Groups
+</h3>
+<div class="table-wrap">
+  <table border="1" class="confluenceTable">
+    <tbody>
+      <tr>
+        <th class="confluenceTh">
+          Group Name
+        </th>
+        <th class="confluenceTh">
+          Description
+        </th>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          async-job
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Show or stop async jobs.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          cleanup
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Cleanup orphaned data, vector clocks or slops.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          debug
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Check keys or routing plan.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          meta
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Get, set, clear metadata; check or sync metadata version.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          quota
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Get, set, unset quota or reserve memory on stores.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          store
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Add, delete, rollback, truncate stores, or truncatepartitions.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          stream
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Fetch keys or entries, or mirror data across nodes, or update entries.
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<p>
+  To see help info for each group command, please type one of the following:
+</p>
+<p>
+  <span style="color: rgb(51,51,153);">
+    <code>
+      ./bin/vadmin.sh &lt;group-name&gt;
+    </code>
+  </span>
+</p>
+<p>
+  <span style="color: rgb(51,51,153);">
+    <code>
+      ./bin/vadmin.sh help &lt;group-name&gt;
+    </code>
+  </span>
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);">
+      ./bin/vadmin.sh &lt;group-name&gt; -h
+    </span>
+  </code>
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);">
+      ./bin/vadmin.sh &lt;group-name&gt; --help
+    </span>
+  </code>
+</p>
+<h3 id="VoldemortAdminToolReference-3.Non-groupedCommands">
+  3. Non-grouped Commands
+</h3>
+<div class="table-wrap">
+  <table border="1" class="confluenceTable">
+    <tbody>
+      <tr style="text-align: left;">
+        <th style="text-align: left;" class="confluenceTh">
+          Command
+        </th>
+        <th style="text-align: left;" class="confluenceTh">
+          Description
+        </th>
+      </tr>
+      <tr style="text-align: left;">
+        <td style="text-align: left;" class="confluenceTd">
+          native-backup
+        </td>
+        <td style="text-align: left;" class="confluenceTd">
+          <span>
+            Backup bdb data on one single node natively.
+          </span>
+        </td>
+      </tr>
+      <tr style="text-align: left;">
+        <td style="text-align: left;" class="confluenceTd">
+          restore-from-replica
+        </td>
+        <td style="text-align: left;" class="confluenceTd">
+          <span>
+            Restore data from peer replication.
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<h4 id="VoldemortAdminToolReference-Synopsis">
+  Synopsis
+</h4>
+<p>
+  1) Backup bdb data on one single node natively (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh native-backup -d &lt;backup-dir&gt; -n &lt;node-id&gt;
+      -s &lt;store-name&gt; -u &lt;url&gt; [--timeout &lt;time-minute&gt;]
+      [--incremental] [--verify] [--confirm]
+    </span>
+  </code>
+</p>
+<p>
+  2) Restore data on one single node from its peer replication (this op needs
+     confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh restore-from-replica -n &lt;node-id&gt; -u &lt;url&gt;
+      -z &lt;zone-id&gt; [--parallel &lt;num&gt;] [--confirm]
+    </span>
+  </code>
+</p>
+<h3 id="VoldemortAdminToolReference-4.Async-jobCommands">
+  4. Async-job Commands
+</h3>
+<div class="table-wrap">
+  <table border="1" class="confluenceTable">
+    <tbody>
+      <tr>
+        <th class="confluenceTh">
+          Command
+        </th>
+        <th class="confluenceTh">
+          Description
+        </th>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          list
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Get async job list from nodes.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          stop
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Stop async jobs on one node.
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<h4 id="VoldemortAdminToolReference-Synopsis.1" class="p1">
+  Synopsis
+</h4>
+<p>
+  1) Get a list of async jobs on some nodes or all nodes
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh async-job list -u &lt;url&gt;
+      [-n &lt;node-id-list&gt; | --all-nodes]
+    </span>
+  </code>
+</p>
+<p>
+  2) Stop a list of async jobs on a particular node (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh async-job stop &lt;job-id-list&gt; -n &lt;node-id&gt; -u &lt;url&gt;
+      [--confirm]
+    </span>
+  </code>
+</p>
+<h3 id="VoldemortAdminToolReference-4.CleanupCommands">
+  4. Cleanup Commands
+</h3>
+<div class="table-wrap">
+  <table border="1" class="confluenceTable">
+    <tbody>
+      <tr>
+        <th class="confluenceTh">
+          Command
+        </th>
+        <th class="confluenceTh">
+          Description
+        </th>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          <span>
+            orphaned-data
+          </span>
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Remove orhpaned data on a single node after rebalancing is done.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          vector-clocks
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Prune data resulting from versioned puts during rebalancing.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          slops
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Purge slops.
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<h4 id="VoldemortAdminToolReference-Synopsis.2">
+  Synopsis
+</h4>
+<p>
+  1) Remove orhpaned data on some nodes or all nodes, after rebalancing is
+     done (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh cleanup orphaned-data -u &lt;url&gt;
+      [-n &lt;node-id-list&gt; | --all-nodes] [--confirm]
+    </span>
+  </code>
+</p>
+<p>
+  2) Prune data of stores resulting from versioned puts during rebalancing,
+     on some nodes or all nodes (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh cleanup vector-clocks -s &lt;store-name-list&gt; -url &lt;url&gt;
+      [-n &lt;node-id-list&gt; | --all-nodes] [–confirm]
+    </span>
+  </code>
+</p>
+<p>
+  3) Purge slops of stores in a zone, on some nodes or all nodes (this op
+     needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh cleanup slops -s &lt;store-name-list&gt; -u &lt;url&gt; -z &lt;zone-id&gt;
+      [-n &lt;node-id-list&gt; | --all-nodes] [--confirm]
+    </span>
+  </code>
+</p>
+<h3 id="VoldemortAdminToolReference-5.MetaCommands">
+  5. Meta Commands
+</h3>
+<div class="table-wrap">
+  <table border="1" class="confluenceTable">
+    <tbody>
+      <tr>
+        <th class="confluenceTh">
+          Command
+        </th>
+        <th class="confluenceTh">
+          Description
+        </th>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          check
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Check if metadata is consistent across all nodes.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          get
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Get metadata from nodes.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          set
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Set metadata on nodes.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          clear-rebalance
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Remove metadata related to rebalancing.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          check-version
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Verify metadata versions on all the cluster nodes.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          sync-version
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Synchronize metadata versions across all nodes.
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<h4 id="VoldemortAdminToolReference-ValidMetadataKeys">
+    Valid Metadata Keys
+</h4>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);">
+      cluster.xml
+    </span>
+  </code>
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);">
+      stores.xml
+    </span>
+  </code>
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);">
+      server.state
+    </span>
+  </code>
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);">
+      node.id
+    </span>
+  </code>
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);">
+      rebalancing.steal.info.key
+    </span>
+  </code>
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);">
+      rebalancing.source.cluster.xml
+    </span>
+  </code>
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);">
+      rebalancing.source.stores.xml
+    </span>
+  </code>
+</p>
+<h4 id="VoldemortAdminToolReference-Synopsis.3">
+  <span>
+    Synopsis
+  </span>
+</h4>
+<p>
+  1)
+  <span>
+    Check if metadata is consistent across all nodes
+  </span>
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh meta check (&lt;meta-key-list&gt; | all) -u &lt;url&gt;
+    </span>
+  </code>
+</p>
+<p>
+  2) Get metadata from some nodes or all nodes, optional output to directory,
+     non-verbose by default
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh meta get (&lt;meta-key-list&gt; | all) -u &lt;url&gt;
+      [-d &lt;output-dir&gt;] [-n &lt;node-id-list&gt; | --all-nodes] [--verbose]
+    </span>
+  </code>
+</p>
+<p>
+  3) Set one metadata on some nodes or all nodes (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh meta set &lt;meta-key&gt;=&lt;meta-file&gt; -u &lt;url&gt;
+      [-n &lt;node-id-list&gt; | --all-nodes] [–confirm]
+    </span>
+  </code>
+</p>
+<p>
+  4) Set &lt;cluster.xml, stores.xml&gt; metadata pair on some nodes or
+     all nodes (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh meta set cluster.xml=&lt;cluster-xml-file&gt;,stores.xml=&lt;stores-xml-file&gt;
+      -u &lt;url&gt; [-n &lt;node-id-list&gt; | --all-nodes] [–confirm]
+    </span>
+  </code>
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh meta set stores.xml=&lt;stores-xml-file&gt;,cluster.xml=&lt;cluster-xml-file&gt;
+      -u &lt;url&gt; [-n &lt;node-id-list&gt; | --all-nodes] [–confirm]
+    </span>
+  </code>
+</p>
+<p>
+  5) Remove metadata related to rebalancing on some nodes or all nodes (this
+     op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh meta clear-rebalance -u &lt;url&gt;
+      [-n &lt;node-id-list&gt; | --all-nodes] [--confirm]
+    </span>
+  </code>
+</p>
+<p>
+  6) Verify metadata versions on all nodes
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh meta check-version -u &lt;url&gt;
+    </span>
+  </code>
+</p>
+<p>
+  7) Synchronize metadata versions across all nodes (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh meta sync-version -n &lt;base-node-id&gt; -u &lt;url&gt;
+      [--confirm]
+    </span>
+  </code>
+</p>
+<h3 id="VoldemortAdminToolReference-6.QuotaCommands">
+  6. Quota Commands
+</h3>
+<div class="table-wrap">
+  <table border="1" class="confluenceTable">
+    <tbody>
+      <tr>
+        <th class="confluenceTh">
+          Command
+        </th>
+        <th class="confluenceTh">
+          Description
+        </th>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          get
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Get quota values of stores.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          set
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Set quota values for stores.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          unset
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Clear quota settings for stores.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          reserve-memory
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Reserve memory for stores.
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<h4 id="VoldemortAdminToolReference-ValidQuotaTypes">
+  Valid Quota Types
+</h4>
+<p>
+  <span style="color: rgb(51,51,153);">
+    <code>
+      DELETE_THROUGHPUT
+    </code>
+  </span>
+</p>
+<p>
+  <span style="color: rgb(51,51,153);">
+    <code>
+      GET_THROUGHPUT
+    </code>
+  </span>
+</p>
+<p>
+  <span style="color: rgb(51,51,153);">
+    <code>
+      GET_ALL_THROUGHPUT
+    </code>
+  </span>
+</p>
+<p>
+  <span style="color: rgb(51,51,153);">
+    <code>
+      PUT_THROUGHPUT
+    </code>
+  </span>
+</p>
+<h4 id="VoldemortAdminToolReference-Synopsis.4">
+  Synopsis
+</h4>
+<p>
+  1) Get quota values of given stores
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh quota get (&lt;quota-type-list&gt; | all) -s &lt;store-name-list&gt;
+      -u &lt;url&gt;
+    </span>
+  </code>
+</p>
+<p>
+  2) Set quota values for given stores (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh quota set (&lt;quota-type1&gt;=&lt;quota-value1&gt;,...)
+      -s &lt;store-name-list&gt; -u &lt;url&gt; [--confirm]
+    </span>
+  </code>
+</p>
+<p>
+  3) Clear quota settings for given stores (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh quota unset (&lt;quota-type-list&gt; | all) -s &lt;store-name-list&gt;
+      -u &lt;url&gt; [--confirm]
+    </span>
+  </code>
+</p>
+<p>
+  4) Reserve memory for given stores on some nodes or all nodes (this op needs
+     confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh quota reserve-memory &lt;memory-size&gt; -s &lt;store-name-list&gt; -u &lt;url&gt;
+      [-n &lt;node-id-list&gt; | --all-nodes] [--confirm]
+    </span>
+  </code>
+</p>
+<h3 id="VoldemortAdminToolReference-7.StoreCommands">
+  7. Store Commands
+</h3>
+<div class="table-wrap">
+  <table border="1" class="confluenceTable">
+    <tbody>
+      <tr>
+        <th class="confluenceTh">
+          Command
+        </th>
+        <th class="confluenceTh">
+          Description
+        </th>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          add
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Add stores from a 'stores.xml' file.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          delete
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Delete stores.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          truncate-partition
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Remove contents of partitions on a node.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          truncate-store
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Remove contents of stores.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          rollback-ro
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Rollback read-only store to a given version.
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<h4 id="VoldemortAdminToolReference-Synopsis.5">
+  Synopsis
+</h4>
+<p>
+  1) Add several stores from a 'stores.xml' file, on some nodes or all nodes
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh store add -f &lt;stores.xml-file-path&gt; -u &lt;url&gt;
+      [-n &lt;node-id-list&gt; | --all-nodes]
+    </span>
+  </code>
+</p>
+<p>
+  2) Delete stores (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh store delete -s &lt;store-name-list&gt; -u &lt;url&gt;
+      [-n &lt;node-id-list&gt; | --all-nodes] [--confirm]
+    </span>
+  </code>
+</p>
+<p>
+  3) Remove contents of partitions on a node (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh store truncate-partition -p &lt;partition-id-list&gt;
+      -n &lt;node-id&gt; (-s &lt;store-name-list&gt; | --all-stores)
+      -u &lt;url&gt; [--confirm]
+    </span>
+  </code>
+</p>
+<p>
+  4) Remove contents of stores (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh store truncate-store -s &lt;store-name-list&gt; -u &lt;url&gt;
+      [-n &lt;node-id-list&gt; | --all-nodes] [--confirm]
+    </span>
+  </code>
+</p>
+<p>
+  5) Rollback read-only store to a given version (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh store rollback-ro -s &lt;store-name&gt; -u &lt;url&gt;
+      --version &lt;store-version&gt; [-n &lt;node-id-list&gt; | --all-nodes] [--confirm]
+    </span>
+  </code>
+</p>
+<h3 id="VoldemortAdminToolReference-8.StreamCommands">
+  8. Stream Commands
+</h3>
+<div class="table-wrap">
+  <table border="1" class="confluenceTable">
+    <tbody>
+      <tr>
+        <th class="confluenceTh">
+          Command
+        </th>
+        <th class="confluenceTh">
+          Description
+        </th>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          fetch-keys
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Fetch keys from a node.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          fetch-entries
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Fetch entries from a node.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          update-entries
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Update entries from file to a node.
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">
+          mirror
+        </td>
+        <td class="confluenceTd">
+          <span>
+            Mirror data from a node to another.
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<h4 id="VoldemortAdminToolReference-Synopsis.6">
+  Synopsis
+</h4>
+<p>
+  1) Fetch keys of some partitions or all partitions, or orphaned keys, some
+     stores or all store, on a given node, in format of json (by default) or
+     hex
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh stream fetch-keys -n &lt;node-id&gt;
+      (-p &lt;partition-id-list&gt; | --all-partitions | --orphaned)
+      (-s &lt;store-name-list&gt; | --all-stores) -u &lt;url&gt;
+      [-d &lt;output-dir&gt;] [--format json | hex]
+    </span>
+  </code>
+</p>
+<p>
+  2) Fetch entries of some partitions or all partitions, or orphaned entries,
+     some stores or all store, on a given node, in format of json (by default)
+     or hex
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh stream fetch-entries -n &lt;node-id&gt;
+      (-p &lt;partition-id-list&gt; | --all-partitions | --orphaned)
+      (-s &lt;store-name-list&gt; | --all-stores) -u &lt;url&gt;
+      [-d &lt;output-dir&gt;] [--format json | hex]
+    </span>
+  </code>
+</p>
+<p>
+  3) Update entries from files to a node; if store names are not specified,
+     then all entries of the files will be updated; otherwise only the entries
+     of the specified stores will be updated (this op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh stream update-entries -d &lt;input-dir&gt; -n &lt;node-id&gt;
+      -u &lt;url&gt; [-s &lt;store-name-list&gt;] [--confirm]
+    </span>
+  </code>
+</p>
+<p>
+  4) Mirror data from a node to another, for some stores or all stores (this
+     op needs confirmation)
+</p>
+<p>
+  <code>
+    <span style="color: rgb(51,51,153);font-size: 10.0pt;line-height: 13.0pt;">
+      ./bin/vadmin.sh stream mirror --from-url &lt;src-url&gt; --from-node &lt;src-node-id&gt;
+      --to-url &lt;dest-url&gt; --to-node &lt;dest-node-id&gt;
+      (-s &lt;store-name-list&gt; | --all-stores) [--confirm]
+    </span>
+  </code>
+</p>
+<p>
+  <span>
+    <span>
+      <span>
+        <br />
+      </span>
+    </span>
+  </span>
+</p>
+<h2 id="VoldemortAdminToolReference-UpgradefromOldAdminTooltoNewAdminTool" class="p1">Upgrade from Old Admin Tool to New Admin Tool</h2>
+<div class="table-wrap">
+  <table border="1" class="confluenceTable">
+    <colgroup>
+      <col />
+      <col />
+      <col />
+    </colgroup>
+    <tbody>
+      <tr>
+        <th colspan="1" class="confluenceTh">Old Admin Command</th>
+        <th class="confluenceTh">New Command Group</th>
+        <th class="confluenceTh">New Admin Command</th>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--native-backup</td>
+        <td class="confluenceTd"> </td>
+        <td class="confluenceTd">native-backup</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--restore</td>
+        <td class="confluenceTd"> </td>
+        <td class="confluenceTd">restore-from-replica</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--async get</td>
+        <td colspan="1" rowspan="2" class="confluenceTd">
+          <div>ASYNC-JOB</div>
+        </td>
+        <td class="confluenceTd">list</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--async stop</td>
+        <td class="confluenceTd">stop</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--repair-job</td>
+        <td colspan="1" rowspan="3" class="confluenceTd">
+          <div>CLEANUP</div>
+        </td>
+        <td class="confluenceTd">orphaned-data</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--prune-job</td>
+        <td class="confluenceTd">vector-clocks</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--purge-slops</td>
+        <td class="confluenceTd">slops</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--query-key</td>
+        <td colspan="1" rowspan="2" class="confluenceTd">
+          <div>DEBUG</div>
+        </td>
+        <td class="confluenceTd">query-keys</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--show-routing-plan</td>
+        <td class="confluenceTd">route</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--check-metadata</td>
+        <td colspan="1" rowspan="8" class="confluenceTd">
+          <div>META</div>
+        </td>
+        <td class="confluenceTd">check</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--clear-rebalancing-metadata</td>
+        <td class="confluenceTd">clear-rebalance</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--get-metadata</td>
+        <td class="confluenceTd">get</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--ro-metadata</td>
+        <td class="confluenceTd">(COMMAND REMOVED)</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--set-metadata</td>
+        <td class="confluenceTd">set</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--set-metadata-pair</td>
+        <td class="confluenceTd">set</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--synchronize-metadata-version</td>
+        <td class="confluenceTd">sync-version</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--verify-metadata-version</td>
+        <td class="confluenceTd">check-version</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--get-quota</td>
+        <td colspan="1" rowspan="4" class="confluenceTd">
+          <div>QUOTA</div>
+        </td>
+        <td class="confluenceTd">get</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--set-quota</td>
+        <td class="confluenceTd">set</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--reserve-memory</td>
+        <td class="confluenceTd">reserve-memory</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--unset-quota</td>
+        <td class="confluenceTd">unset</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--add-stores</td>
+        <td colspan="1" rowspan="5" class="confluenceTd">
+          <div>STORE</div>
+        </td>
+        <td class="confluenceTd">add</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--delete-store</td>
+        <td class="confluenceTd">delete</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--rollback</td>
+        <td class="confluenceTd">rollback-ro</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--delete-partitions</td>
+        <td class="confluenceTd">truncate-partition</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--truncate</td>
+        <td class="confluenceTd">truncate-store</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--fetch-keys</td>
+        <td colspan="1" rowspan="4" class="confluenceTd">
+          <div>STREAM</div>
+        </td>
+        <td class="confluenceTd">fetch-entries</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--fetch-entries</td>
+        <td class="confluenceTd"><span>fetch</span>-keys</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--mirror-from-url</td>
+        <td class="confluenceTd">mirror</td>
+      </tr>
+      <tr>
+        <td class="confluenceTd">--update-entries</td>
+        <td class="confluenceTd">update-<span>entries</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<p>
+  <span>
+    <span>
+      <span>
+        <br />
+      </span>
+    </span>
+  </span>
+</p>
+<h2 id="VoldemortAdminToolReference-OldVoldemortAdminTool">
+  Old Voldemort Admin Tool
+</h2>
+<p>
+  Commands supported
+  <br />
+  ------------------
+  <br />
+  a) Get / set metadata
+  <br />
+  1) Get metadata from all nodes
+  <br />
+  ./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url]
+  <br />
+  2) Get metadata from a particular node
+  <br />
+  ./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url]
+  --node [node-id]
+  <br />
+  3) Set metadata on all nodes [ metadata-value is path to xml files for
+  cluster.xml | stores.xml ]
+  <br />
+  ./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value
+  [metadata-value] --url [url]
+  <br />
+  4) Set metadata for a particular node
+  <br />
+  ./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value
+  [metadata-value] --url [url] --node [node-id]
+  <br />
+  5) Check if metadata is same on all nodes
+  <br />
+  ./bin/voldemort-admin-tool.sh --check-metadata [metadata-key] --url [url]
+  <br />
+  b) Add / delete stores
+  <br />
+  1) Add store(s) on all nodes
+  <br />
+  ./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to
+  add] --url [url]
+  <br />
+  2) Add store(s) on single node
+  <br />
+  ./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to
+  add] --url [url] --node [node-id]
+  <br />
+  3) Delete store on all nodes
+  <br />
+  ./bin/voldemort-admin-tool.sh --delete-store [store-name] --url [url]
+  <br />
+  4) Delete the contents of the store on all nodes
+  <br />
+  ./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url]
+  <br />
+  5) Delete the contents of the store on a single node
+  <br />
+  ./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url] --node
+  [node-id]
+  <br />
+  6) Delete the contents of some partitions on a single node
+  <br />
+  ./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list
+  of partitions] --url [url] --node [node-id]
+  <br />
+  7) Delete the contents of some partitions ( of some stores ) on a single
+  node
+  <br />
+  ./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list
+  of partitions] --url [url] --node [node-id] --stores [comma-separated list
+  of store names]
+  <br />
+  c) Stream data
+  <br />
+  1) Fetch keys from a set of partitions [ all stores ] on a node ( binary
+  dump )
+  <br />
+  ./bin/voldemort-admin-tool.sh --fetch-keys [comma-separated list of partitions
+  with no space] --url [url] --node [node-id]
+  <br />
+  2) Fetch keys from a set of partitions [ all stores ] on a node ( ascii
+  enabled )
+  <br />
+  ./bin/voldemort-admin-tool.sh --fetch-keys [comma-separated list of partitions
+  with no space] --url [url] --node [node-id] --ascii
+  <br />
+  3) Fetch entries from a set of partitions [ all stores ] on a node ( binary
+  dump )
+  <br />
+  ./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
+  partitions with no space] --url [url] --node [node-id]
+  <br />
+  4) Fetch entries from a set of partitions [ all stores ] on a node ( ascii
+  enabled )
+  <br />
+  ./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
+  partitions with no space] --url [url] --node [node-id] --ascii
+  <br />
+  5) Fetch entries from a set of partitions [ all stores ] on a node ( ascii
+  enabled ) and output to a folder
+  <br />
+  ./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
+  partitions with no space] --url [url] --node [node-id] --ascii --outdir
+  [directory]
+  <br />
+  6) Fetch entries from a set of partitions and some stores on a node (
+  ascii enabled )
+  <br />
+  ./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
+  partitions with no space] --url [url] --node [node-id] --ascii --stores
+  [comma-separated list of store names]
+  <br />
+  7) Update entries for a set of stores using the output from a binary dump
+  fetch entries
+  <br />
+  ./bin/voldemort-admin-tool.sh --update-entries [folder path from output
+  of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated
+  list of store names]
+  <br />
+  d) Read-only operations
+  <br />
+  1) Retrieve metadata information of read-only data for a particular node
+  and all stores
+  <br />
+  ./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format]
+  --url [url] --node [node-id]
+  <br />
+  2) Retrieve metadata information of read-only data for all nodes and a
+  set of store
+  <br />
+  ./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format]
+  --url [url] --stores [comma-separated list of store names]
+  <br />
+  e) Others
+  <br />
+  1) Restore a particular node completely from its replicas
+  <br />
+  ./bin/voldemort-admin-tool.sh --restore --url [url] --node [node-id]
+  <br />
+  2) Restore a particular node completely from its replicas ( with increased
+  parallelism - 10 )
+  <br />
+  ./bin/voldemort-admin-tool.sh --restore 10 --url [url] --node [node-id]
+  <br />
+  3) Generates the key distribution on a per node basis [ both store wise
+  and overall ]
+  <br />
+  ./bin/voldemort-admin-tool.sh --key-distribution --url [url] --node [node-id]
+  --ascii
+</p>
