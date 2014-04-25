@@ -83,13 +83,6 @@ public abstract class AbstractByteArrayStoreTest extends
         return allPossibleBytes;
     }
 
-    public void printBytes(byte[] in) {
-        System.out.println("Lenght: " + in.length);
-        for(int i = 0; i < in.length; i++)
-            System.out.print(in[i] + ",");
-        System.out.println("\n");
-    }
-
     public void testGetAllWithBigValueSizes(Store<ByteArray, byte[], byte[]> store,
                                             int keySize,
                                             int valueSize,
