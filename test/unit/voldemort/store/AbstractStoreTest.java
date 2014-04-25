@@ -330,9 +330,8 @@ public abstract class AbstractStoreTest<K, V, T> extends TestCase {
                                       List<V> values,
                                       Map<K, List<Versioned<V>>> result) {
         assertEquals(keys.size(), values.size());
-        int countForGet = keys.size();
-        assertEquals(countForGet, result.size());
-        for (int i = 0; i < keys.size(); ++i) {
+        assertEquals(keys.size(), result.size());
+        for(int i = 0; i < keys.size(); ++i) {
             K key = keys.get(i);
             V expectedValue = values.get(i);
             List<Versioned<V>> versioneds = result.get(key);

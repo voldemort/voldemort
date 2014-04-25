@@ -4,8 +4,6 @@ import static voldemort.TestUtils.getClock;
 
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -16,9 +14,9 @@ import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.restclient.R2Store;
 import voldemort.restclient.RESTClientConfig;
@@ -51,15 +49,11 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
     public static String socketUrl = "";
     private int nodeId;
 
-    @Parameters
-    public static Collection<Object[]> modes() {
-        Object[][] data = new Object[][] { { true }, { false } };
-        return Arrays.asList(data);
-    }
-
     @Override
     @Before
     public void setUp() {
+
+        System.out.println("\n\n\n\n\nused SEED for random number generator: " + TestUtils.SEED);
         final int numServers = 1;
         this.nodeId = 0;
         servers = new VoldemortServer[numServers];
@@ -279,7 +273,7 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
         assertEquals(keys.size(), values.size());
         int count = keys.size();
 
-        for (int i = 0; i < count; i++) {
+        for(int i = 0; i < count; i++) {
             VectorClock vc = getClock(0, 0);
             store.put(keys.get(i), new Versioned<byte[]>(values.get(i), vc), null);
         }
@@ -308,5 +302,42 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
         System.out.println("found");
         printBytes(found.get(0).getValue());
         assertTrue("Values not equal!", valuesEqual(versioned.getValue(), found.get(0).getValue()));
+    }
+
+    @Test
+    public void testGetAllWithBigValueSizes() throws Exception {
+        // Note that through Rest interface only upto 4096 bytes can be sent in
+        // Http header message. That limits the keySize range.
+        int[] keySizes = { 50, 100, 500, 1000 };
+
+        /*- TODO HttpChunkAggregator limit is constrained by the chunk aggregator
+         in two places:
+         1. Coordinator pipeline factory's HttpChunkAggregator currently is
+         limited to 1048576 bytes.
+         2. The HttpChunkAggregator in r2 layer which accepts the response
+         limits the Http content to roughly around ~2Mb
+        
+         should all this be changed to support higher data sizes ?
+         */
+
+        int[] valueSizes = { 10000, 50000, 100000, 500000 };
+        for(int i = 0; i < keySizes.length; i++) {
+            System.out.println("Testing with keySize = " + keySizes[i] + " and Value sizes: "
+                               + valueSizes[i]);
+            this.testGetAllWithBigValueSizes(getStore(), keySizes[i], valueSizes[i], 3);
+        }
+    }
+
+    @Test
+    public void testGetWithBigValueSizes() throws Exception {
+        // TODO refer to the notes above for limitation of picking keysizes to
+        // test
+        int[] keySizes = { 10, 50, 100, 500, 1000 };
+        int[] valueSizes = { 10000, 50000, 100000, 500000, 1000000 };
+        for(int i = 0; i < keySizes.length; i++) {
+            System.out.println("Testing with keySize = " + keySizes[i] + " and Value sizes: "
+                               + valueSizes[i]);
+            this.testGetWithBigValueSizes(getStore(), keySizes[i], valueSizes[i]);
+        }
     }
 }

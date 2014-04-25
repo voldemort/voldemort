@@ -153,4 +153,26 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
         }
     }
 
+    @Test
+    public void testGetAllWithBigValueSizes() throws Exception {
+        int[] keySizes = { 50, 100, 500, 1000, 5000, 10000 };
+        int[] valueSizes = { 10000, 50000, 100000, 500000, 1000000, 2000000 };
+        for(int i = 0; i < keySizes.length; i++) {
+            System.out.println("Testing with keySize = " + keySizes[i] + " and Value sizes: "
+                               + valueSizes[i]);
+            this.testGetAllWithBigValueSizes(getStore(), keySizes[i], valueSizes[i], 3);
+        }
+    }
+
+    @Test
+    public void testGetWithBigValueSizes() throws Exception {
+        int[] keySizes = { 50, 100, 500, 1000, 5000, 10000 };
+        int[] valueSizes = { 10000, 50000, 100000, 500000, 1000000, 2000000 };
+        for(int i = 0; i < keySizes.length; i++) {
+            System.out.println("Testing with keySize = " + keySizes[i] + " and Value sizes: "
+                               + valueSizes[i]);
+            this.testGetWithBigValueSizes(getStore(), keySizes[i], valueSizes[i]);
+        }
+    }
+
 }

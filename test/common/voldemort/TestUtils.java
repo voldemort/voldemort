@@ -61,7 +61,8 @@ public class TestUtils {
     public static final String DIGITS = "0123456789";
     public static final String LETTERS = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM";
     public static final String CHARACTERS = LETTERS + DIGITS + "~!@#$%^&*()____+-=[];',,,./>?:{}";
-    public static final Random SEEDED_RANDOM = new Random(19873482374L);
+    public static final Long SEED = System.currentTimeMillis();
+    public static final Random SEEDED_RANDOM = new Random(SEED);
     public static final Random UNSEEDED_RANDOM = new Random();
     private static final CharSequence VOLD_TEST_DATA_DIRECTORY_NAME = "vold-test-data";
 
