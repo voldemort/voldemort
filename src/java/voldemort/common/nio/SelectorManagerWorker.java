@@ -139,8 +139,8 @@ public abstract class SelectorManagerWorker implements Runnable {
     }
 
     protected void closeInternal() {
-        if(logger.isInfoEnabled())
-            logger.info("Closing remote connection from " + socketChannel.socket());
+        if(logger.isDebugEnabled())
+            logger.debug("Closing remote connection from " + socketChannel.socket());
 
         try {
             socketChannel.socket().close();
