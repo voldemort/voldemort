@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -39,6 +40,7 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
     private static HttpClientFactory clientFactory;
 
     private static final String STORE_NAME = "test";
+    private static final Logger logger = Logger.getLogger(RestServiceR2StoreTest.class);
     private static String storesXmlfile = "test/common/coordinator/config/stores.xml";
     private static String clusterXmlFile = "test/common/coordinator/config/rest_cluster.xml";
     protected static final ClusterMapper clusterMapper = new ClusterMapper();
@@ -52,8 +54,7 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
     @Override
     @Before
     public void setUp() {
-
-        System.out.println("\n\n\n\n\nused SEED for random number generator: " + TestUtils.SEED);
+        logger.info(" Initial SEED used for random number generator: " + TestUtils.SEED);
         final int numServers = 1;
         this.nodeId = 0;
         servers = new VoldemortServer[numServers];
@@ -144,13 +145,6 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
         System.out.println("found");
         printBytes(found.get(0).getValue());
         assertTrue("Values not equal!", valuesEqual(versioned.getValue(), found.get(0).getValue()));
-    }
-
-    public void printBytes(byte[] in) {
-        System.out.println("Lenght: " + in.length);
-        for(int i = 0; i < in.length; i++)
-            System.out.print(in[i] + ",");
-        System.out.println("\n");
     }
 
     @Override
@@ -322,8 +316,8 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
 
         int[] valueSizes = { 10000, 50000, 100000, 500000 };
         for(int i = 0; i < keySizes.length; i++) {
-            System.out.println("Testing with keySize = " + keySizes[i] + " and Value sizes: "
-                               + valueSizes[i]);
+            logger.info("Testing with keySize = " + keySizes[i] + " and Value sizes: "
+                        + valueSizes[i]);
             this.testGetAllWithBigValueSizes(getStore(), keySizes[i], valueSizes[i], 3);
         }
     }
@@ -335,8 +329,8 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
         int[] keySizes = { 10, 50, 100, 500, 1000 };
         int[] valueSizes = { 10000, 50000, 100000, 500000, 1000000 };
         for(int i = 0; i < keySizes.length; i++) {
-            System.out.println("Testing with keySize = " + keySizes[i] + " and Value sizes: "
-                               + valueSizes[i]);
+            logger.info("Testing with keySize = " + keySizes[i] + " and Value sizes: "
+                        + valueSizes[i]);
             this.testGetWithBigValueSizes(getStore(), keySizes[i], valueSizes[i]);
         }
     }

@@ -23,6 +23,7 @@ import java.util.Map;
 
 import junit.framework.Assert;
 
+import org.apache.log4j.Logger;
 import org.junit.Test;
 
 import voldemort.TestUtils;
@@ -37,6 +38,8 @@ import com.google.common.collect.Lists;
  */
 public abstract class AbstractByteArrayStoreTest extends
         AbstractStoreTest<ByteArray, byte[], byte[]> {
+
+    private static final Logger logger = Logger.getLogger(AbstractByteArrayStoreTest.class);
 
     @Override
     public List<ByteArray> getKeys(int numValues) {
@@ -83,6 +86,13 @@ public abstract class AbstractByteArrayStoreTest extends
         return allPossibleBytes;
     }
 
+    public void printBytes(byte[] in) {
+        System.out.println("Length: " + in.length);
+        for(int i = 0; i < in.length; i++)
+            System.out.print(in[i] + ",");
+        System.out.println("\n");
+    }
+
     public void testGetAllWithBigValueSizes(Store<ByteArray, byte[], byte[]> store,
                                             int keySize,
                                             int valueSize,
@@ -92,7 +102,7 @@ public abstract class AbstractByteArrayStoreTest extends
         List<byte[]> values = Lists.newArrayList();
 
         int putCount = numKeys;
-        System.out.println("<<<<<<<<<<< numkeys: " + putCount + " >>>>>>>>>>>>>>>");
+        logger.info("numkeys: " + putCount);
         for(ByteArray key: getKeys(putCount, keySize)) {
             keys.add(key);
         }
@@ -127,8 +137,15 @@ public abstract class AbstractByteArrayStoreTest extends
         List<Versioned<byte[]>> found = store.get(key, null);
         Assert.assertEquals("Should only be one version stored.", 1, found.size());
 
-        System.out.println("input: " + versioned.getValue().length + " bytes");
-        System.out.println("found " + found.get(0).getValue().length + " bytes");
+        logger.info("input: " + versioned.getValue().length + " bytes");
+        logger.info("found " + found.get(0).getValue().length + " bytes");
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("Input: ");
+            printBytes(versioned.getValue());
+            logger.debug("found: ");
+            printBytes(found.get(0).getValue());
+        }
 
         Assert.assertTrue("Values not equal!",
                           valuesEqual(versioned.getValue(), found.get(0).getValue()));
