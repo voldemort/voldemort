@@ -261,7 +261,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                 FailureDetector fd) {
 
         logger.info("Client zone-id [" + this.routedStoreConfig.getClientZoneId()
-                    + "] Attempting to obtain metadata for store [" + storeName + "] ");
+                    + "] Attempting to get raw store [" + storeName + "] ");
 
         if(logger.isDebugEnabled()) {
             for(URI uri: bootstrapUrls) {
@@ -437,7 +437,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                 // second check: avoids double initialization
                 result = failureDetector;
                 if(result == null) {
-                    logger.info("Failure detector is null. Creating a new FD.");
+                    logger.debug("Creating a new FailureDetector.");
                     failureDetector = result = initFailureDetector(config, this.cluster);
                     if(isJmxEnabled) {
                         JmxUtils.registerMbean(failureDetector,
@@ -452,7 +452,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             /*
              * The existing failure detector might have an old state
              */
-            logger.info("Failure detector already exists. Updating the state and flushing cached verifier stores.");
+            logger.debug("Failure detector already exists. Updating the state and flushing cached verifier stores.");
             synchronized(this) {
                 failureDetector.getConfig().setCluster(this.cluster);
                 failureDetector.getConfig().getStoreVerifier().flushCachedStores();

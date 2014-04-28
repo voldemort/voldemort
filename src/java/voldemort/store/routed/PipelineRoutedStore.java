@@ -17,6 +17,7 @@
 package voldemort.store.routed;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -140,8 +141,15 @@ public class PipelineRoutedStore extends RoutedStore {
         }
         this.nonblockingSlopStores = nonblockingSlopStores;
         if(clientZoneId == Zone.UNSET_ZONE_ID) {
-            logger.warn("Client Zone is not specified. Will use first zone in cluster");
-            this.clientZone = cluster.getZones().iterator().next();
+            Collection<Zone> availableZones = cluster.getZones();
+            this.clientZone = availableZones.iterator().next();
+            if(availableZones.size() > 1) {
+                String format = "Client Zone is not specified. Default to Zone %d. The servers could be in a remote zone";
+                logger.warn(String.format(format, this.clientZone.getId()));
+            } else {
+                if(logger.isDebugEnabled())
+                    logger.debug(String.format("Client Zone is not specified. Default to Zone %d", this.clientZone.getId()));
+            }
         } else {
             this.clientZone = cluster.getZoneById(clientZoneId);
         }

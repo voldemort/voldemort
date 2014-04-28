@@ -28,6 +28,7 @@ import java.nio.channels.SocketChannel;
 
 import org.apache.log4j.Level;
 
+import voldemort.VoldemortException;
 import voldemort.common.nio.CommBufferSizeStats;
 import voldemort.common.nio.SelectorManagerWorker;
 import voldemort.utils.Time;
@@ -226,7 +227,10 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
             selectionKey.interestOps(0);
         }
-        completeClientRequest();
+        ClientRequest<?> originalRequest = completeClientRequest();
+
+        if(originalRequest == null && logger.isEnabledFor(Level.WARN))
+            logger.warn("No client associated with " + socketChannel.socket());
     }
 
     @Override
@@ -287,13 +291,10 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
      * check in the client request executor. Such a check in can trigger
      * additional synchronized methods deeper in the stack.
      */
-    private void completeClientRequest() {
+    private ClientRequest<?> completeClientRequest() {
         ClientRequest<?> local = atomicNullOutClientRequest();
         if(local == null) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("No client associated with " + socketChannel.socket());
-
-            return;
+            return null;
         }
 
         if(isExpired)
@@ -303,6 +304,8 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
         if(logger.isTraceEnabled())
             logger.trace("Marked client associated with " + socketChannel.socket() + " as complete");
+
+        return local;
     }
 
 }
