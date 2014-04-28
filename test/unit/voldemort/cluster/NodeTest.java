@@ -9,13 +9,14 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Random;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
 
 public class NodeTest {
 
-    private static final Random generator = new Random();
+    private static final Random randomGenerator = new Random();
 
     private static final int id = 7;
     private static final String host = "localhost";
@@ -26,17 +27,15 @@ public class NodeTest {
     private static final List<Integer> partitions = ImmutableList.of(37, 67, 123);
     private static final int restPort = 23;
 
-    private static final Node node = new Node(id,
-                                              host,
-                                              httpPort,
-                                              socketPort,
-                                              adminPort,
-                                              zoneId,
-                                              partitions,
-                                              restPort);
+    private Node node;
 
     private Node generateNode(int id) {
         return new Node(id, host, httpPort, socketPort, adminPort, partitions);
+    }
+
+    @Before
+    public void setUp() {
+        node = new Node(id, host, httpPort, socketPort, adminPort, zoneId, partitions, restPort);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -44,10 +43,6 @@ public class NodeTest {
         new Node(id, null, httpPort, socketPort, adminPort, zoneId, partitions, restPort);
     }
 
-    /**
-     * Unfortunately as of now it throws {@code NullPointerException} instead of
-     * {@code IllegalArgumentException}
-     */
     @Test(expected = IllegalArgumentException.class)
     public void test_with_null_partitions() {
         new Node(id, host, httpPort, socketPort, adminPort, zoneId, null, restPort);
@@ -106,8 +101,8 @@ public class NodeTest {
     @Test
     public void testEqualsObject() {
         for(int i = 0; i < 1000; i++) {
-            int id1 = generator.nextInt();
-            int id2 = generator.nextInt();
+            int id1 = randomGenerator.nextInt();
+            int id2 = randomGenerator.nextInt();
 
             assertThat(generateNode(id1).equals(null), is(false));
             assertThat(generateNode(id2).equals(new Object()), is(false));
@@ -122,8 +117,8 @@ public class NodeTest {
     @Test
     public void testCompareTo() {
         for(int i = 0; i < 1000; i++) {
-            Integer id1 = generator.nextInt();
-            Integer id2 = generator.nextInt();
+            Integer id1 = randomGenerator.nextInt();
+            Integer id2 = randomGenerator.nextInt();
 
             assertThat(generateNode(id1).compareTo(generateNode(id1)), is(id1.compareTo(id1)));
             assertThat(generateNode(id2).compareTo(generateNode(id2)), is(id2.compareTo(id2)));
