@@ -26,3 +26,7 @@ Voldemort is not a relational database, it does not attempt to satisfy arbitrary
 The source code is available under the Apache 2.0 license. We are actively looking for contributors so if you have ideas, code, bug reports, or fixes you would like to contribute please do so.
 
 For help please see the [discussion group](http://groups.google.com/group/project-voldemort), or the IRC channel chat.us.freenode.net #voldemort. Bugs and feature requests can be filed on [Github](https://github.com/voldemort/voldemort/issues).
+
+## Special Thanks ##
+
+We would like to thank [JetBrains](http://www.jetbrains.com) for supporting Voldemort Project by offering open-source license of their [IntelliJ IDE](http://www.jetbrains.com/idea/) to us.
