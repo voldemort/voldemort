@@ -1,5 +1,7 @@
 # Voldemort is a distributed key-value storage system #
 
+## Overview ##
+
 * Data is automatically replicated over multiple servers.
 * Data is automatically partitioned so each server contains only a subset of the total data
 * Server failure is handled transparently
@@ -10,6 +12,50 @@
 * Support for pluggable data placement strategies to support things like distribution across data centers that are geographical far apart.
 
 It is used at LinkedIn for certain high-scalability storage problems where simple functional partitioning is not sufficient. It is still a new system which has rough edges, bad error messages, and probably plenty of uncaught bugs. Let us know if you find one of these, so we can fix it.
+
+## QuickStart ##
+
+*You can refer to http://www.project-voldemort.com for more info*
+
+### Download Code ###
+
+```bash
+cd ~/workspace
+git clone https://github.com/voldemort/voldemort.git
+cd voldemort
+ant release
+```
+
+### Start Server ###
+
+```
+# in one terminal
+bin/voldemort-server.sh config/single_node_cluster
+```
+
+### Use Client Shell ###
+
+Client shell gives you fast access to the store. We already have a test store defined in the "single_node_cluster", whose key and value are both String.
+
+```bash
+# in another terminal
+cd ~/workspace/voldemort
+bin/voldemort-shell.sh test tcp://localhost:6666/
+```
+
+Now you have the the voldemort shell running. You can try these commands in the shell
+
+```
+put "k1" "v1"
+put "k2" "v2"
+get "k1"
+getall "k1" "k2"
+delete "k1"
+get "k1"
+```
+
+You can find more commands by running```help```
+
 
 ## Comparison to relational databases ##
 
