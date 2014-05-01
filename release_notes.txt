@@ -1,3 +1,10 @@
+Release 1.8.1 on 05/01/2014
+
+* Fix AbstractStoreClientFactory for backwards compatibility
+* Cleaned up logging messages
+* Unit tests for big Binary data
+* Refactored voldemort admin tool - Phase 1 and Phase 2
+
 Release 1.8.0 on 04/21/2014
 
 * Split the stores.xml into individual stores on Voldemort server
