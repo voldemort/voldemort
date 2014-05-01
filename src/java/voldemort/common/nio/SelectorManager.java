@@ -177,11 +177,11 @@ public class SelectorManager implements Runnable {
     }
 
     public void run() {
+
         try {
             while(true) {
                 if(isClosed.get()) {
-                    if(logger.isInfoEnabled())
-                        logger.info("Closed, exiting");
+                    logger.debug("SelectorManager is closed, exiting");
 
                     break;
                 }
@@ -195,8 +195,7 @@ public class SelectorManager implements Runnable {
                     selectCount = selected;
 
                     if(isClosed.get()) {
-                        if(logger.isInfoEnabled())
-                            logger.info("Closed, exiting");
+                        logger.debug("SelectorManager is closed, exiting");
 
                         break;
                     }
@@ -218,8 +217,7 @@ public class SelectorManager implements Runnable {
                         processingTimeMs = System.currentTimeMillis() - processingTimeMs;
                     }
                 } catch(ClosedSelectorException e) {
-                    if(logger.isDebugEnabled())
-                        logger.debug("Selector is closed, exiting");
+                    logger.debug("SelectorManager is closed, exiting");
 
                     break;
                 } catch(Throwable t) {

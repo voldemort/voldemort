@@ -64,6 +64,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
     private String clusterXml;
     private AsyncMetadataVersionManager asyncMetadataManager = null;
     private ClientRegistryRefresher clientRegistryRefresher = null;
+    private boolean everBootstrapped = false;
 
     public ZenStoreClient(String storeName,
                           InconsistencyResolver<Versioned<V>> resolver,
@@ -223,11 +224,15 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
         }
 
         if(this.clientRegistryRefresher == null) {
-            logger.error("Unable to publish the client registry after bootstrap. Client Registry Refresher is NULL.");
+            if(everBootstrapped) {
+                logger.error("Unable to publish the client registry after bootstrap. Client Registry Refresher is NULL.");
+            }
         } else {
             logger.info("Publishing client registry after Bootstrap.");
             this.clientRegistryRefresher.publishRegistry();
         }
+
+        everBootstrapped = true;
     }
 
     public String getClientId() {
