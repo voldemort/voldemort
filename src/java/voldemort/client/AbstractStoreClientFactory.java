@@ -278,7 +278,14 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
         String storesXml = customStoresXml;
         if(storesXml == null) {
-            logger.debug("Fetching definition for store: " + storeName);
+            logger.debug("Fetching store definition...");
+            /*
+             * We see errors when running the client against a old server on
+             * using storeName instead of MetadataStore.STORES_KEY.
+             * 
+             * TODO We should revert this change once all our servers are
+             * upgraded.
+             */
             storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
         }
 
