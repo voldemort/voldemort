@@ -220,7 +220,7 @@ public class StoreDefinitionUtils {
      * @param storeDefinition the store definition to check on
      */
     public static void validateSchemaAsNeeded(StoreDefinition storeDefinition) {
-        logger.info("Store name:  " + storeDefinition.getName());
+        logger.info("Validating schema for store:  " + storeDefinition.getName());
         SerializerDefinition keySerDef = storeDefinition.getKeySerializer();
         // validate the key schemas
         try {
