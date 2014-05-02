@@ -34,9 +34,35 @@ public class ValidateSchemaForAvroStores {
      * 
      * How to know if a valid schema is fully backwards compatible?
      * Grep for "WARN" or "ERROR" in console output for partial/non-backwards compatible avro schemas. If no match for grep then things are good.
+     * 
+     * TODO: probably add ability to pick all stores.xml from a given directory's subdirectories and filter all other files
      */
 
     protected static final Logger logger = Logger.getLogger(ValidateSchemaForAvroStores.class);
+
+    public static void validate(File storesXMLFile) {
+        logger.info("Stores-xml file name: " + storesXMLFile.getName());
+        StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> newStoreDefs = null;
+
+        // parse the store definitions from the xml
+        try {
+            newStoreDefs = storeDefsMapper.readStoreList(storesXMLFile);
+        } catch(IOException e) {
+            logger.error("An IO Exception occured");
+            e.printStackTrace();
+        }
+
+        // validate schema for each store as needed
+        for(StoreDefinition storeDefinition: newStoreDefs) {
+            try {
+                StoreDefinitionUtils.validateSchemaAsNeeded(storeDefinition);
+            } catch(VoldemortException ex) {
+                logger.error("A VoldemortException occured");
+                ex.printStackTrace();
+            }
+        }
+    }
 
     public static void main(String args[]) {
         if(args.length < 1) {
@@ -70,27 +96,4 @@ public class ValidateSchemaForAvroStores {
         }
     }
 
-    public static void validate(File storesXMLFile) {
-        logger.info("Stores-xml file name: " + storesXMLFile.getName());
-        StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
-        List<StoreDefinition> newStoreDefs = null;
-
-        // parse the store definitions from the xml
-        try {
-            newStoreDefs = storeDefsMapper.readStoreList(storesXMLFile);
-        } catch(IOException e) {
-            logger.error("An IO Exception occured");
-            e.printStackTrace();
-        }
-
-        // validate schema for each store as needed
-        for(StoreDefinition storeDefinition: newStoreDefs) {
-            try {
-                StoreDefinitionUtils.validateSchemaAsNeeded(storeDefinition);
-            } catch(VoldemortException ex) {
-                logger.error("A VoldemortException occured");
-                ex.printStackTrace();
-            }
-        }
-    }
 }
