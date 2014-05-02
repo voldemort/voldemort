@@ -28,6 +28,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
@@ -40,6 +42,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 public class StoreDefinitionUtils {
+
+    private static Logger logger = Logger.getLogger(StoreDefinitionUtils.class);
 
     /**
      * Given a list of store definitions, filters the list depending on the
@@ -216,6 +220,7 @@ public class StoreDefinitionUtils {
      * @param storeDefinition the store definition to check on
      */
     public static void validateSchemaAsNeeded(StoreDefinition storeDefinition) {
+        logger.info("Store name:  " + storeDefinition.getName());
         SerializerDefinition keySerDef = storeDefinition.getKeySerializer();
         // validate the key schemas
         try {
