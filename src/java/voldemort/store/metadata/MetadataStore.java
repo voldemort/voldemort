@@ -307,7 +307,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 initStoreDefinitions(value.getVersion());
 
                 // Update routing strategies
-                updateRoutingStrategies(getCluster(), storeDefinitions);
+                updateRoutingStrategies(getCluster(), getStoreDefList());
 
             } else if(METADATA_KEYS.contains(key)) {
                 // try inserting into inner store first
@@ -319,8 +319,6 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 // do special stuff if needed
                 if(CLUSTER_KEY.equals(key)) {
                     updateRoutingStrategies((Cluster) value.getValue(), getStoreDefList());
-                } else if(STORES_KEY.equals(key)) {
-                    updateRoutingStrategies(getCluster(), (List<StoreDefinition>) value.getValue());
                 } else if(SYSTEM_STORES_KEY.equals(key))
                     throw new VoldemortException("Cannot overwrite system store definitions");
 
@@ -375,7 +373,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             // Update routing strategies
             // TODO: Make this more fine grained.. i.e only update listeners for
             // a specific store.
-            updateRoutingStrategies(getCluster(), storeDefinitions);
+            updateRoutingStrategies(getCluster(), getStoreDefList());
         } finally {
             writeLock.unlock();
         }
