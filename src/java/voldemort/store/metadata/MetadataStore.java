@@ -265,8 +265,8 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             if(this.storeNames.contains(key) || key.equals(STORES_KEY)) {
 
                 // Check for backwards compatibility
-                List<StoreDefinition> storeDefs = (List<StoreDefinition>) value.getValue();
-                StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
+                List<StoreDefinition> storeDefinitions = (List<StoreDefinition>) value.getValue();
+                StoreDefinitionUtils.validateSchemasAsNeeded(storeDefinitions);
 
                 // If the put is on the entire stores.xml key, delete the
                 // additional stores which do not exist in the specified
@@ -279,7 +279,6 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 // Add / update the list of store definitions specified in the
                 // value
                 StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
-                List<StoreDefinition> storeDefinitions = (List<StoreDefinition>) value.getValue();
 
                 // Update the STORES directory and the corresponding entry in
                 // metadata cache

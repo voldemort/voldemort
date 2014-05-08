@@ -113,6 +113,8 @@ public class AdminServiceBasicTest {
 
     private static String testStoreName = "test-replication-memory";
 
+    private static final String STORE_NAME = "test-basic-replication-memory";
+
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
@@ -129,6 +131,8 @@ public class AdminServiceBasicTest {
     private Cluster cluster;
 
     private AdminClient adminClient;
+
+    private StoreClient<String, String> storeClient;
 
     private final boolean useNio;
 
@@ -170,6 +174,12 @@ public class AdminServiceBasicTest {
         adminClient = new AdminClient(cluster,
                                       new AdminClientConfig(adminProperties),
                                       new ClientConfig());
+
+        Node node = cluster.getNodeById(0);
+        String bootstrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
+        StoreClientFactory storeClientFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
+        storeClient = storeClientFactory.getStoreClient(STORE_NAME);
+
     }
 
     /**
@@ -289,6 +299,17 @@ public class AdminServiceBasicTest {
         return storeNameSet;
     }
 
+    private void doClientOperation() {
+        for(int i = 0; i < 100; i++) {
+            String key = "key-" + System.currentTimeMillis();
+            String value = "Value for " + key;
+            this.storeClient.put(key, value);
+
+            String returnedValue = this.storeClient.getValue(key);
+            assertEquals(returnedValue, value);
+        }
+    }
+
     @Test
     public void testFetchSingleStoreFromMetadataStore() throws Exception {
         String storeName = "test-replication-memory";
@@ -372,6 +393,9 @@ public class AdminServiceBasicTest {
 
     @Test
     public void testUpdateSingleStore() {
+
+        doClientOperation();
+
         // Create a store definition for an existing store with a different
         // replication factor
         List<StoreDefinition> storesToBeUpdatedList = new ArrayList<StoreDefinition>();
@@ -390,10 +414,15 @@ public class AdminServiceBasicTest {
                                                                     .build();
         storesToBeUpdatedList.add(definitionNew);
         updateAndResetStoreDefinitions(storesToBeUpdatedList);
+
+        doClientOperation();
     }
 
     @Test
     public void testUpdateMultipleStores() {
+
+        doClientOperation();
+
         // Create store definitions for existing stores with a different
         // replication factor
         List<StoreDefinition> storesToBeUpdatedList = new ArrayList<StoreDefinition>();
@@ -439,6 +468,8 @@ public class AdminServiceBasicTest {
         storesToBeUpdatedList.add(definition2);
         storesToBeUpdatedList.add(definition3);
         updateAndResetStoreDefinitions(storesToBeUpdatedList);
+
+        doClientOperation();
     }
 
     @Test
@@ -446,6 +477,8 @@ public class AdminServiceBasicTest {
         AdminClient client = getAdminClient();
         int nodeId = 0;
         String storeNameToBeUpdated = "users";
+
+        doClientOperation();
 
         // Fetch the original list of stores
         Versioned<List<StoreDefinition>> originalStoreDefinitions = client.metadataMgmtOps.getRemoteStoreDefList(nodeId);
@@ -483,11 +516,15 @@ public class AdminServiceBasicTest {
 
         // Restore the old set of store definitions
         client.metadataMgmtOps.updateRemoteStoreDefList(nodeId, originalStoreDefinitions.getValue());
+
+        doClientOperation();
     }
 
     @Test
     public void testAddStore() throws Exception {
         AdminClient adminClient = getAdminClient();
+
+        doClientOperation();
 
         // Try to add a store whose replication factor is greater than the
         // number of nodes
@@ -580,6 +617,7 @@ public class AdminServiceBasicTest {
             assertEquals(storeToStorageFormat.get(storeName), "ro2");
         }
 
+        doClientOperation();
     }
 
     @Test
@@ -1350,6 +1388,8 @@ public class AdminServiceBasicTest {
     public void testDeleteStore() throws Exception {
         AdminClient adminClient = getAdminClient();
 
+        doClientOperation();
+
         StoreDefinition definition = new StoreDefinitionBuilder().setName("deleteTest")
                                                                  .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                                                  .setKeySerializer(new SerializerDefinition("string"))
@@ -1400,6 +1440,9 @@ public class AdminServiceBasicTest {
             if(!(e instanceof BootstrapFailureException))
                 throw e;
         }
+
+        doClientOperation();
+
         // try adding the store again
         adminClient.storeMgmtOps.addStore(definition);
 
@@ -1407,6 +1450,8 @@ public class AdminServiceBasicTest {
         client.put("abc", "123");
         String s = (String) client.get("abc").getValue();
         assertEquals(s, "123");
+
+        doClientOperation();
     }
 
     /**
