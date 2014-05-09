@@ -128,6 +128,7 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbCheckpointerOffForBatchWrites;
     private boolean bdbCleanerFetchObsoleteSize;
     private boolean bdbCleanerAdjustUtilization;
+    private boolean bdbRecoveryForceCheckpoint;
     private String bdbRawPropertyString;
 
     private String mysqlUsername;
@@ -318,6 +319,7 @@ public class VoldemortConfig implements Serializable {
                                                                  false);
         this.bdbCleanerFetchObsoleteSize = props.getBoolean("bdb.cleaner.fetch.obsolete.size", true);
         this.bdbCleanerAdjustUtilization = props.getBoolean("bdb.cleaner.adjust.utilization", false);
+        this.bdbRecoveryForceCheckpoint = props.getBoolean("bdb.recovery.force.checkpoint", false);
         this.bdbRawPropertyString = props.getString("bdb.raw.property.string", null);
 
         this.numReadOnlyVersions = props.getInt("readonly.backups", 1);
@@ -1174,7 +1176,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerFetchObsoleteSize = bdbCleanerFetchObsoleteSize;
     }
 
-    public boolean getBdbCleanerAdjsutUtilization() {
+    public boolean getBdbCleanerAdjustUtilization() {
         return bdbCleanerAdjustUtilization;
     }
 
@@ -1190,6 +1192,26 @@ public class VoldemortConfig implements Serializable {
      */
     public final void setBdbCleanerAdjustUtilization(boolean bdbCleanerAdjustUtilization) {
         this.bdbCleanerAdjustUtilization = bdbCleanerAdjustUtilization;
+    }
+
+    public boolean getBdbRecoveryForceCheckpoint() {
+        return bdbRecoveryForceCheckpoint;
+    }
+
+    /**
+     * When this parameter is set to true, the last .jdb file restored from
+     * snapshot will not be modified when opening the Environment, and a new
+     * .jdb file will be created and become the end-of-log file. If using
+     * incremental backup, this parameter must be true.
+     * 
+     * <ul>
+     * <li>property: "bdb.recovery.force.checkpoint"</li>
+     * <li>default : false</li>
+     * </ul>
+     * 
+     */
+    public final void setBdbRecoveryForceCheckpoint(boolean bdbRecoveryForceCheckpoint) {
+        this.bdbRecoveryForceCheckpoint = bdbRecoveryForceCheckpoint;
     }
 
     public boolean getBdbCleanerLazyMigration() {

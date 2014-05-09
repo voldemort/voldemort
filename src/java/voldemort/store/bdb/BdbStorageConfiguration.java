@@ -129,7 +129,9 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         environmentConfig.setConfigParam(EnvironmentConfig.TREE_BIN_DELTA,
                                          Integer.toString(config.getBdbBinDelta()));
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_ADJUST_UTILIZATION,
-                                         Boolean.toString(config.getBdbCleanerAdjsutUtilization()));
+                                         Boolean.toString(config.getBdbCleanerAdjustUtilization()));
+        environmentConfig.setConfigParam(EnvironmentConfig.ENV_RECOVERY_FORCE_CHECKPOINT,
+                                         Boolean.toString(config.getBdbRecoveryForceCheckpoint()));
         if(config.getBdbCacheModeEvictLN()) {
             environmentConfig.setCacheMode(CacheMode.EVICT_LN);
         }
