@@ -105,7 +105,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.sleepycat.persist.StoreNotFoundException;
 
 /**
@@ -1171,25 +1170,95 @@ public class VoldemortAdminTool {
         executeSetMetadata(nodeId, adminClient, MetadataStore.REBALANCING_SOURCE_CLUSTER_XML, "");
     }
 
+    private static void addMetadataValue(Map<Object, List<String>> allValues,
+                                         Object metadataValue,
+                                         String node) {
+        if(allValues.containsKey(metadataValue) == false) {
+            allValues.put(metadataValue, new ArrayList<String>());
+        }
+        allValues.get(metadataValue).add(node);
+    }
+
+    private static Boolean checkDiagnostics(String keyName,
+                                            Map<Object, List<String>> metadataValues,
+                                            Collection<String> allNodeNames) {
+
+        Collection<String> nodesInResult = new ArrayList<String>();
+        Boolean checkResult = true;
+
+        if(metadataValues.size() == 1) {
+            Map.Entry<Object, List<String>> entry = metadataValues.entrySet().iterator().next();
+            nodesInResult.addAll(entry.getValue());
+        } else {
+            // Some nodes have different set of data than the others.
+            checkResult = false;
+            int groupCount = 0;
+            for(Map.Entry<Object, List<String>> entry: metadataValues.entrySet()) {
+                groupCount++;
+                System.err.println("Nodes with same value for " + keyName + ". Id :" + groupCount);
+                nodesInResult.addAll(entry.getValue());
+                for(String nodeName: entry.getValue()) {
+                    System.err.println("Node " + nodeName);
+                }
+                System.out.println();
+            }
+        }
+
+        // Some times when a store could be missing from one of the nodes
+        // In that case the map will have only one value, but total number
+        // of nodes will be lesser. The following code handles that.
+
+        // removeAll modifies the list that is being called on. so create a copy
+        Collection<String> nodesDiff = new ArrayList<String>(allNodeNames.size());
+        nodesDiff.addAll(allNodeNames);
+        nodesDiff.removeAll(nodesInResult);
+
+        if(nodesDiff.size() > 0) {
+            checkResult = false;
+            for(String nodeName: nodesDiff) {
+                System.err.println("key " + keyName + " is missing in the Node " + nodeName);
+            }
+        }
+        return checkResult;
+    }
+
     private static void executeCheckMetadata(AdminClient adminClient, String metadataKey) {
 
-        Set<Object> metadataValues = Sets.newHashSet();
-        for(Node node: adminClient.getAdminClientCluster().getNodes()) {
-            System.out.println(node.getHost() + ":" + node.getId());
+        Map<String, Map<Object, List<String>>> storeNodeValueMap = new HashMap<String, Map<Object, List<String>>>();
+        Map<Object, List<String>> metadataNodeValueMap = new HashMap<Object, List<String>>();
+        Collection<Node> allNodes = adminClient.getAdminClientCluster().getNodes();
+        Collection<String> allNodeNames = new ArrayList<String>();
+
+        Boolean checkResult = true;
+        for(Node node: allNodes) {
+            String nodeName = "Host '" + node.getHost() + "' : ID " + node.getId();
+            allNodeNames.add(nodeName);
+
+            System.out.println("processing " + nodeName);
+
             Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(node.getId(),
                                                                                         metadataKey);
             if(versioned == null || versioned.getValue() == null) {
                 throw new VoldemortException("Value returned from node " + node.getId()
                                              + " was null");
+            } else if(metadataKey.compareTo(MetadataStore.STORES_KEY) == 0) {
+                List<StoreDefinition> storeDefinitions = new StoreDefinitionsMapper().readStoreList(new StringReader(versioned.getValue()));
+                for(StoreDefinition storeDef: storeDefinitions) {
+                    String storeName = storeDef.getName();
+                    if(storeNodeValueMap.containsKey(storeName) == false) {
+                        storeNodeValueMap.put(storeName, new HashMap<Object, List<String>>());
+                    }
+                    Map<Object, List<String>> storeDefMap = storeNodeValueMap.get(storeName);
+                    addMetadataValue(storeDefMap, storeDef, nodeName);
+                }
             } else {
-
                 if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0
                    || metadataKey.compareTo(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML) == 0) {
-                    metadataValues.add(new ClusterMapper().readCluster(new StringReader(versioned.getValue())));
-                } else if(metadataKey.compareTo(MetadataStore.STORES_KEY) == 0) {
-                    metadataValues.add(new StoreDefinitionsMapper().readStoreList(new StringReader(versioned.getValue())));
+                    Cluster cluster = new ClusterMapper().readCluster(new StringReader(versioned.getValue()));
+                    addMetadataValue(metadataNodeValueMap, cluster, nodeName);
                 } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
-                    metadataValues.add(VoldemortState.valueOf(versioned.getValue()));
+                    VoldemortState voldemortStateValue = VoldemortState.valueOf(versioned.getValue());
+                    addMetadataValue(metadataNodeValueMap, voldemortStateValue, nodeName);
                 } else {
                     throw new VoldemortException("Incorrect metadata key");
                 }
@@ -1197,11 +1266,19 @@ public class VoldemortAdminTool {
             }
         }
 
-        if(metadataValues.size() == 1) {
-            System.out.println("true");
-        } else {
-            System.out.println("false");
+        if(metadataNodeValueMap.size() > 0) {
+            checkResult &= checkDiagnostics(metadataKey, metadataNodeValueMap, allNodeNames);
         }
+
+        if(storeNodeValueMap.size() > 0) {
+            for(Map.Entry<String, Map<Object, List<String>>> storeNodeValueEntry: storeNodeValueMap.entrySet()) {
+                String storeName = storeNodeValueEntry.getKey();
+                Map<Object, List<String>> storeDefMap = storeNodeValueEntry.getValue();
+                checkResult &= checkDiagnostics(storeName, storeDefMap, allNodeNames);
+            }
+        }
+
+        System.out.println("metadata check : " + (checkResult ? "PASSED" : "FAILED"));
     }
 
     /*
