@@ -1,3 +1,7 @@
+Release 1.8.2 on 05/09/2014
+
+* Bug fix in MetadataStore regarding updation of routing strategy
+
 Release 1.8.1 on 05/01/2014
 
 * Fix AbstractStoreClientFactory for backwards compatibility
