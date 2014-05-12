@@ -334,7 +334,7 @@ class StoreClient:
                 return apply(fun, args)
             except socket.error, (err_num, message):
                 logging.warn('Error while performing ' + fun.__name__ + ' on node ' + str(self.node_id) + ': ' + message)
-                self._reconnect()
+                self.node_id, self.connection = self._reconnect()
                 failures += 1
         raise VoldemortException('All nodes are down, ' + fun.__name__ + ' failed.')
 
