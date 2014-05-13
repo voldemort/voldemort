@@ -454,6 +454,66 @@ public class AdminClient {
                 return false;
             }
         }
+
+        /**
+         * Utility function that checks the execution state of the server by
+         * checking the state of {@link VoldemortState} <br>
+         * 
+         * This function checks if all nodes of the cluster are in normal state
+         * ( {@link VoldemortState#NORMAL_SERVER}).
+         * 
+         * @throws VoldemortException if any node is not in normal state
+         */
+        public void checkServerInNormalState() {
+            checkServerInNormalState(currentCluster.getNodeIds());
+        }
+
+        /**
+         * Utility function that checks the execution state of the server by
+         * checking the state of {@link VoldemortState} <br>
+         * 
+         * This function checks if a node is in normal state (
+         * {@link VoldemortState#NORMAL_SERVER}).
+         * 
+         * @param node Node to be checked
+         * @throws VoldemortException if any node is not in normal state
+         */
+        public void checkServerInNormalState(Integer nodeId) {
+            List<Integer> nodeIds = Lists.newArrayList(new Integer[] { nodeId });
+            checkServerInNormalState(nodeIds);
+        }
+
+        /**
+         * Utility function that checks the execution state of the server by
+         * checking the state of {@link VoldemortState} <br>
+         * 
+         * This function checks if the nodes are in normal state (
+         * {@link VoldemortState#NORMAL_SERVER}).
+         * 
+         * @param nodes List of nodes to be checked
+         * @throws VoldemortException if any node is not in normal state
+         */
+        public void checkServerInNormalState(Collection<Integer> nodeIds) {
+            for(Integer nodeId: nodeIds) {
+                Node node = getAdminClientCluster().getNodeById(nodeId);
+                Versioned<String> versioned = null;
+
+                try {
+                    versioned = metadataMgmtOps.getRemoteMetadata(node.getId(),
+                                                                  MetadataStore.SERVER_STATE_KEY);
+                } catch(Exception e) {
+                    throw new VoldemortException("Failed to get server status from "
+                                                 + node.getHost() + ":" + node.getId());
+                }
+
+                VoldemortState state = VoldemortState.valueOf(versioned.getValue());
+                if(!state.equals(VoldemortState.NORMAL_SERVER)) {
+                    throw new VoldemortException(node.getHost() + ":" + node.getId()
+                                                 + " is not in normal state, but in "
+                                                 + versioned.getValue());
+                }
+            }
+        }
     }
 
     public class ReplicationOperations {
