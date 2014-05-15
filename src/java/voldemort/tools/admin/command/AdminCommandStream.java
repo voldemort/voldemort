@@ -47,7 +47,6 @@ import org.codehaus.jackson.map.ObjectMapper;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.cluster.Node;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -56,7 +55,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.tools.admin.AdminParserUtils;
-import voldemort.tools.admin.AdminUtils;
+import voldemort.tools.admin.AdminToolUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
@@ -81,7 +80,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
      */
     public static void executeCommand(String[] args) throws Exception {
         String subCmd = (args.length > 0) ? args[0] : "";
-        args = AdminUtils.copyArrayCutFirst(args);
+        args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("fetch-entries")) {
             SubCommandStreamFetchEntries.executeCommand(args);
         } else if(subCmd.equals("fetch-keys")) {
@@ -263,15 +262,20 @@ public class AdminCommandStream extends AbstractAdminCommand {
             }
 
             // execute command
-            File directory = AdminUtils.createDir(dir);
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Node node = adminClient.getAdminClientCluster().getNodeById(nodeId);
-            if(!orphaned)
-                partIds = AdminUtils.getPartitions(adminClient, partIds, allParts);
-            storeNames = AdminUtils.getUserStoresOnNode(adminClient, node, storeNames, allStores);
+            File directory = AdminToolUtils.createDir(dir);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
+
+            if(!orphaned) {
+                partIds = AdminToolUtils.getPartitions(adminClient, partIds, allParts);
+            }
+
+            storeNames = AdminToolUtils.getUserStoresOnNode(adminClient,
+                                                            nodeId,
+                                                            storeNames,
+                                                            allStores);
 
             doStreamFetchEntries(adminClient,
-                                 node,
+                                 nodeId,
                                  storeNames,
                                  partIds,
                                  orphaned,
@@ -283,7 +287,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
          * Fetches entries from a given node.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param node Node to fetch entries from
+         * @param nodeId Node id to fetch entries from
          * @param storeNames List of stores to fetch from
          * @param partIds List of partitions to fetch from
          * @param orphaned Tells if orphaned entries to be fetched
@@ -292,15 +296,15 @@ public class AdminCommandStream extends AbstractAdminCommand {
          * @throws IOException
          */
         public static void doStreamFetchEntries(AdminClient adminClient,
-                                                Node node,
+                                                Integer nodeId,
                                                 List<String> storeNames,
                                                 List<Integer> partIds,
                                                 Boolean orphaned,
                                                 File directory,
                                                 String format) throws IOException {
             HashMap<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
-            storeDefinitionMap.putAll(AdminUtils.getUserStoreDefs(adminClient, node));
-            storeDefinitionMap.putAll(AdminUtils.getSystemStoreDefs());
+            storeDefinitionMap.putAll(AdminToolUtils.getUserStoreDefs(adminClient, nodeId));
+            storeDefinitionMap.putAll(AdminToolUtils.getSystemStoreDefs());
 
             for(String store: storeNames) {
 
@@ -315,12 +319,11 @@ public class AdminCommandStream extends AbstractAdminCommand {
 
                 if(orphaned) {
                     System.out.println("Fetching orphaned entries of " + store);
-                    entryIteratorRef = adminClient.bulkFetchOps.fetchOrphanedEntries(node.getId(),
-                                                                                     store);
+                    entryIteratorRef = adminClient.bulkFetchOps.fetchOrphanedEntries(nodeId, store);
                 } else {
                     System.out.println("Fetching entries in partitions "
                                        + Joiner.on(", ").join(partIds) + " of " + store);
-                    entryIteratorRef = adminClient.bulkFetchOps.fetchEntries(node.getId(),
+                    entryIteratorRef = adminClient.bulkFetchOps.fetchEntries(nodeId,
                                                                              store,
                                                                              partIds,
                                                                              null,
@@ -551,21 +554,26 @@ public class AdminCommandStream extends AbstractAdminCommand {
             }
 
             // execute command
-            File directory = AdminUtils.createDir(dir);
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Node node = adminClient.getAdminClientCluster().getNodeById(nodeId);
-            if(!orphaned)
-                partIds = AdminUtils.getPartitions(adminClient, partIds, allParts);
-            storeNames = AdminUtils.getUserStoresOnNode(adminClient, node, storeNames, allStores);
+            File directory = AdminToolUtils.createDir(dir);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            doStreamFetchKeys(adminClient, node, storeNames, partIds, orphaned, directory, format);
+            if(!orphaned) {
+                partIds = AdminToolUtils.getPartitions(adminClient, partIds, allParts);
+            }
+
+            storeNames = AdminToolUtils.getUserStoresOnNode(adminClient,
+                                                            nodeId,
+                                                            storeNames,
+                                                            allStores);
+
+            doStreamFetchKeys(adminClient, nodeId, storeNames, partIds, orphaned, directory, format);
         }
 
         /**
          * Fetches keys from a given node.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param node Node to fetch entries from
+         * @param nodeId Node id to fetch entries from
          * @param storeNames List of stores to fetch from
          * @param partIds List of partitions to fetch from
          * @param orphaned Tells if orphaned entries to be fetched
@@ -574,15 +582,15 @@ public class AdminCommandStream extends AbstractAdminCommand {
          * @throws IOException
          */
         public static void doStreamFetchKeys(AdminClient adminClient,
-                                             Node node,
+                                             Integer nodeId,
                                              List<String> storeNames,
                                              List<Integer> partIds,
                                              Boolean orphaned,
                                              File directory,
                                              String format) throws IOException {
             HashMap<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
-            storeDefinitionMap.putAll(AdminUtils.getUserStoreDefs(adminClient, node));
-            storeDefinitionMap.putAll(AdminUtils.getSystemStoreDefs());
+            storeDefinitionMap.putAll(AdminToolUtils.getUserStoreDefs(adminClient, nodeId));
+            storeDefinitionMap.putAll(AdminToolUtils.getSystemStoreDefs());
 
             for(String store: storeNames) {
 
@@ -597,11 +605,11 @@ public class AdminCommandStream extends AbstractAdminCommand {
 
                 if(orphaned) {
                     System.out.println("Fetching orphaned keys of " + store);
-                    keyIteratorRef = adminClient.bulkFetchOps.fetchOrphanedKeys(node.getId(), store);
+                    keyIteratorRef = adminClient.bulkFetchOps.fetchOrphanedKeys(nodeId, store);
                 } else {
                     System.out.println("Fetching keys in partitions "
                                        + Joiner.on(", ").join(partIds) + " of " + store);
-                    keyIteratorRef = adminClient.bulkFetchOps.fetchKeys(node.getId(),
+                    keyIteratorRef = adminClient.bulkFetchOps.fetchKeys(nodeId,
                                                                         store,
                                                                         partIds,
                                                                         null,
@@ -803,26 +811,18 @@ public class AdminCommandStream extends AbstractAdminCommand {
             System.out.println("  destination node = " + destNodeId);
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "mirror stores")) {
+            if(!AdminToolUtils.askConfirm(confirm, "mirror stores")) {
                 return;
             }
 
-            AdminClient srcAdminClient = AdminUtils.getAdminClient(srcUrl);
-            AdminClient destAdminClient = AdminUtils.getAdminClient(destUrl);
-            Node srcNode = srcAdminClient.getAdminClientCluster().getNodeById(srcNodeId);
-            // Node destNode =
-            // destAdminClient.getAdminClientCluster().getNodeById(srcNodeId);
-            storeNames = AdminUtils.getUserStoresOnNode(srcAdminClient,
-                                                        srcNode,
-                                                        storeNames,
-                                                        allStores);
+            AdminClient srcAdminClient = AdminToolUtils.getAdminClient(srcUrl);
+            AdminClient destAdminClient = AdminToolUtils.getAdminClient(destUrl);
 
-            AdminUtils.checkServerInNormalState(srcAdminClient,
-                                                srcAdminClient.getAdminClientCluster()
-                                                              .getNodeById(srcNodeId));
-            AdminUtils.checkServerInNormalState(destAdminClient,
-                                                destAdminClient.getAdminClientCluster()
-                                                               .getNodeById(destNodeId));
+            storeNames = AdminToolUtils.getUserStoresOnNode(srcAdminClient,
+                                                            srcNodeId,
+                                                            storeNames,
+                                                            allStores);
+
             destAdminClient.restoreOps.mirrorData(destNodeId, srcNodeId, srcUrl, storeNames);
         }
     }
@@ -929,33 +929,32 @@ public class AdminCommandStream extends AbstractAdminCommand {
             System.out.println("  node = " + nodeId);
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "update entries")) {
+            if(!AdminToolUtils.askConfirm(confirm, "update entries")) {
                 return;
             }
 
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Node node = adminClient.getAdminClientCluster().getNodeById(nodeId);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
             File inDir = new File(dir);
+
             if(!inDir.exists()) {
                 throw new FileNotFoundException("Input directory " + dir + " doesn't exist");
             }
 
-            AdminUtils.checkServerInNormalState(adminClient, node);
-            doStreamUpdateEntries(adminClient, node, storeNames, inDir);
+            doStreamUpdateEntries(adminClient, nodeId, storeNames, inDir);
         }
 
         /**
          * Updates entries on a given node.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param node Node to update entries to
+         * @param nodeId Node id to update entries to
          * @param storeNames Stores to update entries
          * @param inDir File object of directory to input entries from
          * @throws IOException
          * 
          */
         public static void doStreamUpdateEntries(AdminClient adminClient,
-                                                 Node node,
+                                                 Integer nodeId,
                                                  List<String> storeNames,
                                                  File inDir) throws IOException {
             if(storeNames == null) {
@@ -971,7 +970,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
             for(String storeName: storeNames) {
                 Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = readEntriesBinary(inDir,
                                                                                           storeName);
-                adminClient.streamingOps.updateEntries(node.getId(), storeName, iterator, null);
+                adminClient.streamingOps.updateEntries(nodeId, storeName, iterator, null);
             }
         }
     }

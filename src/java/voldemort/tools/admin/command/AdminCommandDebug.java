@@ -44,7 +44,6 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.routing.BaseStoreRoutingPlan;
 import voldemort.routing.StoreRoutingPlan;
@@ -58,7 +57,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.tools.admin.AdminParserUtils;
-import voldemort.tools.admin.AdminUtils;
+import voldemort.tools.admin.AdminToolUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.StoreDefinitionUtils;
@@ -81,7 +80,7 @@ public class AdminCommandDebug extends AbstractAdminCommand {
      */
     public static void executeCommand(String[] args) throws Exception {
         String subCmd = (args.length > 0) ? args[0] : "";
-        args = AdminUtils.copyArrayCutFirst(args);
+        args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("query-keys")) {
             SubCommandDebugQueryKeys.executeCommand(args);
         } else if(subCmd.equals("route")) {
@@ -226,17 +225,20 @@ public class AdminCommandDebug extends AbstractAdminCommand {
             }
 
             // execute command
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            doDebugQueryKeys(adminClient, nodes, storeNames, keyStrings, keyType);
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
+            }
+
+            doDebugQueryKeys(adminClient, nodeIds, storeNames, keyStrings, keyType);
         }
 
         /**
          * Queries stores for a set of keys
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param nodes Nodes to query keys from
+         * @param nodeIds Node ids to query keys from
          * @param storeNames Stores to be queried
          * @param keyStrings Keys to be queried
          * @param keyType Format of the keys: hex, json
@@ -244,14 +246,14 @@ public class AdminCommandDebug extends AbstractAdminCommand {
          * 
          */
         public static void doDebugQueryKeys(AdminClient adminClient,
-                                            Collection<Node> nodes,
+                                            Collection<Integer> nodeIds,
                                             List<String> storeNames,
                                             List<String> keyStrings,
                                             String keyType) throws IOException {
             // decide queryNode for storeDef
-            Node storeDefNode = nodes.iterator().next();
-            Map<String, StoreDefinition> storeDefinitions = AdminUtils.getUserStoreDefs(adminClient,
-                                                                                        storeDefNode);
+            Integer storeDefNodeId = nodeIds.iterator().next();
+            Map<String, StoreDefinition> storeDefinitions = AdminToolUtils.getUserStoreDefs(adminClient,
+                                                                                            storeDefNodeId);
 
             BufferedWriter out = new BufferedWriter(new OutputStreamWriter(System.out));
 
@@ -361,9 +363,9 @@ public class AdminCommandDebug extends AbstractAdminCommand {
                     }
 
                     boolean printedKey = false;
-                    for(Node node: nodes) {
+                    for(Integer nodeId: nodeIds) {
                         Iterator<QueryKeyResult> iterator;
-                        iterator = adminClient.streamingOps.queryKeys(node.getId(),
+                        iterator = adminClient.streamingOps.queryKeys(nodeId,
                                                                       storeName,
                                                                       Arrays.asList(key).iterator());
                         // final StringWriter stringWriter = new StringWriter();
@@ -389,7 +391,7 @@ public class AdminCommandDebug extends AbstractAdminCommand {
                             printedKey = true;
                         }
                         out.write(String.format("\nQueried node %d on store %s\n",
-                                                node.getId(),
+                                                nodeId,
                                                 storeName));
 
                         // iterate through, de-serialize and write values
@@ -550,7 +552,7 @@ public class AdminCommandDebug extends AbstractAdminCommand {
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
 
             // execute command
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
             doDebugRoute(adminClient, storeName, keyStrings, keyType);
         }

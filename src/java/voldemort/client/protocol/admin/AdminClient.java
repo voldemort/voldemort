@@ -651,7 +651,7 @@ public class AdminClient {
                 outputStream.flush();
 
                 return ProtoUtils.readToBuilder(inputStream, builder);
-            } catch(EOFException eeof) {
+            } catch(EOFException e) {
                 helperOps.close(sands.getSocket());
                 throw new VoldemortException("Socket is stale.");
             } catch(IOException e) {
@@ -1026,7 +1026,7 @@ public class AdminClient {
          * @param value Value for the metadata key
          * 
          * */
-        public void updateRemoteMetadata(List<Integer> remoteNodeIds,
+        public void updateRemoteMetadata(Collection<Integer> remoteNodeIds,
                                          String key,
                                          Versioned<String> value) {
 
@@ -1099,7 +1099,7 @@ public class AdminClient {
          * @param storesValue value of the stores metadata key
          * 
          * */
-        public void updateRemoteMetadataPair(List<Integer> remoteNodeIds,
+        public void updateRemoteMetadataPair(Collection<Integer> remoteNodeIds,
                                              String clusterKey,
                                              Versioned<String> clusterValue,
                                              String storesKey,
@@ -1627,21 +1627,35 @@ public class AdminClient {
          * @param nodeId The node id on which the store is present
          * @param storeName The name of the store
          */
-        public void truncate(int nodeId, String storeName) {
-            helperOps.checkServerInNormalState(nodeId);
-            VAdminProto.TruncateEntriesRequest.Builder truncateRequest = VAdminProto.TruncateEntriesRequest.newBuilder()
-                                                                                                           .setStore(storeName);
+        public void truncate(Integer nodeId, String storeName) {
+            truncate(Lists.newArrayList(new Integer[] { nodeId }), storeName);
+        }
 
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.TRUNCATE_ENTRIES)
-                                                                                         .setTruncateEntries(truncateRequest)
-                                                                                         .build();
-            VAdminProto.TruncateEntriesResponse.Builder response = rpcOps.sendAndReceive(nodeId,
-                                                                                         request,
-                                                                                         VAdminProto.TruncateEntriesResponse.newBuilder());
+        /**
+         * Delete the store completely (<b>Deletes all data</b>) from the remote
+         * node.
+         * <p>
+         * 
+         * @param nodeIds The node ids on which the store is present
+         * @param storeName The name of the store
+         */
+        public void truncate(Collection<Integer> nodeIds, String storeName) {
+            helperOps.checkServerInNormalState(nodeIds);
+            for(Integer nodeId: nodeIds) {
+                VAdminProto.TruncateEntriesRequest.Builder truncateRequest = VAdminProto.TruncateEntriesRequest.newBuilder()
+                                                                                                               .setStore(storeName);
 
-            if(response.hasError()) {
-                helperOps.throwException(response.getError());
+                VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                             .setType(VAdminProto.AdminRequestType.TRUNCATE_ENTRIES)
+                                                                                             .setTruncateEntries(truncateRequest)
+                                                                                             .build();
+                VAdminProto.TruncateEntriesResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                             request,
+                                                                                             VAdminProto.TruncateEntriesResponse.newBuilder());
+
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
             }
         }
 
@@ -3430,22 +3444,35 @@ public class AdminClient {
          * @param pushVersion The version of the push to revert back to
          */
         public void rollbackStore(Integer nodeId, String storeName, long pushVersion) {
-            helperOps.checkServerInNormalState(nodeId);
-            VAdminProto.RollbackStoreRequest.Builder rollbackStoreRequest = VAdminProto.RollbackStoreRequest.newBuilder()
-                                                                                                            .setStoreName(storeName)
-                                                                                                            .setPushVersion(pushVersion);
+            rollbackStore(Lists.newArrayList(new Integer[] { nodeId }), storeName, pushVersion);
+        }
 
-            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                              .setRollbackStore(rollbackStoreRequest)
-                                                                                              .setType(VAdminProto.AdminRequestType.ROLLBACK_STORE)
-                                                                                              .build();
-            VAdminProto.RollbackStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
-                                                                                       adminRequest,
-                                                                                       VAdminProto.RollbackStoreResponse.newBuilder());
-            if(response.hasError()) {
-                helperOps.throwException(response.getError());
+        /**
+         * Rollback RO store to most recent backup of the current store
+         * <p>
+         * 
+         * @param nodeIds The node ids on which to rollback
+         * @param storeName The name of the RO Store to rollback
+         * @param pushVersion The version of the push to revert back to
+         */
+        public void rollbackStore(Collection<Integer> nodeIds, String storeName, long pushVersion) {
+            helperOps.checkServerInNormalState(nodeIds);
+            for(Integer nodeId: nodeIds) {
+                VAdminProto.RollbackStoreRequest.Builder rollbackStoreRequest = VAdminProto.RollbackStoreRequest.newBuilder()
+                                                                                                                .setStoreName(storeName)
+                                                                                                                .setPushVersion(pushVersion);
+
+                VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                                  .setRollbackStore(rollbackStoreRequest)
+                                                                                                  .setType(VAdminProto.AdminRequestType.ROLLBACK_STORE)
+                                                                                                  .build();
+                VAdminProto.RollbackStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                           adminRequest,
+                                                                                           VAdminProto.RollbackStoreResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
             }
-            return;
         }
 
         /**
@@ -3850,18 +3877,29 @@ public class AdminClient {
          * @param sizeInMB size of reservation
          */
         public void reserveMemory(Integer nodeId, List<String> stores, long sizeInMB) {
-
-            helperOps.checkServerInNormalState(nodeId);
-            List<Integer> reserveNodes = new ArrayList<Integer>();
             if(nodeId == -1) {
-                // if no node is specified send it to the entire cluster
-                for(Node node: currentCluster.getNodes())
-                    reserveNodes.add(node.getId());
+                /* this is only invoked by old voldemort admin tool */
+                reserveMemory(currentCluster.getNodeIds(), stores, sizeInMB);
             } else {
-                reserveNodes.add(nodeId);
+                reserveMemory(Lists.newArrayList(new Integer[] { nodeId }), stores, sizeInMB);
             }
+        }
+
+        /**
+         * Reserve memory for the stores
+         * 
+         * TODO this should also now use the voldsys$_quotas system store
+         * 
+         * @param reserveNodeIds The node ids to reserve
+         * @param stores list of stores for which to reserve
+         * @param sizeInMB size of reservation
+         */
+        public void reserveMemory(Collection<Integer> reserveNodeIds,
+                                  List<String> stores,
+                                  long sizeInMB) {
+            helperOps.checkServerInNormalState(reserveNodeIds);
             for(String storeName: stores) {
-                for(Integer reserveNodeId: reserveNodes) {
+                for(Integer reserveNodeId: reserveNodeIds) {
 
                     VAdminProto.ReserveMemoryRequest reserveRequest = VAdminProto.ReserveMemoryRequest.newBuilder()
                                                                                                       .setStoreName(storeName)
@@ -3874,8 +3912,9 @@ public class AdminClient {
                     VAdminProto.ReserveMemoryResponse.Builder response = rpcOps.sendAndReceive(reserveNodeId,
                                                                                                adminRequest,
                                                                                                VAdminProto.ReserveMemoryResponse.newBuilder());
-                    if(response.hasError())
+                    if(response.hasError()) {
                         helperOps.throwException(response.getError());
+                    }
                 }
                 logger.info("Finished reserving memory for store : " + storeName);
             }
