@@ -466,9 +466,9 @@ public class AdminClient {
          * @param node Node to be checked
          * @throws VoldemortException if any node is not in normal state
          */
-        public void checkServerInNormalState(Integer nodeId) {
+        public void assertServerInNormalState(Integer nodeId) {
             List<Integer> nodeIds = Lists.newArrayList(new Integer[] { nodeId });
-            checkServerInNormalState(nodeIds);
+            assertServerInNormalState(nodeIds);
         }
 
         /**
@@ -481,7 +481,7 @@ public class AdminClient {
          * @param nodes List of nodes to be checked
          * @throws VoldemortException if any node is not in normal state
          */
-        public void checkServerInNormalState(Collection<Integer> nodeIds) {
+        public void assertServerInNormalState(Collection<Integer> nodeIds) {
             for(Integer nodeId: nodeIds) {
                 Node node = getAdminClientCluster().getNodeById(nodeId);
                 Versioned<String> versioned = null;
@@ -739,7 +739,7 @@ public class AdminClient {
          * @param requestId The id of the request to terminate
          */
         public void stopAsyncRequest(int nodeId, int requestId) {
-            helperOps.checkServerInNormalState(nodeId);
+            helperOps.assertServerInNormalState(nodeId);
             VAdminProto.AsyncOperationStopRequest asyncOperationStopRequest = VAdminProto.AsyncOperationStopRequest.newBuilder()
                                                                                                                    .setRequestId(requestId)
                                                                                                                    .build();
@@ -953,7 +953,7 @@ public class AdminClient {
          *        incremented
          */
         public void updateMetadataversion(Collection<String> versionKeys) {
-            helperOps.checkServerInNormalState(currentCluster.getNodeIds());
+            helperOps.assertServerInNormalState(currentCluster.getNodeIds());
             Properties props = MetadataVersionStoreUtils.getProperties(AdminClient.this.metadataVersionSysStoreClient);
             for(String versionKey: versionKeys) {
                 long newValue = 0;
@@ -979,7 +979,7 @@ public class AdminClient {
          *        the nodes in the cluster
          */
         public void setMetadataversion(Properties newProperties) {
-            helperOps.checkServerInNormalState(currentCluster.getNodeIds());
+            helperOps.assertServerInNormalState(currentCluster.getNodeIds());
             MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
                                                     newProperties);
         }
@@ -1037,7 +1037,7 @@ public class AdminClient {
             if(key.equals(CLUSTER_VERSION_KEY) || key.equals(STORES_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(key);
             }
-            helperOps.checkServerInNormalState(remoteNodeIds);
+            helperOps.assertServerInNormalState(remoteNodeIds);
             for(Integer currentNodeId: remoteNodeIds) {
                 logger.info("Setting " + key + " for "
                             + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
@@ -1127,7 +1127,7 @@ public class AdminClient {
                     }
                 }
             }
-            helperOps.checkServerInNormalState(remoteNodeIds);
+            helperOps.assertServerInNormalState(remoteNodeIds);
             for(Integer currentNodeId: remoteNodeIds) {
                 logger.info("Setting " + clusterKey + " and " + storesKey + " for "
                             + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
@@ -1195,7 +1195,7 @@ public class AdminClient {
          */
         public synchronized void fetchAndUpdateRemoteStores(Collection<Integer> nodeIds,
                                                             List<StoreDefinition> updatedStores) {
-            helperOps.checkServerInNormalState(nodeIds);
+            helperOps.assertServerInNormalState(nodeIds);
             for(Integer nodeId: nodeIds) {
                 Map<String, StoreDefinition> updatedStoresMap = new HashMap<String, StoreDefinition>();
 
@@ -1339,7 +1339,7 @@ public class AdminClient {
         public void updateRemoteStoreDefList(Collection<Integer> nodeIds,
                                              List<StoreDefinition> storesList)
                 throws VoldemortException {
-            helperOps.checkServerInNormalState(nodeIds);
+            helperOps.assertServerInNormalState(nodeIds);
             for(Integer nodeId: nodeIds) {
                 logger.info("Updating stores.xml for "
                             + currentCluster.getNodeById(nodeId).getHost() + ":" + nodeId);
@@ -1428,7 +1428,7 @@ public class AdminClient {
          * @param nodeIds Nodes on which to add the store
          */
         public void addStore(StoreDefinition def, Collection<Integer> nodeIds) {
-            helperOps.checkServerInNormalState(nodeIds);
+            helperOps.assertServerInNormalState(nodeIds);
             for(Integer nodeId: nodeIds) {
                 String value = storeMapper.writeStore(def);
 
@@ -1485,7 +1485,7 @@ public class AdminClient {
          * @param nodeIds Nodes on which we want to delete a store
          */
         public void deleteStore(String storeName, Collection<Integer> nodeIds) {
-            helperOps.checkServerInNormalState(nodeIds);
+            helperOps.assertServerInNormalState(nodeIds);
             for(Integer nodeId: nodeIds) {
                 VAdminProto.DeleteStoreRequest.Builder deleteStoreRequest = VAdminProto.DeleteStoreRequest.newBuilder()
                                                                                                           .setStoreName(storeName);
@@ -1545,8 +1545,6 @@ public class AdminClient {
                                      String storeName,
                                      List<Integer> stealPartitionList,
                                      VoldemortFilter filter) {
-            helperOps.checkServerInNormalState(Lists.newArrayList(new Integer[] { donorNodeId,
-                    stealerNodeId }));
             return migratePartitions(donorNodeId,
                                      stealerNodeId,
                                      storeName,
@@ -1585,8 +1583,6 @@ public class AdminClient {
                                      List<Integer> partitionIds,
                                      VoldemortFilter filter,
                                      Cluster initialCluster) {
-            helperOps.checkServerInNormalState(Lists.newArrayList(new Integer[] { donorNodeId,
-                    stealerNodeId }));
             VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest = VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                                                                                                                                        .setNodeId(donorNodeId)
                                                                                                                                        .addAllPartitionIds(partitionIds)
@@ -1640,7 +1636,7 @@ public class AdminClient {
          * @param storeName The name of the store
          */
         public void truncate(Collection<Integer> nodeIds, String storeName) {
-            helperOps.checkServerInNormalState(nodeIds);
+            helperOps.assertServerInNormalState(nodeIds);
             for(Integer nodeId: nodeIds) {
                 VAdminProto.TruncateEntriesRequest.Builder truncateRequest = VAdminProto.TruncateEntriesRequest.newBuilder()
                                                                                                                .setStore(storeName);
@@ -1692,7 +1688,7 @@ public class AdminClient {
                                      List<Integer> partitionIds,
                                      Cluster initialCluster,
                                      VoldemortFilter filter) {
-            helperOps.checkServerInNormalState(nodeId);
+            helperOps.assertServerInNormalState(nodeId);
             VAdminProto.DeletePartitionEntriesRequest.Builder deleteRequest = VAdminProto.DeletePartitionEntriesRequest.newBuilder()
                                                                                                                        .addAllPartitionIds(partitionIds)
                                                                                                                        .setStore(storeName);
@@ -1729,7 +1725,7 @@ public class AdminClient {
          * @param nodeId The id of the node on which to do the repair
          */
         public void repairJob(Integer nodeId) {
-            helperOps.checkServerInNormalState(nodeId);
+            helperOps.assertServerInNormalState(nodeId);
             VAdminProto.RepairJobRequest.Builder repairJobRequest = VAdminProto.RepairJobRequest.newBuilder();
 
             VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
@@ -1773,7 +1769,7 @@ public class AdminClient {
          * @param stores the list of stores to prune
          */
         public void pruneJob(Integer nodeId, List<String> stores) {
-            helperOps.checkServerInNormalState(nodeId);
+            helperOps.assertServerInNormalState(nodeId);
             for(String store: stores) {
                 logger.info("Kicking off prune job on Node " + nodeId + " for store " + store);
                 VAdminProto.PruneJobRequest.Builder jobRequest = VAdminProto.PruneJobRequest.newBuilder()
@@ -1827,7 +1823,7 @@ public class AdminClient {
                                  Integer zoneToPurge,
                                  List<String> storesToPurge) {
             // Run this on all the nodes in the cluster
-            helperOps.checkServerInNormalState(destinationNodeIds);
+            helperOps.assertServerInNormalState(destinationNodeIds);
             for(Integer destinationNodeId: destinationNodeIds) {
                 logger.info("Submitting SlopPurgeJob on node " + destinationNodeId);
 
@@ -1866,7 +1862,7 @@ public class AdminClient {
                                  Integer timeOut,
                                  boolean verify,
                                  boolean isIncremental) {
-            helperOps.checkServerInNormalState(nodeId);
+            helperOps.assertServerInNormalState(nodeId);
 
             VAdminProto.NativeBackupRequest nativeBackupRequest = VAdminProto.NativeBackupRequest.newBuilder()
                                                                                                  .setStoreName(storeName)
@@ -2499,7 +2495,7 @@ public class AdminClient {
                                   String storeName,
                                   Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                                   VoldemortFilter filter) {
-            helperOps.checkServerInNormalState(nodeId);
+            helperOps.assertServerInNormalState(nodeId);
             streamingUpdateEntries(nodeId, storeName, entryIterator, filter, false);
         }
 
@@ -2524,7 +2520,7 @@ public class AdminClient {
                                            String storeName,
                                            Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                                            VoldemortFilter filter) {
-            helperOps.checkServerInNormalState(nodeId);
+            helperOps.assertServerInNormalState(nodeId);
             streamingUpdateEntries(nodeId, storeName, entryIterator, filter, true);
         }
 
@@ -2685,7 +2681,7 @@ public class AdminClient {
          *        particular node
          */
         public void updateSlopEntries(Integer nodeId, Iterator<Versioned<Slop>> entryIterator) {
-            helperOps.checkServerInNormalState(nodeId);
+            helperOps.assertServerInNormalState(nodeId);
             Node node = currentCluster.getNodeById(nodeId);
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
@@ -3211,7 +3207,7 @@ public class AdminClient {
          * @throws InterruptedException
          */
         public void restoreDataFromReplications(int nodeId, int parallelTransfers, int zoneId) {
-            helperOps.checkServerInNormalState(nodeId);
+            helperOps.assertServerInNormalState(nodeId);
             ExecutorService executors = Executors.newFixedThreadPool(parallelTransfers,
                                                                      new ThreadFactory() {
 
@@ -3330,7 +3326,7 @@ public class AdminClient {
                                final String urlToMirrorFrom,
                                List<String> stores) {
 
-            helperOps.checkServerInNormalState(Lists.newArrayList(Lists.newArrayList(new Integer[] {
+            helperOps.assertServerInNormalState(Lists.newArrayList(Lists.newArrayList(new Integer[] {
                     nodeId, nodeIdToMirrorFrom })));
             final AdminClient mirrorAdminClient = new AdminClient(urlToMirrorFrom,
                                                                   new AdminClientConfig(),
@@ -3456,7 +3452,7 @@ public class AdminClient {
          * @param pushVersion The version of the push to revert back to
          */
         public void rollbackStore(Collection<Integer> nodeIds, String storeName, long pushVersion) {
-            helperOps.checkServerInNormalState(nodeIds);
+            helperOps.assertServerInNormalState(nodeIds);
             for(Integer nodeId: nodeIds) {
                 VAdminProto.RollbackStoreRequest.Builder rollbackStoreRequest = VAdminProto.RollbackStoreRequest.newBuilder()
                                                                                                                 .setStoreName(storeName)
@@ -3845,7 +3841,7 @@ public class AdminClient {
             // FIXME This is a temporary workaround for System store client not
             // being able to do a second insert. We simply generate a super
             // clock that will trump what is on storage
-            helperOps.checkServerInNormalState(currentCluster.getNodeIds());
+            helperOps.assertServerInNormalState(currentCluster.getNodeIds());
             VectorClock denseClock = VectorClockUtils.makeClock(currentCluster.getNodeIds(),
                                                                 System.currentTimeMillis(),
                                                                 System.currentTimeMillis());
@@ -3856,7 +3852,7 @@ public class AdminClient {
         }
 
         public void unsetQuota(String storeName, String quotaType) {
-            helperOps.checkServerInNormalState(currentCluster.getNodeIds());
+            helperOps.assertServerInNormalState(currentCluster.getNodeIds());
             quotaSysStoreClient.deleteSysStore(QuotaUtils.makeQuotaKey(storeName,
                                                                        QuotaType.valueOf(quotaType)));
             logger.info("Unset quota " + quotaType + " for store " + storeName);
@@ -3897,7 +3893,7 @@ public class AdminClient {
         public void reserveMemory(Collection<Integer> reserveNodeIds,
                                   List<String> stores,
                                   long sizeInMB) {
-            helperOps.checkServerInNormalState(reserveNodeIds);
+            helperOps.assertServerInNormalState(reserveNodeIds);
             for(String storeName: stores) {
                 for(Integer reserveNodeId: reserveNodeIds) {
 
