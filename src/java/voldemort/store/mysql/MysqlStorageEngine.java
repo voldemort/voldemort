@@ -116,19 +116,7 @@ public class MysqlStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
 
     @Override
     public void truncate() {
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        String select = "delete from " + getName();
-        try {
-            conn = datasource.getConnection();
-            stmt = conn.prepareStatement(select);
-            stmt.executeUpdate();
-        } catch(SQLException e) {
-            throw new PersistenceFailureException("Fix me!", e);
-        } finally {
-            tryClose(stmt);
-            tryClose(conn);
-        }
+        execute("delete from " + getName());
     }
 
     @Override
