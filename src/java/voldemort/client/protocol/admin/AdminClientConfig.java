@@ -11,7 +11,7 @@ import voldemort.utils.Props;
  */
 public class AdminClientConfig {
 
-    private volatile int maxConnectionsPerNode = 1;
+    private volatile int maxConnectionsPerNode = 50;
     private volatile int maxThreads = 6;
     private volatile long threadIdleMs = 100000;
     private volatile long adminConnectionTimeoutSec = 60;
