@@ -75,7 +75,7 @@ public class StreamingClient extends BaseStreamingClient {
     public StreamingClient(StreamingClientConfig config) {
         super(config);
         MAX_FAULTY_NODES = config.getFailedNodesTolerated();
-        System.out.println("MAX_FAULTY_NODES is set to : " + MAX_FAULTY_NODES);
+        logger.info("StreamingClient constructed with MAX_FAULTY_NODES set to : " + MAX_FAULTY_NODES);
         streamingSlopResults = Executors.newFixedThreadPool(1);
 
     }
