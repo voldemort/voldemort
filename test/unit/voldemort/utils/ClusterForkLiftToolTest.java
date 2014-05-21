@@ -194,6 +194,7 @@ public class ClusterForkLiftToolTest {
         // perform the forklifting..
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
                                                                    dstBootStrapUrl,
+                                                                   false,
                                                                    10000,
                                                                    1,
                                                                    1000,
@@ -212,7 +213,7 @@ public class ClusterForkLiftToolTest {
                              dstPrimaryResolvingStoreClient.get(firstKey).getValue(),
                              "before forklift");
             } else if(entry.getKey().equals(lastKey)) {
-                assertEquals("Online write overwritten",
+                assertEquals("can't update value after forklift",
                              dstPrimaryResolvingStoreClient.get(lastKey).getValue(),
                              "after forklift");
             } else if(entry.getKey().equals(conflictKey)) {
@@ -261,6 +262,7 @@ public class ClusterForkLiftToolTest {
         // perform the forklifting..
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
                                                                    dstBootStrapUrl,
+                                                                   false,
                                                                    10000,
                                                                    1,
                                                                    1000,
@@ -279,7 +281,7 @@ public class ClusterForkLiftToolTest {
                              dstGloballyResolvingStoreClient.get(firstKey).getValue(),
                              "before forklift");
             } else if(entry.getKey().equals(lastKey)) {
-                assertEquals("Online write overwritten",
+                assertEquals("can't update value after forklift",
                              dstGloballyResolvingStoreClient.get(lastKey).getValue(),
                              "after forklift");
             } else if(entry.getKey().equals(conflictKey)) {
@@ -290,6 +292,73 @@ public class ClusterForkLiftToolTest {
                 assertEquals("fork lift data missing",
                              dstGloballyResolvingStoreClient.get(entry.getKey()).getValue(),
                              entry.getValue());
+            }
+        }
+    }
+
+    @Test
+    public void testForkLiftOverWrite() throws Exception {
+
+        StoreRoutingPlan srcStoreInstance = new StoreRoutingPlan(srcCluster,
+                                                                 globallyResolvingStoreDef);
+
+        // populate data on the source cluster..
+        for(Map.Entry<String, String> entry: kvPairs.entrySet()) {
+            srcGloballyResolvingStoreClient.put(entry.getKey(), entry.getValue());
+        }
+
+        // generate a conflict on the primary and a secondary
+        List<Integer> nodeList = srcStoreInstance.getReplicationNodeList(srcStoreInstance.getMasterPartitionId(conflictKey.getBytes("UTF-8")));
+        VectorClock losingClock = new VectorClock(Lists.newArrayList(new ClockEntry((short) 0, 5)),
+                                                  System.currentTimeMillis());
+        VectorClock winningClock = new VectorClock(Lists.newArrayList(new ClockEntry((short) 1, 5)),
+                                                   losingClock.getTimestamp() + 1);
+        srcAdminClient.storeOps.putNodeKeyValue(GLOBALLY_RESOLVING_STORE_NAME,
+                                                new NodeValue<ByteArray, byte[]>(nodeList.get(0),
+                                                                                 new ByteArray(conflictKey.getBytes("UTF-8")),
+                                                                                 new Versioned<byte[]>("losing value".getBytes("UTF-8"),
+                                                                                                       losingClock)));
+        srcAdminClient.storeOps.putNodeKeyValue(GLOBALLY_RESOLVING_STORE_NAME,
+                                                new NodeValue<ByteArray, byte[]>(nodeList.get(1),
+                                                                                 new ByteArray(conflictKey.getBytes("UTF-8")),
+                                                                                 new Versioned<byte[]>("winning value".getBytes("UTF-8"),
+                                                                                                       winningClock)));
+
+        // *** do a write to destination cluster ***
+        // This is the main test , where after fork lift this value should be
+        // overwritten. This is the only difference.
+        dstGloballyResolvingStoreClient.put(firstKey, "before forklift");
+
+        // Make the current thread sleep , so when the new clock is generated
+        // using milliSeconds it is greater and must be overwritten.
+        Thread.sleep(2);
+
+        // perform the forklifting..
+        ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
+                                                                   dstBootStrapUrl,
+                                                                   true, // OverWrite
+                                                                   10000,
+                                                                   1,
+                                                                   1000,
+                                                                   Lists.newArrayList(GLOBALLY_RESOLVING_STORE_NAME),
+                                                                   null,
+                                                                   ClusterForkLiftTool.ForkLiftTaskMode.global_resolution);
+        forkLiftTool.run();
+
+        // do a write to destination cluster
+        dstGloballyResolvingStoreClient.put(lastKey, "after forklift");
+
+        // verify data on the destination is as expected
+        for(Map.Entry<String, String> entry: kvPairs.entrySet()) {
+            String dstClusterValue = dstGloballyResolvingStoreClient.get(entry.getKey()).getValue();
+            if(entry.getKey().equals(lastKey)) {
+                assertEquals("can't update value after forklift", dstClusterValue, "after forklift");
+            } else if(entry.getKey().equals(conflictKey)) {
+                assertEquals("Conflict resolution incorrect", dstClusterValue, "winning value");
+            } else {
+                if(!dstClusterValue.equals(entry.getValue())) {
+                    assertEquals("fork lift data missing", dstClusterValue, entry.getValue());
+                }
             }
         }
     }
@@ -320,6 +389,7 @@ public class ClusterForkLiftToolTest {
         // perform the forklifting..
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
                                                                    dstBootStrapUrl,
+                                                                   false,
                                                                    10000,
                                                                    1,
                                                                    1000,
