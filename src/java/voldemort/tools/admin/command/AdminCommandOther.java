@@ -23,7 +23,7 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.tools.admin.AdminParserUtils;
-import voldemort.tools.admin.AdminUtils;
+import voldemort.tools.admin.AdminToolUtils;
 
 /**
  * Implements all non-grouped admin commands.
@@ -40,7 +40,7 @@ public class AdminCommandOther extends AbstractAdminCommand {
      */
     public static void executeCommand(String[] args) throws Exception {
         String subCmd = (args.length > 0) ? args[0] : "";
-        args = AdminUtils.copyArrayCutFirst(args);
+        args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("native-backup")) {
             SubCommandNativeBackup.executeCommand(args);
         } else if(subCmd.equals("restore-from-replica")) {
@@ -192,12 +192,11 @@ public class AdminCommandOther extends AbstractAdminCommand {
             }
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "backup bdb data natively")) {
+            if(!AdminToolUtils.askConfirm(confirm, "backup bdb data natively")) {
                 return;
             }
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            AdminUtils.checkServerInNormalState(adminClient, adminClient.getAdminClientCluster()
-                                                                        .getNodeById(nodeId));
+
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
             adminClient.storeMntOps.nativeBackup(nodeId,
                                                  storeName,
@@ -307,12 +306,11 @@ public class AdminCommandOther extends AbstractAdminCommand {
             System.out.println("  parallelism is " + parallel);
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "restore node from replica")) {
+            if(!AdminToolUtils.askConfirm(confirm, "restore node from replica")) {
                 return;
             }
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            AdminUtils.checkServerInNormalState(adminClient, adminClient.getAdminClientCluster()
-                                                                        .getNodeById(nodeId));
+
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
             System.out.println("Starting restore");
             adminClient.restoreOps.restoreDataFromReplications(nodeId, parallel, zoneId);

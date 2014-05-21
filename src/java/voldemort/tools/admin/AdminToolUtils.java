@@ -20,9 +20,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -34,12 +33,9 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
-import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.quota.QuotaUtils;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.Utils;
-import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -48,7 +44,7 @@ import com.google.common.collect.Maps;
  * Utility class for AdminCommand
  * 
  */
-public class AdminUtils {
+public class AdminToolUtils {
 
     private static final String QUOTATYPE_ALL = "all";
 
@@ -160,45 +156,35 @@ public class AdminUtils {
     }
 
     /**
-     * Utility function that fetches nodes.
+     * Utility function that fetches node ids.
      * 
      * @param adminClient An instance of AdminClient points to given cluster
      * @param nodeIds List of node IDs parsed from command-line input
      * @param allNodes Tells if all nodes are selected
      * @return Collection of node objects selected by user
      */
-    public static Collection<Node> getNodes(AdminClient adminClient,
-                                            List<Integer> nodeIds,
-                                            Boolean allNodes) {
-        Collection<Node> nodes = null;
-        if(allNodes) {
-            nodes = adminClient.getAdminClientCluster().getNodes();
-        } else {
-            nodes = new ArrayList<Node>();
-            for(Integer nodeId: nodeIds) {
-                nodes.add(adminClient.getAdminClientCluster().getNodeById(nodeId));
-            }
+    public static List<Integer> getAllNodeIds(AdminClient adminClient) {
+        List<Integer> nodeIds = Lists.newArrayList();
+        for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+            nodeIds.add(node.getId());
         }
-        if(nodes.size() == 0) {
-            throw new VoldemortException("The cluster doesn't have any node.");
-        }
-        return nodes;
+        return nodeIds;
     }
 
     /**
      * Utility function that fetches stores on a node.
      * 
      * @param adminClient An instance of AdminClient points to given cluster
-     * @param node Node to fetch stores from
+     * @param nodeId Node id to fetch stores from
      * @param storeNames Stores read from command-line input
      * @param allStores Tells if all stores are selected
      * @return List of store names selected by user
      */
     public static List<String> getUserStoresOnNode(AdminClient adminClient,
-                                                   Node node,
+                                                   Integer nodeId,
                                                    List<String> storeNames,
                                                    Boolean allStores) {
-        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(node.getId())
+        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
                                                                                .getValue();
         if(allStores) {
             storeNames = Lists.newArrayList();
@@ -206,9 +192,15 @@ public class AdminUtils {
                 storeNames.add(storeDefinition.getName());
             }
         } else {
+            // the storeNameList is used to contain store name strings
+            Set<String> storeNameList = new HashSet<String>(storeDefinitionList.size());
+            for(StoreDefinition storeDefinition: storeDefinitionList) {
+                storeNameList.add(storeDefinition.getName());
+            }
             for(String storeName: storeNames) {
-                if(!storeDefinitionList.contains(storeName))
+                if(!storeNameList.contains(storeName)) {
                     Utils.croak("Store " + storeName + " does not exist!");
+                }
             }
         }
         return storeNames;
@@ -246,7 +238,7 @@ public class AdminUtils {
             throw new VoldemortException("Quota type not specified.");
         }
         Set<String> validQuotaTypes = QuotaUtils.validQuotaTypes();
-        if(quotaTypes.size() == 1 && quotaTypes.get(0).equals(AdminUtils.QUOTATYPE_ALL)) {
+        if(quotaTypes.size() == 1 && quotaTypes.get(0).equals(AdminToolUtils.QUOTATYPE_ALL)) {
             Iterator<String> iter = validQuotaTypes.iterator();
             quotaTypes = Lists.newArrayList();
             while(iter.hasNext()) {
@@ -298,72 +290,17 @@ public class AdminUtils {
      * Utility function that fetches user defined store definitions
      * 
      * @param adminClient An instance of AdminClient points to given cluster
-     * @param node Store definitions to fetch from
+     * @param nodeId Node id to fetch store definitions from
      * @return The map container that maps store names to store definitions
      */
-    public static Map<String, StoreDefinition> getUserStoreDefs(AdminClient adminClient, Node node) {
-        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(node.getId())
+    public static Map<String, StoreDefinition> getUserStoreDefs(AdminClient adminClient,
+                                                                Integer nodeId) {
+        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
                                                                                .getValue();
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for(StoreDefinition storeDefinition: storeDefinitionList) {
             storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
         }
         return storeDefinitionMap;
-    }
-
-    /**
-     * Utility function that checks the execution state of the server by
-     * checking the state of {@link VoldemortState} <br>
-     * 
-     * This function checks if all nodes of the cluster are in normal state (
-     * {@link VoldemortState#NORMAL_SERVER}).
-     * 
-     * @param adminClient An instance of AdminClient points to given cluster
-     * @throws VoldemortException if any node is not in normal state
-     */
-    public static void checkServerInNormalState(AdminClient adminClient) {
-        checkServerInNormalState(adminClient, adminClient.getAdminClientCluster().getNodes());
-    }
-
-    /**
-     * Utility function that checks the execution state of the server by
-     * checking the state of {@link VoldemortState} <br>
-     * 
-     * This function checks if a node is in normal state (
-     * {@link VoldemortState#NORMAL_SERVER}).
-     * 
-     * @param adminClient An instance of AdminClient points to given cluster
-     * @param node Node to be checked
-     * @throws VoldemortException if any node is not in normal state
-     */
-    public static void checkServerInNormalState(AdminClient adminClient, Node node) {
-        List<Node> nodes = Lists.newArrayList();
-        nodes.add(node);
-        checkServerInNormalState(adminClient, nodes);
-    }
-
-    /**
-     * Utility function that checks the execution state of the server by
-     * checking the state of {@link VoldemortState} <br>
-     * 
-     * This function checks if the nodes are in normal state (
-     * {@link VoldemortState#NORMAL_SERVER}).
-     * 
-     * @param adminClient An instance of AdminClient points to given cluster
-     * @param nodes List of nodes to be checked
-     * @throws VoldemortException if any node is not in normal state
-     */
-    public static void checkServerInNormalState(AdminClient adminClient, Collection<Node> nodes) {
-        for(Node node: nodes) {
-            Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(node.getId(),
-                                                                                        MetadataStore.SERVER_STATE_KEY);
-            VoldemortState state = VoldemortState.valueOf(versioned.getValue());
-            if(!state.equals(VoldemortState.NORMAL_SERVER)) {
-                throw new VoldemortException("Cannot execute admin operation: " + node.getId()
-                                             + " (" + node.getHost()
-                                             + ") is not in normal state, but in "
-                                             + versioned.getValue());
-            }
-        }
     }
 }

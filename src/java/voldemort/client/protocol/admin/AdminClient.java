@@ -18,6 +18,7 @@ package voldemort.client.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -454,6 +455,57 @@ public class AdminClient {
                 return false;
             }
         }
+
+        /**
+         * Utility function that checks the execution state of the server by
+         * checking the state of {@link VoldemortState} <br>
+         * 
+         * This function checks if a node is in normal state (
+         * {@link VoldemortState#NORMAL_SERVER}).
+         * 
+         * @param node Node to be checked
+         * @throws VoldemortException if any node is not in normal state
+         */
+        public void assertServerInNormalState(Integer nodeId) {
+            List<Integer> nodeIds = Lists.newArrayList(new Integer[] { nodeId });
+            assertServerInNormalState(nodeIds);
+        }
+
+        /**
+         * Utility function that checks the execution state of the server by
+         * checking the state of {@link VoldemortState} <br>
+         * 
+         * This function checks if the nodes are in normal state (
+         * {@link VoldemortState#NORMAL_SERVER}).
+         * 
+         * @param nodes List of nodes to be checked
+         * @throws VoldemortException if any node is not in normal state
+         */
+        @SuppressWarnings("unused")
+        public void assertServerInNormalState(Collection<Integer> nodeIds) {
+            if(true) {
+                return;
+            }
+            for(Integer nodeId: nodeIds) {
+                Node node = getAdminClientCluster().getNodeById(nodeId);
+                Versioned<String> versioned = null;
+
+                try {
+                    versioned = metadataMgmtOps.getRemoteMetadata(node.getId(),
+                                                                  MetadataStore.SERVER_STATE_KEY);
+                } catch(Exception e) {
+                    throw new VoldemortException("Failed to get server status from "
+                                                 + node.getHost() + ":" + node.getId());
+                }
+
+                VoldemortState state = VoldemortState.valueOf(versioned.getValue());
+                if(!state.equals(VoldemortState.NORMAL_SERVER)) {
+                    throw new VoldemortException(node.getHost() + ":" + node.getId()
+                                                 + " is not in normal state, but in "
+                                                 + versioned.getValue());
+                }
+            }
+        }
     }
 
     public class ReplicationOperations {
@@ -603,6 +655,9 @@ public class AdminClient {
                 outputStream.flush();
 
                 return ProtoUtils.readToBuilder(inputStream, builder);
+            } catch(EOFException e) {
+                helperOps.close(sands.getSocket());
+                throw new VoldemortException("Socket is stale.");
             } catch(IOException e) {
                 helperOps.close(sands.getSocket());
                 throw new VoldemortException(e);
@@ -688,6 +743,7 @@ public class AdminClient {
          * @param requestId The id of the request to terminate
          */
         public void stopAsyncRequest(int nodeId, int requestId) {
+            helperOps.assertServerInNormalState(nodeId);
             VAdminProto.AsyncOperationStopRequest asyncOperationStopRequest = VAdminProto.AsyncOperationStopRequest.newBuilder()
                                                                                                                    .setRequestId(requestId)
                                                                                                                    .build();
@@ -901,6 +957,7 @@ public class AdminClient {
          *        incremented
          */
         public void updateMetadataversion(Collection<String> versionKeys) {
+            helperOps.assertServerInNormalState(currentCluster.getNodeIds());
             Properties props = MetadataVersionStoreUtils.getProperties(AdminClient.this.metadataVersionSysStoreClient);
             for(String versionKey: versionKeys) {
                 long newValue = 0;
@@ -926,6 +983,7 @@ public class AdminClient {
          *        the nodes in the cluster
          */
         public void setMetadataversion(Properties newProperties) {
+            helperOps.assertServerInNormalState(currentCluster.getNodeIds());
             MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
                                                     newProperties);
         }
@@ -946,29 +1004,14 @@ public class AdminClient {
          * @param key Metadata key to update
          * @param value Value for the metadata key
          */
-
-        public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value) {
-            ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
-            Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
-                                                                                    "UTF-8"),
-                                                                 value.getVersion());
-
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.UPDATE_METADATA)
-                                                                                         .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
-                                                                                                                                             .setKey(ByteString.copyFrom(keyBytes.get()))
-                                                                                                                                             .setVersioned(ProtoUtils.encodeVersioned(valueBytes))
-                                                                                                                                             .build())
-                                                                                         .build();
-            VAdminProto.UpdateMetadataResponse.Builder response = rpcOps.sendAndReceive(remoteNodeId,
-                                                                                        request,
-                                                                                        VAdminProto.UpdateMetadataResponse.newBuilder());
-            if(response.hasError())
-                helperOps.throwException(response.getError());
+        public void updateRemoteMetadata(Integer remoteNodeId, String key, Versioned<String> value) {
+            updateRemoteMetadata(Lists.newArrayList(new Integer[] { remoteNodeId }), key, value);
         }
 
         /**
-         * Wrapper for updateRemoteMetadata function used against a single Node
+         * Update metadata at the give remote nodes
+         * <p>
+         * 
          * It basically loops over the entire list of Nodes that we need to
          * execute the required operation against. It also increments the
          * version of the corresponding metadata in the system store.
@@ -987,7 +1030,7 @@ public class AdminClient {
          * @param value Value for the metadata key
          * 
          * */
-        public void updateRemoteMetadata(List<Integer> remoteNodeIds,
+        public void updateRemoteMetadata(Collection<Integer> remoteNodeIds,
                                          String key,
                                          Versioned<String> value) {
 
@@ -998,11 +1041,29 @@ public class AdminClient {
             if(key.equals(CLUSTER_VERSION_KEY) || key.equals(STORES_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(key);
             }
+            helperOps.assertServerInNormalState(remoteNodeIds);
             for(Integer currentNodeId: remoteNodeIds) {
                 logger.info("Setting " + key + " for "
                             + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
                             + getAdminClientCluster().getNodeById(currentNodeId).getId());
-                updateRemoteMetadata(currentNodeId, key, value);
+                ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
+                Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
+                                                                                        "UTF-8"),
+                                                                     value.getVersion());
+
+                VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                             .setType(VAdminProto.AdminRequestType.UPDATE_METADATA)
+                                                                                             .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
+                                                                                                                                                 .setKey(ByteString.copyFrom(keyBytes.get()))
+                                                                                                                                                 .setVersioned(ProtoUtils.encodeVersioned(valueBytes))
+                                                                                                                                                 .build())
+                                                                                             .build();
+                VAdminProto.UpdateMetadataResponse.Builder response = rpcOps.sendAndReceive(currentNodeId,
+                                                                                            request,
+                                                                                            VAdminProto.UpdateMetadataResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
             }
         }
 
@@ -1016,40 +1077,22 @@ public class AdminClient {
          * @param storesValue value of the stores metadata key
          * 
          */
-        public void updateRemoteMetadataPair(int remoteNodeId,
+        public void updateRemoteMetadataPair(Integer remoteNodeId,
                                              String clusterKey,
                                              Versioned<String> clusterValue,
                                              String storesKey,
                                              Versioned<String> storesValue) {
-            ByteArray clusterKeyBytes = new ByteArray(ByteUtils.getBytes(clusterKey, "UTF-8"));
-            Versioned<byte[]> clusterValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(clusterValue.getValue(),
-                                                                                           "UTF-8"),
-                                                                        clusterValue.getVersion());
-
-            ByteArray storesKeyBytes = new ByteArray(ByteUtils.getBytes(storesKey, "UTF-8"));
-            Versioned<byte[]> storesValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(storesValue.getValue(),
-                                                                                          "UTF-8"),
-                                                                       storesValue.getVersion());
-
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.UPDATE_METADATA_PAIR)
-                                                                                         .setUpdateMetadataPair(VAdminProto.UpdateMetadataPairRequest.newBuilder()
-                                                                                                                                                     .setClusterKey(ByteString.copyFrom(clusterKeyBytes.get()))
-                                                                                                                                                     .setClusterValue(ProtoUtils.encodeVersioned(clusterValueBytes))
-                                                                                                                                                     .setStoresKey(ByteString.copyFrom(storesKeyBytes.get()))
-                                                                                                                                                     .setStoresValue((ProtoUtils.encodeVersioned(storesValueBytes)))
-                                                                                                                                                     .build())
-                                                                                         .build();
-            VAdminProto.UpdateMetadataPairResponse.Builder response = rpcOps.sendAndReceive(remoteNodeId,
-                                                                                            request,
-                                                                                            VAdminProto.UpdateMetadataPairResponse.newBuilder());
-            if(response.hasError())
-                helperOps.throwException(response.getError());
+            updateRemoteMetadataPair(Lists.newArrayList(new Integer[] { remoteNodeId }),
+                                     clusterKey,
+                                     clusterValue,
+                                     storesKey,
+                                     storesValue);
         }
 
         /**
-         * Wrapper for updateRemoteMetadataPair function used against a single
-         * Node It basically loops over the entire list of Nodes that we need to
+         * Update metadata pair <cluster,stores> at the given remoteNodeId.
+         * 
+         * It basically loops over the entire list of Nodes that we need to
          * execute the required operation against. It also increments the
          * version of the corresponding metadata in the system store.
          * 
@@ -1060,7 +1103,7 @@ public class AdminClient {
          * @param storesValue value of the stores metadata key
          * 
          * */
-        public void updateRemoteMetadataPair(List<Integer> remoteNodeIds,
+        public void updateRemoteMetadataPair(Collection<Integer> remoteNodeIds,
                                              String clusterKey,
                                              Versioned<String> clusterValue,
                                              String storesKey,
@@ -1088,15 +1131,36 @@ public class AdminClient {
                     }
                 }
             }
+            helperOps.assertServerInNormalState(remoteNodeIds);
             for(Integer currentNodeId: remoteNodeIds) {
                 logger.info("Setting " + clusterKey + " and " + storesKey + " for "
                             + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
                             + getAdminClientCluster().getNodeById(currentNodeId).getId());
-                updateRemoteMetadataPair(currentNodeId,
-                                         clusterKey,
-                                         clusterValue,
-                                         storesKey,
-                                         storesValue);
+                ByteArray clusterKeyBytes = new ByteArray(ByteUtils.getBytes(clusterKey, "UTF-8"));
+                Versioned<byte[]> clusterValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(clusterValue.getValue(),
+                                                                                               "UTF-8"),
+                                                                            clusterValue.getVersion());
+
+                ByteArray storesKeyBytes = new ByteArray(ByteUtils.getBytes(storesKey, "UTF-8"));
+                Versioned<byte[]> storesValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(storesValue.getValue(),
+                                                                                              "UTF-8"),
+                                                                           storesValue.getVersion());
+
+                VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                             .setType(VAdminProto.AdminRequestType.UPDATE_METADATA_PAIR)
+                                                                                             .setUpdateMetadataPair(VAdminProto.UpdateMetadataPairRequest.newBuilder()
+                                                                                                                                                         .setClusterKey(ByteString.copyFrom(clusterKeyBytes.get()))
+                                                                                                                                                         .setClusterValue(ProtoUtils.encodeVersioned(clusterValueBytes))
+                                                                                                                                                         .setStoresKey(ByteString.copyFrom(storesKeyBytes.get()))
+                                                                                                                                                         .setStoresValue((ProtoUtils.encodeVersioned(storesValueBytes)))
+                                                                                                                                                         .build())
+                                                                                             .build();
+                VAdminProto.UpdateMetadataPairResponse.Builder response = rpcOps.sendAndReceive(currentNodeId,
+                                                                                                request,
+                                                                                                VAdminProto.UpdateMetadataPairResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
             }
         }
 
@@ -1108,42 +1172,9 @@ public class AdminClient {
          *        updated
          * @param updatedStores New version of the stores to be updated
          */
-        public synchronized void fetchAndUpdateRemoteStore(int nodeId,
+        public synchronized void fetchAndUpdateRemoteStore(Integer nodeId,
                                                            List<StoreDefinition> updatedStores) {
-            Map<String, StoreDefinition> updatedStoresMap = new HashMap<String, StoreDefinition>();
-
-            // Fetch the original store definition list
-            Versioned<List<StoreDefinition>> originalStoreDefinitions = getRemoteStoreDefList(nodeId);
-            if(originalStoreDefinitions == null) {
-                throw new VoldemortException("No stores found at this node ID : " + nodeId);
-            }
-
-            List<StoreDefinition> originalstoreDefList = originalStoreDefinitions.getValue();
-            List<StoreDefinition> finalStoreDefList = new ArrayList<StoreDefinition>();
-            VectorClock oldClock = (VectorClock) originalStoreDefinitions.getVersion();
-
-            // Build a map of store name to the new store definitions
-            for(StoreDefinition def: updatedStores) {
-                updatedStoresMap.put(def.getName(), def);
-            }
-
-            // Iterate through the original store definitions. Replace the old
-            // ones with the ones specified in 'updatedStores'
-            for(StoreDefinition def: originalstoreDefList) {
-                StoreDefinition updatedDef = updatedStoresMap.get(def.getName());
-                if(updatedDef == null) {
-                    finalStoreDefList.add(def);
-                } else {
-                    finalStoreDefList.add(updatedDef);
-                }
-            }
-
-            // Set the new store definition on the given nodeId
-            updateRemoteMetadata(nodeId,
-                                 MetadataStore.STORES_KEY,
-                                 new Versioned<String>(storeMapper.writeStoreList(finalStoreDefList),
-                                                       oldClock.incremented(nodeId, 1)));
-
+            fetchAndUpdateRemoteStores(Lists.newArrayList(new Integer[] { nodeId }), updatedStores);
         }
 
         /**
@@ -1154,8 +1185,56 @@ public class AdminClient {
          * @param updatedStores New version of the stores to be updated
          */
         public synchronized void fetchAndUpdateRemoteStores(List<StoreDefinition> updatedStores) {
-            for(Integer nodeId: currentCluster.getNodeIds()) {
-                fetchAndUpdateRemoteStore(nodeId, updatedStores);
+            fetchAndUpdateRemoteStores(currentCluster.getNodeIds(), updatedStores);
+        }
+
+        /**
+         * Helper method to fetch the current stores xml list and update the
+         * specified stores. This is done for all the nodes in the current
+         * cluster.
+         * 
+         * @param nodeIds List of the node Ids for which the stores list has to
+         *        be updated
+         * @param updatedStores New version of the stores to be updated
+         */
+        public synchronized void fetchAndUpdateRemoteStores(Collection<Integer> nodeIds,
+                                                            List<StoreDefinition> updatedStores) {
+            helperOps.assertServerInNormalState(nodeIds);
+            for(Integer nodeId: nodeIds) {
+                Map<String, StoreDefinition> updatedStoresMap = new HashMap<String, StoreDefinition>();
+
+                // Fetch the original store definition list
+                Versioned<List<StoreDefinition>> originalStoreDefinitions = getRemoteStoreDefList(nodeId);
+                if(originalStoreDefinitions == null) {
+                    throw new VoldemortException("No stores found at this node ID : " + nodeId);
+                }
+
+                List<StoreDefinition> originalstoreDefList = originalStoreDefinitions.getValue();
+                List<StoreDefinition> finalStoreDefList = new ArrayList<StoreDefinition>();
+                VectorClock oldClock = (VectorClock) originalStoreDefinitions.getVersion();
+
+                // Build a map of store name to the new store definitions
+                for(StoreDefinition def: updatedStores) {
+                    updatedStoresMap.put(def.getName(), def);
+                }
+
+                // Iterate through the original store definitions. Replace the
+                // old
+                // ones with the ones specified in 'updatedStores'
+                for(StoreDefinition def: originalstoreDefList) {
+                    StoreDefinition updatedDef = updatedStoresMap.get(def.getName());
+                    if(updatedDef == null) {
+                        finalStoreDefList.add(def);
+                    } else {
+                        finalStoreDefList.add(updatedDef);
+                    }
+                }
+
+                // Set the new store definition on the given nodeId
+                updateRemoteMetadata(nodeId,
+                                     MetadataStore.STORES_KEY,
+                                     new Versioned<String>(storeMapper.writeStoreList(finalStoreDefList),
+                                                           oldClock.incremented(nodeId, 1)));
             }
         }
 
@@ -1175,7 +1254,7 @@ public class AdminClient {
          * @return Metadata with its associated
          *         {@link voldemort.versioning.Version}
          */
-        public Versioned<String> getRemoteMetadata(int remoteNodeId, String key) {
+        public Versioned<String> getRemoteMetadata(Integer remoteNodeId, String key) {
             ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
             VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                          .setType(VAdminProto.AdminRequestType.GET_METADATA)
@@ -1186,8 +1265,9 @@ public class AdminClient {
                                                                                      request,
                                                                                      VAdminProto.GetMetadataResponse.newBuilder());
 
-            if(response.hasError())
+            if(response.hasError()) {
                 helperOps.throwException(response.getError());
+            }
 
             Versioned<byte[]> value = ProtoUtils.decodeVersioned(response.getVersion());
             return new Versioned<String>(ByteUtils.getString(value.getValue(), "UTF-8"),
@@ -1203,7 +1283,7 @@ public class AdminClient {
          * @param cluster The new cluster object
          * @throws VoldemortException
          */
-        public void updateRemoteCluster(int nodeId, Cluster cluster, Version clock)
+        public void updateRemoteCluster(Integer nodeId, Cluster cluster, Version clock)
                 throws VoldemortException {
             updateRemoteMetadata(nodeId,
                                  MetadataStore.CLUSTER_KEY,
@@ -1219,11 +1299,23 @@ public class AdminClient {
          *         {@link voldemort.versioning.Version}
          * @throws VoldemortException
          */
-        public Versioned<Cluster> getRemoteCluster(int nodeId) throws VoldemortException {
+        public Versioned<Cluster> getRemoteCluster(Integer nodeId) throws VoldemortException {
             Versioned<String> value = metadataMgmtOps.getRemoteMetadata(nodeId,
                                                                         MetadataStore.CLUSTER_KEY);
             Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()), false);
             return new Versioned<Cluster>(cluster, value.getVersion());
+        }
+
+        /**
+         * Update the store definitions on all remote nodes in the cluster.
+         * <p>
+         * 
+         * @param storesList The new store list
+         * @throws VoldemortException
+         */
+        public void updateRemoteStoreDefList(List<StoreDefinition> storesList)
+                throws VoldemortException {
+            updateRemoteStoreDefList(currentCluster.getNodeIds(), storesList);
         }
 
         /**
@@ -1234,47 +1326,54 @@ public class AdminClient {
          * @param storesList The new store list
          * @throws VoldemortException
          */
-        public void updateRemoteStoreDefList(int nodeId, List<StoreDefinition> storesList)
+        public void updateRemoteStoreDefList(Integer nodeId, List<StoreDefinition> storesList)
                 throws VoldemortException {
-            // get current version.
-            VectorClock oldClock = (VectorClock) metadataMgmtOps.getRemoteStoreDefList(nodeId)
-                                                                .getVersion();
-
-            Versioned<String> value = new Versioned<String>(storeMapper.writeStoreList(storesList),
-                                                            oldClock.incremented(nodeId, 1));
-
-            ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(MetadataStore.STORES_KEY, "UTF-8"));
-            Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
-                                                                                    "UTF-8"),
-                                                                 value.getVersion());
-
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.UPDATE_STORE_DEFINITIONS)
-                                                                                         .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
-                                                                                                                                             .setKey(ByteString.copyFrom(keyBytes.get()))
-                                                                                                                                             .setVersioned(ProtoUtils.encodeVersioned(valueBytes))
-                                                                                                                                             .build())
-                                                                                         .build();
-            VAdminProto.UpdateMetadataResponse.Builder response = rpcOps.sendAndReceive(nodeId,
-                                                                                        request,
-                                                                                        VAdminProto.UpdateMetadataResponse.newBuilder());
-            if(response.hasError())
-                helperOps.throwException(response.getError());
+            List<Integer> nodeIds = Lists.newArrayList(new Integer[] { nodeId });
+            updateRemoteStoreDefList(nodeIds, storesList);
         }
 
         /**
-         * Wrapper for updateRemoteStoreDefList : update this for all the nodes
+         * Update the store definitions on remote nodes.
          * <p>
          * 
+         * @param nodeIds The list of nodes to be updated
          * @param storesList The new store list
          * @throws VoldemortException
          */
-        public void updateRemoteStoreDefList(List<StoreDefinition> storesList)
+        public void updateRemoteStoreDefList(Collection<Integer> nodeIds,
+                                             List<StoreDefinition> storesList)
                 throws VoldemortException {
-            for(Node node: currentCluster.getNodes()) {
-                logger.info("Updating stores.xml for " + node.getHost() + ":" + node.getId());
+            helperOps.assertServerInNormalState(nodeIds);
+            for(Integer nodeId: nodeIds) {
+                logger.info("Updating stores.xml for "
+                            + currentCluster.getNodeById(nodeId).getHost() + ":" + nodeId);
 
-                updateRemoteStoreDefList(node.getId(), storesList);
+                // get current version.
+                VectorClock oldClock = (VectorClock) metadataMgmtOps.getRemoteStoreDefList(nodeId)
+                                                                    .getVersion();
+
+                Versioned<String> value = new Versioned<String>(storeMapper.writeStoreList(storesList),
+                                                                oldClock.incremented(nodeId, 1));
+
+                ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(MetadataStore.STORES_KEY,
+                                                                      "UTF-8"));
+                Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
+                                                                                        "UTF-8"),
+                                                                     value.getVersion());
+
+                VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                             .setType(VAdminProto.AdminRequestType.UPDATE_STORE_DEFINITIONS)
+                                                                                             .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
+                                                                                                                                                 .setKey(ByteString.copyFrom(keyBytes.get()))
+                                                                                                                                                 .setVersioned(ProtoUtils.encodeVersioned(valueBytes))
+                                                                                                                                                 .build())
+                                                                                             .build();
+                VAdminProto.UpdateMetadataResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                            request,
+                                                                                            VAdminProto.UpdateMetadataResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
             }
         }
 
@@ -1311,9 +1410,7 @@ public class AdminClient {
          * @param def the definition of the store to add
          */
         public void addStore(StoreDefinition def) {
-            for(Node node: currentCluster.getNodes()) {
-                addStore(def, node.getId());
-            }
+            addStore(def, currentCluster.getNodeIds());
         }
 
         /**
@@ -1323,29 +1420,44 @@ public class AdminClient {
          * @param def the definition of the store to add
          * @param nodeId Node on which to add the store
          */
-        public void addStore(StoreDefinition def, int nodeId) {
-            String value = storeMapper.writeStore(def);
+        public void addStore(StoreDefinition def, Integer nodeId) {
+            addStore(def, Lists.newArrayList(new Integer[] { nodeId }));
+        }
 
-            VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
-                                                                                             .setStoreDefinition(value);
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.ADD_STORE)
-                                                                                         .setAddStore(addStoreRequest)
-                                                                                         .build();
+        /**
+         * Add a new store definition to a list of nodes
+         * <p>
+         * 
+         * @param def the definition of the store to add
+         * @param nodeIds Nodes on which to add the store
+         */
+        public void addStore(StoreDefinition def, Collection<Integer> nodeIds) {
+            helperOps.assertServerInNormalState(nodeIds);
+            for(Integer nodeId: nodeIds) {
+                String value = storeMapper.writeStore(def);
 
-            Node node = currentCluster.getNodeById(nodeId);
-            if(null == node)
-                throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
+                VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
+                                                                                                 .setStoreDefinition(value);
+                VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                             .setType(VAdminProto.AdminRequestType.ADD_STORE)
+                                                                                             .setAddStore(addStoreRequest)
+                                                                                             .build();
 
-            logger.info("Adding store " + def.getName() + " on node " + node.getHost() + ":"
-                        + node.getId());
-            VAdminProto.AddStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
-                                                                                  request,
-                                                                                  VAdminProto.AddStoreResponse.newBuilder());
-            if(response.hasError())
-                helperOps.throwException(response.getError());
-            logger.info("Succesfully added " + def.getName() + " on node " + node.getHost() + ":"
-                        + node.getId());
+                Node node = currentCluster.getNodeById(nodeId);
+                if(null == node)
+                    throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
+
+                logger.info("Adding store " + def.getName() + " on node " + node.getHost() + ":"
+                            + node.getId());
+                VAdminProto.AddStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                      request,
+                                                                                      VAdminProto.AddStoreResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
+                logger.info("Succesfully added " + def.getName() + " on node " + node.getHost()
+                            + ":" + node.getId());
+            }
         }
 
         /**
@@ -1355,9 +1467,7 @@ public class AdminClient {
          * @param storeName name of the store to delete
          */
         public void deleteStore(String storeName) {
-            for(Node node: currentCluster.getNodes()) {
-                deleteStore(storeName, node.getId());
-            }
+            deleteStore(storeName, currentCluster.getNodeIds());
         }
 
         /**
@@ -1367,25 +1477,41 @@ public class AdminClient {
          * @param storeName name of the store to delete
          * @param nodeId Node on which we want to delete a store
          */
-        public void deleteStore(String storeName, int nodeId) {
-            VAdminProto.DeleteStoreRequest.Builder deleteStoreRequest = VAdminProto.DeleteStoreRequest.newBuilder()
-                                                                                                      .setStoreName(storeName);
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.DELETE_STORE)
-                                                                                         .setDeleteStore(deleteStoreRequest)
-                                                                                         .build();
-            Node node = currentCluster.getNodeById(nodeId);
-            if(null == node)
-                throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
+        public void deleteStore(String storeName, Integer nodeId) {
+            deleteStore(storeName, Lists.newArrayList(new Integer[] { nodeId }));
+        }
 
-            logger.info("Deleting " + storeName + " on node " + node.getHost() + ":" + node.getId());
-            VAdminProto.DeleteStoreResponse.Builder response = rpcOps.sendAndReceive(node.getId(),
-                                                                                     request,
-                                                                                     VAdminProto.DeleteStoreResponse.newBuilder());
-            if(response.hasError())
-                helperOps.throwException(response.getError());
-            logger.info("Successfully deleted " + storeName + " on node " + node.getHost() + ":"
-                        + node.getId());
+        /**
+         * Delete a store from a list of nodes
+         * <p>
+         * 
+         * @param storeName name of the store to delete
+         * @param nodeIds Nodes on which we want to delete a store
+         */
+        public void deleteStore(String storeName, Collection<Integer> nodeIds) {
+            helperOps.assertServerInNormalState(nodeIds);
+            for(Integer nodeId: nodeIds) {
+                VAdminProto.DeleteStoreRequest.Builder deleteStoreRequest = VAdminProto.DeleteStoreRequest.newBuilder()
+                                                                                                          .setStoreName(storeName);
+                VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                             .setType(VAdminProto.AdminRequestType.DELETE_STORE)
+                                                                                             .setDeleteStore(deleteStoreRequest)
+                                                                                             .build();
+                Node node = currentCluster.getNodeById(nodeId);
+                if(null == node)
+                    throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
+
+                logger.info("Deleting " + storeName + " on node " + node.getHost() + ":"
+                            + node.getId());
+                VAdminProto.DeleteStoreResponse.Builder response = rpcOps.sendAndReceive(node.getId(),
+                                                                                         request,
+                                                                                         VAdminProto.DeleteStoreResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
+                logger.info("Successfully deleted " + storeName + " on node " + node.getHost()
+                            + ":" + node.getId());
+            }
         }
     }
 
@@ -1418,8 +1544,8 @@ public class AdminClient {
          *         {@link voldemort.server.protocol.admin.AsyncOperation}
          *         created on stealerNodeId which is performing the operation.
          */
-        public int migratePartitions(int donorNodeId,
-                                     int stealerNodeId,
+        public int migratePartitions(Integer donorNodeId,
+                                     Integer stealerNodeId,
                                      String storeName,
                                      List<Integer> stealPartitionList,
                                      VoldemortFilter filter) {
@@ -1455,8 +1581,8 @@ public class AdminClient {
          *         {@link voldemort.server.protocol.admin.AsyncOperation}
          *         created on stealer node which is performing the operation.
          */
-        public int migratePartitions(int donorNodeId,
-                                     int stealerNodeId,
+        public int migratePartitions(Integer donorNodeId,
+                                     Integer stealerNodeId,
                                      String storeName,
                                      List<Integer> partitionIds,
                                      VoldemortFilter filter,
@@ -1501,20 +1627,35 @@ public class AdminClient {
          * @param nodeId The node id on which the store is present
          * @param storeName The name of the store
          */
-        public void truncate(int nodeId, String storeName) {
-            VAdminProto.TruncateEntriesRequest.Builder truncateRequest = VAdminProto.TruncateEntriesRequest.newBuilder()
-                                                                                                           .setStore(storeName);
+        public void truncate(Integer nodeId, String storeName) {
+            truncate(Lists.newArrayList(new Integer[] { nodeId }), storeName);
+        }
 
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.TRUNCATE_ENTRIES)
-                                                                                         .setTruncateEntries(truncateRequest)
-                                                                                         .build();
-            VAdminProto.TruncateEntriesResponse.Builder response = rpcOps.sendAndReceive(nodeId,
-                                                                                         request,
-                                                                                         VAdminProto.TruncateEntriesResponse.newBuilder());
+        /**
+         * Delete the store completely (<b>Deletes all data</b>) from the remote
+         * node.
+         * <p>
+         * 
+         * @param nodeIds The node ids on which the store is present
+         * @param storeName The name of the store
+         */
+        public void truncate(Collection<Integer> nodeIds, String storeName) {
+            helperOps.assertServerInNormalState(nodeIds);
+            for(Integer nodeId: nodeIds) {
+                VAdminProto.TruncateEntriesRequest.Builder truncateRequest = VAdminProto.TruncateEntriesRequest.newBuilder()
+                                                                                                               .setStore(storeName);
 
-            if(response.hasError()) {
-                helperOps.throwException(response.getError());
+                VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                             .setType(VAdminProto.AdminRequestType.TRUNCATE_ENTRIES)
+                                                                                             .setTruncateEntries(truncateRequest)
+                                                                                             .build();
+                VAdminProto.TruncateEntriesResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                             request,
+                                                                                             VAdminProto.TruncateEntriesResponse.newBuilder());
+
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
             }
         }
 
@@ -1528,7 +1669,7 @@ public class AdminClient {
          *        which should not be deleted.
          * @return Number of entries deleted
          */
-        public long deletePartitions(int nodeId,
+        public long deletePartitions(Integer nodeId,
                                      String storeName,
                                      List<Integer> partitionList,
                                      VoldemortFilter filter) {
@@ -1546,11 +1687,12 @@ public class AdminClient {
          *        which should not be deleted.
          * @return Number of entries deleted
          */
-        public long deletePartitions(int nodeId,
+        public long deletePartitions(Integer nodeId,
                                      String storeName,
                                      List<Integer> partitionIds,
                                      Cluster initialCluster,
                                      VoldemortFilter filter) {
+            helperOps.assertServerInNormalState(nodeId);
             VAdminProto.DeletePartitionEntriesRequest.Builder deleteRequest = VAdminProto.DeletePartitionEntriesRequest.newBuilder()
                                                                                                                        .addAllPartitionIds(partitionIds)
                                                                                                                        .setStore(storeName);
@@ -1586,7 +1728,8 @@ public class AdminClient {
          * 
          * @param nodeId The id of the node on which to do the repair
          */
-        public void repairJob(int nodeId) {
+        public void repairJob(Integer nodeId) {
+            helperOps.assertServerInNormalState(nodeId);
             VAdminProto.RepairJobRequest.Builder repairJobRequest = VAdminProto.RepairJobRequest.newBuilder();
 
             VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
@@ -1618,33 +1761,8 @@ public class AdminClient {
          * @param nodeId server on which to prune
          * @param store store to prune
          */
-        public void pruneJob(int nodeId, String store) {
-            logger.info("Kicking off prune job on Node " + nodeId + " for store " + store);
-            VAdminProto.PruneJobRequest.Builder jobRequest = VAdminProto.PruneJobRequest.newBuilder()
-                                                                                        .setStoreName(store);
-
-            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                              .setPruneJob(jobRequest)
-                                                                                              .setType(VAdminProto.AdminRequestType.PRUNE_JOB)
-                                                                                              .build();
-            // TODO probably need a helper to do all this, at some point.. all
-            // of this file has repeated code
-            Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
-            SocketDestination destination = new SocketDestination(node.getHost(),
-                                                                  node.getAdminPort(),
-                                                                  RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            SocketAndStreams sands = socketPool.checkout(destination);
-
-            try {
-                DataOutputStream outputStream = sands.getOutputStream();
-                ProtoUtils.writeMessage(outputStream, adminRequest);
-                outputStream.flush();
-            } catch(IOException e) {
-                helperOps.close(sands.getSocket());
-                throw new VoldemortException(e);
-            } finally {
-                socketPool.checkin(destination, sands);
-            }
+        public void pruneJob(Integer nodeId, String store) {
+            pruneJob(nodeId, Lists.newArrayList(new String[] { store }));
         }
 
         /**
@@ -1654,41 +1772,81 @@ public class AdminClient {
          * @param nodeId The id of the node on which to do the pruning
          * @param stores the list of stores to prune
          */
-        public void pruneJob(int nodeId, List<String> stores) {
+        public void pruneJob(Integer nodeId, List<String> stores) {
+            helperOps.assertServerInNormalState(nodeId);
             for(String store: stores) {
-                pruneJob(nodeId, store);
+                logger.info("Kicking off prune job on Node " + nodeId + " for store " + store);
+                VAdminProto.PruneJobRequest.Builder jobRequest = VAdminProto.PruneJobRequest.newBuilder()
+                                                                                            .setStoreName(store);
+
+                VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                                  .setPruneJob(jobRequest)
+                                                                                                  .setType(VAdminProto.AdminRequestType.PRUNE_JOB)
+                                                                                                  .build();
+                // TODO probably need a helper to do all this, at some point..
+                // all
+                // of this file has repeated code
+                Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
+                SocketDestination destination = new SocketDestination(node.getHost(),
+                                                                      node.getAdminPort(),
+                                                                      RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+                SocketAndStreams sands = socketPool.checkout(destination);
+
+                try {
+                    DataOutputStream outputStream = sands.getOutputStream();
+                    ProtoUtils.writeMessage(outputStream, adminRequest);
+                    outputStream.flush();
+                } catch(IOException e) {
+                    helperOps.close(sands.getSocket());
+                    throw new VoldemortException(e);
+                } finally {
+                    socketPool.checkin(destination, sands);
+                }
             }
         }
 
-        public void slopPurgeJob(int destinationNodeId,
+        public void slopPurgeJob(Integer destinationNodeId,
                                  List<Integer> nodeList,
-                                 int zoneId,
+                                 Integer zoneId,
                                  List<String> storeNames) {
-            VAdminProto.SlopPurgeJobRequest.Builder jobRequest = VAdminProto.SlopPurgeJobRequest.newBuilder();
-            if(nodeList != null) {
-                jobRequest.addAllFilterNodeIds(nodeList);
-            }
-            if(zoneId != Zone.UNSET_ZONE_ID) {
-                jobRequest.setFilterZoneId(zoneId);
-            }
-            if(storeNames != null) {
-                jobRequest.addAllFilterStoreNames(storeNames);
-            }
-
-            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                              .setSlopPurgeJob(jobRequest)
-                                                                                              .setType(VAdminProto.AdminRequestType.SLOP_PURGE_JOB)
-                                                                                              .build();
-            helperOps.sendAdminRequest(adminRequest, destinationNodeId);
+            slopPurgeJob(Lists.newArrayList(new Integer[] { destinationNodeId }),
+                         nodeList,
+                         zoneId,
+                         storeNames);
         }
 
         public void slopPurgeJob(List<Integer> nodesToPurge,
                                  int zoneToPurge,
                                  List<String> storesToPurge) {
             // Run this on all the nodes in the cluster
-            for(Node node: currentCluster.getNodes()) {
-                logger.info("Submitting SlopPurgeJob on node " + node.getId());
-                slopPurgeJob(node.getId(), nodesToPurge, zoneToPurge, storesToPurge);
+            slopPurgeJob(currentCluster.getNodeIds(), nodesToPurge, zoneToPurge, storesToPurge);
+        }
+
+        public void slopPurgeJob(Collection<Integer> destinationNodeIds,
+                                 List<Integer> nodesToPurge,
+                                 Integer zoneToPurge,
+                                 List<String> storesToPurge) {
+            // Run this on all the nodes in the cluster
+            helperOps.assertServerInNormalState(destinationNodeIds);
+            for(Integer destinationNodeId: destinationNodeIds) {
+                logger.info("Submitting SlopPurgeJob on node " + destinationNodeId);
+
+                VAdminProto.SlopPurgeJobRequest.Builder jobRequest = VAdminProto.SlopPurgeJobRequest.newBuilder();
+                if(nodesToPurge != null) {
+                    jobRequest.addAllFilterNodeIds(nodesToPurge);
+                }
+                if(zoneToPurge != Zone.UNSET_ZONE_ID) {
+                    jobRequest.setFilterZoneId(zoneToPurge);
+                }
+                if(storesToPurge != null) {
+                    jobRequest.addAllFilterStoreNames(storesToPurge);
+                }
+
+                VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                                  .setSlopPurgeJob(jobRequest)
+                                                                                                  .setType(VAdminProto.AdminRequestType.SLOP_PURGE_JOB)
+                                                                                                  .build();
+                helperOps.sendAdminRequest(adminRequest, destinationNodeId);
             }
         }
 
@@ -1702,12 +1860,13 @@ public class AdminClient {
          * @param verify should the file checksums be verified
          * @param isIncremental is the backup incremental
          */
-        public void nativeBackup(int nodeId,
+        public void nativeBackup(Integer nodeId,
                                  String storeName,
                                  String destinationDirPath,
-                                 int timeOut,
+                                 Integer timeOut,
                                  boolean verify,
                                  boolean isIncremental) {
+            helperOps.assertServerInNormalState(nodeId);
 
             VAdminProto.NativeBackupRequest nativeBackupRequest = VAdminProto.NativeBackupRequest.newBuilder()
                                                                                                  .setStoreName(storeName)
@@ -2336,10 +2495,11 @@ public class AdminClient {
          * 
          * @throws VoldemortException
          */
-        public void updateEntries(int nodeId,
+        public void updateEntries(Integer nodeId,
                                   String storeName,
                                   Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                                   VoldemortFilter filter) {
+            helperOps.assertServerInNormalState(nodeId);
             streamingUpdateEntries(nodeId, storeName, entryIterator, filter, false);
         }
 
@@ -2364,6 +2524,7 @@ public class AdminClient {
                                            String storeName,
                                            Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                                            VoldemortFilter filter) {
+            helperOps.assertServerInNormalState(nodeId);
             streamingUpdateEntries(nodeId, storeName, entryIterator, filter, true);
         }
 
@@ -2523,8 +2684,9 @@ public class AdminClient {
          * @param entryIterator An iterator over all the slops for this
          *        particular node
          */
-        public void updateSlopEntries(int nodeId, Iterator<Versioned<Slop>> entryIterator) {
-            Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
+        public void updateSlopEntries(Integer nodeId, Iterator<Versioned<Slop>> entryIterator) {
+            helperOps.assertServerInNormalState(nodeId);
+            Node node = currentCluster.getNodeById(nodeId);
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
                                                                   RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
@@ -2603,7 +2765,7 @@ public class AdminClient {
          * @param stealInfo Partition steal information
          * @return The request id of the async operation
          */
-        public int rebalanceNode(RebalanceTaskInfo stealInfo) {
+        public Integer rebalanceNode(RebalanceTaskInfo stealInfo) {
             VAdminProto.RebalanceTaskInfoMap rebalanceTaskInfoMap = ProtoUtils.encodeRebalanceTaskInfoMap(stealInfo);
             VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
                                                                                                                     .setRebalanceTaskInfo(rebalanceTaskInfoMap)
@@ -2632,7 +2794,9 @@ public class AdminClient {
          * @param stealerNodeId The stealer node id
          * @param storeName The name of the store
          */
-        public void deleteStoreRebalanceState(int donorNodeId, int stealerNodeId, String storeName) {
+        public void deleteStoreRebalanceState(Integer donorNodeId,
+                                              Integer stealerNodeId,
+                                              String storeName) {
 
             VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                          .setType(VAdminProto.AdminRequestType.DELETE_STORE_REBALANCE_STATE)
@@ -2657,7 +2821,7 @@ public class AdminClient {
          * @param nodeId The node from which we want to retrieve the state
          * @return The server state
          */
-        public Versioned<VoldemortState> getRemoteServerState(int nodeId) {
+        public Versioned<VoldemortState> getRemoteServerState(Integer nodeId) {
             Versioned<String> value = metadataMgmtOps.getRemoteMetadata(nodeId,
                                                                         MetadataStore.SERVER_STATE_KEY);
             return new Versioned<VoldemortState>(VoldemortState.valueOf(value.getValue()),
@@ -2817,7 +2981,7 @@ public class AdminClient {
          *        rebalancing state
          * @param rollback Are we doing a rollback or a normal state?
          */
-        private void individualStateChange(int nodeId,
+        private void individualStateChange(Integer nodeId,
                                            Cluster cluster,
                                            List<StoreDefinition> storeDefs,
                                            List<RebalanceTaskInfo> rebalanceTaskPlanList,
@@ -3047,6 +3211,7 @@ public class AdminClient {
          * @throws InterruptedException
          */
         public void restoreDataFromReplications(int nodeId, int parallelTransfers, int zoneId) {
+            helperOps.assertServerInNormalState(nodeId);
             ExecutorService executors = Executors.newFixedThreadPool(parallelTransfers,
                                                                      new ThreadFactory() {
 
@@ -3164,6 +3329,9 @@ public class AdminClient {
                                final int nodeIdToMirrorFrom,
                                final String urlToMirrorFrom,
                                List<String> stores) {
+
+            helperOps.assertServerInNormalState(Lists.newArrayList(Lists.newArrayList(new Integer[] {
+                    nodeId, nodeIdToMirrorFrom })));
             final AdminClient mirrorAdminClient = new AdminClient(urlToMirrorFrom,
                                                                   new AdminClientConfig(),
                                                                   new ClientConfig());
@@ -3275,22 +3443,36 @@ public class AdminClient {
          * @param storeName The name of the RO Store to rollback
          * @param pushVersion The version of the push to revert back to
          */
-        public void rollbackStore(int nodeId, String storeName, long pushVersion) {
-            VAdminProto.RollbackStoreRequest.Builder rollbackStoreRequest = VAdminProto.RollbackStoreRequest.newBuilder()
-                                                                                                            .setStoreName(storeName)
-                                                                                                            .setPushVersion(pushVersion);
+        public void rollbackStore(Integer nodeId, String storeName, long pushVersion) {
+            rollbackStore(Lists.newArrayList(new Integer[] { nodeId }), storeName, pushVersion);
+        }
 
-            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                              .setRollbackStore(rollbackStoreRequest)
-                                                                                              .setType(VAdminProto.AdminRequestType.ROLLBACK_STORE)
-                                                                                              .build();
-            VAdminProto.RollbackStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
-                                                                                       adminRequest,
-                                                                                       VAdminProto.RollbackStoreResponse.newBuilder());
-            if(response.hasError()) {
-                helperOps.throwException(response.getError());
+        /**
+         * Rollback RO store to most recent backup of the current store
+         * <p>
+         * 
+         * @param nodeIds The node ids on which to rollback
+         * @param storeName The name of the RO Store to rollback
+         * @param pushVersion The version of the push to revert back to
+         */
+        public void rollbackStore(Collection<Integer> nodeIds, String storeName, long pushVersion) {
+            helperOps.assertServerInNormalState(nodeIds);
+            for(Integer nodeId: nodeIds) {
+                VAdminProto.RollbackStoreRequest.Builder rollbackStoreRequest = VAdminProto.RollbackStoreRequest.newBuilder()
+                                                                                                                .setStoreName(storeName)
+                                                                                                                .setPushVersion(pushVersion);
+
+                VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                                  .setRollbackStore(rollbackStoreRequest)
+                                                                                                  .setType(VAdminProto.AdminRequestType.ROLLBACK_STORE)
+                                                                                                  .build();
+                VAdminProto.RollbackStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                           adminRequest,
+                                                                                           VAdminProto.RollbackStoreResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
             }
-            return;
         }
 
         /**
@@ -3304,7 +3486,7 @@ public class AdminClient {
          * @param timeoutMs Time timeout in milliseconds
          * @return The path of the directory where the data is stored finally
          */
-        public String fetchStore(int nodeId,
+        public String fetchStore(Integer nodeId,
                                  String storeName,
                                  String storeDir,
                                  long pushVersion,
@@ -3663,6 +3845,7 @@ public class AdminClient {
             // FIXME This is a temporary workaround for System store client not
             // being able to do a second insert. We simply generate a super
             // clock that will trump what is on storage
+            helperOps.assertServerInNormalState(currentCluster.getNodeIds());
             VectorClock denseClock = VectorClockUtils.makeClock(currentCluster.getNodeIds(),
                                                                 System.currentTimeMillis(),
                                                                 System.currentTimeMillis());
@@ -3673,6 +3856,7 @@ public class AdminClient {
         }
 
         public void unsetQuota(String storeName, String quotaType) {
+            helperOps.assertServerInNormalState(currentCluster.getNodeIds());
             quotaSysStoreClient.deleteSysStore(QuotaUtils.makeQuotaKey(storeName,
                                                                        QuotaType.valueOf(quotaType)));
             logger.info("Unset quota " + quotaType + " for store " + storeName);
@@ -3692,18 +3876,30 @@ public class AdminClient {
          * @param stores list of stores for which to reserve
          * @param sizeInMB size of reservation
          */
-        public void reserveMemory(int nodeId, List<String> stores, long sizeInMB) {
-
-            List<Integer> reserveNodes = new ArrayList<Integer>();
+        public void reserveMemory(Integer nodeId, List<String> stores, long sizeInMB) {
             if(nodeId == -1) {
-                // if no node is specified send it to the entire cluster
-                for(Node node: currentCluster.getNodes())
-                    reserveNodes.add(node.getId());
+                /* this is only invoked by old voldemort admin tool */
+                reserveMemory(currentCluster.getNodeIds(), stores, sizeInMB);
             } else {
-                reserveNodes.add(nodeId);
+                reserveMemory(Lists.newArrayList(new Integer[] { nodeId }), stores, sizeInMB);
             }
+        }
+
+        /**
+         * Reserve memory for the stores
+         * 
+         * TODO this should also now use the voldsys$_quotas system store
+         * 
+         * @param reserveNodeIds The node ids to reserve
+         * @param stores list of stores for which to reserve
+         * @param sizeInMB size of reservation
+         */
+        public void reserveMemory(Collection<Integer> reserveNodeIds,
+                                  List<String> stores,
+                                  long sizeInMB) {
+            helperOps.assertServerInNormalState(reserveNodeIds);
             for(String storeName: stores) {
-                for(Integer reserveNodeId: reserveNodes) {
+                for(Integer reserveNodeId: reserveNodeIds) {
 
                     VAdminProto.ReserveMemoryRequest reserveRequest = VAdminProto.ReserveMemoryRequest.newBuilder()
                                                                                                       .setStoreName(storeName)
@@ -3716,8 +3912,9 @@ public class AdminClient {
                     VAdminProto.ReserveMemoryResponse.Builder response = rpcOps.sendAndReceive(reserveNodeId,
                                                                                                adminRequest,
                                                                                                VAdminProto.ReserveMemoryResponse.newBuilder());
-                    if(response.hasError())
+                    if(response.hasError()) {
                         helperOps.throwException(response.getError());
+                    }
                 }
                 logger.info("Finished reserving memory for store : " + storeName);
             }

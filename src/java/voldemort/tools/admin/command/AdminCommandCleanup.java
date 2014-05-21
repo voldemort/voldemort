@@ -24,12 +24,10 @@ import java.util.List;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.cluster.Node;
 import voldemort.tools.admin.AdminParserUtils;
-import voldemort.tools.admin.AdminUtils;
+import voldemort.tools.admin.AdminToolUtils;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
 
 /**
  * Implements all cleanup commands.
@@ -44,7 +42,7 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
      */
     public static void executeCommand(String[] args) throws Exception {
         String subCmd = (args.length > 0) ? args[0] : "";
-        args = AdminUtils.copyArrayCutFirst(args);
+        args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("orphaned-data")) {
             SubCommandCleanupOrphanedData.executeCommand(args);
         } else if(subCmd.equals("vector-clocks")) {
@@ -189,25 +187,29 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
             }
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "cleanup orphaned data"))
+            if(!AdminToolUtils.askConfirm(confirm, "cleanup orphaned data")) {
                 return;
+            }
 
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            AdminUtils.checkServerInNormalState(adminClient, nodes);
-            doCleanupOrphanedData(adminClient, nodes);
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
+            }
+
+            doCleanupOrphanedData(adminClient, nodeIds);
         }
 
         /**
          * Removes orphaned data on a single node after rebalancing is done.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param nodes Nodes to remove orphaned data on
+         * @param nodeIds Node ids to remove orphaned data on
          */
-        public static void doCleanupOrphanedData(AdminClient adminClient, Collection<Node> nodes) {
-            for(Node node: nodes) {
-                adminClient.storeMntOps.repairJob(node.getId());
+        public static void doCleanupOrphanedData(AdminClient adminClient,
+                                                 Collection<Integer> nodeIds) {
+            for(Integer nodeId: nodeIds) {
+                adminClient.storeMntOps.repairJob(nodeId);
             }
         }
     }
@@ -319,28 +321,31 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
             }
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "cleanup vector clocks"))
+            if(!AdminToolUtils.askConfirm(confirm, "cleanup vector clocks")) {
                 return;
+            }
 
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            AdminUtils.checkServerInNormalState(adminClient, nodes);
-            doCleanupVectorClocks(adminClient, nodes, storeNames);
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
+            }
+
+            doCleanupVectorClocks(adminClient, nodeIds, storeNames);
         }
 
         /**
          * Prunes data resulting from versioned puts during rebalancing
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param nodes Nodes to prune vector clocks
+         * @param nodeIds Node ids to prune vector clocks
          * @param storeNames List of stores to prune vector clocks
          */
         public static void doCleanupVectorClocks(AdminClient adminClient,
-                                                 Collection<Node> nodes,
+                                                 Collection<Integer> nodeIds,
                                                  List<String> storeNames) {
-            for(Node node: nodes) {
-                adminClient.storeMntOps.pruneJob(node.getId(), storeNames);
+            for(Integer nodeId: nodeIds) {
+                adminClient.storeMntOps.pruneJob(nodeId, storeNames);
             }
         }
     }
@@ -456,19 +461,15 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
             }
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "cleanup slops"))
+            if(!AdminToolUtils.askConfirm(confirm, "cleanup slops"))
                 return;
 
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
+
             if(allNodes) {
-                nodeIds = Lists.newArrayList();
-                for(Node node: nodes) {
-                    nodeIds.add(node.getId());
-                }
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
 
-            AdminUtils.checkServerInNormalState(adminClient, nodes);
             adminClient.storeMntOps.slopPurgeJob(nodeIds, zoneId, storeNames);
         }
     }

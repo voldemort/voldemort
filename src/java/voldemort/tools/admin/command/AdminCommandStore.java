@@ -25,10 +25,9 @@ import java.util.List;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.tools.admin.AdminParserUtils;
-import voldemort.tools.admin.AdminUtils;
+import voldemort.tools.admin.AdminToolUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
@@ -47,7 +46,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
      */
     public static void executeCommand(String[] args) throws Exception {
         String subCmd = (args.length > 0) ? args[0] : "";
-        args = AdminUtils.copyArrayCutFirst(args);
+        args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("add")) {
             SubCommandStoreAdd.executeCommand(args);
         } else if(subCmd.equals("delete")) {
@@ -191,32 +190,31 @@ public class AdminCommandStore extends AbstractAdminCommand {
             }
 
             // execute command
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            AdminUtils.checkServerInNormalState(adminClient, nodes);
-            doStoreAdd(adminClient, nodes, storesFile);
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
+            }
+
+            doStoreAdd(adminClient, nodeIds, storesFile);
         }
 
         /**
          * Adds store on given nodes from a given stores.xml file.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param nodes List of nodes to add stores on
+         * @param nodeIds Node ids to add stores on
          * @param storesFile File path of stores.xml to be added
          * @throws IOException
          * 
          */
         public static void doStoreAdd(AdminClient adminClient,
-                                      Collection<Node> nodes,
+                                      Collection<Integer> nodeIds,
                                       String storesFile) throws IOException {
             List<StoreDefinition> storeDefinitionList = new StoreDefinitionsMapper().readStoreList(new File(storesFile));
             for(StoreDefinition storeDef: storeDefinitionList) {
                 System.out.println("Adding " + storeDef.getName());
-                for(Node node: nodes) {
-                    System.out.println("to node " + node.getId());
-                    adminClient.storeMgmtOps.addStore(storeDef, node.getId());
-                }
+                adminClient.storeMgmtOps.addStore(storeDef, nodeIds);
             }
         }
     }
@@ -326,34 +324,33 @@ public class AdminCommandStore extends AbstractAdminCommand {
             }
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "delete store")) {
+            if(!AdminToolUtils.askConfirm(confirm, "delete store")) {
                 return;
             }
 
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            AdminUtils.checkServerInNormalState(adminClient, nodes);
-            doStoreDelete(adminClient, nodes, storeNames);
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
+            }
+
+            doStoreDelete(adminClient, nodeIds, storeNames);
         }
 
         /**
          * Deletes given list of stores on given nodes.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param nodes List of nodes to add stores on
+         * @param nodeIds Node ids to add stores on
          * @param storeNames List of stores to be deleted
          * 
          */
         public static void doStoreDelete(AdminClient adminClient,
-                                         Collection<Node> nodes,
+                                         Collection<Integer> nodeIds,
                                          List<String> storeNames) {
             for(String storeName: storeNames) {
                 System.out.println("Deleting " + storeName);
-                for(Node node: nodes) {
-                    System.out.println("from node " + node.getId());
-                    adminClient.storeMgmtOps.deleteStore(storeName, node.getId());
-                }
+                adminClient.storeMgmtOps.deleteStore(storeName, nodeIds);
             }
         }
     }
@@ -474,34 +471,17 @@ public class AdminCommandStore extends AbstractAdminCommand {
             }
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "rollback read-only store")) {
+            if(!AdminToolUtils.askConfirm(confirm, "rollback read-only store")) {
                 return;
             }
 
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            AdminUtils.checkServerInNormalState(adminClient, nodes);
-            doStoreRollbackReadOnly(adminClient, nodes, storeName, pushVersion);
-        }
-
-        /**
-         * Rolls back a given store to a given version.
-         * 
-         * @param adminClient An instance of AdminClient points to given cluster
-         * @param nodes List of nodes to add stores on
-         * @param storeName Name of store to be rolled back
-         * @param pushVersion Version to be rolled back to
-         * 
-         */
-        public static void doStoreRollbackReadOnly(AdminClient adminClient,
-                                                   Collection<Node> nodes,
-                                                   String storeName,
-                                                   long pushVersion) {
-            for(Node node: nodes) {
-                System.out.println("Rollback store " + storeName + " on node " + node.getId());
-                adminClient.readonlyOps.rollbackStore(node.getId(), storeName, pushVersion);
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
+
+            adminClient.readonlyOps.rollbackStore(nodeIds, storeName, pushVersion);
         }
     }
 
@@ -622,35 +602,36 @@ public class AdminCommandStore extends AbstractAdminCommand {
             System.out.println("  node = " + nodeId);
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "truncate partition")) {
+            if(!AdminToolUtils.askConfirm(confirm, "truncate partition")) {
                 return;
             }
 
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Node node = adminClient.getAdminClientCluster().getNodeById(nodeId);
-            storeNames = AdminUtils.getUserStoresOnNode(adminClient, node, storeNames, allStores);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
+            storeNames = AdminToolUtils.getUserStoresOnNode(adminClient,
+                                                            nodeId,
+                                                            storeNames,
+                                                            allStores);
 
-            AdminUtils.checkServerInNormalState(adminClient, node);
-            doStoreTruncatePartition(adminClient, node, storeNames, partIds);
+            doStoreTruncatePartition(adminClient, nodeId, storeNames, partIds);
         }
 
         /**
          * Removes contents of partitions on a single node.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param node Node to remove partitions from
+         * @param nodeId Node id to remove partitions from
          * @param storeNames List of stores to remove partitions from
          * @param partIds List of partitions to be removed
          * 
          */
         public static void doStoreTruncatePartition(AdminClient adminClient,
-                                                    Node node,
+                                                    Integer nodeId,
                                                     List<String> storeNames,
                                                     List<Integer> partIds) {
             for(String storeName: storeNames) {
                 System.out.println("Truncating partition " + Joiner.on(", ").join(partIds) + " of "
                                    + storeName);
-                adminClient.storeMntOps.deletePartitions(node.getId(), storeName, partIds, null);
+                adminClient.storeMntOps.deletePartitions(nodeId, storeName, partIds, null);
             }
         }
     }
@@ -760,34 +741,33 @@ public class AdminCommandStore extends AbstractAdminCommand {
             }
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "truncate store")) {
+            if(!AdminToolUtils.askConfirm(confirm, "truncate store")) {
                 return;
             }
 
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            AdminUtils.checkServerInNormalState(adminClient, nodes);
-            doStoreTruncateStore(adminClient, nodes, storeNames);
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
+            }
+
+            doStoreTruncateStore(adminClient, nodeIds, storeNames);
         }
 
         /**
          * Removes contents of stores.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param nodes List of nodes to remove stores from
+         * @param nodeIds Node ids to remove stores from
          * @param storeNames List of stores to be removed
          * 
          */
         public static void doStoreTruncateStore(AdminClient adminClient,
-                                                Collection<Node> nodes,
+                                                Collection<Integer> nodeIds,
                                                 List<String> storeNames) {
             for(String storeName: storeNames) {
                 System.out.println("Truncating store " + storeName);
-                for(Node node: nodes) {
-                    System.out.println("on node " + node.getId());
-                    adminClient.storeMntOps.truncate(node.getId(), storeName);
-                }
+                adminClient.storeMntOps.truncate(nodeIds, storeName);
             }
         }
     }
