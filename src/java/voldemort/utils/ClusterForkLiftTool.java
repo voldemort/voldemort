@@ -23,8 +23,8 @@ import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.client.protocol.admin.BaseStreamingClient;
+import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.client.protocol.admin.StreamingClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -36,6 +36,7 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.TimeBasedInconsistencyResolver;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
+import voldemort.versioning.VectorClockUtils;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
@@ -45,17 +46,19 @@ import com.google.common.collect.Lists;
  * When used in conjunction with a client that "double writes" to both the
  * clusters, this can be a used as a feasible store migration tool to move an
  * existing store to a new cluster.
- * 
+ *
  * There are two modes around how the divergent versions of a key are
  * consolidated from the source cluster. :
- * 
- * 1) Primary only Resolution ({@link ClusterForkLiftTool#SinglePartitionForkLiftTask}: The entries
- * on the primary partition are moved over to the destination cluster with empty
- * vector clocks. if any key has multiple versions on the primary, they are
- * resolved. This approach is fast and is best suited if you deem the replicas
- * being very much in sync with each other. This is the DEFAULT mode
- * 
- * 2) Global Resolution ({@link ClusterForkLiftTool#SinglePartitionGloballyResolvingForkLiftTask} :
+ *
+ * 1) Primary only Resolution (
+ * {@link ClusterForkLiftTool#SinglePartitionForkLiftTask}: The entries on the
+ * primary partition are moved over to the destination cluster with empty vector
+ * clocks. if any key has multiple versions on the primary, they are resolved.
+ * This approach is fast and is best suited if you deem the replicas being very
+ * much in sync with each other. This is the DEFAULT mode
+ *
+ * 2) Global Resolution (
+ * {@link ClusterForkLiftTool#SinglePartitionGloballyResolvingForkLiftTask} :
  * The keys belonging to a partition are fetched out of the primary replica, and
  * for each such key, the corresponding values are obtained from all other
  * replicas, using get(..) operations. These versions are then resolved and
@@ -64,40 +67,40 @@ import com.google.common.collect.Lists;
  * potentially cross colo) and hence should be used when thorough version
  * resolution is neccessary or the admin deems the replicas being fairly
  * out-of-sync
- * 
- * 
+ *
+ *
  * In both mode, the default chained resolver (
  * {@link VectorClockInconsistencyResolver} +
  * {@link TimeBasedInconsistencyResolver} is used to determine a final resolved
  * version.
- * 
+ *
  * NOTES:
- * 
+ *
  * 1) If the tool fails for some reason in the middle, the admin can restart the
  * tool for the failed partitions alone. The keys that were already written in
  * the failed partitions, will all experience {@link ObsoleteVersionException}
  * and the un-inserted keys will be inserted.
- * 
+ *
  * 2) Since the forklift writes are issued with empty vector clocks, they will
  * always yield to online writes happening on the same key, before or during the
  * forklift window. Of course, after the forklift window, the destination
  * cluster resumes normal operation.
- * 
+ *
  * 3) For now, we will fallback to fetching the key from the primary replica,
  * fetch the values out manually, resolve and write it back. PitFalls : primary
  * somehow does not have the key.
- * 
+ *
  * Two scenarios.
- * 
+ *
  * 1) Key active after double writes: the situation is the result of slop not
  * propagating to the primary. But double writes would write the key back to
  * destination cluster anyway. We are good.
- * 
+ *
  * 2) Key inactive after double writes: This indicates a problem elsewhere. This
  * is a base guarantee voldemort should offer.
- * 
+ *
  * 4) Zoned <-> Non Zoned forklift implications.
- * 
+ *
  * When forklifting data from a non-zoned to zoned cluster, both destination
  * zones will be populated with data, by simply running the tool once with the
  * respective bootstrap urls. If you need to forklift data from zoned to
@@ -105,7 +108,7 @@ import com.google.common.collect.Lists;
  * by Voldemort), then you need to run the tool twice for each destination
  * non-zoned cluster. Zoned -> Zoned and Non-Zoned -> Non-Zoned forklifts are
  * trivial.
- * 
+ *
  */
 public class ClusterForkLiftTool implements Runnable {
 
@@ -127,6 +130,12 @@ public class ClusterForkLiftTool implements Runnable {
     private static final int DEFAULT_PARTITION_PARALLELISM = 8;
     private static final int DEFAULT_WORKER_POOL_SHUTDOWN_WAIT_MINS = 5;
 
+    private static final String OVERWRITE_WARNING_MESSAGE = "**WARNING** If source and destination has overlapping keys, will overwrite the destination values "
+                                                            + " using source. The option is ir-reversible. The old value if exists in the destination cluster will "
+                                                            + " be permanently lost. This option could be useful if you are copying read only data from latest "
+                                                            + " otherwise very dangerous option. Think twice before using this option. for keys that only exists "
+                                                            + " in destination, they will be left un-modified. ";
+
     private final AdminClient srcAdminClient;
     private final BaseStreamingClient dstStreamingClient;
     private final List<String> storesList;
@@ -135,9 +144,17 @@ public class ClusterForkLiftTool implements Runnable {
     private final HashMap<String, StoreDefinition> srcStoreDefMap;
     private final List<Integer> partitionList;
     private final ForkLiftTaskMode mode;
+    private final Boolean overwrite;
+
+    private static List<StoreDefinition> getStoreDefinitions(AdminClient adminClient) {
+        Cluster cluster = adminClient.getAdminClientCluster();
+        Integer nodeId = cluster.getNodeIds().iterator().next();
+        return adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId).getValue();
+    }
 
     public ClusterForkLiftTool(String srcBootstrapUrl,
                                String dstBootstrapUrl,
+                               Boolean overwrite,
                                int maxPutsPerSecond,
                                int partitionParallelism,
                                int progressOps,
@@ -156,13 +173,13 @@ public class ClusterForkLiftTool implements Runnable {
         StreamingClientConfig config = new StreamingClientConfig(props);
         this.dstStreamingClient = new BaseStreamingClient(config);
         this.mode = mode;
+        this.overwrite = overwrite;
 
         // determine and verify final list of stores to be forklifted over
         if(storesList != null) {
             this.storesList = storesList;
         } else {
-            this.storesList = StoreUtils.getStoreNames(srcAdminClient.metadataMgmtOps.getRemoteStoreDefList(0)
-                                                                                     .getValue(),
+            this.storesList = StoreUtils.getStoreNames(getStoreDefinitions(srcAdminClient),
                                                        true);
         }
         this.srcStoreDefMap = checkStoresOnBothSides();
@@ -191,11 +208,9 @@ public class ClusterForkLiftTool implements Runnable {
     }
 
     private HashMap<String, StoreDefinition> checkStoresOnBothSides() {
-        List<StoreDefinition> srcStoreDefs = srcAdminClient.metadataMgmtOps.getRemoteStoreDefList(0)
-                                                                           .getValue();
+        List<StoreDefinition> srcStoreDefs = getStoreDefinitions(srcAdminClient);
         HashMap<String, StoreDefinition> srcStoreDefMap = StoreUtils.getStoreDefsAsMap(srcStoreDefs);
-        List<StoreDefinition> dstStoreDefs = dstStreamingClient.getAdminClient().metadataMgmtOps.getRemoteStoreDefList(0)
-                                                                                                .getValue();
+        List<StoreDefinition> dstStoreDefs = getStoreDefinitions(dstStreamingClient.getAdminClient());
         HashMap<String, StoreDefinition> dstStoreDefMap = StoreUtils.getStoreDefsAsMap(dstStoreDefs);
 
         Set<String> storesToSkip = new HashSet<String>();
@@ -209,8 +224,11 @@ public class ClusterForkLiftTool implements Runnable {
                 storesToSkip.add(store);
             }
         }
-        logger.warn("List of stores that will be skipped :" + storesToSkip);
-        storesList.removeAll(storesToSkip);
+
+        if(storesToSkip.size() > 0) {
+            logger.warn("List of stores that will be skipped :" + storesToSkip);
+            storesList.removeAll(storesToSkip);
+        }
         return srcStoreDefMap;
     }
 
@@ -218,7 +236,7 @@ public class ClusterForkLiftTool implements Runnable {
      * TODO this base class can potentially provide some framework of execution
      * for the subclasses, to yield a better objected oriented design (progress
      * tracking etc)
-     * 
+     *
      */
     abstract class SinglePartitionForkLiftTask {
 
@@ -226,6 +244,8 @@ public class ClusterForkLiftTool implements Runnable {
         protected CountDownLatch latch;
         protected StoreRoutingPlan storeInstance;
         protected String workName;
+        private Set<Integer> dstServerIds;
+        private long entriesForkLifted = 0;
 
         SinglePartitionForkLiftTask(StoreRoutingPlan storeInstance,
                                     int partitionId,
@@ -235,6 +255,27 @@ public class ClusterForkLiftTool implements Runnable {
             this.storeInstance = storeInstance;
             workName = "[Store: " + storeInstance.getStoreDefinition().getName() + ", Partition: "
                        + this.partitionId + "] ";
+            dstServerIds = dstStreamingClient.getAdminClient().getAdminClientCluster().getNodeIds();
+        }
+
+        void streamingPut(ByteArray key, Versioned<byte[]> value) {
+            if(overwrite == false) {
+                dstStreamingClient.streamingPut(key, value);
+            } else {
+                VectorClock denseClock = VectorClockUtils.makeClockWithCurrentTime(dstServerIds);
+                Versioned<byte[]> updatedValue = new Versioned<byte[]>(value.getValue(), denseClock);
+                dstStreamingClient.streamingPut(key, updatedValue);
+            }
+
+            entriesForkLifted++;
+            if(entriesForkLifted % progressOps == 0) {
+                logger.info(workName + " fork lifted " + entriesForkLifted
+                            + " entries successfully");
+            }
+        }
+
+        void printSummary() {
+            logger.info(workName + "Completed processing " + entriesForkLifted + " records");
         }
     }
 
@@ -242,7 +283,7 @@ public class ClusterForkLiftTool implements Runnable {
      * Fetches keys belonging the primary partition, and then fetches values for
      * that key from all replicas in a non-streaming fashion, applies the
      * default resolver and writes it back to the destination cluster
-     * 
+     *
      * TODO a streaming N way merge is the more efficient & correct solution.
      * Without this, the resolving can be very slow due to cross data center
      * get(..)
@@ -258,7 +299,6 @@ public class ClusterForkLiftTool implements Runnable {
 
         public void run() {
             String storeName = this.storeInstance.getStoreDefinition().getName();
-            long entriesForkLifted = 0;
             try {
                 logger.info(workName + "Starting processing");
                 ChainedResolver<Versioned<byte[]>> resolver = new ChainedResolver<Versioned<byte[]>>(new VectorClockInconsistencyResolver<byte[]>(),
@@ -296,17 +336,10 @@ public class ClusterForkLiftTool implements Runnable {
                                                      + ByteUtils.toHexString(keyToResolve.get())
                                                      + " vals:" + resolvedVersions);
                     }
-                    dstStreamingClient.streamingPut(keyToResolve,
-                                                    new Versioned<byte[]>(resolvedVersions.get(0)
-                                                                                          .getValue()));
-
-                    entriesForkLifted++;
-                    if(entriesForkLifted % progressOps == 0) {
-                        logger.info(workName + " fork lifted " + entriesForkLifted
-                                    + " entries successfully");
-                    }
+                    Versioned<byte[]> value = new Versioned<byte[]>(resolvedVersions.get(0).getValue());
+                    streamingPut(keyToResolve, value);
                 }
-                logger.info(workName + "Completed processing " + entriesForkLifted + " records");
+                printSummary();
             } catch(Exception e) {
                 // all work should stop if we get here
                 logger.error(workName + "Error forklifting data ", e);
@@ -316,7 +349,7 @@ public class ClusterForkLiftTool implements Runnable {
         }
 
         /**
-         * 
+         *
          * @param nodeIdList
          * @param keyInBytes
          * @return
@@ -346,7 +379,7 @@ public class ClusterForkLiftTool implements Runnable {
      * Simply fetches the data for the partition from the primary replica and
      * writes it into the destination cluster. Works well when the replicas are
      * fairly consistent.
-     * 
+     *
      */
     class SinglePartitionPrimaryResolvingForkLiftTask extends SinglePartitionForkLiftTask implements
             Runnable {
@@ -360,7 +393,6 @@ public class ClusterForkLiftTool implements Runnable {
         @Override
         public void run() {
             String storeName = this.storeInstance.getStoreDefinition().getName();
-            long entriesForkLifted = 0;
             ChainedResolver<Versioned<byte[]>> resolver = new ChainedResolver<Versioned<byte[]>>(new VectorClockInconsistencyResolver<byte[]>(),
                                                                                                  new TimeBasedInconsistencyResolver<byte[]>());
             try {
@@ -392,12 +424,7 @@ public class ClusterForkLiftTool implements Runnable {
                         Versioned<byte[]> newEntry = new Versioned<byte[]>(resolvedVersioned.getValue(),
                                                                            new VectorClock(((VectorClock) resolvedVersioned.getVersion()).getTimestamp()));
 
-                        dstStreamingClient.streamingPut(prevKey, newEntry);
-                        entriesForkLifted++;
-                        if(entriesForkLifted % progressOps == 0) {
-                            logger.info(workName + " fork lifted " + entriesForkLifted
-                                        + " entries successfully");
-                        }
+                        streamingPut(prevKey, newEntry);
                         vals = new ArrayList<Versioned<byte[]>>();
                     }
                     vals.add(versioned);
@@ -411,11 +438,10 @@ public class ClusterForkLiftTool implements Runnable {
                     Versioned<byte[]> resolvedVersioned = resolvedVals.get(0);
                     Versioned<byte[]> newEntry = new Versioned<byte[]>(resolvedVersioned.getValue(),
                                                                        new VectorClock(((VectorClock) resolvedVersioned.getVersion()).getTimestamp()));
-                    dstStreamingClient.streamingPut(prevKey, newEntry);
-                    entriesForkLifted++;
+                    streamingPut(prevKey, newEntry);
                 }
 
-                logger.info(workName + "Completed processing " + entriesForkLifted + " records");
+                printSummary();
             } catch(Exception e) {
                 // if for some reason this partition fails, we will have retry
                 // again for those partitions alone.
@@ -430,7 +456,7 @@ public class ClusterForkLiftTool implements Runnable {
      * Simply fetches the data for the partition from the primary replica and
      * writes it into the destination cluster without resolving any of the
      * conflicting values
-     * 
+     *
      */
     class SinglePartitionNoResolutionForkLiftTask extends SinglePartitionForkLiftTask implements
             Runnable {
@@ -444,7 +470,6 @@ public class ClusterForkLiftTool implements Runnable {
         @Override
         public void run() {
             String storeName = this.storeInstance.getStoreDefinition().getName();
-            long entriesForkLifted = 0;
             try {
                 logger.info(workName + "Starting processing");
                 Iterator<Pair<ByteArray, Versioned<byte[]>>> entryItr = srcAdminClient.bulkFetchOps.fetchEntries(storeInstance.getNodeIdForPartitionId(this.partitionId),
@@ -457,15 +482,9 @@ public class ClusterForkLiftTool implements Runnable {
                     Pair<ByteArray, Versioned<byte[]>> record = entryItr.next();
                     ByteArray key = record.getFirst();
                     Versioned<byte[]> versioned = record.getSecond();
-                    dstStreamingClient.streamingPut(key, versioned);
-                    entriesForkLifted++;
-                    if(entriesForkLifted % progressOps == 0) {
-                        logger.info(workName + " fork lifted " + entriesForkLifted
-                                    + " entries successfully");
-                    }
-
+                    streamingPut(key, versioned);
                 }
-                logger.info(workName + "Completed processing " + entriesForkLifted + " records");
+                printSummary();
 
             } catch(Exception e) {
                 // if for some reason this partition fails, we will have retry
@@ -550,7 +569,7 @@ public class ClusterForkLiftTool implements Runnable {
 
     /**
      * Return args parser
-     * 
+     *
      * @return program parser
      * */
     private static OptionParser getParser() {
@@ -598,6 +617,14 @@ public class ClusterForkLiftTool implements Runnable {
                        "Determines if a thorough global resolution needs to be done, by comparing all replicas. [Default: "
                                + ForkLiftTaskMode.primary_resolution.toString()
                                + " Fetch from primary alone ]");
+
+
+        parser.accepts("overwrite", OVERWRITE_WARNING_MESSAGE)
+              .withOptionalArg()
+              .describedAs("overwriteExistingValue")
+              .ofType(Boolean.class)
+              .defaultsTo(false);
+
         return parser;
     }
 
@@ -660,8 +687,22 @@ public class ClusterForkLiftTool implements Runnable {
 
         }
 
+        Boolean overwrite = false;
+        if(options.has("overwrite")) {
+            if(options.hasArgument("overwrite")) {
+                overwrite = (Boolean) options.valueOf("overwrite");
+            } else {
+                overwrite = true;
+            }
+        }
+
+        if(overwrite) {
+            logger.warn(OVERWRITE_WARNING_MESSAGE);
+        }
+
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootstrapUrl,
                                                                    dstBootstrapUrl,
+                                                                   overwrite,
                                                                    maxPutsPerSecond,
                                                                    partitionParallelism,
                                                                    progressOps,

@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -33,7 +33,7 @@ public class VectorClockUtils {
      * -- Clock 1 is CONCURRENT to clock 2 if there exists an nodeId, nodeId2
      * such that c1(nodeId) < c2(nodeId) and c1(nodeId2) > c2(nodeId2)<br>
      * -- Clock 1 is AFTER clock 2 otherwise
-     * 
+     *
      * @param v1 The first VectorClock
      * @param v2 The second VectorClock
      */
@@ -95,7 +95,7 @@ public class VectorClockUtils {
     /**
      * Given a set of versions, constructs a resolved list of versions based on
      * the compare function above
-     * 
+     *
      * @param values
      * @return list of values after resolution
      */
@@ -128,7 +128,7 @@ public class VectorClockUtils {
 
     /**
      * Generates a vector clock with the provided values
-     * 
+     *
      * @param serverIds servers in the clock
      * @param clockValue value of the clock for each server entry
      * @param timestamp ts value to be set for the clock
@@ -140,6 +140,19 @@ public class VectorClockUtils {
             clockEntries.add(new ClockEntry(serverId.shortValue(), clockValue));
         }
         return new VectorClock(clockEntries, timestamp);
+    }
+
+    /**
+     * Generates a vector clock with the provided nodes and current time stamp
+     * This clock can be used to overwrite the existing value avoiding obsolete
+     * version exceptions in most cases, except If the existing Vector Clock was
+     * generated in custom way. (i.e. existing vector clock does not use
+     * milliseconds)
+     * 
+     * @param serverIds servers in the clock
+     */
+    public static VectorClock makeClockWithCurrentTime(Set<Integer> serverIds) {
+        return makeClock(serverIds, System.currentTimeMillis(), System.currentTimeMillis());
     }
 
 }

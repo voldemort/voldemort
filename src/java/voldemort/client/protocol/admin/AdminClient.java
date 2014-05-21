@@ -2678,7 +2678,7 @@ public class AdminClient {
          * 
          * <pre>
          * | swapRO | changeClusterMetadata | changeRebalanceState | Order                        |
-         * |   f    |         t             |          t           | cluster -> rebalance         | 
+         * |   f    |         t             |          t           | cluster -> rebalance         |
          * |   f    |         f             |          t           | rebalance                    |
          * |   t    |         t             |          f           | cluster -> swap              |
          * |   t    |         t             |          t           | cluster -> swap -> rebalance |
@@ -2694,7 +2694,7 @@ public class AdminClient {
          * 
          * <pre>
          * | swapRO | changeClusterMetadata | changeRebalanceState | Order                                    |
-         * |   f    |         t             |          t           | remove from rebalance -> cluster         | 
+         * |   f    |         t             |          t           | remove from rebalance -> cluster         |
          * |   f    |         f             |          t           | remove from rebalance                    |
          * |   t    |         t             |          f           | cluster -> swap                          |
          * |   t    |         t             |          t           | remove from rebalance -> cluster -> swap |
@@ -3663,9 +3663,7 @@ public class AdminClient {
             // FIXME This is a temporary workaround for System store client not
             // being able to do a second insert. We simply generate a super
             // clock that will trump what is on storage
-            VectorClock denseClock = VectorClockUtils.makeClock(currentCluster.getNodeIds(),
-                                                                System.currentTimeMillis(),
-                                                                System.currentTimeMillis());
+            VectorClock denseClock = VectorClockUtils.makeClockWithCurrentTime(currentCluster.getNodeIds());
             quotaSysStoreClient.putSysStore(QuotaUtils.makeQuotaKey(storeName,
                                                                     QuotaType.valueOf(quotaType)),
                                             new Versioned<String>(quotaValue, denseClock));
