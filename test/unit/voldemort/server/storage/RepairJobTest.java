@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
+import org.junit.After;
 import org.junit.Test;
 
 import voldemort.MockTime;
@@ -133,6 +134,13 @@ public class RepairJobTest {
             serverMap.put(node, server);
         }
         return cluster;
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        for(VoldemortServer vs: serverMap.values()) {
+            vs.stop();
+        }
     }
 
     private Store<ByteArray, byte[], byte[]> getSocketStore(String storeName, String host, int port) {

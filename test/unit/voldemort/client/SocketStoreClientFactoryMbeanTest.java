@@ -75,8 +75,11 @@ public class SocketStoreClientFactoryMbeanTest extends SocketStoreClientFactoryT
     private void checkMbeanIdCount(String domain, String type, int maxMbeans, boolean unregister) {
         ObjectName oName = JmxUtils.createObjectName(domain, type);
         Set<ObjectName> objects = mbServer.queryNames(oName, null);
-        assertFalse("Extra mbeans found", objects.size() > maxMbeans);
-        assertFalse("Fewer than expected mbeans found", objects.size() < maxMbeans);
+        String messagePrefix = "Domain " + domain + " expected Size " + maxMbeans + " actual size "
+                               + objects.size();
+        assertFalse(messagePrefix + ". Extra mbeans found", objects.size() > maxMbeans);
+        assertFalse(messagePrefix + ". Fewer than expected mbeans found",
+                    objects.size() < maxMbeans);
 
         if(unregister) {
             try {

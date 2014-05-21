@@ -17,6 +17,7 @@
 package voldemort;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 
 import org.apache.commons.io.IOUtils;
@@ -144,7 +145,11 @@ public class VoldemortTestConstants {
 
     private static String readString(String filename) {
         try {
-            return IOUtils.toString(VoldemortTestConstants.class.getResourceAsStream(filename));
+            InputStream inputStream = VoldemortTestConstants.class.getResourceAsStream(filename);
+            if(inputStream == null) {
+                throw new VoldemortException("Could not locate resource " + filename);
+            }
+            return IOUtils.toString(inputStream);
         } catch(IOException e) {
             throw new RuntimeException(e);
         }

@@ -88,7 +88,7 @@ public class ConsistencyCheckTest {
     ConsistencyCheck.Value hv1_dup = new ConsistencyCheck.HashedValue(versioned1);
     ConsistencyCheck.Value hv2 = new ConsistencyCheck.HashedValue(versioned2);
 
-    ConsistencyCheck.Value hv3 = new ConsistencyCheck.HashedValue(new Versioned<byte[]>(value1,vc3));
+    ConsistencyCheck.Value hv3 = new ConsistencyCheck.HashedValue(new Versioned<byte[]>(value1, vc3));
 
     // make set
     Set<ConsistencyCheck.ClusterNode> setFourNodes = new HashSet<ConsistencyCheck.ClusterNode>();
@@ -153,9 +153,9 @@ public class ConsistencyCheckTest {
         assertFalse(rc1.isExpired(new ConsistencyCheck.VersionValue(versioned1)));
         assertFalse(rc1.isExpired(new ConsistencyCheck.VersionValue(versioned2)));
         assertFalse(rc1.isExpired(new ConsistencyCheck.VersionValue(versioned3)));
-        assertTrue (rc2.isExpired(new ConsistencyCheck.VersionValue(versioned1)));
+        assertTrue(rc2.isExpired(new ConsistencyCheck.VersionValue(versioned1)));
         assertFalse(rc2.isExpired(new ConsistencyCheck.VersionValue(versioned2)));
-        assertTrue (rc2.isExpired(new ConsistencyCheck.VersionValue(versioned3)));
+        assertTrue(rc2.isExpired(new ConsistencyCheck.VersionValue(versioned3)));
     }
 
     @Test
@@ -168,16 +168,19 @@ public class ConsistencyCheckTest {
         vc1.incrementVersion(1, 100000001);
         vc1.incrementVersion(2, 100000003);
 
-        VectorClock vc2= new VectorClock();
+        VectorClock vc2 = new VectorClock();
         vc2.incrementVersion(1, 100000001);
         vc2.incrementVersion(3, 100000002);
         VectorClock vc3 = new VectorClock();
         vc3.incrementVersion(1, 100000001);
         vc3.incrementVersion(4, 100000001);
 
-        ConsistencyCheck.Value v1 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value1, vc1));
-        ConsistencyCheck.Value v2 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value2, vc2));
-        ConsistencyCheck.Value v3 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value3, vc3));
+        ConsistencyCheck.Value v1 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value1,
+                                                                                            vc1));
+        ConsistencyCheck.Value v2 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value2,
+                                                                                            vc2));
+        ConsistencyCheck.Value v3 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value3,
+                                                                                            vc3));
 
         // FULL: simple
         versionNodeSetMap.put(v1, setFourNodes);
@@ -284,9 +287,10 @@ public class ConsistencyCheckTest {
         VectorClock vc2 = new VectorClock();
         vc2.incrementVersion(1, 100000002);
 
-        ConsistencyCheck.Value v1 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value1, vc1));
-        ConsistencyCheck.Value v2 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value2, vc2));
-
+        ConsistencyCheck.Value v1 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value1,
+                                                                                            vc1));
+        ConsistencyCheck.Value v2 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value2,
+                                                                                            vc2));
 
         // setup
         Map<ByteArray, Map<ConsistencyCheck.Value, Set<ClusterNode>>> map = new HashMap<ByteArray, Map<ConsistencyCheck.Value, Set<ClusterNode>>>();
@@ -332,9 +336,10 @@ public class ConsistencyCheckTest {
         VectorClock vc2 = new VectorClock(now + 1);
         Versioned<byte[]> versioned = new Versioned<byte[]>(value1, vc1);
 
-        ConsistencyCheck.Value v1 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value1, vc1));
-        ConsistencyCheck.Value v2 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value2, vc2));
-
+        ConsistencyCheck.Value v1 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value1,
+                                                                                            vc1));
+        ConsistencyCheck.Value v2 = new ConsistencyCheck.VersionValue(new Versioned<byte[]>(value2,
+                                                                                            vc2));
 
         // make Prefix Nodes
         Set<ClusterNode> set = new HashSet<ClusterNode>();
@@ -552,8 +557,7 @@ public class ConsistencyCheckTest {
         urls.add(bootstrapUrl);
         ConsistencyCheck.ComparisonType[] comparisonTypes = ConsistencyCheck.ComparisonType.values();
 
-        for(ConsistencyCheck.ComparisonType type : comparisonTypes)
-        {
+        for(ConsistencyCheck.ComparisonType type: comparisonTypes) {
             StringWriter sw = new StringWriter();
             ConsistencyCheck checker = new ConsistencyCheck(urls, STORE_NAME, 0, sw, type);
             Reporter reporter = null;
@@ -562,6 +566,10 @@ public class ConsistencyCheckTest {
 
             assertEquals(7 - 2, reporter.numTotalKeys);
             assertEquals(3, reporter.numGoodKeys);
+        }
+
+        for(VoldemortServer vs: servers) {
+            vs.stop();
         }
     }
 }
