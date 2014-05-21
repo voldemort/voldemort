@@ -47,12 +47,10 @@ def deleteDirectoryContents(directory) {
     project.file(directory).mkdirs()
 }
 
-plugins.withType(JavaPlugin) {
-    println 'java source target compatibility version ' + javacVersion
-    sourceCompatibility = javacVersion
-    targetCompatibility = javacVersion
-    compileJava.options.debug = true
-}
+println 'java source target compatibility version ' + javacVersion
+sourceCompatibility = javacVersion
+targetCompatibility = javacVersion
+compileJava.options.debug = true
 
 
 tasks.withType(ScalaCompile) {
@@ -92,10 +90,36 @@ sourceSets {
         output.classesDir = testClassesDir
         compileClasspath += sourceSets.main.runtimeClasspath
     }
+    test {
+        //There is some gradle weird behavior going on here. If I dont have standard tests
+        // and only other tests like junitLong gradle completes without running any tests
+        // and says junit upto date. So including this block and controlling in the task
+        // block to run only client and server tests which takes 3 minutes.
+
+        java {
+            srcDirs = [unitTestSrcDir ]
+        }
+        resources {
+            srcDir resourcesDir
+        }
+        compileClasspath += sourceSets.main.runtimeClasspath + sourceSets.buildTest.runtimeClasspath
+    }
     contrib {
         java { srcDirs = [contribRootDir]}
+        resources {
+            srcDir resourcesDir
+        }
         compileClasspath += sourceSets.main.runtimeClasspath
         output.classesDir = contribClassesDir
+    }
+    junitLong {
+        java {
+            srcDirs = [longTestSrcDir ]
+        }
+        resources {
+            srcDir resourcesDir
+        }
+        compileClasspath += sourceSets.main.runtimeClasspath + sourceSets.buildTest.runtimeClasspath
     }
 }
 
@@ -114,18 +138,18 @@ task compileJava.doLast {
 }
 
 compileBuildTestJava.doLast {
-        project.copy {
-            from (commonTestSrcDir) { exclude '**/*.java','**/*.html' }
-            from (unitTestSrcDir) { exclude '**/*.java','**/*.html' }
-            into testClassesDir
-        }
+    project.copy {
+        from (commonTestSrcDir) { exclude '**/*.java','**/*.html' }
+        from (unitTestSrcDir) { exclude '**/*.java','**/*.html' }
+        into testClassesDir
+    }
 }
 
 compileContribJava.doLast {
-        project.copy {
-            from (contribRootDir + '/ec2-testing/resources')
-            into contribClassesDir
-        }
+    project.copy {
+        from (contribRootDir + '/ec2-testing/resources')
+        into contribClassesDir
+    }
 }
 
 
@@ -136,15 +160,9 @@ dependencies {
 
     contribCompile sourceSets.main.output
     contribCompile sourceSets.buildTest.output
+    testCompile sourceSets.buildTest.output
     contribCompile fileTree(dir: contribRootDir, includes: ['**/*.jar'])
-}
-
-test{
-    // workingDir = new File(rootDir , "src/");
-    println "working directory is:" + rootDir
-    minHeapSize = "1g"
-    maxHeapSize = "2g"
-    // scanForTestClasses = false
+    buildTestCompile 'junit:junit:4.6'
 }
 
 task testJar(type: Jar) {
@@ -187,12 +205,11 @@ artifacts {
 }
 
 clean {
-    project.file(distDir).deleteDir()
-    deleteDirectoryContents(javaDocDir)
+    delete(distDir)
+    doLast { deleteDirectoryContents(javaDocDir) }
 }
 
 task copySources (type: Copy) {
-    println 'doing the copy now'
     from ('.') { include 'bin/**' }
     from ('.') { include  distDir + '/*.jar'}
     from ('.') { exclude distDir + '/**' ,'bin/**' , 'build/**', '.git/**' , '.gradle/**' }
@@ -236,3 +253,116 @@ task tar (type: Tar) {
 jar.dependsOn contribJar,sourcesJar
 compileContribJava.dependsOn voldJar
 copySources.dependsOn jar
+
+tasks.withType(Test) {
+    // ant restarts jvm for each tests, If not restarted the test runs into outOfMemory even
+    // if you set the JVM to 8gb. On inspecting most of the space is consumed by int[] of
+    // Histogram in the NioSelectorManager. I believe this could be explained by
+    // creating lots of client factory which creates lot of NIO threads. Did not proceed
+    // further as I will be maintaining compatbility with ant. Also if you dont fork for each
+    // tests JMX bean related tests will fail.
+
+    // Do not set the max parallelism as there are tests that uses the same port and will
+    // run into bind exceptions.
+    maxHeapSize = "2g"
+    forkEvery = 1
+
+    useJUnit()
+
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat = 'full'
+    }
+
+    afterTest { test, result ->
+        logger.lifecycle("testFinished: $test, result: $result.resultType")
+    }
+
+    //all standard error messages from tests will get routed to 'DEBUG' level messages.
+    //logging.captureStandardError(LogLevel.DEBUG)
+    //all standard output messages from tests will get routed to 'DEBUG' level messages.
+    //logging.captureStandardOutput(LogLevel.DEBUG)
+}
+
+task junit(type: Test) {
+    dependsOn buildTestRuntime
+    description = "Runs acceptance tests"
+
+    include '**/*Test.*'
+    exclude '**/Abstract*'
+    testClassesDir = sourceSets.test.output.classesDir
+    classpath += sourceSets.test.runtimeClasspath
+
+}
+
+task junitLong(type: Test) {
+    dependsOn buildTestRuntime
+    description = "Runs long junit tests"
+
+    include '**/*Test.*'
+    testClassesDir = sourceSets.junitLong.output.classesDir
+    classpath += sourceSets.junitLong.runtimeClasspath
+
+}
+
+task junitRebalance(type: Test) {
+    dependsOn buildTestRuntime
+    description = "Runs acceptance tests"
+
+    include '**/*Rebalance*Test.*'
+    exclude '**/Abstract*'
+    testClassesDir = sourceSets.test.output.classesDir
+    classpath += sourceSets.test.runtimeClasspath
+}
+
+task junitRebalanceLong(type: Test) {
+    dependsOn buildTestRuntime
+    description = "Runs acceptance tests"
+
+    include '**/*Rebalance*Test.*'
+    testClassesDir = sourceSets.junitLong.output.classesDir
+    classpath += sourceSets.junitLong.runtimeClasspath
+}
+
+task contribJunit(type: Test) {
+    dependsOn buildTestRuntime
+    description = "Run contrib junit tests except EC2 and Krati tests."
+
+    include '**/*Test.class'
+    exclude '**/*PerformanceTest.class'
+    exclude '**/*RemoteTest.class'
+    exclude '**/Ec2*Test.class'
+    exclude '**/Krati*Test.class'
+    exclude '**/HadoopStoreBuilder*Test.class'
+    testClassesDir = sourceSets.contrib.output.classesDir
+    classpath += sourceSets.contrib.runtimeClasspath
+}
+
+task junitAll(type: Test) {
+    dependsOn junitLong
+    dependsOn contribJunit
+}
+
+test {
+    // Gradle is really weird. if I dont have this block, all the other tests does
+    // not run and says UP-T0-DATE without running anything. If I keep this block
+    // and says exclude **/* "gradle junit" has 349 test failures due to resources.
+
+    // So keeping this block to let it pass. Will follow up with our gradle expert
+    // to understand what is going on here. You can avoid running tests all together
+    // by running "gradle jar" which avoids the testing phase completely.
+
+    // If this block is defined above the other tests, the tests could not find the
+    // resources.
+    dependsOn buildTestRuntime
+    description = "Runs acceptance tests"
+
+    include '**/*Server*Test.*'
+    include '**/*Client*Test.*'
+    exclude '**/Abstract*'
+
+    testClassesDir = sourceSets.test.output.classesDir
+    classpath += sourceSets.test.runtimeClasspath
+}
+
+
