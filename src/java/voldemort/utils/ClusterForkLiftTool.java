@@ -130,11 +130,10 @@ public class ClusterForkLiftTool implements Runnable {
     private static final int DEFAULT_PARTITION_PARALLELISM = 8;
     private static final int DEFAULT_WORKER_POOL_SHUTDOWN_WAIT_MINS = 5;
 
+    private static final String OVERWRITE_OPTION = "overwrite";
     private static final String OVERWRITE_WARNING_MESSAGE = "**WARNING** If source and destination has overlapping keys, will overwrite the destination values "
                                                             + " using source. The option is ir-reversible. The old value if exists in the destination cluster will "
-                                                            + " be permanently lost. This option could be useful if you are copying read only data from latest "
-                                                            + " otherwise very dangerous option. Think twice before using this option. for keys that only exists "
-                                                            + " in destination, they will be left un-modified. ";
+                                                            + " be permanently lost. For keys that only exists in destination, they will be left un-modified. ";
 
     private final AdminClient srcAdminClient;
     private final BaseStreamingClient dstStreamingClient;
@@ -259,12 +258,12 @@ public class ClusterForkLiftTool implements Runnable {
         }
 
         void streamingPut(ByteArray key, Versioned<byte[]> value) {
-            if(overwrite == false) {
-                dstStreamingClient.streamingPut(key, value);
-            } else {
+            if(overwrite) {
                 VectorClock denseClock = VectorClockUtils.makeClockWithCurrentTime(dstServerIds);
                 Versioned<byte[]> updatedValue = new Versioned<byte[]>(value.getValue(), denseClock);
                 dstStreamingClient.streamingPut(key, updatedValue);
+            } else {
+                dstStreamingClient.streamingPut(key, value);
             }
 
             entriesForkLifted++;
@@ -619,7 +618,7 @@ public class ClusterForkLiftTool implements Runnable {
                                + " Fetch from primary alone ]");
 
 
-        parser.accepts("overwrite", OVERWRITE_WARNING_MESSAGE)
+        parser.accepts(OVERWRITE_OPTION, OVERWRITE_WARNING_MESSAGE)
               .withOptionalArg()
               .describedAs("overwriteExistingValue")
               .ofType(Boolean.class)
@@ -688,9 +687,9 @@ public class ClusterForkLiftTool implements Runnable {
         }
 
         Boolean overwrite = false;
-        if(options.has("overwrite")) {
-            if(options.hasArgument("overwrite")) {
-                overwrite = (Boolean) options.valueOf("overwrite");
+        if(options.has(OVERWRITE_OPTION)) {
+            if(options.hasArgument(OVERWRITE_OPTION)) {
+                overwrite = (Boolean) options.valueOf(OVERWRITE_OPTION);
             } else {
                 overwrite = true;
             }
