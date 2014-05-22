@@ -20,19 +20,14 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Node;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -206,8 +201,12 @@ public class AdminUtils {
                 storeNames.add(storeDefinition.getName());
             }
         } else {
+            Set<String> existingStoreNames = new HashSet<String>(storeDefinitionList.size());
+            for(StoreDefinition storeDefinition: storeDefinitionList) {
+                existingStoreNames.add(storeDefinition.getName());
+            }
             for(String storeName: storeNames) {
-                if(!storeDefinitionList.contains(storeName))
+                if(!existingStoreNames.contains(storeName))
                     Utils.croak("Store " + storeName + " does not exist!");
             }
         }
