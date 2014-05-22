@@ -16,7 +16,6 @@
 
 package voldemort.utils;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -59,7 +58,10 @@ public class NetworkClassLoader extends ClassLoader {
      */
     public byte[] dumpClass(Class<?> cl) throws IOException {
         // get class fileName
-        String filename = cl.getName().replace('.', File.separatorChar) + ".class";
+        // Using File.separatorChar in Windows fails. paths for
+        // Class#getResource() must be forward slashes in order to work
+        // correctly.
+        String filename = cl.getName().replace('.', '/') + ".class";
         InputStream in = null;
         logger.debug("NetworkClassloader dumpClass() :" + cl.getCanonicalName());
         try {
