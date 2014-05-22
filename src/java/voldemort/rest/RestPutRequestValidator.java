@@ -1,5 +1,6 @@
 package voldemort.rest;
 
+import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.HttpRequest;
@@ -19,10 +20,11 @@ import voldemort.versioning.Versioned;
 public class RestPutRequestValidator extends RestRequestValidator {
 
     private final boolean isVectorClockOptional;
+    private final Logger logger = Logger.getLogger(RestPutRequestValidator.class);
 
     public RestPutRequestValidator(HttpRequest request,
-                                         MessageEvent messageEvent,
-                                         boolean isVectorClockOptional) {
+                                   MessageEvent messageEvent,
+                                   boolean isVectorClockOptional) {
         super(request, messageEvent);
         this.isVectorClockOptional = isVectorClockOptional;
     }
@@ -37,13 +39,18 @@ public class RestPutRequestValidator extends RestRequestValidator {
                 // Check if we have a valid vector clock
                 if(this.parsedVectorClock == null
                    || this.parsedVectorClock.getEntries().size() == 0) {
+                    if(logger.isDebugEnabled()) {
+                        debugLog("PUT", System.currentTimeMillis());
+                    }
                     requestObject = new CompositePutVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
                                                                                         this.parsedValue,
                                                                                         this.parsedTimeoutInMs,
                                                                                         this.parsedRequestOriginTimeInMs,
                                                                                         this.parsedRoutingType);
                 } else {
-
+                    if(logger.isDebugEnabled()) {
+                        debugLog("PUT_VERSION", System.currentTimeMillis());
+                    }
                     requestObject = new CompositeVersionedPutVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
                                                                                                  new Versioned<byte[]>(this.parsedValue,
                                                                                                                        this.parsedVectorClock),
@@ -57,8 +64,8 @@ public class RestPutRequestValidator extends RestRequestValidator {
             } else {
                 logger.error("Error when parsing value. Value cannot be null.");
                 RestErrorHandler.writeErrorResponse(messageEvent,
-                                                          HttpResponseStatus.BAD_REQUEST,
-                                                          "Value cannot be null");
+                                                    HttpResponseStatus.BAD_REQUEST,
+                                                    "Value cannot be null");
             }
         }
         // Return null if request is not valid
@@ -98,16 +105,16 @@ public class RestPutRequestValidator extends RestRequestValidator {
                                      + contentLength + ". Details: " + nfe.getMessage(),
                              nfe);
                 RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                          HttpResponseStatus.BAD_REQUEST,
-                                                          "Incorrect content length parameter. Cannot parse this to long: "
-                                                                  + contentLength + ". Details: "
-                                                                  + nfe.getMessage());
+                                                    HttpResponseStatus.BAD_REQUEST,
+                                                    "Incorrect content length parameter. Cannot parse this to long: "
+                                                            + contentLength + ". Details: "
+                                                            + nfe.getMessage());
             }
         } else {
             logger.error("Error when validating put request. Missing Content-Length header.");
             RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                      HttpResponseStatus.BAD_REQUEST,
-                                                      "Missing Content-Length header");
+                                                HttpResponseStatus.BAD_REQUEST,
+                                                "Missing Content-Length header");
         }
 
         return result;
@@ -126,8 +133,8 @@ public class RestPutRequestValidator extends RestRequestValidator {
         } else {
             logger.error("Error when validating put request. Missing Content-Type header.");
             RestErrorHandler.writeErrorResponse(this.messageEvent,
-                                                      HttpResponseStatus.BAD_REQUEST,
-                                                      "Missing Content-Type header");
+                                                HttpResponseStatus.BAD_REQUEST,
+                                                "Missing Content-Type header");
         }
         return result;
     }

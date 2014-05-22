@@ -25,11 +25,13 @@ import voldemort.VoldemortException;
 import voldemort.client.AbstractStoreClientFactory;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.StoreClientFactory;
+import voldemort.rest.RestUtils;
 import voldemort.store.CompositeVersionedPutVoldemortRequest;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreTimeoutException;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
@@ -98,7 +100,29 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
+                long startTimeInMs = System.currentTimeMillis();
+                String keyHexString = "";
+                if(logger.isDebugEnabled()) {
+                    ByteArray key = (ByteArray) requestWrapper.getKey();
+                    keyHexString = RestUtils.getKeyHexString(key);
+                    debugLogStart("GET",
+                                  requestWrapper.getRequestOriginTimeInMs(),
+                                  startTimeInMs,
+                                  keyHexString);
+                }
                 List<Versioned<V>> items = store.get(requestWrapper);
+                if(logger.isDebugEnabled()) {
+                    int vcEntrySize = 0;
+                    for(Versioned<V> vc: items) {
+                        vcEntrySize += ((VectorClock) vc.getVersion()).getVersionMap().size();
+                    }
+                    debugLogEnd("GET",
+                                requestWrapper.getRequestOriginTimeInMs(),
+                                startTimeInMs,
+                                System.currentTimeMillis(),
+                                keyHexString,
+                                vcEntrySize);
+                }
                 return items;
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during get [  " + e.getMessage()
@@ -121,6 +145,14 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         List<Versioned<V>> versionedValues;
         long startTime = System.currentTimeMillis();
+        String keyHexString = "";
+        if(logger.isDebugEnabled()) {
+            ByteArray key = (ByteArray) requestWrapper.getKey();
+            keyHexString = RestUtils.getKeyHexString(key);
+            logger.debug("PUT requested for key: " + keyHexString + " , for store: "
+                         + this.storeName + " at time(in ms): " + startTime
+                         + " . Nested GET and PUT VERSION requests to follow ---");
+        }
 
         // We use the full timeout for doing the Get. In this, we're being
         // optimistic that the subsequent put might be faster such that all the
@@ -141,10 +173,17 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         if(timeLeft <= 0) {
             throw new StoreTimeoutException("PUT request timed out");
         }
-
-        return putVersionedWithCustomTimeout(new CompositeVersionedPutVoldemortRequest<K, V>(requestWrapper.getKey(),
-                                                                                             versioned,
-                                                                                             timeLeft));
+        CompositeVersionedPutVoldemortRequest<K, V> putVersionedRequestObject = new CompositeVersionedPutVoldemortRequest<K, V>(requestWrapper.getKey(),
+                                                                                                                                versioned,
+                                                                                                                                timeLeft);
+        putVersionedRequestObject.setRequestOriginTimeInMs(requestWrapper.getRequestOriginTimeInMs());
+        Version result = putVersionedWithCustomTimeout(putVersionedRequestObject);
+        long endTimeInMs = System.currentTimeMillis();
+        if(logger.isDebugEnabled()) {
+            logger.debug("PUT response recieved for key: " + keyHexString + " , for store: "
+                         + this.storeName + " at time(in ms): " + endTimeInMs);
+        }
+        return result;
     }
 
     /**
@@ -161,7 +200,25 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
+                String keyHexString = "";
+                long startTimeInMs = System.currentTimeMillis();
+                if(logger.isDebugEnabled()) {
+                    ByteArray key = (ByteArray) requestWrapper.getKey();
+                    keyHexString = RestUtils.getKeyHexString(key);
+                    debugLogStart("PUT_VERSION",
+                                  requestWrapper.getRequestOriginTimeInMs(),
+                                  startTimeInMs,
+                                  keyHexString);
+                }
                 store.put(requestWrapper);
+                if(logger.isDebugEnabled()) {
+                    debugLogEnd("PUT_VERSION",
+                                requestWrapper.getRequestOriginTimeInMs(),
+                                startTimeInMs,
+                                System.currentTimeMillis(),
+                                keyHexString,
+                                0);
+                }
                 return requestWrapper.getValue().getVersion();
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during put [  " + e.getMessage()
@@ -189,7 +246,33 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                 throw new VoldemortException(this.metadataRefreshAttempts
                                              + " metadata refresh attempts failed.");
             try {
+                String KeysHexString = "";
+                long startTimeInMs = System.currentTimeMillis();
+                if(logger.isDebugEnabled()) {
+                    Iterable<ByteArray> keys = (Iterable<ByteArray>) requestWrapper.getIterableKeys();
+                    KeysHexString = getKeysHexString(keys);
+                    debugLogStart("GET_ALL",
+                                  requestWrapper.getRequestOriginTimeInMs(),
+                                  startTimeInMs,
+                                  KeysHexString);
+                }
                 items = store.getAll(requestWrapper);
+                if(logger.isDebugEnabled()) {
+                    int vcEntrySize = 0;
+
+                    for(List<Versioned<V>> item: items.values()) {
+                        for(Versioned<V> vc: item) {
+                            vcEntrySize += ((VectorClock) vc.getVersion()).getVersionMap().size();
+                        }
+                    }
+
+                    debugLogEnd("GET_ALL",
+                                requestWrapper.getRequestOriginTimeInMs(),
+                                startTimeInMs,
+                                System.currentTimeMillis(),
+                                KeysHexString,
+                                vcEntrySize);
+                }
                 return items;
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during getAll [  "
@@ -210,10 +293,17 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         List<Versioned<V>> versionedValues;
 
         validateTimeout(deleteRequestObject.getRoutingTimeoutInMs());
-        if(deleteRequestObject.getVersion() == null) {
-
+        boolean hasVersion = deleteRequestObject.getVersion() == null ? false : true;
+        String keyHexString = "";
+        if(!hasVersion) {
             long startTimeInMs = System.currentTimeMillis();
-
+            if(logger.isDebugEnabled()) {
+                ByteArray key = (ByteArray) deleteRequestObject.getKey();
+                keyHexString = RestUtils.getKeyHexString(key);
+                logger.debug("DELETE without version requested for key: " + keyHexString
+                             + " , for store: " + this.storeName + " at time(in ms): "
+                             + startTimeInMs + " . Nested GET and DELETE requests to follow ---");
+            }
             // We use the full timeout for doing the Get. In this, we're being
             // optimistic that the subsequent delete might be faster all the
             // steps might finish within the alloted time
@@ -241,8 +331,30 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
             deleteRequestObject.setRoutingTimeoutInMs(timeLeft);
 
         }
-
-        return store.delete(deleteRequestObject);
+        long deleteVersionStartTimeInNs = System.currentTimeMillis();
+        if(logger.isDebugEnabled()) {
+            ByteArray key = (ByteArray) deleteRequestObject.getKey();
+            keyHexString = RestUtils.getKeyHexString(key);
+            debugLogStart("DELETE",
+                          deleteRequestObject.getRequestOriginTimeInMs(),
+                          deleteVersionStartTimeInNs,
+                          keyHexString);
+        }
+        boolean result = store.delete(deleteRequestObject);
+        if(logger.isDebugEnabled()) {
+            debugLogEnd("DELETE",
+                        deleteRequestObject.getRequestOriginTimeInMs(),
+                        deleteVersionStartTimeInNs,
+                        System.currentTimeMillis(),
+                        keyHexString,
+                        0);
+        }
+        if(!hasVersion && logger.isDebugEnabled()) {
+            logger.debug("DELETE without version response recieved for key: " + keyHexString
+                         + ", for store: " + this.storeName + " at time(in ms): "
+                         + System.currentTimeMillis());
+        }
+        return result;
     }
 
     /**
@@ -259,6 +371,72 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
 
     public String getStoreName() {
         return this.storeName;
+    }
+
+    /**
+     * Traces the duration between origin time in the http Request and time just
+     * before being processed by the fat client
+     * 
+     * @param operationType
+     * @param originTimeInMS - origin time in the Http Request
+     * @param requestReceivedTimeInMs - System Time in ms
+     * @param keyString
+     */
+    private void debugLogStart(String operationType,
+                               Long originTimeInMS,
+                               Long requestReceivedTimeInMs,
+                               String keyString) {
+        long duration = requestReceivedTimeInMs - originTimeInMS;
+        logger.debug("Received a " + operationType + " request for key(s): " + keyString
+                     + " , store: " + this.storeName + " , origin time (in ms): " + originTimeInMS
+                     + " .Request received at time(in ms): " + requestReceivedTimeInMs
+                     + " , duration from RESTClient to CoordinatorFatClient(in ms): " + duration);
+
+    }
+
+    /**
+     * Traces the time taken just by the fat client inside Coordinator to
+     * process this request
+     * 
+     * 
+     * @param operationType
+     * @param OriginTimeInMs - Original request time in Http Request
+     * @param RequestStartTimeInMs - Time recorded just before fat client
+     *        started processing
+     * @param ResponseReceivedTimeInMs - Time when Response was received from
+     *        fat client
+     * @param keyString - Hex denotation of the key(s)
+     * @param numVectorClockEntries - represents the sum of entries size of all
+     *        vector clocks received in response. Size of a single vector clock
+     *        represents the number of entries(nodes) in the vector
+     */
+    private void debugLogEnd(String operationType,
+                             Long OriginTimeInMs,
+                             Long RequestStartTimeInMs,
+                             Long ResponseReceivedTimeInMs,
+                             String keyString,
+                             int numVectorClockEntries) {
+        long duration = ResponseReceivedTimeInMs - RequestStartTimeInMs;
+        logger.debug("Received a "
+                     + operationType
+                     + " response for key(s): "
+                     + keyString
+                     + " , store: "
+                     + this.storeName
+                     + " , origin time (in ms): "
+                     + OriginTimeInMs
+                     + " , at time (in ms): "
+                     + ResponseReceivedTimeInMs
+                     + " .Requested at(in ms): "
+                     + RequestStartTimeInMs
+                     + " , num vector clock entries: "
+                     + numVectorClockEntries
+                     + " , duration from CoordinatorFatClient back to CoordinatorFatClient(in ms): "
+                     + duration);
+    }
+
+    protected String getKeysHexString(Iterable<ByteArray> keys) {
+        return RestUtils.getKeysHexString(keys.iterator());
     }
 
 }

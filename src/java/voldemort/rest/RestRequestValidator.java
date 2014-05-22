@@ -25,7 +25,7 @@ public abstract class RestRequestValidator {
     protected String storeName = null;
     protected List<ByteArray> parsedKeys;
     protected byte[] parsedValue = null;
-    protected VectorClock parsedVectorClock;
+    protected VectorClock parsedVectorClock = null;
     protected long parsedTimeoutInMs;
     protected byte parsedOperationType;
     protected long parsedRequestOriginTimeInMs;
@@ -299,6 +299,32 @@ public abstract class RestRequestValidator {
 
     public RequestRoutingType getParsedRoutingType() {
         return parsedRoutingType;
+    }
+
+    /**
+     * Prints a debug log message that details the time taken for the Http
+     * request to be parsed by the coordinator
+     * 
+     * @param operationType
+     * @param receivedTimeInMs
+     */
+    protected void debugLog(String operationType, Long receivedTimeInMs) {
+        long duration = receivedTimeInMs - (this.parsedRequestOriginTimeInMs);
+        int numVectorClockEntries = (this.parsedVectorClock == null ? 0
+                                                                   : this.parsedVectorClock.getVersionMap()
+                                                                                           .size());
+        logger.debug("Received a " + operationType + " request for key(s): "
+                     + keysHexString(this.parsedKeys) + " , store: " + this.storeName
+                     + " , origin time (in ms): " + (this.parsedRequestOriginTimeInMs)
+                     + " , requested received at time(in ms): " + receivedTimeInMs
+                     + " , num vector clock entries: " + numVectorClockEntries
+                     + " , duration from RESTClient to CoordinatorRestRequestValidator(in ms): "
+                     + duration);
+
+    }
+
+    protected String keysHexString(List<ByteArray> keys) {
+        return RestUtils.getKeysHexString(keys.iterator());
     }
 
 }

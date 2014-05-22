@@ -82,6 +82,7 @@ public class GetAllResponseSender extends RestResponseSender {
 
                 VectorClock vectorClock = (VectorClock) versionedValue.getVersion();
                 String eTag = RestUtils.getSerializedVectorClock(vectorClock);
+                numVectorClockEntries += vectorClock.getVersionMap().size();
 
                 // Create the individual body part - for each versioned value of
                 // a key
@@ -136,6 +137,15 @@ public class GetAllResponseSender extends RestResponseSender {
         response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
 
         // Write the response to the Netty Channel
+        if(logger.isDebugEnabled()) {
+            String keyStr = getKeysHexString(this.versionedResponses.keySet());
+            debugLog("GET_ALL",
+                     this.storeName,
+                     keyStr,
+                     startTimeInMs,
+                     System.currentTimeMillis(),
+                     numVectorClockEntries);
+        }
         this.messageEvent.getChannel().write(response);
 
         if(performanceStats != null && isFromLocalZone) {

@@ -47,7 +47,9 @@ public class GetVersionResponseSender extends RestResponseSender {
 
         List<VectorClock> vectorClocks = new ArrayList<VectorClock>();
         for(Version versionedValue: versionedValues) {
-            vectorClocks.add((VectorClock) versionedValue);
+            VectorClock vectorClock = (VectorClock) versionedValue;
+            vectorClocks.add(vectorClock);
+            numVectorClockEntries += vectorClock.getVersionMap().size();
         }
 
         String eTags = RestUtils.getSerializedVectorClocks(vectorClocks);

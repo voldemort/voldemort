@@ -3,6 +3,7 @@ package voldemort.rest;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -18,6 +19,8 @@ import org.jdom.output.XMLOutputter;
 
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.xml.MappingException;
@@ -117,7 +120,7 @@ public class RestUtils {
      * response to a "schemata" fetch request
      * 
      * @param storeDefinition
-     * @return serialized store definition 
+     * @return serialized store definition
      */
     public static String constructSerializerInfoXml(StoreDefinition storeDefinition) {
         Element store = new Element(StoreDefinitionsMapper.STORE_ELMT);
@@ -181,6 +184,25 @@ public class RestUtils {
     public static byte[] decodeVoldemortKey(String base64Key) {
         byte[] keyBytes = Base64.decodeBase64(base64Key);
         return keyBytes;
+    }
+
+    public static String getKeyHexString(ByteArray key) {
+        String keyStr = "< " + ByteUtils.toHexString(key.get()) + " >";
+        return keyStr;
+    }
+
+    public static String getKeysHexString(Iterator<ByteArray> keys) {
+        StringBuilder keysStr = new StringBuilder();
+        keysStr.append("< ");
+        if(keys != null) {
+            ByteArray key = null;
+            while(keys.hasNext()) {
+                key = keys.next();
+                keysStr.append(ByteUtils.toHexString(key.get()) + "  ");
+            }
+        }
+        keysStr.append(" >");
+        return keysStr.toString();
     }
 
 }

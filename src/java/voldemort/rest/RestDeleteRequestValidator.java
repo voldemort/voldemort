@@ -1,5 +1,6 @@
 package voldemort.rest;
 
+import org.apache.log4j.Logger;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 
@@ -15,10 +16,11 @@ import voldemort.utils.ByteArray;
 public class RestDeleteRequestValidator extends RestRequestValidator {
 
     private final boolean isVectorClockOptional;
+    private final Logger logger = Logger.getLogger(RestDeleteRequestValidator.class);
 
     public RestDeleteRequestValidator(HttpRequest request,
-                                            MessageEvent messageEvent,
-                                            boolean isVectorClockOptional) {
+                                      MessageEvent messageEvent,
+                                      boolean isVectorClockOptional) {
         super(request, messageEvent);
         this.isVectorClockOptional = isVectorClockOptional;
     }
@@ -26,6 +28,9 @@ public class RestDeleteRequestValidator extends RestRequestValidator {
     @Override
     public CompositeVoldemortRequest<ByteArray, byte[]> constructCompositeVoldemortRequestObject() {
         if(parseAndValidateRequest()) {
+            if(logger.isDebugEnabled()) {
+                debugLog("DELETE", System.currentTimeMillis());
+            }
             this.requestObject = new CompositeDeleteVoldemortRequest<ByteArray, byte[]>(this.parsedKeys.get(0),
                                                                                         this.parsedVectorClock,
                                                                                         this.parsedTimeoutInMs,

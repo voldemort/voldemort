@@ -66,17 +66,29 @@ public abstract class AbstractRestRequestHandler extends SimpleChannelUpstreamHa
                 // Instantiate the appropriate error handler
                 HttpMethod httpMethod = request.getMethod();
                 if(httpMethod.equals(HttpMethod.GET)) {
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Received a Http GET request at " + System.currentTimeMillis() + " ms");
+                    }
                     requestValidator = new RestGetRequestValidator(request, messageEvent);
                 } else if(httpMethod.equals(HttpMethod.POST)) {
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Recieved a Http POST request at "
+                                     + System.currentTimeMillis()+ " ms");
+                    }
                     requestValidator = new RestPutRequestValidator(request,
                                                                    messageEvent,
                                                                    this.isVectorClockOptional);
                 } else if(httpMethod.equals(HttpMethod.DELETE)) {
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Received a Http DELETE request at "
+                                     + System.currentTimeMillis()+ " ms");
+                    }
                     requestValidator = new RestDeleteRequestValidator(request,
                                                                       messageEvent,
                                                                       this.isVectorClockOptional);
                 } else {
-                    String errorMessage = "Illegal Http request.";
+                    String errorMessage = "Illegal Http request received at "
+                                          + System.currentTimeMillis() + " ms";
                     logger.error(errorMessage);
                     RestErrorHandler.writeErrorResponse(messageEvent, BAD_REQUEST, errorMessage);
                     return;

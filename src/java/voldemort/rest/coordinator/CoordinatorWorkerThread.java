@@ -255,7 +255,9 @@ public class CoordinatorWorkerThread implements Runnable {
                             }
 
                             PutResponseSender responseConstructor = new PutResponseSender(messageEvent,
-                                                                                          successfulPutVC);
+                                                                                          successfulPutVC,
+                                                                                          this.storeClient.getStoreName(),
+                                                                                          this.requestObject.getKey());
                             responseConstructor.sendResponse(this.coordinatorPerfStats,
                                                              true,
                                                              this.requestObject.getRequestOriginTimeInMs());
@@ -291,7 +293,9 @@ public class CoordinatorWorkerThread implements Runnable {
                         try {
                             boolean isDeleted = this.storeClient.deleteWithCustomTimeout(this.requestObject);
                             if(isDeleted) {
-                                DeleteResponseSender responseConstructor = new DeleteResponseSender(messageEvent);
+                                DeleteResponseSender responseConstructor = new DeleteResponseSender(messageEvent,
+                                                                                                    this.storeClient.getStoreName(),
+                                                                                                    this.requestObject.getKey());
                                 responseConstructor.sendResponse(this.coordinatorPerfStats,
                                                                  true,
                                                                  this.requestObject.getRequestOriginTimeInMs());
