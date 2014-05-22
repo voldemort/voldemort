@@ -27,6 +27,8 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 
+import org.junit.After;
+
 import voldemort.ROTestUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -102,6 +104,13 @@ public abstract class AbstractRebalanceTest {
         }
 
         return cluster;
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        for(VoldemortServer vs: serverMap.values()) {
+            vs.stop();
+        }
     }
 
     protected Store<ByteArray, byte[], byte[]> getSocketStore(String storeName,

@@ -93,6 +93,10 @@ public class ServerTestUtilsTest {
                                                               cluster);
         }
         assertTrue(true);
+
+        for(VoldemortServer server: servers) {
+            ServerTestUtils.stopVoldemortServer(server);
+        }
     }
 
     // @Test

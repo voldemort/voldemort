@@ -17,7 +17,6 @@
 package voldemort.server.http;
 
 import org.apache.log4j.Logger;
-import org.mortbay.jetty.AbstractConnector;
 import org.mortbay.jetty.Connector;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.nio.SelectChannelConnector;
@@ -111,7 +110,8 @@ public class HttpService extends AbstractService {
             this.httpServer.start();
             logger.info("HTTP service started on port " + this.port);
         } catch(Exception e) {
-            throw new VoldemortException(e);
+            String errorMessage = " Error starting service on port " + this.port;
+            throw new VoldemortException(errorMessage, e);
         }
     }
 
@@ -133,7 +133,8 @@ public class HttpService extends AbstractService {
         this.context = null;
     }
 
-    @JmxGetter(name = "numberOfThreads", description = "The number of threads used for the thread pool for HTTP.")
+    @JmxGetter(name = "numberOfThreads",
+            description = "The number of threads used for the thread pool for HTTP.")
     public int getNumberOfThreads() {
         return numberOfThreads;
     }

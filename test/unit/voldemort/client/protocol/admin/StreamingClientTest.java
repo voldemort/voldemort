@@ -1,5 +1,7 @@
 package voldemort.client.protocol.admin;
 
+import static org.junit.Assert.assertEquals;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,15 +43,12 @@ import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.TestSocketStoreFactory;
-import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
-
-import static org.junit.Assert.assertEquals;
 
 /*
  * Starts a streaming session and inserts some keys Using fetchKeys we check if
@@ -58,7 +57,7 @@ import static org.junit.Assert.assertEquals;
  * (i) Non zoned cluster with contiguous node ids
  * (ii) Non zoned cluster with non contiguous node ids
  * (iii) Zoned cluster with contiguous zone/node ids
- * 
+ *
  */
 @RunWith(Parameterized.class)
 public class StreamingClientTest {
@@ -148,7 +147,7 @@ public class StreamingClientTest {
     }
 
     @Before
-    public void testSetup() {
+    public void testSetup() throws IOException {
 
         if(null == servers) {
             servers = new VoldemortServer[numServers];
@@ -161,6 +160,7 @@ public class StreamingClientTest {
             } catch(IOException e1) {
                 // TODO Auto-generated catch block
                 e1.printStackTrace();
+                throw e1;
             }
 
             int count = 0;
@@ -176,8 +176,8 @@ public class StreamingClientTest {
                                                                                                              new Properties()),
                                                                           cluster);
                 } catch(IOException e) {
-                    // TODO Auto-generated catch block
                     e.printStackTrace();
+                    throw e;
                 }
                 serverPorts[count] = servers[count].getIdentityNode().getSocketPort();
                 count++;
