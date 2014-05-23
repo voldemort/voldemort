@@ -1301,7 +1301,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
             String keyString = ByteUtils.getString(key.get(), "UTF-8");
-            if(MetadataStore.METADATA_KEYS.contains(keyString)) {
+            if(MetadataStore.METADATA_KEYS.contains(keyString)
+               || metadataStore.isValidStoreName(keyString)) {
                 List<Versioned<byte[]>> versionedList = metadataStore.get(key, null);
                 int size = (versionedList.size() > 0) ? 1 : 0;
 

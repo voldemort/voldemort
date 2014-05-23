@@ -918,6 +918,27 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     }
 
     /**
+     * Utility function to validate if the given store name exists in the store
+     * name list managed by MetadataStore. This is used by the Admin service for
+     * validation before serving a get-metadata request.
+     * 
+     * @param name Name of the store to validate
+     * @return True if the store name exists in the 'storeNames' list. False
+     *         otherwise.
+     */
+    public boolean isValidStoreName(String name) {
+        readLock.lock();
+        try {
+            if(this.storeNames.contains(name)) {
+                return true;
+            }
+            return false;
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    /**
      * Initializes the metadataCache for MetadataStore
      */
     private void init(int nodeId) {

@@ -392,6 +392,19 @@ public class AdminServiceBasicTest {
     }
 
     @Test
+    public void testFetchSingleStoreFromAdminClient() {
+        String storeName = "test-replication-memory";
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+
+        for(int nodeId: this.cluster.getNodeIds()) {
+            Versioned<String> storeDef = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                       storeName);
+            List<StoreDefinition> def = mapper.readStoreList(new StringReader(storeDef.getValue()));
+            assertEquals(def.get(0).getName(), storeName);
+        }
+    }
+
+    @Test
     public void testUpdateSingleStore() {
 
         doClientOperation();
