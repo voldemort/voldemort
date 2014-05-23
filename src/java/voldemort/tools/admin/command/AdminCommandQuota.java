@@ -18,7 +18,6 @@ package voldemort.tools.admin.command;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -29,10 +28,9 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.cluster.Node;
 import voldemort.store.quota.QuotaUtils;
 import voldemort.tools.admin.AdminParserUtils;
-import voldemort.tools.admin.AdminUtils;
+import voldemort.tools.admin.AdminToolUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
@@ -51,7 +49,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
      */
     public static void executeCommand(String[] args) throws Exception {
         String subCmd = (args.length > 0) ? args[0] : "";
-        args = AdminUtils.copyArrayCutFirst(args);
+        args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("get")) {
             SubCommandQuotaGet.executeCommand(args);
         } else if(subCmd.equals("set")) {
@@ -173,7 +171,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             String url = null;
 
             // parse command-line input
-            args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_GET);
+            args = AdminToolUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_GET);
             OptionSet options = parser.parse(args);
             if(options.has(AdminParserUtils.OPT_HELP)) {
                 printHelp(System.out);
@@ -186,12 +184,12 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
-            quotaTypes = AdminUtils.getQuotaTypes((List<String>) options.valuesOf(OPT_HEAD_QUOTA_GET));
+            quotaTypes = AdminToolUtils.getQuotaTypes((List<String>) options.valuesOf(OPT_HEAD_QUOTA_GET));
             storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
 
             // execute command
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
             doQuotaGet(adminClient, storeNames, quotaTypes);
         }
@@ -302,7 +300,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             Boolean confirm = false;
 
             // parse command-line input
-            args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_RESERVE_MEMORY);
+            args = AdminToolUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_RESERVE_MEMORY);
             OptionSet options = parser.parse(args);
             if(options.has(AdminParserUtils.OPT_HELP)) {
                 printHelp(System.out);
@@ -343,32 +341,19 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             }
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "reserve memory"))
+            if(!AdminToolUtils.askConfirm(confirm, "reserve memory")) {
                 return;
-
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
-
-            AdminUtils.checkServerInNormalState(adminClient, nodes);
-            doQuotaReserveMemory(adminClient, nodes, storeNames, memoryMBSize);
-        }
-
-        /**
-         * Reserves memory for given stores on given nodes.
-         * 
-         * @param adminClient An instance of AdminClient points to given cluster
-         * @param nodes List of nodes to reserve memory on
-         * @param storeNames List of stores to reserve memory on
-         * @param memoryMBSize Size of memory to be reserved
-         * 
-         */
-        public static void doQuotaReserveMemory(AdminClient adminClient,
-                                                Collection<Node> nodes,
-                                                List<String> storeNames,
-                                                long memoryMBSize) {
-            for(Node node: nodes) {
-                adminClient.quotaMgmtOps.reserveMemory(node.getId(), storeNames, memoryMBSize);
             }
+
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
+
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
+            }
+
+            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+
+            adminClient.quotaMgmtOps.reserveMemory(nodeIds, storeNames, memoryMBSize);
         }
     }
 
@@ -447,7 +432,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             Boolean confirm = false;
 
             // parse command-line input
-            args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_SET);
+            args = AdminToolUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_SET);
             OptionSet options = parser.parse(args);
             if(options.has(AdminParserUtils.OPT_HELP)) {
                 printHelp(System.out);
@@ -460,8 +445,8 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
-            quota = AdminUtils.getValueList((List<String>) options.valuesOf(OPT_HEAD_QUOTA_SET),
-                                            "=");
+            quota = AdminToolUtils.getValueList((List<String>) options.valuesOf(OPT_HEAD_QUOTA_SET),
+                                                "=");
             if(quota.size() % 2 != 0) {
                 throw new VoldemortException("Invalid quota type-value pair.");
             }
@@ -491,14 +476,15 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             System.out.println("  node = all nodes");
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "set quota")) {
+            if(!AdminToolUtils.askConfirm(confirm, "set quota")) {
                 return;
             }
 
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Map<String, String> quotaMap = AdminUtils.convertListToMap(quota);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
+            Map<String, String> quotaMap = AdminToolUtils.convertListToMap(quota);
 
-            AdminUtils.checkServerInNormalState(adminClient);
+            AdminToolUtils.assertServerInNormalState(adminClient);
+
             doQuotaSet(adminClient, storeNames, quotaMap);
         }
 
@@ -605,7 +591,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             Boolean confirm = false;
 
             // parse command-line input
-            args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_UNSET);
+            args = AdminToolUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_QUOTA_UNSET);
             OptionSet options = parser.parse(args);
             if(options.has(AdminParserUtils.OPT_HELP)) {
                 printHelp(System.out);
@@ -618,7 +604,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
             // load parameters
-            quotaTypes = AdminUtils.getQuotaTypes((List<String>) options.valuesOf(OPT_HEAD_QUOTA_UNSET));
+            quotaTypes = AdminToolUtils.getQuotaTypes((List<String>) options.valuesOf(OPT_HEAD_QUOTA_UNSET));
             storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
@@ -636,13 +622,14 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             System.out.println("  node = all nodes");
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "unset quota")) {
+            if(!AdminToolUtils.askConfirm(confirm, "unset quota")) {
                 return;
             }
 
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            AdminUtils.checkServerInNormalState(adminClient);
+            AdminToolUtils.assertServerInNormalState(adminClient);
+
             doQuotaUnset(adminClient, storeNames, quotaTypes);
         }
 

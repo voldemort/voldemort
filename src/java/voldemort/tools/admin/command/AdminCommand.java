@@ -18,7 +18,7 @@ package voldemort.tools.admin.command;
 
 import java.io.PrintStream;
 
-import voldemort.tools.admin.AdminUtils;
+import voldemort.tools.admin.AdminToolUtils;
 
 /**
  * Implements all admin commands.
@@ -34,7 +34,7 @@ public class AdminCommand extends AbstractAdminCommand {
      */
     public static void executeCommand(String[] args) throws Exception {
         String subCmd = (args.length > 0) ? args[0] : "";
-        args = AdminUtils.copyArrayCutFirst(args);
+        args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("async-job")) {
             AdminCommandAsyncJob.executeCommand(args);
         } else if(subCmd.equals("cleanup")) {
@@ -52,7 +52,7 @@ public class AdminCommand extends AbstractAdminCommand {
         } else if(subCmd.equals("help") || subCmd.equals("--help") || subCmd.equals("-h")) {
             executeHelp(args, System.out);
         } else {
-            args = AdminUtils.copyArrayAddFirst(args, subCmd);
+            args = AdminToolUtils.copyArrayAddFirst(args, subCmd);
             AdminCommandOther.executeCommand(args);
         }
     }
@@ -88,7 +88,7 @@ public class AdminCommand extends AbstractAdminCommand {
      */
     public static void executeHelp(String[] args, PrintStream stream) throws Exception {
         String subCmd = (args.length > 0) ? args[0] : "";
-        args = AdminUtils.copyArrayCutFirst(args);
+        args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("async-job")) {
             AdminCommandAsyncJob.executeHelp(args, stream);
         } else if(subCmd.equals("cleanup")) {
@@ -104,7 +104,7 @@ public class AdminCommand extends AbstractAdminCommand {
         } else if(subCmd.equals("stream")) {
             AdminCommandStream.executeHelp(args, stream);
         } else {
-            args = AdminUtils.copyArrayAddFirst(args, subCmd);
+            args = AdminToolUtils.copyArrayAddFirst(args, subCmd);
             AdminCommandOther.executeHelp(args, stream);
         }
     }

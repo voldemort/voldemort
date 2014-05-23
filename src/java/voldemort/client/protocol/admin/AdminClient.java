@@ -1348,6 +1348,33 @@ public class AdminClient {
                         + node.getId());
         }
 
+        public void addStore(StoreDefinition def, Collection<Integer> nodeIds) {
+            String value = storeMapper.writeStore(def);
+            VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
+                                                                                             .setStoreDefinition(value);
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setType(VAdminProto.AdminRequestType.ADD_STORE)
+                                                                                         .setAddStore(addStoreRequest)
+                                                                                         .build();
+            for(Integer nodeId: nodeIds) {
+                Node node = currentCluster.getNodeById(nodeId);
+                if(null == node) {
+                    throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
+                }
+
+                logger.info("Adding store " + def.getName() + " on node " + node.getHost() + ":"
+                            + nodeId);
+                VAdminProto.AddStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                      request,
+                                                                                      VAdminProto.AddStoreResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
+                logger.info("Succesfully added " + def.getName() + " on node " + node.getHost()
+                            + ":" + nodeId);
+            }
+        }
+
         /**
          * Delete a store from all active nodes in the cluster
          * <p>
@@ -1386,6 +1413,31 @@ public class AdminClient {
                 helperOps.throwException(response.getError());
             logger.info("Successfully deleted " + storeName + " on node " + node.getHost() + ":"
                         + node.getId());
+        }
+
+        public void deleteStore(String storeName, List<Integer> nodeIds) {
+            VAdminProto.DeleteStoreRequest.Builder deleteStoreRequest = VAdminProto.DeleteStoreRequest.newBuilder()
+                                                                                                      .setStoreName(storeName);
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setType(VAdminProto.AdminRequestType.DELETE_STORE)
+                                                                                         .setDeleteStore(deleteStoreRequest)
+                                                                                         .build();
+            for(Integer nodeId: nodeIds) {
+                Node node = currentCluster.getNodeById(nodeId);
+                if(node == null) {
+                    throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
+                }
+
+                logger.info("Deleting " + storeName + " on node " + node.getHost() + ":" + nodeId);
+                VAdminProto.DeleteStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                         request,
+                                                                                         VAdminProto.DeleteStoreResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
+                logger.info("Successfully deleted " + storeName + " on node " + node.getHost()
+                            + ":" + nodeId);
+            }
         }
     }
 
@@ -1515,6 +1567,25 @@ public class AdminClient {
 
             if(response.hasError()) {
                 helperOps.throwException(response.getError());
+            }
+        }
+
+        public void truncate(List<Integer> nodeIds, String storeName) {
+            VAdminProto.TruncateEntriesRequest.Builder truncateRequest = VAdminProto.TruncateEntriesRequest.newBuilder()
+                                                                                                           .setStore(storeName);
+
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setType(VAdminProto.AdminRequestType.TRUNCATE_ENTRIES)
+                                                                                         .setTruncateEntries(truncateRequest)
+                                                                                         .build();
+            for(Integer nodeId: nodeIds) {
+                VAdminProto.TruncateEntriesResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                             request,
+                                                                                             VAdminProto.TruncateEntriesResponse.newBuilder());
+
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
             }
         }
 
@@ -3293,6 +3364,25 @@ public class AdminClient {
             return;
         }
 
+        public void rollbackStore(List<Integer> nodeIds, String storeName, long pushVersion) {
+            VAdminProto.RollbackStoreRequest.Builder rollbackStoreRequest = VAdminProto.RollbackStoreRequest.newBuilder()
+                                                                                                            .setStoreName(storeName)
+                                                                                                            .setPushVersion(pushVersion);
+
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                              .setRollbackStore(rollbackStoreRequest)
+                                                                                              .setType(VAdminProto.AdminRequestType.ROLLBACK_STORE)
+                                                                                              .build();
+            for(Integer nodeId: nodeIds) {
+                VAdminProto.RollbackStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                           adminRequest,
+                                                                                           VAdminProto.RollbackStoreResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
+            }
+        }
+
         /**
          * Fetch data from directory 'storeDir' on node id
          * <p>
@@ -3712,6 +3802,37 @@ public class AdminClient {
                                                                                                       .setType(VAdminProto.AdminRequestType.RESERVE_MEMORY)
                                                                                                       .build();
                     VAdminProto.ReserveMemoryResponse.Builder response = rpcOps.sendAndReceive(reserveNodeId,
+                                                                                               adminRequest,
+                                                                                               VAdminProto.ReserveMemoryResponse.newBuilder());
+                    if(response.hasError())
+                        helperOps.throwException(response.getError());
+                }
+                logger.info("Finished reserving memory for store : " + storeName);
+            }
+        }
+
+        /**
+         * Reserve memory for the stores
+         * 
+         * TODO this should also now use the voldsys$_quotas system store
+         * 
+         * @param nodeIds The node ids to reserve, -1 for entire cluster
+         * @param storeNames list of stores for which to reserve
+         * @param sizeInMB size of reservation
+         */
+        public void reserveMemory(List<Integer> nodeIds, List<String> storeNames, long sizeInMB) {
+            for(String storeName: storeNames) {
+                for(Integer nodeId: nodeIds) {
+
+                    VAdminProto.ReserveMemoryRequest reserveRequest = VAdminProto.ReserveMemoryRequest.newBuilder()
+                                                                                                      .setStoreName(storeName)
+                                                                                                      .setSizeInMb(sizeInMB)
+                                                                                                      .build();
+                    VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                                      .setReserveMemory(reserveRequest)
+                                                                                                      .setType(VAdminProto.AdminRequestType.RESERVE_MEMORY)
+                                                                                                      .build();
+                    VAdminProto.ReserveMemoryResponse.Builder response = rpcOps.sendAndReceive(nodeId,
                                                                                                adminRequest,
                                                                                                VAdminProto.ReserveMemoryResponse.newBuilder());
                     if(response.hasError())

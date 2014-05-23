@@ -18,16 +18,14 @@ package voldemort.tools.admin.command;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.Collection;
 import java.util.List;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.cluster.Node;
 import voldemort.tools.admin.AdminParserUtils;
-import voldemort.tools.admin.AdminUtils;
+import voldemort.tools.admin.AdminToolUtils;
 
 import com.google.common.base.Joiner;
 
@@ -44,7 +42,7 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
      */
     public static void executeCommand(String[] args) throws Exception {
         String subCmd = (args.length > 0) ? args[0] : "";
-        args = AdminUtils.copyArrayCutFirst(args);
+        args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("list")) {
             SubCommandAsyncJobList.executeCommand(args);
         } else if(subCmd.equals("stop")) {
@@ -166,30 +164,30 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
             }
 
             // execute command
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Collection<Node> nodes = AdminUtils.getNodes(adminClient, nodeIds, allNodes);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            doAsyncJobList(adminClient, nodes);
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
+            }
+
+            doAsyncJobList(adminClient, nodeIds);
         }
 
         /**
          * Gets list of async jobs across multiple nodes.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param nodes Nodes to get async jobs from
+         * @param nodeIds Node ids to get async jobs from
          */
-        public static void doAsyncJobList(AdminClient adminClient, Collection<Node> nodes) {
+        public static void doAsyncJobList(AdminClient adminClient, List<Integer> nodeIds) {
             // Print the job information
-            for(Node node: nodes) {
-                System.out.println("Retrieving async jobs from node " + node.getId());
-                List<Integer> asyncIds = adminClient.rpcOps.getAsyncRequestList(node.getId());
-                System.out.println("Async Job Ids on node " + node.getId() + " : " + asyncIds);
+            for(Integer nodeId: nodeIds) {
+                System.out.println("Retrieving async jobs from node " + nodeId);
+                List<Integer> asyncIds = adminClient.rpcOps.getAsyncRequestList(nodeId);
+                System.out.println("Async Job Ids on node " + nodeId + " : " + asyncIds);
                 for(int asyncId: asyncIds) {
-                    System.out.println("Async Job Id "
-                                       + asyncId
-                                       + " ] "
-                                       + adminClient.rpcOps.getAsyncRequestStatus(node.getId(),
-                                                                                  asyncId));
+                    System.out.println("Async Job Id " + asyncId + " ] "
+                                       + adminClient.rpcOps.getAsyncRequestStatus(nodeId, asyncId));
                     System.out.println();
                 }
             }
@@ -261,7 +259,7 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
             Boolean confirm = false;
 
             // parse command-line input
-            args = AdminUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_ASYNC_JOB_STOP);
+            args = AdminToolUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_ASYNC_JOB_STOP);
             OptionSet options = parser.parse(args);
             if(options.has(AdminParserUtils.OPT_HELP)) {
                 printHelp(System.out);
@@ -293,14 +291,13 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
             System.out.println("  " + Joiner.on(", ").join(jobIds));
 
             // execute command
-            if(!AdminUtils.askConfirm(confirm, "stop async job")) {
+            if(!AdminToolUtils.askConfirm(confirm, "stop async job")) {
                 return;
             }
-            AdminClient adminClient = AdminUtils.getAdminClient(url);
-            Node node = adminClient.getAdminClientCluster().getNodeById(nodeId);
 
-            AdminUtils.checkServerInNormalState(adminClient, node);
-            doAsyncJobStop(adminClient, node, jobIds);
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
+
+            doAsyncJobStop(adminClient, nodeId, jobIds);
         }
 
         /**
@@ -310,10 +307,12 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
          * @param node Node to stop async jobs
          * @param jobIds List of async jobs to be stopped
          */
-        public static void doAsyncJobStop(AdminClient adminClient, Node node, List<Integer> jobIds) {
+        public static void doAsyncJobStop(AdminClient adminClient,
+                                          Integer nodeId,
+                                          List<Integer> jobIds) {
             for(Integer jobId: jobIds) {
                 System.out.println("Stopping async id " + jobId);
-                adminClient.rpcOps.stopAsyncRequest(node.getId(), jobId);
+                adminClient.rpcOps.stopAsyncRequest(nodeId, jobId);
                 System.out.println("Stopped async id " + jobId);
             }
         }
