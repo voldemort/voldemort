@@ -309,17 +309,17 @@ public abstract class RestRequestValidator {
      * @param receivedTimeInMs
      */
     protected void debugLog(String operationType, Long receivedTimeInMs) {
-        long duration = receivedTimeInMs - (this.parsedRequestOriginTimeInMs);
+        long durationInMs = receivedTimeInMs - (this.parsedRequestOriginTimeInMs);
         int numVectorClockEntries = (this.parsedVectorClock == null ? 0
                                                                    : this.parsedVectorClock.getVersionMap()
                                                                                            .size());
-        logger.debug("Received a " + operationType + " request for key(s): "
-                     + keysHexString(this.parsedKeys) + " , store: " + this.storeName
-                     + " , origin time (in ms): " + (this.parsedRequestOriginTimeInMs)
-                     + " , requested received at time(in ms): " + receivedTimeInMs
-                     + " , num vector clock entries: " + numVectorClockEntries
-                     + " , duration from RESTClient to CoordinatorRestRequestValidator(in ms): "
-                     + duration);
+        logger.debug("Received a new request. Operation type: " + operationType + " , Key(s): "
+                     + keysHexString(this.parsedKeys) + " , Store: " + this.storeName
+                     + " , Origin time (in ms): " + (this.parsedRequestOriginTimeInMs)
+                     + " , Request received at time(in ms): " + receivedTimeInMs
+                     + " , Num vector clock entries: " + numVectorClockEntries
+                     + " , Duration from RESTClient to CoordinatorRestRequestValidator(in ms): "
+                     + durationInMs);
 
     }
 

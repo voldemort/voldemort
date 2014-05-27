@@ -386,11 +386,13 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                Long originTimeInMS,
                                Long requestReceivedTimeInMs,
                                String keyString) {
-        long duration = requestReceivedTimeInMs - originTimeInMS;
-        logger.debug("Received a " + operationType + " request for key(s): " + keyString
-                     + " , store: " + this.storeName + " , origin time (in ms): " + originTimeInMS
-                     + " .Request received at time(in ms): " + requestReceivedTimeInMs
-                     + " , duration from RESTClient to CoordinatorFatClient(in ms): " + duration);
+        long durationInMs = requestReceivedTimeInMs - originTimeInMS;
+        logger.debug("Received a new request. Operation Type: " + operationType + " , key(s): "
+                     + keyString + " , Store: " + this.storeName + " , Origin time (in ms): "
+                     + originTimeInMS + " . Request received at time(in ms): "
+                     + requestReceivedTimeInMs
+                     + " , Duration from RESTClient to CoordinatorFatClient(in ms): "
+                     + durationInMs);
 
     }
 
@@ -416,23 +418,23 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                              Long ResponseReceivedTimeInMs,
                              String keyString,
                              int numVectorClockEntries) {
-        long duration = ResponseReceivedTimeInMs - RequestStartTimeInMs;
-        logger.debug("Received a "
+        long durationInMs = ResponseReceivedTimeInMs - RequestStartTimeInMs;
+        logger.debug("Received a response from voldemort server for Operation Type: "
                      + operationType
-                     + " response for key(s): "
+                     + " , For key(s): "
                      + keyString
-                     + " , store: "
+                     + " , Store: "
                      + this.storeName
-                     + " , origin time (in ms): "
+                     + " , Origin time of request (in ms): "
                      + OriginTimeInMs
-                     + " , at time (in ms): "
+                     + " , Response received at time (in ms): "
                      + ResponseReceivedTimeInMs
-                     + " .Requested at(in ms): "
+                     + " . Request sent at(in ms): "
                      + RequestStartTimeInMs
-                     + " , num vector clock entries: "
+                     + " , Num vector clock entries: "
                      + numVectorClockEntries
-                     + " , duration from CoordinatorFatClient back to CoordinatorFatClient(in ms): "
-                     + duration);
+                     + " , Duration from CoordinatorFatClient back to CoordinatorFatClient(in ms): "
+                     + durationInMs);
     }
 
     protected String getKeysHexString(Iterable<ByteArray> keys) {

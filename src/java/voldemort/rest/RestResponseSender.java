@@ -44,13 +44,14 @@ public abstract class RestResponseSender {
                             Long originTimeInMS,
                             Long responseTimeStampInMS,
                             int totalVectorClockEntries) {
-        long duration = responseTimeStampInMS - originTimeInMS;
-        logger.debug("Received a " + operationType + " response for key(s): " + keyStr
-                     + " , store: " + storeName + " , origin time (in ms): " + originTimeInMS
-                     + " , response received at time(in ms): " + responseTimeStampInMS
-                     + " , num vector clock entries: " + totalVectorClockEntries
+        long durationInMs = responseTimeStampInMS - originTimeInMS;
+        logger.debug("Received a response from Fat Client for Operatoin Type: " + operationType
+                     + " For key(s): " + keyStr + " , Store: " + storeName
+                     + " , Origin time of request(in ms): " + originTimeInMS
+                     + " , Response received at time(in ms): " + responseTimeStampInMS
+                     + " , Num vector clock entries: " + totalVectorClockEntries
                      + " , duration from RESTClient to CoordinatorRestResponseSender(in ms): "
-                     + duration);
+                     + durationInMs);
 
     }
 
