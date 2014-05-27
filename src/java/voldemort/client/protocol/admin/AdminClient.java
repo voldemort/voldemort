@@ -18,6 +18,7 @@ package voldemort.client.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -589,25 +590,60 @@ public class AdminClient {
      */
     public class RPCOperations {
 
+        private <T extends Message.Builder> T innerSendAndReceive(SocketAndStreams sands,
+                                                                  Message message,
+                                                                  T builder) throws IOException {
+            DataOutputStream outputStream = sands.getOutputStream();
+            DataInputStream inputStream = sands.getInputStream();
+            ProtoUtils.writeMessage(outputStream, message);
+            outputStream.flush();
+            return ProtoUtils.readToBuilder(inputStream, builder);
+        }
+
+        /**
+         * tests socket connection by sending a get metadata request
+         * 
+         * @throws IOException
+         */
+        private SocketAndStreams getSocketAndStreams(SocketDestination destination)
+                throws IOException {
+            ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(MetadataStore.SERVER_STATE_KEY,
+                                                                  "UTF-8"));
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setType(VAdminProto.AdminRequestType.GET_METADATA)
+                                                                                         .setGetMetadata(VAdminProto.GetMetadataRequest.newBuilder()
+                                                                                                                                       .setKey(ByteString.copyFrom(keyBytes.get())))
+                                                                                         .build();
+            SocketAndStreams sands = socketPool.checkout(destination);
+            try {
+                rpcOps.innerSendAndReceive(sands,
+                                           request,
+                                           VAdminProto.GetMetadataResponse.newBuilder());
+            } catch(EOFException eofe) {
+                helperOps.close(sands.getSocket());
+                socketPool.checkin(destination, sands);
+                socketPool.close(destination);
+                sands = socketPool.checkout(destination);
+            }
+            return sands;
+        }
+
         private <T extends Message.Builder> T sendAndReceive(int nodeId, Message message, T builder) {
-            Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
+            Node node = currentCluster.getNodeById(nodeId);
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
                                                                   RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            SocketAndStreams sands = socketPool.checkout(destination);
-
+            SocketAndStreams sands = null;
             try {
-                DataOutputStream outputStream = sands.getOutputStream();
-                DataInputStream inputStream = sands.getInputStream();
-                ProtoUtils.writeMessage(outputStream, message);
-                outputStream.flush();
-
-                return ProtoUtils.readToBuilder(inputStream, builder);
+                sands = getSocketAndStreams(destination);
+                return innerSendAndReceive(sands, message, builder);
             } catch(IOException e) {
                 helperOps.close(sands.getSocket());
                 throw new VoldemortException(e);
             } finally {
-                socketPool.checkin(destination, sands);
+                if(sands != null) {
+                    socketPool.checkin(destination, sands);
+                }
             }
         }
 
