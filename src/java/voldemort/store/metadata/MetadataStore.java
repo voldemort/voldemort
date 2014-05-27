@@ -926,7 +926,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
      * @return True if the store name exists in the 'storeNames' list. False
      *         otherwise.
      */
-    public boolean isValidStoreName(String name) {
+    public boolean isValidStore(String name) {
         readLock.lock();
         try {
             if(this.storeNames.contains(name)) {

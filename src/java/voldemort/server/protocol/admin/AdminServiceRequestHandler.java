@@ -1301,8 +1301,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
             String keyString = ByteUtils.getString(key.get(), "UTF-8");
+
+            /**
+             * GET can be done on any of the standard metadata keys
+             * ('cluster.xml', 'server.state', 'node.id', ...) or any of the
+             * store names.
+             */
             if(MetadataStore.METADATA_KEYS.contains(keyString)
-               || metadataStore.isValidStoreName(keyString)) {
+               || metadataStore.isValidStore(keyString)) {
                 List<Versioned<byte[]>> versionedList = metadataStore.get(key, null);
                 int size = (versionedList.size() > 0) ? 1 : 0;
 
