@@ -1,3 +1,14 @@
+Release 1.8.3 on 05/27/2014
+
+* Add debug log messages for CoordinatorService
+* Fix NetworkClassLoader bug when running in Windows OS (Carlos Tasada)
+* Add junit support for gradle
+* Fix bind failures while running tests
+* Add overwrite option to fork lift tool
+* Use standard logger in the StreamingClient constructor
+* [python client] Fixed reconnect in _execute_request (Søren Holbech)
+* Fix the admin metadata check command and did same change for old admin command.
+
 Release 1.8.2 on 05/09/2014
 
 * Bug fix in MetadataStore regarding updation of routing strategy
