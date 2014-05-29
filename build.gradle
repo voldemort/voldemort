@@ -191,17 +191,23 @@ task contribJar(type:Jar) {
     destinationDir = project.file(distDir)
 }
 
-task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'src'
-    from sourceSets.main.java.srcDirs
-    destinationDir = project.file(distDir)
+//in non-os environment we wrap the voldemort OS project
+//the wrapping project already adds sourcesJar
+//hence we want to make addition of this task conditional
+if (!tasks.findByName('sourcesJar')) {
+	task sourcesJar(type: Jar, dependsOn: classes) {
+		classifier = 'src'
+		from sourceSets.main.java.srcDirs
+		destinationDir = project.file(distDir)
+	}
+	artifacts.archives sourcesJar
+	tasks.jar.dependsOn sourcesJar
 }
 
 artifacts {
     archives voldJar
     archives testJar
     archives contribJar
-    archives sourcesJar
 }
 
 clean {
@@ -250,7 +256,7 @@ task tar (type: Tar) {
     destinationDir = project.file(distDir)
 }
 
-jar.dependsOn contribJar,sourcesJar
+jar.dependsOn contribJar
 compileContribJava.dependsOn voldJar
 copySources.dependsOn jar
 
