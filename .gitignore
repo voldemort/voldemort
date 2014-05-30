@@ -1,4 +1,4 @@
-config/single_node_cluster/config/STORES
+config/*/config/STORES
 classes
 dist
 *~
