@@ -329,7 +329,7 @@ public abstract class AbstractZonedRebalanceTest extends AbstractRebalanceTest {
         // Hacky work around of TOCTOU bind Exception issues. Each test that
         // invokes this method brings servers up & down on the same ports. The
         // OS seems to need a rest between subsequent tests...
-        Thread.sleep(TimeUnit.SECONDS.toMillis(2));
+        Thread.sleep(TimeUnit.SECONDS.toMillis(5));
 
         Cluster interimCluster = RebalanceUtils.getInterimCluster(zzCurrent, zzShuffle);
 

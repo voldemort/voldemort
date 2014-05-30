@@ -2,6 +2,7 @@ import java.util.jar.JarEntry;
 
 apply plugin: 'java'
 apply plugin: 'scala'
+apply plugin: 'idea'
 
 def String getProjectProperty(String propertyName) {
     String propertyValue = "null"
@@ -23,7 +24,8 @@ def libDir = getProjectProperty('lib.dir')
 def resourcesDir = getProjectProperty('resources.dir')
 def javaDocDir = getProjectProperty('javadoc.dir')
 
-def testClassesDir = getProjectProperty('testclasses.dir')
+def voldTestClassesDir = getProjectProperty('testclasses.dir')
+
 def commonTestSrcDir = getProjectProperty('commontestsrc.dir')
 def unitTestSrcDir = getProjectProperty('unittestsrc.dir')
 def intTestSrcDir = getProjectProperty('inttestsrc.dir')
@@ -74,11 +76,12 @@ sourceSets {
         }
         resources {
             srcDirs = [javaDir]
-            include '**/*.xsd'
+            include '**/*.xsd', 'log4j.properties'
         }
         output.classesDir = classesDir
+        output.resourcesDir = resourcesDir
     }
-    buildTest {
+    test {
         java {
             srcDirs = [
                 commonTestSrcDir ,
@@ -87,61 +90,27 @@ sourceSets {
                 longTestSrcDir
             ]
         }
-        output.classesDir = testClassesDir
-        compileClasspath += sourceSets.main.runtimeClasspath
-    }
-    test {
-        //There is some gradle weird behavior going on here. If I dont have standard tests
-        // and only other tests like junitLong gradle completes without running any tests
-        // and says junit upto date. So including this block and controlling in the task
-        // block to run only client and server tests which takes 3 minutes.
-
-        java {
-            srcDirs = [unitTestSrcDir ]
-        }
-        resources {
-            srcDir resourcesDir
-        }
-        compileClasspath += sourceSets.main.runtimeClasspath + sourceSets.buildTest.runtimeClasspath
+        output.classesDir = voldTestClassesDir
     }
     contrib {
-        java { srcDirs = [contribRootDir]}
-        resources {
-            srcDir resourcesDir
-        }
+        java { srcDirs = [contribRootDir] }
         compileClasspath += sourceSets.main.runtimeClasspath
         output.classesDir = contribClassesDir
     }
-    junitLong {
-        java {
-            srcDirs = [longTestSrcDir ]
-        }
-        resources {
-            srcDir resourcesDir
-        }
-        compileClasspath += sourceSets.main.runtimeClasspath + sourceSets.buildTest.runtimeClasspath
-    }
 }
 
-compileJava.dependsOn clean
-
-task compileJava.doLast {
+compileJava.doLast {
     project.copy {
         from (javaDir) { exclude '**/*.java','**/*.html','**/*.scala', '**/log4j.properties' }
         into classesDir
     }
-
-    project.copy {
-        from (javaDir) { include 'log4j.properties' }
-        into resourcesDir
-    }
 }
 
-compileBuildTestJava.doLast {
+compileTestJava.doLast {
     project.copy {
         from (commonTestSrcDir) { exclude '**/*.java','**/*.html' }
         from (unitTestSrcDir) { exclude '**/*.java','**/*.html' }
-        into testClassesDir
+        into voldTestClassesDir
     }
 }
 
@@ -152,23 +121,19 @@ compileContribJava.doLast {
     }
 }
 
-
 dependencies {
     compile fileTree(dir: libDir, includes: ['**/*.jar'])
 
-    buildTestCompile sourceSets.main.output
-
     contribCompile sourceSets.main.output
-    contribCompile sourceSets.buildTest.output
-    testCompile sourceSets.buildTest.output
+    contribCompile sourceSets.test.output
+
     contribCompile fileTree(dir: contribRootDir, includes: ['**/*.jar'])
-    buildTestCompile 'junit:junit:4.6'
+    testCompile 'junit:junit:4.6'
 }
 
 task testJar(type: Jar) {
-    dependsOn sourceSets.buildTest.output
     baseName = projectName + "-test"
-    from sourceSets.buildTest.output
+    from sourceSets.test.output
     destinationDir = project.file(distDir)
 }
 
@@ -191,7 +156,7 @@ task contribJar(type:Jar) {
     destinationDir = project.file(distDir)
 }
 
-task sourcesJar(type: Jar, dependsOn: classes) {
+task srcJar(type: Jar, dependsOn: classes) {
     classifier = 'src'
     from sourceSets.main.java.srcDirs
     destinationDir = project.file(distDir)
@@ -201,7 +166,7 @@ artifacts {
     archives voldJar
     archives testJar
     archives contribJar
-    archives sourcesJar
+    archives srcJar
 }
 
 clean {
@@ -250,7 +215,7 @@ task tar (type: Tar) {
     destinationDir = project.file(distDir)
 }
 
-jar.dependsOn contribJar,sourcesJar
+jar.dependsOn contribJar,srcJar
 compileContribJava.dependsOn voldJar
 copySources.dependsOn jar
 
@@ -267,6 +232,12 @@ tasks.withType(Test) {
     maxHeapSize = "2g"
     forkEvery = 1
 
+
+    // If ignoreFailures is not set, then merged reports will not be generated
+    // Gradle aborts further tasks on test failure. so if you run junitAll
+    // which runs 3 tests, reports task will never be run on failure cases.
+    ignoreFailures = true
+
     useJUnit()
 
     testLogging {
@@ -278,91 +249,78 @@ tasks.withType(Test) {
         logger.lifecycle("testFinished: $test, result: $result.resultType")
     }
 
+    doFirst {
+      def classesSize = candidateClassFiles.files.size()
+      logger.lifecycle("{} starts executing {} test classes {}",
+          path, classesSize, classesSize > 0? "(" + candidateClassFiles.files*.name[0] + ", ...)" : "")
+    }
+
     //all standard error messages from tests will get routed to 'DEBUG' level messages.
     //logging.captureStandardError(LogLevel.DEBUG)
     //all standard output messages from tests will get routed to 'DEBUG' level messages.
     //logging.captureStandardOutput(LogLevel.DEBUG)
+
+    //Set reasonable defaults for reports location
+    reports.html.destination = file("$project.buildDir/reports/$name")
+    reports.junitXml.destination = file("$project.buildDir/$name-results")
+
+    //Set reasonable defaults classpath and classes dir. They can be reconfigured in an individual task.
+    it.testClassesDir = sourceSets.test.output.classesDir
+    classpath = sourceSets.test.runtimeClasspath
 }
 
-task junit(type: Test) {
-    dependsOn buildTestRuntime
+task junit(dependsOn: test)
+
+Collection<String> testClassesFrom(String dir, String include = '**/*Test.*') {
+  //take all *Test.java files found in given dir, make the path relative and replace .java with .class
+  fileTree(dir: dir, includes: [include]).collect { it.absolutePath.replaceAll(file(dir).absolutePath + "/", "").replaceAll(".java\$", ".class")}
+}
+
+test {
     description = "Runs acceptance tests"
-
-    include '**/*Test.*'
-    exclude '**/Abstract*'
-    testClassesDir = sourceSets.test.output.classesDir
-    classpath += sourceSets.test.runtimeClasspath
-
+    include testClassesFrom(unitTestSrcDir)
 }
 
 task junitLong(type: Test) {
-    dependsOn buildTestRuntime
     description = "Runs long junit tests"
-
-    include '**/*Test.*'
-    testClassesDir = sourceSets.junitLong.output.classesDir
-    classpath += sourceSets.junitLong.runtimeClasspath
-
+    include testClassesFrom(longTestSrcDir)
 }
 
 task junitRebalance(type: Test) {
-    dependsOn buildTestRuntime
-    description = "Runs acceptance tests"
-
-    include '**/*Rebalance*Test.*'
-    exclude '**/Abstract*'
-    testClassesDir = sourceSets.test.output.classesDir
-    classpath += sourceSets.test.runtimeClasspath
+  include testClassesFrom(unitTestSrcDir, '**/*Rebalance*Test.java')
 }
 
 task junitRebalanceLong(type: Test) {
-    dependsOn buildTestRuntime
-    description = "Runs acceptance tests"
-
-    include '**/*Rebalance*Test.*'
-    testClassesDir = sourceSets.junitLong.output.classesDir
-    classpath += sourceSets.junitLong.runtimeClasspath
+  include testClassesFrom(longTestSrcDir, '**/*Rebalance*Test.java')
 }
 
 task contribJunit(type: Test) {
-    dependsOn buildTestRuntime
     description = "Run contrib junit tests except EC2 and Krati tests."
+    it.testClassesDir = file(contribClassesDir)
 
-    include '**/*Test.class'
     exclude '**/*PerformanceTest.class'
     exclude '**/*RemoteTest.class'
     exclude '**/Ec2*Test.class'
     exclude '**/Krati*Test.class'
     exclude '**/HadoopStoreBuilder*Test.class'
-    testClassesDir = sourceSets.contrib.output.classesDir
-    classpath += sourceSets.contrib.runtimeClasspath
+
+    classpath += sourceSets.contrib.runtimeClasspath + sourceSets.contrib.output
 }
 
-task junitAll(type: Test) {
-    dependsOn junitLong
-    dependsOn contribJunit
+task junitAll(type: TestReport) {
+    reportOn test, junitLong, contribJunit
+    destinationDir = file("$project.buildDir/reports/$name")
 }
 
-test {
-    // Gradle is really weird. if I dont have this block, all the other tests does
-    // not run and says UP-T0-DATE without running anything. If I keep this block
-    // and says exclude **/* "gradle junit" has 349 test failures due to resources.
+task aggregatedJunit(type: TestReport) {
+destinationDir = file("$project.buildDir/reports/$name")
+}
 
-    // So keeping this block to let it pass. Will follow up with our gradle expert
-    // to understand what is going on here. You can avoid running tests all together
-    // by running "gradle jar" which avoids the testing phase completely.
-
-    // If this block is defined above the other tests, the tests could not find the
-    // resources.
-    dependsOn buildTestRuntime
-    description = "Runs acceptance tests"
-
-    include '**/*Server*Test.*'
-    include '**/*Client*Test.*'
-    exclude '**/Abstract*'
-
-    testClassesDir = sourceSets.test.output.classesDir
-    classpath += sourceSets.test.runtimeClasspath
+tasks.withType(Test) {
+  finalizedBy aggregatedJunit
+  doLast {
+    aggregatedJunit.reportOn it.binResultsDir
+  }
 }
 
 
