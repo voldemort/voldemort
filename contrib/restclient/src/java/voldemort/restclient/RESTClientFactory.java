@@ -93,15 +93,8 @@ public class RESTClientFactory implements StoreClientFactory {
      * @return
      */
     @Override
-    public <K, V> StoreClient<K, V> getStoreClient(final String storeName) {
-        return new LazyStoreClient<K, V>(new Callable<StoreClient<K, V>>() {
-
-            @Override
-            public StoreClient<K, V> call() throws Exception {
-                return getStoreClient(storeName, null);
-            }
-        }, true);
-
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
+        return getStoreClient(storeName, null);
     }
 
     /**
@@ -113,11 +106,17 @@ public class RESTClientFactory implements StoreClientFactory {
      * @return
      */
     @Override
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
-                                                   InconsistencyResolver<Versioned<V>> resolver) {
-        Store<K, V, Object> clientStore = getRawStore(storeName, resolver);
-        return new RESTClient<K, V>(storeName, clientStore);
+    public <K, V> StoreClient<K, V> getStoreClient(final String storeName,
+                                                   final InconsistencyResolver<Versioned<V>> resolver) {
+	// wrap it in LazyStoreClient here so any direct calls to this method returns a lazy client
+        return new LazyStoreClient<K, V>(new Callable<StoreClient<K, V>>() {
 
+            @Override
+            public StoreClient<K, V> call() throws Exception {
+                Store<K, V, Object> clientStore = getRawStore(storeName, resolver);
+                return new RESTClient<K, V>(storeName, clientStore);
+            }
+        }, true);
     }
 
     @Override
@@ -199,6 +198,22 @@ public class RESTClientFactory implements StoreClientFactory {
     public void close() {
         for(R2Store store: this.rawStoreList) {
             store.close();
+        }
+	// shutdown the transportclient in the case when no r2store is created
+ 	if(this.transportClient != null) {
+            final FutureCallback<None> clientShutdownCallback = new FutureCallback<None>();
+            this.transportClient.shutdown(clientShutdownCallback);
+            try {
+                clientShutdownCallback.get();
+            } catch(InterruptedException e) {
+                logger.error("Interrupted while shutting down the TransportClient: "
+                                     + e.getMessage(),
+                             e);
+            } catch(ExecutionException e) {
+                logger.error("Execution exception occurred while shutting down the TransportClient: "
+                                     + e.getMessage(),
+                             e);
+            }
         }
 
         final FutureCallback<None> factoryShutdownCallback = new FutureCallback<None>();
