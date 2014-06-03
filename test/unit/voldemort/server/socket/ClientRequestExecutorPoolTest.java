@@ -76,7 +76,7 @@ public class ClientRequestExecutorPoolTest {
                                                   32 * 1024,
                                                   false,
                                                   true,
-                                                  0);
+                                                  new String());
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
         RequestHandlerFactory handlerFactory = ServerTestUtils.getSocketRequestHandlerFactory(new StoreRepository());
         this.server = ServerTestUtils.getSocketService(useNio,
@@ -119,19 +119,22 @@ public class ClientRequestExecutorPoolTest {
         for(int i = 0; i < maxConnectionsPerNode; i++)
             list.add(pool.checkout(dest1));
 
-        assertEquals(list.size(), pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
+        assertEquals(list.size(),
+                     pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
         assertEquals(list.size(), pool.getStats().getConnectionsActive(null));
 
         pool.close(dest1);
 
         assertEquals(list.size(), pool.getStats().getConnectionsActive(null));
-        assertEquals(0, pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
+        assertEquals(0,
+                     pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
 
         for(ClientRequestExecutor sas: list)
             pool.checkin(dest1, sas);
 
         assertEquals(0, pool.getStats().getConnectionsActive(null));
-        assertEquals(list.size(), pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
+        assertEquals(list.size(),
+                     pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
     }
 
     @Test

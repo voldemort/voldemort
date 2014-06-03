@@ -60,13 +60,13 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     public static final Integer DEFAULT_SELECTORS = 2;
     public static final Boolean DEFAULT_SOCKET_KEEP_ALIVE = false;
     public static final Boolean DEFAULT_JMX_ENABLED = false;
-    public static final Integer DEFAULT_JMX_ID = 0;
+    public static final String DEFAULT_IDENTIFIER_STRING = "";
 
     private final QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> queuedPool;
     private final ClientRequestExecutorFactory factory;
     private final ClientSocketStats stats;
     private final boolean jmxEnabled;
-    private final int jmxId;
+    private final String identifierString;
 
     private final Logger logger = Logger.getLogger(ClientRequestExecutorPool.class);
 
@@ -77,20 +77,19 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                      int socketBufferSize,
                                      boolean socketKeepAlive,
                                      boolean jmxEnabled,
-                                     int jmxId) {
+                                     String identifierString) {
         ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
                                                             .setMaxPoolSize(maxConnectionsPerNode)
                                                             .setMaxInvalidAttempts(maxConnectionsPerNode)
                                                             .setTimeout(connectionTimeoutMs,
                                                                         TimeUnit.MILLISECONDS);
         this.jmxEnabled = jmxEnabled;
-        this.jmxId = jmxId;
+        this.identifierString = identifierString;
         if(this.jmxEnabled) {
-            stats = new ClientSocketStats(jmxId);
+            stats = new ClientSocketStats(identifierString);
             JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                             "aggregated"
-                                                                     + JmxUtils.getJmxId(this.jmxId)));
+                                                             "aggregated" + identifierString));
         } else {
             stats = null;
         }
@@ -121,7 +120,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
              socketBufferSize,
              socketKeepAlive,
              DEFAULT_JMX_ENABLED,
-             DEFAULT_JMX_ID);
+             DEFAULT_IDENTIFIER_STRING);
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,
@@ -130,13 +129,13 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                      int socketBufferSize) {
         // maintain backward compatibility of API
         this(DEFAULT_SELECTORS,
-                maxConnectionsPerNode,
-                connectionTimeoutMs,
-                soTimeoutMs,
-                socketBufferSize,
-                DEFAULT_SOCKET_KEEP_ALIVE,
-                DEFAULT_JMX_ENABLED,
-                DEFAULT_JMX_ID);
+             maxConnectionsPerNode,
+             connectionTimeoutMs,
+             soTimeoutMs,
+             socketBufferSize,
+             DEFAULT_SOCKET_KEEP_ALIVE,
+             DEFAULT_JMX_ENABLED,
+             DEFAULT_IDENTIFIER_STRING);
     }
 
     public ClientRequestExecutorFactory getFactory() {
@@ -248,7 +247,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                 if(this.jmxEnabled)
                     JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
                                                                        "aggregated"
-                                                                               + JmxUtils.getJmxId(this.jmxId)));
+                                                                               + this.identifierString));
             } catch(Exception e) {}
             stats.close();
         }
@@ -361,9 +360,10 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                 // Because PerformParallel(Put||Delete|GetAll)Requests define
                 // 'callback' via an anonymous class, callback can be null if
                 // the client factory closes down and some other thread invokes
-                // this code. Hence, protect against NullPointerExceptions during
+                // this code. Hence, protect against NullPointerExceptions
+                // during
                 // shutdown if async resource requests are queued up.
-                if (callback != null){
+                if(callback != null) {
                     callback.requestComplete(e, 0);
                 }
             } catch(Exception ex) {
@@ -434,7 +434,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                 clientRequest.complete();
                 Object result = clientRequest.getResult();
                 long durationNs = Utils.elapsedTimeNs(startNs, System.nanoTime());
-                if (stats != null) {
+                if(stats != null) {
                     stats.recordAsyncOpTimeNs(destination, durationNs);
                 }
                 invokeCallback(result, durationNs / Time.NS_PER_MS);

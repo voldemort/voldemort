@@ -86,6 +86,7 @@ public class CoordinatorService extends AbstractService {
     public final static Schema CLIENT_CONFIGS_AVRO_SCHEMA = Schema.parse("{ \"name\": \"clientConfigs\",  \"type\":\"array\","
                                                                          + "\"items\": { \"name\": \"clientConfig\", \"type\": \"map\", \"values\":\"string\" }}}");
     private static final String STORE_NAME_KEY = "store_name";
+    private static final String IDENTIFIER_STRING_KEY = "identifier_string";
     protected ThreadPoolExecutor workerPool = null;
     private final StoreStats coordinatorPerfStats;
     private final NettyConnectionStats connectionStats;
@@ -271,7 +272,9 @@ public class CoordinatorService extends AbstractService {
                                    .setEnableCompressionLayer(false)
                                    .setEnableSerializationLayer(false)
                                    .enableDefaultClient(true)
-                                   .setEnableLazy(false);
+                                   .setEnableLazy(false)
+                                   .setIdentifierString(props.getProperty(IDENTIFIER_STRING_KEY,
+                                                                          null));
 
                     logger.info("Creating a Fat client for store: " + storeName);
                     logger.info("Using config: " + fatClientConfig);

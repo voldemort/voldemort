@@ -69,7 +69,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                           config.getSocketBufferSize(),
                                                           config.getSocketKeepAlive(),
                                                           config.isJmxEnabled(),
-                                                          jmxId);
+                                                          identifierString);
     }
 
     @Override

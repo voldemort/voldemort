@@ -63,6 +63,7 @@ public class ClientConfig {
     private volatile boolean enableLazy = true;
     private volatile int clientZoneId = Zone.UNSET_ZONE_ID;
     private volatile boolean cacheStoreClients = true;
+    private volatile String identifierString = null;
 
     /*
      * Following properties are required for the Fat client wrapper to be
@@ -150,6 +151,7 @@ public class ClientConfig {
     public static final String ENABLE_LAZY_PROPERTY = "enable-lazy";
     public static final String CLIENT_ZONE_ID = "client_zone_id";
     public static final String CACHE_STORE_CLIENTS = "cache_store_clients";
+    public static final String IDENTIFIER_STRING = "identifier_string";
     public static final String FAILUREDETECTOR_IMPLEMENTATION_PROPERTY = "failuredetector_implementation";
     public static final String FAILUREDETECTOR_BANNAGE_PERIOD_PROPERTY = "failuredetector_bannage_period";
     public static final String FAILUREDETECTOR_THRESHOLD_PROPERTY = "failuredetector_threshold";
@@ -300,6 +302,10 @@ public class ClientConfig {
 
         if(props.containsKey(CACHE_STORE_CLIENTS)) {
             this.setCacheStoreClients(props.getBoolean(CACHE_STORE_CLIENTS));
+        }
+
+        if(props.containsKey(IDENTIFIER_STRING)) {
+            this.setIdentifierString(props.getString(IDENTIFIER_STRING));
         }
 
         if(props.containsKey(USE_DEFAULT_CLIENT))
@@ -883,6 +889,23 @@ public class ClientConfig {
 
     public boolean getCacheStoreClients() {
         return cacheStoreClients;
+    }
+
+    /**
+     * The string that identifies StoreClientFactory and other internal entities
+     * 
+     * Default : null, meaning that users will use jmxId as identifier in
+     * AbstractStoreClientFactory
+     * 
+     * @param cacheStoreClients
+     */
+    public ClientConfig setIdentifierString(String identifierString) {
+        this.identifierString = identifierString;
+        return this;
+    }
+
+    public String getIdentifierString() {
+        return identifierString;
     }
 
     /**

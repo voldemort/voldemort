@@ -66,8 +66,9 @@ public class ClientSocketStats {
     // "Async checkouts" / QueuedKeyedResourcePool::registerResourceRequest
     private final RequestCounter resourceRequestTimeRequestCounter = new RequestCounter(60000, true);
     // Connection establishment time. The counter will be reset every 60 seconds
-    private final RequestCounter connectionEstablishmentRequestCounter = new RequestCounter(60000, true);
-    
+    private final RequestCounter connectionEstablishmentRequestCounter = new RequestCounter(60000,
+                                                                                            true);
+
     // Sync operation time stats. The counter will be reset every 60 seconds
     private final RequestCounter syncOpTimeRequestCounter = new RequestCounter(60000, true);
     // Async operation time stats. The counter will be reset every 60 seconds
@@ -78,8 +79,8 @@ public class ClientSocketStats {
     private long startMs;
     private final Histogram checkoutQueueLengthHistogram = new Histogram(250, 1);
     private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
-    
-    private final int jmxId;
+
+    private final String identifierString;
     private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
 
     private final Map<Tracked, AtomicInteger> counters;
@@ -88,10 +89,13 @@ public class ClientSocketStats {
         CONNECTION_CREATED_EVENT("connectionCreated"),
         CONNECTION_DESTROYED_EVENT("connectionDestroyed"),
         CONNECTION_EXCEPTION_EVENT("connectionException");
+
         private final String name;
+
         private Tracked(String name) {
             this.name = name;
         }
+
         @Override
         public String toString() {
             return name;
@@ -105,19 +109,20 @@ public class ClientSocketStats {
      *        aggregate data across many sockets
      * @param destination The destination object that defines the node
      * @param pool The socket pool that will give out connection information
+     * @param identifierString The string of identifier
      */
     public ClientSocketStats(ClientSocketStats parent,
                              SocketDestination destination,
                              QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool,
-                             int jmxId) {
+                             String identifierString) {
         this.parent = parent;
         this.statsMap = null;
         this.destination = destination;
         this.pool = pool;
-        this.jmxId = jmxId;
-        this.startMs = SystemTime.INSTANCE.getMilliseconds(); 
+        this.identifierString = identifierString;
+        this.startMs = SystemTime.INSTANCE.getMilliseconds();
         counters = new EnumMap<Tracked, AtomicInteger>(Tracked.class);
-        for (Tracked tracked: Tracked.values()) {
+        for(Tracked tracked: Tracked.values()) {
             counters.put(tracked, new AtomicInteger(0));
         }
 
@@ -127,23 +132,21 @@ public class ClientSocketStats {
                          + System.identityHashCode(parent) + ")");
         }
     }
-
-
 
     /**
      * Construction of a new aggregate stats object
      * 
-     * @param jmxId the jmx id
+     * @param identifierString The string of identifier
      */
-    public ClientSocketStats(int jmxId) {
+    public ClientSocketStats(String identifierString) {
         this.parent = null;
         this.statsMap = new ConcurrentHashMap<SocketDestination, ClientSocketStats>();
         this.destination = null;
         this.pool = null;
-        this.jmxId = jmxId;
-        this.startMs = SystemTime.INSTANCE.getMilliseconds(); 
+        this.identifierString = identifierString;
+        this.startMs = SystemTime.INSTANCE.getMilliseconds();
         counters = new EnumMap<Tracked, AtomicInteger>(Tracked.class);
-        for (Tracked tracked: Tracked.values()) {
+        for(Tracked tracked: Tracked.values()) {
             counters.put(tracked, new AtomicInteger(0));
         }
 
@@ -153,24 +156,34 @@ public class ClientSocketStats {
                          + System.identityHashCode(parent) + ")");
         }
     }
-    
+
     /* get per node stats, create one if not exist */
     private ClientSocketStats getOrCreateNodeStats(SocketDestination destination) {
-        if (destination == null) {
+        if(destination == null) {
             return null;
         }
         ClientSocketStats stats = statsMap.get(destination);
-        if (stats == null) {
-            ClientSocketStats socketStats = new ClientSocketStats(this, destination, pool, jmxId);
-            // The idea here is to avoid registering the bean multiple times. This can happen when 
-            // two threads, both read the stats object as null (three lines above) and then try to
-            // populate the map with their own socketStats object. putifabsent returns the existing
-            // value if the key exists or returns null. The thread that does the first put will
-            // get a null return vale. That thread will then go on to get the stats object and register
-            // the bean. All the other threads will have their stats object populated by the return
-            // value of the putIfAbsent call that will return the existing value in the map.
+        if(stats == null) {
+            ClientSocketStats socketStats = new ClientSocketStats(this,
+                                                                  destination,
+                                                                  pool,
+                                                                  identifierString);
+            // The idea here is to avoid registering the bean multiple times.
+            // This can happen when
+            // two threads, both read the stats object as null (three lines
+            // above) and then try to
+            // populate the map with their own socketStats object. putifabsent
+            // returns the existing
+            // value if the key exists or returns null. The thread that does the
+            // first put will
+            // get a null return vale. That thread will then go on to get the
+            // stats object and register
+            // the bean. All the other threads will have their stats object
+            // populated by the return
+            // value of the putIfAbsent call that will return the existing value
+            // in the map.
             stats = statsMap.putIfAbsent(destination, socketStats);
-            if (stats == null) {
+            if(stats == null) {
                 stats = socketStats;
                 JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
                                        JmxUtils.createObjectName(JmxUtils.getPackageName(ClientRequestExecutor.class),
@@ -178,12 +191,12 @@ public class ClientSocketStats {
                                                                          + destination.toString()
                                                                                       .replace(':',
                                                                                                '_')
-                                                                         + JmxUtils.getJmxId(jmxId)));
+                                                                         + identifierString));
             }
         }
         return stats;
     }
-    
+
     /**
      * Record operation for sync ops time
      * 
@@ -193,14 +206,14 @@ public class ClientSocketStats {
      * @param opTimeUs The number of us for the op to finish
      */
     public void recordSyncOpTimeNs(SocketDestination dest, long opTimeNs) {
-        if (dest != null) {
+        if(dest != null) {
             getOrCreateNodeStats(dest).recordSyncOpTimeNs(null, opTimeNs);
             recordSyncOpTimeNs(null, opTimeNs);
         } else {
             this.syncOpTimeRequestCounter.addRequest(opTimeNs);
         }
     }
-    
+
     /**
      * Record operation for async ops time
      * 
@@ -210,24 +223,25 @@ public class ClientSocketStats {
      * @param opTimeUs The number of us for the op to finish
      */
     public void recordAsyncOpTimeNs(SocketDestination dest, long opTimeNs) {
-        if (dest != null) {
+        if(dest != null) {
             getOrCreateNodeStats(dest).recordAsyncOpTimeNs(null, opTimeNs);
             recordAsyncOpTimeNs(null, opTimeNs);
         } else {
             this.asynOpTimeRequestCounter.addRequest(opTimeNs);
         }
     }
-    
+
     /**
      * Record the connection establishment time
      * 
      * @param dest Destination of the socket to connect to. Will actually record
      *        if null. Otherwise will call this on self and corresponding child
      *        with this param null.
-     * @param connEstTimeUs The number of us to wait before establishing a connection
+     * @param connEstTimeUs The number of us to wait before establishing a
+     *        connection
      */
     public void recordConnectionEstablishmentTimeUs(SocketDestination dest, long connEstTimeUs) {
-        if (dest != null) {
+        if(dest != null) {
             getOrCreateNodeStats(dest).recordConnectionEstablishmentTimeUs(null, connEstTimeUs);
             recordConnectionEstablishmentTimeUs(null, connEstTimeUs);
         } else {
@@ -285,7 +299,8 @@ public class ClientSocketStats {
             getOrCreateNodeStats(dest).recordResourceRequestTimeUs(null, resourceRequestTimeUs);
             recordResourceRequestTimeUs(null, resourceRequestTimeUs);
         } else {
-            this.resourceRequestTimeRequestCounter.addRequest(resourceRequestTimeUs * Time.NS_PER_US);        
+            this.resourceRequestTimeRequestCounter.addRequest(resourceRequestTimeUs
+                                                              * Time.NS_PER_US);
         }
     }
 
@@ -309,7 +324,7 @@ public class ClientSocketStats {
     }
 
     public void incrementCount(SocketDestination dest, Tracked metric) {
-        if (dest != null) {
+        if(dest != null) {
             getOrCreateNodeStats(dest).incrementCount(null, metric);
             incrementCount(null, metric);
         } else {
@@ -329,15 +344,15 @@ public class ClientSocketStats {
     public double getAvgCheckoutWaitMs() {
         return checkoutTimeRequestCounter.getAverageTimeInMs();
     }
-    
+
     public double getCheckoutTimeMsQ10th() {
         return checkoutTimeRequestCounter.getQ10LatencyMs();
     }
-    
+
     public double getCheckoutTimeMsQ50th() {
         return checkoutTimeRequestCounter.getQ50LatencyMs();
     }
-  
+
     public double getCheckoutTimeMsQ99th() {
         return checkoutTimeRequestCounter.getQ99LatencyMs();
     }
@@ -351,26 +366,26 @@ public class ClientSocketStats {
     public int resourceRequestCount() {
         return (int) resourceRequestTimeRequestCounter.getCount();
     }
-    
+
     /**
      * @return 0 if there have been no resourceRequest invocations
      */
     public double getAvgResourceRequestTimeMs() {
         return resourceRequestTimeRequestCounter.getAverageTimeInMs();
     }
-    
+
     public double getResourceRequestTimeMsQ10th() {
         return resourceRequestTimeRequestCounter.getQ10LatencyMs();
     }
-    
+
     public double getResourceRequestTimeMsQ50th() {
         return resourceRequestTimeRequestCounter.getQ50LatencyMs();
     }
-  
+
     public double getResourceRequestTimeMsQ99th() {
         return resourceRequestTimeRequestCounter.getQ99LatencyMs();
     }
-    
+
     public Histogram getResourceRequestQueueLengthHistogram() {
         checkMonitoringInterval();
         return this.resourceRequestQueueLengthHistogram;
@@ -392,7 +407,7 @@ public class ClientSocketStats {
             return pool.getCheckedInResourcesCount(destination);
         }
     }
-    
+
     // Getters for connection establishment stats
     public double getAvgConnectionEstablishmentMs() {
         return this.connectionEstablishmentRequestCounter.getAverageTimeInMs();
@@ -401,33 +416,33 @@ public class ClientSocketStats {
     public double getConnectionEstablishmentQ99LatencyMs() {
         return this.connectionEstablishmentRequestCounter.getQ99LatencyMs();
     }
-    
+
     // Getters for sync op time
     public double getSyncOpTimeMsAvg() {
         return this.syncOpTimeRequestCounter.getAverageTimeInMs();
     }
-    
+
     public double getSyncOpTimeMsQ95th() {
         return this.syncOpTimeRequestCounter.getQ95LatencyMs();
     }
-    
+
     public double getSyncOpTimeMsQ99th() {
         return this.syncOpTimeRequestCounter.getQ99LatencyMs();
     }
-    
+
     // Getters for async op time
     public double getAsyncOpTimeMsAvg() {
         return this.asynOpTimeRequestCounter.getAverageTimeInMs();
     }
-    
+
     public double getAsyncOpTimeMsQ95th() {
         return this.asynOpTimeRequestCounter.getQ95LatencyMs();
     }
-    
+
     public double getAsyncOpTimeMsQ99th() {
         return this.asynOpTimeRequestCounter.getQ99LatencyMs();
     }
-  
+
     // Config & administrivia interfaces
 
     public void setMonitoringInterval(int count) {
@@ -441,9 +456,9 @@ public class ClientSocketStats {
     protected void checkMonitoringInterval() {
         int durationMs = this.monitoringInterval.get();
         // reset aggregated stats and all the node stats for new interval
-        if (parent == null && statsMap != null) {
+        if(parent == null && statsMap != null) {
             long now = SystemTime.INSTANCE.getMilliseconds();
-            if (now -  this.startMs > durationMs) {
+            if(now - this.startMs > durationMs) {
                 // reset all children
                 Iterator<SocketDestination> it = statsMap.keySet().iterator();
                 while(it.hasNext()) {
@@ -455,17 +470,16 @@ public class ClientSocketStats {
             }
         }
     }
-    
+
     /**
      * Reset all of the stats counters
      */
     protected void resetForInterval() {
         // harmless race conditions amongst all of this counter resetting:
         this.checkoutQueueLengthHistogram.reset();
-        this.resourceRequestQueueLengthHistogram.reset();   
+        this.resourceRequestQueueLengthHistogram.reset();
         this.startMs = SystemTime.INSTANCE.getMilliseconds();
     }
-    
 
     public void setPool(QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
         this.pool = pool;
@@ -492,7 +506,7 @@ public class ClientSocketStats {
                                                                            + destination.toString()
                                                                                         .replace(':',
                                                                                                  '_')
-                                                                           + JmxUtils.getJmxId(jmxId)));
+                                                                           + identifierString));
             } catch(Exception e) {}
         }
     }

@@ -108,7 +108,8 @@ public class RESTClientFactory implements StoreClientFactory {
     @Override
     public <K, V> StoreClient<K, V> getStoreClient(final String storeName,
                                                    final InconsistencyResolver<Versioned<V>> resolver) {
-	// wrap it in LazyStoreClient here so any direct calls to this method returns a lazy client
+        // wrap it in LazyStoreClient here so any direct calls to this method
+        // returns a lazy client
         return new LazyStoreClient<K, V>(new Callable<StoreClient<K, V>>() {
 
             @Override
@@ -164,7 +165,7 @@ public class RESTClientFactory implements StoreClientFactory {
         // First, the transport layer
         Store<ByteArray, byte[], byte[]> store = r2store;
 
-        // TODO: Add jmxId / some unique identifier to the Mbean name
+        // TODO: Add identifierString to the Mbean name
         if(this.config.isEnableJmx()) {
             StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
             store = statStore;
@@ -199,8 +200,8 @@ public class RESTClientFactory implements StoreClientFactory {
         for(R2Store store: this.rawStoreList) {
             store.close();
         }
-	// shutdown the transportclient in the case when no r2store is created
- 	if(this.transportClient != null) {
+        // shutdown the transportclient in the case when no r2store is created
+        if(this.transportClient != null) {
             final FutureCallback<None> clientShutdownCallback = new FutureCallback<None>();
             this.transportClient.shutdown(clientShutdownCallback);
             try {

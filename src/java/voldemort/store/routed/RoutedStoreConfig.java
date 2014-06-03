@@ -27,7 +27,7 @@ public class RoutedStoreConfig {
     private boolean repairReads = true;
     private TimeoutConfig timeoutConfig = new TimeoutConfig();
     private boolean isJmxEnabled = false;
-    private int jmxId = 0;
+    private String identifierString = "";
     private int clientZoneId = Zone.UNSET_ZONE_ID;
     private ZoneAffinity zoneAffinity = new ZoneAffinity();
 
@@ -83,12 +83,12 @@ public class RoutedStoreConfig {
         return this;
     }
 
-    public int getJmxId() {
-        return jmxId;
+    public String getIdentifierString() {
+        return identifierString;
     }
 
-    public RoutedStoreConfig setJmxId(int jmxId) {
-        this.jmxId = jmxId;
+    public RoutedStoreConfig setIdentifierString(String identifierString) {
+        this.identifierString = identifierString;
         return this;
     }
 

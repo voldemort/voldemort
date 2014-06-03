@@ -2,6 +2,7 @@
 {
   "store_name": "test",
   "connection_timeout_ms": "500",
-  "socket_timeout_ms": "1500"
+  "socket_timeout_ms": "1500",
+  "identifier_string": "test"
 }
 ]

@@ -42,13 +42,13 @@ public class ClientSocketStatsTest {
         this.port = ServerTestUtils.findFreePort();
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
         this.dest2 = new SocketDestination("localhost", port + 1, RequestFormatType.VOLDEMORT_V1);
-        this.masterStats = new ClientSocketStats(0);
+        this.masterStats = new ClientSocketStats("");
         pool = null;
     }
 
     @Test
     public void testNewNodeStatsObject() {
-        ClientSocketStats stats = new ClientSocketStats(masterStats, dest1, pool, 0);
+        ClientSocketStats stats = new ClientSocketStats(masterStats, dest1, pool, "");
         assertNotNull(stats);
     }
 
@@ -70,8 +70,14 @@ public class ClientSocketStatsTest {
         stats.incrementCount(dest2, ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT);
         stats.incrementCount(dest1, ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT);
         assertEquals(3, stats.getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
-        assertEquals(2, stats.getStatsMap().get(dest1).getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
-        assertEquals(1, stats.getStatsMap().get(dest2).getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
+        assertEquals(2,
+                     stats.getStatsMap()
+                          .get(dest1)
+                          .getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
+        assertEquals(1,
+                     stats.getStatsMap()
+                          .get(dest2)
+                          .getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
     }
 
     @Test
@@ -81,8 +87,14 @@ public class ClientSocketStatsTest {
         stats.incrementCount(dest2, ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT);
         stats.incrementCount(dest1, ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT);
         assertEquals(3, stats.getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
-        assertEquals(2, stats.getStatsMap().get(dest1).getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
-        assertEquals(1, stats.getStatsMap().get(dest2).getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
+        assertEquals(2,
+                     stats.getStatsMap()
+                          .get(dest1)
+                          .getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
+        assertEquals(1,
+                     stats.getStatsMap()
+                          .get(dest2)
+                          .getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
     }
 
     @Test
@@ -308,17 +320,17 @@ public class ClientSocketStatsTest {
         ClientSocketStats child2 = stats.getStatsMap().get(dest2);
         assertEquals(3.5, child1.getCheckoutQueueLengthHistogram().getAverage(), 0);
         assertEquals(7.5, child2.getCheckoutQueueLengthHistogram().getAverage(), 0);
-   
+
         // Make it sleep for a second
         try {
             Thread.sleep(1000);
         } catch(InterruptedException e) {
             e.printStackTrace();
         }
-        
+
         // The histogram should be reset by now
         assertEquals(0, (stats.getCheckoutQueueLengthHistogram().getAverage()), 0);
-        
+
         stats.recordCheckoutQueueLength(dest1, 1);
         stats.recordCheckoutQueueLength(dest1, 1);
         stats.recordCheckoutQueueLength(dest2, 4);
@@ -377,17 +389,13 @@ public class ClientSocketStatsTest {
         assertEquals((int) (masterStats.getCheckoutTimeMsQ10th() * Time.US_PER_MS), 1000);
         assertEquals((int) (masterStats.getCheckoutTimeMsQ50th() * Time.US_PER_MS), 5000);
 
-        assertEquals((int) (masterStats.getStatsMap()
-                                .get(dest1).getCheckoutTimeMsQ10th() * Time.US_PER_MS),
-                                1000);
-        assertEquals((int) (masterStats.getStatsMap()
-                                .get(dest1).getCheckoutTimeMsQ50th() * Time.US_PER_MS),
-                                 5000);
-        assertEquals((int) (masterStats.getStatsMap()
-                                .get(dest2).getCheckoutTimeMsQ10th() * Time.US_PER_MS),
-                                 1000);
-        assertEquals((int) (masterStats.getStatsMap()
-                                .get(dest2).getCheckoutTimeMsQ50th() * Time.US_PER_MS),
-                                 5000);
+        assertEquals((int) (masterStats.getStatsMap().get(dest1).getCheckoutTimeMsQ10th() * Time.US_PER_MS),
+                     1000);
+        assertEquals((int) (masterStats.getStatsMap().get(dest1).getCheckoutTimeMsQ50th() * Time.US_PER_MS),
+                     5000);
+        assertEquals((int) (masterStats.getStatsMap().get(dest2).getCheckoutTimeMsQ10th() * Time.US_PER_MS),
+                     1000);
+        assertEquals((int) (masterStats.getStatsMap().get(dest2).getCheckoutTimeMsQ50th() * Time.US_PER_MS),
+                     5000);
     }
 }

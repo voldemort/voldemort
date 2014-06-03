@@ -94,7 +94,7 @@ public class RoutedStoreFactory {
                                        routedStoreConfig.getTimeoutConfig(),
                                        routedStoreConfig.getClientZoneId(),
                                        routedStoreConfig.isJmxEnabled(),
-                                       routedStoreConfig.getJmxId(),
+                                       routedStoreConfig.getIdentifierString(),
                                        routedStoreConfig.getZoneAffinity());
     }
 }
