@@ -1,3 +1,9 @@
+Release 1.8.4 on 06/03/2014
+
+* Fix RESTClientFactory for a clean shutdown
+* Add check for SocketAndStreams in sendAndReceive
+* Added the ability to query a single store using AdminClient / admin tool
+
 Release 1.8.3 on 05/27/2014
 
 * Add debug log messages for CoordinatorService
