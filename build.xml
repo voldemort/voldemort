@@ -8,12 +8,15 @@
   <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao, Chinmay Soman, Vinoth Chandar, Zhongjie Wu" />
   <property environment="env" />
   <!-- Files needed for building scala files with ant -->
-  <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler-${scalac.version}.jar"/>
-  <property name="scala-library.jar" value="${scala.home}/lib/scala-library-${scalac.version}.jar"/>
-  <property name="scala-reflect.jar" value="${scala.home}/lib/scala-reflect-${scalac.version}.jar"/>
+  <property name="scala-compiler.jar" value="${public.lib.dir}/scala-compiler-${scalac.version}.jar"/>
+  <property name="scala-library.jar" value="${public.lib.dir}/scala-library-${scalac.version}.jar"/>
+  <property name="scala-reflect.jar" value="${public.lib.dir}/scala-reflect-${scalac.version}.jar"/>
 
   <path id="main-classpath">
-    <fileset dir="${lib.dir}">
+    <fileset dir="${public.lib.dir}">
+      <include name="*.jar" />
+    </fileset>
+    <fileset dir="${private.lib.dir}">
       <include name="*.jar" />
     </fileset>
     <pathelement path="${classes.dir}" />
@@ -24,11 +27,10 @@
     <pathelement location="${scala-compiler.jar}"/>
     <pathelement location="${scala-library.jar}"/>
     <pathelement location="${scala-reflect.jar}"/>
-    <fileset dir="${lib.dir}">
-      <include name="*.jar" />
-    </fileset>
-    <pathelement path="${classes.dir}" />
+  	<path refid="main-classpath" />
+  	<pathelement path="${classes.dir}" />
   </path>
+
   <taskdef resource="scala/tools/ant/antlib.xml">
   <classpath refid="scala.classpath"/>
   </taskdef>
@@ -49,8 +51,8 @@
     <fileset dir="${dist.dir}">
       <include name="${name}-${curr.release}.jar" />
     </fileset>
-    <fileset dir="${contrib.root.dir}">
-      <include name="**/*.jar" />
+    <fileset dir="${public.lib.dir}">
+      <include name="*.jar" />
     </fileset>
     <path refid="test-classpath" />
   </path>
@@ -83,6 +85,7 @@
 
   <target name="clean" description="Delete generated files.">
     <delete dir="${dist.dir}" />
+    <delete dir="lib" />
     <replace-dir dir="${javadoc.dir}" />
   </target>
 
@@ -117,6 +120,10 @@
     <scalac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="scala.classpath">
     <include name="**/*.scala"/>
     </scalac>
+    <copy todir="lib">
+      <fileset dir="${private.lib.dir}" />
+      <fileset dir="${public.lib.dir}" />
+    </copy>
   </target>
 
   <target name="buildtest" description="Compile test classes">
@@ -216,9 +223,13 @@
   <target name="war" depends="build" description="Build server war file">
     <war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">
       <classes dir="${classes.dir}"/>
-      <lib dir="${lib.dir}">
-        <exclude name="${lib.dir}/servlet-api*.jar"/>
-        <exclude name="${lib.dir}/src/**"/>
+      <lib dir="${public.lib.dir}">
+        <exclude name="${public.lib.dir}/servlet-api*.jar"/>
+        <exclude name="${public.lib.dir}/src/**"/>
+      </lib>
+      <lib dir="${private.lib.dir}">
+        <exclude name="${private.lib.dir}/servlet-api*.jar"/>
+        <exclude name="${private.lib.dir}/src/**"/>
       </lib>
     </war>
   </target>
@@ -543,7 +554,7 @@
 
   <taskdef file="tomcat-tasks.properties">
     <classpath>
-      <path location="${lib.dir}/catalina-ant.jar" />
+      <path location="${private.lib.dir}/catalina-ant.jar" />
     </classpath>
   </taskdef>
 

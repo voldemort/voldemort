@@ -1,1 +1,0 @@
-Java 5 users would need to exclude Hadoop 0.20.2 manually while replacing it with Hadoop 0.18.*

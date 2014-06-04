@@ -23,3 +23,6 @@ voldsys$_*
 .pydevproject
 .gradle
 build
+lib
+.classpath
+.project

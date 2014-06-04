@@ -16,13 +16,35 @@
 package voldemort.client.rebalance;
 
 
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Random;
+
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.logging.impl.Log4JLogger;
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.junit.*;
-import voldemort.*;
-import voldemort.client.*;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import voldemort.ClusterTestUtils;
+import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
+import voldemort.VoldemortAdminTool;
+import voldemort.client.ClientConfig;
+import voldemort.client.LazyStoreClient;
+import voldemort.client.SocketStoreClientFactory;
+import voldemort.client.StoreClient;
+import voldemort.client.StoreClientFactory;
+import voldemort.client.ZenStoreClient;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -51,10 +73,6 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
-
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.*;
 
 
 public class ZoneShrinkageEndToEndTest {

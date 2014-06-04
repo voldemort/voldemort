@@ -3,6 +3,7 @@ import java.util.jar.JarEntry;
 apply plugin: 'java'
 apply plugin: 'scala'
 apply plugin: 'idea'
+apply plugin: 'eclipse'
 
 def String getProjectProperty(String propertyName) {
     String propertyValue = "null"
@@ -20,7 +21,7 @@ def sourceDir = getProjectProperty('src.dir')
 def distDir = getProjectProperty('dist.dir')
 def classesDir = getProjectProperty('classes.dir')
 def javaDir = getProjectProperty('java.dir')
-def libDir = getProjectProperty('lib.dir')
+def privateLibDir = getProjectProperty('private.lib.dir')
 def resourcesDir = getProjectProperty('resources.dir')
 def javaDocDir = getProjectProperty('javadoc.dir')
 
@@ -56,13 +57,12 @@ compileJava.options.debug = true
 
 
 tasks.withType(ScalaCompile) {
-    scalaClasspath = files("lib/scala-compiler-${scalaVersion}.jar",
-            "lib/scala-reflect-${scalaVersion}.jar",
-            "lib/scala-library-${scalaVersion}.jar")
+    scalaCompileOptions.useAnt = false
 }
 
 repositories {
-    flatDir { dirs libDir }
+    mavenCentral()
+    flatDir { dirs privateLibDir }
     flatDir { dirs contribRootDir }
 }
 
@@ -94,7 +94,7 @@ sourceSets {
     }
     contrib {
         java { srcDirs = [contribRootDir] }
-        compileClasspath += sourceSets.main.runtimeClasspath
+        compileClasspath += sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
         output.classesDir = contribClassesDir
     }
 }
@@ -127,16 +127,6 @@ compileContribJava.doLast {
         from (contribRootDir + '/ec2-testing/resources')
         into contribClassesDir
     }
-}
-
-dependencies {
-    compile fileTree(dir: libDir, includes: ['**/*.jar'])
-
-    contribCompile sourceSets.main.output
-    contribCompile sourceSets.test.output
-
-    contribCompile fileTree(dir: contribRootDir, includes: ['**/*.jar'])
-    testCompile 'junit:junit:4.6'
 }
 
 task testJar(type: Jar) {
@@ -179,6 +169,7 @@ artifacts {
 
 clean {
     delete(distDir)
+    delete('lib')
     doLast { deleteDirectoryContents(javaDocDir) }
 }
 
@@ -223,7 +214,13 @@ task tar (type: Tar) {
     destinationDir = project.file(distDir)
 }
 
-jar.dependsOn contribJar,srcJar
+task copyDeps(type: Copy) {
+    from  {configurations.compile  }
+    into "lib"
+}
+
+
+jar.dependsOn contribJar,srcJar, copyDeps
 compileContribJava.dependsOn voldJar
 copySources.dependsOn jar
 
@@ -245,6 +242,7 @@ tasks.withType(Test) {
     // Gradle aborts further tasks on test failure. so if you run junitAll
     // which runs 3 tests, reports task will never be run on failure cases.
     ignoreFailures = true
+    //ignoreFailures = gradle.startParameter.continueOnFailure
 
     useJUnit()
 
@@ -336,3 +334,171 @@ task wrapper(type: Wrapper) {
 }
 
 
+dependencies {
+    // Avro serialization format
+    compile 'org.apache.avro:avro:1.4.0'
+
+    // INTERNAL_LIBS azkaban version not found
+    // azkaban-common-0.05.jar
+
+    // INTERNAL_LIBS Used for tomcat deployment, not sure if anyone uses it
+    // catalina-ant.jar , version not found in maven central
+
+    // coders decoders containing the Base64,binary encoding
+    compile 'commons-codec:commons-codec:1.4'
+
+    // TRANSITIVE_DEPENDENCY Contrib jar depends on commons-configuration-1.6.jar
+    // commons-configuration instead depends on commons-collection
+    //compile 'commons-collections:commons-collections:3.2.1'
+
+    // Used by MySql storage engine classes
+    // The jar supports database connection pooling
+    compile 'commons-dbcp:commons-dbcp:1.2.2'
+
+    // commons io is used at many places
+    // IOUtils, FileUtils and ByteArrayOutputStream
+    compile 'commons-io:commons-io:1.4'
+
+    // LZF compression strategy for store and tests.
+    compile 'com.ning:compress-lzf:0.9.1'
+
+    // TRANSITIVE_DEPENDENCY tusk jar internally uses gson.
+    compile 'com.google.code.gson:gson:2.2.4'
+
+    // Used all over the place for collections
+    compile 'com.google.guava:guava:14.0.1'
+
+    // used for readonly store hdfs fetcher.
+    compile 'org.apache.hadoop:hadoop-auth:2.0.5-alpha'
+
+    // used at lots of places. Seems like there is some overlap between httpclient and core, but not clear
+    compile 'org.apache.httpcomponents:httpclient:4.1.2'
+
+    // contains both http server and client functionalities. Used for HttpResponse but could be used at more places.
+    compile 'org.apache.httpcomponents:httpcore:4.1.2'
+
+    // JSON mapping library from Java Objects to JSON
+    compile 'org.codehaus.jackson:jackson-mapper-asl:1.4.0'
+
+    // JSON processing library
+    compile 'org.codehaus.jackson:jackson-core-asl:1.4.0'
+
+    // Used for reading XML files and Document.
+    compile 'jdom:jdom:1.1'
+
+    // je- BDB je 5.0.88 is not available in maven central repository.
+    // Could be possibly found in oracle maven repository, but not sure
+    /*
+    groupId>com.sleepycat</groupId>
+          <artifactId>je</artifactId>
+          <version>3.3.75</version>
+
+          groupId>com.sleepycat</groupId>
+          <artifactId>je</artifactId>
+          <version>3.3.75</version>
+          */
+
+    // Jetty is used for HttpService and tests. Jetty Util is used for QueuedThreadPool class.
+    compile 'org.mortbay.jetty:jetty-util:6.1.18'
+    compile 'org.mortbay.jetty:jetty:6.1.18'
+
+    // A line processing library for command line. No compile time dependency
+    // Used by Voldemort shell
+     compile 'jline:jline:0.9.94'
+
+    // jna is library for invoking native functions
+    // used in the readonly store
+    compile 'net.java.dev.jna:jna:3.2.7'
+
+    // joda time is replacement for Java Date and Time
+    // used in readonly store code.
+    compile 'joda-time:joda-time:1.6'
+
+    // Used for argument command line parsing
+    compile 'net.sf.jopt-simple:jopt-simple:4.6'
+
+    // INTERNAL_LIBS thrift is one of the supported serialization format.
+    // libthrift 0.5 version is not found in the maven central repository.
+    // The closest version available is 0.6.1
+    // libthrift-0.5.0.jar
+
+    // log4j - logger used in almost all files
+    compile 'log4j:log4j:1.2.15'
+
+    // used in readonly store and Co-ordinator
+    compile 'javax.mail:mail:1.4.1'
+
+    // Used in co-ordinator and rest services
+    compile 'io.netty:netty:3.5.8.Final'
+
+    // TRANSITIVE_DEPENDENCY Paranamer is a library that allows the parameter names of non-private methods and constructors to be accessed at runtime
+    // Avro has a dependency on paranamer
+    // compile 'com.thoughtworks.paranamer:paranamer:2.1'
+
+    // protobuf is a supported protocol format between voldemort client and server
+    compile 'com.google.protobuf:protobuf-java:2.3.0'
+
+    // Command line shell is also supported in scala
+    compile 'org.scala-lang:scala-compiler:2.10.4'
+    compile 'org.scala-lang:scala-library:2.10.4'
+    compile 'org.scala-lang:scala-reflect:2.10.4'
+
+    // Servlet
+    compile 'javax.servlet:servlet-api:2.5'
+
+    // slf4j is another logging abstraction framework.
+    // It is used by the apache.avro, apache.hadoop and r2 clients
+    compile 'org.slf4j:slf4j-api:1.5.6'
+    compile 'org.slf4j:slf4j-log4j12:1.5.6'
+
+    // snappy is one of the supported compression strategies in voldemort
+    compile 'org.iq80.snappy:snappy:0.2'
+
+    // could not locate tusk in maven central repository
+    // tusk-0.0.2.jar
+
+    // Velocity is a simple yet powerful Java-based template engine that renders data
+    // from plain Java objects to text, xml, email, SQL, Post Script, HTML etc
+    // Velocity is used for Http Server GUI
+    compile 'org.apache.velocity:velocity:1.6.2'
+
+    // TRANSITIVE_DEPENDENCY Apache XML Parser
+    // used by jdom
+    // compile 'xerces:xercesImpl:2.9.1'
+
+    compile fileTree(dir: privateLibDir, includes: ['**/*.jar'])
+
+    // cern library containing high performance Maps for int and double
+    // Currently only used in the tests
+    testCompile 'colt:colt:1.2.0'
+
+    // Used in ec2 testing , is a wrapper over any logging framework
+    testCompile 'commons-logging:commons-logging:1.1.1'
+
+    // Used in resource pool perf testing class
+    testCompile 'commons-pool:commons-pool:1.5.2'
+
+    // Used for unit tests and other automated testing
+    testCompile 'junit:junit:4.6'
+
+    // Mockito is written by our beloved friend Szczepan Faber :)
+    // Mocking framework used in some tests
+    testCompile 'org.mockito:mockito-all:1.8.5'
+
+    contribCompile sourceSets.main.output
+    contribCompile sourceSets.test.output
+
+    // declaring contribCompile dependencies as compile dependencies
+    // otherwise while copying dependencies to lib directory
+    // conflict resolution is not done properly across sourceSets
+    // and we end up with 2 versions of few jars like ( log4j, servlet etc. )
+    compile 'commons-configuration:commons-configuration:1.6'
+    compile 'org.apache.hadoop:hadoop-core:1.0.4'
+
+    compile 'com.linkedin.pegasus:r2:1.8.3'
+    compile 'com.linkedin.pegasus:data:1.8.3'
+    compile 'com.linkedin.pegasus:pegasus-common:1.8.3'
+
+    compile 'com.google.code.typica:typica:1.7.2'
+    compile 'com.sna-projects.krati:krati:0.4.9'
+}
