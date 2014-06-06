@@ -1,3 +1,9 @@
+Release 1.8.5 on 06/06/2014
+*Gradle related changes
+    - empty settings file
+    - empty voldemort-contrib directory
+    - gradle wrapper to fetch required version
+
 Release 1.8.4 on 06/03/2014
 
 * Fix RESTClientFactory for a clean shutdown
