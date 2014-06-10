@@ -77,7 +77,7 @@ public class RESTClientFactory implements StoreClientFactory {
         // TODO: Add monitoring for R2 factory
         this._clientFactory = new HttpClientFactory();
         Map<String, String> properties = new HashMap<String, String>();
-        properties.put(HttpClientFactory.POOL_SIZE_KEY,
+        properties.put(HttpClientFactory.HTTP_POOL_SIZE,
                        Integer.toString(this.config.getMaxR2ConnectionPoolSize()));
         transportClient = _clientFactory.getClient(properties);
         this.RESTClientFactoryStats = new StoreClientFactoryStats();

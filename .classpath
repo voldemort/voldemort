@@ -60,12 +60,12 @@
 	<classpathentry kind="lib" path="lib/joda-time-1.6.jar"/>
 	<classpathentry kind="lib" path="lib/mail-1.4.1.jar"/>
 	<classpathentry kind="lib" path="lib/azkaban-common-0.05.jar"/>
-	<classpathentry kind="lib" path="contrib/restclient/lib/data-1.5.10.jar"/>
-	<classpathentry kind="lib" path="contrib/restclient/lib/pegasus-common-1.5.10.jar"/>
-	<classpathentry kind="lib" path="contrib/restclient/lib/r2-1.5.10.jar"/>
 	<classpathentry kind="lib" path="lib/guava-14.0.1.jar"/>
 	<classpathentry kind="lib" path="lib/gson-2.2.4.jar"/>
 	<classpathentry kind="lib" path="lib/tusk-0.0.2.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="contrib/restclient/lib/data-1.15.18.jar"/>
+	<classpathentry kind="lib" path="contrib/restclient/lib/pegasus-common-1.15.18.jar"/>
+	<classpathentry kind="lib" path="contrib/restclient/lib/r2-1.15.18.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

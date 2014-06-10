@@ -86,7 +86,7 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
                         .setMaxR2ConnectionPoolSize(100);
         clientFactory = new HttpClientFactory();
         Map<String, String> properties = new HashMap<String, String>();
-        properties.put(HttpClientFactory.POOL_SIZE_KEY,
+        properties.put(HttpClientFactory.HTTP_POOL_SIZE,
                        Integer.toString(restClientConfig.getMaxR2ConnectionPoolSize()));
         TransportClient transportClient = clientFactory.getClient(properties);
         R2Store r2Store = new R2Store(STORE_NAME,
@@ -310,7 +310,7 @@ public class RestServiceR2StoreTest extends AbstractByteArrayStoreTest {
          limited to 1048576 bytes.
          2. The HttpChunkAggregator in r2 layer which accepts the response
          limits the Http content to roughly around ~2Mb
-        
+
          should all this be changed to support higher data sizes ?
          */
 
