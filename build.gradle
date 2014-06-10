@@ -76,7 +76,7 @@ sourceSets {
         }
         resources {
             srcDirs = [javaDir]
-            include '**/*.xsd', 'log4j.properties'
+            include '**/*.xsd'
         }
         output.classesDir = classesDir
         output.resourcesDir = resourcesDir
@@ -103,6 +103,14 @@ compileJava.doLast {
     project.copy {
         from (javaDir) { exclude '**/*.java','**/*.html','**/*.scala', '**/log4j.properties' }
         into classesDir
+    }
+
+    project.copy {
+        // Theoretically this block can be replaced by including the log4j.properties in main resources.
+        // But that causes the log4j.properties to be present in the voldJar . Not sure what is the
+        // implication of this change, so avoiding it for now.
+        from (javaDir) { include 'log4j.properties' }
+        into resourcesDir
     }
 }
 
