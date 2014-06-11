@@ -879,10 +879,11 @@ public class StorageService extends AbstractService {
             // Wrap everything under the rate limiting store (barring the
             // metadata store)
             if(voldemortConfig.isEnableQuotaLimiting() && !isMetadata) {
+                StoreStats currentStoreStats = statStore.getStats();
                 FileBackedCachingStorageEngine quotaStore = (FileBackedCachingStorageEngine) storeRepository.getStorageEngine(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.toString());
                 QuotaLimitStats quotaStats = new QuotaLimitStats(this.aggregatedQuotaStats);
                 QuotaLimitingStore rateLimitingStore = new QuotaLimitingStore(store,
-                                                                              this.storeStats,
+                                                                              currentStoreStats,
                                                                               quotaStats,
                                                                               quotaStore);
                 if(voldemortConfig.isJmxEnabled()) {
