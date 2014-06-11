@@ -116,19 +116,7 @@ public class MysqlStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
 
     @Override
     public void truncate() {
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        String select = "delete from " + getName();
-        try {
-            conn = datasource.getConnection();
-            stmt = conn.prepareStatement(select);
-            stmt.executeUpdate();
-        } catch(SQLException e) {
-            throw new PersistenceFailureException("Fix me!", e);
-        } finally {
-            tryClose(stmt);
-            tryClose(conn);
-        }
+        execute("delete from " + getName());
     }
 
     @Override
@@ -168,7 +156,7 @@ public class MysqlStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
         Connection conn = null;
         PreparedStatement selectStmt = null;
         ResultSet rs = null;
-        String select = "select key_, version_ from " + getName() + " where key_ = ? for update";
+        String select = "select version_ from " + getName() + " where key_ = ? for update";
 
         try {
             conn = datasource.getConnection();
@@ -177,11 +165,10 @@ public class MysqlStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
             rs = selectStmt.executeQuery();
             boolean deletedSomething = false;
             while(rs.next()) {
-                byte[] theKey = rs.getBytes("key_");
                 byte[] version = rs.getBytes("version_");
                 if((maxVersion == null)
                    || (new VectorClock(version).compare(maxVersion) == Occurred.BEFORE)) {
-                    delete(conn, theKey, version);
+                    delete(conn, key.get(), version);
                     deletedSomething = true;
                 }
             }
@@ -263,7 +250,7 @@ public class MysqlStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
         ResultSet results = null;
         String insertSql = "insert into " + getName()
                            + " (key_, version_, value_) values (?, ?, ?)";
-        String selectSql = "select key_, version_ from " + getName() + " where key_ = ?";
+        String selectSql = "select version_ from " + getName() + " where key_ = ?";
         try {
             conn = datasource.getConnection();
             conn.setAutoCommit(false);
@@ -273,7 +260,6 @@ public class MysqlStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
             select.setBytes(1, key.get());
             results = select.executeQuery();
             while(results.next()) {
-                byte[] thisKey = results.getBytes("key_");
                 VectorClock version = new VectorClock(results.getBytes("version_"));
                 Occurred occurred = value.getVersion().compare(version);
                 if(occurred == Occurred.BEFORE)
@@ -282,7 +268,7 @@ public class MysqlStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
                                                        + " which is superceeded by " + version
                                                        + ".");
                 else if(occurred == Occurred.AFTER)
-                    delete(conn, thisKey, version.toBytes());
+                    delete(conn, key.get(), version.toBytes());
             }
 
             // Okay, cool, now put the value

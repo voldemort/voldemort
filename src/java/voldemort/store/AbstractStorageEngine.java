@@ -83,7 +83,7 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
 
     /**
      * Computes the final list of versions to be stored, on top of what is
-     * currently being stored. Final list is valsInStorage modified in place
+     * currently being stored. Final list is valuesInStorage modified in place
      * 
      * 
      * @param valuesInStorage list of versions currently in storage
