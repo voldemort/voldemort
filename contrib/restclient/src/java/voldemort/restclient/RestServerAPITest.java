@@ -67,7 +67,7 @@ public class RestServerAPITest {
                         .setMaxR2ConnectionPoolSize(100);
         clientFactory = new HttpClientFactory();
         Map<String, String> properties = new HashMap<String, String>();
-        properties.put(HttpClientFactory.POOL_SIZE_KEY,
+        properties.put(HttpClientFactory.HTTP_POOL_SIZE,
                        Integer.toString(restClientConfig.getMaxR2ConnectionPoolSize()));
         transportClient = clientFactory.getClient(properties);
         r2store = new R2Store("test",
