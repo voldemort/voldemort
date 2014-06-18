@@ -502,3 +502,50 @@ dependencies {
     compile 'com.google.code.typica:typica:1.7.2'
     compile 'com.sna-projects.krati:krati:0.4.9'
 }
+
+eclipse {
+    jdt {
+        // Currently the javac Version of jar is set to 1.5
+        // But @Override works differently between both, so overriding here
+        sourceCompatibility = targetCompatibility = 1.6
+    }
+    classpath {
+        defaultOutputDir = project.file('classes')
+        file {
+            // SourceSets creates multiple src/java in .classpath with varying includes
+            // But eclipse 4.3 is complaining about duplicate classpaths
+            // If contrib root is included instead of the seperate projects, eclipse
+            // expects the package to be different. ( contrib.restclient.test.voldemort.client
+            // versus voldemort.client ). So removing all the src entries and adding the previous
+            // src entries which used to work.
+            whenMerged { classpath ->
+                classpath.entries.removeAll { entry ->
+                    (entry.kind == 'src' )
+                }
+            }
+            withXml {
+                def node = it.asNode()
+                [   "src/java",
+                    "contrib/ec2-testing/resources",
+                    "contrib/ec2-testing/src/java",
+                    "contrib/ec2-testing/test",
+                    "contrib/hadoop-store-builder/test",
+                    "contrib/hadoop-store-builder/src/java",
+                    "test/unit",
+                    "test/integration",
+                    "test/common",
+                    "test/long",
+                    "example/java",
+                    "contrib/krati/src/java",
+                    "contrib/krati/test",
+                    "contrib/collections/src/java",
+                    "contrib/collections/test",
+                    "contrib/restclient/src/java",
+                    "contrib/restclient/test"]
+                .each{
+                    node.appendNode('classpathentry', [kind: 'src', path: "$it"])
+                }
+            }
+        }
+    }
+}
