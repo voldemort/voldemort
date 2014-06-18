@@ -2,9 +2,6 @@ config/*/config/STORES
 classes
 dist
 *~
-*.iml
-*.ipr
-*.iws
 *#
 .#*
 test-output
@@ -24,5 +21,3 @@ voldsys$_*
 .gradle
 build
 lib
-.classpath
-.project
