@@ -1,5 +1,9 @@
 Release 1.8.6 on 06/11/2014
 
+* Fix related to Quota metrics (store level instead of aggregate)
+
+Release 1.8.6 on 06/11/2014
+
 * Fix related to quotas - checking per store instead of aggregate
 
 Release 1.8.5 on 06/06/2014
