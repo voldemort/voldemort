@@ -10,9 +10,12 @@ import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 
 import javax.mail.MessagingException;
+import javax.mail.Session;
 import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 
 import org.apache.commons.io.output.ByteArrayOutputStream;
@@ -53,6 +56,27 @@ public class GetAllResponseSender extends RestResponseSender {
                              boolean isFromLocalZone,
                              long startTimeInMs) throws Exception {
 
+        /*
+         * Pay attention to the code below. Note that in this method we wrap a multiPart object with a mimeMessage.
+         * However when writing to the outputStream we only send the multiPart object and not the entire
+         * mimeMessage. This is intentional.
+         *
+         * In the earlier version of this code we used to create a multiPart object and just send that multiPart
+         * across the wire.
+         *
+         * However, we later discovered that upon setting the content of a MimeBodyPart, JavaMail internally creates
+         * a DataHandler object wrapping the object you passed in. The part's Content-Type header is not updated
+         * immediately. In order to get the headers updated, one needs to to call MimeMessage.saveChanges() on the
+         * enclosing message, which cascades down the MIME structure into a call to MimeBodyPart.updateHeaders()
+         * on the body part. It's this updateHeaders call that transfers the content type from the
+         * DataHandler to the part's MIME Content-Type header.
+         *
+         * To make sure that the Content-Type headers are being updated (without changing too much code), we decided
+         * to wrap the multiPart in a mimeMessage, call mimeMessage.saveChanges() and then just send the multiPart.
+         * This is to make sure multiPart's headers are updated accurately.
+         */
+
+        MimeMessage message = new MimeMessage(Session.getDefaultInstance(new Properties()));
         // multiPartKeys is the outer multipart
         MimeMultipart multiPartKeys = new MimeMultipart();
         ByteArrayOutputStream keysOutputStream = new ByteArrayOutputStream();
@@ -115,6 +139,8 @@ public class GetAllResponseSender extends RestResponseSender {
             }
 
         }
+        message.setContent(multiPartKeys);
+        message.saveChanges();
         try {
             multiPartKeys.writeTo(keysOutputStream);
         } catch(Exception e) {

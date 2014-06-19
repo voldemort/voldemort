@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -74,7 +74,7 @@ import com.linkedin.r2.transport.common.bridge.client.TransportClientAdapter;
 /**
  * A class that implements the Store interface for interacting with the RESTful
  * Coordinator. It leverages the R2 library for doing this.
- * 
+ *
  */
 public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
 
@@ -633,16 +633,25 @@ public class R2Store extends AbstractStore<ByteArray, byte[], byte[]> {
                 // Create an array list for holding all the (versioned values)
                 List<Versioned<byte[]>> valueResultList = new ArrayList<Versioned<byte[]>>();
 
-                // Get the nested Multi-part object. This contains one part for
-                // each unique versioned value.
+                /*
+                 * Get the nested Multi-part object. This contains one part for each unique versioned value.
+                 *
+                 * GetContent method can corrupt the embedded data, for example 0x8c be converted to 0xc2, 0x8c,
+                 * hence use getInputStream.
+                 *
+                 * This thread tracks this question
+                 * http://stackoverflow.com/questions/23023583/mimebodypart-getcontent-corrupts-binary-data
+                 *
+                 * getInputStream() : Return a decoded input stream for this Message's "content.
+                 *
+                 * getRawInputStream() : Return an InputStream to the raw data with any Content-Transfer-Encoding
+                 * intact. This method is useful if the "Content-Transfer-Encoding" header is incorrect or corrupt,
+                 * which would prevent the getInputStream method from returning the correct data. In such a case
+                 * the application may use this method and attempt to decode the raw data itself.
+                 *
+                 */
 
-                // GetContent method corrupts the embedded data, for example
-                // 0x8c will be converted to 0xc2, 0x8c. so use getRawInputStream
-                // This thread tracks this question
-                // http://stackoverflow.com/questions/23023583/mimebodypart-getcontent-corrupts-binary-data
-                // TODO: Understand the difference between getInputStream and getRawInputStream.
-
-                ByteArrayDataSource nestedDS = new ByteArrayDataSource(part.getRawInputStream(),
+                ByteArrayDataSource nestedDS = new ByteArrayDataSource(part.getInputStream(),
                                                                        "multipart/mixed");
                 MimeMultipart valueParts = new MimeMultipart(nestedDS);
 
