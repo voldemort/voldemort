@@ -624,6 +624,8 @@ public class AdminClient {
                 socketPool.checkin(destination, sands);
                 socketPool.close(destination);
                 sands = socketPool.checkout(destination);
+                System.out.println("Socket connection to " + destination.getHost() + ":"
+                                   + destination.getPort() + " was stale and it's now refreshed.");
             }
             return sands;
         }
