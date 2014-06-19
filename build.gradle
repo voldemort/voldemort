@@ -4,6 +4,7 @@ apply plugin: 'java'
 apply plugin: 'scala'
 apply plugin: 'idea'
 apply plugin: 'eclipse'
+apply plugin: 'war'
 
 def String getProjectProperty(String propertyName) {
     String propertyValue = "null"
@@ -56,9 +57,7 @@ targetCompatibility = javacVersion
 compileJava.options.debug = true
 
 
-tasks.withType(ScalaCompile) {
-    scalaCompileOptions.useAnt = false
-}
+tasks.withType(ScalaCompile) { scalaCompileOptions.useAnt = false }
 
 repositories {
     mavenCentral()
@@ -93,7 +92,7 @@ sourceSets {
         output.classesDir = voldTestClassesDir
     }
     contrib {
-        java { srcDirs = [contribRootDir] }
+        java { srcDirs = [contribRootDir]}
         compileClasspath += sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
         output.classesDir = contribClassesDir
     }
@@ -144,6 +143,12 @@ task voldJar(type:Jar) {
         'Implementation-Vendor' :'LinkedIn'
     }
     from sourceSets.main.output
+    destinationDir = project.file(distDir)
+}
+
+war {
+    from sourceSets.main.output
+    webXml = project.file('web.xml')
     destinationDir = project.file(distDir)
 }
 
@@ -256,9 +261,9 @@ tasks.withType(Test) {
     }
 
     doFirst {
-      def classesSize = candidateClassFiles.files.size()
-      logger.lifecycle("{} starts executing {} test classes {}",
-          path, classesSize, classesSize > 0? "(" + candidateClassFiles.files*.name[0] + ", ...)" : "")
+        def classesSize = candidateClassFiles.files.size()
+        logger.lifecycle("{} starts executing {} test classes {}",
+                path, classesSize, classesSize > 0? "(" + candidateClassFiles.files*.name[0] + ", ...)" : "")
     }
 
     //all standard error messages from tests will get routed to 'DEBUG' level messages.
@@ -278,8 +283,8 @@ tasks.withType(Test) {
 task junit(dependsOn: test)
 
 Collection<String> testClassesFrom(String dir, String include = '**/*Test.*') {
-  //take all *Test.java files found in given dir, make the path relative and replace .java with .class
-  fileTree(dir: dir, includes: [include]).collect { it.absolutePath.replaceAll(file(dir).absolutePath + "/", "").replaceAll(".java\$", ".class")}
+    //take all *Test.java files found in given dir, make the path relative and replace .java with .class
+    fileTree(dir: dir, includes: [include]).collect { it.absolutePath.replaceAll(file(dir).absolutePath + "/", "").replaceAll(".java\$", ".class")}
 }
 
 test {
@@ -293,11 +298,11 @@ task junitLong(type: Test) {
 }
 
 task junitRebalance(type: Test) {
-  include testClassesFrom(unitTestSrcDir, '**/*Rebalance*Test.java')
+    include testClassesFrom(unitTestSrcDir, '**/*Rebalance*Test.java')
 }
 
 task junitRebalanceLong(type: Test) {
-  include testClassesFrom(longTestSrcDir, '**/*Rebalance*Test.java')
+    include testClassesFrom(longTestSrcDir, '**/*Rebalance*Test.java')
 }
 
 task contribJunit(type: Test) {
@@ -319,19 +324,15 @@ task junitAll(type: TestReport) {
 }
 
 task aggregatedJunit(type: TestReport) {
-destinationDir = file("$project.buildDir/reports/$name")
+    destinationDir = file("$project.buildDir/reports/$name")
 }
 
 tasks.withType(Test) {
-  finalizedBy aggregatedJunit
-  doLast {
-    aggregatedJunit.reportOn it.binResultsDir
-  }
+    finalizedBy aggregatedJunit
+    doLast { aggregatedJunit.reportOn it.binResultsDir }
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '1.12'
-}
+task wrapper(type: Wrapper) { gradleVersion = '1.12' }
 
 
 dependencies {
@@ -389,14 +390,13 @@ dependencies {
     // je- BDB je 5.0.88 is not available in maven central repository.
     // Could be possibly found in oracle maven repository, but not sure
     /*
-    groupId>com.sleepycat</groupId>
-          <artifactId>je</artifactId>
-          <version>3.3.75</version>
-
-          groupId>com.sleepycat</groupId>
-          <artifactId>je</artifactId>
-          <version>3.3.75</version>
-          */
+     groupId>com.sleepycat</groupId>
+     <artifactId>je</artifactId>
+     <version>3.3.75</version>
+     groupId>com.sleepycat</groupId>
+     <artifactId>je</artifactId>
+     <version>3.3.75</version>
+     */
 
     // Jetty is used for HttpService and tests. Jetty Util is used for QueuedThreadPool class.
     compile 'org.mortbay.jetty:jetty-util:6.1.18'
@@ -404,7 +404,7 @@ dependencies {
 
     // A line processing library for command line. No compile time dependency
     // Used by Voldemort shell
-     compile 'jline:jline:0.9.94'
+    compile 'jline:jline:0.9.94'
 
     // jna is library for invoking native functions
     // used in the readonly store
@@ -478,6 +478,8 @@ dependencies {
     // Used in resource pool perf testing class
     testCompile 'commons-pool:commons-pool:1.5.2'
 
+    testRuntime 'mysql:mysql-connector-java:5.1.31'
+
     // Used for unit tests and other automated testing
     testCompile 'junit:junit:4.6'
 
@@ -525,7 +527,8 @@ eclipse {
             }
             withXml {
                 def node = it.asNode()
-                [   "src/java",
+                [
+                    "src/java",
                     "contrib/ec2-testing/resources",
                     "contrib/ec2-testing/src/java",
                     "contrib/ec2-testing/test",
@@ -541,7 +544,8 @@ eclipse {
                     "contrib/collections/src/java",
                     "contrib/collections/test",
                     "contrib/restclient/src/java",
-                    "contrib/restclient/test"]
+                    "contrib/restclient/test"
+                ]
                 .each{
                     node.appendNode('classpathentry', [kind: 'src', path: "$it"])
                 }
