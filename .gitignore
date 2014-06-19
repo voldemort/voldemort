@@ -1,6 +1,9 @@
 config/*/config/STORES
 classes
 dist
+*.iml
+*.ipr
+*.iws
 *~
 *#
 .#*
@@ -21,3 +24,5 @@ voldsys$_*
 .gradle
 build
 lib
+.project
+.classpath
