@@ -887,7 +887,7 @@ public class StorageService extends AbstractService {
                                                                               quotaStats,
                                                                               quotaStore);
                 if(voldemortConfig.isJmxEnabled()) {
-                    JmxUtils.registerMbean(this.aggregatedQuotaStats,
+                    JmxUtils.registerMbean(quotaStats,
                                            JmxUtils.createObjectName("voldemort.store.quota",
                                                                      store.getName()
                                                                              + "-quota-limit-stats"));
