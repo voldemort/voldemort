@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -52,7 +53,7 @@ public class RESTClientFactory implements StoreClientFactory {
     private Logger logger = Logger.getLogger(RESTClientFactory.class);
     private SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private HttpClientFactory _clientFactory;
-    private final TransportClient transportClient;
+    private TransportClient transportClient = null;
     private final StoreClientFactoryStats RESTClientFactoryStats;
     private Client d2Client;
     private RESTClientFactoryConfig restClientFactoryConfig;
@@ -72,14 +73,9 @@ public class RESTClientFactory implements StoreClientFactory {
         this.config = new RESTClientConfig(restClientFactoryConfig.getClientConfig());
         this.stats = new StoreStats();
         this.rawStoreList = new ArrayList<R2Store>();
-
         // Create the R2 (Netty) Factory object
         // TODO: Add monitoring for R2 factory
         this._clientFactory = new HttpClientFactory();
-        Map<String, String> properties = new HashMap<String, String>();
-        properties.put(HttpClientFactory.HTTP_POOL_SIZE,
-                       Integer.toString(this.config.getMaxR2ConnectionPoolSize()));
-        transportClient = _clientFactory.getClient(properties);
         this.RESTClientFactoryStats = new StoreClientFactoryStats();
         keySerializerMap = new HashMap<String, SerializerDefinition>();
         valueSerializerMap = new HashMap<String, SerializerDefinition>();
@@ -130,11 +126,17 @@ public class RESTClientFactory implements StoreClientFactory {
         R2Store r2store = null;
         this.d2Client = restClientFactoryConfig.getD2Client();
         if(this.d2Client == null) {
+            logger.info("Using transportclient since d2client is not available");
+            Map<String, String> properties = new HashMap<String, String>();
+            properties.put(HttpClientFactory.HTTP_POOL_SIZE,
+                           Integer.toString(this.config.getMaxR2ConnectionPoolSize()));
+            transportClient = _clientFactory.getClient(properties);
             r2store = new R2Store(storeName,
                                   this.config.getHttpBootstrapURL(),
                                   this.transportClient,
                                   this.config);
         } else {
+            logger.info("Using d2client");
             r2store = new R2Store(storeName,
                                   this.config.getHttpBootstrapURL(),
                                   this.d2Client,
@@ -218,7 +220,8 @@ public class RESTClientFactory implements StoreClientFactory {
         }
 
         final FutureCallback<None> factoryShutdownCallback = new FutureCallback<None>();
-        this._clientFactory.shutdown(factoryShutdownCallback);
+        // TODO: Is 30 seconds good for timeout ?
+        this._clientFactory.shutdown(factoryShutdownCallback, 30, TimeUnit.SECONDS);
         try {
             factoryShutdownCallback.get();
         } catch(InterruptedException e) {
