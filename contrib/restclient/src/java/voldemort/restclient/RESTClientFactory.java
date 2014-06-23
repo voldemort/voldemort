@@ -48,6 +48,7 @@ import com.linkedin.r2.transport.http.client.HttpClientFactory;
  */
 public class RESTClientFactory implements StoreClientFactory {
 
+    public static final int SHUTDOWN_TIMEOUT = 10;
     private RESTClientConfig config = null;
     private final StoreStats stats;
     private Logger logger = Logger.getLogger(RESTClientFactory.class);
@@ -220,8 +221,7 @@ public class RESTClientFactory implements StoreClientFactory {
         }
 
         final FutureCallback<None> factoryShutdownCallback = new FutureCallback<None>();
-        // TODO: Is 30 seconds good for timeout ?
-        this._clientFactory.shutdown(factoryShutdownCallback, 30, TimeUnit.SECONDS);
+        this._clientFactory.shutdown(factoryShutdownCallback, SHUTDOWN_TIMEOUT, TimeUnit.SECONDS);
         try {
             factoryShutdownCallback.get();
         } catch(InterruptedException e) {
