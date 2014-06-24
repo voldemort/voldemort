@@ -1,12 +1,12 @@
 /*
  * Copyright 2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -306,8 +306,13 @@ public class CoordinatorRestAPITest {
             assertEquals("The number of body parts expected is not 1", 1, mp.getCount());
 
             MimeBodyPart part = (MimeBodyPart) mp.getBodyPart(0);
-            VectorClock vc = RestUtils.deserializeVectorClock(part.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK)[0]);
-            response = (String) part.getContent();
+            VectorClock vc =
+                    RestUtils.deserializeVectorClock(part.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK)[0]);
+            int contentLength = Integer.parseInt(part.getHeader(RestMessageHeaders.CONTENT_LENGTH)[0]);
+            byte[] bodyPartBytes = new byte[contentLength];
+
+            part.getInputStream().read(bodyPartBytes);
+            response = new String(bodyPartBytes);
 
             responseObj = new TestVersionedValue(response, vc);
 

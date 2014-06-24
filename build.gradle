@@ -506,6 +506,9 @@ dependencies {
 }
 
 eclipse {
+    project {
+        buildCommand  'org.eclipse.jdt.core.javabuilder'
+    }
     jdt {
         // Currently the javac Version of jar is set to 1.5
         // But @Override works differently between both, so overriding here
