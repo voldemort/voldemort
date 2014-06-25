@@ -350,6 +350,9 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
             List<StoreDefinition> storeDefinitions = (List<StoreDefinition>) valueObject.getValue();
 
+            // Check for backwards compatibility
+            StoreDefinitionUtils.validateSchemasAsNeeded(storeDefinitions);
+
             // Go through each store definition and do a corresponding put
             for(StoreDefinition storeDef: storeDefinitions) {
                 if(!this.storeNames.contains(storeDef.getName())) {

@@ -20,6 +20,7 @@ import static junit.framework.Assert.assertNull;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
@@ -179,6 +180,30 @@ public class AvroAddStoreTest {
         }
         logger.info("Now inserting stores with backward compatible schema. Should not see exception");
         adminClient.storeMgmtOps.addStore(new StoreDefinitionsMapper().readStore(new StringReader(storeXmlWithBackwardCompatibleSchema)));
+
+        for(VoldemortServer vs: vservers.values()) {
+            assertNotNull(vs.getStoreRepository().getLocalStore("test"));
+        }
+    }
+
+    @Test
+    public void testUpdateAvroSchema() throws Exception {
+        for(VoldemortServer vs: vservers.values()) {
+            assertNull(vs.getStoreRepository().getLocalStore("test"));
+        }
+        logger.info("Now inserting stores with backward compatible schema. Should not see exception");
+        adminClient.storeMgmtOps.addStore(new StoreDefinitionsMapper().readStore(new StringReader(storeXmlWithBackwardCompatibleSchema)));
+
+
+        try {
+            logger.info("Now updating store with non backward compatible schema. Should see exception");
+            List<StoreDefinition> stores = new ArrayList<StoreDefinition>();
+            stores.add(new StoreDefinitionsMapper().readStore(new StringReader(storeXmlWithBackwardIncompatibleSchema)));
+            adminClient.metadataMgmtOps.updateRemoteStoreDefList(stores);
+            Assert.fail("Did not throw exception");
+        } catch(VoldemortException e) {
+
+        }
 
         for(VoldemortServer vs: vservers.values()) {
             assertNotNull(vs.getStoreRepository().getLocalStore("test"));
