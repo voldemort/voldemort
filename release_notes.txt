@@ -1,3 +1,7 @@
+Release 1.8.9 on 07/02/2014
+
+* Adding backwards compatibility checks in AdminClient  
+
 Release 1.8.8 on 06/24/2014
 
 * Wrap mime multipart into a mime message to ensure headers are updated in 
