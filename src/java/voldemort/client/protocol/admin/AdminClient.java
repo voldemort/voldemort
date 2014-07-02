@@ -1148,6 +1148,10 @@ public class AdminClient {
          */
         public synchronized void fetchAndUpdateRemoteStore(int nodeId,
                                                            List<StoreDefinition> updatedStores) {
+
+            // Check for backwards compatibility
+            StoreDefinitionUtils.validateSchemasAsNeeded(updatedStores);
+
             Map<String, StoreDefinition> updatedStoresMap = new HashMap<String, StoreDefinition>();
 
             // Fetch the original store definition list
@@ -1274,6 +1278,9 @@ public class AdminClient {
          */
         public void updateRemoteStoreDefList(int nodeId, List<StoreDefinition> storesList)
                 throws VoldemortException {
+            // Check for backwards compatibility
+            StoreDefinitionUtils.validateSchemasAsNeeded(storesList);
+
             // get current version.
             VectorClock oldClock = (VectorClock) metadataMgmtOps.getRemoteStoreDefList(nodeId)
                                                                 .getVersion();
