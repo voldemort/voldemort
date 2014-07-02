@@ -986,6 +986,14 @@ public class AdminClient {
          */
 
         public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value) {
+
+            if(key.equals(STORES_VERSION_KEY)) {
+                StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
+                List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new StringReader(value.getValue()));
+                // Check for backwards compatibility
+                StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
+            }
+
             ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
             Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
                                                                                     "UTF-8"),
@@ -1028,7 +1036,6 @@ public class AdminClient {
         public void updateRemoteMetadata(List<Integer> remoteNodeIds,
                                          String key,
                                          Versioned<String> value) {
-
             /*
              * Assume everything will be fine, increment the metadata version
              * for the key Would not harm even if the operation fails
@@ -1063,6 +1070,11 @@ public class AdminClient {
             Versioned<byte[]> clusterValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(clusterValue.getValue(),
                                                                                            "UTF-8"),
                                                                         clusterValue.getVersion());
+
+            StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
+            List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new StringReader(storesValue.getValue()));
+            // Check for backwards compatibility
+            StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
 
             ByteArray storesKeyBytes = new ByteArray(ByteUtils.getBytes(storesKey, "UTF-8"));
             Versioned<byte[]> storesValueBytes = new Versioned<byte[]>(ByteUtils.getBytes(storesValue.getValue(),
@@ -1369,6 +1381,11 @@ public class AdminClient {
          * @param nodeId Node on which to add the store
          */
         public void addStore(StoreDefinition def, int nodeId) {
+            // Check for backwards compatibility
+            ArrayList<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>();
+            storeDefs.add(def);
+            StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
+
             String value = storeMapper.writeStore(def);
 
             VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
@@ -1394,6 +1411,11 @@ public class AdminClient {
         }
 
         public void addStore(StoreDefinition def, Collection<Integer> nodeIds) {
+            // Check for backwards compatibility
+            ArrayList<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>();
+            storeDefs.add(def);
+            StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
+
             String value = storeMapper.writeStore(def);
             VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
                                                                                              .setStoreDefinition(value);
