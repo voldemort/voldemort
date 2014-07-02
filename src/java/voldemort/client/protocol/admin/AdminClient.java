@@ -988,8 +988,7 @@ public class AdminClient {
         public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value) {
 
             if(key.equals(STORES_VERSION_KEY)) {
-                StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
-                List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new StringReader(value.getValue()));
+                List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(value.getValue()));
                 // Check for backwards compatibility
                 StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
             }
@@ -1071,8 +1070,7 @@ public class AdminClient {
                                                                                            "UTF-8"),
                                                                         clusterValue.getVersion());
 
-            StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
-            List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new StringReader(storesValue.getValue()));
+            List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesValue.getValue()));
             // Check for backwards compatibility
             StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
 
@@ -1382,9 +1380,7 @@ public class AdminClient {
          */
         public void addStore(StoreDefinition def, int nodeId) {
             // Check for backwards compatibility
-            ArrayList<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>();
-            storeDefs.add(def);
-            StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
+            StoreDefinitionUtils.validateSchemasAsNeeded(Arrays.asList(def));
 
             String value = storeMapper.writeStore(def);
 
@@ -1412,9 +1408,7 @@ public class AdminClient {
 
         public void addStore(StoreDefinition def, Collection<Integer> nodeIds) {
             // Check for backwards compatibility
-            ArrayList<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>();
-            storeDefs.add(def);
-            StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
+            StoreDefinitionUtils.validateSchemasAsNeeded(Arrays.asList(def));
 
             String value = storeMapper.writeStore(def);
             VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
