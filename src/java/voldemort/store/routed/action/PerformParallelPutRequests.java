@@ -33,6 +33,7 @@ import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
+import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PipelineRoutedStore;
@@ -143,7 +144,26 @@ public class PerformParallelPutRequests extends
                                          + key
                                          + "} Master thread did not accept the response: will handle in worker thread");
                         }
-                        if(PipelineRoutedStore.isSlopableFailure(response.getValue())) {
+                        if(PipelineRoutedStore.isSlopableFailure(response.getValue())
+                           || response.getValue() instanceof QuotaExceededException) {
+                            /**
+                             * We want to slop ParallelPuts which fail due to
+                             * QuotaExceededException.
+                             * 
+                             * TODO Though this is not the right way of doing
+                             * things, in order to avoid inconsistencies and
+                             * data loss, we chose to slop the quota failed
+                             * parallel puts.
+                             * 
+                             * As a long term solution - 1) either Quota
+                             * management should be hidden completely in a
+                             * routing layer like Coordinator or 2) the Server
+                             * should be able to distinguish between serial and
+                             * parallel puts and should only quota for serial
+                             * puts
+                             * 
+                             */
+
                             if(logger.isDebugEnabled())
                                 logger.debug("PUT {key:" + key + "} failed on node={id:"
                                              + node.getId() + ",host:" + node.getHost() + "}");
@@ -203,6 +223,24 @@ public class PerformParallelPutRequests extends
                                             + pipeline.getOperation().getSimpleName()
                                             + " call on node " + node.getId() + ", store '"
                                             + pipelineData.getStoreName() + "'");
+                            } else if(response.getValue() instanceof QuotaExceededException) {
+                                /**
+                                 * TODO Not sure if we need to count this
+                                 * Exception for stats or silently ignore and
+                                 * just log a warning. While
+                                 * QuotaExceededException thrown from other
+                                 * places mean the operation failed, this one
+                                 * does not fail the operation but instead
+                                 * stores slops. Introduce a new Exception in
+                                 * client side to just monitor how mamy Async
+                                 * writes fail on exceeding Quota?
+                                 * 
+                                 */
+                                logger.warn("Received QuotaExceededException after a succesful "
+                                            + pipeline.getOperation().getSimpleName()
+                                            + " call on node " + node.getId() + ", store '"
+                                            + pipelineData.getStoreName() + "', master-node '"
+                                            + masterNode.getId() + "'");
                             } else {
                                 handleResponseError(response, pipeline, failureDetector);
                             }
@@ -354,7 +392,25 @@ public class PerformParallelPutRequests extends
                 if(logger.isDebugEnabled()) {
                     logger.debug("PUT {key:" + key + "} handling async put error");
                 }
-                if(handleResponseError(response, pipeline, failureDetector)) {
+                if(response.getValue() instanceof QuotaExceededException) {
+                    /**
+                     * TODO Not sure if we need to count this Exception for
+                     * stats or silently ignore and just log a warning. While
+                     * QuotaExceededException thrown from other places mean the
+                     * operation failed, this one does not fail the operation
+                     * but instead stores slops. Introduce a new Exception in
+                     * client side to just monitor how mamy Async writes fail on
+                     * exceeding Quota?
+                     * 
+                     */
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Received quota exceeded exception after a succesful "
+                                     + pipeline.getOperation().getSimpleName() + " call on node "
+                                     + response.getNode().getId() + ", store '"
+                                     + pipelineData.getStoreName() + "', master-node '"
+                                     + pipelineData.getMaster().getId() + "'");
+                    }
+                } else if(handleResponseError(response, pipeline, failureDetector)) {
                     if(logger.isDebugEnabled()) {
                         logger.debug("PUT {key:" + key
                                      + "} severe async put error, exiting parallel put stage");
@@ -362,7 +418,23 @@ public class PerformParallelPutRequests extends
 
                     return;
                 }
-                if(PipelineRoutedStore.isSlopableFailure(response.getValue())) {
+                if(PipelineRoutedStore.isSlopableFailure(response.getValue())
+                   || response.getValue() instanceof QuotaExceededException) {
+                    /**
+                     * We want to slop ParallelPuts which fail due to
+                     * QuotaExceededException.
+                     * 
+                     * TODO Though this is not the right way of doing things, in
+                     * order to avoid inconsistencies and data loss, we chose to
+                     * slop the quota failed parallel puts.
+                     * 
+                     * As a long term solution - 1) either Quota management
+                     * should be hidden completely in a routing layer like
+                     * Coordinator or 2) the Server should be able to
+                     * distinguish between serial and parallel puts and should
+                     * only quota for serial puts
+                     * 
+                     */
                     pipelineData.getSynchronizer().tryDelegateSlop(response.getNode());
                 }
 

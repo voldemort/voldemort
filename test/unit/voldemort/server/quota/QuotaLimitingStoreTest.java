@@ -14,7 +14,6 @@ import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
-import voldemort.VoldemortApplicationException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
@@ -23,6 +22,7 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.configuration.FileBackedCachingStorageEngine;
 import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.quota.QuotaLimitStats;
 import voldemort.store.quota.QuotaLimitingStore;
 import voldemort.store.quota.QuotaType;
@@ -71,14 +71,18 @@ public class QuotaLimitingStoreTest {
             try {
                 // do a put
                 storeClient.put("key", "value");
-            } catch(VoldemortApplicationException vae) {
+            } catch(QuotaExceededException qee) {
+                /**
+                 * occurs only when a serial put to master node fails due to
+                 * exceeding quota
+                 */
                 numPutExceptions++;
             }
 
             try {
                 // do a get
                 storeClient.get("key");
-            } catch(VoldemortApplicationException vae) {
+            } catch(QuotaExceededException qee) {
                 numGetExceptions++;
             }
 
@@ -92,14 +96,18 @@ public class QuotaLimitingStoreTest {
             try {
                 // do a put
                 storeClient.put("key", "value");
-            } catch(VoldemortApplicationException vae) {
+            } catch(QuotaExceededException qee) {
+                /**
+                 * Occurs only when a serial put to master node fails due to
+                 * exceeding quota
+                 */
                 fail("Put throttled when rate is :" + Integer.MAX_VALUE);
             }
 
             try {
                 // do a get
                 storeClient.get("key");
-            } catch(VoldemortApplicationException vae) {
+            } catch(QuotaExceededException qee) {
                 fail("Get throttled when rate is :" + Integer.MAX_VALUE);
             }
         }

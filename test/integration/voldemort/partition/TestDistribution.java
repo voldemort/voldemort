@@ -51,9 +51,7 @@ public class TestDistribution {
         percent.setMaximumFractionDigits(2);
         System.out.println("Node\tKeys\tPercent\tVariation");
 
-        Integer[] sortedNodes = (Integer[]) counts.keySet().toArray();
-
-        for(int nodeId: sortedNodes) {
+        for(int nodeId: counts.keySet()) {
             System.out.println(nodeId
                                + "\t"
                                + counts.get(nodeId)

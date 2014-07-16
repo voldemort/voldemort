@@ -958,6 +958,11 @@ public class PipelineRoutedStore extends RoutedStore {
     }
 
     public static boolean isSlopableFailure(Object response) {
+        /**
+         * Not classifying QuotaExceededException as a slopable failure since we
+         * do not want all QuotaExceeded operations to be slopped
+         * 
+         */
         return response instanceof UnreachableStoreException
                || response instanceof PersistenceFailureException;
     }

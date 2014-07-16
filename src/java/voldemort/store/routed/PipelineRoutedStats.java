@@ -11,6 +11,7 @@ import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.StoreTimeoutException;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.quota.QuotaExceededException;
 import voldemort.versioning.ObsoleteVersionException;
 
 /**
@@ -33,6 +34,7 @@ public class PipelineRoutedStats {
         errCountMap.put(UnreachableStoreException.class, new AtomicLong(0));
         errCountMap.put(StoreTimeoutException.class, new AtomicLong(0));
         errCountMap.put(ObsoleteVersionException.class, new AtomicLong(0));
+        errCountMap.put(QuotaExceededException.class, new AtomicLong(0));
 
         severeExceptionCount = new AtomicLong(0);
         benignExceptionCount = new AtomicLong(0);
@@ -76,6 +78,11 @@ public class PipelineRoutedStats {
     @JmxGetter(name = "numObsoleteVersionExceptions", description = "Number of requests that got a ObsoleteVersionException as response")
     public long getNumObsoleteVersionExceptions() {
         return errCountMap.get(ObsoleteVersionException.class).get();
+    }
+
+    @JmxGetter(name = "numQuotaExceededExceptions", description = "Number of client operations failed due to exceeding quota")
+    public long getNumQuotaExceededExceptions() {
+        return errCountMap.get(QuotaExceededException.class).get();
     }
 
     @JmxGetter(name = "getExceptionCountsAsString", description = "Returns counts of all the Exceptions seen so far as a string")

@@ -21,7 +21,6 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
-import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
@@ -90,12 +89,9 @@ public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[
             // check if we have exceeded rate.
             if(currentRate > allowedRate) {
                 quotaStats.reportRateLimitedOp(trackedOp);
-                // TODO should be throwing a whole new class of Exception here.
-                // But, then it warrants a client code dependency to be able to
-                // recognize the exception.So may be later.
-                throw new VoldemortApplicationException("Exceeded rate limit for " + quotaKey
-                                                        + ". Maximum allowed : " + allowedRate
-                                                        + " Current: " + currentRate);
+                throw new QuotaExceededException("Exceeded rate limit for " + quotaKey
+                                                 + ". Maximum allowed : " + allowedRate
+                                                 + " Current: " + currentRate);
             }
         } catch(NumberFormatException nfe) {
             // move on, if we cannot parse quota value properly
