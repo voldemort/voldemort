@@ -35,9 +35,6 @@ import voldemort.utils.MetadataVersionStoreUtils;
  * been done to that store since it was created. In this case, we assume version
  * '0'.
  * 
- * At the moment, this only tracks the cluster.xml changes. TODO: Extend this to
- * track other stuff (like stores.xml)
- * 
  * @author csoman
  * 
  */
