@@ -17,6 +17,10 @@ import java.util.Map;
 
 public class RocksDbStorageConfiguration implements StorageConfiguration {
 
+  static {
+    RocksDB.loadLibrary();
+  }
+
   public static final String TYPE_NAME = "rocksdb";
 
   private static Logger logger = Logger.getLogger(RocksDbStorageConfiguration.class);
