@@ -135,6 +135,8 @@ public class VoldemortConfig implements Serializable {
     private String mysqlHost;
     private int mysqlPort;
 
+    private String rdbDataDirectory;
+
     private int numReadOnlyVersions;
     private String readOnlyStorageDir;
     private String readOnlySearchStrategy;
@@ -566,6 +568,9 @@ public class VoldemortConfig implements Serializable {
                                                          Integer.MAX_VALUE);
         this.slopPurgeJobMaxKeysScannedPerSec = props.getInt("slop.purgejob.max.keys.scanned.per.sec",
                                                              10000);
+
+        // RocksDB config
+        this.rdbDataDirectory = props.getString("rdb.data.dir", "/tmp/rdb_data_dir");
 
         validateParams();
     }
@@ -3230,5 +3235,24 @@ public class VoldemortConfig implements Serializable {
     public String getFileFetcherClass() {
         return this.fileFetcherClass;
     }
+
+    public String getRdbDataDirectory() {
+      return rdbDataDirectory;
+    }
+
+  /**
+   * Where RocksDB should put its data directories
+   *
+   * <ul>
+   * <li>Property :"rdb.data.dir"</li>
+   * <li>Default : "/tmp/rdb_data_dir"</li>
+   * </ul>
+
+   * @param rdbDataDirectory
+   */
+    public void setRdbDataDirectory(String rdbDataDirectory) {
+      this.rdbDataDirectory = rdbDataDirectory;
+    }
+
 
 }
