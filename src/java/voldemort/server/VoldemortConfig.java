@@ -55,6 +55,7 @@ import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.InterpolationSearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.rocksdb.RocksDbStorageConfiguration;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
@@ -483,7 +484,8 @@ public class VoldemortConfig implements Serializable {
                                                                     MysqlStorageConfiguration.class.getName(),
                                                                     InMemoryStorageConfiguration.class.getName(),
                                                                     CacheStorageConfiguration.class.getName(),
-                                                                    ReadOnlyStorageConfiguration.class.getName()));
+                                                                    ReadOnlyStorageConfiguration.class.getName(),
+                                                                    RocksDbStorageConfiguration.class.getName()));
 
         // start at midnight (0-23)
         this.retentionCleanupFirstStartTimeInHour = props.getInt("retention.cleanup.first.start.hour",
@@ -570,7 +572,7 @@ public class VoldemortConfig implements Serializable {
                                                              10000);
 
         // RocksDB config
-        this.rdbDataDirectory = props.getString("rdb.data.dir", "/tmp/rdb_data_dir");
+        this.rdbDataDirectory = props.getString("rocksdb.data.dir", "/tmp/rdb_data_dir");
 
         validateParams();
     }
@@ -3244,7 +3246,7 @@ public class VoldemortConfig implements Serializable {
    * Where RocksDB should put its data directories
    *
    * <ul>
-   * <li>Property :"rdb.data.dir"</li>
+   * <li>Property :"rocksdb.data.dir"</li>
    * <li>Default : "/tmp/rdb_data_dir"</li>
    * </ul>
 
