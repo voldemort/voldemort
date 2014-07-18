@@ -1,5 +1,6 @@
 package voldemort.store.rocksdb;
 
+import org.rocksdb.RocksDB;
 import voldemort.store.AbstractStorageEngine;
 import voldemort.utils.ByteArray;
 
@@ -9,7 +10,10 @@ import voldemort.utils.ByteArray;
  *
  */
 public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
-  public RocksDbStorageEngine(String name) {
+  private RocksDB rdb;
+
+  public RocksDbStorageEngine(String name, RocksDB rdbInstance) {
     super(name);
+    this.rdb = rdbInstance;
   }
 }
