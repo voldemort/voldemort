@@ -16,4 +16,8 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
     super(name);
     this.rdb = rdbInstance;
   }
+
+  public RocksDB getRdb() {
+    return rdb;
+  }
 }
