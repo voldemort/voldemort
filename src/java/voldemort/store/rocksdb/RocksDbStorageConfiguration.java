@@ -7,6 +7,9 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 
 public class RocksDbStorageConfiguration implements StorageConfiguration {
+
+  public static final String TYPE_NAME = "rocksdb";
+
   @Override
   public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef, RoutingStrategy strategy) {
     return null;
@@ -14,7 +17,7 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
 
   @Override
   public String getType() {
-    return null;
+    return TYPE_NAME;
   }
 
   @Override
