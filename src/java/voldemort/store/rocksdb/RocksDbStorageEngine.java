@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.codec.binary.Hex;
+import org.apache.log4j.Logger;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
@@ -16,9 +17,11 @@ import voldemort.store.PersistenceFailureException;
 import voldemort.store.StoreBinaryFormat;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.StripedLock;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occurred;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
@@ -28,6 +31,7 @@ import voldemort.versioning.Versioned;
  */
 public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
+    private static final Logger logger = Logger.getLogger(RocksDbStorageEngine.class);
     private RocksDB rocksDB;
     private final StripedLock locks;
     private static final Hex hexCodec = new Hex();
@@ -125,6 +129,73 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
                 // TODO logging
             }
         }
+    }
 
+    @Override
+    public boolean delete(ByteArray key, Version version) throws PersistenceFailureException {
+
+        StoreUtils.assertValidKey(key);
+
+        long startTimeNs = -1;
+
+        // if(logger.isTraceEnabled())
+        startTimeNs = System.nanoTime();
+
+        synchronized(this.locks.lockFor(key.get())) {
+            try {
+                byte[] value = getRocksDB().get(key.get());
+
+                if(value == null) {
+                    return false;
+                }
+
+                if(version == null) {
+                    // unversioned delete. Just blow away the whole thing
+                    getRocksDB().remove(key.get());
+                    return true;
+                } else {
+                    // versioned deletes; need to determine what to delete
+
+                    List<Versioned<byte[]>> vals = StoreBinaryFormat.fromByteArray(value);
+                    Iterator<Versioned<byte[]>> iter = vals.iterator();
+                    int numVersions = vals.size();
+                    int numDeletedVersions = 0;
+
+                    // go over the versions and remove everything before the
+                    // supplied version
+                    while(iter.hasNext()) {
+                        Versioned<byte[]> curr = iter.next();
+                        Version currentVersion = curr.getVersion();
+                        if(currentVersion.compare(version) == Occurred.BEFORE) {
+                            iter.remove();
+                            numDeletedVersions++;
+                        }
+                    }
+
+                    if(numDeletedVersions < numVersions) {
+                        // we still have some valid versions
+                        value = StoreBinaryFormat.toByteArray(vals);
+                        getRocksDB().put(key.get(), value);
+                    } else {
+                        // we have deleted all the versions; so get rid of the
+                        // entry
+                        // in the database
+                        getRocksDB().remove(key.get());
+                    }
+                    return numDeletedVersions > 0;
+                }
+            } catch(RocksDBException e) {
+                logger.error(e);
+                throw new PersistenceFailureException(e);
+            } finally {
+                if(logger.isTraceEnabled()) {
+                    logger.trace("Completed DELETE (" + getName() + ") of key "
+                                 + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                                 + System.identityHashCode(key) + ") in "
+                                 + (System.nanoTime() - startTimeNs) + " ns at "
+                                 + System.currentTimeMillis());
+                }
+            }
+        }
     }
 }
