@@ -1,3 +1,7 @@
+Release 1.8.10 on 07/23/2014
+
+* Registering slops for parallel puts that fail on QuotaExceededException
+
 Release 1.8.9 on 07/02/2014
 
 * Adding backwards compatibility checks in AdminClient  
