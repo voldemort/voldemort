@@ -1,12 +1,12 @@
 /*
  * Copyright 2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -36,10 +36,15 @@ public class CoordinatorConfig {
     private volatile String fatClientConfigPath = null;
     private volatile int metadataCheckIntervalInMs = 5000;
     private volatile int nettyServerPort = 8080;
+
     private volatile int nettyServerBacklog = 1000;
     private volatile int coordinatorCoreThreads = 100;
     private volatile int coordinatorMaxThreads = 200;
     private volatile int numCoordinatorQueuedRequests = 1000;
+
+    private volatile int httpMessageDecoderMaxInitialLength = 4096;
+    private volatile int httpMessageDecoderMaxHeaderSize = 8192;
+    private volatile int httpMessageDecoderMaxChunkSize = 8192;
 
     /* Propery names for propery-based configuration */
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
@@ -50,10 +55,13 @@ public class CoordinatorConfig {
     public static final String COORDINATOR_CORE_THREADS = "num_coordinator_core_threads";
     public static final String COORDINATOR_MAX_THREADS = "num_coordinator_max_threads";
     public static final String COORDINATOR_QUEUED_REQUESTS = "num_coordinator_queued_requests";
+    public static final String HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH = "http_message_decoder_max_initial_length";
+    public static final String HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE = "http_message_decoder_max_header_size";
+    public static final String HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE = "http_message_decoder_max_chunk_size";
 
     /**
      * Instantiate the coordinator config using a properties file
-     * 
+     *
      * @param propertyFile Properties file
      */
     public CoordinatorConfig(File propertyFile) {
@@ -74,7 +82,7 @@ public class CoordinatorConfig {
      * Initiate the coordinator config from a set of properties. This is useful
      * for wiring from Spring or for externalizing client properties to a
      * properties file
-     * 
+     *
      * @param properties The properties to use
      */
     public CoordinatorConfig(Properties properties) {
@@ -88,7 +96,7 @@ public class CoordinatorConfig {
 
     /**
      * Set the values using the specified Properties object
-     * 
+     *
      * @param properties Properties object containing specific property values
      *        for the Coordinator config
      */
@@ -130,6 +138,21 @@ public class CoordinatorConfig {
                                                           this.numCoordinatorQueuedRequests));
         }
 
+        if (props.containsKey(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH)) {
+            setHttpMessageDecoderMaxInitialLength(props.getInt(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH,
+                                                               this.httpMessageDecoderMaxInitialLength));
+        }
+
+        if (props.containsKey(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE)) {
+            setHttpMessageDecoderMaxHeaderSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE,
+                                                            this.httpMessageDecoderMaxHeaderSize));
+        }
+
+        if (props.containsKey(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE)) {
+            setHttpMessageDecoderMaxChunkSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE,
+                                                           this.httpMessageDecoderMaxChunkSize));
+        }
+
     }
 
     public String[] getBootstrapURLs() {
@@ -141,7 +164,7 @@ public class CoordinatorConfig {
     /**
      * Sets the bootstrap URLs used by the different Fat clients inside the
      * Coordinator
-     * 
+     *
      * @param bootstrapUrls list of bootstrap URLs defining which cluster to
      *        connect to
      * @return modified CoordinatorConfig
@@ -160,7 +183,7 @@ public class CoordinatorConfig {
     /**
      * Defines individual config for each of the fat clients managed by the
      * Coordinator
-     * 
+     *
      * @param fatClientConfigPath The path of the file containing the fat client
      *        config in Avro format
      */
@@ -202,7 +225,7 @@ public class CoordinatorConfig {
 
     /**
      * @param nettyServerBacklog Defines the netty server backlog value
-     * 
+     *
      */
     public CoordinatorConfig setNettyServerBacklog(int nettyServerBacklog) {
         this.nettyServerBacklog = nettyServerBacklog;
@@ -245,6 +268,52 @@ public class CoordinatorConfig {
     public CoordinatorConfig setCoordinatorQueuedRequestsSize(int coordinatorQueuedRequestsSize) {
         this.numCoordinatorQueuedRequests = coordinatorQueuedRequestsSize;
         return this;
+    }
+
+    /**
+     * @param httpMessageDecoderMaxInitialLength Defines the maximum length of
+     *        the initial line. If the length of the initial line exceeds this
+     *        value, a TooLongFrameException will be raised.
+     */
+
+    public CoordinatorConfig setHttpMessageDecoderMaxInitialLength(int httpMessageDecoderMaxInitialLength) {
+        this.httpMessageDecoderMaxInitialLength = httpMessageDecoderMaxInitialLength;
+        return this;
+    }
+
+    public int getHttpMessageDecoderMaxInitialLength() {
+        return httpMessageDecoderMaxInitialLength;
+    }
+
+    /**
+     * @param httpMessageDecoderMaxHeaderSize Defines maximum length of all
+     *        headers. If the sum of the length of each header exceeds this
+     *        value, a TooLongFrameException will be raised.
+     */
+
+    public CoordinatorConfig setHttpMessageDecoderMaxHeaderSize(int httpMessageDecoderMaxHeaderSize) {
+        this.httpMessageDecoderMaxHeaderSize = httpMessageDecoderMaxHeaderSize;
+        return this;
+    }
+
+    public int getHttpMessageDecoderMaxHeaderSize() {
+        return httpMessageDecoderMaxHeaderSize;
+    }
+
+    /**
+     * @param httpMessageDecoderMaxChunkSize Defines the maximum length of the
+     *        content or each chunk. If the content length (or the length of
+     *        each chunk) exceeds this value, the content or chunk will be split
+     *        into multiple HttpChunks whose length is maxChunkSize at maximum.
+     */
+
+    public CoordinatorConfig setHttpMessageDecoderMaxChunkSize(int httpMessageDecoderMaxChunkSize) {
+        this.httpMessageDecoderMaxChunkSize = httpMessageDecoderMaxChunkSize;
+        return this;
+    }
+
+    public int getHttpMessageDecoderMaxChunkSize() {
+        return httpMessageDecoderMaxChunkSize;
     }
 
 }
