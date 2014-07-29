@@ -86,7 +86,7 @@ public class FailureDetectorConfig {
 
     protected Time time = SystemTime.INSTANCE;
 
-    protected int maximumTolerableFatalFailures;
+    protected int maximumTolerableFatalFailures = DEFAULT_MAX_TOLERABLE_FATAL_FAILURES;
 
     private Cluster cluster = null;
 
@@ -633,8 +633,13 @@ public class FailureDetectorConfig {
      * @param maximumTolerableFatalFailures #fatal failures acceptable before
      *        node is marked as unavailable
      */
-    public void setMaximumTolerableFatalFailures(int maximumTolerableFatalFailures) {
+    public FailureDetectorConfig setMaximumTolerableFatalFailures(int maximumTolerableFatalFailures) {
+        if(maximumTolerableFatalFailures <= 0) {
+            throw new IllegalArgumentException(" Catastrophic error limit should be greater than zero. Current value "
+                                               + maximumTolerableFatalFailures);
+        }
         this.maximumTolerableFatalFailures = maximumTolerableFatalFailures;
+        return this;
     }
 
     /**

@@ -32,7 +32,7 @@ public class FailureDetectorTestUtils {
                                        long requestTime,
                                        UnreachableStoreException e) {
         ((MutableStoreVerifier) failureDetector.getConfig().getStoreVerifier()).setErrorStore(node,
-                                                                                              new UnreachableStoreException("test error"));
+                                                                                              new UnreachableStoreException("junit injected test error"));
         failureDetector.recordException(node, requestTime, e);
     }
 

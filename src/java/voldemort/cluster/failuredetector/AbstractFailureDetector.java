@@ -169,7 +169,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
                 logger.info("Node " + node.getId() + " now available");
 
             synchronized(nodeStatus) {
-                nodeStatus.setNumConsecutiveCatastrophicErrors(0);
+                nodeStatus.resetNumConsecutiveCatastrophicErrors();
                 if(logger.isTraceEnabled()) {
                     logger.trace("Resetting # consecutive connect errors for node : " + node);
                 }
@@ -205,8 +205,18 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         // If we were previously available, we've just switched state from
         // available to unavailable, so notify any listeners.
         if(previouslyAvailable) {
-            if(logger.isInfoEnabled())
-                logger.info("Node " + node.getId() + " now unavailable");
+            if(logger.isEnabledFor(Level.WARN)) {
+                long elapsedMs = System.currentTimeMillis() - nodeStatus.getStartMillis();
+                logger.warn("Node " + node.getId() + " now unavailable . Node metrics. "
+                            + " Catastrophic errors "
+                            + nodeStatus.getNumConsecutiveCatastrophicErrors() + " Successes "
+                            + nodeStatus.getSuccess() + " Failure " + nodeStatus.getFailure()
+                            + " Total " + nodeStatus.getTotal() + " Threshold success percentage "
+                            + failureDetectorConfig.getThreshold() + " Threshold Minimum errors "
+                            + failureDetectorConfig.getThresholdCountMinimum()
+                            + " Threshold Interval " + failureDetectorConfig.getThresholdInterval()
+                            + " Interval elapsed ms " + elapsedMs);
+            }
 
             for(FailureDetectorListener fdl: listeners.keySet()) {
                 try {

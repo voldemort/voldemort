@@ -40,7 +40,7 @@ class NodeStatus {
 
     private long total;
 
-    private AtomicInteger numConsecutiveCatastrophicErrors;
+    private final AtomicInteger numConsecutiveCatastrophicErrors;
 
     public NodeStatus() {
         numConsecutiveCatastrophicErrors = new AtomicInteger(0);
@@ -74,48 +74,42 @@ class NodeStatus {
         return success;
     }
 
-    public void setSuccess(long success) {
-        this.success = success;
-    }
-
-    public void incrementSuccess(long delta) {
-        this.success += delta;
-    }
-
     public long getFailure() {
         return failure;
-    }
-
-    public void setFailure(long failure) {
-        this.failure = failure;
-    }
-
-    public void incrementFailure(long delta) {
-        this.failure += delta;
     }
 
     public long getTotal() {
         return total;
     }
 
-    public void setTotal(long total) {
-        this.total = total;
-    }
-
-    public void incrementTotal(long delta) {
-        this.total += delta;
-    }
-
     public int getNumConsecutiveCatastrophicErrors() {
         return numConsecutiveCatastrophicErrors.get();
     }
 
-    public void setNumConsecutiveCatastrophicErrors(int numConsecutiveCatastrophicErrors) {
-        this.numConsecutiveCatastrophicErrors.set(numConsecutiveCatastrophicErrors);
+    public void resetNumConsecutiveCatastrophicErrors() {
+        this.numConsecutiveCatastrophicErrors.set(0);
     }
 
-    public void incrementConsecutiveCatastrophicErrors() {
-        this.numConsecutiveCatastrophicErrors.incrementAndGet();
+    public int incrementConsecutiveCatastrophicErrors() {
+        return this.numConsecutiveCatastrophicErrors.incrementAndGet();
+    }
+
+    public void resetCounters(long currentTime) {
+        setStartMillis(currentTime);
+        // Not resetting the catastrophic errors, as they will be reset
+        // whenever a success is received.
+        success = 0;
+        failure = 0;
+        total = 0;
+    }
+
+    public void recordOperation(boolean isSuccess) {
+        if(isSuccess) {
+            success++;
+        } else {
+            failure++;
+        }
+        total++;
     }
 
 }
