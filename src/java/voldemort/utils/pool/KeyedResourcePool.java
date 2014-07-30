@@ -132,15 +132,24 @@ public class KeyedResourcePool<K, V> {
             resource = attemptNonBlockingCheckout(key, resourcePool);
 
             if(resource == null) {
+                long nonBlockingElapsedNs = System.nanoTime() - startNs;
                 long timeRemainingNs = resourcePoolConfig.getTimeout(TimeUnit.NANOSECONDS)
-                                       - (System.nanoTime() - startNs);
-                if(timeRemainingNs > 0)
-                    resource = resourcePool.blockingGet(timeRemainingNs);
+                                       - nonBlockingElapsedNs;
 
-                if(resource == null)
-                    throw new TimeoutException("Could not acquire resource in "
-                                               + resourcePoolConfig.getTimeout(TimeUnit.MILLISECONDS)
-                                               + " ms.");
+                if(timeRemainingNs > 0) {
+                    resource = resourcePool.blockingGet(timeRemainingNs);
+                }
+
+                if(resource == null) {
+                    long totalElapsedNs = System.nanoTime() - startNs;
+                    long blockingElapsedNs = totalElapsedNs - nonBlockingElapsedNs;
+                    String errorMessage = String.format("Timeout while checking out resource (%s). Configured time (%d) ns NonBlocking time (%d) ns Blocking time (%d) ns ",
+                                                        key,
+                                                        resourcePoolConfig.getTimeout(TimeUnit.NANOSECONDS),
+                                                        nonBlockingElapsedNs,
+                                                        blockingElapsedNs);
+                    throw new TimeoutException(errorMessage);
+                }
             }
 
             if(!objectFactory.validate(key, resource))

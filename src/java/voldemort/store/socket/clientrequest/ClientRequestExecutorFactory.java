@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Level;
@@ -123,7 +124,7 @@ public class ClientRequestExecutorFactory implements
         SocketChannel socketChannel = null;
         ClientRequestExecutor clientRequestExecutor = null;
         long durationMs = 0;
-        
+
         try {
             socketChannel = SocketChannel.open();
             socketChannel.socket().setReceiveBufferSize(this.socketBufferSize);
@@ -193,20 +194,27 @@ public class ClientRequestExecutorFactory implements
             clientRequestExecutor = new ClientRequestExecutor(selector,
                                                               socketChannel,
                                                               socketBufferSize);
+            int timeoutMs = this.getTimeout();
             BlockingClientRequest<String> clientRequest = new BlockingClientRequest<String>(new ProtocolNegotiatorClientRequest(dest.getRequestFormatType()),
-                                                                                            this.getTimeout());
-            clientRequestExecutor.addClientRequest(clientRequest);
+                                                                                            timeoutMs);
+            clientRequestExecutor.addClientRequest(clientRequest, timeoutMs, 0);
 
             selectorManager.registrationQueue.add(clientRequestExecutor);
             selector.wakeup();
 
             // Block while we wait for protocol negotiation to complete. May
             // throw interrupted exception
-            clientRequest.await();
+            boolean awaitResult = clientRequest.await();
 
-            // Either returns uninteresting token, or throws exception if
-            // protocol negotiation failed.
-            clientRequest.getResult();
+            if(awaitResult == false) {
+                String errorMessage = "Protocol negotation timed out for socket "
+                                      + socketChannel.socket();
+                throw new TimeoutException(errorMessage);
+            } else {
+                // Either returns uninteresting token, or throws exception if
+                // protocol negotiation failed.
+                clientRequest.getResult();
+            }
         } catch(Exception e) {
             // Make sure not to leak socketChannels
             if(socketChannel != null) {
@@ -225,7 +233,7 @@ public class ClientRequestExecutorFactory implements
 
             throw e;
         }
-        if (stats != null) {
+        if(stats != null) {
             stats.incrementCount(dest, ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT);
             stats.recordConnectionEstablishmentTimeUs(dest, durationMs * Time.US_PER_MS);
         }
@@ -233,6 +241,7 @@ public class ClientRequestExecutorFactory implements
         return clientRequestExecutor;
     }
 
+    @Override
     public boolean validate(SocketDestination dest, ClientRequestExecutor clientRequestExecutor) {
         /**
          * Keep track of the last time that we closed the sockets for a specific
