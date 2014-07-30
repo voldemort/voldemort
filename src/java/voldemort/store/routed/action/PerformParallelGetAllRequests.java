@@ -1,12 +1,12 @@
 /*
  * Copyright 2010 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Level;
@@ -68,20 +69,22 @@ public class PerformParallelGetAllRequests
         final Map<Integer, Response<Iterable<ByteArray>, Object>> responses = new ConcurrentHashMap<Integer, Response<Iterable<ByteArray>, Object>>();
         final CountDownLatch latch = new CountDownLatch(attempts);
 
-        if(logger.isTraceEnabled())
+        if (logger.isTraceEnabled())
             logger.trace("Attempting " + attempts + " " + pipeline.getOperation().getSimpleName()
                          + " operations in parallel");
 
         Map<ByteArray, byte[]> transforms = pipelineData.getTransforms();
 
-        for(Map.Entry<Node, List<ByteArray>> entry: pipelineData.getNodeToKeysMap().entrySet()) {
+        final AtomicBoolean isResponseProcessed = new AtomicBoolean(false);
+
+        for (Map.Entry<Node, List<ByteArray>> entry: pipelineData.getNodeToKeysMap().entrySet()) {
             final Node node = entry.getKey();
             final Collection<ByteArray> keys = entry.getValue();
 
             NonblockingStoreCallback callback = new NonblockingStoreCallback() {
 
                 public void requestComplete(Object result, long requestTime) {
-                    if(logger.isTraceEnabled())
+                    if (logger.isTraceEnabled())
                         logger.trace(pipeline.getOperation().getSimpleName()
                                      + " response received (" + requestTime + " ms.) from node "
                                      + node.getId());
@@ -92,12 +95,20 @@ public class PerformParallelGetAllRequests
                                                                                                                requestTime);
                     responses.put(node.getId(), response);
                     latch.countDown();
+                    // TODO: There is inconsistency between the exceptions are treated here in the
+                    // completion callback and in the application thread.
+                    // They need a cleanup to make them consistent. Thought about handling
+                    // them here, but it is the selector thread that is calling this completion method,
+                    // handleResponseError has some synchronization, not sure about the effect, so reserving
+                    // it for later.
 
-                    // Note errors that come in after the pipeline has finished.
-                    // These will *not* get a chance to be called in the loop of
-                    // responses below.
-                    if(pipeline.isFinished() && response.getValue() instanceof Exception)
-                        if(response.getValue() instanceof InvalidMetadataException) {
+                    // isResponseProcessed just reduces the time window during
+                    // which a exception can go uncounted. When the parallel
+                    // requests timeout and it is trying Serial timeout
+                    // exceptions are lost and the node is never marked down.
+                    // This reduces the window where an exception is lost
+                    if (isResponseProcessed.get() && response.getValue() instanceof Exception)
+                        if (response.getValue() instanceof InvalidMetadataException) {
                             pipelineData.reportException((InvalidMetadataException) response.getValue());
                             logger.warn("Received invalid metadata problem after a successful "
                                         + pipeline.getOperation().getSimpleName()
@@ -110,7 +121,7 @@ public class PerformParallelGetAllRequests
 
             };
 
-            if(logger.isTraceEnabled())
+            if (logger.isTraceEnabled())
                 logger.trace("Submitting " + pipeline.getOperation().getSimpleName()
                              + " request on node " + node.getId());
 
@@ -120,19 +131,19 @@ public class PerformParallelGetAllRequests
 
         try {
             latch.await(timeoutMs, TimeUnit.MILLISECONDS);
-        } catch(InterruptedException e) {
-            if(logger.isEnabledFor(Level.WARN))
+        } catch (InterruptedException e) {
+            if (logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);
         }
 
-        for(Response<Iterable<ByteArray>, Object> response: responses.values()) {
-            if(response.getValue() instanceof Exception) {
-                if(handleResponseError(response, pipeline, failureDetector))
+        for (Response<Iterable<ByteArray>, Object> response: responses.values()) {
+            if (response.getValue() instanceof Exception) {
+                if (handleResponseError(response, pipeline, failureDetector))
                     return;
             } else {
                 Map<ByteArray, List<Versioned<byte[]>>> values = (Map<ByteArray, List<Versioned<byte[]>>>) response.getValue();
 
-                for(ByteArray key: response.getKey()) {
+                for (ByteArray key: response.getKey()) {
                     MutableInt successCount = pipelineData.getSuccessCount(key);
                     successCount.increment();
 
@@ -141,17 +152,17 @@ public class PerformParallelGetAllRequests
                      * retrieved can be null if there are no values for the key
                      * provided
                      */
-                    if(retrieved != null) {
+                    if (retrieved != null) {
                         List<Versioned<byte[]>> existing = pipelineData.getResult().get(key);
 
-                        if(existing == null)
+                        if (existing == null)
                             pipelineData.getResult().put(key, Lists.newArrayList(retrieved));
                         else
                             existing.addAll(retrieved);
                     }
 
                     HashSet<Integer> zoneResponses = null;
-                    if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
+                    if (pipelineData.getKeyToZoneResponse().containsKey(key)) {
                         zoneResponses = pipelineData.getKeyToZoneResponse().get(key);
                     } else {
                         zoneResponses = new HashSet<Integer>();
@@ -168,6 +179,7 @@ public class PerformParallelGetAllRequests
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
             }
         }
+        isResponseProcessed.set(true);
 
         pipeline.addEvent(completeEvent);
     }
