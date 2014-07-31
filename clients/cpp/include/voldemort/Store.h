@@ -44,7 +44,7 @@ public:
      * @return A newly-allocated list of values or NULL if no values
      * to retrieve.
      */
-    virtual std::list<VersionedValue>* get(const std::string& key) = 0;
+    virtual std::list<VersionedValue>* get(const std::string& key) const = 0;
 
     /**
      * Associate the value with the key and version in this store.
@@ -71,7 +71,7 @@ public:
      * 
      * @returns the name of the store.
      */
-    virtual const std::string* getName() = 0;
+    virtual const std::string* getName() const = 0;
 
     /** 
      * Close the store

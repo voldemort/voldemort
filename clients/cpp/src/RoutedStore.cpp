@@ -60,7 +60,7 @@ static bool doGetFromStore(const std::string& key,
     return false;
 }
 
-std::list<VersionedValue>* RoutedStore::get(const std::string& key) {
+std::list<VersionedValue>* RoutedStore::get(const std::string& key) const {
     std::list<VersionedValue>* result = NULL;
     bool status = false;
     {
@@ -187,7 +187,7 @@ bool RoutedStore::deleteKey(const std::string& key, const Version& version) {
                                                 "node for delete operation");
 }
 
-const std::string* RoutedStore::getName() {
+const std::string* RoutedStore::getName() const {
     return &name;
 }
 

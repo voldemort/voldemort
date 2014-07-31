@@ -56,12 +56,12 @@ public:
     void addResolver(shared_ptr<InconsistencyResolver>& resolver);
 
     // Store interface 
-    virtual std::list<VersionedValue>* get(const std::string& key);
+    virtual std::list<VersionedValue>* get(const std::string& key) const;
     virtual void put(const std::string& key,
                      const VersionedValue& value);
     virtual bool deleteKey(const std::string& key,
                            const Version& version);
-    virtual const std::string* getName();
+    virtual const std::string* getName() const;
     virtual void close();
 
 private:
