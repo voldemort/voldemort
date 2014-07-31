@@ -37,7 +37,8 @@ resolveConflicts(std::list<VersionedValue>* items) const {
     uint64_t maxTimestamp = 0;
     std::list<VersionedValue>::iterator it = items->begin();
     while (it != items->end()) {
-        uint64_t t = dynamic_cast<VectorClock*>(it->getVersion())->getTimestamp();
+        uint64_t t = dynamic_cast<const VectorClock*>(it->getVersion())
+                                                        ->getTimestamp();
         if (t > maxTimestamp) {
             maxTimestamp = t;
             ++it;
@@ -51,7 +52,8 @@ resolveConflicts(std::list<VersionedValue>* items) const {
     bool found = false;
     it = items->begin();
     while (it != items->end()) {
-        uint64_t t = dynamic_cast<VectorClock*>(it->getVersion())->getTimestamp();
+        uint64_t t = dynamic_cast<const VectorClock*>(it->getVersion())
+                                                        ->getTimestamp();
         if (t < maxTimestamp || (found && t == maxTimestamp)) {
             it = items->erase(it);
         } else 
