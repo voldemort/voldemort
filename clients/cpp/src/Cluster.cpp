@@ -155,7 +155,7 @@ void Cluster::charData(void* data, const XML_Char *s, int len) {
 
 }
 
-Cluster::Cluster(const std::string clusterXml)
+Cluster::Cluster(const std::string& clusterXml)
     : state(STATE_BEGIN) {
     XML_Parser parser = NULL;
     try {

@@ -47,7 +47,7 @@ public:
      * 
      * @param clusterXml the Xml string
      */
-    explicit Cluster(const std::string clusterXml);
+    explicit Cluster(const std::string& clusterXml);
     ~Cluster() {}
 
     /**
