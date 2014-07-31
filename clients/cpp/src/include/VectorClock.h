@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef VECTORCLOCK_H
-#define VECTORCLOCK_H
+#ifndef VOLDEMORT_VECTORCLOCK_H
+#define VOLDEMORT_VECTORCLOCK_H
 
 #include <stdint.h>
 #include <voldemort/Version.h>
@@ -108,4 +108,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif // VECTORCLOCK_H
+#endif/*VOLDEMORT_VECTORCLOCK_H*/

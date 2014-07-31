@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef CLUSTER_H
-#define CLUSTER_H
+#ifndef VOLDEMORT_CLUSTER_H
+#define VOLDEMORT_CLUSTER_H
 
 #include "Node.h"
 
@@ -104,4 +104,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* CLUSTER_H */
+#endif/*VOLDEMORT_CLUSTER_H*/

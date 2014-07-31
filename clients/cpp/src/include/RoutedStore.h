@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef ROUTEDSTORE_H
-#define ROUTEDSTORE_H
+#ifndef VOLDEMORT_ROUTEDSTORE_H
+#define VOLDEMORT_ROUTEDSTORE_H
 
 #include <voldemort/Store.h>
 #include <voldemort/ClientConfig.h>
@@ -76,4 +76,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* ROUTEDSTORE_H */
+#endif/*VOLDEMORT_ROUTEDSTORE_H*/

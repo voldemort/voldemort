@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef ROUTINGSTRATEGY_H
-#define ROUTINGSTRATEGY_H
+#ifndef VOLDEMORT_ROUTINGSTRATEGY_H
+#define VOLDEMORT_ROUTINGSTRATEGY_H
 
 #include <voldemort/ClientConfig.h>
 #include "Cluster.h"
@@ -81,4 +81,4 @@ protected:
 
 } /* namespace Voldemort */
 
-#endif /* ROUTINGSTRATEGY_H */
+#endif/*VOLDEMORT_ROUTINGSTRATEGY_H*/
