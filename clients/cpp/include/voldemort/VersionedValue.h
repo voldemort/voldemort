@@ -89,7 +89,7 @@ public:
      *
      * @return a pointer to a Version object.  
      */
-    Version* getVersion() const;
+    const Version* getVersion() const;
 
     /**
      * Set the version for this object.  The object ownership is passed
