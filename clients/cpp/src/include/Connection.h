@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef CONNECTION_H
-#define CONNECTION_H
+#ifndef VOLDEMORT_CONNECTION_H
+#define VOLDEMORT_CONNECTION_H
 
 #include <voldemort/ClientConfig.h>
 #include "RequestFormat.h"
@@ -200,4 +200,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* CONNECTION_H */
+#endif/*VOLDEMORT_CONNECTION_H*/

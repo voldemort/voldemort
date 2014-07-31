@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef VERSIONEDVALUE_H
-#define VERSIONEDVALUE_H
+#ifndef VOLDEMORT_VERSIONEDVALUE_H
+#define VOLDEMORT_VERSIONEDVALUE_H
 
 #include <string>
 #include <stdlib.h>
@@ -106,4 +106,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif // VERSIONEDVALUE_H
+#endif/*VOLDEMORT_VERSIONEDVALUE_H*/

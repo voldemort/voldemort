@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef VERSION_H
-#define VERSION_H
+#ifndef VOLDEMORT_VERSION_H
+#define VOLDEMORT_VERSION_H
 
 #include <ostream>
 
@@ -87,4 +87,4 @@ class Version
 
 } /* namespace Voldemort */
 
-#endif // VERSION_H
+#endif/*VOLDEMORT_VERSION_H*/

@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef NODE_H
-#define NODE_H
+#ifndef VOLDEMORT_NODE_H
+#define VOLDEMORT_NODE_H
 
 #include <string>
 #include <map>
@@ -162,4 +162,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* NODE_H */
+#endif/*VOLDEMORT_NODE_H*/

@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef UNREACHABLESTOREEXCEPTION_H
-#define UNREACHABLESTOREEXCEPTION_H
+#ifndef VOLDEMORT_UNREACHABLESTOREEXCEPTION_H
+#define VOLDEMORT_UNREACHABLESTOREEXCEPTION_H
 
 #include <voldemort/VoldemortException.h>
 
@@ -45,5 +45,4 @@ public:
 
 } // namespace Voldemort
 
-#endif // UNREACHABLESTOREEXCEPTION_H
-
+#endif/*VOLDEMORT_UNREACHABLESTOREEXCEPTION_H*/
