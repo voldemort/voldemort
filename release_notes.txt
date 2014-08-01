@@ -1,3 +1,10 @@
+Release 1.8.11 on 08/01/2014
+
+* Expose http decoder parameters as config
+* Client Parallel request Exceptions are not reported to failure detector
+* ClientRequest Executor has infinite timeout and log cleanup
+* Threshold failure detector bug fixes
+
 Release 1.8.10 on 07/23/2014
 
 * Registering slops for parallel puts that fail on QuotaExceededException
