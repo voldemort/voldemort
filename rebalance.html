@@ -110,15 +110,15 @@ One Proxy Bridge is established for every stealer-donor pair in a Batch.
 
 <dt><b>Proxy-Put</b></dt>
 <dd>
-A server that is rebalancing does a Proxy-Put for any put issued to a partition-store that will be cloned to it in the current Batch.
-I.e., for any partition-store that the server acts as a Stealer in this Batch.
+A server that is rebalancing does a Proxy-Put for any put issued to a partition-store that will be cloned to it in the current Batch,
+i.e. for any partition-store that the server acts as a Stealer in this Batch.
 A server locally does the put and then, in the background, asynchronously issues the put to the "old partition-store".
 </dd>
 
 <dt><b>Proxy-Get</b></dt>
 <dd>
-A server that is rebalancing does a Proxy-Get for any get (or getall) issued to a partition-store that will be cloned to it in the current Batch.
-I.e., for any partition-store that the server acts as a Stealer in this Batch.
+A server that is rebalancing does a Proxy-Get for any get (or getall) issued to a partition-store that will be cloned to it in the current Batch,
+i.e. for any partition-store that the server acts as a Stealer in this Batch.
 First, a server locally does the get.
 If the local get returns null, then it issues a Proxy-Get.
 </dd>
@@ -134,8 +134,8 @@ Logically, you can think of data "migrating" during a rebalance, but practically
 <dd>
 Also known as orphans, orphaned values, orphaned entries, and orphaned partition-stores.
 Once a Batch of rebalancing completes, some partition-stores, on donor-nodes, are no longer relevant. 
-All of the keys/values/entries in these partition-stores have been orphaned. 
-I.e., they consume disk space but are of no value.
+All of the keys/values/entries in these partition-stores have been orphaned,
+i.e. they consume disk space but are of no value.
 </dd>
 
 <dt><b>Repair Job</b></dt>
@@ -170,7 +170,7 @@ The key classes of interest for these offline tools are as follows:
 <li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.tools.RepartitionerCLI</a> : Command line tool to repartition a cluster.</li>
 <li><a href="javadoc/all/voldemort/tools/Repartitioner.html">voldemort.tools.Repartitioner</a> : Collection of techniques to repartition a cluster.</li>
 <li><a href="javadoc/all/voldemort/tools/PartitionAnalysisCLI.html">voldemort.tools.PartitionAnalysisCLI</a> : Command line tool to analyze balance of a cluster.</li>
-<li><a href="javadoc/all/voldemort/tools/PartitionBalance.html">voldemort.tools.PartitionBalance</a> : Analyses a cluster to determine balance.</li>
+<li><a href="javadoc/all/voldemort/tools/PartitionBalance.html">voldemort.tools.PartitionBalance</a> : Analyzes a cluster to determine balance.</li>
 </ul>
 
 <h2>Planning</h2>
@@ -178,7 +178,7 @@ The key classes of interest for these offline tools are as follows:
 <p>
 Planning involves determining which partition-stores have to move where to achieve a specified repartitioning (final-cluster.xml).
 When some node needs to steal some partition-stores, there are often many donor nodes from which it could steal.
-The design principles we chose for deciding which donor node to steal from are as folows:
+The design principles we chose for deciding which donor node to steal from are as follows:
 </p>
 <ol>
 <li>Only steal if you do not already host the necessary partition-stores.</li>
@@ -187,14 +187,14 @@ If possible, steal from a donor in the same zone.
 If not possible, steal from a donor in the same zone as the primary partition for the partition-store.
 </li>
 <li>
-If you must steal, steal from the "same" zone n-ary. 
-I.e., a stealer-node that is a zone 2-ary in the final-cluster.xml should steal from the donor-node that is the zone 2-ary in the "old" cluster.xml
+If you must steal, steal from the "same" zone n-ary,
+i.e. a stealer-node that is a zone 2-ary in the final-cluster.xml should steal from the donor-node that is the zone 2-ary in the "old" cluster.xml
 </li>
 </ol>
 <p>
 These design principles ensure that determination of donor-node is deterministic and minimizes data movement across zones.
-These principles also match up with the logic for proxy-bridges.
-I.e., proxy-bridges align with stealer-donor pairs.
+These principles also match up with the logic for proxy-bridges,
+i.e. proxy-bridges align with stealer-donor pairs.
 </p>
 
 <p>
@@ -225,18 +225,18 @@ We only describe high-level design issues in this documentation; please see the 
 <h3>Client impact</h3>
 
 <p>
-Voldemort client currently bootstraps from the bootstrap URL at the start time and use the returned cluster/stores metadata for all subsequent operation. 
-Rebalancing results in the cluster metadata change and so we need a mechanism to tell clients that they should rebootstrap if they have old metadata.
+Voldemort clients currently bootstrap from the bootstrap URL at client start time and use the returned cluster/stores metadata for all subsequent operations. 
+Rebalancing results in a cluster metadata change and so we need a mechanism to tell clients that they should re-bootstrap if they have old metadata.
 </p>
 
 <p>
-For client Side routing re-bootstrapping, there are two possibilities.
-First, clients may have <em>ZenStoreClient</em> enabled which checks the metadata version on every operation and so will trigger a re-bootstrap as soon as cluster metadata is deployed for a rebalance.
-Second, for historic clients, the client will be using the old metadata during rebalancing.
+For client-side routing re-bootstrapping, there are two possibilities.
+First, clients may have <em>ZenStoreClient</em> enabled which checks the metadata version on every operation and so will trigger a re-bootstrap as soon as the new cluster metadata is deployed for a rebalance.
+Second, for historic clients, the client will use the old metadata during rebalancing.
 A server throws an InvalidMetadataException if it receives a request for a partition which does not belong to it. 
-On receiving this exception, client re-bootstraps from the bootstrap url and will pick up the correct cluster metadata.
+On receiving this exception, the client re-bootstraps from the bootstrap URL and will pick up the correct cluster metadata.
 This latter approach only leads to clients re-bootstrapping once they issue a request to a partition that has moved.
-The <em>proxy pause</em> provides a time window during which clients rebootstrap before any server-side rebalancing work is performed.
+The <em>proxy pause</em> provides a time window during which clients re-bootstrap before any server-side rebalancing work is performed.
 </p>
 
 
@@ -279,11 +279,11 @@ The key classes of interest for executing a rebalance are as follows:
 <h3>Client-side</h3>
 
 <p>
-At a very high-level, the controller does the following:
+At a very high level, the controller does the following:
 </p>
 <ol>
-<li>Fetch current cluster xml and stores xml from the cluster.</li>
-<li>Compute the Plan based on the specified final cluster xml.</li>
+<li>Fetch current cluster XML and stores XML from the cluster.</li>
+<li>Compute the Plan based on the specified final cluster XML.</li>
 <li>Verify state of cluster is ready for rebalancing.</li>
 <li>Set the cluster state to <em>rebalancing</em></li>
 <li>Execute the plan, batch by batch.</li>
@@ -291,12 +291,12 @@ At a very high-level, the controller does the following:
 </ol>
 
 <p>
-Again, at a high-level, to execute a batch of a plan, the controller does the following:
+Again, at a high level, to execute a batch of a plan, the controller does the following:
 </p>
 <ol>
 <li>Schedule rebalance tasks on stealer nodes until specified parallelism is achieved (or until no more such tasks can be scheduled).</li>
-<li>Upon completion of a rebalance task, schedule more rebalance tasks</li>
-<li>Upon completion of all rebalance tasks, return to controller so next batch, if any, can be started.</li>
+<li>Upon completion of a rebalance task, schedule more rebalance tasks.</li>
+<li>Upon completion of all rebalance tasks, return to controller so the next batch, if any, can be started.</li>
 <li>Upon failure of any rebalance task, abort rebalance and roll back cluster metadata.</li>
 </ol>
 
@@ -308,10 +308,10 @@ At a very high-level, servers do the following:
 </p>
 <ol>
 <li>Upon receiving new cluster xml and state change to <em>rebalance</em>, start proxying gets and puts as needed.</li>
-<li>Upon receiving rebalance task, server acts as stealer-node and fetches necessary partition-stores from donor-node.</li>
-<li>Upon receiving fetch request, server acts as donor-node and streams requested partition-stores store-by-store (with some parallelism permitted among stores).</li>
-<li>Upon receving abort, rolls back metadata locally, sets state to <em>normal</em>, and stops proxying.</li>
-<li>Upon receving state change to <em>normal</em>, sets state locally and stops proxying.</li>
+<li>Upon receiving rebalance task, act as stealer-node and fetch necessary partition-stores from donor-node.</li>
+<li>Upon receiving fetch request, act as donor-node and stream requested partition-stores store-by-store (with some parallelism permitted among stores).</li>
+<li>Upon receiving abort, roll back metadata locally, set state to <em>normal</em>, and stop proxying.</li>
+<li>Upon receiving state change to <em>normal</em>, set state locally and stop proxying.</li>
 </ol>
 
 
@@ -343,16 +343,16 @@ During the execution of rebalance, new data cannot be pushed into a read-only st
 During rebalance, servers establish Proxy Bridges with other servers. 
 A Proxy-Get is performed if a server now responsible for data has not yet cloned the data locally. 
 Once the server has cloned the data locally, it does not issue additional proxy-get operations.
-A proxy-put is performed for all puts until rebalance completes. 
-This ensures that rebalance is abortable. 
+A Proxy-Put is performed for all puts until rebalance completes. 
+This ensures that the rebalance can be aborted. 
 </p>
 
 <p>
 Proxy relationships are kept within a zone.
 A stealer-node choses a donor-node with which to proxy from within the zone based on zone n-aries in the "old" and "new" cluster.xml.
 The donor-node is the node, in the same zone as the stealer-node, that hosts the same Zone N-Ary in the "old" cluster.xml as the Stealer-Node hosts in the "new" final-cluster.xml.
-A proxy-put is issued only if the "old" partition-store will be orphaned when the Batch completes; if it will be retained, then it is directly receiving put operations during rebalance anyhow.
-For the zone-expansion use case, nodes in the new zone do not do proxy-put operations; proxy-get operations may be performed and will incur cross-zone latencies.
+A Proxy-Put is issued only if the "old" partition-store will be orphaned when the Batch completes; if it will be retained, then it is directly receiving put operations during rebalance anyhow.
+For the zone-expansion use case, nodes in the new zone do not do Proxy-Put operations; Proxy-Get operations may be performed and will incur cross-zone latencies.
 </p>
 
 <p>
@@ -393,10 +393,10 @@ See notes below on the run book for aborting a rebalance.
 <p>
 For a while, there were two rebalancing implementations: stealer-based and donor-based. 
 Stealer-based was the original type of rebalancing.
-In stealer-based, the node receiving data "drives" the process on server side.
+In stealer-based, the node receiving data drives the process on the server side.
 Donor-based was added to mitigate the issue that stealer-based rebalancing could result in multiple full scans of all stores on a node.
 In donor-based, each server did a single full scan and sent pertinent partition-stores to the appropriate stealers.
-Since the addition of storage engines that supprot partition scans (see StorageEngine.isPartitionScanSupported()), stealer-based rebalancing is as, or more, efficient than donor-based rebalancing.
+Since the addition of storage engines that support partition scans (see StorageEngine.isPartitionScanSupported()), stealer-based rebalancing is as, or more, efficient than donor-based rebalancing.
 Voldemort <a href="http://engineering.linkedin.com/voldemort/announcing-voldemort-13-open-source-release">open source release 1.3</a> was the last release that included donor-based rebalancing.
 If donor-based ever needs to be resurrected, then it needs to be changed to use zone n-ary logic (as opposed to the historic "ReplicaType" and "RebalancePartitionsInfo" types).
 </p>
@@ -421,10 +421,10 @@ The output of this tool is fairly verbose:
 <li>Nodes in each zone are listed.</li>
 <li>Number of primary partitions per node are listed.</li>
 <li>Partitions in each zone are listed.</li>
-<li>Histograms of "contiguous partition run lengths in each zone" are listed. This is useful for understanding the balance of zoned clusters. In particular, if many primary partition ids in a row are stored in one zone, these histograms will show how long such runs are.</li>
+<li>Histograms of "contiguous partition run lengths in each zone" are listed. This is useful for understanding the balance of zoned clusters. In particular, if many primary partition IDs in a row are stored in one zone, these histograms will show how long such runs are.</li>
 <li>Partition dump for each store. For each node, the partitions hosted as zone primary ("0"), zone secondary ("1"), zone tertiary ("2") are listed. These partitions are referred to collectively as the <em>zone n-aries</em>.</li>
 <li>The "aggregate primary-partition count" is listed. This value is aggregated across all stores for each node. The value is the number of primary partitions on a node multiplied by the number of stores on the cluster.</li>
-<li>The "aggregate zone-primary partition count" is listed. This value is aggregated across all stores for each node. The value is the number of <em>zone primary</em> partitions on the node multipled by the number of stores on the cluster. This is a measure of how well balanced get operations will be in failure-free periods since get operations are in a zone are served by the zone primary. Note that every zone has a "primary", thus the use of the term <em>zone primary</em>.</li> 
+<li>The "aggregate zone-primary partition count" is listed. This value is aggregated across all stores for each node. The value is the number of <em>zone primary</em> partitions on the node multiplied by the number of stores on the cluster. This is a measure of how well balanced get operations will be in failure-free periods since get operations are in a zone are served by the zone primary. Note that every zone has a "primary", thus the use of the term <em>zone primary</em>.</li> 
 <li>The "aggregate nary-partition count" is listed. This value is aggregated across all stores for each node. The value is the number of <em>partition-stores</em> hosted on the node. A partition-store is a specific zone n-ary partition for a specific store. This is a measure of how well balanced put operations will be in failure-free periods since each zone n-ary ought to (eventually) receive a replica. Note, this is therefore also a measure of how well balanced disk utilization should be across all nodes.</li>
 <li> The utility value is also listed. The lower the utility value, the better. Given current constants, the "optimal" utility value is three times the number of zones in the cluster. So, a zoned cluster with two zones has an optimal utility value of 6 whereas a non-zoned cluster has an optimal utility value of 3.
 </ul>
@@ -433,16 +433,16 @@ The output of this tool is fairly verbose:
 <h2>voldemort.tools.RepartitionerCLI</h2>
 
 <p>
-Repartitions a cluster to achieve better balance. For the <em>shuffle</em> use case, a cluster is repartioned in-place. For the <em>cluster expansion</em> use case, primary partitions are moved onto new nodes and, optionally, additional partitions are swapped around to achieve better balance. For the <em>zone expansion</em> use case, primary partitions are moved into the new zone from existing zone(s) and, optionally, additional partitions are swapped around to achieve better balance. 
+Repartitions a cluster to achieve better balance. For the <em>shuffle</em> use case, a cluster is repartitioned in-place. For the <em>cluster expansion</em> use case, primary partitions are moved onto new nodes and, optionally, additional partitions are swapped around to achieve better balance. For the <em>zone expansion</em> use case, primary partitions are moved into the new zone from existing zone(s) and, optionally, additional partitions are swapped around to achieve better balance. 
 </p>
 
 <p>
 The cluster output by this tool can be used as input to voldemort.tools.RebalanceControllerCLI to actually rebalance the cluster. 
-Please see hte notes below on the  voldemort.tools.RebalanceControllerCLI tool.
+Please see the notes below on the  voldemort.tools.RebalanceControllerCLI tool.
 </p>
 
 <p>
-There are two ways in which partitions are "swapped around": random and greedy. Random swapping identifies random pairs of partitions to swap; if the swap improves the utility value then the swap is kept, otherwise it is not. Greedy swapping attempts many distinct random swaps and selects the one "best" such swap. I.e., the one swap that most improved the utility value the most. These techniques are variants of "hill climbing" algorithms or "simulated annealing". 
+There are two ways in which partitions are "swapped around": random and greedy. Random swapping identifies random pairs of partitions to swap; if the swap improves the utility value then the swap is kept, otherwise it is not. Greedy swapping attempts many distinct random swaps and selects the one best such swap, i.e. the one swap that most improved the utility value. These techniques are variants of "hill climbing" algorithms or "simulated annealing". 
 </p>
 
 <p>
@@ -525,7 +525,7 @@ Storage definition change for three zones (zone expansion use case):
 
 
 <p>
-There is an optional batch-size parameter for this tool. Current best practice is to use the default value of "infinite" (Long.MAX_VALUE). Breaking plans into "batches" tends to result in more work and slower rebalances.
+There is an optional batch-size parameter for this tool. Current best practice is to use the default value of "infinite" (Long.MAX_VALUE). Breaking plans into batches tends to result in more work and slower rebalances.
 </p>
 
 <p>
@@ -535,7 +535,7 @@ There are three metrics listed in the plan that are of interest:
 <li>
 "invalid metadata rates per zone" : 
 The likelihood that a random client put/get will yield an invalid metadata exception. 
-This is important for default store clients (as opposed to zen store clients).
+This is important for default store clients (as opposed to Zen store clients).
 </li>
 <li>
 "Total number of rebalance tasks" : 
@@ -553,8 +553,8 @@ This measure is not useful for comparing plans for different clusters, or for on
 </li>
 <li>
 "Max per-node storage overhead" : 
-The maximum fractional storage overhead of the plan. 
-E.g., 1.4X means that one server will have 40% more data on disk after rebalancing until the repair job is run. 
+The maximum fractional storage overhead of the plan,
+e.g. 1.4X means that one server will have 40% more data on disk after rebalancing until the repair job is run. 
 This estimate is conservative.
 </li>
 </ul>
@@ -572,15 +572,15 @@ The final-cluster.xml is the final, repartitioned cluster.
 A successful rebalance will move the cluster to this specified state.
 The parallelism limits the number of <em>rebalance tasks</em> that can execute at one time. 
 A single rebalance task moves data from one donor node to one stealer node.
-The rebalance controller ensures that no one node participates in more than one rebalance task at a time.
-I.e., during rebalance, every node is executing at most one rebalance task at a time.
+The rebalance controller ensures that no one node participates in more than one rebalance task at a time,
+i.e. during rebalance, every node is executing at most one rebalance task at a time.
 The proxy pause parameter is the number of seconds to wait between rolling cluster metadata forward to the specified final-cluster.xml and beginning to clone data.
 This period allows performance to be monitored while put and get operations are "proxied" without the servers doing any additional work cloning data.
 </p>
 
 <p>
-Killing this tool during rebalance will not abort rebalance cleanly. 
-If this tool crashes, then rebalance may have to be manually aborted. (See below.)
+Killing this tool during rebalance will not abort the rebalance cleanly. 
+If this tool crashes, then the rebalance may have to be manually aborted. (See below.)
 </p>
 
 
@@ -593,7 +593,7 @@ If this tool crashes, then rebalance may have to be manually aborted. (See below
 For each rebalancing use case (shuffle, cluster expansion, and zone expansion), there is a script that embodies a suggested best practice for repartitioning. 
 These scripts can be chained together (where it makes sense). 
 For example, the rebalance-cluster-expansion script could be used followed by the rebalance-shuffle script to improve the  balance of the expanded cluster. 
-These scripts help with planning a rebalance because in addition to repartitoining to improve balance, the rebalance plan is output which shows how "big" the execution of rebalancing will be.
+These scripts help with planning a rebalance because in addition to repartitioning to improve balance, the rebalance plan is output which shows how "big" the execution of rebalancing will be.
 Note that when chained, the plans output by these scripts only describe the cost of each specific change so you should generate a single overall plan to determine overall cost.
 </p>
 
@@ -608,7 +608,7 @@ For non-zoned clusters, try the following usage:
 </p>
 <pre>python generate_cluster_xml.py --file &lt;file with host names, one host per line&gt;  --name &lt;name of the cluster&gt; --nodes &lt;number of nodes&gt; --partitions &lt;number of partitions&gt; --sock-port &lt;port no&gt; --admin-port &lt;port no&gt; --http-port &lt;port no&gt; --current-stores &lt;current_stores.xml&gt; --output-dir &lt;output directory&gt;</pre>
 <p>
-The newly generated cluster.xml file is placed in the output dir.
+The newly generated cluster.xml file is placed in the output directory.
 </p>
 
 <p>
@@ -636,7 +636,7 @@ rebalance-new-cluster.sh works in three steps:
 </p>
 <ul>
 <li>
-Step 1: RepartitionerCLI is executed to limit the max contiguous partition. Four such runs are attempted and the best cluster.xml is passed to next step.
+Step 1: RepartitionerCLI is executed to limit the maximum contiguous partition. Four such runs are attempted and the best cluster.xml is passed to next step.
 </li>
 <li>
 Step 2: RepartitionerCLI is invoked with random swap attempts to better balance the cluster.
@@ -649,7 +649,7 @@ Step 3: Same as step 1 to ensure no contiguous runs were introduced during repar
 <p>
 The rationale behind step 1 is to break long running contiguous partitions to help the repartitioner achieve a better balanced cluster in step 2. 
 Smaller runs of contiguous partitions help ensure that during random swapping in step 2, a swap attempt would generally lead to an improvement in the balance. 
-An additional run in step 3 (same as step 1) makes sure that long running contiguous partitions do not exists in the final cluster.xml, as some new contiguous runs might have been created during step 2.
+An additional run in step 3 (same as step 1) makes sure that long runs of contiguous partitions do not exist in the final cluster.xml, as some new contiguous runs might have been created during step 2.
 </p>
 
 
@@ -664,7 +664,7 @@ and
 </p>
 <pre>bin/rebalance-shuffle.sh -c current_cluster -s current_stores -o output_dir -m max_contiguous_partitions</pre>
 <p>
-The former is the common usage, whereas the latter is only used for zoned-clusters that are known to have long runs of contiguous partitions in some zones. Note that some historic tooling could have resulted in such contiguous runs. 
+The former is the common usage, whereas the latter is only used for zoned clusters that are known to have long runs of contiguous partitions in some zones. Note that some historic tooling could have resulted in such contiguous runs. 
 </p>
 
 
@@ -673,11 +673,11 @@ The script shuffles the partitions around based on the current_cluster xml to ac
 The xml file corresponding to the new cluster is then written to output_dir. 
 The script also generates a plan file "plan.out" and places it in the output_dir. 
 Note that this script can be used again on its own output. 
-That is, if first attempt only gets you half-way to where you want to go in terms of repartitioning, then take output final-cluster xml and use as input to this tool again.
+That is, if your first attempt only gets you half-way to where you want to go in terms of repartitioning, then you can take the output final-cluster xml and use it as input to this tool again.
 </p>
 
 <p>
-When invoked with the "-m" option the script first splits runs of contiguous partition that are greater than max contiguous partitions.
+When invoked with the "-m" option the script first splits runs of contiguous partition that are greater than the maximum number of contiguous partitions.
 Generally speaking, a more balanced cluster is achievable when the runs of contiguous partitions are smaller in value (2 or 3) than when its higher (7 or 8). 
 However, using "-m" option can create a more expensive plan so this option must be used carefully.
 </p>
@@ -704,7 +704,7 @@ The final-cluster.xml and the plan is saved inside the output_dir.
 <p>
 This script steals partitions from other nodes and assigns them to the new nodes in the expanded cluster. 
 Note that while stealing partitions, the script doesn't make an effort to balance the cluster. 
-This script has a high value of overall attempts to make sure that we aren't caught into a local minima.
+This script has a high value of overall attempts to make sure that we aren't caught into a local minimum.
 However, because the repartitioner is invoked multiple distinct times,  the most balanced such expansion is chosen. 
 Chaining bin/rebalance-shuffle.sh after this script to further balance the cluster is the expected usage.
 </p>
@@ -737,7 +737,7 @@ Random swaps are <b>only</b> enabled in the new zone.
 Randomly swapping only within the new zone is done to attempt to minimize the overall plan size necessary to realize the repartitioning.
 </li>
 <li>
-The final step simply produces an overall plan based on the repartitoining done in the above two steps.
+The final step simply produces an overall plan based on the repartitioning done in the above two steps.
 </li>
 </ul>
 
@@ -759,18 +759,7 @@ The <em>repair</em> job deletes keys (partition-stores) that have been orphaned 
 <pre>bin/voldemort-admin-tool.sh --repair-job --node '-1' --url $URL</pre>
 <p>
 Passing  '-1' for node means all nodes in cluster will run the repair job.
-The URL is the bootstrap url of the cluster.
-An <em>orphaned key</em> is one that is stored on a server but belongs to a partition for which the server is not (no longer) responsible.
-The repair job is not well-named.
-</p>
-
-<p>
-The <em>repair</em> job deletes keys (partition-stores) that have been orphaned by a successful rebalance:
-</p>
-<pre>bin/voldemort-admin-tool.sh --repair-job --node '-1' --url $URL</pre>
-<p>
-Passing  '-1' for node means all nodes in cluster will run the repair job.
-The URL is the bootstrap url of the cluster.
+The URL is the bootstrap URL of the cluster.
 An <em>orphaned key</em> is one that is stored on a server but belongs to a partition for which the server is not (no longer) responsible.
 The repair job is not well-named.
 </p>
@@ -785,7 +774,7 @@ or
 </p>
 <pre>bin/voldemort-admin-tool.sh --get-metadata stores.xml --node 0 --url $URL</pre>
 <p>
-The former fetches current cluster.xml and the latter fetches current stores.xml. These metadata files should be used as input to repartioning and planning.
+The former fetches current cluster.xml and the latter fetches current stores.xml. These metadata files should be used as input to repartitioning and planning.
 </p>
 
 <p>
@@ -882,7 +871,7 @@ nio.connector.selectors=
 stream.read.byte.per.sec=
 stream.write.byte.per.sec=
 
-# if your storage engin supports isPartitionScanSupported() then the
+# if your storage engine supports isPartitionScanSupported() then the
 # following setting is the most important one for improving
 # performance of rebalance:
 use.partition.scan.for.rebalance=true
@@ -892,8 +881,8 @@ use.partition.scan.for.rebalance=true
 <h2>Preparation</h2>
 <ol>
 <li>
-Get current metadata from the cluster. 
-I.e., use bin/voldemort-admin-tool.sh to retrieve current cluster.xml and stores.xml.
+Get current metadata from the cluster,
+i.e. use bin/voldemort-admin-tool.sh to retrieve current cluster.xml and stores.xml.
 </li>
 <li>
 Generate new final-cluster.xml, and if necessary, stores.xml.
@@ -901,7 +890,7 @@ Use the appropriate rebalance script for your use case.
 </li>
 <li>
 Given the repartitioned final-cluster.xml, review the plan for the rebalance. 
-If the plan is "too big" (this is necessarily a judgement call), try to generate a repartitioning that yields a smaller plan (possibly by being less balanced).
+If the plan is "too big" (this is necessarily a judgment call), try to generate a repartitioning that yields a smaller plan (possibly by being less balanced).
 </li>
 </ol>
 
@@ -909,9 +898,9 @@ If the plan is "too big" (this is necessarily a judgement call), try to generate
 <h2>Execution</h2>
 <ol>
 <li>
-For the cluster expansion and zone expansion use case, use  bin/voldemort-admin-tool.sh to set interim metadata. 
-I.e., set the cluster xml so that new nodes with empty partitions are present in the cluster.
-For zone expansion, set the stores xml to be aware of the new zone.
+For the cluster expansion and zone expansion use case, use  bin/voldemort-admin-tool.sh to set interim metadata,
+i.e. set the cluster xml so that new nodes with empty partitions are present in the cluster.
+For zone expansion, set the stores XML to be aware of the new zone.
 </li>
 <li>
 Gather a sample set of keys with the voldemort.utils.KeySamplerCLI.
