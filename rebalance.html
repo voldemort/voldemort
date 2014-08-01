@@ -4,19 +4,17 @@ title: Rebalancing - Voldemort
 ---
 
 <h1>Outline</h1>
-<p>
 <ul>
 <li><a href="#overview">Overview</a></li>
 <li><a href="#terminology">Terminology</a></li>
 <li><a href="#di">Design and Implementation</a></li>
-<li><a href="#tools">Tools</h1></a></li>
+<li><a href="#tools">Tools</a></li>
 <li><a href="#utilities">Utilities</a></li>
 <li><a href="#runbook">Run book</a></li>
 </ul>
-</p>
 
 
-<a id="overview"><h1>Overview</h1></a>
+<h1><a id="overview">Overview</a></h1>
 <p>
 Rebalancing a Voldemort instance involves deciding upon a <em>repartitioning</em> that re-assigns some partitions to other servers in the cluster and then a <em>rebalancing</em> that migrates data to achieve the desired new layout. The supported  use cases for rebalancing are as follows:
 
@@ -38,9 +36,8 @@ The rebalancing process is intended to be able to rebalance a Voldemort instance
 <li>Transparent to client in terms of functionality and performance.</li>
 <li>Maintain data consistency guarantees while rebalancing, as well as in the case of aborting a rebalance.</li>
 </ul>
-</p>
 
-<a id="terminology"><h1>Terminology</h1></a>
+<h1><a id="terminology">Terminology</a></h1>
 
 <dl>
 
@@ -149,7 +146,7 @@ An administrative task that scans a local disk and deletes all entries in orphan
 </dl> 
 
 
-<a id="di"><h1>Design and Implementation</h1></a>
+<h1><a id="di">Design and Implementation</a></h1>
 
 <p>
 Rebalancing involves two sets of tooling: offline and online.
@@ -168,13 +165,13 @@ Please also see the bin/rebalance-*sh tools described below for specific reparti
 
 <p>
 The key classes of interest for these offline tools are as follows:
+</p>
 <ul>
 <li><a href="javadoc/all/voldemort/tools/RepartitionerCLI.html">voldemort.tools.RepartitionerCLI</a> : Command line tool to repartition a cluster.</li>
 <li><a href="javadoc/all/voldemort/tools/Repartitioner.html">voldemort.tools.Repartitioner</a> : Collection of techniques to repartition a cluster.</li>
 <li><a href="javadoc/all/voldemort/tools/PartitionAnalysisCLI.html">voldemort.tools.PartitionAnalysisCLI</a> : Command line tool to analyze balance of a cluster.</li>
 <li><a href="javadoc/all/voldemort/tools/PartitionBalance.html">voldemort.tools.PartitionBalance</a> : Analyses a cluster to determine balance.</li>
 </ul>
-</p>
 
 <h2>Planning</h2>
 
@@ -182,6 +179,7 @@ The key classes of interest for these offline tools are as follows:
 Planning involves determining which partition-stores have to move where to achieve a specified repartitioning (final-cluster.xml).
 When some node needs to steal some partition-stores, there are often many donor nodes from which it could steal.
 The design principles we chose for deciding which donor node to steal from are as folows:
+</p>
 <ol>
 <li>Only steal if you do not already host the necessary partition-stores.</li>
 <li>
@@ -193,6 +191,7 @@ If you must steal, steal from the "same" zone n-ary.
 I.e., a stealer-node that is a zone 2-ary in the final-cluster.xml should steal from the donor-node that is the zone 2-ary in the "old" cluster.xml
 </li>
 </ol>
+<p>
 These design principles ensure that determination of donor-node is deterministic and minimizes data movement across zones.
 These principles also match up with the logic for proxy-bridges.
 I.e., proxy-bridges align with stealer-donor pairs.
@@ -200,13 +199,13 @@ I.e., proxy-bridges align with stealer-donor pairs.
 
 <p>
 The key classes of interest for this offline tool are as follows:
+</p>
 <ul>
 <li><a href="javadoc/all/voldemort/tools/RebalancePlanCLI.html">voldemort.tools.RebalancePlanCLI</a> : Command line tool to generate a plan.</li>
 <li><a href="javadoc/all/voldemort/client/rebalance/RebalancPlan.html">voldemort.client.rebalance.RebalancePlan</a> : Constructs rebalancing plan comprised of batches.</li>
 <li><a href="javadoc/all/voldemort/client/rebalance/RebalanceBatchPlan.html">voldemort.client.rebalance.RebalanceBatchPlan</a> : Constructs rebalancing batch comprised of tasks.</li>
 <li><a href="javadoc/all/voldemort/client/rebalance/RebalanceTaskInfo.html">voldemort.client.rebalance.RebalanceTaskInfo</a> : Structure that tracks which partition-stores must be cloned from donor-node to stealer-node.</li>
 </ul>
-</p>
 
 <p>
 Historically, a plan was broken into batches whose size is limited to some number of primary partition moves.
@@ -245,8 +244,9 @@ The <em>proxy pause</em> provides a time window during which clients rebootstrap
 
 <p>
 The key classes of interest for executing a rebalance are as follows:
+</p>
 <ul>
-<li>Client-side control of rebalancing.</li>
+<li>Client-side control of rebalancing.
 <ul>
 <li><a href="javadoc/all/voldemort/tools/RebalanceContollerCLI.html">voldemort.tools.RebalanceControllerCLI</a> : Command line tool to initiate rebalancing.</li>
 <li><a href="javadoc/all/voldemort/client/rebalance/RebalanceController.html">voldemort.client.rebalance.RebalanceController</a> : Constructs plan and then schedules batches to complete the plan.</li>
@@ -254,30 +254,33 @@ The key classes of interest for executing a rebalance are as follows:
 <li><a href="javadoc/all/voldemort/client/rebalance/task/RebalanceTask.html">voldemort.client.rebalance.task.RebalanceTask</a> : Clones partition-stores from donor-node to stealer-node.</li>
 <li><a href="javadoc/all/voldemort/client/rebalance/task/StealerBasedRebalanceTask/RepartitionerCLI.html">voldemort.client.rebalance.task.StealerBasedRebalanceTask</a> : Manages execution of specific rebalance task on stealer-node.</li>
 </ul>
+</li>
 
-<li>Rebalance plan and data structures</li>
+<li>Rebalance plan and data structures
 <ul>
 <li><a href="javadoc/all/voldemort/client/rebalance/RebalancePlan.html">voldemort.client.rebalance.RebalancePlan</a> : Constructs rebalancing plan comprised of batches.</li>
 <li><a href="javadoc/all/voldemort/client/rebalance/RebalanceBatchPlan.html">voldemort.client.rebalance.RebalanceBatchPlan</a> : Constructs rebalancing batch comprised of tasks.</li>
 <li><a href="javadoc/all/voldemort/client/rebalance/RebalanceTaskInfo.html">voldemort.client.rebalance.RebalanceTaskInfo</a> : Structure that tracks which partition-stores must be cloned from donor-node to stealer-node.</li>
 </ul>
+</li>
 
-<li>Server-side control of rebalancing</li>
+<li>Server-side control of rebalancing
 <ul>
 <li><a href="javadoc/all/voldemort/server/rebalance/Rebalancer.html">voldemort.server.rebalance.Rebalancer</a> : Initiates server-side rebalancing work and handles server-level abort/rollback.</li>
 <li><a href="javadoc/all/voldemort/server/rebalance/async/RebalanceAsyncOperation.html">voldemort.server.rebalance.async.RebalanceAsyncOperation</a> : Parent class for server-side rebalancing operations.</li>
 <li><a href="javadoc/all/voldemort/server/rebalance/async/StealerBasedRebalanceAsyncOperation.html">voldemort.server.rebalance.async.StealerBasedRebalanceAsyncOperation</a> : Stealer-based server-side rebalancing operation.</li>
 <li><a href="javadoc/all/voldemort/store/metadata/MetadataStore.html">voldemort.store.metadata.MetadataStore</a> : Rebalancing state is kept in this store.</li>
 </ul>
+</li>
 
 </ul>
-</p>
 
 
 <h3>Client-side</h3>
 
 <p>
 At a very high-level, the controller does the following:
+</p>
 <ol>
 <li>Fetch current cluster xml and stores xml from the cluster.</li>
 <li>Compute the Plan based on the specified final cluster xml.</li>
@@ -286,23 +289,23 @@ At a very high-level, the controller does the following:
 <li>Execute the plan, batch by batch.</li>
 <li>Upon completion of all batches, set the cluster state to <em>normal</em>.</li>
 </ol>
-</p>
 
 <p>
 Again, at a high-level, to execute a batch of a plan, the controller does the following:
+</p>
 <ol>
 <li>Schedule rebalance tasks on stealer nodes until specified parallelism is achieved (or until no more such tasks can be scheduled).</li>
 <li>Upon completion of a rebalance task, schedule more rebalance tasks</li>
 <li>Upon completion of all rebalance tasks, return to controller so next batch, if any, can be started.</li>
 <li>Upon failure of any rebalance task, abort rebalance and roll back cluster metadata.</li>
 </ol>
-</p>
 
 
 <h3>Server-side</h3>
 
 <p>
 At a very high-level, servers do the following:
+</p>
 <ol>
 <li>Upon receiving new cluster xml and state change to <em>rebalance</em>, start proxying gets and puts as needed.</li>
 <li>Upon receiving rebalance task, server acts as stealer-node and fetches necessary partition-stores from donor-node.</li>
@@ -310,7 +313,6 @@ At a very high-level, servers do the following:
 <li>Upon receving abort, rolls back metadata locally, sets state to <em>normal</em>, and stops proxying.</li>
 <li>Upon receving state change to <em>normal</em>, sets state locally and stops proxying.</li>
 </ol>
-</p>
 
 
 <h3>Read-write vs read-only stores</h3>
@@ -399,7 +401,7 @@ Voldemort <a href="http://engineering.linkedin.com/voldemort/announcing-voldemor
 If donor-based ever needs to be resurrected, then it needs to be changed to use zone n-ary logic (as opposed to the historic "ReplicaType" and "RebalancePartitionsInfo" types).
 </p>
 
-<a id="tools"><h1>Rebalancing tools</h1></a>
+<h1><a id="tools">Rebalancing tools</a></h1>
 
 <p>
 This is a summary of each of the tools used in rebalancing.
@@ -414,6 +416,7 @@ Analyzes the partition layout of a cluster to determine its balance:
 
 <p>
 The output of this tool is fairly verbose:
+</p>
 <ul>
 <li>Nodes in each zone are listed.</li>
 <li>Number of primary partitions per node are listed.</li>
@@ -425,7 +428,6 @@ The output of this tool is fairly verbose:
 <li>The "aggregate nary-partition count" is listed. This value is aggregated across all stores for each node. The value is the number of <em>partition-stores</em> hosted on the node. A partition-store is a specific zone n-ary partition for a specific store. This is a measure of how well balanced put operations will be in failure-free periods since each zone n-ary ought to (eventually) receive a replica. Note, this is therefore also a measure of how well balanced disk utilization should be across all nodes.</li>
 <li> The utility value is also listed. The lower the utility value, the better. Given current constants, the "optimal" utility value is three times the number of zones in the cluster. So, a zoned cluster with two zones has an optimal utility value of 6 whereas a non-zoned cluster has an optimal utility value of 3.
 </ul>
-</p>
 
 
 <h2>voldemort.tools.RepartitionerCLI</h2>
@@ -444,16 +446,25 @@ There are two ways in which partitions are "swapped around": random and greedy. 
 </p>
 
 <p>
-Examples of usages of the tool are as follows:<br/><br/>
-Random shuffle:<br/>
+Examples of usages of the tool are as follows:<br/></p>
+<p>
+Random shuffle:
+</p>
 <pre>voldemort.tools.RepartitionerCLI --current-cluster &lt;current-cluster&gt; --current-stores &lt;current_stores&gt; --output-dir &lt;output_dir&gt; --enable-random-swaps</pre>
+<p>
 Greedy shuffle: 
+</p>
 <pre>voldemort.tools.RepartitionerCLI --current-cluster &lt;current-cluster&gt; --current-stores &lt;current_stores&gt; --output-dir &lt;output_dir&gt; --enable-greedy-swaps</pre>
+<p>
 Cluster expansion: 
+</p>
 <pre>voldemort.tools.RepartitionerCLI --current-cluster &lt;current-cluster&gt; --current-stores &lt;current_stores&gt;  --interim-cluster &lt;interim-cluster&gt; --output-dir &lt;output_dir&gt;</pre>
+<p>
 Zone expansion: 
+</p>
 <pre>voldemort.tools.RepartitionerCLI --current-cluster &lt;current-cluster&gt; --current-stores &lt;current_stores&gt;  --interim-cluster &lt;interim-cluster&gt; --final-stores  &lt;final_stores&gt;  --output-dir &lt;output_dir&gt;</pre>
 
+<p>
 For cluster expansion, an <em>interim-cluster</em> must be provided which includes the new nodes without any partition IDs assigned to them. For zone expansion, both an <em>interim-cluster</em> and <em>final-stores</em> must be provided. The latter is necessary because zone replication factors must be updated in the stores.xml file.
 </p>
 
@@ -468,9 +479,13 @@ A plan is an unordered list of partition-stores that must move from a donor node
 
 <p>
 There are two common usages for this tool:
+</p>
 <pre>voldemort.tools.RebalancePlanCLI --current-cluster  &lt;current-cluster&gt; --current-stores &lt;current_stores&gt; --final-cluster &lt;final-cluster&gt; --output-dir &lt;output_dir&gt;</pre>
+<p>
 and
+</p>
 <pre>voldemort.tools.RebalancePlanCLI --current-cluster  &lt;current-cluster&gt; --current-stores &lt;current_stores&gt; --final-cluster &lt;final-cluster&gt; --final-stores &lt;final_stores&gt; --output-dir &lt;output_dir&gt;</pre>
+<p>
 The difference lies in the inclusion of argument "--final-stores &lt;final_stores&gt;". 
 or shuffle and cluster expansion use cases, the final stores argument is not needed. 
 </p>
@@ -478,8 +493,11 @@ or shuffle and cluster expansion use cases, the final stores argument is not nee
 <p>
 For zone expansion, the final stores argument is needed since storage definitions change when the number of zones changes.
 The following snippets of storage definitions illustrate how they need to change for zone expansion.
+</p>
 <blockquote>
+<p>
 Storage definition for two zones:
+</p>
 <pre>
 ...
 &lt;replication-factor&gt;4&lt;/replication-factor&gt;
@@ -489,7 +507,9 @@ Storage definition for two zones:
 &lt;/zone-replication-factor&gt;
 ...
 </pre>
+<p>
 Storage definition change for three zones (zone expansion use case):
+</p>
 <pre>
 ...
 &lt;replication-factor&gt;6&lt;/replication-factor&gt;
@@ -501,7 +521,6 @@ Storage definition change for three zones (zone expansion use case):
 ...
 </pre>
 </blockquote>
-</p>
 
 
 
@@ -511,6 +530,7 @@ There is an optional batch-size parameter for this tool. Current best practice i
 
 <p>
 There are three metrics listed in the plan that are of interest:
+</p>
 <ul>
 <li>
 "invalid metadata rates per zone" : 
@@ -538,14 +558,15 @@ E.g., 1.4X means that one server will have 40% more data on disk after rebalanci
 This estimate is conservative.
 </li>
 </ul>
-</p>
 
 
 <h2>voldemort.tools.RebalanceControllerCLI</h2>
 
 <p>
 This tool actually executes the rebalance. Example usage:
+</p>
 <pre>bin/run-class.sh voldemort.tools.RebalanceControllerCLI --url $URL  --final-cluster final-cluster.xml --parallelism 8 --proxy-pause 900</pre>
+<p>
 The URL is the bootstrap URL for the cluster.
 The final-cluster.xml is the final, repartitioned cluster.
 A successful rebalance will move the cluster to this specified state.
@@ -563,7 +584,7 @@ If this tool crashes, then rebalance may have to be manually aborted. (See below
 </p>
 
 
-<a id="utilities"><h1>Rebalancing utilities</h1></a>
+<h1><a id="utilities">Rebalancing utilities</a></h1>
 
 <p>This section describes additional programs and scripts that assist with planning a rebalance and confirming a rebalance was successful.</p>
 
@@ -580,17 +601,22 @@ Note that when chained, the plans output by these scripts only describe the cost
 <h3>bin/generate_cluster_xml.py</h3>
 
 <p>
-At a high level there is a python script (bin/generate_cluster_xml.py) that can generate cluster.xml for both zoned and non zoned clusters. This section describes that script and its usage.<br/>
+At a high level there is a python script (bin/generate_cluster_xml.py) that can generate cluster.xml for both zoned and non zoned clusters. This section describes that script and its usage.</p>
 
+<p>
 For non-zoned clusters, try the following usage:
+</p>
 <pre>python generate_cluster_xml.py --file &lt;file with host names, one host per line&gt;  --name &lt;name of the cluster&gt; --nodes &lt;number of nodes&gt; --partitions &lt;number of partitions&gt; --sock-port &lt;port no&gt; --admin-port &lt;port no&gt; --http-port &lt;port no&gt; --current-stores &lt;current_stores.xml&gt; --output-dir &lt;output directory&gt;</pre>
+<p>
 The newly generated cluster.xml file is placed in the output dir.
 </p>
 
 <p>
 For zoned clusters, try the following usage which includes passing "--zones &lt;num of zones&gt;":
+</p>
 <pre>python generate_cluster_xml.py --file &lt;file with host names, one host per line&gt;  --name &lt;name of the cluster&gt; --nodes &lt;number of nodes&gt; --partitions &lt;number of partitions&gt; --sock-port &lt;port no&gt; --admin-port &lt;port no&gt; --http-port &lt;port no&gt; --current-stores &lt;current_stores.xml&gt; --output-dir &lt;output directory&gt; --zones &lt;number of zones&gt;</pre>
 
+<p>
 For the zoned cluster use case, the python script internally calls (bin/rebalance-new-cluster.sh) as a last step which is explained below.
 </p>
 
@@ -599,12 +625,15 @@ For the zoned cluster use case, the python script internally calls (bin/rebalanc
 
 <p>
 Example usage:
+</p>
 <pre>bin/rebalance-new-cluster.sh -c current_cluster -s current_stores -o output_dir</pre>
+<p>
 Note that it is unnecessary to use this utility on its own since bin/generate_cluster_xml.py invokes this tool for zoned clusters.
 </p>
 
 <p>
 rebalance-new-cluster.sh works in three steps:
+</p>
 <ul>
 <li>
 Step 1: RepartitionerCLI is executed to limit the max contiguous partition. Four such runs are attempted and the best cluster.xml is passed to next step.
@@ -617,6 +646,7 @@ Step 3: Same as step 1 to ensure no contiguous runs were introduced during repar
 </li>
 </ul>
 
+<p>
 The rationale behind step 1 is to break long running contiguous partitions to help the repartitioner achieve a better balanced cluster in step 2. 
 Smaller runs of contiguous partitions help ensure that during random swapping in step 2, a swap attempt would generally lead to an improvement in the balance. 
 An additional run in step 3 (same as step 1) makes sure that long running contiguous partitions do not exists in the final cluster.xml, as some new contiguous runs might have been created during step 2.
@@ -627,9 +657,13 @@ An additional run in step 3 (same as step 1) makes sure that long running contig
 
 <p>
 There 2 variations on how this script can be run:  
+</p>
 <pre>bin/rebalance-shuffle.sh -c current_cluster -s current_stores -o output_dir</pre>
+<p>
 and
+</p>
 <pre>bin/rebalance-shuffle.sh -c current_cluster -s current_stores -o output_dir -m max_contiguous_partitions</pre>
+<p>
 The former is the common usage, whereas the latter is only used for zoned-clusters that are known to have long runs of contiguous partitions in some zones. Note that some historic tooling could have resulted in such contiguous runs. 
 </p>
 
@@ -661,8 +695,9 @@ The script is used when new nodes are added to an existing zone (or, existing zo
 The interim_cluster.xml file must include the new nodes in the cluster with each new nodes having an empty partition list. 
 This script will fill out that partition list by 'stealing' partitions from other nodes.
 Script usage is as follows:
+</p>
 <pre>bin/rebalance-cluster-expansion.sh -c current_cluster -s current_stores -i interim_cluster -o output dir</pre>
-
+<p>
 The final-cluster.xml and the plan is saved inside the output_dir.
 </p>
 
@@ -683,11 +718,12 @@ The script can be executed as shown below where interim_cluster is the cluster.x
 The final-cluster.xml (with partitions list populated) and the plan is written to output_dir.
 Note that the final_stores.xml must be passed in since storage definitions for zoned clusters change when a zone is added.
 Script usage is as follows:
-<pre>bin/rebalance-zone-expansion.sh -c current_cluster -s current_stores -i interim_cluster -f final_stores -o output_dir</pre>
 </p>
+<pre>bin/rebalance-zone-expansion.sh -c current_cluster -s current_stores -i interim_cluster -f final_stores -o output_dir</pre>
 
 <p>
 This script works as follows:
+</p>
 <ul>
 <li>
 RepartitionerCLI is invoked in default mode. 
@@ -704,7 +740,6 @@ Randomly swapping only within the new zone is done to attempt to minimize the ov
 The final step simply produces an overall plan based on the repartitoining done in the above two steps.
 </li>
 </ul>
-</p>
 
 
 <h2>Rebalancing utilities</h2>
@@ -720,7 +755,9 @@ The Voldemort admin tool offers many features that are useful during rebalancing
 <h4>Repair job</h4>
 <p>
 The <em>repair</em> job deletes keys (partition-stores) that have been orphaned by a successful rebalance:
+</p>
 <pre>bin/voldemort-admin-tool.sh --repair-job --node '-1' --url $URL</pre>
+<p>
 Passing  '-1' for node means all nodes in cluster will run the repair job.
 The URL is the bootstrap url of the cluster.
 An <em>orphaned key</em> is one that is stored on a server but belongs to a partition for which the server is not (no longer) responsible.
@@ -729,7 +766,9 @@ The repair job is not well-named.
 
 <p>
 The <em>repair</em> job deletes keys (partition-stores) that have been orphaned by a successful rebalance:
+</p>
 <pre>bin/voldemort-admin-tool.sh --repair-job --node '-1' --url $URL</pre>
+<p>
 Passing  '-1' for node means all nodes in cluster will run the repair job.
 The URL is the bootstrap url of the cluster.
 An <em>orphaned key</em> is one that is stored on a server but belongs to a partition for which the server is not (no longer) responsible.
@@ -739,17 +778,25 @@ The repair job is not well-named.
 <h4>Metadata management</h4>
 <p>
 The Voldemort admin tool can be used to fetch current metadata:
+</p>
 <pre>bin/voldemort-admin-tool.sh --get-metadata cluster.xml --node 0 --url $URL</pre>
+<p>
 or
+</p>
 <pre>bin/voldemort-admin-tool.sh --get-metadata stores.xml --node 0 --url $URL</pre>
+<p>
 The former fetches current cluster.xml and the latter fetches current stores.xml. These metadata files should be used as input to repartioning and planning.
 </p>
 
 <p>
 The Voldemort admin tool can also be used to set metadata:
+</p>
 <pre>bin/voldemort-admin-tool.sh --url $URL --set-metadata cluster.xml --set-metadata-value $OUTDIR/interim-cluster.xml</pre>
+<p>
 or
+</p>
 <pre>bin/voldemort-admin-tool.sh --url $URL --set-metadata stores.xml --set-metadata-value $OUTDIR/final-stores.xml</pre>
+<p>
 The former sets cluster metadata, the latter sets store metadata. 
 This feature can be used to prepare for a cluster expansion by setting the cluster to include new nodes with no partitions.
 This feature can be used to prepare for a zone expansion by setting the cluster to include new nodes with no partitions and setting stores to comply with more zones.
@@ -759,16 +806,22 @@ This feature can also be used to manually roll back metadata if a rebalance goes
 <h4>Rebalancing state</h4>
 <p>
 The Voldemort admin tool can be used to clear rebalancing state:
+</p>
 <pre>bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url $URL</pre>
+<p>
 This feature can be used to manually clear rebalancing state if a rebalance goes awry.
 </p>
 
 <h4>Asynchronous task management</h4>
 <p>
 The Voldemort admin tool can be used to enumerate asynchronous tasks executing on a cluster, and then forcibly kill such asynchronous tasks:
+</p>
 <pre>bin/voldemort-admin-tool.sh --async get --url $URL</pre>
+<p>
 and, then
+</p>
 <pre>bin/voldemort-admin-tool.sh --async stop --url $URL --async-id &lt;id,id,...&gt; --node &lt;node&gt;</pre>
+<p>
 This feature is necessary since rebalance may fail and leave asynchronous tasks running on the servers. 
 In fact, rebalance tends to fail if there are other asynchronous tasks (e.g., from the retention job) running on the cluster.
 </p>
@@ -776,7 +829,9 @@ In fact, rebalance tends to fail if there are other asynchronous tasks (e.g., fr
 <h3>voldemort.utils.KeySamplerCLI</h3>
 <p>
 This tool selects some number of keys for each store for each partition. Recommended usage is as follows:
+</p>
 <pre>bin/run-class.sh voldemort.utils.KeySamplerCLI --url $BOOTSTRAP_URL --out-dir key-samples --records-per-partition 5 </pre>
+<p>
 The BOOTSTRAP_URL is the bootstrap URL of the cluster. 
 For each store, a file of keys will be dumped into output directory key-samples. 
 5 keys will be selected from each partition for each store.
@@ -785,7 +840,9 @@ For each store, a file of keys will be dumped into output directory key-samples.
 <h3>voldemort.utils.KeyVersionFetcherCLI</h3>
 <p>
 This tool consumes the output of the voldemort.utils.KeySamplerCLI to fetch the version of each specified key from all servers that ought to host the key. Recommended usage is as follows:
+</p>
 <pre>bin/run-class.sh voldemort.utils.KeyVersionFetcherCLI --url $URL --in-dir key-samples --out-dir key-version-fetches</pre>
+<p>
 The BOOTSTRAP_URL is the bootstrap URL of the cluster. 
 The output directory of voldemort.utils.KeySamplerCLI is provided as input directory. (Any directory in which there are files with the same names as stores in the cluster and that contain keys can be used.)
 For each store, the file of keys is processed and this tool fetches the version from each server that ought to store the key. The version is output into a file in the output directory.
@@ -799,7 +856,7 @@ For the zone expansion use case, this is especially true since more servers are 
 </p>
 
 
-<a id="runbook"><h1>Rebalance run book</h1></a>
+<h1><a id="runbook">Rebalance run book</a></h1>
 
 <p>
 This is a simplified version of the run book LinkedIn uses to rebalance Voldemort clusters.
@@ -810,6 +867,7 @@ This is a simplified version of the run book LinkedIn uses to rebalance Voldemor
 We do not have specific recommendations for how to tune servers for rebalancing. 
 There is a trade off between how quickly rebalance completes and how much it (may) affect foreground performance.
 That said, we thought about the following parameters in the server.properties file (read by VoldemortConfig) when tuning for rebalancing:
+</p>
 <blockquote>
 <pre>
 # No specific recommendations for these parameters, but each may
@@ -830,10 +888,8 @@ stream.write.byte.per.sec=
 use.partition.scan.for.rebalance=true
 </pre>
 </blockquote>
-</p>
 
 <h2>Preparation</h2>
-<p>
 <ol>
 <li>
 Get current metadata from the cluster. 
@@ -848,11 +904,9 @@ Given the repartitioned final-cluster.xml, review the plan for the rebalance.
 If the plan is "too big" (this is necessarily a judgement call), try to generate a repartitioning that yields a smaller plan (possibly by being less balanced).
 </li>
 </ol>
-</p>
 
 
 <h2>Execution</h2>
-<p>
 <ol>
 <li>
 For the cluster expansion and zone expansion use case, use  bin/voldemort-admin-tool.sh to set interim metadata. 
@@ -873,10 +927,8 @@ Defer the <em>retention</em> job and bounce cluster.
 Run the rebalance using voldemort.tools.RebalanceControllerCLI.
 </li>
 </ol>
-</p>
 
 <h2>Verification</h2>
-<p>
 <ol>
 <li>
 Gather comparison set of key-versions for sampled keys with the voldemort.utils.KeyVersionFetcherCLI.
@@ -889,12 +941,12 @@ Run the repair job via the bin/voldemort-admin-tool.sh to reclaim disk space con
 Reset retention job and bounce the cluster.
 </li>
 </ol>
-</p>
 
 
 <h2>Roll-back failed rebalance</h2>
 <p>
 If rebalance fails, then manually roll-back everything.
+</p>
 <ol>
 <li>
 Reset cluster metadata using bin/voldemort-admin-tool.sh.
@@ -907,4 +959,3 @@ Clear the rebalancing state using bin/voldemort-admin-tool.sh.
 Reset retention job and bounce the cluster, <b>or</b> retry the rebalance!
 </li>
 </ol>
-</p>
