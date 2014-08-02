@@ -29,7 +29,7 @@
 
 m4_define([sdk_pversion], 0)
 m4_define([sdk_sversion], 1)
-m4_define([sdk_iversion], 0)
+m4_define([sdk_iversion], 1)
 AC_INIT([voldemort], [sdk_pversion.sdk_sversion.sdk_iversion])
 AC_SUBST(SDK_MARKETNAME, ["Voldemort C++ Client"])
 AC_DEFINE(SDK_MARKETNAME, ["Voldemort C++ Client"], [Marketing name for SDK])
