@@ -6,7 +6,6 @@ title: Configuration - Voldemort
 <h2>Configuration</h2>
 
 <p>There are three configuration files that control server operation:</p>
-<p>
 <ul>
 <li>
 <i>cluster.xml</i> &ndash; This holds the information about all the nodes (i.e. servers) in the cluster, what hostname they are at, the ports they use, etc. It is exactly the same for all voldemort nodes. It does not hold tuning parameters or data directories for those nodes, since that is not information public to the cluster but is specific to that particular nodes configuration.
@@ -16,13 +15,12 @@ title: Configuration - Voldemort
 <li><i>server.properties</i> &ndash; This contains the tuning parameters that control a particular node. This includes the id of the local node so it knows which entry in cluster.xml corresponds to itself, also the threadpool size, as well as any configuration needed for the local persistence engine such as BDB or mysql. This file is different on each node.
 </li>
 </ul>
-</p>
 
 <p>Finally there is an environment variable, VOLDEMORT_HOME, that controls the directory in which data and configuration reside. You can see an example of how the configuration is layed out in the config/ subdirectory of the project. This includes sample configurations that you can modify with your own specifics.</p>
 
 <h3>Cluster configuration</h3>
 
-<p>Here is an example cluster.xml for a 2-node cluster with 8 data partitions. We also have optional 'zone' fields which allow you to map nodes to certain logical clusters ( datacenter, rack, etc ) called zones:
+<p>Here is an example cluster.xml for a 2-node cluster with 8 data partitions. We also have optional 'zone' fields which allow you to map nodes to certain logical clusters ( datacenter, rack, etc ) called zones:</p>
 
 <pre> 
   &lt;cluster&gt;
@@ -103,6 +101,7 @@ Note that the configuration is currently simple files so it is important that th
 </pre>
 <p>
 Each of these parameters deserves a quick discussion:
+</p>
 <ul>
   <li><i>name</i>&mdash; The name of the store. This is the string by which clients will be able to connect and operate on this store. It is equivalent to the table name in sql.</li>
   <li><i>replication-factor</i>&mdash; This is the total number of times the data is stored. Each put or delete operation must eventually hit this many nodes. A replication factor of <i>n</i> means it can be possible to tolerate up to <i>n</i> - 1 node failures without data loss.</li>
@@ -120,71 +119,71 @@ Each of these parameters deserves a quick discussion:
       <pre>
     &lt;!-- A serializer that serializes plain strings in UTF8 encoding --&gt;
     &lt;value-serializer&gt;
-        &lt;type&gt;string&lt;/type&gt;
-        &lt;schema-info&gt;utf8&lt;/schema-info&gt;
+	&lt;type&gt;string&lt;/type&gt;
+	&lt;schema-info&gt;utf8&lt;/schema-info&gt;
     &lt;/value-serializer&gt;
 
-    &lt;!-- A serializer that serializes binary-format JSON data with the given schema. 
-            Each value is a List&lt;Map&lt;String, ?&gt;&gt; where the keys "id" and "name" and the values 
-            are a 32-bit integer id and a string name. --&gt;
+    &lt;!-- A serializer that serializes binary-format JSON data with the given schema.
+	    Each value is a List&lt;Map&lt;String, ?&gt;&gt; where the keys "id" and "name" and the values 
+	    are a 32-bit integer id and a string name. --&gt;
     &lt;value-serializer&gt;
-        &lt;type&gt;json&lt;/type&gt;
-        &lt;schema-info&gt;[{"id":"int32", "name":"string"}]&lt;/schema-info&gt;
+	&lt;type&gt;json&lt;/type&gt;
+	&lt;schema-info&gt;[{"id":"int32", "name":"string"}]&lt;/schema-info&gt;
     &lt;/value-serializer&gt;
-    
+
     &lt;!-- A serializer that serializes protocol buffer objects of the given class. --&gt;
     &lt;value-serializer&gt;
-        &lt;type&gt;protobuff&lt;/type&gt;
-        &lt;schema-info&gt;java=com.something.YourProtoBuffClassName&lt;/schema-info&gt;
+	&lt;type&gt;protobuff&lt;/type&gt;
+	&lt;schema-info&gt;java=com.something.YourProtoBuffClassName&lt;/schema-info&gt;
     &lt;/value-serializer&gt;
-    
-    &lt;!-- A serializer that serializes thrift generated objects using one of the 
-            following protocols - 'binary', 'json' or 'simple-json'.
+
+    &lt;!-- A serializer that serializes thrift generated objects using one of the
+	    following protocols - 'binary', 'json' or 'simple-json'.
       Current support for Java clients only. --&gt;
     &lt;value-serializer&gt;
-        &lt;type&gt;thrift&lt;/type&gt;
-        &lt;schema-info&gt;java=com.something.YourThriftClassName,protocol=binary&lt;/schema-info&gt;
+	&lt;type&gt;thrift&lt;/type&gt;
+	&lt;schema-info&gt;java=com.something.YourThriftClassName,protocol=binary&lt;/schema-info&gt;
     &lt;/value-serializer&gt;
-      
+
     &lt;!-- Avro serialization - either 'avro-generic', 'avro-specific' or 'avro-reflective' --&gt;
     &lt;value-serializer&gt;
-        &lt;type&gt;avro-generic&lt;/type&gt;
-        &lt;schema-info&gt;{"name": "Kind", "type": "enum", "symbols": ["FOO","BAR"]}&lt;/schema-info&gt;
+	&lt;type&gt;avro-generic&lt;/type&gt;
+	&lt;schema-info&gt;{"name": "Kind", "type": "enum", "symbols": ["FOO","BAR"]}&lt;/schema-info&gt;
     &lt;/value-serializer&gt;
       </pre>
     </li>
-        </li>
-        <li><i>retention-days</i> (optional)&mdash; This optional parameter allows you to set a retention property to your data. Then every day, at a specified time on the servers, a scheduled job will be run to delete all data having timestamp > retention-days. This is useful to keep your data trimmed. </li>
-        <li><i>retention-scan-throttle-rate</i> (optional)&mdash; If <i>retention-days</i> is specified this is the rate at which we'll scan the tuples to delete data.</li>
+  <li><i>retention-days</i> (optional)&mdash; This optional parameter allows you to set a retention property to your data. Then every day, at a specified time on the servers, a scheduled job will be run to delete all data having timestamp &gt; retention-days. This is useful to keep your data trimmed. </li>
+  <li><i>retention-scan-throttle-rate</i> (optional)&mdash; If <i>retention-days</i> is specified this is the rate at which we'll scan the tuples to delete data.</li>
 </ul>
-</p>
 <p>
 If you intend to use the <i>zone-routing</i> strategy we need to extend the store definition to tell it how to replicate w.r.t. zones. Here is an example of a store definition with 'zone-routing' enabled.
+</p>
 <pre>
   &lt;stores&gt;
       &lt;store&gt;
-          &lt;name&gt;test&lt;/name&gt;
-          ...
-                &lt;routing-strategy&gt;zone-routing&lt;/routing-strategy&gt;
-                &lt;!-- This number should be total of individual zone-replication-factor's --&gt;
-                &lt;replication-factor&gt;2&lt;/replication-factor&gt;
-          &lt;zone-replication-factor&gt;
-              &lt;replication-factor zone-id="0"&gt;1&lt;/replication-factor&gt;
-              &lt;replication-factor zone-id="1"&gt;1&lt;/replication-factor&gt;
-          &lt;/zone-replication-factor&gt;
-          &lt;zone-count-reads&gt;0&lt;/zone-count-reads&gt;
-          &lt;zone-count-writes&gt;0&lt;/zone-count-writes&gt;
-          &lt;hinted-handoff-strategy&gt;proximity-handoff&lt;/hinted-handoff-strategy&gt;
-          ... 
-           &lt;/store&gt;
+	  &lt;name&gt;test&lt;/name&gt;
+	  ...
+		&lt;routing-strategy&gt;zone-routing&lt;/routing-strategy&gt;
+		&lt;!-- This number should be total of individual zone-replication-factor's --&gt;
+		&lt;replication-factor&gt;2&lt;/replication-factor&gt;
+	  &lt;zone-replication-factor&gt;
+	      &lt;replication-factor zone-id="0"&gt;1&lt;/replication-factor&gt;
+	      &lt;replication-factor zone-id="1"&gt;1&lt;/replication-factor&gt;
+	  &lt;/zone-replication-factor&gt;
+	  &lt;zone-count-reads&gt;0&lt;/zone-count-reads&gt;
+	  &lt;zone-count-writes&gt;0&lt;/zone-count-writes&gt;
+	  &lt;hinted-handoff-strategy&gt;proximity-handoff&lt;/hinted-handoff-strategy&gt;
+	  ...
+	   &lt;/store&gt;
   &lt;/stores&gt;
 </pre>
+<p>
  The important change here is the introduction of <i>zone-replication-factor</i> which should contain a replication factor that you would want in every zone. Other parameters :
+</p>
 <ul>
   <li><i>zone-count-*</i>&mdash; The number of zones we want to block for during reads / writes before we return the request. The number <i>0</i> means we'll block for atleast one request from the <i>local</i> zone only. The number <i>1</i> means we'll block for atleast one request from one other zone.</li> 
-        <li><i>hinted-handoff-strategy</i> (optional) &mdash; Another consistency mechanism which we've added recently is <a href="https://github.com/voldemort/voldemort/wiki/Hinted-Handoff">Hinted handoff</a>. We can turn on this feature on a per store basis. This parameter defines the strategy we would use to decide which live nodes to write our "hint" to. The various options are <i>any-handoff</i>, <i>consistent-handoff</i> and <i>proximity-handoff</i>. 
+	<li><i>hinted-handoff-strategy</i> (optional) &mdash; Another consistency mechanism which we've added recently is <a href="https://github.com/voldemort/voldemort/wiki/Hinted-Handoff">Hinted handoff</a>. We can turn on this feature on a per store basis. This parameter defines the strategy we would use to decide which live nodes to write our "hint" to. The various options are <i>any-handoff</i>, <i>consistent-handoff</i> and <i>proximity-handoff</i>. 
 </ul>
-</p>
 
 <h3>Server configuration</h3>
 
@@ -196,9 +195,13 @@ If you intend to use the <i>zone-routing</i> strategy we need to extend the stor
 </pre>
 
 
+<p>
 You can find the list of server side parameters <a href="http://www.project-voldemort.com/voldemort/javadoc/all/voldemort/server/VoldemortConfig.html"> here </a>
+</p>
 
+<p>
 Here is a list of all the configuration options supported:
+</p>
 
 <iframe height="500px" width="1000px" src="http://www.project-voldemort.com/voldemort/javadoc/all/voldemort/server/VoldemortConfig.html"></iframe> 
 
@@ -553,6 +556,7 @@ Here is a list of all the configuration options supported:
 <p>The above settings were all for the server. It is important to correctly configure the client as well:
 
 List of all the client configuration parameters can be found <a href="http://www.project-voldemort.com/voldemort/javadoc/all/voldemort/client/ClientConfig.html">here</a>
+</p>
 
 <iframe src="http://www.project-voldemort.com/voldemort/javadoc/all/voldemort/client/ClientConfig.html" width="1000px" height="500px"></iframe>
 
@@ -676,13 +680,15 @@ List of all the client configuration parameters can be found <a href="http://www
 
 <h4>JVM Settings</h4>
 
+<p>
 At LinkedIn we maintain two sets of clusters, read-only and read-write. The read-write clusters are clusters using BDB stores and have totally different JVM characteristics from those using read-only stores. Here is what we use at LinkedIn for our read-write stores:
+</p>
 
 <pre>
-  # Min, max, total JVM size 
+  # Min, max, total JVM size
   JVM_SIZE="-server -Xms32g -Xmx32g"
 
-  # New Generation Sizes 
+  # New Generation Sizes
   JVM_SIZE_NEW="-XX:NewSize=2048m -XX:MaxNewSize=2048m"
 
   # Type of Garbage Collector to use
@@ -695,17 +701,23 @@ At LinkedIn we maintain two sets of clusters, read-only and read-write. The read
   JVM_GC_LOG="-XX:+PrintTenuringDistribution -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$LOG_DIR/gc.log"
 </pre>
 
-Note that you must use the concurrent mark and sweep gc or else the GC pauses from collecting such a large heap will cause unresponsive periods (it doesn't happen at first either, it creeps up and then eventually goes into a spiral of gc pause death). 
+<p>
+Note that you must use the concurrent mark and sweep gc or else the GC pauses from collecting such a large heap will cause unresponsive periods (it doesn't happen at first either, it creeps up and then eventually goes into a spiral of gc pause death).
+</p>
 
-This is the setup on a 48GB RAM box with a BDB cache size of 20GB and 1 cleaner threads, on SSDs. 
+<p>
+This is the setup on a 48GB RAM box with a BDB cache size of 20GB and 1 cleaner threads, on SSDs.
 You can find the entire configuration under config/prod_single_node_cluster. To bring a server up with these settings, use bin/voldemort-prod-server.sh
+</p>
 
 <p>
 For the read-only clusters we use the same JVM GC settings, except the heap size is set to a smaller value.
 </p>
 <pre>
-  # Min, max, total JVM size 
+  # Min, max, total JVM size
   JVM_SIZE="-server -Xms4096m -Xmx4096m"
 </pre>
 
+<p>
 This is done because in the case of read-only stores we rely on the OS page cache and don't really want our JVM heap to take up space. 
+</p>
