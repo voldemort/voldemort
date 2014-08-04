@@ -28,6 +28,8 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 public class RestUtils {
 
+    protected final static ObjectMapper mapper = new ObjectMapper();
+
     /**
      * Function to serialize the given Vector clock into a string. If something
      * goes wrong, it returns an empty string.
@@ -37,7 +39,6 @@ public class RestUtils {
      */
     public static String getSerializedVectorClock(VectorClock vc) {
         VectorClockWrapper vcWrapper = new VectorClockWrapper(vc);
-        ObjectMapper mapper = new ObjectMapper();
         String serializedVC = "";
         try {
             serializedVC = mapper.writeValueAsString(vcWrapper);
@@ -53,9 +54,6 @@ public class RestUtils {
         if(serializedVC == null) {
             return null;
         }
-
-        ObjectMapper mapper = new ObjectMapper();
-
         try {
             VectorClockWrapper vcWrapper = mapper.readValue(serializedVC, VectorClockWrapper.class);
             vc = new VectorClock(vcWrapper.getVersions(), vcWrapper.getTimestamp());
@@ -78,7 +76,6 @@ public class RestUtils {
         for(VectorClock vc: vectorClocks) {
             vectorClockWrappers.add(new VectorClockWrapper(vc));
         }
-        ObjectMapper mapper = new ObjectMapper();
         String serializedVC = "";
         try {
             serializedVC = mapper.writeValueAsString(vectorClockWrappers);
@@ -95,9 +92,6 @@ public class RestUtils {
         if(serializedVC == null) {
             return null;
         }
-
-        ObjectMapper mapper = new ObjectMapper();
-
         try {
             vectorClockWrappers = mapper.readValue(serializedVC,
                                                    new TypeReference<Set<VectorClockWrapper>>() {});
