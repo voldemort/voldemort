@@ -96,8 +96,8 @@
  * @endcode
  */
 
-#ifndef VOLDEMORT_H
-#define VOLDEMORT_H
+#ifndef VOLDEMORT_VOLDEMORT_H
+#define VOLDEMORT_VOLDEMORT_H
 
 #include <voldemort/SocketStoreClientFactory.h>
 
@@ -110,4 +110,4 @@
 #include <voldemort/StoreOperationFailureException.h>
 #include <voldemort/UnreachableStoreException.h>
 
-#endif /* VOLDEMORT_H */
+#endif/*VOLDEMORT_VOLDEMORT_H*/

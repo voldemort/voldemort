@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef SOCKETSTORECLIENTFACTORY_H
-#define SOCKETSTORECLIENTFACTORY_H
+#ifndef VOLDEMORT_SOCKETSTORECLIENTFACTORY_H
+#define VOLDEMORT_SOCKETSTORECLIENTFACTORY_H
 
 #include <voldemort/StoreClientFactory.h>
 #include <voldemort/ClientConfig.h>
@@ -67,4 +67,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* SOCKETSTORECLIENTFACTORY_H */
+#endif/*VOLDEMORT_SOCKETSTORECLIENTFACTORY_H*/

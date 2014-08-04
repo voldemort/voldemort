@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef SOCKETSTORE_H
-#define SOCKETSTORE_H
+#ifndef VOLDEMORT_SOCKETSTORE_H
+#define VOLDEMORT_SOCKETSTORE_H
 
 #include <voldemort/Store.h>
 #include <voldemort/ClientConfig.h>
@@ -68,12 +68,12 @@ public:
     virtual ~SocketStore();
 
     // Store interface 
-    virtual std::list<VersionedValue>* get(const std::string& key);
+    virtual std::list<VersionedValue>* get(const std::string& key) const;
     virtual void put(const std::string& key,
                      const VersionedValue& value);
     virtual bool deleteKey(const std::string& key,
                            const Version& version);
-    virtual const std::string* getName();
+    virtual const std::string* getName() const;
     virtual void close();
 
 private:
@@ -89,4 +89,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* SOCKETSTORE_H */
+#endif/*VOLDEMORT_SOCKETSTORE_H*/

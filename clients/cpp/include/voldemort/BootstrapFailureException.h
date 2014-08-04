@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef BOOTSTRAPFAILUREEXCEPTION_H
-#define BOOTSTRAPFAILUREEXCEPTION_H
+#ifndef VOLDEMORT_BOOTSTRAPFAILUREEXCEPTION_H
+#define VOLDEMORT_BOOTSTRAPFAILUREEXCEPTION_H
 
 #include <voldemort/VoldemortException.h>
 
@@ -46,5 +46,4 @@ public:
 
 } // namespace Voldemort
 
-#endif // BOOTSTRAPFAILUREEXCEPTION_H
-
+#endif/*VOLDEMORT_BOOTSTRAPFAILUREEXCEPTION_H*/

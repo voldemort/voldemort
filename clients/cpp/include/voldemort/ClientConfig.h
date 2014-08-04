@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef CLIENTCONFIG_H
-#define CLIENTCONFIG_H
+#ifndef VOLDEMORT_CLIENTCONFIG_H
+#define VOLDEMORT_CLIENTCONFIG_H
 
 #include <list>
 #include <string>
@@ -148,5 +148,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* CLIENTCONFIG_H */
-
+#endif/*VOLDEMORT_CLIENTCONFIG_H */

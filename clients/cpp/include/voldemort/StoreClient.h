@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef STORECLIENT_H
-#define STORECLIENT_H
+#ifndef VOLDEMORT_STORECLIENT_H
+#define VOLDEMORT_STORECLIENT_H
 
 #include <string>
 #include <voldemort/VersionedValue.h>
@@ -142,4 +142,4 @@ public:
 
 } /* namespace Voldemort */
 
-#endif /* STORECLIENT_H */
+#endif/*VOLDEMORT_STORECLIENT_H*/

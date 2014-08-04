@@ -91,7 +91,7 @@ const string* VersionedValue::getValue() const {
     return pimpl_->value.get();
 }
 
-Version* VersionedValue::getVersion() const {
+const Version* VersionedValue::getVersion() const {
     return pimpl_->version.get();
 }
 

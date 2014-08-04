@@ -46,7 +46,7 @@ SocketStore::~SocketStore() {
     close();
 }
 
-std::list<VersionedValue>* SocketStore::get(const std::string& key) {
+std::list<VersionedValue>* SocketStore::get(const std::string& key) const {
     try {
         ConnectionPoolSentinel 
             conn(connPool->checkout(host, port, 
@@ -109,7 +109,7 @@ bool SocketStore::deleteKey(const std::string& key, const Version& version) {
     }
 }
 
-const std::string* SocketStore::getName() {
+const std::string* SocketStore::getName() const {
     return &name;
 }
 

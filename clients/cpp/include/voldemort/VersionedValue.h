@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef VERSIONEDVALUE_H
-#define VERSIONEDVALUE_H
+#ifndef VOLDEMORT_VERSIONEDVALUE_H
+#define VOLDEMORT_VERSIONEDVALUE_H
 
 #include <string>
 #include <stdlib.h>
@@ -89,7 +89,7 @@ public:
      *
      * @return a pointer to a Version object.  
      */
-    Version* getVersion() const;
+    const Version* getVersion() const;
 
     /**
      * Set the version for this object.  The object ownership is passed
@@ -106,4 +106,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif // VERSIONEDVALUE_H
+#endif/*VOLDEMORT_VERSIONEDVALUE_H*/

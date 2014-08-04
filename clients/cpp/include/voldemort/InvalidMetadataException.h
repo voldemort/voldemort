@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef INVALIDMETADATAEXCEPTION_H
-#define INVALIDMETADATAEXCEPTION_H
+#ifndef VOLDEMORT_INVALIDMETADATAEXCEPTION_H
+#define VOLDEMORT_INVALIDMETADATAEXCEPTION_H
 
 #include <voldemort/VoldemortException.h>
 
@@ -46,5 +46,4 @@ public:
 
 } // namespace Voldemort
 
-#endif // INVALIDMETADATAEXCEPTION_H
-
+#endif/*VOLDEMORT_INVALIDMETADATAEXCEPTION_H*/

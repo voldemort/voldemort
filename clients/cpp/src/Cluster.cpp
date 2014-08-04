@@ -20,7 +20,8 @@
 #include "Cluster.h"
 #include <voldemort/VoldemortException.h>
 #include <iostream>
-#include <string.h>
+#include <cstring>
+#include <boost/format.hpp>
 
 namespace Voldemort {
 
@@ -155,7 +156,7 @@ void Cluster::charData(void* data, const XML_Char *s, int len) {
 
 }
 
-Cluster::Cluster(const std::string clusterXml)
+Cluster::Cluster(const std::string& clusterXml)
     : state(STATE_BEGIN) {
     XML_Parser parser = NULL;
     try {
@@ -183,7 +184,7 @@ boost::shared_ptr<Node>& Cluster::getNodeById(int nodeId) {
     if (nodesById.count(nodeId))
         return nodesById[nodeId];
     else 
-        throw VoldemortException("Invalid node ID: " + nodeId);
+        throw VoldemortException(str(boost::format("Invalid node ID: %1%") % nodeId));
 }
 
 std::ostream& operator<<(std::ostream& output, const Cluster& cluster) {
