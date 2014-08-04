@@ -1185,148 +1185,178 @@ title: Voldemort Admin Tool Reference
   Old Voldemort Admin Tool
 </h2>
 <p>
-  Commands supported
-  <br />
-  ------------------
-  <br />
-  a) Get / set metadata
-  <br />
-  1) Get metadata from all nodes
-  <br />
-  ./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url]
-  <br />
-  2) Get metadata from a particular node
-  <br />
-  ./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url]
-  --node [node-id]
-  <br />
-  3) Set metadata on all nodes [ metadata-value is path to xml files for
-  cluster.xml | stores.xml ]
-  <br />
-  ./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value
-  [metadata-value] --url [url]
-  <br />
-  4) Set metadata for a particular node
-  <br />
-  ./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value
-  [metadata-value] --url [url] --node [node-id]
-  <br />
-  5) Check if metadata is same on all nodes
-  <br />
-  ./bin/voldemort-admin-tool.sh --check-metadata [metadata-key] --url [url]
-  <br />
-  b) Add / delete stores
-  <br />
-  1) Add store(s) on all nodes
-  <br />
-  ./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to
-  add] --url [url]
-  <br />
-  2) Add store(s) on single node
-  <br />
-  ./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to
-  add] --url [url] --node [node-id]
-  <br />
-  3) Delete store on all nodes
-  <br />
-  ./bin/voldemort-admin-tool.sh --delete-store [store-name] --url [url]
-  <br />
-  4) Delete the contents of the store on all nodes
-  <br />
-  ./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url]
-  <br />
-  5) Delete the contents of the store on a single node
-  <br />
-  ./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url] --node
-  [node-id]
-  <br />
-  6) Delete the contents of some partitions on a single node
-  <br />
-  ./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list
-  of partitions] --url [url] --node [node-id]
-  <br />
-  7) Delete the contents of some partitions ( of some stores ) on a single
-  node
-  <br />
-  ./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list
-  of partitions] --url [url] --node [node-id] --stores [comma-separated list
-  of store names]
-  <br />
-  c) Stream data
-  <br />
-  1) Fetch keys from a set of partitions [ all stores ] on a node ( binary
-  dump )
-  <br />
-  ./bin/voldemort-admin-tool.sh --fetch-keys [comma-separated list of partitions
-  with no space] --url [url] --node [node-id]
-  <br />
-  2) Fetch keys from a set of partitions [ all stores ] on a node ( ascii
-  enabled )
-  <br />
-  ./bin/voldemort-admin-tool.sh --fetch-keys [comma-separated list of partitions
-  with no space] --url [url] --node [node-id] --ascii
-  <br />
-  3) Fetch entries from a set of partitions [ all stores ] on a node ( binary
-  dump )
-  <br />
-  ./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
-  partitions with no space] --url [url] --node [node-id]
-  <br />
-  4) Fetch entries from a set of partitions [ all stores ] on a node ( ascii
-  enabled )
-  <br />
-  ./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
-  partitions with no space] --url [url] --node [node-id] --ascii
-  <br />
-  5) Fetch entries from a set of partitions [ all stores ] on a node ( ascii
-  enabled ) and output to a folder
-  <br />
-  ./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
-  partitions with no space] --url [url] --node [node-id] --ascii --outdir
-  [directory]
-  <br />
-  6) Fetch entries from a set of partitions and some stores on a node (
-  ascii enabled )
-  <br />
-  ./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
-  partitions with no space] --url [url] --node [node-id] --ascii --stores
-  [comma-separated list of store names]
-  <br />
-  7) Update entries for a set of stores using the output from a binary dump
-  fetch entries
-  <br />
-  ./bin/voldemort-admin-tool.sh --update-entries [folder path from output
-  of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated
-  list of store names]
-  <br />
-  d) Read-only operations
-  <br />
-  1) Retrieve metadata information of read-only data for a particular node
-  and all stores
-  <br />
-  ./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format]
-  --url [url] --node [node-id]
-  <br />
-  2) Retrieve metadata information of read-only data for all nodes and a
-  set of store
-  <br />
-  ./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format]
-  --url [url] --stores [comma-separated list of store names]
-  <br />
-  e) Others
-  <br />
-  1) Restore a particular node completely from its replicas
-  <br />
-  ./bin/voldemort-admin-tool.sh --restore --url [url] --node [node-id]
-  <br />
-  2) Restore a particular node completely from its replicas ( with increased
-  parallelism - 10 )
-  <br />
-  ./bin/voldemort-admin-tool.sh --restore 10 --url [url] --node [node-id]
-  <br />
-  3) Generates the key distribution on a per node basis [ both store wise
-  and overall ]
-  <br />
-  ./bin/voldemort-admin-tool.sh --key-distribution --url [url] --node [node-id]
-  --ascii
-</p>
+  <h3>Commands supported</h3>
+
+<ol type="a">
+  <li>Get / set metadata
+  <ol type="1">
+    <li>Get metadata from all nodes
+<pre>
+./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url]
+</pre>
+    </li>
+    <li>Get metadata from a particular node
+<pre>
+./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url]
+--node [node-id]
+</pre>
+    </li>
+    <li>Set metadata on all nodes [ metadata-value is path to xml files for
+	cluster.xml | stores.xml ]
+<pre>
+./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value
+[metadata-value] --url [url]
+</pre>
+    </li>
+    <li>Set metadata for a particular node
+<pre>
+./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value
+[metadata-value] --url [url] --node [node-id]
+</pre>
+    <li>Check if metadata is same on all nodes
+<pre>
+./bin/voldemort-admin-tool.sh --check-metadata [metadata-key] --url [url]
+</pre>
+  </ol>
+  </li>
+  <li>Add / delete stores
+    <ol type="1">
+    <li>Add store(s) on all nodes
+<pre>
+./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to
+add] --url [url]
+</pre>
+    </li>
+    <li>Add store(s) on single node
+<pre>
+./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to
+add] --url [url] --node [node-id]
+</pre>
+    <li>Delete store on all nodes
+<pre>
+./bin/voldemort-admin-tool.sh --delete-store [store-name] --url [url]
+</pre>
+    </li>
+    <li>Delete the contents of the store on all nodes
+<pre>
+./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url]
+</pre>
+    </li>
+    <li>Delete the contents of the store on a single node
+<pre>
+./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url] --node
+[node-id]
+</pre>
+    </li>
+    <li>Delete the contents of some partitions on a single node
+<pre>
+./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list
+of partitions] --url [url] --node [node-id]
+</pre>
+    </li>
+    <li>Delete the contents of some partitions ( of some stores ) on a single
+	node
+<pre>
+./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list
+of partitions] --url [url] --node [node-id] --stores [comma-separated list
+of store names]
+</pre>
+    </li>
+  </ol>
+  </li>
+  <li>Stream data
+  <ol type="1">
+    <li>Fetch keys from a set of partitions [ all stores ] on a node ( binary
+	dump )
+<pre>
+./bin/voldemort-admin-tool.sh --fetch-keys [comma-separated list of partitions
+with no space] --url [url] --node [node-id]
+</pre>
+    </li>
+    <li>Fetch keys from a set of partitions [ all stores ] on a node ( ascii
+	enabled )
+<pre>
+./bin/voldemort-admin-tool.sh --fetch-keys [comma-separated list of partitions
+with no space] --url [url] --node [node-id] --ascii
+</pre>
+    </li>
+    <li>Fetch entries from a set of partitions [ all stores ] on a node ( binary
+	dump )
+<pre>
+./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
+partitions with no space] --url [url] --node [node-id]
+</pre>
+    </li>
+    <li>Fetch entries from a set of partitions [ all stores ] on a node ( ascii
+	enabled )
+<pre>
+./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
+partitions with no space] --url [url] --node [node-id] --ascii
+</pre>
+    </li>
+    <li>Fetch entries from a set of partitions [ all stores ] on a node ( ascii
+	enabled ) and output to a folder
+<pre>
+./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
+partitions with no space] --url [url] --node [node-id] --ascii --outdir
+[directory]
+</pre>
+    </li>
+    <li>Fetch entries from a set of partitions and some stores on a node (
+	ascii enabled )
+<pre>
+./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of
+partitions with no space] --url [url] --node [node-id] --ascii --stores
+[comma-separated list of store names]
+</pre>
+    </li>
+    <li>Update entries for a set of stores using the output from a binary dump
+	fetch entries
+<pre>
+./bin/voldemort-admin-tool.sh --update-entries [folder path from output
+of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated
+list of store names]
+</pre>
+    </li>
+  </ol>
+  </li>
+  <li>Read-only operations
+    <ol type="1">
+    <li>Retrieve metadata information of read-only data for a particular node
+	and all stores
+<pre>
+./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format]
+--url [url] --node [node-id]
+</pre>
+    </li>
+     <li>Retrieve metadata information of read-only data for all nodes and a
+	 set of store
+<pre>
+./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format]
+--url [url] --stores [comma-separated list of store names]
+</pre>
+    </li>
+    </ol>
+  </li>
+  <li>Others
+    <ol type="1">
+    <li>Restore a particular node completely from its replicas
+<pre>
+./bin/voldemort-admin-tool.sh --restore --url [url] --node [node-id]
+</pre>
+    </li>
+    <li>Restore a particular node completely from its replicas ( with increased
+	parallelism - 10 )
+<pre>
+./bin/voldemort-admin-tool.sh --restore 10 --url [url] --node [node-id]
+</pre>
+    </li>
+    <li>Generates the key distribution on a per node basis [ both store wise
+	and overall ]
+<pre>
+./bin/voldemort-admin-tool.sh --key-distribution --url [url] --node [node-id]
+--ascii
+</pre>
+    </li>
+  </ol>
+</ol>
