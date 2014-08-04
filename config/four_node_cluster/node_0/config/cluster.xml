@@ -1,0 +1,33 @@
+<cluster>
+        <name>mycluster</name>
+        <server>
+                <id>0</id>
+                <host>localhost</host>
+                <http-port>8081</http-port>
+                <socket-port>6666</socket-port>
+                <partitions>81, 83, 86, 34, 31, 33, 30, 12, 7, 85, 41, 60, 55, 65, 69, 5, 16, 45, 87, 14, 58, 38, 90, 36, 47</partitions>
+        </server>
+        <server>
+                <id>1</id>
+                <host>localhost</host>
+                <http-port>8085</http-port>
+                <socket-port>6670</socket-port>
+                <partitions>91, 61, 59, 73, 94, 19, 29, 1, 98, 26, 11, 4, 52, 70, 51, 68, 64, 77, 10, 23, 9, 24, 17, 67, 97</partitions>
+        </server>
+        <server>
+                <id>2</id>
+                <host>localhost</host>
+                <http-port>8089</http-port>
+                <socket-port>6674</socket-port>
+                <partitions>89, 53, 35, 84, 3, 49, 76, 56, 18, 27, 44, 15, 93, 28, 22, 48, 6, 0, 50, 13, 62, 66, 40, 43, 21</partitions>
+        </server>
+        <server>
+                <id>3</id>
+                <host>localhost</host>
+                <http-port>8093</http-port>
+                <socket-port>6678</socket-port>
+                <partitions>99, 92, 95, 20, 57, 72, 78, 32, 79, 96, 2, 54, 42, 37, 46, 8, 82, 75, 39, 71, 88, 63, 74, 80, 25</partitions>
+        </server>
+
+</cluster>
+
