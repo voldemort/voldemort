@@ -57,7 +57,10 @@ targetCompatibility = javacVersion
 compileJava.options.debug = true
 
 
-tasks.withType(ScalaCompile) { scalaCompileOptions.useAnt = false }
+// Using zinc scala compiler fails intermittently because of missing dependencies
+// Scala is not main stream so incremeental compilation is not worth the problem
+// it is causing.
+// tasks.withType(ScalaCompile) { scalaCompileOptions.useAnt = false }
 
 repositories {
     mavenCentral()
@@ -280,6 +283,31 @@ tasks.withType(Test) {
     classpath = sourceSets.test.runtimeClasspath
 }
 
+task resetConfig() {
+    doLast {
+        def DirsToDelete = ["STORES" , ".temp", ".version", "data"]
+        def deleteRecursively
+
+        deleteRecursively = { file ->
+            file.eachFile() {f ->
+                if(f.directory) {
+                    if( DirsToDelete.contains(f.getName()) )
+                    {
+                        println "deleting ${f.getAbsolutePath()}"
+                        delete f
+                    }
+                    else
+                    {
+                        deleteRecursively(f)
+                    }
+                }
+            }
+        }
+
+        deleteRecursively (new File("config"))
+    }
+}
+
 task junit(dependsOn: test)
 
 Collection<String> testClassesFrom(String dir, String include = '**/*Test.*') {
@@ -332,7 +360,7 @@ tasks.withType(Test) {
     doLast { aggregatedJunit.reportOn it.binResultsDir }
 }
 
-task wrapper(type: Wrapper) { gradleVersion = '1.12' }
+task wrapper(type: Wrapper) { gradleVersion = '2.0' }
 
 
 dependencies {
