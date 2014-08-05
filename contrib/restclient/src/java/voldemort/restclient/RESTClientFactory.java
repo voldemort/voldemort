@@ -72,7 +72,7 @@ public class RESTClientFactory implements StoreClientFactory {
     public RESTClientFactory(RESTClientFactoryConfig config) {
         this.restClientFactoryConfig = config;
         this.config = new RESTClientConfig(restClientFactoryConfig.getClientConfig());
-        this.stats = new StoreStats();
+        this.stats = new StoreStats("aggregate.rest-client-factory");
         this.rawStoreList = new ArrayList<R2Store>();
         // Create the R2 (Netty) Factory object
         // TODO: Add monitoring for R2 factory

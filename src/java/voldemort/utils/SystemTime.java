@@ -43,6 +43,16 @@ public class SystemTime implements Time {
         return (int) (getMilliseconds() / MS_PER_SECOND);
     }
 
+    @Override
+    public long milliseconds() {
+        return getMilliseconds();
+    }
+
+    @Override
+    public long nanoseconds() {
+        return getNanoseconds();
+    }
+
     public void sleep(long ms) throws InterruptedException {
         Thread.sleep(ms);
     }

@@ -84,7 +84,7 @@ public class StorageWorkerThread implements Runnable {
                 performanceStats = storeStatsMap.get(storeName);
                 if(performanceStats == null) {
                     // Add to concurrentHashMap
-                    storeStatsMap.putIfAbsent(storeName, new StoreStats(aggregatedStoreStats));
+                    storeStatsMap.putIfAbsent(storeName, new StoreStats(storeName, aggregatedStoreStats));
                     performanceStats = storeStatsMap.get(storeName);
 
                     // Register MBeans for new store performance stats
