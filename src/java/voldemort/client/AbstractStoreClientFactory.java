@@ -143,7 +143,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             this.identifierString = "-" + str;
         }
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
-        this.aggregateStats = new StoreStats();
+        this.aggregateStats = new StoreStats("aggregate.abstract-store-client-factory");
         this.storeClientFactoryStats = new StoreClientFactoryStats();
         this.clientContextName = config.getClientContextName();
         this.routedStoreConfig = new RoutedStoreConfig(config);
