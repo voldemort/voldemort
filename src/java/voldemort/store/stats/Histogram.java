@@ -32,9 +32,11 @@ import voldemort.annotations.concurrency.Threadsafe;
  * 
  * All interfaces for adding data to the histogram or querying the histogram for
  * quantiles are synchronized to make this object threadsafe.
- * 
+ *
+ * @deprecated Use Tehuti Histograms instead...
  */
 @Threadsafe
+@Deprecated
 public class Histogram {
 
     private final int nBuckets;
