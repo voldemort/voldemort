@@ -174,14 +174,14 @@ If you intend to use the <i>zone-routing</i> strategy we need to extend the stor
 	  &lt;zone-count-writes&gt;0&lt;/zone-count-writes&gt;
 	  &lt;hinted-handoff-strategy&gt;proximity-handoff&lt;/hinted-handoff-strategy&gt;
 	  ...
-	   &lt;/store&gt;
+       &lt;/store&gt;
   &lt;/stores&gt;
 </pre>
 <p>
  The important change here is the introduction of <i>zone-replication-factor</i> which should contain a replication factor that you would want in every zone. Other parameters :
 </p>
 <ul>
-  <li><i>zone-count-*</i>&mdash; The number of zones we want to block for during reads / writes before we return the request. The number <i>0</i> means we'll block for atleast one request from the <i>local</i> zone only. The number <i>1</i> means we'll block for atleast one request from one other zone.</li> 
+  <li><i>zone-count-*</i>&mdash; The number of zones we want to block for during reads / writes before we return the request. The number <i>0</i> means we'll block for at least one request from the <i>local</i> zone only. The number <i>1</i> means we'll block for at least one request from one other zone.</li>
 	<li><i>hinted-handoff-strategy</i> (optional) &mdash; Another consistency mechanism which we've added recently is <a href="https://github.com/voldemort/voldemort/wiki/Hinted-Handoff">Hinted handoff</a>. We can turn on this feature on a per store basis. This parameter defines the strategy we would use to decide which live nodes to write our "hint" to. The various options are <i>any-handoff</i>, <i>consistent-handoff</i> and <i>proximity-handoff</i>. 
 </ul>
 
