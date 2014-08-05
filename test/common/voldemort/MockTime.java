@@ -49,6 +49,16 @@ public class MockTime implements Time {
         return (int) (timeMs / MS_PER_SECOND);
     }
 
+    @Override
+    public long milliseconds() {
+        return getMilliseconds();
+    }
+
+    @Override
+    public long nanoseconds() {
+        return getNanoseconds();
+    }
+
     public void sleep(long ms) {
         addMilliseconds(ms);
     }

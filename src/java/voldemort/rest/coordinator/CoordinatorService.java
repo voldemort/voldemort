@@ -96,7 +96,7 @@ public class CoordinatorService extends AbstractService {
     public CoordinatorService(CoordinatorConfig config) {
         super(ServiceType.COORDINATOR);
         this.coordinatorConfig = config;
-        this.coordinatorPerfStats = new StoreStats();
+        this.coordinatorPerfStats = new StoreStats("aggregate.coordinator-service");
         this.coordinatorMetadata = new CoordinatorMetadata();
         this.connectionStats = new NettyConnectionStats();
     }
