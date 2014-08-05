@@ -60,7 +60,7 @@ public class RequestCounter {
             // Rates
             requestThroughput, requestThroughputInBytes;
 
-    private static Metrics metricsRepository;
+    private Metrics metricsRepository;
 
     private static final Logger logger = Logger.getLogger(RequestCounter.class.getName());
 
@@ -139,7 +139,6 @@ public class RequestCounter {
         this.timeSensor =
                 metricsRepository.sensor(timeSensorName, metricConfig, timeParentSensors);
         if (useHistogram) {
-            // Percentiles timePercentiles = new Percentiles(400008, 10000, Percentiles.BucketSizing.CONSTANT,
             Percentiles timePercentiles = new Percentiles(40000, 10000, Percentiles.BucketSizing.LINEAR,
                     new Percentile(timeSensorName + ".10thPercentile", 10),
                     new Percentile(timeSensorName + ".50thPercentile", 50),

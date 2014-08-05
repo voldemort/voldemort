@@ -81,6 +81,7 @@ public class ClientSocketStats {
     // The histograms will be reset after monitoringInterval
     private final AtomicInteger monitoringInterval = new AtomicInteger(60000);
     private long startMs;
+    // FIXME: Change this for a Tehuti Histogram
     private final Histogram checkoutQueueLengthHistogram = new Histogram(250, 1);
     private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
 
