@@ -5,11 +5,13 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 
 import voldemort.VoldemortException;
 import voldemort.store.AbstractStorageEngine;
@@ -18,6 +20,8 @@ import voldemort.store.StoreBinaryFormat;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.utils.StripedLock;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occurred;
@@ -46,6 +50,31 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
     public RocksDB getRocksDB() {
         return rocksDB;
+    }
+
+    @Override
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
+        return new RocksdbEntriesIterator(this.getRocksDB().newIterator());
+    }
+
+    @Override
+    public ClosableIterator<ByteArray> keys() {
+        return new RocksdbKeysIterator(this.getRocksDB().newIterator());
+    }
+
+    @Override
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partitionId) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    @Override
+    public ClosableIterator<ByteArray> keys(int partitionId) {
+        throw new UnsupportedOperationException("Partition based keys scan not supported for this storage type");
+    }
+
+    @Override
+    public void truncate() {
+        throw new UnsupportedOperationException("truncate not suppported for this storage type");
     }
 
     @Override
@@ -198,4 +227,171 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
             }
         }
     }
+
+    @Override
+    public List<Versioned<byte[]>> multiVersionPut(ByteArray key, List<Versioned<byte[]>> values) {
+        // TODO Implement getandLock() and putAndUnlock() and then remove this
+        // method
+        StoreUtils.assertValidKey(key);
+        List<Versioned<byte[]>> valuesInStorage = null;
+        List<Versioned<byte[]>> obsoleteVals = null;
+
+        synchronized(this.locks.lockFor(key.get())) {
+            valuesInStorage = get(key, null);
+            obsoleteVals = resolveAndConstructVersionsToPersist(valuesInStorage, values);
+            try {
+                getRocksDB().put(key.get(), StoreBinaryFormat.toByteArray(valuesInStorage));
+            } catch(RocksDBException rocksdbException) {
+                throw new PersistenceFailureException(rocksdbException);
+            } finally {
+                // TODO logging
+            }
+        }
+        return obsoleteVals;
+    }
+
+    /*
+     * TODO FOR BATCH MODIFICATIONS - When opening a DB, you can disable syncing
+     * of data files by setting Options::disableDataSync to true. This can be
+     * useful when doing bulk-loading or big idempotent operations. Once the
+     * operation is finished, you can manually call sync() to flush all dirty
+     * buffers to stable storage.
+     * 
+     * Rocksdb Java also works in a similar way - https://github.com/facebook
+     * /rocksdb/blob/master/java/org/rocksdb/Options.java#L373
+     * 
+     * For now batch modifications is considered as a no op. Later based on
+     * performance, this should be enabled
+     */
+
+    @Override
+    public boolean beginBatchModifications() {
+        /*
+         * begin batch modifications should disable data sync and log
+         */
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        /*
+         * end batch modifications should call sync to flush all dirty buffers
+         * to storage and log
+         */
+        return false;
+    }
+
+    private static class RocksdbKeysIterator implements ClosableIterator<ByteArray> {
+
+        // TODO May need to identify non const methods in the inner Iterator adn
+        // provide external synchronization on those if needed
+
+        RocksIterator innerIterator;
+        private ByteArray cache;
+
+        public RocksdbKeysIterator(RocksIterator innerIterator) {
+            this.innerIterator = innerIterator;
+
+            // Caller of the RocksIterator should seek it before the first use.
+            this.innerIterator.seekToFirst();
+
+            cache = null;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return cache != null || fetchnextKey();
+        }
+
+        private boolean fetchnextKey() {
+            if(this.innerIterator.isValid()) {
+                byte[] keyEntry = this.innerIterator.key();
+                this.innerIterator.next();
+                cache = new ByteArray(keyEntry);
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public ByteArray next() {
+            if(cache != null) {
+                if(!fetchnextKey()) {
+                    throw new NoSuchElementException("Iterate to end");
+                }
+            }
+            return cache;
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException("No removal");
+        }
+
+        @Override
+        public void close() {
+            this.innerIterator.dispose();
+        }
+
+    }
+
+    private static class RocksdbEntriesIterator implements
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
+
+        // TODO May need to identify non const methods in the inner Iterator adn
+        // provide external synchronization on those if needed
+
+        RocksIterator innerIterator;
+        private List<Pair<ByteArray, Versioned<byte[]>>> cache;
+
+        public RocksdbEntriesIterator(RocksIterator innerIterator) {
+            this.innerIterator = innerIterator;
+
+            // Caller of the RocksIterator should seek it before the first use.
+            this.innerIterator.seekToFirst();
+
+            cache = new ArrayList<Pair<ByteArray, Versioned<byte[]>>>();
+        }
+
+        @Override
+        public boolean hasNext() {
+            return cache.size() > 0 || makeMore();
+        }
+
+        @Override
+        public Pair<ByteArray, Versioned<byte[]>> next() {
+            if(cache.size() == 0) {
+                if(!makeMore()) {
+                    throw new NoSuchElementException("Iterated to end.");
+                }
+            }
+            return cache.remove(cache.size() - 1);
+        }
+
+        protected boolean makeMore() {
+            if(innerIterator.isValid()) {
+                byte[] keyEntry = innerIterator.key();
+                byte[] valueEntry = innerIterator.value();
+                innerIterator.next();
+                ByteArray key = new ByteArray(keyEntry);
+                for(Versioned<byte[]> val: StoreBinaryFormat.fromByteArray(valueEntry)) {
+                    cache.add(new Pair<ByteArray, Versioned<byte[]>>(key, val));
+                }
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException("No removal");
+        }
+
+        @Override
+        public void close() {
+            this.innerIterator.dispose();
+        }
+
+    }
+
 }
