@@ -52,9 +52,9 @@ public class RequestCounter {
             // Maximums
             latencyMax, valueBytesMax, keyBytesMax, getAllKeysCountMax,
             // Sampled Totals
-            getAllKeysCountSampledTotal,
+            getAllKeysCountSampledTotal, emptyResponseKeysSampledTotal,
             // Sampled Counts
-            requestSampledCount, emptyResponseKeysSampledCount,
+            requestSampledCount,
             // All-time Count
             requestAllTimeCount,
             // Rates
@@ -163,8 +163,8 @@ public class RequestCounter {
         String emptyResponseKeysSensorName = name + ".empty-response-keys";
         this.emptyResponseKeysSensor =
                 metricsRepository.sensor(emptyResponseKeysSensorName, metricConfig, emptyResponseKeysParentSensors);
-        this.emptyResponseKeysSampledCount =
-                this.emptyResponseKeysSensor.add(emptyResponseKeysSensorName + ".sampled-count", new SampledCount());
+        this.emptyResponseKeysSampledTotal =
+                this.emptyResponseKeysSensor.add(emptyResponseKeysSensorName + ".sampled-total", new SampledTotal());
 
         // Key and Value Bytes Sensor
 
@@ -286,7 +286,7 @@ public class RequestCounter {
      * the requested key. Tracked only for GET.
      */
     public long getNumEmptyResponses() {
-        return (long) emptyResponseKeysSampledCount.value();
+        return (long) emptyResponseKeysSampledTotal.value();
     }
 
     /**
