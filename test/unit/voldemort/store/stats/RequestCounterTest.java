@@ -10,7 +10,7 @@ public class RequestCounterTest {
     @Before
     public void setUp() {
         // Initialize the RequestCounter with a histogram
-        requestCounter = new RequestCounter(10000, true);
+        requestCounter = new RequestCounter("tests.RequestCounterTest", 10000, true);
     }
 
     @Test

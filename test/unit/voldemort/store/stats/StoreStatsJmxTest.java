@@ -64,7 +64,7 @@ public class StoreStatsJmxTest {
         // Max latency should be tracked across calls and one Op's should not
         // affect the others.
         for(Tracked op: EnumSet.of(GET, GET_VERSIONS, GET_ALL, DELETE, PUT)) {
-            StoreStats stats = new StoreStats();
+            StoreStats stats = new StoreStats("tests.getMaxLatenciesWork");
             StoreStatsJmx jmx = new StoreStatsJmx(stats);
 
             stats.recordTime(op, 5 * NS_PER_MS);
@@ -84,7 +84,7 @@ public class StoreStatsJmxTest {
     @Test
     public void maxAndAvgSizeOfValuesAreCalculatedCorrectly() {
         for(Tracked op: EnumSet.of(GET, GET_ALL, PUT)) {
-            StoreStats stats = new StoreStats();
+            StoreStats stats = new StoreStats("tests.maxAndAvgSizeOfValuesAreCalculatedCorrectly");
             StoreStatsJmx jmx = new StoreStatsJmx(stats);
 
             long[] valueSizes = new long[] { 100, 450, 200, 300 };
@@ -120,7 +120,7 @@ public class StoreStatsJmxTest {
     @Test
     public void maxAndAvgSizeOfKeysAreCalculatedCorrectly() {
         for(Tracked op: EnumSet.of(GET, GET_ALL, PUT, DELETE)) {
-            StoreStats stats = new StoreStats();
+            StoreStats stats = new StoreStats("tests.maxAndAvgSizeOfKeysAreCalculatedCorrectly");
             StoreStatsJmx jmx = new StoreStatsJmx(stats);
 
             long[] keySizes = new long[] { 100, 450, 200, 300 };
@@ -158,7 +158,7 @@ public class StoreStatsJmxTest {
 
     @Test
     public void testGetPercentageGetEmptyResponses() {
-        StoreStats stats = new StoreStats();
+        StoreStats stats = new StoreStats("tests.testGetPercentageGetEmptyResponses");
         StoreStatsJmx jmx = new StoreStatsJmx(stats);
 
         stats.recordGetTime(100, false, 1000, 0);
@@ -171,7 +171,7 @@ public class StoreStatsJmxTest {
 
     @Test
     public void testGetPercentageGetAllEmptyResponses() {
-        StoreStats stats = new StoreStats();
+        StoreStats stats = new StoreStats("tests.testGetPercentageGetAllEmptyResponses");
         StoreStatsJmx jmx = new StoreStatsJmx(stats);
 
         stats.recordGetAllTime(100, 2, 2, 1000, 0); // requested values for two
@@ -183,7 +183,7 @@ public class StoreStatsJmxTest {
 
     @Test
     public void testAverageGetAllCount() {
-        StoreStats stats = new StoreStats();
+        StoreStats stats = new StoreStats("tests.testAverageGetAllCount");
         StoreStatsJmx jmx = new StoreStatsJmx(stats);
         stats.recordGetAllTime(100, 2, 2, 1000, 0);
         assertEquals(2.0, jmx.getAverageGetAllCount(), 0.0);
