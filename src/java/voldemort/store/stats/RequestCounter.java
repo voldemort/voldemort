@@ -22,10 +22,9 @@ import org.tehuti.metrics.MetricConfig;
 import org.tehuti.metrics.Metrics;
 import org.tehuti.metrics.Sensor;
 import org.tehuti.metrics.stats.*;
+import org.tehuti.utils.Time;
+import org.tehuti.utils.SystemTime;
 import org.apache.log4j.Logger;
-
-import voldemort.utils.SystemTime;
-import voldemort.utils.Time;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -65,7 +64,7 @@ public class RequestCounter {
     private static final Logger logger = Logger.getLogger(RequestCounter.class.getName());
 
     public RequestCounter(String name, long durationMs) {
-        this(name, durationMs, SystemTime.INSTANCE, false, (RequestCounter[]) null);
+        this(name, durationMs, new SystemTime(), false, (RequestCounter[]) null);
     }
 
     /**
@@ -73,11 +72,11 @@ public class RequestCounter {
      *        counter (in milliseconds).
      */
     public RequestCounter(String name, long durationMs, RequestCounter... parents) {
-        this(name, durationMs, SystemTime.INSTANCE, false, parents);
+        this(name, durationMs, new SystemTime(), false, parents);
     }
 
     public RequestCounter(String name, long durationMs, boolean useHistogram) {
-        this(name, durationMs, SystemTime.INSTANCE, useHistogram, (RequestCounter[]) null);
+        this(name, durationMs, new SystemTime(), useHistogram, (RequestCounter[]) null);
     }
 
     /**
@@ -86,7 +85,7 @@ public class RequestCounter {
      *        counter should also use a histogram.
      */
     public RequestCounter(String name, long durationMs, boolean useHistogram, RequestCounter... parents) {
-        this(name, durationMs, SystemTime.INSTANCE, useHistogram, parents);
+        this(name, durationMs, new SystemTime(), useHistogram, parents);
     }
 
     RequestCounter(String name, long durationMs, Time time) {
@@ -265,9 +264,9 @@ public class RequestCounter {
             startTimeNs = System.nanoTime();
         }
 
-        long currentTime = time.getMilliseconds();
+        long currentTime = time.milliseconds();
 
-        timeSensor.record((double) timeNS / Time.NS_PER_MS, currentTime);
+        timeSensor.record((double) timeNS / voldemort.utils.Time.NS_PER_MS, currentTime);
         emptyResponseKeysSensor.record(numEmptyResponses, currentTime);
         valueBytesSensor.record(valueBytes, currentTime);
         keyBytesSensor.record(keyBytes, currentTime);
@@ -275,8 +274,7 @@ public class RequestCounter {
 
         // timing instrumentation (trace only)
         if(logger.isTraceEnabled()) {
-            logger.trace("addRequest (histogram.insert and accumulator update) took "
-                         + (System.nanoTime() - startTimeNs) + " ns.");
+            logger.trace("addRequest took " + (System.nanoTime() - startTimeNs) + " ns.");
         }
     }
 
