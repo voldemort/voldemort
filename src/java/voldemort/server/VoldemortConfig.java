@@ -139,6 +139,7 @@ public class VoldemortConfig implements Serializable {
     private int mysqlPort;
 
     private String rdbDataDirectory;
+    private boolean rocksdbPrefixKeysWithPartitionId;
 
     private int numReadOnlyVersions;
     private String readOnlyStorageDir;
@@ -578,6 +579,8 @@ public class VoldemortConfig implements Serializable {
 
         // RocksDB config
         this.rdbDataDirectory = props.getString("rocksdb.data.dir", "/tmp/rdb_data_dir");
+        this.rocksdbPrefixKeysWithPartitionId = props.getBoolean("rocksdb.prefix.keys.with.partitionid",
+                                                                 true);
 
         validateParams();
     }
@@ -3267,22 +3270,36 @@ public class VoldemortConfig implements Serializable {
     }
 
     public String getRdbDataDirectory() {
-      return rdbDataDirectory;
+        return rdbDataDirectory;
     }
 
-  /**
-   * Where RocksDB should put its data directories
-   *
-   * <ul>
-   * <li>Property :"rocksdb.data.dir"</li>
-   * <li>Default : "/tmp/rdb_data_dir"</li>
-   * </ul>
-
-   * @param rdbDataDirectory
-   */
+    /**
+     * Where RocksDB should put its data directories
+     * 
+     * <ul>
+     * <li>Property :"rocksdb.data.dir"</li>
+     * <li>Default : "/tmp/rdb_data_dir"</li>
+     * </ul>
+     * 
+     * @param rdbDataDirectory
+     */
     public void setRdbDataDirectory(String rdbDataDirectory) {
-      this.rdbDataDirectory = rdbDataDirectory;
+        this.rdbDataDirectory = rdbDataDirectory;
     }
 
+    public boolean getRocksdbPrefixKeysWithPartitionId() {
+        return rocksdbPrefixKeysWithPartitionId;
+    }
+
+    /**
+     * If true, keys will be prefixed by the partition Id on disk. This can
+     * possibly speed up rebalancing, restore operations, at the cost of 2 bytes
+     * of extra storage per key
+     * 
+     * @param rocksdbPrefixKeysWithPartitionId
+     */
+    public void setRocksdbPrefixKeysWithPartitionId(boolean rocksdbPrefixKeysWithPartitionId) {
+        this.rocksdbPrefixKeysWithPartitionId = rocksdbPrefixKeysWithPartitionId;
+    }
 
 }

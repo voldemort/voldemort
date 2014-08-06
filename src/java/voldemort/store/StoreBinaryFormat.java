@@ -33,7 +33,7 @@ public class StoreBinaryFormat {
     /* In the future we can use this to handle format changes */
     private static final byte VERSION = 0;
 
-    private static final int PARTITIONID_PREFIX_SIZE = ByteUtils.SIZE_OF_SHORT;
+    public static final int PARTITIONID_PREFIX_SIZE = ByteUtils.SIZE_OF_SHORT;
 
     public static byte[] toByteArray(List<Versioned<byte[]>> values) {
         int size = 1;

@@ -16,6 +16,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageInitializationException;
+import voldemort.store.StoreBinaryFormat;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 
@@ -31,7 +32,7 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
 
     private static Logger logger = Logger.getLogger(RocksDbStorageConfiguration.class);
 
-    private String rdbDataDirectory;
+    private final VoldemortConfig voldemortconfig;
 
     private Map<String, RocksDbStorageEngine> stores = new HashMap<String, RocksDbStorageEngine>();
 
@@ -40,8 +41,8 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
          * - TODO 1. number of default locks need to debated. This default is
          * same as that of Krati's. 2. Later add the property to VoldemortConfig
          */
+        this.voldemortconfig = config;
         this.lockStripes = config.getAllProps().getInt("rocksdb.lock.stripes", 50);
-        this.rdbDataDirectory = config.getRdbDataDirectory();
     }
 
     @Override
@@ -50,7 +51,7 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
         String storeName = storeDef.getName();
 
         if(!stores.containsKey(storeName)) {
-            String dataDir = rdbDataDirectory + "/" + storeName;
+            String dataDir = this.voldemortconfig.getRdbDataDirectory() + "/" + storeName;
 
             new File(dataDir).mkdirs();
 
@@ -67,12 +68,19 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
                                               .setCompressionType(CompressionType.SNAPPY_COMPRESSION);
 
             try {
-                RocksDB rdbStore = RocksDB.open(rdbOptions, dataDir);
-
-                RocksDbStorageEngine rdbStorageEngine = new RocksDbStorageEngine(storeName,
+                RocksDB rdbStore = null;
+                RocksDbStorageEngine rdbStorageEngine;
+                if(this.voldemortconfig.getRocksdbPrefixKeysWithPartitionId()) {
+                    rdbOptions.useFixedLengthPrefixExtractor(StoreBinaryFormat.PARTITIONID_PREFIX_SIZE);
+                    rdbStore = RocksDB.open(rdbOptions, dataDir);
+                    rdbStorageEngine = new PartitionPrefixedRocksDbStorageEngine(storeName,
                                                                                  rdbStore,
-                                                                                 lockStripes);
-
+                                                                                 lockStripes,
+                                                                                 strategy);
+                } else {
+                    rdbStore = RocksDB.open(rdbOptions, dataDir);
+                    rdbStorageEngine = new RocksDbStorageEngine(storeName, rdbStore, lockStripes);
+                }
                 stores.put(storeName, rdbStorageEngine);
             } catch(Exception e) {
                 throw new StorageInitializationException(e);
