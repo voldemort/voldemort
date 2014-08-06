@@ -5,28 +5,34 @@ title: Quick Start - Voldemort
 
 <h1>Quickstart</h1>
 
-<h4>Step 1: Download the code</h4> 
-Download the stable release of <a href="http://github.com/voldemort/voldemort/downloads">latest voldemort</a></h4>
+<h4>Step 1: Download the code</h4>
+
+<p>
+Download the stable release of <a href="http://github.com/voldemort/voldemort/downloads">latest voldemort</a>
+</p>
 
 <h4>Step 2: Start single node cluster</h4>
 <pre>
-	> bin/voldemort-server.sh config/single_node_cluster > /tmp/voldemort.log &
+	&gt; bin/voldemort-server.sh config/single_node_cluster &gt; /tmp/voldemort.log &amp;
 </pre>
-Note: If your machine has a very small memory(<4G, likely to happen in Virtual Machine environments), you may come across out-of-memory issues.
+<p>
+Note: If your machine has a very small memory(&lt;4G, likely to happen in Virtual Machine environments), you may come across out-of-memory issues.
 You can reduce the JVM heap memory allocation by changing the "-Xmx2G" option in bin/voldemort-server.sh to a smaller value or leave it out.
+</p>
+
 <h4>Step 3: Start commandline test client and do some operations</h4>
 <pre>
-	> bin/voldemort-shell.sh test tcp://localhost:6666
+	&gt; bin/voldemort-shell.sh test tcp://localhost:6666
 	Established connection to test via tcp://localhost:6666
-	> put "hello" "world"
-	> get "hello"
+	&gt; put "hello" "world"
+	&gt; get "hello"
 	version(0:1): "world"
-	> delete "hello"
-	> get "hello"
+	&gt; delete "hello"
+	&gt; get "hello"
 	null
-	> help 
+	&gt; help
 	...
-	> exit
+	&gt; exit
 	k k thx bye.
 </pre>
 
@@ -39,16 +45,16 @@ You can reduce the JVM heap memory allocation by changing the "-Xmx2G" option in
 <pre>
  String bootstrapUrl = "tcp://localhost:6666";
  StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
- 
+
  // create a client that executes operations on a single store
- StoreClient<String, String> client = factory.getStoreClient("my_store_name");
+ StoreClient&lt;String, String&gt; client = factory.getStoreClient("my_store_name");
 </pre>
 
 <p>getStoreClient() method pulls down the metadata (cluster.xml/stores.xml) from the server in the bootstrap url. After initializing the store client for every store once we can reuse it to run our queries as follows:</p>
 
-<pre> 
+<pre>
  // do some random pointless operations
- Versioned<String> value = client.get("some_key");
+ Versioned&lt;String&gt; value = client.get("some_key");
  value.setObject("some_value");
  client.put("some_key", value);
 </pre>
@@ -61,40 +67,42 @@ You can reduce the JVM heap memory allocation by changing the "-Xmx2G" option in
 
 <h4>1. Start from the command line</h4>
 
+<p>
 You must first build the jar file using ant, as described above, then do the following:
+</p>
 <pre>
 $ VOLDEMORT_HOME='/path/to/voldemort'
 $ cd $VOLDEMORT_HOME
 $ ./bin/voldemort-server.sh
-[2011-07-14 18:06:24,921 voldemort.store.metadata.MetadataStore] INFO metadata init(). 
-[2011-07-14 18:06:25,309 voldemort.server.VoldemortServer] INFO Using NIO Connector. 
-[2011-07-14 18:06:25,331 voldemort.server.VoldemortServer] INFO Using NIO Connector for Admin Service. 
-[2011-07-14 18:06:25,332 voldemort.server.VoldemortService] INFO Starting voldemort-server 
-[2011-07-14 18:06:25,333 voldemort.server.VoldemortServer] INFO Starting 8 services. 
-[2011-07-14 18:06:25,333 voldemort.server.VoldemortService] INFO Starting storage-service 
-[2011-07-14 18:06:25,399 voldemort.server.storage.StorageService] INFO Initializing bdb storage engine. 
-[2011-07-14 18:06:25,404 voldemort.server.storage.StorageService] INFO Initializing read-only storage engine. 
-[2011-07-14 18:06:25,406 voldemort.server.storage.StorageService] INFO Initializing the slop store using bdb 
-[2011-07-14 18:06:25,767 voldemort.server.storage.StorageService] INFO Initializing stores: 
-[2011-07-14 18:06:25,767 voldemort.server.storage.StorageService] INFO Opening store 'test' (bdb). 
-[2011-07-14 18:06:25,834 voldemort.server.storage.StorageService] INFO All stores initialized. 
-[2011-07-14 18:06:25,834 voldemort.server.VoldemortService] INFO Starting scheduler-service 
-[2011-07-14 18:06:25,834 voldemort.server.VoldemortService] INFO Starting async-scheduler 
-[2011-07-14 18:06:25,834 voldemort.server.VoldemortService] INFO Starting http-service 
-[2011-07-14 18:06:26,092 voldemort.server.VoldemortService] INFO Starting socket-service 
-[2011-07-14 18:06:26,101 voldemort.server.VoldemortService] INFO Starting rebalance-service 
-[2011-07-14 18:06:26,109 voldemort.server.VoldemortService] INFO Starting jmx-service 
-[2011-07-14 18:06:26,142 voldemort.server.VoldemortServer] INFO Startup completed in 809 ms. 
+[2011-07-14 18:06:24,921 voldemort.store.metadata.MetadataStore] INFO metadata init().
+[2011-07-14 18:06:25,309 voldemort.server.VoldemortServer] INFO Using NIO Connector.
+[2011-07-14 18:06:25,331 voldemort.server.VoldemortServer] INFO Using NIO Connector for Admin Service.
+[2011-07-14 18:06:25,332 voldemort.server.VoldemortService] INFO Starting voldemort-server
+[2011-07-14 18:06:25,333 voldemort.server.VoldemortServer] INFO Starting 8 services.
+[2011-07-14 18:06:25,333 voldemort.server.VoldemortService] INFO Starting storage-service
+[2011-07-14 18:06:25,399 voldemort.server.storage.StorageService] INFO Initializing bdb storage engine.
+[2011-07-14 18:06:25,404 voldemort.server.storage.StorageService] INFO Initializing read-only storage engine.
+[2011-07-14 18:06:25,406 voldemort.server.storage.StorageService] INFO Initializing the slop store using bdb
+[2011-07-14 18:06:25,767 voldemort.server.storage.StorageService] INFO Initializing stores:
+[2011-07-14 18:06:25,767 voldemort.server.storage.StorageService] INFO Opening store 'test' (bdb).
+[2011-07-14 18:06:25,834 voldemort.server.storage.StorageService] INFO All stores initialized.
+[2011-07-14 18:06:25,834 voldemort.server.VoldemortService] INFO Starting scheduler-service
+[2011-07-14 18:06:25,834 voldemort.server.VoldemortService] INFO Starting async-scheduler
+[2011-07-14 18:06:25,834 voldemort.server.VoldemortService] INFO Starting http-service
+[2011-07-14 18:06:26,092 voldemort.server.VoldemortService] INFO Starting socket-service
+[2011-07-14 18:06:26,101 voldemort.server.VoldemortService] INFO Starting rebalance-service
+[2011-07-14 18:06:26,109 voldemort.server.VoldemortService] INFO Starting jmx-service
+[2011-07-14 18:06:26,142 voldemort.server.VoldemortServer] INFO Startup completed in 809 ms.
 </pre>
 
 <p>Alternately we can give VOLDEMORT_HOME on the command line and avoid having to set an environment variable</p>
 
 <pre>
 $ ./bin/voldemort-server.sh /path/to/voldemort
-[2011-07-14 18:06:24,921 voldemort.store.metadata.MetadataStore] INFO metadata init(). 
-[2011-07-14 18:06:25,309 voldemort.server.VoldemortServer] INFO Using NIO Connector. 
-[2011-07-14 18:06:25,331 voldemort.server.VoldemortServer] INFO Using NIO Connector for Admin Service. 
-[2011-07-14 18:06:25,332 voldemort.server.VoldemortService] INFO Starting voldemort-server 
+[2011-07-14 18:06:24,921 voldemort.store.metadata.MetadataStore] INFO metadata init().
+[2011-07-14 18:06:25,309 voldemort.server.VoldemortServer] INFO Using NIO Connector.
+[2011-07-14 18:06:25,331 voldemort.server.VoldemortServer] INFO Using NIO Connector for Admin Service.
+[2011-07-14 18:06:25,332 voldemort.server.VoldemortService] INFO Starting voldemort-server
 ...
 </pre>
 
@@ -109,4 +117,4 @@ server.start();
 </pre>
 
 <h4>3. Deploy as a war</h4>
-<p>To do this build the war file using the <pre>./gradlew war</pre> target and deploy via whatever mechanism your servlet container supports.</p>
+<p>To do this build the war file using the <tt>./gradlew war</tt> target and deploy via whatever mechanism your servlet container supports.</p>

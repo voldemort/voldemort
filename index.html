@@ -21,14 +21,14 @@ It is used at <a href="http://www.linkedin.com">LinkedIn</a> for certain high-sc
 </p>
 <h3>Comparison to relational databases</h3>
 <p>
-Voldemort is not a relational database, it does not attempt to satisfy arbitrary relations while satisfying ACID properties. 
+Voldemort is not a relational database, it does not attempt to satisfy arbitrary relations while satisfying ACID properties.
 Nor is it an object database that attempts
 to transparently map object reference graphs. Nor does it introduce a new abstraction such as document-orientation. It is basically just a big,
-distributed, persistent, fault-tolerant hash table. For applications that can use an O/R mapper like active-record or hibernate this will 
-provide horizontal scalability and much higher availability but at great loss of convenience. For large applications 
-under internet-type scalability pressure, a system may likely consists of a number of functionally partitioned services or apis, which
-may manage storage resources across multiple data centers using storage systems which may themselves be horizontally partitioned. 
-For applications in this space, 
+distributed, persistent, fault-tolerant hash table. For applications that can use an O/R mapper like active-record or hibernate this will
+provide horizontal scalability and much higher availability but at great loss of convenience. For large applications
+under internet-type scalability pressure, a system may likely consist of a number of functionally partitioned services or APIs, which
+may manage storage resources across multiple data centers using storage systems which may themselves be horizontally partitioned.
+For applications in this space,
 arbitrary in-database joins are already impossible since all the data is not available in any single database. A typical pattern is to introduce
 a caching layer which will require hashtable semantics anyway.  For these applications Voldemort offers a number of advantages:
 </p>
@@ -45,9 +45,9 @@ a caching layer which will require hashtable semantics anyway.  For these applic
 
 <p>
 The source code is available under the Apache 2.0 license. We are actively looking for contributors so if you have ideas, code, bug reports, or fixes
-you would like to contribute please do so. 
+you would like to contribute please do so.
 </p>
 
 <p>
-For help please see the <a href="http://groups.google.com/group/project-voldemort">discussion group</a>, or the IRC channel #voldemort on irc.oftc.net.	
+For help please see the <a href="http://groups.google.com/group/project-voldemort">discussion group</a>, or the IRC channel #voldemort on irc.oftc.net.
 </p>

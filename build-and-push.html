@@ -9,46 +9,47 @@ title: Build And Push - Voldemort
 <h2>Introduction </h2>
 
 <p>We have been using the Build and Push Job at Linkedin to create Voldemort Read-Only stores from data present in sequence files/ Avro Container files on HDFS.
-  <br/>The Voldemort build and push job uses the fault tolerance and parallelism of Hadoop and builds individual Voldemort node/partition-level data stores, which are transferred to Voldemort for serving.
-  <br/>A Hadoop job reads data from a source in HDFS, repartitions it on a per-node basis, and ﬁnally writes the data to individual Read-only storage engine [1].
-  <br/>
-  <br/>The VoldemortBuildAndPushJob will behave in the following way:
+  The Voldemort build and push job uses the fault tolerance and parallelism of Hadoop and builds individual Voldemort node/partition-level data stores, which are transferred to Voldemort for serving.
+  A Hadoop job reads data from a source in HDFS, repartitions it on a per-node basis, and ﬁnally writes the data to individual Read-only storage engine [1].
+</p>
+<p>
+  The VoldemortBuildAndPushJob will behave in the following way:
+</p>
   <ol>
     <li>Build an XML storeDef for your data (based off of the key and value metadata in your JsonSequenceFile/Avro on HDFS).</li>
     <li>Connect to push.cluster</li>
     <li>Get the storeDefs for all stores in the push.cluster</li>
     <li>Look through the storeDefs for a store with the same name as push.store.name. If one is found, validate that the storeDef in the cluster matches the storeDef for your data. If it doesn’t, fail. If no storeDef exists on the cluster that matches push.store.name,
-        then add your storeDef to the cluster.</li>
+	then add your storeDef to the cluster.</li>
     <li>Build the Voldemort store in Hadoop</li>
     <li>Push the Voldemort store to push.cluster</li>
   </ol>
-</p>
 
 <h4> Azkaban Job </h4>
 
 <p>The Build and Push Job is an Azkaban job. Azkaban is a workflow scheduler used at LinkedIn [2]. You provide a job file to Azkaban with a set of properties and the jars and Azkaban executes this job.</p>
-<p>You can <a href="tarballs/hhw-new-version.tar.gz">download</a> the tarball. Then Untar it</p>
+<p>You can <a href="tarballs/hhw-new-version.tar.gz">download</a> the tarball. Then untar it</p>
 
 <div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
   <pre style="margin: 0; line-height: 125%"><span style="color: #d0d0d0">tar -xvf build-and-push.tar.gz</span></pre>
 </div>
-    
+
 <h5>Structure </h5>
 
-<div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
-	<pre style="margin: 0; line-height: 125%">/conf
-All Azkaban .job and .properties files must go in this directory.
-/lib
-All .jar files should go into this directory.
-/src
-All code should go into this directory. This includes Java, as well as scripting languages and shell scripts.
-/test
-Any testing code should be placed in this folder.</pre>
-</div>
-</p>
+<dl>
+  <dt>/conf</dt>
+  <dd>All Azkaban .job and .properties files must go in this directory.</dd>
+  <dt>/lib</dt>
+  <dd>All .jar files should go into this directory.</dd>
+  <dt>/src</dt>
+  <dd>All code should go into this directory. This includes Java, as well as scripting languages and shell scripts.</dd>
+  <dt>/test</dt>
+  <dd>Any testing code should be placed in this folder.</dd>
+</dl>
+
 <p>PS: In case you are running Voldemort Server locally before you start the Voldemort server ensure that the server.properties file has the following entry</p>
   <div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
-  	<pre style="margin: 0; line-height: 125%">file.fetcher.class=voldemort.store.readonly.fetcher.HdfsFetcher</pre>
+	<pre style="margin: 0; line-height: 125%">file.fetcher.class=voldemort.store.readonly.fetcher.HdfsFetcher</pre>
   </div>
 <p>This instructs the server to use that class while fetching files from Hadoop during the push phase</p>
 
@@ -120,7 +121,7 @@ build.output.dir=/tmp</pre>
 </div>
 
 <h4>Troubleshoot</h4>
-    
+
 <h5>Chunk size issue: </h5>
 <dl>
   <dt>Symptom (possible): </dt>
