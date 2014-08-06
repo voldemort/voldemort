@@ -7,7 +7,7 @@ import static voldemort.utils.Time.NS_PER_MS;
 
 import org.junit.Test;
 
-import voldemort.utils.Time;
+import org.tehuti.utils.Time;
 
 public class StatsTest {
 
@@ -93,7 +93,7 @@ public class StatsTest {
         final int delay = 1000;
         Time mockTime = mock(Time.class);
 
-        when(mockTime.getMilliseconds()).thenReturn(startTime);
+        when(mockTime.milliseconds()).thenReturn(startTime);
 
         RequestCounter rc = new RequestCounter("tests.StatsTest.statsExpireOnTime", delay, mockTime);
 
@@ -107,12 +107,12 @@ public class StatsTest {
         assertEquals(3, rc.getGetAllAggregatedCount());
 
         // Jump into the future after the counter should have expired
-        when(mockTime.getMilliseconds()).thenReturn(startTime + delay + 1);
+        when(mockTime.milliseconds()).thenReturn(startTime + delay * 2 + 1);
 
         // Now verify that the counter has aged out the previous values
         assertEquals(0, rc.getNumEmptyResponses());
         assertEquals(0, rc.getMaxLatencyInMs());
-        assertEquals(0, rc.getAverageTimeInMs(), 0.0f);
+        assertEquals(Double.NaN, rc.getAverageTimeInMs(), 0.0f);
         assertEquals(0, rc.getMaxValueSizeInBytes());
         assertEquals(0, rc.getGetAllAggregatedCount());
     }
@@ -124,7 +124,7 @@ public class StatsTest {
         final int tinyDurationMs = 10;
         Time mockTime = mock(Time.class);
 
-        when(mockTime.getMilliseconds()).thenReturn(startTime);
+        when(mockTime.milliseconds()).thenReturn(startTime);
         RequestCounter rc = new RequestCounter("tests.StatsTest.statsShowSpuriousValues", resetDurationMs, mockTime);
 
         // Add some new stats and verify they were calculated correctly
@@ -135,7 +135,7 @@ public class StatsTest {
         rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
 
         // Jump into the counter window just a little (10 ms)
-        when(mockTime.getMilliseconds()).thenReturn(startTime + tinyDurationMs);
+        when(mockTime.milliseconds()).thenReturn(startTime + tinyDurationMs);
 
         // Throughput now
         assertEquals(500d, rc.getThroughput(), 0.0f);
@@ -145,15 +145,15 @@ public class StatsTest {
         rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
 
         // Jump into the counter window a lot more (700 ms)
-        when(mockTime.getMilliseconds()).thenReturn(startTime + 700);
+        when(mockTime.milliseconds()).thenReturn(startTime + 700);
         assertEquals(10d, rc.getThroughput(), 0.0f);
 
         rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
 
         // Jump into the future after the counter should have expired
-        when(mockTime.getMilliseconds()).thenReturn(startTime + resetDurationMs + 1);
+        when(mockTime.milliseconds()).thenReturn(startTime + resetDurationMs * 2 + 1);
         // Make sure counter has expired
-        assertEquals(0d, rc.getThroughput(), 0.0f);
+        assertEquals(Double.NaN, rc.getThroughput(), 0.0f);
 
         // Add some more stats and verify they were calculated correctly
         rc.addRequest(100 * NS_PER_MS, 0, 1000, 100, 1);
@@ -163,12 +163,11 @@ public class StatsTest {
         rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
 
         // Jump into the counter window just a little again (10 ms)
-        when(mockTime.getMilliseconds()).thenReturn(startTime + resetDurationMs + 1
-                                                    + tinyDurationMs);
+        when(mockTime.milliseconds()).thenReturn(startTime + resetDurationMs * 2 + 1 + tinyDurationMs);
         assertEquals(500d, rc.getThroughput(), 0.0f);
 
         // Jump into the future again after the counter should have expired
-        when(mockTime.getMilliseconds()).thenReturn(startTime + 2 * resetDurationMs + 2);
+        when(mockTime.milliseconds()).thenReturn(startTime + 2 * resetDurationMs + 2);
         // Make sure counter has expired
         assertEquals(0d, rc.getThroughput(), 0.0f);
 
@@ -180,7 +179,7 @@ public class StatsTest {
         rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
 
         // Jump into the counter window just a little (10 ms)
-        when(mockTime.getMilliseconds()).thenReturn(startTime + 2 * resetDurationMs + 2
+        when(mockTime.milliseconds()).thenReturn(startTime + 2 * resetDurationMs + 2
                                                     + tinyDurationMs);
         assertEquals(500d, rc.getThroughput(), 0.0f);
     }
