@@ -54,6 +54,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     private long expiration;
     private long startTime;
+    private long timeoutMs;
     private boolean isExpired;
     protected ByteBufferContainer bufferContainer;
 
@@ -104,14 +105,8 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         return false;
     }
 
-    public synchronized void addClientRequest(ClientRequest<?> clientRequest,
-                                              long timeoutMs,
-                                              long elapsedNs) {
-        if(logger.isTraceEnabled())
-            logger.trace("Associating client with " + socketChannel.socket());
-
-        this.clientRequest = clientRequest;
-
+    private void computeExpirationTime(long timeoutMs, long elapsedNs) {
+        this.timeoutMs = timeoutMs;
         startTime = System.nanoTime();
 
         if(elapsedNs > (Time.NS_PER_MS * timeoutMs)) {
@@ -129,7 +124,22 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
             throw new IllegalArgumentException(errorMessage);
         }
 
-        resetStreams();
+    }
+
+    public void setConnectRequest(ClientRequest<?> clientRequest, long timeoutMs) {
+        this.clientRequest = clientRequest;
+        computeExpirationTime(timeoutMs, 0);
+    }
+
+    public synchronized void addClientRequest(ClientRequest<?> clientRequest,
+                                              long timeoutMs,
+                                              long elapsedNs) {
+        if(logger.isTraceEnabled())
+            logger.trace("Associating client with " + socketChannel.socket());
+
+        this.clientRequest = clientRequest;
+        computeExpirationTime(timeoutMs, elapsedNs);
+        outputStream.getBuffer().clear();
 
         boolean wasSuccessful = clientRequest.formatRequest(outputStream);
         outputStream.getBuffer().flip();
@@ -237,12 +247,45 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
             if(logger.isTraceEnabled())
                 logger.trace("Finished read for " + socketChannel.socket());
 
+            resetStreams();
             selectionKey.interestOps(0);
         }
         ClientRequest<?> originalRequest = completeClientRequest();
 
         if(originalRequest == null && logger.isEnabledFor(Level.WARN))
             logger.warn("No client associated with " + socketChannel.socket());
+    }
+
+    @Override
+    protected void reportException(IOException e) {
+        clientRequest.reportException(e);
+    }
+
+    @Override
+    protected void connect(SelectionKey selectionKey) throws IOException {
+        if(!checkTimeout())
+            return;
+
+        if(socketChannel.finishConnect() == false) {
+            return;
+        }
+
+        if(logger.isDebugEnabled()) {
+            // check buffer sizes you often don't get out what you put in!
+            if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize) {
+                logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
+                             + " bytes but actual size is "
+                             + socketChannel.socket().getReceiveBufferSize() + " bytes.");
+            }
+
+            if(socketChannel.socket().getSendBufferSize() != this.socketBufferSize) {
+                logger.debug("Requested socket send buffer size was " + this.socketBufferSize
+                             + " bytes but actual size is "
+                             + socketChannel.socket().getSendBufferSize() + " bytes.");
+            }
+        }
+
+        addClientRequest(clientRequest, timeoutMs, 0);
     }
 
     @Override

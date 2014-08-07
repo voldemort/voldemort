@@ -20,9 +20,9 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
 import voldemort.common.nio.ByteBufferBackedOutputStream;
+import voldemort.store.UnreachableStoreException;
 
 /**
  * ClientRequest represents a <b>single</b> request/response combination to a
@@ -46,7 +46,9 @@ public interface ClientRequest<T> {
      * @return Result or an exception is thrown if the request failed
      */
 
-    public T getResult() throws VoldemortException, IOException;
+    public T getResult() throws UnreachableStoreException, UnreachableStoreException;
+
+    public void reportException(IOException e);
 
     /**
      * This eventually calls into a nested {@link RequestFormat} instance's

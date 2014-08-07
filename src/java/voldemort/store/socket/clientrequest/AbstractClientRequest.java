@@ -48,6 +48,7 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
 
     protected abstract T parseResponseInternal(DataInputStream inputStream) throws IOException;
 
+    @Override
     public boolean formatRequest(ByteBufferBackedOutputStream outputStream) {
         try {
             formatRequestInternal(outputStream);
@@ -62,6 +63,12 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
         return true;
     }
 
+    @Override
+    public void reportException(IOException e) {
+        error = e;
+    }
+
+    @Override
     public void parseResponse(DataInputStream inputStream) {
         try {
             result = parseResponseInternal(inputStream);
@@ -74,11 +81,15 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
         }
     }
 
-    public T getResult() throws VoldemortException, IOException {
-        if(error instanceof IOException)
-            throw (IOException) error;
-        else if(error instanceof VoldemortException)
-            throw (VoldemortException) error;
+    @Override
+    public T getResult() throws UnreachableStoreException {
+
+        if(error != null) {
+            if(error instanceof IOException)
+                throw new UnreachableStoreException("Error while executing client operation", error);
+            else if(error instanceof VoldemortException)
+                throw (VoldemortException) error;
+        }
 
         if(isTimedOut)
             throw new StoreTimeoutException("Request timed out");
@@ -89,22 +100,25 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
         if(!isParsed)
             throw new UnreachableStoreException("Client response not read/parsed, cannot determine result");
 
-
         return result;
     }
 
+    @Override
     public final void complete() {
         isComplete = true;
     }
 
+    @Override
     public boolean isComplete() {
         return isComplete;
     }
 
+    @Override
     public final void timeOut() {
         isTimedOut = true;
     }
 
+    @Override
     public boolean isTimedOut() {
         return isTimedOut;
     }

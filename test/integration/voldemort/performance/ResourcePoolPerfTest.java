@@ -71,8 +71,8 @@ public class ResourcePoolPerfTest {
 
     private static class StringResourceFactory implements ResourceFactory<Integer, String> {
 
-        public String create(Integer key) {
-            return key + "-val";
+        public void createAsync(Integer key, KeyedResourcePool<Integer, String> pool) {
+            pool.checkin(key, key + "-val");
         }
 
         public void destroy(Integer key, String obj) {}

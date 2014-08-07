@@ -81,6 +81,9 @@ public abstract class SelectorManagerWorker implements Runnable {
 
     protected abstract void initializeStreams(int socketBufferSize,
                                               CommBufferSizeStats commBufferStats);
+    protected abstract void connect(SelectionKey selectionKey) throws IOException;
+
+    protected abstract void reportException(IOException e);
 
     /**
      * Returns the nanosecond-based timestamp of when this was created.
@@ -96,7 +99,9 @@ public abstract class SelectorManagerWorker implements Runnable {
         try {
             SelectionKey selectionKey = socketChannel.keyFor(selector);
 
-            if(selectionKey.isReadable())
+            if(selectionKey.isConnectable())
+                connect(selectionKey);
+            else if(selectionKey.isReadable())
                 read(selectionKey);
             else if(selectionKey.isWritable())
                 write(selectionKey);
@@ -107,12 +112,15 @@ public abstract class SelectorManagerWorker implements Runnable {
                 throw new IllegalStateException("Unknown state, not readable, writable, or valid for "
                                                 + socketChannel.socket());
         } catch(ClosedByInterruptException e) {
+            reportException(e);
             close();
         } catch(CancelledKeyException e) {
             close();
         } catch(EOFException e) {
+            reportException(e);
             close();
         } catch(IOException e) {
+            reportException(e);
             logger.info("Connection reset from " + socketChannel.socket() + " with message - "
                         + e.getMessage());
             close();

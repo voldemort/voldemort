@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import voldemort.utils.Time;
@@ -189,10 +190,8 @@ public class KeyedResourcePoolTest extends KeyedResourcePoolTestBase {
         }
         assertEquals(POOL_SIZE, this.pool.getTotalResourceCount());
 
-        TestResource extraResource = this.factory.create("a");
         try {
-            this.pool.checkin("a", extraResource);
-            fail("Checking in an extra resource should throw an exception.");
+            this.factory.createAsync("a", this.pool);
         } catch(IllegalStateException ise) {
             // this is good
         }
@@ -213,11 +212,10 @@ public class KeyedResourcePoolTest extends KeyedResourcePoolTestBase {
         TestResource resource = this.pool.checkout("a");
         this.pool.checkin("a", resource);
 
-        TestResource extraResource = this.factory.create("a");
+        this.factory.createAsync("a", this.pool);
         // KeyedResourcePool should not permit random resources to be checked
         // in. Until it protects against arbitrary resources being checked in,
         // it is possible to checkin an extraneous resource.
-        this.pool.checkin("a", extraResource);
         assertEquals(1, this.pool.getTotalResourceCount());
         assertEquals(2, this.pool.getCheckedInResourceCount());
     }
@@ -247,7 +245,10 @@ public class KeyedResourcePoolTest extends KeyedResourcePoolTestBase {
         assertEquals(1, this.factory.getDestroyed());
     }
 
-    @Test
+    // After the move to the async model, if a resource is invalid, it will
+    // not be returned to the pool and destroyed on the checkin. So this is
+    // not valid anymore.
+    @Ignore
     public void testMaxInvalidCreations() throws Exception {
         this.factory.setCreatedValid(false);
         try {

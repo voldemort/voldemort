@@ -161,18 +161,23 @@ public class OfflineStateTest {
         return store;
     }
 
-    private boolean testOnlineTraffic() {
+    private boolean testOnlineTraffic() throws InterruptedException {
         String key = "k-e-y", value = Long.toString(System.nanoTime());
         try {
             storeClient.put(key, value);
             Versioned<String> versioned = storeClient.get(key);
             if(versioned.getValue().equals(value)) {
                 return true;
+            } else {
+                System.out.println("Expected value " + value + " Received Value "
+                                   + versioned.getValue());
+                return false;
             }
         } catch(Exception e) {
+            System.out.println("Exception happened during online traffic " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
-        return false;
     }
 
     private boolean testSlopStreaming() {
@@ -209,7 +214,7 @@ public class OfflineStateTest {
         return false;
     }
 
-    private void toOfflineState(AdminClient client) {
+    private void toOfflineState(AdminClient client) throws InterruptedException {
         // change to OFFLINE_SERVER
         client.metadataMgmtOps.setRemoteOfflineState(getVoldemortServer(0).getIdentityNode()
                                                                           .getId(), true);
@@ -218,10 +223,11 @@ public class OfflineStateTest {
         assertEquals("State should be changed correctly to offline state",
                      MetadataStore.VoldemortState.OFFLINE_SERVER,
                      state);
+        Thread.sleep(1000);
         assertFalse(testOnlineTraffic());
     }
 
-    private void toNormalState(AdminClient client) {
+    private void toNormalState(AdminClient client) throws InterruptedException {
         // change back to NORMAL_SERVER
         client.metadataMgmtOps.setRemoteOfflineState(getVoldemortServer(0).getIdentityNode()
                                                                           .getId(), false);
@@ -230,11 +236,12 @@ public class OfflineStateTest {
         assertEquals("State should be changed correctly to normal state",
                      MetadataStore.VoldemortState.NORMAL_SERVER,
                      state);
+        Thread.sleep(1000);
         assertTrue(testOnlineTraffic());
     }
 
     @Test
-    public void testStateTransitions() {
+    public void testStateTransitions() throws InterruptedException {
         AdminClient client = getAdminClient();
         assertTrue(testOnlineTraffic());
         assertTrue(testSlopStreaming());
