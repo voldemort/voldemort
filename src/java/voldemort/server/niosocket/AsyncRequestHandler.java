@@ -121,6 +121,16 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
     }
 
     @Override
+    protected void connect(SelectionKey selectionKey) throws IOException {
+        throw new IOException("Not implemented for Server sockets");
+    }
+
+    @Override
+    protected void reportException(IOException e) {
+        // Not handled for Server side.
+    }
+
+    @Override
     protected void read(SelectionKey selectionKey) throws IOException {
         int count = 0;
 

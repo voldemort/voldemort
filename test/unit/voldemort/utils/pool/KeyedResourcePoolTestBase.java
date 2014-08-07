@@ -71,13 +71,14 @@ public class KeyedResourcePoolTestBase {
         private boolean isCreatedValid = true;
 
         @Override
-        public TestResource create(String key) throws Exception {
+        public void createAsync(String key, KeyedResourcePool<String, TestResource> pool)
+                throws Exception {
             if(createException != null)
                 throw createException;
             TestResource r = new TestResource(Integer.toString(created.getAndIncrement()));
             if(!isCreatedValid)
                 r.invalidate();
-            return r;
+            pool.checkin(key, r);
         }
 
         @Override

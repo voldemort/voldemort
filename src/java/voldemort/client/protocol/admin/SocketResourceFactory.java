@@ -34,6 +34,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.store.socket.SocketDestination;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
+import voldemort.utils.pool.KeyedResourcePool;
 import voldemort.utils.pool.ResourceFactory;
 
 /**
@@ -79,7 +80,10 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
     /**
      * Create a socket for the given host/port
      */
-    public SocketAndStreams create(SocketDestination dest) throws Exception {
+    @Override
+    public void createAsync(SocketDestination dest,
+                            KeyedResourcePool<SocketDestination, SocketAndStreams> pool)
+            throws Exception {
         Socket socket = new Socket();
         socket.setReceiveBufferSize(this.socketBufferSize);
         socket.setSendBufferSize(this.socketBufferSize);
@@ -93,7 +97,7 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
         SocketAndStreams sands = new SocketAndStreams(socket, dest.getRequestFormatType());
         negotiateProtocol(sands, dest.getRequestFormatType());
 
-        return sands;
+        pool.checkin(dest, sands);
     }
 
     private void negotiateProtocol(SocketAndStreams socket, RequestFormatType type)

@@ -16,8 +16,8 @@
 
 package voldemort.store.socket.clientrequest;
 
-import java.net.ConnectException;
 import java.net.InetSocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -31,17 +31,18 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.common.nio.SelectorManager;
+import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.stats.ClientSocketStats;
 import voldemort.utils.DaemonThreadFactory;
 import voldemort.utils.Time;
+import voldemort.utils.pool.KeyedResourcePool;
 import voldemort.utils.pool.ResourceFactory;
 
 /**
@@ -71,7 +72,8 @@ public class ClientRequestExecutorFactory implements
                                         int socketBufferSize,
                                         boolean socketKeepAlive,
                                         ClientSocketStats stats,
-                                        String identifier) {
+                                        String identifier,
+                                        ClientRequestExecutorPool executorPool) {
         this.connectTimeoutMs = connectTimeoutMs;
         this.soTimeoutMs = soTimeoutMs;
         this.created = new AtomicInteger(0);
@@ -105,7 +107,7 @@ public class ClientRequestExecutorFactory implements
     /**
      * Close the ClientRequestExecutor.
      */
-
+    @Override
     public void destroy(SocketDestination dest, ClientRequestExecutor clientRequestExecutor)
             throws Exception {
         clientRequestExecutor.close();
@@ -124,8 +126,10 @@ public class ClientRequestExecutorFactory implements
      * 
      * @param dest {@link SocketDestination}
      */
-
-    public ClientRequestExecutor create(SocketDestination dest) throws Exception {
+    @Override
+    public void createAsync(final SocketDestination dest,
+                            final KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool)
+            throws Exception {
         int numCreated = created.incrementAndGet();
         if(logger.isDebugEnabled())
             logger.debug("Creating socket " + numCreated + " for " + dest.getHost() + ":"
@@ -146,57 +150,12 @@ public class ClientRequestExecutorFactory implements
             socketChannel.configureBlocking(false);
             socketChannel.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
 
-            long startTimeMs = System.currentTimeMillis();
-            long currWaitTimeMs = 1;
-            long prevWaitTimeMS = 1;
-
-            // Since we're non-blocking and it takes a non-zero amount of time
-            // to connect, invoke finishConnect and loop.
-            while(!socketChannel.finishConnect()) {
-                durationMs = System.currentTimeMillis() - startTimeMs;
-                long remaining = this.connectTimeoutMs - durationMs;
-
-                if(remaining < 0) {
-                    stats.incrementCount(dest, ClientSocketStats.Tracked.CONNECTION_EXCEPTION_EVENT);
-                    throw new ConnectException("Cannot connect socket " + numCreated + " for "
-                                               + dest.getHost() + ":" + dest.getPort() + " after "
-                                               + durationMs + " ms");
-                }
-
-                if(logger.isTraceEnabled())
-                    logger.trace("Still creating socket " + numCreated + " for " + dest.getHost()
-                                 + ":" + dest.getPort() + ", " + remaining
-                                 + " ms. remaining to connect");
-
-                try {
-                    // Break up the connection timeout into smaller units,
-                    // employing a Fibonacci-style back-off (1, 2, 3, 5, 8, ...)
-                    Thread.sleep(Math.min(remaining, currWaitTimeMs));
-                    currWaitTimeMs = Math.min(currWaitTimeMs + prevWaitTimeMS, 50);
-                    prevWaitTimeMS = currWaitTimeMs - prevWaitTimeMS;
-                } catch(InterruptedException e) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn(e, e);
-                }
-            }
-            durationMs = System.currentTimeMillis() - startTimeMs;
-
-            if(logger.isDebugEnabled())
+            if(logger.isDebugEnabled()) {
                 logger.debug("Created socket " + numCreated + " for " + dest.getHost() + ":"
                              + dest.getPort() + " using protocol "
                              + dest.getRequestFormatType().getCode() + " after " + durationMs
                              + " ms.");
-
-            // check buffer sizes--you often don't get out what you put in!
-            if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize)
-                logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
-                             + " bytes but actual size is "
-                             + socketChannel.socket().getReceiveBufferSize() + " bytes.");
-
-            if(socketChannel.socket().getSendBufferSize() != this.socketBufferSize)
-                logger.debug("Requested socket send buffer size was " + this.socketBufferSize
-                             + " bytes but actual size is "
-                             + socketChannel.socket().getSendBufferSize() + " bytes.");
+            }
 
             ClientRequestSelectorManager selectorManager = selectorManagers[counter.getAndIncrement()
                                                                             % selectorManagers.length];
@@ -206,26 +165,32 @@ public class ClientRequestExecutorFactory implements
                                                               socketChannel,
                                                               socketBufferSize);
             int timeoutMs = this.getTimeout();
-            BlockingClientRequest<String> clientRequest = new BlockingClientRequest<String>(new ProtocolNegotiatorClientRequest(dest.getRequestFormatType()),
-                                                                                            timeoutMs);
-            clientRequestExecutor.addClientRequest(clientRequest, timeoutMs, 0);
 
-            selectorManager.registrationQueue.add(clientRequestExecutor);
+            ProtocolNegotiatorClientRequest protocolRequest = new ProtocolNegotiatorClientRequest(dest.getRequestFormatType());
+
+            NonblockingStoreCallback callback = new NonblockingStoreCallback() {
+
+                @Override
+                public void requestComplete(Object result, long requestTime) {
+                    if(result instanceof Exception) {
+                        logger.info("Reporting exception to pool " + result.getClass());
+                        pool.reportException(dest, (Exception) result);
+                    }
+                }
+
+            };
+
+            NonblockingStoreCallbackClientRequest<String> clientRequest = new NonblockingStoreCallbackClientRequest<String>(pool,
+                                                                                                                            dest,
+                                                                                                                            protocolRequest,
+                                                                                                                            clientRequestExecutor,
+                                                                                                                            callback,
+                                                                                                                            stats);
+
+            clientRequestExecutor.setConnectRequest(clientRequest, timeoutMs);
+
+            selectorManager.add(clientRequestExecutor);
             selector.wakeup();
-
-            // Block while we wait for protocol negotiation to complete. May
-            // throw interrupted exception
-            boolean awaitResult = clientRequest.await();
-
-            if(awaitResult == false) {
-                String errorMessage = "Protocol negotiation timed out for socket "
-                                      + socketChannel.socket();
-                throw new TimeoutException(errorMessage);
-            } else {
-                // Either returns uninteresting token, or throws exception if
-                // protocol negotiation failed.
-                clientRequest.getResult();
-            }
         } catch(Exception e) {
             // Make sure not to leak socketChannels
             if(socketChannel != null) {
@@ -248,8 +213,6 @@ public class ClientRequestExecutorFactory implements
             stats.incrementCount(dest, ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT);
             stats.recordConnectionEstablishmentTimeUs(dest, durationMs * Time.US_PER_MS);
         }
-
-        return clientRequestExecutor;
     }
 
     @Override
@@ -343,6 +306,10 @@ public class ClientRequestExecutorFactory implements
 
         private final Queue<ClientRequestExecutor> registrationQueue = new ConcurrentLinkedQueue<ClientRequestExecutor>();
 
+        public void add(ClientRequestExecutor executor) {
+            registrationQueue.add(executor);
+        }
+
         public Selector getSelector() {
             return selector;
         }
@@ -373,7 +340,7 @@ public class ClientRequestExecutorFactory implements
                             logger.debug("Registering connection from " + socketChannel.socket());
 
                         socketChannel.register(selector,
-                                               SelectionKey.OP_WRITE,
+                                               SelectionKey.OP_CONNECT,
                                                clientRequestExecutor);
 
                     } catch(ClosedSelectorException e) {
@@ -383,6 +350,10 @@ public class ClientRequestExecutorFactory implements
                         close();
 
                         break;
+                    } catch(ClosedChannelException ex) {
+                        if(logger.isEnabledFor(Level.ERROR)) {
+                            logger.error("ClosedChannelException " + socketChannel.socket(), ex);
+                        }
                     } catch(Exception e) {
                         if(logger.isEnabledFor(Level.ERROR))
                             logger.error(e.getMessage(), e);
