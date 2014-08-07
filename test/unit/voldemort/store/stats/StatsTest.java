@@ -6,7 +6,6 @@ import static org.mockito.Mockito.when;
 import static voldemort.utils.Time.NS_PER_MS;
 
 import org.junit.Test;
-
 import org.tehuti.utils.Time;
 
 public class StatsTest {
@@ -115,5 +114,41 @@ public class StatsTest {
         assertEquals(Double.NaN, rc.getAverageTimeInMs(), 0.0f);
         assertEquals(0, rc.getMaxValueSizeInBytes());
         assertEquals(0, rc.getGetAllAggregatedCount());
+    }
+
+    @Test
+    public void statsDontShowSpuriousValues() {
+        final long startTime = 1445468640; // Some start time : Oct 21, 2015
+        final int resetDurationMs = 1000;
+        final int tinyDurationMs = 10;
+        Time mockTime = mock(Time.class);
+
+        when(mockTime.milliseconds()).thenReturn(startTime);
+        RequestCounter rc = new RequestCounter("tests.StatsTest.statsShowSpuriousValues",
+                                               resetDurationMs,
+                                               mockTime);
+
+        // Add some new stats and verify they were calculated correctly
+        rc.addRequest(100 * NS_PER_MS, 0, 1000, 100, 1);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 2);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 3);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
+
+        // Jump into the counter window just a little (10 ms)
+        when(mockTime.milliseconds()).thenReturn(startTime + tinyDurationMs);
+
+        // Throughput now. Make sure no spiky throughout behavior here
+        assertEquals(4.95, rc.getThroughput(), 0.1f);
+
+        // Jump into the future after the counter should have expired
+        when(mockTime.milliseconds()).thenReturn(startTime + resetDurationMs * 2 + 1);
+        // Make sure counter has expired
+
+        rc.addRequest(100 * NS_PER_MS, 0, 1000, 100, 1);
+
+        // Throughput now. Make sure no NaN or Infinity thrown here.
+        assertEquals(1, rc.getThroughput(), 0.0f);
+
     }
 }
