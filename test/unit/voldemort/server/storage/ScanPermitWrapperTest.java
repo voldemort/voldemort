@@ -80,6 +80,7 @@ public class ScanPermitWrapperTest {
         ScanPermitWrapper wrapper = new ScanPermitWrapper(1);
 
         for(int i = 0; i < 3; i++) {
+            System.out.println("Running iteration " + i);
             AtomicLong scanProgress = new AtomicLong(0);
             AtomicLong deleteProgress = new AtomicLong(0);
 

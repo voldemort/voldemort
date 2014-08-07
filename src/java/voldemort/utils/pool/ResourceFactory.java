@@ -15,7 +15,7 @@ public interface ResourceFactory<K, V> {
      * @return The created resource
      * @throws Exception
      */
-    V create(K key) throws Exception;
+    void createAsync(K key, KeyedResourcePool<K, V> pool) throws Exception;
 
     /**
      * Destroy the given resource. This is called only when validate() returns

@@ -157,34 +157,48 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         // Attempt to get a resource.
         Pool<V> resourcePool = getResourcePoolForKey(key);
         V resource = null;
-
+        Exception ex = null;
         try {
             // Must attempt non-blocking checkout to ensure resources are
             // created for the pool.
             resource = attemptNonBlockingCheckout(key, resourcePool);
         } catch(Exception e) {
             destroyResource(key, resourcePool, resource);
+            ex = e;
             resource = null;
         }
-        if(resource == null) {
+        // Neither we got a resource, nor an exception. So no requests can be
+        // processed return
+        if(resource == null && ex == null) {
             return false;
         }
 
         // With resource in hand, process the resource requests
         AsyncResourceRequest<V> resourceRequest = getNextUnexpiredResourceRequest(requestQueue);
         if(resourceRequest == null) {
-            // Did not use the resource! Directly check in via super to avoid
-            // circular call to processQueue().
-            try {
-                super.checkin(key, resource);
-            } catch(Exception e) {
-                logger.error("Exception checking in resource: ", e);
+            if(resource != null) {
+                // Did not use the resource! Directly check in via super to
+                // avoid
+                // circular call to processQueue().
+                try {
+                    super.checkin(key, resource);
+                } catch(Exception e) {
+                    logger.error("Exception checking in resource: ", e);
+                }
+            } else {
+                // Poor exception, no request to tag this exception onto
+                // drop it on the floor and continue as usual.
             }
             return false;
+        } else {
+            // We have a request here.
+            if(resource != null) {
+                resourceRequest.useResource(resource);
+            } else {
+                resourceRequest.handleException(ex);
+            }
+            return true;
         }
-
-        resourceRequest.useResource(resource);
-        return true;
     }
 
     /**
@@ -206,6 +220,12 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     private void processQueueLoop(K key) {
         while(processQueue(key)) {}
     }
+    
+    @Override
+    public void reportException(K key, Exception e) {
+        super.reportException(key, e);
+        processQueueLoop(key);
+    }
 
     /**
      * Check the given resource back into the pool
@@ -214,7 +234,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * @param resource The resource
      */
     @Override
-    public void checkin(K key, V resource) throws Exception {
+    public void checkin(K key, V resource) {
         super.checkin(key, resource);
         // NB: Blocking checkout calls for synchronous requests get the resource
         // checked in above before processQueueLoop() attempts checkout below.

@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
 import voldemort.common.nio.ByteBufferBackedOutputStream;
+import voldemort.store.UnreachableStoreException;
 
 /**
  * BlockingClientRequest is used to implement blocking IO using the non-blocking
@@ -61,7 +62,7 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         return latch.await(timeoutMs, TimeUnit.MILLISECONDS);
     }
 
-    public T getResult() throws VoldemortException, IOException {
+    public T getResult() throws VoldemortException, UnreachableStoreException {
         return delegate.getResult();
     }
 
@@ -83,6 +84,10 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
 
     public boolean isTimedOut() {
         return delegate.isTimedOut();
+    }
+
+    public void reportException(IOException e) {
+        delegate.reportException(e);
     }
 
 }

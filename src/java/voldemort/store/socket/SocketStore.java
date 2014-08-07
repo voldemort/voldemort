@@ -16,7 +16,6 @@
 
 package voldemort.store.socket;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -305,14 +304,14 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
 
             throw new UnreachableStoreException("Failure in " + operationName + " on "
                                                 + destination + ": " + e.getMessage(), e);
-        } catch(IOException e) {
+        } catch(UnreachableStoreException e) {
             clientRequestExecutor.close();
 
             if(logger.isDebugEnabled())
                 debugMsgStr += "failure: " + e.getMessage();
 
             throw new UnreachableStoreException("Failure in " + operationName + " on "
-                                                + destination + ": " + e.getMessage(), e);
+                                                + destination + ": " + e.getMessage(), e.getCause());
         } finally {
             if(blockingClientRequest != null && !blockingClientRequest.isComplete()) {
                 // close the executor if we timed out
@@ -320,7 +319,7 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
             }
             // Record operation time
             long opTimeNs = Utils.elapsedTimeNs(startTimeNs, System.nanoTime());
-            if (stats != null) {
+            if(stats != null) {
                 stats.recordSyncOpTimeNs(destination, opTimeNs);
             }
             if(logger.isDebugEnabled()) {

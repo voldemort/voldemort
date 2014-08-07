@@ -92,7 +92,9 @@ public class SocketPoolTest extends TestCase {
     public void testTwoCheckoutsGetTheSameSocket() throws Exception {
         SocketAndStreams sas1 = pool.checkout(dest1);
         pool.checkin(dest1, sas1);
+        System.out.println("Socket 1" + sas1.getSocket());
         SocketAndStreams sas2 = pool.checkout(dest1);
+        System.out.println("Socket 2" + sas2.getSocket());
         assertTrue(sas1 == sas2);
     }
 
