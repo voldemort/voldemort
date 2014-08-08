@@ -1,12 +1,12 @@
 /*
  * Copyright 2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -48,7 +48,7 @@ public class StoreDefinitionUtils {
     /**
      * Given a list of store definitions, filters the list depending on the
      * boolean
-     * 
+     *
      * @param storeDefs Complete list of store definitions
      * @param isReadOnly Boolean indicating whether filter on read-only or not?
      * @return List of filtered store definition
@@ -66,7 +66,7 @@ public class StoreDefinitionUtils {
 
     /**
      * Given a list of store definitions return a list of store names
-     * 
+     *
      * @param storeDefList The list of store definitions
      * @return Returns a list of store names
      */
@@ -80,7 +80,7 @@ public class StoreDefinitionUtils {
 
     /**
      * Given a list of store definitions return a set of store names
-     * 
+     *
      * @param storeDefList The list of store definitions
      * @return Returns a set of store names
      */
@@ -95,7 +95,7 @@ public class StoreDefinitionUtils {
     /**
      * Given a store name and a list of store definitions, returns the
      * appropriate store definition ( if it exists )
-     * 
+     *
      * @param storeDefs List of store definitions
      * @param storeName The store name whose store definition is required
      * @return The store definition
@@ -119,7 +119,7 @@ public class StoreDefinitionUtils {
     /**
      * Given a list of store definitions, find out and return a map of similar
      * store definitions + count of them
-     * 
+     *
      * @param storeDefs All store definitions
      * @return Map of a unique store definition + counts
      */
@@ -178,7 +178,7 @@ public class StoreDefinitionUtils {
 
     /**
      * Determine whether or not a given serializedr is "AVRO" based
-     * 
+     *
      * @param serializerName
      * @return
      */
@@ -196,10 +196,10 @@ public class StoreDefinitionUtils {
     /**
      * If provided with an AVRO schema, validates it and checks if there are
      * backwards compatible.
-     * 
+     *
      * TODO should probably place some similar checks for other serializer types
      * as well?
-     * 
+     *
      * @param serializerDef
      */
     private static void validateIfAvroSchema(SerializerDefinition serializerDef) {
@@ -216,7 +216,7 @@ public class StoreDefinitionUtils {
     /**
      * Validate store schema -- backward compatibility if it is AVRO generic
      * versioned -- sanity checks for avro in general
-     * 
+     *
      * @param storeDefinition the store definition to check on
      */
     public static void validateSchemaAsNeeded(StoreDefinition storeDefinition) {
@@ -226,7 +226,9 @@ public class StoreDefinitionUtils {
         try {
             validateIfAvroSchema(keySerDef);
         } catch(Exception e) {
-            throw new VoldemortException("Error validating key schema, " + e.getMessage(), e);
+            logger.error("Validating key schema failed for store:  " + storeDefinition.getName());
+            throw new VoldemortException("Error validating key schema for store:  "
+                                         + storeDefinition.getName() + " " + e.getMessage(), e);
         }
 
         // validate the value schemas
@@ -234,14 +236,16 @@ public class StoreDefinitionUtils {
         try {
             validateIfAvroSchema(valueSerDef);
         } catch(Exception e) {
-            throw new VoldemortException("Error validating value schema, " + e.getMessage(), e);
+            logger.error("Validating value schema failed for store:  " + storeDefinition.getName());
+            throw new VoldemortException("Error validating value schema for store:  "
+                                         + storeDefinition.getName() + " " + e.getMessage(), e);
         }
     }
 
     /**
      * Validate store schema for things like backwards compatibility,
      * parseability
-     * 
+     *
      * @param storeDefinitions the list of store definition to check on
      */
     public static void validateSchemasAsNeeded(Collection<StoreDefinition> storeDefinitions) {

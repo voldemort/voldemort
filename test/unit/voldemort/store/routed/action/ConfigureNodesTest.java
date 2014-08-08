@@ -19,7 +19,6 @@ package voldemort.store.routed.action;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -107,8 +106,8 @@ public class ConfigureNodesTest extends AbstractActionTest {
 
             List<Node> pipelineNodes = pipelineData.getNodes();
             int pipelineNodesIndex = 0;
-            LinkedList<Integer> proximityList = clusterWithZones.getZoneById(clusterZoneId)
-                                                                .getProximityList();
+            List<Integer> proximityList = clusterWithZones.getZoneById(clusterZoneId)
+                                                          .getProximityList();
 
             // Check if returned list is as per the proximity list
             assertEquals(pipelineNodes.get(pipelineNodesIndex++).getZoneId(), clusterZoneId);

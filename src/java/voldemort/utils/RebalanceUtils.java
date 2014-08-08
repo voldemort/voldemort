@@ -23,7 +23,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -348,8 +347,8 @@ public class RebalanceUtils {
             if(zoneId == dropZoneId) {
                 continue;
             }
-            LinkedList<Integer> proximityList = intermediateCluster.getZoneById(zoneId)
-                                                                   .getProximityList();
+            List<Integer> proximityList = intermediateCluster.getZoneById(zoneId)
+                                                             .getProximityList();
             proximityList.remove(new Integer(dropZoneId));
             zones.add(new Zone(zoneId, proximityList));
         }
