@@ -29,26 +29,47 @@ import org.apache.log4j.Logger;
  */
 public class StoreStats {
 
-    private final StoreStats parent;
     private final Map<Tracked, RequestCounter> counters;
 
     private static final Logger logger = Logger.getLogger(StoreStats.class.getName());
 
-    public StoreStats() {
-        this(null);
+    private String storeName;
+
+    // RequestCounter config
+    private static final boolean useHistogram = true;
+    private static final long timeWindow = 60000;
+
+    public StoreStats(String storeName) {
+        this(storeName, null);
     }
 
     /**
      * @param parent An optional parent stats object that will maintain
      *        aggregate data across many stores
      */
-    public StoreStats(StoreStats parent) {
+    public StoreStats(String storeName, StoreStats parent) {
+        if (storeName == null) {
+            throw new IllegalArgumentException("StoreStats.storeName cannot be null !!");
+        }
+
+        this.storeName = storeName;
+
         counters = new EnumMap<Tracked, RequestCounter>(Tracked.class);
 
         for(Tracked tracked: Tracked.values()) {
-            counters.put(tracked, new RequestCounter(60000, true));
+            String requestCounterName = "store-stats" + "." + storeName + "." + tracked.toString();
+            RequestCounter requestCounter;
+
+            if (parent == null) {
+                requestCounter = new RequestCounter(requestCounterName, timeWindow, useHistogram);
+            } else {
+                requestCounterName = parent.storeName + "." + requestCounterName;
+                requestCounter =
+                        new RequestCounter(requestCounterName, timeWindow, useHistogram, parent.counters.get(tracked));
+            }
+
+            counters.put(tracked, requestCounter);
         }
-        this.parent = parent;
 
         if(logger.isDebugEnabled()) {
             logger.debug("Constructed StoreStats object (" + System.identityHashCode(this)
@@ -138,13 +159,6 @@ public class StoreStats {
                                     valueSize,
                                     keySize,
                                     getAllAggregateRequests);
-        if(parent != null)
-            parent.recordTime(op,
-                              timeNS,
-                              numEmptyResponses,
-                              valueSize,
-                              keySize,
-                              getAllAggregateRequests);
     }
 
     public long getCount(Tracked op) {

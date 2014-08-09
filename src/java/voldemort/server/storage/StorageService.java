@@ -176,7 +176,7 @@ public class StorageService extends AbstractService {
                                                                                                                                           metadata,
                                                                                                                                           config));
         this.failureDetector = create(failureDetectorConfig, config.isJmxEnabled());
-        this.storeStats = new StoreStats();
+        this.storeStats = new StoreStats("aggregate.storage-service");
         this.routedStoreFactory = new RoutedStoreFactory();
         this.routedStoreFactory.setThreadPool(this.clientThreadPool);
         this.routedStoreConfig = new RoutedStoreConfig(this.voldemortConfig,

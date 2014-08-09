@@ -52,7 +52,7 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
                                                          TimeUnit.MILLISECONDS,
                                                          new LinkedBlockingQueue<Runnable>(config.getRestServiceStorageThreadPoolQueueSize()),
                                                          threadFactory);
-        this.aggregatedStoreStats = new StoreStats();
+        this.aggregatedStoreStats = new StoreStats("aggregate.rest-pipeline-factory");
         createAndRegisterMBeansForAllStoreStats(config, storeDefinitions);
 
         storageExecutionHandler = new StorageExecutionHandler(threadPoolExecutor,
@@ -84,7 +84,7 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
             String storeName = storeDefinition.getName();
 
             // Add to concurrentHashMap
-            storeStatsMap.put(storeName, new StoreStats(aggregatedStoreStats));
+            storeStatsMap.put(storeName, new StoreStats(storeName, aggregatedStoreStats));
 
             // Register storeStats MBeans for every store
             if(isJmxEnabled) {

@@ -16,12 +16,18 @@
 
 package voldemort.store.stats;
 
-import java.util.concurrent.atomic.AtomicReference;
 
+import org.tehuti.Metric;
+import org.tehuti.metrics.MetricConfig;
+import org.tehuti.metrics.Metrics;
+import org.tehuti.metrics.Sensor;
+import org.tehuti.metrics.stats.*;
+import org.tehuti.utils.Time;
+import org.tehuti.utils.SystemTime;
 import org.apache.log4j.Logger;
 
-import voldemort.utils.SystemTime;
-import voldemort.utils.Time;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A thread-safe request counter that calculates throughput for a specified
@@ -31,21 +37,46 @@ import voldemort.utils.Time;
  */
 public class RequestCounter {
 
-    private final AtomicReference<Accumulator> values;
-    private final long durationMs;
     private final Time time;
-    private final Histogram histogramHundredUs;
-    private final Histogram histogramSecond;
-    private boolean useHistogram;
+
+    // Sensors
+    private Sensor timeSensor, emptyResponseKeysSensor, valueBytesSensor, keyBytesSensor, getAllKeysCountSensor;
+
+    // Metrics
+    private Metric
+            // Averages
+            latencyAverage, valueBytesAverage, keyBytesAverage,
+            // Percentiles
+            latency10thPercentile, latency50thPercentile, latency95thPercentile, latency99thPercentile,
+            // Maximums
+            latencyMax, valueBytesMax, keyBytesMax, getAllKeysCountMax,
+            // Sampled Totals
+            getAllKeysCountSampledTotal, emptyResponseKeysSampledTotal,
+            // Sampled Counts
+            requestSampledCount,
+            // All-time Count
+            requestAllTimeCount,
+            // Rates
+            requestThroughput, requestThroughputInBytes;
+
+    private Metrics metricsRepository;
 
     private static final Logger logger = Logger.getLogger(RequestCounter.class.getName());
+
+    public RequestCounter(String name, long durationMs) {
+        this(name, durationMs, new SystemTime(), false, (RequestCounter[]) null);
+    }
 
     /**
      * @param durationMs specifies for how long you want to maintain this
      *        counter (in milliseconds).
      */
-    public RequestCounter(long durationMs) {
-        this(durationMs, SystemTime.INSTANCE, false);
+    public RequestCounter(String name, long durationMs, RequestCounter... parents) {
+        this(name, durationMs, new SystemTime(), false, parents);
+    }
+
+    public RequestCounter(String name, long durationMs, boolean useHistogram) {
+        this(name, durationMs, new SystemTime(), useHistogram, (RequestCounter[]) null);
     }
 
     /**
@@ -53,57 +84,135 @@ public class RequestCounter {
      *        counter (in milliseconds). useHistogram indicates that this
      *        counter should also use a histogram.
      */
-    public RequestCounter(long durationMs, boolean useHistogram) {
-        this(durationMs, SystemTime.INSTANCE, useHistogram);
+    public RequestCounter(String name, long durationMs, boolean useHistogram, RequestCounter... parents) {
+        this(name, durationMs, new SystemTime(), useHistogram, parents);
+    }
+
+    RequestCounter(String name, long durationMs, Time time) {
+        this(name, durationMs, time, false, (RequestCounter[]) null);
     }
 
     /**
      * For testing request expiration via an injected time provider
      */
-    RequestCounter(long durationMs, Time time) {
-        this(durationMs, time, false);
+    RequestCounter(String name, long durationMs, Time time, RequestCounter... parents) {
+        this(name, durationMs, time, false, parents);
     }
 
-    RequestCounter(long durationMs, Time time, boolean useHistogram) {
+    RequestCounter(String name, long durationMs, Time time, boolean useHistogram, RequestCounter... parents) {
+
         this.time = time;
-        this.values = new AtomicReference<Accumulator>(new Accumulator());
-        this.durationMs = durationMs;
-        this.useHistogram = useHistogram;
-        if(this.useHistogram) {
-            this.histogramHundredUs = new Histogram(10000, 1);
-            this.histogramSecond = new Histogram(10, 1);
-        } else {
-            this.histogramHundredUs = null;
-            this.histogramSecond = null;
+
+        this.metricsRepository = new Metrics(time);
+
+        // Initialize parent sensors arrays...
+        int amountOfParentSensors = 0;
+        if (parents != null) {
+            amountOfParentSensors = parents.length;
         }
+        Sensor[] timeParentSensors = null;
+        Sensor[] emptyResponseKeysParentSensors = null;
+        Sensor[] getAllKeysCountParentSensors = null;
+        Sensor[] valueBytesParentSensors = new Sensor[amountOfParentSensors + 1];
+        Sensor[] keyBytesParentSensors = new Sensor[amountOfParentSensors + 1];
+
+        if (parents != null && parents.length > 0) {
+            timeParentSensors = new Sensor[parents.length];
+            emptyResponseKeysParentSensors = new Sensor[parents.length];
+            getAllKeysCountParentSensors = new Sensor[parents.length];
+            for (int i = 0; i < parents.length; i++) {
+                timeParentSensors[i] = parents[i].timeSensor;
+                emptyResponseKeysParentSensors[i] = parents[i].emptyResponseKeysSensor;
+                getAllKeysCountParentSensors[i] = parents[i].getAllKeysCountSensor;
+                valueBytesParentSensors[i] = parents[i].valueBytesSensor;
+                keyBytesParentSensors[i] = parents[i].keyBytesSensor;
+            }
+        }
+
+        // Initialize MetricConfig
+        MetricConfig metricConfig = new MetricConfig().timeWindow(durationMs, TimeUnit.MILLISECONDS);
+
+        // Time Sensor
+
+        String timeSensorName = name + ".time";
+        this.timeSensor =
+                metricsRepository.sensor(timeSensorName, metricConfig, timeParentSensors);
+        if (useHistogram) {
+            Percentiles timePercentiles = new Percentiles(40000, 10000, Percentiles.BucketSizing.LINEAR,
+                    new Percentile(timeSensorName + ".10thPercentile", 10),
+                    new Percentile(timeSensorName + ".50thPercentile", 50),
+                    new Percentile(timeSensorName + ".95thPercentile", 95),
+                    new Percentile(timeSensorName + ".99thPercentile", 99));
+            Map<String, Metric> percentiles = this.timeSensor.add(timePercentiles);
+            this.latency10thPercentile = percentiles.get(timeSensorName + ".10thPercentile");
+            this.latency50thPercentile = percentiles.get(timeSensorName + ".50thPercentile");
+            this.latency95thPercentile = percentiles.get(timeSensorName + ".95thPercentile");
+            this.latency99thPercentile = percentiles.get(timeSensorName + ".99thPercentile");
+        }
+        this.latencyMax = this.timeSensor.add(timeSensorName + ".max", new Max(0));
+        this.latencyAverage = this.timeSensor.add(timeSensorName + ".avg", new Avg());
+        // Sampled count, all-time count and throughput rate, piggy-backing off of the Time Sensor
+        this.requestSampledCount = this.timeSensor.add(name + ".sampled-count", new SampledCount());
+        this.requestAllTimeCount = this.timeSensor.add(name + ".count", new Count());
+        this.requestThroughput = this.timeSensor.add(name + ".throughput", new OccurrenceRate());
+
+        // Empty Reponse Keys Sensor
+
+        String emptyResponseKeysSensorName = name + ".empty-response-keys";
+        this.emptyResponseKeysSensor =
+                metricsRepository.sensor(emptyResponseKeysSensorName, metricConfig, emptyResponseKeysParentSensors);
+        this.emptyResponseKeysSampledTotal =
+                this.emptyResponseKeysSensor.add(emptyResponseKeysSensorName + ".sampled-total", new SampledTotal());
+
+        // Key and Value Bytes Sensor
+
+        String keyAndValueBytesSensorName= name + ".key-and-value-bytes";
+        Sensor keyAndValueBytesSensor = metricsRepository.sensor(keyAndValueBytesSensorName, metricConfig);
+        this.requestThroughputInBytes =
+                keyAndValueBytesSensor.add(keyAndValueBytesSensorName + ".bytes-throughput", new Rate());
+        valueBytesParentSensors[amountOfParentSensors] = keyAndValueBytesSensor;
+        keyBytesParentSensors[amountOfParentSensors] = keyAndValueBytesSensor;
+
+        // Value Bytes Sensor
+
+        String valueBytesSensorName = name + ".value-bytes";
+        this.valueBytesSensor = metricsRepository.sensor(valueBytesSensorName, metricConfig, valueBytesParentSensors);
+        this.valueBytesMax = this.valueBytesSensor.add(valueBytesSensorName + ".max", new Max(0));
+        this.valueBytesAverage = this.valueBytesSensor.add(valueBytesSensorName + ".avg", new Avg());
+
+        // Key Bytes Sensor
+
+        String keyBytesSensorName = name + ".key-bytes";
+        this.keyBytesSensor = metricsRepository.sensor(keyBytesSensorName, metricConfig, keyBytesParentSensors);
+        this.keyBytesMax = this.keyBytesSensor.add(keyBytesSensorName + ".max", new Max(0));
+        this.keyBytesAverage = this.keyBytesSensor.add(keyBytesSensorName + ".avg", new Avg());
+
+        // Get All Keys Count Sensor
+
+        String getAllKeysCountSensorName = name + ".get-all-keys-count";
+        this.getAllKeysCountSensor =
+                metricsRepository.sensor(getAllKeysCountSensorName, metricConfig, getAllKeysCountParentSensors);
+        this.getAllKeysCountSampledTotal =
+                this.getAllKeysCountSensor.add(getAllKeysCountSensorName + ".sampled-total", new SampledTotal());
+        this.getAllKeysCountMax = this.getAllKeysCountSensor.add(getAllKeysCountSensorName + ".max", new Max(0));
     }
 
     public long getCount() {
-        return getValidAccumulator().count;
+        return (long) requestSampledCount.value();
     }
 
     public long getTotalCount() {
-        return getValidAccumulator().total;
+        return (long) requestAllTimeCount.value();
     }
 
     public float getThroughput() {
-        Accumulator oldv = getValidAccumulator();
-        double elapsed = (time.getMilliseconds() - oldv.startTimeMS) / (double) Time.MS_PER_SECOND;
-        if(elapsed > 0f) {
-            return (float) (oldv.count / elapsed);
-        } else {
-            return 0f;
-        }
+        // TODO: Check for overflow?
+        return new Float(requestThroughput.value());
     }
 
     public float getThroughputInBytes() {
-        Accumulator oldv = getValidAccumulator();
-        double elapsed = (time.getMilliseconds() - oldv.startTimeMS) / (double) Time.MS_PER_SECOND;
-        if(elapsed > 0f) {
-            return (float) ((oldv.totalValueBytes + oldv.totalKeyBytes) / elapsed);
-        } else {
-            return 0f;
-        }
+        // TODO: Check for overflow?
+        return new Float(requestThroughputInBytes.value());
     }
 
     public String getDisplayThroughput() {
@@ -111,78 +220,24 @@ public class RequestCounter {
     }
 
     public double getAverageTimeInMs() {
-        return getValidAccumulator().getAverageTimeNS() / Time.NS_PER_MS;
+        return latencyAverage.value();
     }
 
     public String getDisplayAverageTimeInMs() {
         return String.format("%.4f", getAverageTimeInMs());
     }
 
-    public long getDuration() {
-        return durationMs;
-    }
+    // TODO: Make sure this is really useless
+//    public long getDuration() {
+//        return 0;
+////        return durationMs;
+//    }
 
     public long getMaxLatencyInMs() {
-        return getValidAccumulator().maxLatencyNS / Time.NS_PER_MS;
+        return (long) latencyMax.value();
     }
 
-    private void maybeResetHistogram() {
-        if(!this.useHistogram)
-            return;
-        Accumulator accum = values.get();
-        long now = time.getMilliseconds();
-        if(now - accum.startTimeMS > durationMs) {
-            // timing instrumentation (debug only)
-            long startTimeNs = 0;
-            if(logger.isDebugEnabled()) {
-                startTimeNs = System.nanoTime();
-            }
-
-            // Reset the histogram
-            histogramHundredUs.reset();
-            histogramSecond.reset();
-
-            // timing instrumentation (debug only)
-            if(logger.isDebugEnabled()) {
-                logger.debug("Histogram (" + System.identityHashCode(histogramHundredUs)
-                             + ") : reset, Q95, & Q99 took " + (System.nanoTime() - startTimeNs)
-                             + " ns.");
-            }
-        }
-    }
-
-    private Accumulator getValidAccumulator() {
-
-        Accumulator accum = values.get();
-        long now = time.getMilliseconds();
-
-        /*
-         * if still in the window, just return it
-         */
-        if(now - accum.startTimeMS <= durationMs) {
-            return accum;
-        }
-
-        /*
-         * try to set. if we fail, then someone else set it, so just return that
-         * new one
-         */
-
-        Accumulator newWithTotal = accum.newWithTotal();
-
-        if(values.compareAndSet(accum, newWithTotal)) {
-            return newWithTotal;
-        }
-
-        return values.get();
-    }
-
-    /*
-     * Updates the stats accumulator with another operation. We need to make
-     * sure that the request is only added to a non-expired pair. If so, start a
-     * new counter pair with recent time. We'll only try to do this 3 times - if
-     * other threads keep modifying while we're doing our own work, just bail.
-     * 
+    /**
      * @param timeNS time of operation, in nanoseconds
      */
     public void addRequest(long timeNS) {
@@ -190,14 +245,13 @@ public class RequestCounter {
     }
 
     /**
-     * @see #addRequest(long) Detailed request to track additionald data about
-     *      PUT, GET and GET_ALL
-     * 
-     * @param numEmptyResponses For GET and GET_ALL, how many keys were no
-     *        values found
-     * @param bytes Total number of bytes across all versions of values' bytes
-     * @param getAllAggregatedCount Total number of keys returned for getAll
-     *        calls
+     * Detailed request to track additional data about PUT, GET and GET_ALL
+     *
+     * @param timeNS The time in nanoseconds that the operation took to complete
+     * @param numEmptyResponses For GET and GET_ALL, how many keys were no values found
+     * @param valueBytes Total number of bytes across all versions of values' bytes
+     * @param keyBytes Total number of bytes in the keys
+     * @param getAllAggregatedCount Total number of keys returned for getAll calls
      */
     public void addRequest(long timeNS,
                            long numEmptyResponses,
@@ -210,44 +264,17 @@ public class RequestCounter {
             startTimeNs = System.nanoTime();
         }
 
-        long timeHundredUs = timeNS / Time.NS_PER_US / 100;
-        long timeSecond = timeNS / Time.NS_PER_SECOND;
-        if(this.useHistogram) {
-            maybeResetHistogram();
-            histogramHundredUs.insert(timeHundredUs);
-            histogramSecond.insert(timeSecond);
-        }
-        for(int i = 0; i < 3; i++) {
-            Accumulator oldv = getValidAccumulator();
-            Accumulator newv = new Accumulator(oldv.startTimeMS,
-                                               oldv.count + 1,
-                                               oldv.totalTimeNS + timeNS,
-                                               oldv.total + 1,
-                                               oldv.numEmptyResponses + numEmptyResponses,
-                                               Math.max(timeNS, oldv.maxLatencyNS),
-                                               oldv.totalValueBytes + valueBytes,
-                                               Math.max(oldv.maxValueBytes, valueBytes),
-                                               oldv.totalKeyBytes + keyBytes,
-                                               Math.max(oldv.maxKeyBytes, keyBytes),
-                                               oldv.getAllAggregatedCount + getAllAggregatedCount,
-                                               getAllAggregatedCount > oldv.getAllMaxCount ? getAllAggregatedCount
-                                                                                          : oldv.getAllMaxCount);
-            if(values.compareAndSet(oldv, newv)) {
-                // timing instrumentation (trace only)
-                if(logger.isTraceEnabled()) {
-                    logger.trace("addRequest (histogram.insert and accumulator update) took "
-                                 + (System.nanoTime() - startTimeNs) + " ns.");
-                }
-                // Return since data has been accumulated
-                return;
-            }
-        }
-        logger.info("addRequest lost timing instrumentation data because three retries was insufficient to update the accumulator.");
+        long currentTime = time.milliseconds();
+
+        timeSensor.record((double) timeNS / voldemort.utils.Time.NS_PER_MS, currentTime);
+        emptyResponseKeysSensor.record(numEmptyResponses, currentTime);
+        valueBytesSensor.record(valueBytes, currentTime);
+        keyBytesSensor.record(keyBytes, currentTime);
+        getAllKeysCountSensor.record(getAllAggregatedCount, currentTime);
 
         // timing instrumentation (trace only)
         if(logger.isTraceEnabled()) {
-            logger.trace("addRequest (histogram.insert and accumulator update) took "
-                         + (System.nanoTime() - startTimeNs) + " ns.");
+            logger.trace("addRequest took " + (System.nanoTime() - startTimeNs) + " ns.");
         }
     }
 
@@ -256,7 +283,7 @@ public class RequestCounter {
      * the requested key. Tracked only for GET.
      */
     public long getNumEmptyResponses() {
-        return getValidAccumulator().numEmptyResponses;
+        return (long) emptyResponseKeysSampledTotal.value();
     }
 
     /**
@@ -264,14 +291,14 @@ public class RequestCounter {
      * Tracked only for GET, GET_ALL and PUT.
      */
     public long getMaxValueSizeInBytes() {
-        return getValidAccumulator().maxValueBytes;
+        return (long) valueBytesMax.value();
     }
 
     /**
      * Return the size of the largest response or request in bytes returned.
      */
     public long getMaxKeySizeInBytes() {
-        return getValidAccumulator().maxKeyBytes;
+        return (long) keyBytesMax.value();
     }
 
     /**
@@ -279,14 +306,14 @@ public class RequestCounter {
      * only for GET, GET_ALL and PUT.
      */
     public double getAverageValueSizeInBytes() {
-        return getValidAccumulator().getAverageValueBytes();
+        return valueBytesAverage.value();
     }
 
     /**
      * Return the average size of all the keys. Tracked for all operations.
      */
     public double getAverageKeySizeInBytes() {
-        return getValidAccumulator().getAverageKeyBytes();
+        return keyBytesAverage.value();
     }
 
     /**
@@ -294,131 +321,29 @@ public class RequestCounter {
      * taking into account multiple values returned per call.
      */
     public long getGetAllAggregatedCount() {
-        return getValidAccumulator().getAllAggregatedCount;
+        return (long) getAllKeysCountSampledTotal.value();
     }
 
     /**
      * Return the maximum number of keys returned across all getAll calls.
      */
     public long getGetAllMaxCount() {
-        return getValidAccumulator().getAllMaxCount;
+        return (long) getAllKeysCountMax.value();
     }
     
     public double getQ10LatencyMs() {
-        maybeResetHistogram();
-        return getQuantile(0.10);
+        return latency10thPercentile.value();
     }
     
     public double getQ50LatencyMs() {
-        maybeResetHistogram();
-        return getQuantile(0.50);
+        return latency50thPercentile.value();
     }
     
     public double getQ95LatencyMs() {
-        maybeResetHistogram();
-        return getQuantile(0.95);
+        return latency95thPercentile.value();
     }
     
     public double getQ99LatencyMs() {
-        maybeResetHistogram();
-        return getQuantile(0.99);
-    }
-
-    private double getQuantile(double quantile) {
-        if(this.useHistogram) {
-            // use double histogram to track and return a suitable value
-            double coarseResult = histogramSecond.getQuantile(quantile) * Time.MS_PER_SECOND;
-            if(coarseResult > 0) {
-                return coarseResult;
-            } else {
-                return ((double) histogramHundredUs.getQuantile(quantile)) / 10;
-            }
-        } else {
-            return -1;
-        }
-    }
-
-    private class Accumulator {
-
-        final long startTimeMS;
-        final long count;
-        final long totalTimeNS;
-        final long total;
-        final long numEmptyResponses; // GET and GET_ALL: number of empty
-                                      // responses that have been returned
-        final long getAllAggregatedCount; // GET_ALL: a single call to GET_ALL
-                                          // can return multiple k-v pairs.
-                                          // Track total requested.
-        final long getAllMaxCount; // GET_ALL : track max number of keys
-                                   // requesed
-        final long maxLatencyNS;
-
-        final long maxValueBytes; // Maximum single value
-        final long totalValueBytes; // Sum of all the values
-
-        final long maxKeyBytes; // Maximum single key size
-        final long totalKeyBytes; // Sum of all the key sizes
-
-        public Accumulator() {
-            this(RequestCounter.this.time.getMilliseconds(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        }
-
-        /**
-         * This method resets startTimeMS.
-         * 
-         * @return
-         */
-        public Accumulator newWithTotal() {
-            return new Accumulator(RequestCounter.this.time.getMilliseconds(),
-                                   0,
-                                   0,
-                                   total,
-                                   0,
-                                   0,
-                                   0,
-                                   0,
-                                   0,
-                                   0,
-                                   0,
-                                   0);
-        }
-
-        public Accumulator(long startTimeMS,
-                           long count,
-                           long totalTimeNS,
-                           long total,
-                           long numEmptyResponses,
-                           long maxLatencyNS,
-                           long totalValueBytes,
-                           long maxValueBytes,
-                           long totalKeyBytes,
-                           long maxKeyBytes,
-                           long getAllAggregatedCount,
-                           long getAllMaxCount) {
-            this.startTimeMS = startTimeMS;
-            this.count = count;
-            this.totalTimeNS = totalTimeNS;
-            this.total = total;
-            this.numEmptyResponses = numEmptyResponses;
-            this.maxLatencyNS = maxLatencyNS;
-            this.totalValueBytes = totalValueBytes;
-            this.maxValueBytes = maxValueBytes;
-            this.totalKeyBytes = totalKeyBytes;
-            this.maxKeyBytes = maxKeyBytes;
-            this.getAllAggregatedCount = getAllAggregatedCount;
-            this.getAllMaxCount = getAllMaxCount;
-        }
-
-        public double getAverageTimeNS() {
-            return count > 0 ? 1f * totalTimeNS / count : 0f;
-        }
-
-        public double getAverageValueBytes() {
-            return count > 0 ? 1f * totalValueBytes / count : -0f;
-        }
-
-        public double getAverageKeyBytes() {
-            return count > 0 ? 1f * totalKeyBytes / count : -0f;
-        }
+        return latency99thPercentile.value();
     }
 }

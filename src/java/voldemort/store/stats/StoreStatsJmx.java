@@ -19,6 +19,7 @@ public class StoreStatsJmx {
         this.stats = stats;
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfCallsToGetAll", description = "The number of calls to GET_ALL since the last reset.")
     public long getNumberOfCallsToGetAll() {
         return stats.getCount(Tracked.GET_ALL);
@@ -49,6 +50,7 @@ public class StoreStatsJmx {
         return stats.getGetAllMaxCount();
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfCallsToGet", description = "The number of calls to GET since the last reset.")
     public long getNumberOfCallsToGet() {
         return stats.getCount(Tracked.GET);
@@ -69,6 +71,7 @@ public class StoreStatsJmx {
         return stats.getThroughputInBytes(Tracked.GET);
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfCallsToGetVersions", description = "The number of calls to GET VERSIONS since the last reset.")
     public long getNumberOfCallsToGetVersions() {
         return stats.getCount(Tracked.GET_VERSIONS);
@@ -84,6 +87,7 @@ public class StoreStatsJmx {
         return stats.getThroughput(Tracked.GET_VERSIONS);
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfCallsToPut", description = "The number of calls to PUT since the last reset.")
     public long getNumberOfCallsToPut() {
         return stats.getCount(Tracked.PUT);
@@ -104,6 +108,7 @@ public class StoreStatsJmx {
         return stats.getThroughputInBytes(Tracked.PUT);
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfCallsToDelete", description = "The number of calls to DELETE since the last reset.")
     public long getNumberOfCallsToDelete() {
         return stats.getCount(Tracked.DELETE);
@@ -119,11 +124,13 @@ public class StoreStatsJmx {
         return stats.getThroughput(Tracked.DELETE);
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfObsoleteVersions", description = "Number of ObsoleteVersionExceptions since the last reset.")
     public long getNumberOfObsoleteVersions() {
         return stats.getCount(Tracked.OBSOLETE);
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfExceptions", description = "The number of exceptions since the last reset.")
     public long getNumberOfExceptions() {
         return stats.getCount(Tracked.EXCEPTION);

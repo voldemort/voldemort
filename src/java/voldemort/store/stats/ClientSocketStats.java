@@ -62,21 +62,26 @@ public class ClientSocketStats {
     private QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
 
     // "Sync checkouts" / KeyedResourcePool::checkout
-    private final RequestCounter checkoutTimeRequestCounter = new RequestCounter(60000, true);
+    private final RequestCounter checkoutTimeRequestCounter =
+            new RequestCounter("client-socket.checkout-time", 60000, true);
     // "Async checkouts" / QueuedKeyedResourcePool::registerResourceRequest
-    private final RequestCounter resourceRequestTimeRequestCounter = new RequestCounter(60000, true);
+    private final RequestCounter resourceRequestTimeRequestCounter =
+            new RequestCounter("client-socket.resource-request-time", 60000, true);
     // Connection establishment time. The counter will be reset every 60 seconds
-    private final RequestCounter connectionEstablishmentRequestCounter = new RequestCounter(60000,
-                                                                                            true);
+    private final RequestCounter connectionEstablishmentRequestCounter =
+            new RequestCounter("client-socket.checkout-time", 60000, true);
 
     // Sync operation time stats. The counter will be reset every 60 seconds
-    private final RequestCounter syncOpTimeRequestCounter = new RequestCounter(60000, true);
+    private final RequestCounter syncOpTimeRequestCounter =
+            new RequestCounter("client-socket.sync-operations-time", 60000, true);
     // Async operation time stats. The counter will be reset every 60 seconds
-    private final RequestCounter asynOpTimeRequestCounter = new RequestCounter(60000, true);
+    private final RequestCounter asynOpTimeRequestCounter =
+            new RequestCounter("client-socket.async-operations-time", 60000, true);
 
     // The histograms will be reset after monitoringInterval
     private final AtomicInteger monitoringInterval = new AtomicInteger(60000);
     private long startMs;
+    // FIXME: Change this for a Tehuti Histogram
     private final Histogram checkoutQueueLengthHistogram = new Histogram(250, 1);
     private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
 
