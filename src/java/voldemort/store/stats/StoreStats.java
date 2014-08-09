@@ -29,7 +29,6 @@ import org.apache.log4j.Logger;
  */
 public class StoreStats {
 
-    private final StoreStats parent;
     private final Map<Tracked, RequestCounter> counters;
 
     private static final Logger logger = Logger.getLogger(StoreStats.class.getName());
@@ -71,7 +70,6 @@ public class StoreStats {
 
             counters.put(tracked, requestCounter);
         }
-        this.parent = parent;
 
         if(logger.isDebugEnabled()) {
             logger.debug("Constructed StoreStats object (" + System.identityHashCode(this)
@@ -161,13 +159,6 @@ public class StoreStats {
                                     valueSize,
                                     keySize,
                                     getAllAggregateRequests);
-        if(parent != null)
-            parent.recordTime(op,
-                              timeNS,
-                              numEmptyResponses,
-                              valueSize,
-                              keySize,
-                              getAllAggregateRequests);
 
         if (logger.isTraceEnabled() && !storeName.contains("aggregate") && !storeName.contains("voldsys$"))
             logger.trace("Store '" + storeName + "' logged a " + op.toString() + " request taking " +
