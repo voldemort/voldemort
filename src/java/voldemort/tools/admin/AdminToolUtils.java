@@ -20,12 +20,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
@@ -202,12 +197,12 @@ public class AdminToolUtils {
                                                  List<String> storeNames) {
         List<StoreDefinition> storeDefList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
                                                                         .getValue();
-        List<String> storeNameList = Lists.newArrayList();
+        Map<String, Boolean> existingStoreNames = new HashMap<String, Boolean>();
         for(StoreDefinition storeDef: storeDefList) {
-            storeNameList.add(storeDef.getName());
+          existingStoreNames.put(storeDef.getName(), true);
         }
         for(String storeName: storeNames) {
-            if(!storeNameList.contains(storeName)) {
+            if(!Boolean.TRUE.equals(existingStoreNames.get(storeName))) {
                 Utils.croak("Store " + storeName + " does not exist!");
             }
         }
