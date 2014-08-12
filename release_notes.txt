@@ -1,3 +1,11 @@
+Release 1.8.12 on 08/11/2014
+
+* Speeds up vector clock serialization.
+* Adds a clean up task in the Gradle build that fixes an intermittent issue with builds on mac.
+* Expands test configurations.
+* Some fixes and clean ups in the C++ client.
+* Rewrites RequestCounter so that it leverages the Tehuti metrics lib.
+
 Release 1.8.11 on 08/01/2014
 
 * Expose http decoder parameters as config
