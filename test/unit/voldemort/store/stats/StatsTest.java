@@ -116,4 +116,72 @@ public class StatsTest {
         assertEquals(0, rc.getMaxValueSizeInBytes());
         assertEquals(0, rc.getGetAllAggregatedCount());
     }
+
+    @Test
+    public void statsShowSpuriousValues() {
+        final long startTime = 1445468640; // Some start time : Oct 21, 2015
+        final int resetDurationMs = 1000;
+        final int tinyDurationMs = 10;
+        Time mockTime = mock(Time.class);
+
+        when(mockTime.getMilliseconds()).thenReturn(startTime);
+        RequestCounter rc = new RequestCounter(resetDurationMs, mockTime);
+
+        // Add some new stats and verify they were calculated correctly
+        rc.addRequest(100 * NS_PER_MS, 0, 1000, 100, 1);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 2);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 3);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
+
+        // Jump into the counter window just a little (10 ms)
+        when(mockTime.getMilliseconds()).thenReturn(startTime + tinyDurationMs);
+
+        // Throughput now
+        assertEquals(500d, rc.getThroughput(), 0.0f);
+
+        // Do some more requests
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
+
+        // Jump into the counter window a lot more (700 ms)
+        when(mockTime.getMilliseconds()).thenReturn(startTime + 700);
+        assertEquals(10d, rc.getThroughput(), 0.0f);
+
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
+
+        // Jump into the future after the counter should have expired
+        when(mockTime.getMilliseconds()).thenReturn(startTime + resetDurationMs + 1);
+        // Make sure counter has expired
+        assertEquals(0d, rc.getThroughput(), 0.0f);
+
+        // Add some more stats and verify they were calculated correctly
+        rc.addRequest(100 * NS_PER_MS, 0, 1000, 100, 1);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 2);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 3);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
+
+        // Jump into the counter window just a little again (10 ms)
+        when(mockTime.getMilliseconds()).thenReturn(startTime + resetDurationMs + 1
+                                                    + tinyDurationMs);
+        assertEquals(500d, rc.getThroughput(), 0.0f);
+
+        // Jump into the future again after the counter should have expired
+        when(mockTime.getMilliseconds()).thenReturn(startTime + 2 * resetDurationMs + 2);
+        // Make sure counter has expired
+        assertEquals(0d, rc.getThroughput(), 0.0f);
+
+        // Add some more stats and verify they were calculated correctly
+        rc.addRequest(100 * NS_PER_MS, 0, 1000, 100, 1);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 2);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 3);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
+        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
+
+        // Jump into the counter window just a little (10 ms)
+        when(mockTime.getMilliseconds()).thenReturn(startTime + 2 * resetDurationMs + 2
+                                                    + tinyDurationMs);
+        assertEquals(500d, rc.getThroughput(), 0.0f);
+    }
 }
