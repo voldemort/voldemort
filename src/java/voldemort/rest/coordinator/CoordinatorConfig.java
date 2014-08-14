@@ -1,12 +1,12 @@
 /*
  * Copyright 2013 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -46,6 +46,14 @@ public class CoordinatorConfig {
     private volatile int httpMessageDecoderMaxHeaderSize = 8192;
     private volatile int httpMessageDecoderMaxChunkSize = 8192;
 
+    // Coordinator Admin Service related
+    private volatile boolean enableAdminService = true;
+    public volatile int adminPort = 9090;
+    private volatile int adminServiceBacklog = 1000;
+    private volatile int adminServiceCoreThreads = 100;
+    private volatile int adminServiceMaxThreads = 200;
+    private volatile int adminServiceQueuedRequests = 1000;
+
     /* Propery names for propery-based configuration */
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
     public static final String FAT_CLIENTS_CONFIG_FILE_PATH_PROPERTY = "fat_clients_config_file_path";
@@ -59,9 +67,12 @@ public class CoordinatorConfig {
     public static final String HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE = "http_message_decoder_max_header_size";
     public static final String HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE = "http_message_decoder_max_chunk_size";
 
+    public static final String ADMIN_ENABLE = "admin_enable";
+    public static final String ADMIN_PORT = "admin_port";
+
     /**
      * Instantiate the coordinator config using a properties file
-     *
+     * 
      * @param propertyFile Properties file
      */
     public CoordinatorConfig(File propertyFile) {
@@ -82,7 +93,7 @@ public class CoordinatorConfig {
      * Initiate the coordinator config from a set of properties. This is useful
      * for wiring from Spring or for externalizing client properties to a
      * properties file
-     *
+     * 
      * @param properties The properties to use
      */
     public CoordinatorConfig(Properties properties) {
@@ -96,7 +107,7 @@ public class CoordinatorConfig {
 
     /**
      * Set the values using the specified Properties object
-     *
+     * 
      * @param properties Properties object containing specific property values
      *        for the Coordinator config
      */
@@ -138,19 +149,27 @@ public class CoordinatorConfig {
                                                           this.numCoordinatorQueuedRequests));
         }
 
-        if (props.containsKey(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH)) {
+        if(props.containsKey(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH)) {
             setHttpMessageDecoderMaxInitialLength(props.getInt(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH,
                                                                this.httpMessageDecoderMaxInitialLength));
         }
 
-        if (props.containsKey(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE)) {
+        if(props.containsKey(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE)) {
             setHttpMessageDecoderMaxHeaderSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE,
                                                             this.httpMessageDecoderMaxHeaderSize));
         }
 
-        if (props.containsKey(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE)) {
+        if(props.containsKey(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE)) {
             setHttpMessageDecoderMaxChunkSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE,
                                                            this.httpMessageDecoderMaxChunkSize));
+        }
+
+        if(props.containsKey(ADMIN_ENABLE)) {
+            setAdminServiceEnabled(props.getBoolean(ADMIN_ENABLE, this.enableAdminService));
+        }
+
+        if(props.containsKey(ADMIN_PORT)) {
+            setServerPort(props.getInt(ADMIN_PORT, this.adminPort));
         }
 
     }
@@ -164,7 +183,7 @@ public class CoordinatorConfig {
     /**
      * Sets the bootstrap URLs used by the different Fat clients inside the
      * Coordinator
-     *
+     * 
      * @param bootstrapUrls list of bootstrap URLs defining which cluster to
      *        connect to
      * @return modified CoordinatorConfig
@@ -183,7 +202,7 @@ public class CoordinatorConfig {
     /**
      * Defines individual config for each of the fat clients managed by the
      * Coordinator
-     *
+     * 
      * @param fatClientConfigPath The path of the file containing the fat client
      *        config in Avro format
      */
@@ -225,7 +244,7 @@ public class CoordinatorConfig {
 
     /**
      * @param nettyServerBacklog Defines the netty server backlog value
-     *
+     * 
      */
     public CoordinatorConfig setNettyServerBacklog(int nettyServerBacklog) {
         this.nettyServerBacklog = nettyServerBacklog;
@@ -314,6 +333,65 @@ public class CoordinatorConfig {
 
     public int getHttpMessageDecoderMaxChunkSize() {
         return httpMessageDecoderMaxChunkSize;
+    }
+
+    /**
+     * Determine whether the admin service has been enabled to perform
+     * maintenance operations on the coordinator
+     * 
+     * Default : true
+     */
+    public void setAdminServiceEnabled(boolean enableAdminService) {
+        this.enableAdminService = enableAdminService;
+    }
+
+    public boolean isAdminServiceEnabled() {
+        return enableAdminService;
+    }
+
+    public int getAdminPort() {
+        return adminPort;
+    }
+
+    /**
+     * @param serverPort Defines the port to use while bootstrapping the Netty
+     *        server
+     */
+    public CoordinatorConfig setAdminPort(int adminPort) {
+        this.adminPort = adminPort;
+        return this;
+    }
+
+    public int getAdminServiceBacklog() {
+        return adminServiceBacklog;
+    }
+
+    public void setAdminServiceBacklog(int adminServiceBacklog) {
+        this.adminServiceBacklog = adminServiceBacklog;
+    }
+
+    public int getAdminServiceCoreThreads() {
+        return adminServiceCoreThreads;
+    }
+
+    public void setAdminServiceCoreThreads(int adminServiceCoreThreads) {
+        this.adminServiceCoreThreads = adminServiceCoreThreads;
+    }
+
+    public int getAdminServiceMaxThreads() {
+        return adminServiceMaxThreads;
+    }
+
+    public void setAdminServiceMaxThreads(int adminServiceMaxThreads) {
+        this.adminServiceMaxThreads = adminServiceMaxThreads;
+    }
+
+    public int getAdminServiceQueuedRequests() {
+        return adminServiceQueuedRequests;
+    }
+
+    public void setAdminServiceQueuedRequests(int adminServiceQueuedRequests) {
+        this.adminServiceQueuedRequests = adminServiceQueuedRequests;
     }
 
 }

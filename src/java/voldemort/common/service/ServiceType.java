@@ -18,7 +18,8 @@ public enum ServiceType {
     REBALANCE("rebalance-service"),
     COORDINATOR("coordinator-service"),
     RESTSERVICE("rest-service"),
-    HDFSAuth("hdfs-auth-service");
+    HDFSAuth("hdfs-auth-service"),
+    COORDINATOR_SERVER("coordinator-server");
 
     private final String display;
 
