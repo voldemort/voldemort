@@ -35,7 +35,7 @@ public class CoordinatorConfig {
     private volatile List<String> bootstrapURLs = null;
     private volatile String fatClientConfigPath = null;
     private volatile int metadataCheckIntervalInMs = 5000;
-    private volatile int nettyServerPort = 8080;
+    private volatile int serverPort = 8080;
 
     private volatile int nettyServerBacklog = 1000;
     private volatile int coordinatorCoreThreads = 100;
@@ -116,7 +116,7 @@ public class CoordinatorConfig {
         }
 
         if(props.containsKey(NETTY_SERVER_PORT)) {
-            setServerPort(props.getInt(NETTY_SERVER_PORT, this.nettyServerPort));
+            setServerPort(props.getInt(NETTY_SERVER_PORT, this.serverPort));
         }
 
         if(props.containsKey(NETTY_SERVER_BACKLOG)) {
@@ -207,7 +207,7 @@ public class CoordinatorConfig {
     }
 
     public int getServerPort() {
-        return nettyServerPort;
+        return serverPort;
     }
 
     /**
@@ -215,7 +215,7 @@ public class CoordinatorConfig {
      *        server
      */
     public CoordinatorConfig setServerPort(int serverPort) {
-        this.nettyServerPort = serverPort;
+        this.serverPort = serverPort;
         return this;
     }
 
