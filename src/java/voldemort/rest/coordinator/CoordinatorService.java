@@ -16,22 +16,17 @@
 
 package voldemort.rest.coordinator;
 
-import static voldemort.utils.Utils.croak;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.StringReader;
-import java.net.InetSocketAddress;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -40,9 +35,7 @@ import org.apache.avro.io.JsonDecoder;
 import org.apache.avro.util.Utf8;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
-import org.jboss.netty.bootstrap.ServerBootstrap;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.channel.ChannelPipelineFactory;
 
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
@@ -51,32 +44,27 @@ import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.SystemStoreRepository;
 import voldemort.client.scheduler.AsyncMetadataVersionManager;
-import voldemort.common.service.AbstractService;
 import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
-import voldemort.rest.NettyConnectionStats;
+import voldemort.rest.AbstractRestService;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
-import voldemort.utils.JmxUtils;
 import voldemort.utils.SystemTime;
-import voldemort.utils.Utils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 
-/**
+/*
  * A Netty based HTTP service that accepts REST requests from the Voldemort thin
  * clients and invokes the corresponding Fat client API.
- * 
  */
 @JmxManaged(description = "A Coordinator Service for proxying Voldemort HTTP requests")
-public class CoordinatorService extends AbstractService {
+public class CoordinatorService extends AbstractRestService {
 
     private CoordinatorConfig coordinatorConfig = null;
-
     private SocketStoreClientFactory storeClientFactory = null;
     private AsyncMetadataVersionManager asyncMetadataManager = null;
     private final CoordinatorMetadata coordinatorMetadata;
@@ -87,18 +75,16 @@ public class CoordinatorService extends AbstractService {
                                                                          + "\"items\": { \"name\": \"clientConfig\", \"type\": \"map\", \"values\":\"string\" }}}");
     private static final String STORE_NAME_KEY = "store_name";
     private static final String IDENTIFIER_STRING_KEY = "identifier_string";
-    protected ThreadPoolExecutor workerPool = null;
+
+    private static final String SERVICE_NAME = "coordinator";
+
     private final StoreStats coordinatorPerfStats;
-    private final NettyConnectionStats connectionStats;
-    private ServerBootstrap bootstrap = null;
-    private Channel nettyServerChannel = null;
 
     public CoordinatorService(CoordinatorConfig config) {
-        super(ServiceType.COORDINATOR);
+        super(ServiceType.COORDINATOR, config);
         this.coordinatorConfig = config;
         this.coordinatorPerfStats = new StoreStats("aggregate.coordinator-service");
         this.coordinatorMetadata = new CoordinatorMetadata();
-        this.connectionStats = new NettyConnectionStats();
     }
 
     /**
@@ -146,8 +132,7 @@ public class CoordinatorService extends AbstractService {
     }
 
     @Override
-    protected void startInner() {
-
+    protected void initialize() {
         // Initialize the Voldemort Metadata
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setBootstrapUrls(this.coordinatorConfig.getBootstrapURLs());
@@ -196,37 +181,6 @@ public class CoordinatorService extends AbstractService {
              * when we get an actual request.
              */
         }
-
-        // Configure the server.
-        this.workerPool = (ThreadPoolExecutor) Executors.newCachedThreadPool();
-        this.bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
-                                                                               workerPool));
-        this.bootstrap.setOption("backlog", this.coordinatorConfig.getNettyServerBacklog());
-        this.bootstrap.setOption("child.tcpNoDelay", true);
-        this.bootstrap.setOption("child.keepAlive", true);
-        this.bootstrap.setOption("child.reuseAddress", true);
-
-        // Set up the event pipeline factory.
-        this.bootstrap.setPipelineFactory(new CoordinatorPipelineFactory(this.fatClientMap,
-                                                                         this.coordinatorMetadata,
-                                                                         this.coordinatorConfig,
-                                                                         this.coordinatorPerfStats,
-                                                                         this.connectionStats));
-
-        // Assuming JMX is always enabled for Coordinator Service
-        JmxUtils.registerMbean(this,
-                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                         JmxUtils.getClassName(this.getClass())));
-
-        // Register MBeans for connection stats
-        JmxUtils.registerMbean(this.connectionStats,
-                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                         JmxUtils.getClassName(this.connectionStats.getClass())));
-
-        // Bind and start to accept incoming connections.
-        this.nettyServerChannel = this.bootstrap.bind(new InetSocketAddress(this.coordinatorConfig.getServerPort()));
-
-        logger.info("Coordinator service started on port " + this.coordinatorConfig.getServerPort());
     }
 
     /**
@@ -298,78 +252,67 @@ public class CoordinatorService extends AbstractService {
     }
 
     @Override
-    protected void stopInner() {
-        if(this.nettyServerChannel != null) {
-            this.nettyServerChannel.close();
-        }
-
-        JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                           JmxUtils.getClassName(this.getClass())));
+    protected Logger getLogger() {
+        return logger;
     }
 
-    public static void main(String[] args) throws Exception {
-        CoordinatorConfig config = null;
-        try {
-            if(args.length != 1) {
-                croak("USAGE: java " + CoordinatorService.class.getName()
-                      + " <coordinator_config_file>");
-
-                System.exit(-1);
-            }
-
-            config = new CoordinatorConfig(new File(args[0]));
-        } catch(Exception e) {
-            logger.error(e);
-            Utils.croak("Error while loading configuration: " + e.getMessage());
-        }
-
-        final CoordinatorService coordinator = new CoordinatorService(config);
-        if(!coordinator.isStarted()) {
-            coordinator.start();
-        }
-
-        // add a shutdown hook to stop the coordinator
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-
-            @Override
-            public void run() {
-                if(coordinator.isStarted())
-                    coordinator.stop();
-            }
-        });
+    @Override
+    protected ChannelPipelineFactory getPipelineFactory() {
+        return (new CoordinatorPipelineFactory(this.fatClientMap,
+                                               this.coordinatorMetadata,
+                                               this.coordinatorConfig,
+                                               this.coordinatorPerfStats,
+                                               this.connectionStats));
     }
 
-    @JmxGetter(name = "numberOfActiveThreads", description = "The number of active Netty worker threads.")
+    @Override
+    protected int getServicePort() {
+        return this.coordinatorConfig.getServerPort();
+    }
+
+    @Override
+    protected String getServiceName() {
+        return SERVICE_NAME;
+    }
+
+    @JmxGetter(name = "numberOfActiveThreads",
+            description = "The number of active Netty worker threads.")
     public int getNumberOfActiveThreads() {
         return this.workerPool.getActiveCount();
     }
 
-    @JmxGetter(name = "numberOfThreads", description = "The total number of Netty worker threads, active and idle.")
+    @JmxGetter(name = "numberOfThreads",
+            description = "The total number of Netty worker threads, active and idle.")
     public int getNumberOfThreads() {
         return this.workerPool.getPoolSize();
     }
 
-    @JmxGetter(name = "queuedRequests", description = "Number of requests in the Netty worker queue waiting to execute.")
+    @JmxGetter(name = "queuedRequests",
+            description = "Number of requests in the Netty worker queue waiting to execute.")
     public int getQueuedRequests() {
         return this.workerPool.getQueue().size();
     }
 
-    @JmxGetter(name = "averageGetCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averageGetCompletionTimeInMs",
+            description = "The avg. time in ms for GET calls to complete.")
     public double getAverageGetCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.GET);
     }
 
-    @JmxGetter(name = "averagePutCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averagePutCompletionTimeInMs",
+            description = "The avg. time in ms for GET calls to complete.")
     public double getAveragePutCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.PUT);
     }
 
-    @JmxGetter(name = "averageGetAllCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averageGetAllCompletionTimeInMs",
+            description = "The avg. time in ms for GET calls to complete.")
     public double getAverageGetAllCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.GET_ALL);
     }
 
-    @JmxGetter(name = "averageDeleteCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averageDeleteCompletionTimeInMs",
+            description = "The avg. time in ms for GET calls to complete.")
     public double getAverageDeleteCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.DELETE);
     }
@@ -393,4 +336,5 @@ public class CoordinatorService extends AbstractService {
     public double getQ99DeleteLatency() {
         return this.coordinatorPerfStats.getQ99LatencyInMs(Tracked.DELETE);
     }
+
 }
