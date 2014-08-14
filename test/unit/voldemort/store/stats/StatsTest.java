@@ -1,6 +1,7 @@
 package voldemort.store.stats;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static voldemort.utils.Time.NS_PER_MS;
@@ -120,12 +121,13 @@ public class StatsTest {
     public void statsShowSpuriousValues() {
         final long startTime = 1445468640; // Some start time : Oct 21, 2015
         final int resetDurationMs = 1000;
+        final int numberOfSampleWindows = 2;
         final int tinyDurationMs = 10;
         Time mockTime = mock(Time.class);
 
         when(mockTime.milliseconds()).thenReturn(startTime);
         RequestCounter rc = new RequestCounter("Tests.statsShowSpuriousValues",
-                                               resetDurationMs,
+                                               resetDurationMs / numberOfSampleWindows,
                                                mockTime);
 
         // Add some new stats and verify they were calculated correctly
@@ -138,50 +140,11 @@ public class StatsTest {
         // Jump into the counter window just a little (10 ms)
         when(mockTime.milliseconds()).thenReturn(startTime + tinyDurationMs);
 
-        // Throughput now
-        assertEquals(500d, rc.getThroughput(), 0.0f);
+        assertTrue("Throughput should not be absurdly high at beginning of window...", rc.getThroughput() <= 10);
 
-        // Do some more requests
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
-
-        // Jump into the counter window a lot more (700 ms)
-        when(mockTime.milliseconds()).thenReturn(startTime + 700);
-        assertEquals(10d, rc.getThroughput(), 0.0f);
-
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
-
-        // Jump into the future after the counter should have expired
+        // Jump in time past the reset duration
         when(mockTime.milliseconds()).thenReturn(startTime + resetDurationMs + 1);
-        // Make sure counter has expired
-        assertEquals(0d, rc.getThroughput(), 0.0f);
 
-        // Add some more stats and verify they were calculated correctly
-        rc.addRequest(100 * NS_PER_MS, 0, 1000, 100, 1);
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 2);
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 3);
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
-
-        // Jump into the counter window just a little again (10 ms)
-        when(mockTime.milliseconds()).thenReturn(startTime + resetDurationMs + 1 + tinyDurationMs);
-        assertEquals(500d, rc.getThroughput(), 0.0f);
-
-        // Jump into the future again after the counter should have expired
-        when(mockTime.milliseconds()).thenReturn(startTime + 2 * resetDurationMs + 2);
-        // Make sure counter has expired
-        assertEquals(0d, rc.getThroughput(), 0.0f);
-
-        // Add some more stats and verify they were calculated correctly
-        rc.addRequest(100 * NS_PER_MS, 0, 1000, 100, 1);
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 2);
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 3);
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 4);
-        rc.addRequest(50 * NS_PER_MS, 0, 1000, 100, 5);
-
-        // Jump into the counter window just a little (10 ms)
-        when(mockTime.milliseconds()).thenReturn(startTime + 2 * resetDurationMs + 2
-                                                 + tinyDurationMs);
-        assertEquals(500d, rc.getThroughput(), 0.0f);
+        assertEquals("Make sure counter's value has expired", 0d, rc.getThroughput(), 0.0f);
     }
 }
