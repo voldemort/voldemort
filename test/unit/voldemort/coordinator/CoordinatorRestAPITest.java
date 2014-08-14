@@ -1,12 +1,12 @@
 /*
  * Copyright 2013 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -136,6 +136,41 @@ public class CoordinatorRestAPITest {
         if(this.coordinator != null && this.coordinator.isStarted()) {
             this.coordinator.stop();
         }
+    }
+
+    public static enum ValueType {
+        ALPHA,
+        ALPHANUMERIC,
+        NUMERIC
+    }
+
+    public static String generateRandomString(int length, ValueType type) {
+
+        StringBuffer buffer = new StringBuffer();
+        String characters = "";
+
+        switch(type) {
+
+            case ALPHA:
+                characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                break;
+
+            case ALPHANUMERIC:
+                characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+                break;
+
+            case NUMERIC:
+                characters = "1234567890";
+                break;
+        }
+
+        int charactersLength = characters.length();
+
+        for(int i = 0; i < length; i++) {
+            double index = Math.random() * charactersLength;
+            buffer.append(characters.charAt((int) index));
+        }
+        return buffer.toString();
     }
 
     private VectorClock doPut(String key, String payload, VectorClock vc) {
@@ -306,8 +341,7 @@ public class CoordinatorRestAPITest {
             assertEquals("The number of body parts expected is not 1", 1, mp.getCount());
 
             MimeBodyPart part = (MimeBodyPart) mp.getBodyPart(0);
-            VectorClock vc =
-                    RestUtils.deserializeVectorClock(part.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK)[0]);
+            VectorClock vc = RestUtils.deserializeVectorClock(part.getHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK)[0]);
             int contentLength = Integer.parseInt(part.getHeader(RestMessageHeaders.CONTENT_LENGTH)[0]);
             byte[] bodyPartBytes = new byte[contentLength];
 
@@ -387,6 +421,46 @@ public class CoordinatorRestAPITest {
         String key = "Which_Porter_do_I_want_to_drink";
         String payload = "Founders Porter";
         String newPayload = "Samuel Smith Taddy Porter";
+
+        // 1. Do a put
+        doPut(key, payload, null);
+
+        // 2. Do a get on the same key
+        TestVersionedValue response = doGet(key, null);
+        if(response == null) {
+            fail("key does not exist after a put. ");
+        }
+        System.out.println("Received value: " + response.getValue());
+
+        // 3. Do a versioned put based on the version received previously
+        doPut(key, newPayload, response.getVc());
+
+        // 4. Do a get again on the same key
+        TestVersionedValue newResponse = doGet(key);
+        if(newResponse == null) {
+            fail("key does not exist after the versioned put. ");
+        }
+        assertEquals("Returned response does not have a higer version",
+                     Occurred.AFTER,
+                     newResponse.getVc().compare(response.getVc()));
+        assertEquals("Returned response does not have a higer version",
+                     Occurred.BEFORE,
+                     response.getVc().compare(newResponse.getVc()));
+
+        System.out.println("Received value after the Versioned put: " + newResponse.getValue());
+        if(!newResponse.getValue().equals(newPayload)) {
+            fail("Received value is incorrect ! Expected : " + newPayload + " but got : "
+                 + newResponse.getValue());
+        }
+    }
+
+    @Test
+    public void testLargeValueSizeVersionedPut() {
+        String key = "amigo";
+        String payload = generateRandomString(new CoordinatorConfig().getHttpMessageDecoderMaxChunkSize() * 10,
+                                              ValueType.ALPHA);
+        String newPayload = generateRandomString(new CoordinatorConfig().getHttpMessageDecoderMaxChunkSize() * 10,
+                                                 ValueType.ALPHA);
 
         // 1. Do a put
         doPut(key, payload, null);

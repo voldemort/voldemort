@@ -100,9 +100,9 @@ public class CoordinatorWorkerThread implements Runnable {
                                                                     REQUEST_TIMEOUT,
                                                                     "GET METADATA request timed out: "
                                                                             + e.getMessage());
+                            } else {
+                                getErrorHandler.handleExceptions(messageEvent, e);
                             }
-
-                            getErrorHandler.handleExceptions(messageEvent, e);
                         }
                         break;
 
@@ -157,9 +157,9 @@ public class CoordinatorWorkerThread implements Runnable {
                                                                     REQUEST_TIMEOUT,
                                                                     "GET request timed out: "
                                                                             + e.getMessage());
+                            } else {
+                                getErrorHandler.handleExceptions(messageEvent, e);
                             }
-
-                            getErrorHandler.handleExceptions(messageEvent, e);
                         }
                         break;
 
@@ -203,9 +203,9 @@ public class CoordinatorWorkerThread implements Runnable {
                                                                     REQUEST_TIMEOUT,
                                                                     "GET ALL request timed out: "
                                                                             + e.getMessage());
+                            } else {
+                                getErrorHandler.handleExceptions(messageEvent, e);
                             }
-
-                            getErrorHandler.handleExceptions(messageEvent, e);
                         }
                         break;
 
@@ -234,9 +234,9 @@ public class CoordinatorWorkerThread implements Runnable {
                                                                     REQUEST_TIMEOUT,
                                                                     "GET VERSION request timed out: "
                                                                             + e.getMessage());
+                            } else {
+                                getVersionErrorHandler.handleExceptions(messageEvent, e);
                             }
-
-                            getVersionErrorHandler.handleExceptions(messageEvent, e);
                         }
                         break;
 
@@ -278,9 +278,9 @@ public class CoordinatorWorkerThread implements Runnable {
                                                                     REQUEST_TIMEOUT,
                                                                     "PUT request timed out: "
                                                                             + e.getMessage());
+                            } else {
+                                putErrorHandler.handleExceptions(messageEvent, e);
                             }
-
-                            putErrorHandler.handleExceptions(messageEvent, e);
                         }
 
                         break;
@@ -324,21 +324,18 @@ public class CoordinatorWorkerThread implements Runnable {
                                                                     REQUEST_TIMEOUT,
                                                                     "DELETE request timed out: "
                                                                             + e.getMessage());
+                            } else {
+                                deleteErrorHandler.handleExceptions(messageEvent, e);
                             }
-
-                            deleteErrorHandler.handleExceptions(messageEvent, e);
                         }
                         break;
 
                     default:
                         System.err.println("Illegal operation.");
                         return;
-
                 }
 
             }
-
         }
-
     }
 }
