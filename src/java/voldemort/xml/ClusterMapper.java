@@ -21,7 +21,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 import javax.xml.XMLConstants;
@@ -130,11 +129,19 @@ public class ClusterMapper {
 
     private Zone readZone(Element zone) {
         int zoneId = Integer.parseInt(zone.getChildText(ZONE_ID_ELMT));
-        String proximityListTest = zone.getChildText(ZONE_PROXIMITY_LIST_ELMT).trim();
-        LinkedList<Integer> proximityList = new LinkedList<Integer>();
-        for(String node: Utils.COMMA_SEP.split(proximityListTest))
-            if(node.trim().length() > 0)
-                proximityList.add(Integer.parseInt(node.trim()));
+        String proximitListStr = zone.getChildText(ZONE_PROXIMITY_LIST_ELMT).trim();
+        List<Integer> proximityList = new ArrayList<Integer>();
+        for(String node: Utils.COMMA_SEP.split(proximitListStr))
+            if(node.trim().length() > 0) {
+                int proximityZoneId = Integer.parseInt(node.trim());
+                if(proximityZoneId == zoneId)
+                    continue;
+                // Not using a set here, as the ordering of the zone ids are
+                // important.
+                if(proximityList.contains(proximityZoneId) == false) {
+                    proximityList.add(proximityZoneId);
+                }
+            }
         return new Zone(zoneId, proximityList);
     }
 

@@ -118,6 +118,10 @@ public class StoreDefinition implements Serializable {
         this.owners = owners;
     }
 
+    private void throwIllegalException(String errorMessage) {
+        throw new IllegalArgumentException(" Store '" + this.name + "'. Error: " + errorMessage);
+    }
+
     protected void checkParameterLegality() {
 
         // null checks
@@ -127,39 +131,39 @@ public class StoreDefinition implements Serializable {
         Utils.notNull(valueSerializer);
 
         if(requiredReads < 1)
-            throw new IllegalArgumentException("Cannot have a requiredReads number less than 1.");
+            throwIllegalException("Cannot have a requiredReads number less than 1.");
         else if(requiredReads > replicationFactor)
-            throw new IllegalArgumentException("Cannot have more requiredReads then there are replicas.");
+            throwIllegalException("Cannot have more requiredReads then there are replicas.");
 
         if(requiredWrites < 1)
-            throw new IllegalArgumentException("Cannot have a requiredWrites number less than 1.");
+            throwIllegalException("Cannot have a requiredWrites number less than 1.");
         else if(requiredWrites > replicationFactor)
-            throw new IllegalArgumentException("Cannot have more requiredWrites then there are replicas.");
+            throwIllegalException("Cannot have more requiredWrites then there are replicas.");
 
         if(preferredWrites != null) {
             if(preferredWrites < requiredWrites)
-                throw new IllegalArgumentException("preferredWrites must be greater or equal to requiredWrites.");
+                throwIllegalException("preferredWrites must be greater or equal to requiredWrites.");
             if(preferredWrites > replicationFactor)
-                throw new IllegalArgumentException("Cannot have more preferredWrites then there are replicas.");
+                throwIllegalException("Cannot have more preferredWrites then there are replicas.");
         }
         if(preferredReads != null) {
             if(preferredReads < requiredReads)
-                throw new IllegalArgumentException("preferredReads must be greater or equal to requiredReads.");
+                throwIllegalException("preferredReads must be greater or equal to requiredReads.");
             if(preferredReads > replicationFactor)
-                throw new IllegalArgumentException("Cannot have more preferredReads then there are replicas.");
+                throwIllegalException("Cannot have more preferredReads then there are replicas.");
         }
 
         if(retentionPeriodDays != null && retentionPeriodDays < 0)
-            throw new IllegalArgumentException("Retention days must be non-negative.");
+            throwIllegalException("Retention days must be non-negative.");
 
         if(!SystemStoreConstants.isSystemStore(name) && zoneReplicationFactor != null
            && zoneReplicationFactor.size() != 0) {
 
             if(zoneCountReads == null || zoneCountReads < 0)
-                throw new IllegalArgumentException("Zone Counts reads must be non-negative / non-null");
+                throwIllegalException("Zone Counts reads must be non-negative / non-null");
 
             if(zoneCountWrites == null || zoneCountWrites < 0)
-                throw new IllegalArgumentException("Zone Counts writes must be non-negative");
+                throwIllegalException("Zone Counts writes must be non-negative");
 
             int sumZoneReplicationFactor = 0;
             int replicatingZones = 0;
@@ -172,33 +176,32 @@ public class StoreDefinition implements Serializable {
             }
 
             if(replicatingZones <= 0) {
-                throw new IllegalArgumentException("Cannot have no zones to replicate to. "
-                                                   + "Should have some positive zoneReplicationFactor");
+                throwIllegalException("Cannot have no zones to replicate to. "
+                                      + "Should have some positive zoneReplicationFactor");
             }
 
             // Check if sum of individual zones is equal to total replication
             // factor
             if(sumZoneReplicationFactor != replicationFactor) {
-                throw new IllegalArgumentException("Sum total of zones ("
-                                                   + sumZoneReplicationFactor
-                                                   + ") does not match the total replication factor ("
-                                                   + replicationFactor + ")");
+                throwIllegalException("Sum total of zones (" + sumZoneReplicationFactor
+                                      + ") does not match the total replication factor ("
+                                      + replicationFactor + ")");
             }
 
             // Check if number of zone-count-reads and zone-count-writes are
             // less than zones replicating to
             if(zoneCountReads >= replicatingZones) {
-                throw new IllegalArgumentException("Number of zones to block for while reading ("
-                                                   + zoneCountReads
-                                                   + ") should be less then replicating zones ("
-                                                   + replicatingZones + ")");
+                throwIllegalException("Number of zones to block for while reading ("
+                                      + zoneCountReads
+                                      + ") should be less then replicating zones ("
+                                      + replicatingZones + ")");
             }
 
             if(zoneCountWrites >= replicatingZones) {
-                throw new IllegalArgumentException("Number of zones to block for while writing ("
-                                                   + zoneCountWrites
-                                                   + ") should be less then replicating zones ("
-                                                   + replicatingZones + ")");
+                throwIllegalException("Number of zones to block for while writing ("
+                                      + zoneCountWrites
+                                      + ") should be less then replicating zones ("
+                                      + replicatingZones + ")");
             }
         }
     }

@@ -1,8 +1,10 @@
 package voldemort.cluster;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 
 public class Zone implements Serializable, Comparable<Zone> {
 
@@ -11,11 +13,11 @@ public class Zone implements Serializable, Comparable<Zone> {
     public static final int UNSET_ZONE_ID = -1;
 
     private int zoneId;
-    private LinkedList<Integer> proximityList;
+    private List<Integer> proximityList;
 
-    public Zone(int zoneId, LinkedList<Integer> proximityList) {
+    public Zone(int zoneId, List<Integer> proximityList) {
         this.zoneId = zoneId;
-        this.proximityList = proximityList;
+        this.proximityList = new ArrayList<Integer>(proximityList);
     }
 
     public Zone() {
@@ -72,7 +74,7 @@ public class Zone implements Serializable, Comparable<Zone> {
         return this.zoneId;
     }
 
-    public LinkedList<Integer> getProximityList() {
+    public List<Integer> getProximityList() {
         return proximityList;
     }
 }

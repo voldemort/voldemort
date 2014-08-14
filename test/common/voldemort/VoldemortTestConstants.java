@@ -99,6 +99,10 @@ public class VoldemortTestConstants {
         return readString("config/four-node-cluster-with-zones.xml");
     }
 
+    public static String getInvalidFourNodeClusterWithZonesXml() {
+        return readString("config/four-node-cluster-with-zones-invalid.xml");
+    }
+
     public static String getEightNodeClusterWithZonesXml() {
         return readString("config/eight-node-cluster-with-zones.xml");
     }
