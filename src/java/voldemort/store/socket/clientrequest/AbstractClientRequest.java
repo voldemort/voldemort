@@ -107,4 +107,8 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
         return isTimedOut;
     }
 
+    public void setError(IOException e) {
+        error = e;
+    }
+
 }

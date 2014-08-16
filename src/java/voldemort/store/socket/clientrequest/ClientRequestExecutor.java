@@ -43,6 +43,7 @@ import voldemort.utils.Time;
  * {@link #addClientRequest(ClientRequest) request can be executed}.
  * 
  * @see SelectorManagerWorker
+ * 
  * @see ClientRequestExecutorPool
  */
 
@@ -122,7 +123,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
         outputStream.getBuffer().clear();
 
-        boolean wasSuccessful = clientRequest.formatRequest(new DataOutputStream(outputStream));
+        boolean isSuccess = clientRequest.formatRequest(new DataOutputStream(outputStream));
 
         if(logger.isTraceEnabled())
             traceInputBufferState("About to clear read buffer");
@@ -137,22 +138,31 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
         outputStream.getBuffer().flip();
 
-        if(wasSuccessful) {
+        if(isSuccess) {
             SelectionKey selectionKey = socketChannel.keyFor(selector);
 
             if(selectionKey != null) {
-                selectionKey.interestOps(SelectionKey.OP_WRITE);
-
-                // This wakeup is required because it's invoked by the calling
-                // code in a different thread than the SelectorManager.
-                selector.wakeup();
+                try {
+                    int interestOps = internalWrite();
+                    if(interestOps != -1) {
+                        selectionKey.interestOps(interestOps);
+                        selector.wakeup();
+                    } else {
+                        isSuccess = false;
+                    }
+                } catch(IOException e) {
+                    clientRequest.setError(e);
+                    isSuccess = false;
+                }
             } else {
                 if(logger.isDebugEnabled())
                     logger.debug("Client associated with " + socketChannel.socket()
                                  + " was not registered with Selector " + selector
                                  + ", assuming initial protocol negotiation");
             }
-        } else {
+        }
+
+        if(!isSuccess) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn("Client associated with " + socketChannel.socket()
                             + " did not successfully buffer output for request");
@@ -236,17 +246,34 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     @Override
     protected void write(SelectionKey selectionKey) throws IOException {
-        if(!checkTimeout())
-            return;
+        int interestOps = internalWrite();
+
+        // If we're not streaming writes, signal the Selector that we're
+        // ready to read the next request.
+        if(interestOps == SelectionKey.OP_READ) {
+            selectionKey.interestOps(SelectionKey.OP_READ);
+        }
+    }
+
+    private int internalWrite() throws IOException {
+        if(!checkTimeout()) {
+            logger.warn(" Write timed out, returning " + socketChannel.socket());
+            return -1;
+        }
+
+        // uses a local variable to point to request to prevent racing condition
+        // when atomicNullOutClientRequest() is called by another thread
+        ClientRequest<?> request = clientRequest;
 
         if(outputStream.getBuffer().hasRemaining()) {
             // If we have data, write what we can now...
             int count = socketChannel.write(outputStream.getBuffer());
 
-            if(logger.isTraceEnabled())
-                logger.trace("Wrote " + count + " bytes, remaining: "
-                             + outputStream.getBuffer().remaining() + " for "
-                             + socketChannel.socket());
+            if(logger.isTraceEnabled()) {
+                logger.warn("Wrote " + count + " bytes, remaining: "
+                            + outputStream.getBuffer().remaining() + " for "
+                            + socketChannel.socket());
+            }
         } else {
             if(logger.isTraceEnabled())
                 logger.trace("Wrote no bytes for " + socketChannel.socket());
@@ -255,8 +282,9 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         // If there's more to write but we didn't write it, we'll take that to
         // mean that we're done here. We don't clear or reset anything. We leave
         // our buffer state where it is and try our luck next time.
-        if(outputStream.getBuffer().hasRemaining())
-            return;
+        if(outputStream.getBuffer().hasRemaining()) {
+            return SelectionKey.OP_WRITE;
+        }
 
         // If we don't have anything else to write, that means we're done with
         // the request! So clear the buffers (resizing if necessary).
@@ -267,7 +295,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
         // If we're not streaming writes, signal the Selector that we're
         // ready to read the next request.
-        selectionKey.interestOps(SelectionKey.OP_READ);
+        return SelectionKey.OP_READ;
     }
 
     /**

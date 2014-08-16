@@ -139,4 +139,6 @@ public interface ClientRequest<T> {
      */
 
     public boolean isTimedOut();
+
+    public void setError(IOException e);
 }

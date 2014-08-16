@@ -485,6 +485,12 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         public boolean isTimedOut() {
             return clientRequest.isTimedOut();
         }
+
+        @Override
+        public void setError(IOException e) {
+            clientRequest.setError(e);
+        }
+
     }
 
 }

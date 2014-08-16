@@ -85,4 +85,8 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         return delegate.isTimedOut();
     }
 
+    public void setError(IOException e) {
+        delegate.setError(e);
+    }
+
 }

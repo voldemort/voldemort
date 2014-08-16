@@ -71,6 +71,45 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         this.nioStats = nioStats;
     }
 
+    protected void prepForWrite(SelectionKey selectionKey) throws IOException {
+        boolean useSelector = true;
+        if(streamRequestHandler != null) {
+            useSelector = false;
+        }
+        prepForWrite(selectionKey, useSelector);
+
+    }
+
+    /**
+     * Flips the output buffer, and lets the Selector know we're ready to write.
+     * 
+     * @param selectionKey
+     */
+
+    protected void prepForWrite(SelectionKey selectionKey, boolean useSelector) throws IOException {
+        if(logger.isTraceEnabled())
+            traceInputBufferState("About to clear read buffer");
+
+        if(inputStream.getBuffer().capacity() >= resizeThreshold)
+            inputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
+        else
+            inputStream.getBuffer().clear();
+
+        if(logger.isTraceEnabled())
+            traceInputBufferState("Cleared read buffer");
+
+        outputStream.getBuffer().flip();
+        if(useSelector == false) {
+            selectionKey.interestOps(SelectionKey.OP_WRITE);
+        } else {
+            int interestOps = internalWrite(selectionKey);
+            if(interestOps != -1) {
+                selectionKey.interestOps(interestOps);
+                selector.wakeup();
+            }
+        }
+    }
+
     @Override
     protected void read(SelectionKey selectionKey) throws IOException {
         int count = 0;
@@ -154,8 +193,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         prepForWrite(selectionKey);
     }
 
-    @Override
-    protected void write(SelectionKey selectionKey) throws IOException {
+    private int internalWrite(SelectionKey selectionKey) throws IOException {
         if(outputStream.getBuffer().hasRemaining()) {
             // If we have data, write what we can now...
             try {
@@ -183,7 +221,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         // mean that we're done here. We don't clear or reset anything. We leave
         // our buffer state where it is and try our luck next time.
         if(outputStream.getBuffer().hasRemaining())
-            return;
+            return SelectionKey.OP_WRITE;
 
         // If we don't have anything else to write, that means we're done with
         // the request! So clear the buffers (resizing if necessary).
@@ -202,10 +240,20 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
                 logger.trace("Request is streaming for " + socketChannel.socket());
 
             handleStreamRequest(selectionKey);
+            return -1;
         } else {
             // If we're not streaming writes, signal the Selector that we're
             // ready to read the next request.
-            selectionKey.interestOps(SelectionKey.OP_READ);
+            return SelectionKey.OP_READ;
+        }
+
+    }
+
+    @Override
+    protected void write(SelectionKey selectionKey) throws IOException {
+        int interestOps = internalWrite(selectionKey);
+        if(interestOps != -1) {
+            selectionKey.interestOps(interestOps);
         }
     }
 
@@ -325,7 +373,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
             streamRequestHandler.close(dataOutputStream);
             streamRequestHandler = null;
 
-            prepForWrite(selectionKey);
+            prepForWrite(selectionKey, false);
 
             close();
         }
@@ -358,13 +406,6 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
                 logger.info("Protocol negotiated for " + socketChannel.socket() + ": "
                             + requestFormatType.getDisplayName());
 
-            // The protocol negotiation is the first request, so respond by
-            // sticking the bytes in the output buffer, signaling the Selector,
-            // and returning false to denote no further processing is needed.
-            outputStream.getBuffer().put(ByteUtils.getBytes("ok", "UTF-8"));
-            prepForWrite(selectionKey);
-
-            return false;
         } catch(IllegalArgumentException e) {
             // okay we got some nonsense. For backwards compatibility,
             // assume this is an old client who does not know how to negotiate
@@ -377,6 +418,22 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
             return true;
         }
+
+        try {
+            // The protocol negotiation is the first request, so respond by
+            // sticking the bytes in the output buffer, signaling the Selector,
+            // and returning false to denote no further processing is needed.
+            outputStream.getBuffer().put(ByteUtils.getBytes("ok", "UTF-8"));
+            prepForWrite(selectionKey);
+        } catch(IOException e) {
+            if(logger.isInfoEnabled()) {
+                logger.info("Error while preparing for write " + socketChannel.socket()
+                            + ", message " + e.getMessage(), e);
+            }
+        }
+
+        return false;
+
     }
 
     @Override

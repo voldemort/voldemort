@@ -177,28 +177,6 @@ public abstract class SelectorManagerWorker implements Runnable {
         return isClosed.get();
     }
 
-    /**
-     * Flips the output buffer, and lets the Selector know we're ready to write.
-     * 
-     * @param selectionKey
-     */
-
-    protected void prepForWrite(SelectionKey selectionKey) {
-        if(logger.isTraceEnabled())
-            traceInputBufferState("About to clear read buffer");
-
-        if(inputStream.getBuffer().capacity() >= resizeThreshold)
-            inputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
-        else
-            inputStream.getBuffer().clear();
-
-        if(logger.isTraceEnabled())
-            traceInputBufferState("Cleared read buffer");
-
-        outputStream.getBuffer().flip();
-        selectionKey.interestOps(SelectionKey.OP_WRITE);
-    }
-
     protected void handleIncompleteRequest(int newPosition) {
         if(logger.isTraceEnabled())
             traceInputBufferState("Incomplete read request detected, before update");
