@@ -1,6 +1,8 @@
 package voldemort.store.rocksdb;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -11,6 +13,9 @@ import junit.framework.Assert;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.TestUtils;
 import voldemort.server.VoldemortConfig;
@@ -22,12 +27,24 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+@RunWith(Parameterized.class)
 public class RocksdbStorageEngineAPITest {
 
     RocksDbStorageConfiguration rocksDbConfig;
     RocksDbStorageEngine rocksDbStore;
     Random random;
     VoldemortConfig voldemortConfig;
+    private boolean prefixPartitionId;
+
+    public RocksdbStorageEngineAPITest(boolean prefixPartitionId) {
+        this.prefixPartitionId = prefixPartitionId;
+    }
+
+    @Parameters
+    public static Collection<Object[]> modes() {
+        Object[][] data = new Object[][] { { true }, { false } };
+        return Arrays.asList(data);
+    }
 
     @Before
     public void setup() {
@@ -39,6 +56,9 @@ public class RocksdbStorageEngineAPITest {
         props.setProperty("voldemort.home", "tmp/voldemort");
 
         voldemortConfig = new VoldemortConfig(props);
+        if(this.prefixPartitionId) {
+            voldemortConfig.setRocksdbPrefixKeysWithPartitionId(true);
+        }
         this.rocksDbConfig = new RocksDbStorageConfiguration(voldemortConfig);
         this.rocksDbStore = (RocksDbStorageEngine) rocksDbConfig.getStore(TestUtils.makeStoreDefinition("test"),
                                                                           TestUtils.makeSingleNodeRoutingStrategy());
@@ -224,7 +244,7 @@ public class RocksdbStorageEngineAPITest {
         Map<ByteArray, List<Versioned<byte[]>>> found = null;
         try {
             // do getall
-            found = this.rocksDbStore.getAll(null, null);
+            found = this.rocksDbStore.getAll(expected.keySet(), null);
         } catch(PersistenceFailureException pfe) {
             Assert.fail("Get all operation did not succeed for some reason - " + pfe.getMessage());
         }
