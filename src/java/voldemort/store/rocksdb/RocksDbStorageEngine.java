@@ -123,9 +123,24 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
         StoreUtils.assertValidKey(key);
 
         synchronized(this.locks.lockFor(key.get())) {
-            // get the value
-            List<Versioned<byte[]>> currentValues = get(key, transforms);
-
+            /*
+             * Get the existing values. Make sure to "get" from the underlying
+             * storage instead of using the get method described in this class.
+             * Invoking the get method from this class will unnecessarily double
+             * prefix the key in case of PartitionPrefixedRocksdbStorageEngine
+             * and can cause unpredictable results.
+             */
+            List<Versioned<byte[]>> currentValues;
+            try {
+                byte[] result = getRocksDB().get(key.get());
+                if(result != null) {
+                    currentValues = StoreBinaryFormat.fromByteArray(result);
+                } else {
+                    currentValues = Collections.emptyList();
+                }
+            } catch(RocksDBException rocksdbException) {
+                throw new PersistenceFailureException(rocksdbException);
+            }
             if(currentValues.size() > 0) {
                 // compare vector clocks and throw out old ones, for updates
                 Iterator<Versioned<byte[]>> iter = currentValues.iterator();
@@ -229,18 +244,43 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
     }
 
     @Override
+    public List<Version> getVersions(ByteArray key) {
+        /*
+         * getVersions is a wrapper over get and filters away the value before
+         * returning the result
+         */
+        return StoreUtils.getVersions(get(key, null));
+    }
+
+    @Override
     public List<Versioned<byte[]>> multiVersionPut(ByteArray key, List<Versioned<byte[]>> values) {
         // TODO Implement getandLock() and putAndUnlock() and then remove this
         // method
         StoreUtils.assertValidKey(key);
-        List<Versioned<byte[]>> valuesInStorage = null;
+        List<Versioned<byte[]>> currentValues = null;
         List<Versioned<byte[]>> obsoleteVals = null;
 
         synchronized(this.locks.lockFor(key.get())) {
-            valuesInStorage = get(key, null);
-            obsoleteVals = resolveAndConstructVersionsToPersist(valuesInStorage, values);
+            /*
+             * Get the existing values. Make sure to "get" from the underlying
+             * storage instead of using the get method described in this class.
+             * Invoking the get method from this class will unnecessarily double
+             * prefix the key in case of PartitionPrefixedRocksdbStorageEngine
+             * and can cause unpredictable results.
+             */
             try {
-                getRocksDB().put(key.get(), StoreBinaryFormat.toByteArray(valuesInStorage));
+                byte[] result = getRocksDB().get(key.get());
+                if(result != null) {
+                    currentValues = StoreBinaryFormat.fromByteArray(result);
+                } else {
+                    currentValues = new ArrayList<Versioned<byte[]>>();
+                }
+            } catch(RocksDBException rocksdbException) {
+                throw new PersistenceFailureException(rocksdbException);
+            }
+            obsoleteVals = resolveAndConstructVersionsToPersist(currentValues, values);
+            try {
+                getRocksDB().put(key.get(), StoreBinaryFormat.toByteArray(currentValues));
             } catch(RocksDBException rocksdbException) {
                 throw new PersistenceFailureException(rocksdbException);
             } finally {
