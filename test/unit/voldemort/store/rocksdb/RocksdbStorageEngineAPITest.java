@@ -2,6 +2,7 @@ package voldemort.store.rocksdb;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 
@@ -193,4 +194,51 @@ public class RocksdbStorageEngineAPITest {
         testDelete(key, conflictingVersions.get(0).getVersion());
     }
 
+    @Test
+    public void testGetAll() {
+        System.out.println("*********** testing get all ***********");
+        Map<ByteArray, Versioned<byte[]>> expected = new java.util.HashMap<ByteArray, Versioned<byte[]>>();
+
+        ByteArray key1, key2;
+        Versioned<byte[]> value1, value2;
+        key1 = generateRandomKeys(50);
+        value1 = generateVersionedValue(100);
+        try {
+            // do first put
+            this.rocksDbStore.put(key1, value1, null);
+        } catch(PersistenceFailureException pfe) {
+            Assert.fail("Could not do a put. Unexpectedlt getting exception - " + pfe.getMessage());
+        }
+        expected.put(key1, value1);
+
+        key2 = generateRandomKeys(50);
+        value2 = generateVersionedValue(100);
+        try {
+            // do second put
+            this.rocksDbStore.put(key2, value2, null);
+        } catch(PersistenceFailureException pfe) {
+            Assert.fail("Could not do a put. Unexpectedlt getting exception - " + pfe.getMessage());
+        }
+        expected.put(key2, value2);
+
+        Map<ByteArray, List<Versioned<byte[]>>> found = null;
+        try {
+            // do getall
+            found = this.rocksDbStore.getAll(null, null);
+        } catch(PersistenceFailureException pfe) {
+            Assert.fail("Get all operation did not succeed for some reason - " + pfe.getMessage());
+        }
+
+        if(found.size() == 0) {
+            Assert.fail("GetAll returned an empty value unexpectedly");
+        }
+
+        // Checking if the values are same. May need to check the version later
+        for(ByteArray key: found.keySet()) {
+            Versioned<byte[]> value = found.get(key).get(0);
+            if(ByteUtils.compare(value.getValue(), expected.get(key).getValue()) != 0) {
+                Assert.fail("The found value and expected value dont match!");
+            }
+        }
+    }
 }
