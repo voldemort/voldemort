@@ -1,5 +1,7 @@
 package voldemort.store.rocksdb;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -10,6 +12,7 @@ import java.util.Random;
 
 import junit.framework.Assert;
 
+import org.apache.commons.io.FileDeleteStrategy;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -66,8 +69,17 @@ public class RocksdbStorageEngineAPITest {
     }
 
     @After
-    public void tearDown() {
-        rocksDbConfig.close();
+    public void tearDown() throws IOException {
+        try {
+            rocksDbConfig.close();
+        } finally {
+            /*
+             * Make sure to blow the data directory after every test to have a
+             * clean set up for the next one.
+             */
+            File datadir = new File(this.voldemortConfig.getRdbDataDirectory() + "/test");
+            FileDeleteStrategy.FORCE.delete(datadir);
+        }
     }
 
     protected ByteArray generateRandomKeys(int length) {

@@ -82,6 +82,11 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
             throws PersistenceFailureException {
         // TODO read locks ?
         StoreUtils.assertValidKey(key);
+        long startTimeNs = -1;
+
+        if(logger.isTraceEnabled())
+            startTimeNs = System.nanoTime();
+
         List<Versioned<byte[]>> value = null;
         try {
             byte[] result = getRocksDB().get(key.get());
@@ -90,10 +95,16 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
             } else {
                 return Collections.emptyList();
             }
-        } catch(RocksDBException rocksdbException) {
-            throw new PersistenceFailureException(rocksdbException);
+        } catch(RocksDBException e) {
+            logger.error(e);
+            throw new PersistenceFailureException(e);
         } finally {
-            // TODO log time taken
+            if(logger.isTraceEnabled()) {
+                logger.trace("Completed GET (" + getName() + ") from key " + key + " (keyRef: "
+                             + System.identityHashCode(key) + ") in "
+                             + (System.nanoTime() - startTimeNs) + " ns at "
+                             + System.currentTimeMillis());
+            }
         }
         return value;
     }
@@ -104,14 +115,27 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
             throws VoldemortException {
         // TODO Does RocksDB multiget supports atomicity ?
         StoreUtils.assertValidKeys(keys);
+        long startTimeNs = -1;
+
+        if(logger.isTraceEnabled())
+            startTimeNs = System.nanoTime();
+
         Map<ByteArray, List<Versioned<byte[]>>> results = null;
 
         try {
             results = StoreUtils.getAll(this, keys, transforms);
-        } catch(PersistenceFailureException pfe) {
-            throw pfe;
+        } catch(PersistenceFailureException e) {
+            logger.error(e);
+            throw new PersistenceFailureException(e);
         } finally {
-            // TODO log time taken
+            if(logger.isTraceEnabled()) {
+                String keyStr = "";
+                for(ByteArray key: keys)
+                    keyStr += key + " ";
+                logger.trace("Completed GETALL (" + getName() + ") from keys " + keyStr + " in "
+                             + (System.nanoTime() - startTimeNs) + " ns at "
+                             + System.currentTimeMillis());
+            }
         }
 
         return results;
@@ -121,6 +145,11 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
+
+        long startTimeNs = -1;
+
+        if(logger.isTraceEnabled())
+            startTimeNs = System.nanoTime();
 
         synchronized(this.locks.lockFor(key.get())) {
             /*
@@ -138,8 +167,9 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
                 } else {
                     currentValues = Collections.emptyList();
                 }
-            } catch(RocksDBException rocksdbException) {
-                throw new PersistenceFailureException(rocksdbException);
+            } catch(RocksDBException e) {
+                logger.error(e);
+                throw new PersistenceFailureException(e);
             }
             if(currentValues.size() > 0) {
                 // compare vector clocks and throw out old ones, for updates
@@ -167,10 +197,16 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
             try {
                 getRocksDB().put(key.get(), StoreBinaryFormat.toByteArray(currentValues));
-            } catch(RocksDBException rocksdbException) {
-                throw new PersistenceFailureException(rocksdbException);
+            } catch(RocksDBException e) {
+                logger.error(e);
+                throw new PersistenceFailureException(e);
             } finally {
-                // TODO logging
+                if(logger.isTraceEnabled()) {
+                    logger.trace("Completed PUT (" + getName() + ") to key " + key + " (keyRef: "
+                                 + System.identityHashCode(key) + " value " + value + " in "
+                                 + (System.nanoTime() - startTimeNs) + " ns at "
+                                 + System.currentTimeMillis());
+                }
             }
         }
     }
@@ -182,8 +218,8 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
         long startTimeNs = -1;
 
-        // if(logger.isTraceEnabled())
-        startTimeNs = System.nanoTime();
+        if(logger.isTraceEnabled())
+            startTimeNs = System.nanoTime();
 
         synchronized(this.locks.lockFor(key.get())) {
             try {
@@ -257,6 +293,12 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
         // TODO Implement getandLock() and putAndUnlock() and then remove this
         // method
         StoreUtils.assertValidKey(key);
+
+        long startTimeNs = -1;
+
+        if(logger.isTraceEnabled())
+            startTimeNs = System.nanoTime();
+
         List<Versioned<byte[]>> currentValues = null;
         List<Versioned<byte[]>> obsoleteVals = null;
 
@@ -275,16 +317,27 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
                 } else {
                     currentValues = new ArrayList<Versioned<byte[]>>();
                 }
-            } catch(RocksDBException rocksdbException) {
-                throw new PersistenceFailureException(rocksdbException);
+            } catch(RocksDBException e) {
+                logger.error(e);
+                throw new PersistenceFailureException(e);
             }
             obsoleteVals = resolveAndConstructVersionsToPersist(currentValues, values);
             try {
                 getRocksDB().put(key.get(), StoreBinaryFormat.toByteArray(currentValues));
-            } catch(RocksDBException rocksdbException) {
-                throw new PersistenceFailureException(rocksdbException);
+            } catch(RocksDBException e) {
+                logger.error(e);
+                throw new PersistenceFailureException(e);
             } finally {
-                // TODO logging
+                if(logger.isTraceEnabled()) {
+                    String valueStr = "";
+                    for(Versioned<byte[]> val: currentValues) {
+                        valueStr += val + ",";
+                    }
+                    logger.trace("Completed PUT (" + getName() + ") to key " + key + " (keyRef: "
+                                 + System.identityHashCode(key) + " values " + valueStr + " in "
+                                 + (System.nanoTime() - startTimeNs) + " ns at "
+                                 + System.currentTimeMillis());
+                }
             }
         }
         return obsoleteVals;
