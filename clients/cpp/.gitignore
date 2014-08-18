@@ -24,3 +24,7 @@ depcomp
 *~
 stamp-h1
 voldemort.pc
+compile
+test-driver
+*.log
+*.trs

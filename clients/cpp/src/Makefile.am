@@ -77,4 +77,4 @@ libvoldemort_la_SOURCES = \
 
 libvoldemort_la_LDFLAGS = $(BOOST_LDFLAGS) \
 	-version-info $(VERSION_INFO)
-libvoldemort_la_LIBADD = $(BOOST_ASIO_LIB) $(BOOST_THREAD_LIB)
+libvoldemort_la_LIBADD = $(BOOST_ASIO_LIB) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) 
