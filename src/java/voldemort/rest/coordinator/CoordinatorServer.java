@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -34,18 +34,13 @@ import voldemort.utils.Utils;
 import com.google.common.collect.ImmutableList;
 
 /**
- * This is the main coordinator server, it bootstraps all the services.
- * 
- * It can be embedded or run directly via it's main method.
- * 
- * 
+ * This is the main coordinator server, it bootstraps all the services. It can
+ * be embedded or run directly via it's main method.
  */
 public class CoordinatorServer extends AbstractService {
 
     private static final Logger logger = Logger.getLogger(CoordinatorServer.class.getName());
-
     private final List<VoldemortService> services;
-
     private final CoordinatorConfig config;
 
     public CoordinatorServer(CoordinatorConfig config) {
@@ -55,11 +50,10 @@ public class CoordinatorServer extends AbstractService {
     }
 
     private List<VoldemortService> createServices() {
-        /* Services are given in the order they must be started */
         List<VoldemortService> services = new ArrayList<VoldemortService>();
-        CoordinatorService coordinator = new CoordinatorService(config);
+        CoordinatorProxyService coordinator = new CoordinatorProxyService(config);
         services.add(coordinator);
-        if(config.isAdminServiceEnabled()) {
+        if (config.isAdminServiceEnabled()) {
             services.add(new CoordinatorAdminService(config));
         }
         return ImmutableList.copyOf(services);
@@ -69,32 +63,26 @@ public class CoordinatorServer extends AbstractService {
     protected void startInner() throws VoldemortException {
         logger.info("Starting " + services.size() + " services.");
         long start = System.currentTimeMillis();
-        for(VoldemortService service: services) {
+        for (VoldemortService service: services) {
             service.start();
         }
         long end = System.currentTimeMillis();
         logger.info("Coordinator startup completed in " + (end - start) + " ms.");
     }
 
-    /**
-     * Attempt to shutdown the server. As much shutdown as possible will be
-     * completed, even if intermediate errors are encountered.
-     * 
-     * @throws VoldemortException
-     */
     @Override
     protected void stopInner() throws VoldemortException {
         List<VoldemortException> exceptions = new ArrayList<VoldemortException>();
         /* Stop in reverse order */
-        for(VoldemortService service: Utils.reversed(services)) {
+        for (VoldemortService service: Utils.reversed(services)) {
             try {
                 service.stop();
-            } catch(VoldemortException e) {
+            } catch (VoldemortException e) {
                 exceptions.add(e);
                 logger.error(e);
             }
         }
-        if(exceptions.size() > 0) {
+        if (exceptions.size() > 0) {
             throw exceptions.get(0);
         }
     }
@@ -102,18 +90,17 @@ public class CoordinatorServer extends AbstractService {
     public static void main(String[] args) throws Exception {
         CoordinatorConfig config = null;
         try {
-            if(args.length != 1) {
-                croak("USAGE: java " + CoordinatorService.class.getName()
-                      + " <coordinator_config_file>");
+            if (args.length != 1) {
+                croak("USAGE: java " + CoordinatorProxyService.class.getName() + " <coordinator_config_file>");
                 System.exit(-1);
             }
             config = new CoordinatorConfig(new File(args[0]));
-        } catch(Exception e) {
+        } catch (Exception e) {
             logger.error(e);
             Utils.croak("Error while loading configuration: " + e.getMessage());
         }
         final CoordinatorServer coordinatorServer = new CoordinatorServer(config);
-        if(!coordinatorServer.isStarted()) {
+        if (!coordinatorServer.isStarted()) {
             coordinatorServer.start();
         }
     }
@@ -123,8 +110,8 @@ public class CoordinatorServer extends AbstractService {
     }
 
     public VoldemortService getService(ServiceType type) {
-        for(VoldemortService service: services)
-            if(service.getType().equals(type))
+        for (VoldemortService service: services)
+            if (service.getType().equals(type))
                 return service;
         throw new IllegalStateException(type.getDisplayName() + " has not been initialized.");
     }
@@ -132,5 +119,4 @@ public class CoordinatorServer extends AbstractService {
     public CoordinatorConfig getCoordinatorConfig() {
         return this.config;
     }
-
 }

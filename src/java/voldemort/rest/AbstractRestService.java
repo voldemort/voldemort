@@ -13,7 +13,7 @@ import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import voldemort.common.service.AbstractService;
 import voldemort.common.service.ServiceType;
 import voldemort.rest.coordinator.CoordinatorConfig;
-import voldemort.rest.coordinator.CoordinatorService;
+import voldemort.rest.coordinator.CoordinatorProxyService;
 import voldemort.utils.JmxUtils;
 
 public abstract class AbstractRestService extends AbstractService {
@@ -24,7 +24,7 @@ public abstract class AbstractRestService extends AbstractService {
     private ServerBootstrap bootstrap = null;
     private Channel channel = null;
 
-    private static final Logger logger = Logger.getLogger(CoordinatorService.class);
+    private static final Logger logger = Logger.getLogger(CoordinatorProxyService.class);
 
     public AbstractRestService(ServiceType type, CoordinatorConfig config) {
         super(type);
@@ -47,8 +47,7 @@ public abstract class AbstractRestService extends AbstractService {
         initialize();
         // Configure the service
         this.workerPool = (ThreadPoolExecutor) Executors.newCachedThreadPool();
-        this.bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
-                                                                               workerPool));
+        this.bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(), workerPool));
         this.bootstrap.setOption("backlog", this.coordinatorConfig.getNettyServerBacklog());
         this.bootstrap.setOption("child.tcpNoDelay", true);
         this.bootstrap.setOption("child.keepAlive", true);
@@ -58,9 +57,8 @@ public abstract class AbstractRestService extends AbstractService {
         this.bootstrap.setPipelineFactory(getPipelineFactory());
 
         // Assuming JMX is always enabled for service
-        JmxUtils.registerMbean(this,
-                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                         JmxUtils.getClassName(this.getClass())));
+        JmxUtils.registerMbean(this, JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                               JmxUtils.getClassName(this.getClass())));
 
         // Register MBeans for connection stats
         JmxUtils.registerMbean(this.connectionStats,
@@ -69,7 +67,6 @@ public abstract class AbstractRestService extends AbstractService {
 
         // Bind and start to accept incoming connections.
         this.channel = this.bootstrap.bind(new InetSocketAddress(getServicePort()));
-
         logger.info(getServiceName() + " service started on port " + getServicePort());
     }
 
@@ -78,7 +75,6 @@ public abstract class AbstractRestService extends AbstractService {
         if(this.channel != null) {
             this.channel.close();
         }
-
         JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
                                                            JmxUtils.getClassName(this.getClass())));
     }

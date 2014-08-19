@@ -35,55 +35,43 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import voldemort.rest.RestErrorHandler;
 import voldemort.rest.RestMessageHeaders;
 
-/**
- * Class to handle a REST request and send response back to the client
- *
- */
-public class AdminRequestHandler extends SimpleChannelHandler {
+public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
 
     public HttpRequest request;
     private boolean readingChunks;
-    private final Logger logger = Logger.getLogger(AdminRequestHandler.class);
+    private final Logger logger = Logger.getLogger(CoordinatorAdminRequestHandler.class);
 
     @Override
-    public void messageReceived(ChannelHandlerContext ctx, MessageEvent messageEvent)
-            throws Exception {
-
-        if(!readingChunks) {
-
-            // Construct the Request from messageEvent
+    public void messageReceived(ChannelHandlerContext ctx, MessageEvent messageEvent) throws Exception {
+        if (!readingChunks) {
             HttpRequest request = this.request = (HttpRequest) messageEvent.getMessage();
             String requestURI = this.request.getUri();
-            if(logger.isDebugEnabled()) {
+            if (logger.isDebugEnabled()) {
                 logger.debug("Request URI: " + requestURI);
             }
 
-            if(request.isChunked()) {
+            if (request.isChunked()) {
                 readingChunks = true;
             } else {
                 // Instantiate the appropriate error handler
                 HttpMethod httpMethod = request.getMethod();
-                if(httpMethod.equals(HttpMethod.GET)) {
+                if (httpMethod.equals(HttpMethod.GET)) {
                     if(logger.isDebugEnabled()) {
-                        logger.debug("Received a Http GET request at " + System.currentTimeMillis()
-                                     + " ms");
+                        logger.debug("Received a Http GET request at " + System.currentTimeMillis() + " ms");
                     }
                     // handleGet()
-                } else if(httpMethod.equals(HttpMethod.POST)) {
-                    if(logger.isDebugEnabled()) {
-                        logger.debug("Recieved a Http POST request at "
-                                     + System.currentTimeMillis() + " ms");
+                } else if (httpMethod.equals(HttpMethod.POST)) {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Recieved a Http POST request at " + System.currentTimeMillis() + " ms");
                     }
                     // handlePut
-                } else if(httpMethod.equals(HttpMethod.DELETE)) {
-                    if(logger.isDebugEnabled()) {
-                        logger.debug("Received a Http DELETE request at "
-                                     + System.currentTimeMillis() + " ms");
+                } else if (httpMethod.equals(HttpMethod.DELETE)) {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Received a Http DELETE request at " + System.currentTimeMillis() + " ms");
                     }
                     // handleDelete
                 } else {
-                    String errorMessage = "Illegal Http request received at "
-                                          + System.currentTimeMillis() + " ms";
+                    String errorMessage = "Illegal Http request received at " + System.currentTimeMillis() + " ms";
                     logger.error(errorMessage);
                     RestErrorHandler.writeErrorResponse(messageEvent, BAD_REQUEST, errorMessage);
                     return;
@@ -91,7 +79,7 @@ public class AdminRequestHandler extends SimpleChannelHandler {
             }
         } else {
             HttpChunk chunk = (HttpChunk) messageEvent.getMessage();
-            if(chunk.isLast()) {
+            if (chunk.isLast()) {
                 readingChunks = false;
             }
         }
@@ -99,12 +87,8 @@ public class AdminRequestHandler extends SimpleChannelHandler {
     }
 
     public void sendResponse(MessageEvent messageEvent) {
-        // Create the Response object
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, NO_CONTENT);
-
-        // Set the right headers
         response.setHeader(CONTENT_LENGTH, "0");
-
         response.setHeader(RestMessageHeaders.X_VOLD_VECTOR_CLOCK, "Sid");
         messageEvent.getChannel().write(response);
         logger.info("Sent");

@@ -41,7 +41,7 @@ import voldemort.ServerTestUtils;
 import voldemort.rest.RestMessageHeaders;
 import voldemort.rest.RestUtils;
 import voldemort.rest.coordinator.CoordinatorConfig;
-import voldemort.rest.coordinator.CoordinatorService;
+import voldemort.rest.coordinator.CoordinatorProxyService;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -59,7 +59,7 @@ public class CoordinatorRestAPITest {
                                                                                         10000,
                                                                                         100000,
                                                                                         32 * 1024);
-    private CoordinatorService coordinator = null;
+    private CoordinatorProxyService coordinator = null;
     private final String coordinatorURL = "http://localhost:8080";
 
     private class TestVersionedValue {
@@ -121,7 +121,7 @@ public class CoordinatorRestAPITest {
         config.setBootstrapURLs(bootstrapUrls);
         config.setFatClientConfigPath(FAT_CLIENT_CONFIG_FILE_PATH);
 
-        this.coordinator = new CoordinatorService(config);
+        this.coordinator = new CoordinatorProxyService(config);
         if(!this.coordinator.isStarted()) {
             this.coordinator.start();
         }
