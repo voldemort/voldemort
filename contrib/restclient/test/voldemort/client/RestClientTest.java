@@ -19,7 +19,7 @@ import org.junit.Test;
 import voldemort.ServerTestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.rest.coordinator.CoordinatorConfig;
-import voldemort.rest.coordinator.CoordinatorService;
+import voldemort.rest.coordinator.CoordinatorProxyService;
 import voldemort.restclient.RESTClientFactory;
 import voldemort.restclient.RESTClientFactoryConfig;
 import voldemort.server.VoldemortServer;
@@ -38,7 +38,7 @@ public class RestClientTest extends DefaultStoreClientTest {
 
     String[] bootStrapUrls = null;
     private VoldemortServer[] servers;
-    private CoordinatorService coordinator;
+    private CoordinatorProxyService coordinator;
     private Cluster cluster;
     public static String socketUrl = "";
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
@@ -83,7 +83,7 @@ public class RestClientTest extends DefaultStoreClientTest {
                          .setServerPort(9999);
 
         try {
-            coordinator = new CoordinatorService(coordinatorConfig);
+            coordinator = new CoordinatorProxyService(coordinatorConfig);
             coordinator.start();
         } catch(Exception e) {
             e.printStackTrace();

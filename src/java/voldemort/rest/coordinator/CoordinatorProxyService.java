@@ -1,12 +1,12 @@
 /*
- * Copyright 2013 LinkedIn, Inc
- * 
+ * Copyright 2014 LinkedIn, Inc
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -58,49 +58,47 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.base.Joiner;
 
 /*
- * A Netty based HTTP service that accepts REST requests from the Voldemort thin
- * clients and invokes the corresponding Fat client API.
+ * A Netty based service that accepts REST requests from the Voldemort thin clients and invokes the corresponding
+ * fat client API.
  */
-@JmxManaged(description = "A Coordinator Service for proxying Voldemort HTTP requests")
-public class CoordinatorService extends AbstractRestService {
+
+@JmxManaged(description = "Coordinator Service for proxying Voldemort requests from the thin client")
+
+public class CoordinatorProxyService extends AbstractRestService {
 
     private CoordinatorConfig coordinatorConfig = null;
     private SocketStoreClientFactory storeClientFactory = null;
     private AsyncMetadataVersionManager asyncMetadataManager = null;
     private final CoordinatorMetadata coordinatorMetadata;
     private SchedulerService schedulerService = null;
-    private static final Logger logger = Logger.getLogger(CoordinatorService.class);
+    private static final Logger logger = Logger.getLogger(CoordinatorProxyService.class);
     private Map<String, DynamicTimeoutStoreClient<ByteArray, byte[]>> fatClientMap = null;
     public final static Schema CLIENT_CONFIGS_AVRO_SCHEMA = Schema.parse("{ \"name\": \"clientConfigs\",  \"type\":\"array\","
                                                                          + "\"items\": { \"name\": \"clientConfig\", \"type\": \"map\", \"values\":\"string\" }}}");
     private static final String STORE_NAME_KEY = "store_name";
     private static final String IDENTIFIER_STRING_KEY = "identifier_string";
-
-    private static final String SERVICE_NAME = "coordinator";
-
     private final StoreStats coordinatorPerfStats;
 
-    public CoordinatorService(CoordinatorConfig config) {
-        super(ServiceType.COORDINATOR, config);
+    public CoordinatorProxyService(CoordinatorConfig config) {
+        super(ServiceType.COORDINATOR_PROXY, config);
         this.coordinatorConfig = config;
-        this.coordinatorPerfStats = new StoreStats("aggregate.coordinator-service");
+        this.coordinatorPerfStats = new StoreStats("aggregate.proxy-service");
         this.coordinatorMetadata = new CoordinatorMetadata();
     }
 
     /**
-     * Initializes all the Fat clients (1 per store) for the cluster that this
-     * Coordinator talks to. This is invoked once during startup and then every
-     * time the Metadata manager detects changes to the cluster and stores
-     * metadata.
+     * Initializes all the Fat clients (1 per store) for the cluster that this Coordinator talks to.
+     * This is invoked once during startup and then every time the Metadata manager detects changes to
+     * the cluster and stores metadata.
+     *
      */
     private void initializeFatClients() {
-        StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
+        StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
         // Fetch the state once and use this to initialize all the Fat clients
         String storesXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.STORES_KEY);
         String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-        List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml),
-                                                                       false);
+        List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml), false);
 
         // Update the Coordinator Metadata
         this.coordinatorMetadata.setMetadata(clusterXml, storeDefList);
@@ -108,18 +106,18 @@ public class CoordinatorService extends AbstractRestService {
         Map<String, SocketStoreClientFactory> fatClientFactoryMap = readClientConfig(this.coordinatorConfig.getFatClientConfigPath(),
                                                                                      this.coordinatorConfig.getBootstrapURLs());
 
-        // Do not recreate map if it already exists.
-        // This function might be called by the AsyncMetadataVersionManager if
-        // there is a metadata update on the server side
-        if(this.fatClientMap == null) {
+        // Do not recreate map if it already exists. This function might be called by the AsyncMetadataVersionManager
+        // if there is a metadata update on the server side
+
+        if (this.fatClientMap == null) {
             this.fatClientMap = new HashMap<String, DynamicTimeoutStoreClient<ByteArray, byte[]>>();
         }
 
-        for(StoreDefinition storeDef: storeDefList) {
+        for (StoreDefinition storeDef: storeDefList) {
             String storeName = storeDef.getName();
 
             // Initialize only those stores defined in the client configs file
-            if(fatClientFactoryMap.get(storeName) != null) {
+            if (fatClientFactoryMap.get(storeName) != null) {
                 DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = new DynamicTimeoutStoreClient<ByteArray, byte[]>(storeName,
                                                                                                                             fatClientFactoryMap.get(storeName),
                                                                                                                             1,
@@ -157,9 +155,6 @@ public class CoordinatorService extends AbstractRestService {
                 }
 
             };
-
-            // For now track changes in cluster.xml only
-            // TODO: Modify this to track stores.xml in the future
             asyncMetadataManager = new AsyncMetadataVersionManager(sysRepository,
                                                                    rebootstrapCallback,
                                                                    null);
@@ -171,14 +166,12 @@ public class CoordinatorService extends AbstractRestService {
                                       this.coordinatorConfig.getMetadataCheckIntervalInMs());
         } catch(BootstrapFailureException be) {
             /*
-             * While testing, the cluster may not be up, but we may still need
-             * to verify if the service deploys. Hence, catch a
-             * BootstrapFailureException if any, but continue to register the
-             * Netty service (and listener).
-             * 
-             * TODO: Modify the coordinator service to be more lazy. If it
-             * cannot initialize the fat clients during initialization, do this
-             * when we get an actual request.
+             * While testing, the cluster may not be up, but we may still need to verify if the service deploys.
+             * Hence, catch a BootstrapFailureException if any, but continue to register the Netty service (and
+             * listener).
+             *
+             * TODO: Modify the coordinator service to be more lazy. If it cannot initialize the fat clients during
+             * initialization, do this when we get an actual request.
              */
         }
     }
@@ -186,7 +179,7 @@ public class CoordinatorService extends AbstractRestService {
     /**
      * A function to parse the specified Avro file in order to obtain the config
      * for each fat client managed by this coordinator.
-     * 
+     *
      * @param configFilePath Path of the Avro file containing fat client configs
      * @param bootstrapURLs The server URLs used during bootstrap
      * @return Map of store name to the corresponding fat client config
@@ -207,17 +200,17 @@ public class CoordinatorService extends AbstractRestService {
                                                                                                                 decoder);
 
             // Flows to return back
-            if(flowMaps != null && flowMaps.size() > 0) {
-                for(Map<Utf8, Utf8> flowMap: flowMaps) {
+            if (flowMaps != null && flowMaps.size() > 0) {
+                for (Map<Utf8, Utf8> flowMap: flowMaps) {
                     Properties props = new Properties();
-                    for(Utf8 key: flowMap.keySet()) {
+                    for (Utf8 key: flowMap.keySet()) {
                         props.put(key.toString(), flowMap.get(key).toString());
                     }
 
                     String storeName = flowMap.get(new Utf8(STORE_NAME_KEY)).toString();
 
                     storeName = props.getProperty(STORE_NAME_KEY);
-                    if(storeName == null || storeName.length() == 0) {
+                    if (storeName == null || storeName.length() == 0) {
                         throw new Exception("Illegal Store Name !!!");
                     }
 
@@ -232,22 +225,16 @@ public class CoordinatorService extends AbstractRestService {
 
                     logger.info("Creating a Fat client for store: " + storeName);
                     logger.info("Using config: " + fatClientConfig);
-
                     storeFactoryMap.put(storeName, new SocketStoreClientFactory(fatClientConfig));
-
                 }
             }
-        } catch(FileNotFoundException e) {
-            // TODO Auto-generated catch block
+        } catch (FileNotFoundException e) {
             e.printStackTrace();
-        } catch(IOException e) {
-            // TODO Auto-generated catch block
+        } catch (IOException e) {
             e.printStackTrace();
-        } catch(Exception e) {
-            // TODO Auto-generated catch block
+        } catch (Exception e) {
             e.printStackTrace();
         }
-
         return storeFactoryMap;
     }
 
@@ -272,7 +259,7 @@ public class CoordinatorService extends AbstractRestService {
 
     @Override
     protected String getServiceName() {
-        return SERVICE_NAME;
+        return ServiceType.COORDINATOR_PROXY.getDisplayName();
     }
 
     @JmxGetter(name = "numberOfActiveThreads",

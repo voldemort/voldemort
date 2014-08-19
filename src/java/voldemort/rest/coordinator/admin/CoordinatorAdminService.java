@@ -1,12 +1,12 @@
 /*
- * Copyright 2013 LinkedIn, Inc
- * 
+ * Copyright 2014 LinkedIn, Inc
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -26,22 +26,18 @@ import voldemort.rest.coordinator.CoordinatorConfig;
 import voldemort.rest.coordinator.CoordinatorMetadata;
 
 /**
- * A Netty based admin service that accepts REST requests from the Voldemort
- * admin clients and does the operation on the coordinator.
- * 
+ * Admin service that accepts REST requests from the Voldemort admin client and
+ * does the operation on the coordinator.
  */
-@JmxManaged(description = "A Coordinator Admin Service")
+@JmxManaged(description = "Coordinator Admin Service")
 public class CoordinatorAdminService extends AbstractRestService {
 
     private static final Logger logger = Logger.getLogger(CoordinatorAdminService.class);
-
-    private static final String SERVICE_NAME = "admin";
-
     private CoordinatorConfig coordinatorConfig = null;
     private final CoordinatorMetadata coordinatorMetadata;
 
     public CoordinatorAdminService(CoordinatorConfig config) {
-        super(ServiceType.COORDINATOR, config);
+        super(ServiceType.COORDINATOR_ADMIN, config);
         this.coordinatorConfig = config;
         this.coordinatorMetadata = new CoordinatorMetadata();
     }
@@ -66,6 +62,6 @@ public class CoordinatorAdminService extends AbstractRestService {
 
     @Override
     protected String getServiceName() {
-        return SERVICE_NAME;
+        return ServiceType.COORDINATOR_ADMIN.getDisplayName();
     }
 }
