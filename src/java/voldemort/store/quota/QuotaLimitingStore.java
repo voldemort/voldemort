@@ -102,7 +102,7 @@ public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[
 
     @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
-        checkRateLimit(deleteQuotaKey, Tracked.DELETE);
+        checkRateLimit(deleteQuotaKey, Tracked.PUT);
         return super.delete(key, version);
     }
 
@@ -116,7 +116,7 @@ public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
-        checkRateLimit(getAllQuotaKey, Tracked.GET_ALL);
+        checkRateLimit(getAllQuotaKey, Tracked.GET);
         return super.getAll(keys, transforms);
     }
 
