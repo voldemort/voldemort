@@ -51,7 +51,6 @@ import voldemort.store.routed.action.ConfigureNodesLocalZoneOnly;
 import voldemort.store.routed.action.GetAllConfigureNodes;
 import voldemort.store.routed.action.GetAllReadRepair;
 import voldemort.store.routed.action.IncrementClock;
-import voldemort.store.routed.action.PerformDeleteHintedHandoff;
 import voldemort.store.routed.action.PerformParallelDeleteRequests;
 import voldemort.store.routed.action.PerformParallelGetAllRequests;
 import voldemort.store.routed.action.PerformParallelPutRequests;
@@ -687,8 +686,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                         clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelDeleteRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
-                                                                                                       isHintedHandoffEnabled() ? Event.RESPONSES_RECEIVED
-                                                                                                                               : Event.COMPLETED,
+                                                                                                       Event.COMPLETED,
                                                                                                        key,
                                                                                                        failureDetector,
                                                                                                        storeDef.getPreferredWrites(),
@@ -697,21 +695,6 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                        nonblockingStores,
                                                                                                        hintedHandoff,
                                                                                                        version));
-
-        if(isHintedHandoffEnabled()) {
-            pipeline.addEventAction(Event.RESPONSES_RECEIVED,
-                                    new PerformDeleteHintedHandoff(pipelineData,
-                                                                   Event.COMPLETED,
-                                                                   key,
-                                                                   version,
-                                                                   hintedHandoff));
-            pipeline.addEventAction(Event.ABORTED, new PerformDeleteHintedHandoff(pipelineData,
-                                                                                  Event.ERROR,
-                                                                                  key,
-                                                                                  version,
-                                                                                  hintedHandoff));
-
-        }
 
         pipeline.addEvent(Event.STARTED);
         if(logger.isDebugEnabled()) {

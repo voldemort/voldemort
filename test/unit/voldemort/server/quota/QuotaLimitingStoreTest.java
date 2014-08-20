@@ -113,33 +113,39 @@ public class QuotaLimitingStoreTest {
         }
     }
 
+    private void setQuota(int throughPut) {
+        String throughPutStr = Integer.toString(throughPut);
+        adminClient.quotaMgmtOps.setQuota("test",
+                                          QuotaType.GET_THROUGHPUT.toString(),
+                                          throughPutStr);
+        adminClient.quotaMgmtOps.setQuota("test",
+                                          QuotaType.PUT_THROUGHPUT.toString(),
+                                          throughPutStr);
+    }
+
+    private void unSetQuota() {
+        adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.GET_THROUGHPUT.toString());
+        adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.PUT_THROUGHPUT.toString());
+    }
+
     @Test
     public void testRateLimiting() {
         // limit gets to 2, puts to 2 to force ratelimits to exceed (with very
         // high probability)
-        adminClient.quotaMgmtOps.setQuota("test", QuotaType.GET_THROUGHPUT.toString(), "2");
-        adminClient.quotaMgmtOps.setQuota("test", QuotaType.PUT_THROUGHPUT.toString(), "2");
-
+        setQuota(2);
         ensureThrottled();
 
         // set the quotas to a very high value such that no operations are
         // throttled
-        adminClient.quotaMgmtOps.setQuota("test",
-                                          QuotaType.GET_THROUGHPUT.toString(),
-                                          Integer.MAX_VALUE + "");
-        adminClient.quotaMgmtOps.setQuota("test",
-                                          QuotaType.PUT_THROUGHPUT.toString(),
-                                          Integer.MAX_VALUE + "");
+        setQuota(Integer.MAX_VALUE);
         ensureNotThrottled();
 
         // Throttle back again
-        adminClient.quotaMgmtOps.setQuota("test", QuotaType.GET_THROUGHPUT.toString(), "2");
-        adminClient.quotaMgmtOps.setQuota("test", QuotaType.PUT_THROUGHPUT.toString(), "2");
+        setQuota(2);
         ensureThrottled();
 
         // Unset limits and make sure not throttled
-        adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.GET_THROUGHPUT.toString());
-        adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.PUT_THROUGHPUT.toString());
+        unSetQuota();
         ensureNotThrottled();
     }
 

@@ -56,7 +56,8 @@ public class Pipeline {
         RESPONSES_RECEIVED,
         ERROR,
         MASTER_DETERMINED,
-        ABORTED,
+        ABORTED, // Aborted is a zombie state. No way to reach this state.
+                 // Please clean me up.
         HANDOFF_FINISHED;
 
     }

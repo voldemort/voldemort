@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 
@@ -32,12 +33,13 @@ import voldemort.store.quota.QuotaUtils;
 import voldemort.store.routed.NodeValue;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockUtils;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
-public class AsyncPutQuotaTest {
+public class ExceededQuotaSlopTest {
 
     private SocketStoreClientFactory factory;
     private StoreClient<String, String> storeClient;
@@ -49,7 +51,7 @@ public class AsyncPutQuotaTest {
     private static final String quotaStoreName = "voldsys$_store_quotas";
     private static final String encodingType = "UTF-8";
     private static final Integer SLOP_FREQUENCY_MS = 5000;
-    private final Logger logger = Logger.getLogger(AsyncPutQuotaTest.class);
+    private final Logger logger = Logger.getLogger(ExceededQuotaSlopTest.class);
 
     String storesxml = "test/common/voldemort/config/single-store-with-handoff-strategy.xml";
     String storeName = "test";
@@ -89,58 +91,34 @@ public class AsyncPutQuotaTest {
                                       new AdminClientConfig(adminProperties),
                                       new ClientConfig());
 
-        VectorClock clock = VectorClockUtils.makeClockWithCurrentTime(cluster.getNodeIds());
+        Map<Pair<Integer, QuotaType>, Integer> throughPutMap = new HashMap<Pair<Integer, QuotaType>, Integer>();
+        // Set Node0 Quota
+        throughPutMap.put(new Pair<Integer, QuotaType>(0, QuotaType.PUT_THROUGHPUT), 5);
+        throughPutMap.put(new Pair<Integer, QuotaType>(0, QuotaType.GET_THROUGHPUT), 20);
 
-        // set put quota = 5 for first server
-        NodeValue<ByteArray, byte[]> putNodeValueForNode0 = new NodeValue<ByteArray, byte[]>(0,
-                                                                                             new ByteArray(getKeyBytes(QuotaType.PUT_THROUGHPUT)),
-                                                                                             new Versioned<byte[]>(ByteUtils.getBytes("5",
-                                                                                                                                      encodingType),
-                                                                                                                   clock));
-        try {
-            adminClient.storeOps.putNodeKeyValue(quotaStoreName, putNodeValueForNode0);
-        } catch(Exception e) {
-            throw new Exception("Exception when setting put quota for node 0. " + e.getMessage());
-        }
+        // Set Node1 Quota
+        throughPutMap.put(new Pair<Integer, QuotaType>(1, QuotaType.PUT_THROUGHPUT), 2);
+        throughPutMap.put(new Pair<Integer, QuotaType>(1, QuotaType.GET_THROUGHPUT), 20);
 
-        // set get quota = 20 for first server
-        clock = VectorClockUtils.makeClockWithCurrentTime(cluster.getNodeIds());
-        NodeValue<ByteArray, byte[]> getNodeValueForNode0 = new NodeValue<ByteArray, byte[]>(0,
-                                                                                             new ByteArray(getKeyBytes(QuotaType.GET_THROUGHPUT)),
-                                                                                             new Versioned<byte[]>(ByteUtils.getBytes("20",
-                                                                                                                                      encodingType),
-                                                                                                                   clock));
-        try {
-            adminClient.storeOps.putNodeKeyValue(quotaStoreName, getNodeValueForNode0);
-        } catch(Exception e) {
-            throw new Exception("Exception when setting get quota for node 0. " + e.getMessage());
-        }
+        for(Entry<Pair<Integer, QuotaType>, Integer> throughPut: throughPutMap.entrySet()) {
 
-        // set put quota = 2 for second server
-        clock = VectorClockUtils.makeClockWithCurrentTime(cluster.getNodeIds());
-        NodeValue<ByteArray, byte[]> putNodeValueForNode1 = new NodeValue<ByteArray, byte[]>(1,
-                                                                                             new ByteArray(getKeyBytes(QuotaType.PUT_THROUGHPUT)),
-                                                                                             new Versioned<byte[]>(ByteUtils.getBytes("2",
-                                                                                                                                      encodingType),
-                                                                                                                   clock));
-        try {
-            adminClient.storeOps.putNodeKeyValue(quotaStoreName, putNodeValueForNode1);
-        } catch(Exception e) {
-            throw new Exception("Exception when setting put quota for node 1. " + e.getMessage());
-        }
-        // set get quota = 20 for second server
-        clock = VectorClockUtils.makeClockWithCurrentTime(cluster.getNodeIds());
-        NodeValue<ByteArray, byte[]> getNodeValueForNode1 = new NodeValue<ByteArray, byte[]>(1,
-                                                                                             new ByteArray(getKeyBytes(QuotaType.GET_THROUGHPUT)),
-                                                                                             new Versioned<byte[]>(ByteUtils.getBytes("20",
-                                                                                                                                      encodingType),
-                                                                                                                   clock));
-        try {
-            adminClient.storeOps.putNodeKeyValue(quotaStoreName, getNodeValueForNode1);
-        } catch(Exception e) {
-            throw new Exception("Exception when setting get quota for node 1. " + e.getMessage());
-        }
+            int nodeId = throughPut.getKey().getFirst();
+            QuotaType type = throughPut.getKey().getSecond();
+            int value = throughPut.getValue();
 
+            VectorClock clock = VectorClockUtils.makeClockWithCurrentTime(cluster.getNodeIds());
+            NodeValue<ByteArray, byte[]> operationValue = new NodeValue<ByteArray, byte[]>(nodeId,
+                                                                                           new ByteArray(getKeyBytes(type)),
+                                                                                           new Versioned<byte[]>(ByteUtils.getBytes(Integer.toString(value),
+                                                                                                                                    encodingType),
+                                                                                                                 clock));
+            try {
+                adminClient.storeOps.putNodeKeyValue(quotaStoreName, operationValue);
+            } catch(Exception e) {
+                throw new Exception("Exception when setting put quota for node " + nodeId
+                                    + " Operation " + type + "." + e.getMessage());
+            }
+        }
     }
 
     private byte[] getKeyBytes(QuotaType quotaType) {
