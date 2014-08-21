@@ -1,12 +1,12 @@
 /*
  * Copyright 2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -49,10 +49,9 @@ public class CoordinatorConfig {
     // Coordinator Admin Service related
     private volatile boolean enableAdminService = true;
     public volatile int adminPort = 9090;
-    private volatile int adminServiceBacklog = 1000;
-    private volatile int adminServiceCoreThreads = 100;
-    private volatile int adminServiceMaxThreads = 200;
-    private volatile int adminServiceQueuedRequests = 1000;
+    private volatile int adminServiceCoreThreads = 10;
+    private volatile int adminServiceMaxThreads = 20;
+    private volatile int adminServiceQueuedRequests = 100;
 
     /* Propery names for propery-based configuration */
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
@@ -72,7 +71,7 @@ public class CoordinatorConfig {
 
     /**
      * Instantiate the coordinator config using a properties file
-     * 
+     *
      * @param propertyFile Properties file
      */
     public CoordinatorConfig(File propertyFile) {
@@ -93,7 +92,7 @@ public class CoordinatorConfig {
      * Initiate the coordinator config from a set of properties. This is useful
      * for wiring from Spring or for externalizing client properties to a
      * properties file
-     * 
+     *
      * @param properties The properties to use
      */
     public CoordinatorConfig(Properties properties) {
@@ -107,7 +106,7 @@ public class CoordinatorConfig {
 
     /**
      * Set the values using the specified Properties object
-     * 
+     *
      * @param properties Properties object containing specific property values
      *        for the Coordinator config
      */
@@ -183,7 +182,7 @@ public class CoordinatorConfig {
     /**
      * Sets the bootstrap URLs used by the different Fat clients inside the
      * Coordinator
-     * 
+     *
      * @param bootstrapUrls list of bootstrap URLs defining which cluster to
      *        connect to
      * @return modified CoordinatorConfig
@@ -202,7 +201,7 @@ public class CoordinatorConfig {
     /**
      * Defines individual config for each of the fat clients managed by the
      * Coordinator
-     * 
+     *
      * @param fatClientConfigPath The path of the file containing the fat client
      *        config in Avro format
      */
@@ -244,7 +243,7 @@ public class CoordinatorConfig {
 
     /**
      * @param nettyServerBacklog Defines the netty server backlog value
-     * 
+     *
      */
     public CoordinatorConfig setNettyServerBacklog(int nettyServerBacklog) {
         this.nettyServerBacklog = nettyServerBacklog;
@@ -338,7 +337,7 @@ public class CoordinatorConfig {
     /**
      * Determine whether the admin service has been enabled to perform
      * maintenance operations on the coordinator
-     * 
+     *
      * Default : true
      */
     public void setAdminServiceEnabled(boolean enableAdminService) {
@@ -360,14 +359,6 @@ public class CoordinatorConfig {
     public CoordinatorConfig setAdminPort(int adminPort) {
         this.adminPort = adminPort;
         return this;
-    }
-
-    public int getAdminServiceBacklog() {
-        return adminServiceBacklog;
-    }
-
-    public void setAdminServiceBacklog(int adminServiceBacklog) {
-        this.adminServiceBacklog = adminServiceBacklog;
     }
 
     public int getAdminServiceCoreThreads() {
