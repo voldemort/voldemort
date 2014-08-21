@@ -129,7 +129,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
         // Note errors that come in after the pipeline has finished.
         // These will *not* get a chance to be called in the loop of
         // responses below.
-        if(ex instanceof InvalidMetadataException) {
+        if(ex instanceof InvalidMetadataException && pipeline.isFinished()) {
             pipelineData.reportException(ex);
             logger.warn("Received invalid metadata problem after a successful "
                         + pipeline.getOperation().getSimpleName() + " call on node " + node.getId()
