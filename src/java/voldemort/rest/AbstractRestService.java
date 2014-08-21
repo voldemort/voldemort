@@ -24,7 +24,7 @@ public abstract class AbstractRestService extends AbstractService {
     private ServerBootstrap bootstrap = null;
     private Channel channel = null;
 
-    private static final Logger logger = Logger.getLogger(CoordinatorProxyService.class);
+    private static final Logger logger = Logger.getLogger(AbstractRestService.class);
 
     public AbstractRestService(ServiceType type, CoordinatorConfig config) {
         super(type);
