@@ -78,7 +78,7 @@ public class ConsistencyFix {
         Cluster cluster = adminClient.getAdminClientCluster();
         logger.info("Cluster determined to be: " + cluster.getName());
 
-        Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
+        Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList();
         List<StoreDefinition> storeDefs = storeDefinitions.getValue();
         StoreDefinition storeDefinition = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
                                                                                           storeName);

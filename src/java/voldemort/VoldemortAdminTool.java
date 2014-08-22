@@ -788,6 +788,16 @@ public class VoldemortAdminTool {
         }
     }
 
+    private static List<StoreDefinition> getStoreDefinitions(AdminClient adminClient, int nodeId) {
+        Versioned<List<StoreDefinition>> storeDefs = null;
+        if(nodeId >= 0) {
+            storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId);
+        } else {
+            storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList();
+        }
+        return storeDefs.getValue();
+    }
+
     private static void executeUpdateStoreDefinitions(Integer nodeId,
                                                       AdminClient adminClient,
                                                       List<StoreDefinition> storesList) {
@@ -1422,9 +1432,8 @@ public class VoldemortAdminTool {
         if(storeNames == null) {
             // Retrieve list of read-only stores
             storeNames = Lists.newArrayList();
-            for(StoreDefinition storeDef: adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId > 0 ? nodeId
-                                                                                                      : 0)
-                                                                     .getValue()) {
+
+            for(StoreDefinition storeDef: getStoreDefinitions(adminClient, nodeId)) {
                 if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
                     storeNames.add(storeDef.getName());
                 }
@@ -1588,8 +1597,7 @@ public class VoldemortAdminTool {
                                             boolean useAscii,
                                             boolean fetchOrphaned) throws IOException {
 
-        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
-                                                                               .getValue();
+        List<StoreDefinition> storeDefinitionList = getStoreDefinitions(adminClient, nodeId);
         HashMap<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for(StoreDefinition storeDefinition: storeDefinitionList) {
             storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
@@ -1747,8 +1755,7 @@ public class VoldemortAdminTool {
                                              AdminClient adminClient,
                                              List<String> storeNames,
                                              String inputDirPath) throws IOException {
-        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
-                                                                               .getValue();
+        List<StoreDefinition> storeDefinitionList = getStoreDefinitions(adminClient, nodeId);
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for(StoreDefinition storeDefinition: storeDefinitionList) {
             storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
@@ -1834,8 +1841,7 @@ public class VoldemortAdminTool {
                                          List<String> storeNames,
                                          boolean useAscii,
                                          boolean fetchOrphaned) throws IOException {
-        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
-                                                                               .getValue();
+        List<StoreDefinition> storeDefinitionList = getStoreDefinitions(adminClient, nodeId);
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for(StoreDefinition storeDefinition: storeDefinitionList) {
             storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
@@ -2005,8 +2011,7 @@ public class VoldemortAdminTool {
         List<String> stores = storeNames;
         if(stores == null) {
             stores = Lists.newArrayList();
-            List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
-                                                                                   .getValue();
+            List<StoreDefinition> storeDefinitionList = getStoreDefinitions(adminClient, nodeId);
             for(StoreDefinition storeDefinition: storeDefinitionList) {
                 stores.add(storeDefinition.getName());
             }
@@ -2024,17 +2029,6 @@ public class VoldemortAdminTool {
                                         List<String> storeNames,
                                         String keyString,
                                         String keyFormat) throws IOException {
-        // decide queryNode for storeDef
-        int storeDefNodeId;
-        if(nodeId < 0) {
-            Iterator<Node> nodeIterator = adminClient.getAdminClientCluster().getNodes().iterator();
-            if(!nodeIterator.hasNext()) {
-                throw new VoldemortException("No nodes in this cluster");
-            }
-            storeDefNodeId = nodeIterator.next().getId();
-        } else {
-            storeDefNodeId = nodeId;
-        }
 
         // decide queryingNode(s) for Key
         List<Integer> queryingNodes = new ArrayList<Integer>();
@@ -2047,8 +2041,7 @@ public class VoldemortAdminTool {
         }
 
         // get basic info
-        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(storeDefNodeId)
-                                                                               .getValue();
+        List<StoreDefinition> storeDefinitionList = getStoreDefinitions(adminClient, nodeId);
         Map<String, StoreDefinition> storeDefinitions = new HashMap<String, StoreDefinition>();
         for(StoreDefinition storeDef: storeDefinitionList) {
             storeDefinitions.put(storeDef.getName(), storeDef);
@@ -2240,7 +2233,7 @@ public class VoldemortAdminTool {
                                                List<String> keyList) throws DecoderException {
 
         Cluster cluster = adminClient.getAdminClientCluster();
-        List<StoreDefinition> storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
+        List<StoreDefinition> storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList()
                                                                      .getValue();
         StoreDefinition storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
                                                                                    storeName);

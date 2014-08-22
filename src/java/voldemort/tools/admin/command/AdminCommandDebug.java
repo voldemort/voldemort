@@ -252,7 +252,7 @@ public class AdminCommandDebug extends AbstractAdminCommand {
             // decide queryNode for storeDef
             Integer storeDefNodeId = nodeIds.get(0);
             Map<String, StoreDefinition> storeDefinitions = AdminToolUtils.getUserStoreDefMapOnNode(adminClient,
-                                                                                                       storeDefNodeId);
+                                                                                                    storeDefNodeId);
 
             BufferedWriter out = new BufferedWriter(new OutputStreamWriter(System.out));
 
@@ -573,7 +573,7 @@ public class AdminCommandDebug extends AbstractAdminCommand {
                                         List<String> keyStrings,
                                         String keyType) throws DecoderException {
             Cluster cluster = adminClient.getAdminClientCluster();
-            List<StoreDefinition> storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
+            List<StoreDefinition> storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList()
                                                                          .getValue();
             StoreDefinition storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
                                                                                        storeName);
