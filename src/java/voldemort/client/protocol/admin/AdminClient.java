@@ -1350,6 +1350,14 @@ public class AdminClient {
                                                                         false);
             return new Versioned<List<StoreDefinition>>(storeList, value.getVersion());
         }
+
+        public Versioned<List<StoreDefinition>> getRemoteStoreDefList() throws VoldemortException {
+            Integer nodeId = AdminClient.this.getAdminClientCluster()
+                                             .getNodeIds()
+                                             .iterator()
+                                             .next();
+            return getRemoteStoreDefList(nodeId);
+        }
     }
 
     /**

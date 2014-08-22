@@ -105,7 +105,7 @@ public class VoldemortAvroClientShell {
         AdminClient adminClient = null;
         try {
             adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
-            List<StoreDefinition> storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
+            List<StoreDefinition> storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList()
                                                                          .getValue();
 
             for(StoreDefinition storeDef: storeDefs) {

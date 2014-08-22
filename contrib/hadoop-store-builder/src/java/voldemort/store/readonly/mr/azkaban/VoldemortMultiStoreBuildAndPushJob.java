@@ -108,6 +108,8 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
         super(name);
         this.props = props;
         this.log = Logger.getLogger(name);
+        // TODO: this is a bug, it needs to initialize with -1 as 0 can be an
+        // invalid node id. but not touching it, as this is product code.
         this.nodeId = props.getInt("check.node", 0);
 
         // Get the input directories
