@@ -69,14 +69,21 @@ public class DataCleanupJob<K, V, T> implements Runnable {
         this.metadataStore = metadataStore;
     }
 
-    @Override
-    public void run() {
-
-        // if the server is not normal, skip this run.
+    private boolean isServerInNormalState() {
         if(metadataStore != null
            && metadataStore.getServerStateUnlocked() != VoldemortState.NORMAL_SERVER) {
             logger.info("Datacleanup on store " + store.getName()
                         + " skipped since server is not normal..");
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public void run() {
+
+        // if the server is not normal, skip this run.
+        if(isServerInNormalState() == false) {
             return;
         }
 
@@ -95,14 +102,24 @@ public class DataCleanupJob<K, V, T> implements Runnable {
                     logger.info("Datacleanup job halted.");
                     return;
                 }
+
+                final long INETERVAL = 10000;
+                long entriesScanned = scanProgressThisRun.get();
+                if(entriesScanned % INETERVAL == 0) {
+                    if(isServerInNormalState() == false) {
+                        return;
+                    }
+                }
+
                 scanProgressThisRun.incrementAndGet();
                 Pair<K, Versioned<V>> keyAndVal = iterator.next();
                 VectorClock clock = (VectorClock) keyAndVal.getSecond().getVersion();
                 if(now - clock.getTimestamp() > maxAgeMs) {
                     store.delete(keyAndVal.getFirst(), clock);
-                    this.deleteProgressThisRun.incrementAndGet();
-                    if(this.deleteProgressThisRun.get() % 10000 == 0)
+                    final long entriesDeleted = this.deleteProgressThisRun.incrementAndGet();
+                    if(logger.isDebugEnabled() && entriesDeleted % INETERVAL == 0) {
                         logger.debug("Deleted item " + this.deleteProgressThisRun.get());
+                    }
                 }
 
                 // throttle on number of entries.
