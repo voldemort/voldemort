@@ -6,6 +6,8 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 import org.junit.After;
@@ -65,52 +67,66 @@ public class QuotaLimitingStoreTest {
     }
 
     private void ensureThrottled() {
-        int numGetExceptions = 0;
-        int numPutExceptions = 0;
-        for(int i = 0; i < 1000; i++) {
-            try {
-                // do a put
-                storeClient.put("key", "value");
-            } catch(QuotaExceededException qee) {
-                /**
-                 * occurs only when a serial put to master node fails due to
-                 * exceeding quota
-                 */
-                numPutExceptions++;
-            }
-
-            try {
-                // do a get
-                storeClient.get("key");
-            } catch(QuotaExceededException qee) {
-                numGetExceptions++;
-            }
-
-        }
-        assertTrue("No get operations rate limited", numGetExceptions > 0);
-        assertTrue("No put operations rate limited", numPutExceptions > 0);
+        verifyThrottling(true);
     }
 
     private void ensureNotThrottled() {
+        verifyThrottling(false);
+    }
+
+    private void verifyThrottling(boolean isThrottled) {
+        int numGetExceptions = 0;
+        int numPutExceptions = 0;
+
+        Map<String, String> populatedValues = new HashMap<String, String>();
+
         for(int i = 0; i < 1000; i++) {
+            String key = "key" + i;
+            String value = "value" + i;
             try {
                 // do a put
-                storeClient.put("key", "value");
+                storeClient.put(key, value);
+                populatedValues.put(key, value);
             } catch(QuotaExceededException qee) {
-                /**
-                 * Occurs only when a serial put to master node fails due to
-                 * exceeding quota
-                 */
-                fail("Put throttled when rate is :" + Integer.MAX_VALUE);
+                numPutExceptions++;
             }
+        }
+
+        if(isThrottled) {
+            assertTrue("No put operations rate limited", numPutExceptions > 0);
+        } else {
+            assertTrue("Put throttled when rate is :" + Integer.MAX_VALUE, numPutExceptions == 0);
+        }
+
+        for(int i = 0; i < 1000; i++) {
+            String key = "key" + i;
+            String expectedValue = "value" + i;
 
             try {
                 // do a get
-                storeClient.get("key");
+
+                Versioned<Object> actualValue = storeClient.get(key);
+                if(actualValue == null) {
+                    if(populatedValues.containsKey(key) == false) {
+                        // expected, continue
+                        continue;
+                    } else {
+                        fail("Put successfully wrote the key, but get was not able to retrieve it, nor it got a quota exception");
+                    }
+                }
+
+                assertEquals(expectedValue, actualValue.getValue());
             } catch(QuotaExceededException qee) {
-                fail("Get throttled when rate is :" + Integer.MAX_VALUE);
+                numGetExceptions++;
             }
         }
+
+        if(isThrottled) {
+            assertTrue("No get operations rate limited", numGetExceptions > 0);
+        } else {
+            assertTrue("Get throttled when rate is :" + Integer.MAX_VALUE, numGetExceptions == 0);
+        }
+
     }
 
     private void setQuota(int throughPut) {
