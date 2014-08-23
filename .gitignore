@@ -1,4 +1,5 @@
 config/*/config/STORES
+!config/single_node_cluster/config/STORES
 classes
 dist
 *.iml
@@ -26,3 +27,4 @@ build
 lib
 .project
 .classpath
+*.class

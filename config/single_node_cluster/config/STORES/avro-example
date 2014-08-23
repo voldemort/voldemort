@@ -1,0 +1,36 @@
+<store>
+  <name>avro-example</name>
+  <persistence>bdb</persistence>
+  <description>Avro Example Store</description>
+  <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+  <routing-strategy>consistent-routing</routing-strategy>
+  <routing>client</routing>
+  <replication-factor>1</replication-factor>
+  <required-reads>1</required-reads>
+  <required-writes>1</required-writes>
+  <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>
+  <key-serializer>
+    <type>avro-generic-versioned</type>
+    <schema-info version="0">{ "name": "key", "type": "record", "fields": [{ "name": "user_id", "type": "int" }] }</schema-info>
+  </key-serializer>
+  <value-serializer>
+    <type>avro-generic-versioned</type>
+    <schema-info version="0">
+    {
+      "name": "value",
+      "type": "record",
+      "fields": [{ 
+        "name": "user_id",
+        "type": "int"
+      }, {
+        "name": "gender",
+        "type": "string"
+      }, {
+        "name": "age",
+        "type": "int",
+        "optional": true
+      }]
+    }
+    </schema-info>
+  </value-serializer>
+</store>
