@@ -29,6 +29,9 @@ import org.apache.log4j.Level;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.common.nio.ByteBufferBackedInputStream;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
+import voldemort.common.nio.CommBufferSizeStats;
 import voldemort.common.nio.SelectorManagerWorker;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
@@ -69,6 +72,36 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         super(selector, socketChannel, socketBufferSize, nioStats.getServerCommBufferStats());
         this.requestHandlerFactory = requestHandlerFactory;
         this.nioStats = nioStats;
+    }
+
+    /**
+     * Flips the output buffer, and lets the Selector know we're ready to write.
+     * 
+     * @param selectionKey
+     */
+
+    protected void prepForWrite(SelectionKey selectionKey) {
+        if(logger.isTraceEnabled())
+            traceInputBufferState("About to clear read buffer");
+
+        if(inputStream.getBuffer().capacity() >= resizeThreshold)
+            inputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
+        else
+            inputStream.getBuffer().clear();
+
+        if(logger.isTraceEnabled())
+            traceInputBufferState("Cleared read buffer");
+
+        outputStream.getBuffer().flip();
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+    }
+
+    @Override
+    protected void initializeStreams(int socketBufferSize, CommBufferSizeStats commBufferStats) {
+        this.inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocate(socketBufferSize),
+                                                           commBufferStats.getCommReadBufferSizeTracker());
+        this.outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocate(socketBufferSize),
+                                                             commBufferStats.getCommWriteBufferSizeTracker());
     }
 
     @Override
