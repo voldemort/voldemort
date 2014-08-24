@@ -285,7 +285,7 @@ tasks.withType(Test) {
 
 task resetConfig() {
     doLast {
-        def DirsToDelete = ["STORES" , ".temp", ".version", "data"]
+        def DirsToDelete = [".temp", ".version", "data"]
         def deleteRecursively
 
         deleteRecursively = { file ->

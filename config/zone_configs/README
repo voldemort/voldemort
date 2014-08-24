@@ -1,5 +1,0 @@
-- Zone configs contains configurations for three servers in two zones viz. Zone 0 (Node 0, Node 1) and Zone 1 (Node 2)
-- To start the servers 
-(a) Node 0 => bin/voldemort-server.sh config/zone_configs/zone0/node0
-(b) Node 1 => bin/voldemort-server.sh config/zone_configs/zone0/node1
-(c) Node 2 => bin/voldemort-server.sh config/zone_configs/zone1/node2
