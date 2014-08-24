@@ -20,10 +20,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
-import org.apache.commons.lang.mutable.MutableLong;
-
 import voldemort.annotations.concurrency.NotThreadsafe;
-import voldemort.utils.ByteUtils;
 
 /**
  * ByteBufferBackedOutputStream serves two purposes:
@@ -45,79 +42,63 @@ import voldemort.utils.ByteUtils;
 @NotThreadsafe
 public class ByteBufferBackedOutputStream extends OutputStream {
 
-    private ByteBuffer buffer;
-
-    private boolean wasExpanded;
-
-    /**
-     * Reference to a size tracking object, that tracks the size of the buffer
-     * in bytes
-     */
-    private MutableLong sizeTracker;
+    private final ByteBufferContainer bufferContainer;
+    private boolean wasExpanded = false;
 
     public ByteBufferBackedOutputStream(ByteBuffer buffer) {
-        this.buffer = buffer;
-        wasExpanded = false;
-        this.sizeTracker = null;
+        this.bufferContainer = new ByteBufferContainer(buffer);
     }
 
-    public ByteBufferBackedOutputStream(ByteBuffer buffer, MutableLong sizeTracker) {
-        this.buffer = buffer;
-        wasExpanded = false;
-        this.sizeTracker = sizeTracker;
-        if(buffer != null)
-            this.sizeTracker.add(buffer.capacity());
+    public ByteBufferBackedOutputStream(ByteBufferContainer bufferContainer) {
+        this.bufferContainer = bufferContainer;
     }
 
     public ByteBuffer getBuffer() {
-        return buffer;
+        return bufferContainer.getBuffer();
     }
 
-    public void setBuffer(ByteBuffer newBuffer) {
-        // update the size tracker with the new buffer size
-        if((sizeTracker != null && this.buffer != null && newBuffer != null)) {
-            sizeTracker.add(newBuffer.capacity());
-            sizeTracker.subtract(this.buffer.capacity());
-        }
-        this.buffer = newBuffer;
-        wasExpanded = false;
+    public void growBuffer() {
+        bufferContainer.growBuffer();
     }
 
     @Override
     public void write(int b) throws IOException {
-        expandIfNeeded(1);
+        ByteBuffer buffer = expandIfNeeded(1);
         buffer.put((byte) b);
     }
 
     @Override
     public void write(byte[] bytes, int off, int len) throws IOException {
-        expandIfNeeded(len);
+        ByteBuffer buffer = expandIfNeeded(len);
         buffer.put(bytes, off, len);
     }
 
-    private void expandIfNeeded(int len) {
+    private ByteBuffer expandIfNeeded(int len) {
+        ByteBuffer buffer = bufferContainer.getBuffer();
         int need = len - buffer.remaining();
 
         if(need <= 0)
-            return;
+            return buffer;
 
-        int newCapacity = (buffer.capacity() + need) * 2;
-        // update the size tracker with the new buffer size
-        if(sizeTracker != null) {
-            sizeTracker.add(newCapacity);
-            sizeTracker.subtract(this.buffer.capacity());
-        }
-        buffer = ByteUtils.expand(buffer, newCapacity);
         wasExpanded = true;
+        int newCapacity = (buffer.capacity() + need) * 2;
+        bufferContainer.growBuffer(newCapacity);
+
+        return bufferContainer.getBuffer();
     }
 
     public boolean wasExpanded() {
         return wasExpanded;
     }
 
-    public void close() {
-        if(sizeTracker != null && this.buffer != null) {
-            sizeTracker.subtract(this.buffer.capacity());
-        }
+    @Override
+    public void close() throws IOException {
+        bufferContainer.close();
+        super.close();
+    }
+
+    public void clear() {
+        wasExpanded = false;
+        bufferContainer.reset();
     }
 }

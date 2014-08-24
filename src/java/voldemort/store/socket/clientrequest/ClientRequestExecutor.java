@@ -21,13 +21,15 @@ import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
 import org.apache.log4j.Level;
 
+import voldemort.common.nio.ByteBufferBackedInputStream;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
+import voldemort.common.nio.ByteBufferContainer;
 import voldemort.common.nio.CommBufferSizeStats;
 import voldemort.common.nio.SelectorManagerWorker;
 import voldemort.utils.Time;
@@ -53,6 +55,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     private long expiration;
     private long startTime;
     private boolean isExpired;
+    protected ByteBufferContainer bufferContainer;
 
     public ClientRequestExecutor(Selector selector,
                                  SocketChannel socketChannel,
@@ -120,21 +123,9 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
             throw new IllegalArgumentException(errorMessage);
         }
 
-        outputStream.getBuffer().clear();
+        resetStreams();
 
         boolean wasSuccessful = clientRequest.formatRequest(new DataOutputStream(outputStream));
-
-        if(logger.isTraceEnabled())
-            traceInputBufferState("About to clear read buffer");
-
-        if(inputStream.getBuffer().capacity() >= resizeThreshold)
-            inputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
-        else
-            inputStream.getBuffer().clear();
-
-        if(logger.isTraceEnabled())
-            traceInputBufferState("Cleared read buffer");
-
         outputStream.getBuffer().flip();
 
         if(wasSuccessful) {
@@ -159,6 +150,20 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
             completeClientRequest();
         }
+    }
+
+    @Override
+    protected void initializeStreams(int socketBufferSize, CommBufferSizeStats commBufferStats) {
+
+        bufferContainer = new ByteBufferContainer(socketBufferSize,
+                                                  resizeThreshold,
+                                                  commBufferStats.getCommReadBufferSizeTracker());
+        this.inputStream = new ByteBufferBackedInputStream(bufferContainer);
+        this.outputStream = new ByteBufferBackedOutputStream(bufferContainer);
+    }
+
+    private void resetStreams() {
+        bufferContainer.reset();
     }
 
     @Override
@@ -258,12 +263,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(outputStream.getBuffer().hasRemaining())
             return;
 
-        // If we don't have anything else to write, that means we're done with
-        // the request! So clear the buffers (resizing if necessary).
-        if(outputStream.getBuffer().capacity() >= resizeThreshold)
-            outputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
-        else
-            outputStream.getBuffer().clear();
+        resetStreams();
 
         // If we're not streaming writes, signal the Selector that we're
         // ready to read the next request.

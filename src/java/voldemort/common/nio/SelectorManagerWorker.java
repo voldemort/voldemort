@@ -18,7 +18,6 @@ package voldemort.common.nio;
 
 import java.io.EOFException;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.SelectionKey;
@@ -26,10 +25,11 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.utils.ByteUtils;
+import voldemort.VoldemortApplicationException;
 
 /**
  * SelectorManagerWorker manages a Selector, SocketChannel, and IO streams
@@ -52,9 +52,9 @@ public abstract class SelectorManagerWorker implements Runnable {
 
     protected final int resizeThreshold;
 
-    protected final ByteBufferBackedInputStream inputStream;
+    protected ByteBufferBackedInputStream inputStream;
 
-    protected final ByteBufferBackedOutputStream outputStream;
+    protected ByteBufferBackedOutputStream outputStream;
 
     protected final long createTimestamp;
 
@@ -70,10 +70,11 @@ public abstract class SelectorManagerWorker implements Runnable {
         this.socketChannel = socketChannel;
         this.socketBufferSize = socketBufferSize;
         this.resizeThreshold = socketBufferSize * 2; // This is arbitrary...
-        this.inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocate(socketBufferSize),
-                                                           commBufferStats.getCommReadBufferSizeTracker());
-        this.outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocate(socketBufferSize),
-                                                             commBufferStats.getCommWriteBufferSizeTracker());
+        initializeStreams(socketBufferSize, commBufferStats);
+        if(this.inputStream == null || this.outputStream == null) {
+            throw new VoldemortApplicationException("InputStream or OuputStream is null after initialization");
+        }
+
         this.createTimestamp = System.nanoTime();
         this.isClosed = new AtomicBoolean(false);
 
@@ -84,6 +85,9 @@ public abstract class SelectorManagerWorker implements Runnable {
     protected abstract void read(SelectionKey selectionKey) throws IOException;
 
     protected abstract void write(SelectionKey selectionKey) throws IOException;
+
+    protected abstract void initializeStreams(int socketBufferSize,
+                                              CommBufferSizeStats commBufferStats);
 
     /**
      * Returns the nanosecond-based timestamp of when this was created.
@@ -169,34 +173,12 @@ public abstract class SelectorManagerWorker implements Runnable {
         }
 
         // close the streams, so we account for comm buffer frees
-        inputStream.close();
-        outputStream.close();
+        IOUtils.closeQuietly(inputStream);
+        IOUtils.closeQuietly(outputStream);
     }
 
     public boolean isClosed() {
         return isClosed.get();
-    }
-
-    /**
-     * Flips the output buffer, and lets the Selector know we're ready to write.
-     * 
-     * @param selectionKey
-     */
-
-    protected void prepForWrite(SelectionKey selectionKey) {
-        if(logger.isTraceEnabled())
-            traceInputBufferState("About to clear read buffer");
-
-        if(inputStream.getBuffer().capacity() >= resizeThreshold)
-            inputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
-        else
-            inputStream.getBuffer().clear();
-
-        if(logger.isTraceEnabled())
-            traceInputBufferState("Cleared read buffer");
-
-        outputStream.getBuffer().flip();
-        selectionKey.interestOps(SelectionKey.OP_WRITE);
     }
 
     protected void handleIncompleteRequest(int newPosition) {
@@ -213,8 +195,7 @@ public abstract class SelectorManagerWorker implements Runnable {
             // We haven't read all the data needed for the request AND we
             // don't have enough data in our buffer. So expand it. Note:
             // doubling the current buffer size is arbitrary.
-            inputStream.setBuffer(ByteUtils.expand(inputStream.getBuffer(),
-                                                   inputStream.getBuffer().capacity() * 2));
+            inputStream.growBuffer();
 
             if(logger.isTraceEnabled())
                 traceInputBufferState("Expanded input buffer");

@@ -16,6 +16,8 @@
 
 package voldemort.store.socket;
 
+import static org.junit.Assert.assertArrayEquals;
+
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.Random;
@@ -102,7 +104,11 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
             rand.nextBytes(biggie);
             Versioned<byte[]> versioned = new Versioned<byte[]>(biggie);
             store.put(key, versioned, null);
-            assertNotNull(store.get(key, null));
+            Versioned<byte[]> result = store.get(key, null).get(0);
+            assertArrayEquals("Get returned different value after put",
+                              result.getValue(),
+                              versioned.getValue());
+
             assertTrue(store.delete(key, versioned.getVersion()));
         }
     }

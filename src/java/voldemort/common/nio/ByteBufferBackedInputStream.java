@@ -20,8 +20,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
-import org.apache.commons.lang.mutable.MutableLong;
-
 import voldemort.annotations.concurrency.NotThreadsafe;
 
 /**
@@ -38,41 +36,27 @@ import voldemort.annotations.concurrency.NotThreadsafe;
 @NotThreadsafe
 public class ByteBufferBackedInputStream extends InputStream {
 
-    private ByteBuffer buffer;
-
-    /**
-     * Reference to a size tracking object, that tracks the size of the buffer
-     * in bytes
-     */
-    private MutableLong sizeTracker;
+    private final ByteBufferContainer bufferContainer;
 
     public ByteBufferBackedInputStream(ByteBuffer buffer) {
-        this.buffer = buffer;
-        this.sizeTracker = null;
+        this.bufferContainer = new ByteBufferContainer(buffer);
     }
 
-    public ByteBufferBackedInputStream(ByteBuffer buffer, MutableLong sizeTracker) {
-        this.buffer = buffer;
-        this.sizeTracker = sizeTracker;
-        if(buffer != null)
-            this.sizeTracker.add(buffer.capacity());
+    public ByteBufferBackedInputStream(ByteBufferContainer bufferContainer) {
+        this.bufferContainer = bufferContainer;
     }
 
     public ByteBuffer getBuffer() {
-        return buffer;
+        return bufferContainer.getBuffer();
     }
 
-    public void setBuffer(ByteBuffer newBuffer) {
-        // update the size tracker with the new buffer size
-        if((sizeTracker != null && this.buffer != null && newBuffer != null)) {
-            sizeTracker.add(newBuffer.capacity());
-            sizeTracker.subtract(this.buffer.capacity());
-        }
-        this.buffer = newBuffer;
+    public void growBuffer() {
+        bufferContainer.growBuffer();
     }
 
     @Override
     public int read() throws IOException {
+        ByteBuffer buffer = bufferContainer.getBuffer();
         if(!buffer.hasRemaining())
             return -1;
 
@@ -81,6 +65,8 @@ public class ByteBufferBackedInputStream extends InputStream {
 
     @Override
     public int read(byte[] bytes, int off, int len) throws IOException {
+
+        ByteBuffer buffer = bufferContainer.getBuffer();
         if(!buffer.hasRemaining())
             return -1;
 
@@ -89,9 +75,13 @@ public class ByteBufferBackedInputStream extends InputStream {
         return len;
     }
 
-    public void close() {
-        if(sizeTracker != null && this.buffer != null) {
-            sizeTracker.subtract(this.buffer.capacity());
-        }
+    @Override
+    public void close() throws IOException {
+        bufferContainer.close();
+        super.close();
+    }
+
+    public void clear() {
+        bufferContainer.reset();
     }
 }

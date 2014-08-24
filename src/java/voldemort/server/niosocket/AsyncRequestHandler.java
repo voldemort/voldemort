@@ -29,6 +29,10 @@ import org.apache.log4j.Level;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.common.nio.ByteBufferBackedInputStream;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
+import voldemort.common.nio.ByteBufferContainer;
+import voldemort.common.nio.CommBufferSizeStats;
 import voldemort.common.nio.SelectorManagerWorker;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
@@ -69,6 +73,37 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         super(selector, socketChannel, socketBufferSize, nioStats.getServerCommBufferStats());
         this.requestHandlerFactory = requestHandlerFactory;
         this.nioStats = nioStats;
+    }
+
+    /**
+     * Flips the output buffer, and lets the Selector know we're ready to write.
+     * 
+     * @param selectionKey
+     */
+
+    protected void prepForWrite(SelectionKey selectionKey) {
+        if(logger.isTraceEnabled())
+            traceInputBufferState("About to clear read buffer");
+
+        inputStream.clear();
+
+        if(logger.isTraceEnabled())
+            traceInputBufferState("Cleared read buffer");
+
+        outputStream.getBuffer().flip();
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+    }
+
+    @Override
+    protected void initializeStreams(int socketBufferSize, CommBufferSizeStats commBufferStats) {
+        ByteBufferContainer inputBufferContainer = new ByteBufferContainer(socketBufferSize,
+                                                                           resizeThreshold,
+                                                                           commBufferStats.getCommReadBufferSizeTracker());
+        this.inputStream = new ByteBufferBackedInputStream(inputBufferContainer);
+        ByteBufferContainer outputBufferContainer = new ByteBufferContainer(socketBufferSize,
+                                                                            resizeThreshold,
+                                                                            commBufferStats.getCommWriteBufferSizeTracker());
+        this.outputStream = new ByteBufferBackedOutputStream(outputBufferContainer);
     }
 
     @Override
@@ -187,10 +222,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
         // If we don't have anything else to write, that means we're done with
         // the request! So clear the buffers (resizing if necessary).
-        if(outputStream.getBuffer().capacity() >= resizeThreshold)
-            outputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
-        else
-            outputStream.getBuffer().clear();
+        outputStream.clear();
 
         if(streamRequestHandler != null
            && streamRequestHandler.getDirection() == StreamRequestDirection.WRITING) {
