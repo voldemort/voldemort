@@ -91,7 +91,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         if(beforeRebootstrapCallback != null) {
             try {
                 beforeRebootstrapCallback.call();
-            } catch (Exception e) {
+            } catch(Exception e) {
                 logger.warn("Exception caught when running callback before bootstrap", e);
             }
         }
@@ -100,10 +100,10 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public boolean delete(K key) {
-        Versioned<V> versioned = get(key);
-        if(versioned == null)
+        Version version = getVersionWithResolution(key);
+        if(version == null)
             return false;
-        return delete(key, versioned.getVersion());
+        return delete(key, version);
     }
 
     public boolean delete(K key, Version version) {
@@ -219,19 +219,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public Version put(K key, V value) {
-        List<Version> versions = getVersions(key);
-        Versioned<V> versioned;
-        if(versions.isEmpty())
-            versioned = Versioned.value(value, new VectorClock());
-        else if(versions.size() == 1)
-            versioned = Versioned.value(value, versions.get(0));
-        else {
-            versioned = get(key, null);
-            if(versioned == null)
-                versioned = Versioned.value(value, new VectorClock());
-            else
-                versioned.setObject(value);
-        }
+        Version version = getVersionForPut(key);
+        Versioned<V> versioned = Versioned.value(value, version);
         return put(key, versioned);
     }
 
@@ -349,20 +338,32 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         return result;
     }
 
-    public Version put(K key, V value, Object transforms) {
+    private Version getVersionWithResolution(K key) {
         List<Version> versions = getVersions(key);
-        Versioned<V> versioned;
         if(versions.isEmpty())
-            versioned = Versioned.value(value, new VectorClock());
+            return null;
         else if(versions.size() == 1)
-            versioned = Versioned.value(value, versions.get(0));
+            return versions.get(0);
         else {
-            versioned = get(key, null);
+            Versioned<V> versioned = get(key, null);
             if(versioned == null)
-                versioned = Versioned.value(value, new VectorClock());
+                return null;
             else
-                versioned.setObject(value);
+                return versioned.getVersion();
         }
+    }
+
+    private Version getVersionForPut(K key) {
+        Version version = getVersionWithResolution(key);
+        if(version == null) {
+            version = new VectorClock();
+        }
+        return version;
+    }
+
+    public Version put(K key, V value, Object transforms) {
+        Version version = getVersionForPut(key);
+        Versioned<V> versioned = Versioned.value(value, version);
         return put(key, versioned, transforms);
 
     }
