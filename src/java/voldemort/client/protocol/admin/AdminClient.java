@@ -3818,15 +3818,22 @@ public class AdminClient {
 
     public class QuotaManagementOperations {
 
-        public void setQuota(String storeName, String quotaType, String quotaValue) {
+        public void setQuota(String storeName, String quotaTypeStr, String quotaValue) {
+            QuotaType quotaType = QuotaType.valueOf(quotaTypeStr);
+            if(quotaType != QuotaType.GET_THROUGHPUT && quotaType != QuotaType.PUT_THROUGHPUT) {
+                // TODO : Convert this to warning to exception once existing
+                // clients are upgraded. Probably around End of 2014.
+                logger.warn(" Quota only supports GET (Read) / PUT (Write) throughputs. Other throughput types are deprecated for easier use"
+                            + "StoreName: " + storeName + " QuotaType: " + quotaType);
+            }
             // FIXME This is a temporary workaround for System store client not
             // being able to do a second insert. We simply generate a super
             // clock that will trump what is on storage
             VectorClock denseClock = VectorClockUtils.makeClockWithCurrentTime(currentCluster.getNodeIds());
-            quotaSysStoreClient.putSysStore(QuotaUtils.makeQuotaKey(storeName,
-                                                                    QuotaType.valueOf(quotaType)),
-                                            new Versioned<String>(quotaValue, denseClock));
-            logger.info("Set quota " + quotaType + " to " + quotaValue + " for store " + storeName);
+            String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
+            quotaSysStoreClient.putSysStore(quotaKey, new Versioned<String>(quotaValue, denseClock));
+            logger.info("Set quota " + quotaTypeStr + " to " + quotaValue + " for store "
+                        + storeName);
         }
 
         public void unsetQuota(String storeName, String quotaType) {

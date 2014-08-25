@@ -275,7 +275,7 @@ public class StoreDefinition implements Serializable {
     }
 
     public boolean hasRetentionPeriod() {
-        return this.retentionPeriodDays != null;
+        return this.retentionPeriodDays != null && this.retentionPeriodDays > 0;
     }
 
     public Integer getRetentionDays() {
