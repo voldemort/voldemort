@@ -88,20 +88,27 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
         this.hintedHandoff = hintedHandoff;
     }
 
-    private void handleException(Response<ByteArray, Object> response,
-                                 Pipeline pipeline,
-                                 boolean isParallel) {
+    /**
+     * 
+     * @param response
+     * @param pipeline
+     * @param isParallel
+     * @return true if it is a terminal error, false otherwise
+     */
+    private boolean handleException(Response<ByteArray, Object> response,
+                                    Pipeline pipeline,
+                                    boolean isParallel) {
         Node node = response.getNode();
         Exception ex = null;
         if(!(response.getValue() instanceof Exception)) {
-            return;
+            return false;
         }
 
         ex = (Exception) response.getValue();
         if(ex instanceof ObsoleteVersionException) {
             // ignore this completely here this means that a higher version was
             // able to write on this node and should be termed as clean success.
-            return;
+            return false;
         }
 
         if(enableHintedHandoff) {
@@ -135,18 +142,27 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                         + pipeline.getOperation().getSimpleName() + " call on node " + node.getId()
                         + ", store '" + pipelineData.getStoreName() + "'");
         } else {
-            handleResponseError(response, pipeline, failureDetector);
+            return handleResponseError(response, pipeline, failureDetector);
         }
+        return false;
     }
 
-    private void processResponses(Map<Integer, Response<ByteArray, Object>> responses,
-                                  Pipeline pipeline) {
+    /**
+     * 
+     * @param responses
+     * @param pipeline
+     * @return true if pipeline should be aborted, false otherwise
+     */
+    private boolean processResponses(Map<Integer, Response<ByteArray, Object>> responses,
+                                     Pipeline pipeline) {
         for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
             Response<ByteArray, Object> response = responseEntry.getValue();
             responses.remove(responseEntry.getKey());
 
             if(response.getValue() instanceof Exception) {
-                handleException(response, pipeline, true);
+                if(handleException(response, pipeline, true)) {
+                    return true;
+                }
             } else {
                 pipelineData.incrementSuccesses();
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
@@ -155,6 +171,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                 pipelineData.getResponses().add(rCast);
             }
         }
+        return false;
     }
 
     public void execute(final Pipeline pipeline) {
@@ -223,7 +240,9 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                 logger.warn(e, e);
         }
 
-        processResponses(responses, pipeline);
+        if(processResponses(responses, pipeline))
+            return;
+
         // wait for more responses in case we did not have enough successful
         // response to achieve the required count
         boolean quorumSatisfied = true;
@@ -238,7 +257,8 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                         logger.warn(e, e);
                 }
 
-                processResponses(responses, pipeline);
+                if(processResponses(responses, pipeline))
+                    return;
             }
 
             if(pipelineData.getSuccesses() < required) {
@@ -274,7 +294,8 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                 logger.warn(e, e);
                         }
 
-                        processResponses(responses, pipeline);
+                        if(processResponses(responses, pipeline))
+                            return;
                     }
 
                     if(pipelineData.getZoneResponses().size() >= (pipelineData.getZonesRequired() + 1)) {
