@@ -19,7 +19,7 @@ package voldemort.store.stats;
 
 import org.tehuti.Metric;
 import org.tehuti.metrics.MetricConfig;
-import org.tehuti.metrics.Metrics;
+import org.tehuti.metrics.MetricsRepository;
 import org.tehuti.metrics.Sensor;
 import org.tehuti.metrics.stats.*;
 import org.tehuti.utils.Time;
@@ -59,7 +59,7 @@ public class RequestCounter {
             // Rates
             requestThroughput, requestThroughputInBytes;
 
-    private Metrics metricsRepository;
+    private MetricsRepository metricsRepository;
 
     private static final Logger logger = Logger.getLogger(RequestCounter.class.getName());
 
@@ -103,7 +103,7 @@ public class RequestCounter {
 
         this.time = time;
 
-        this.metricsRepository = new Metrics(time);
+        this.metricsRepository = new MetricsRepository(time);
 
         // Initialize parent sensors arrays...
         int amountOfParentSensors = 0;

@@ -168,6 +168,10 @@ public class StoreStats {
                               valueSize,
                               keySize,
                               getAllAggregateRequests);
+
+        if (logger.isTraceEnabled() && !storeName.contains("aggregate") && !storeName.contains("voldsys$"))
+            logger.trace("Store '" + storeName + "' logged a " + op.toString() + " request taking " +
+                    ((double) timeNS / voldemort.utils.Time.NS_PER_MS) + " ms");
     }
 
     public long getCount(Tracked op) {
