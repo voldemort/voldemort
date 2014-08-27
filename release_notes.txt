@@ -1,3 +1,7 @@
+Release 1.8.14 on 08/26/2014
+
+* Tehuti 0.5 that includes a fix about Histograms
+
 Release 1.8.13 on 08/25/2014
 
 * Fixes duplicated error message for coordinator
