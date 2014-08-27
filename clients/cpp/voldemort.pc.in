@@ -7,5 +7,5 @@ Name: @PACKAGE@
 Description: Project Voldemort C/C++ client library
 Version: @VERSION@
 Libs: -L${libdir} -lvoldemort 
-Libs.private: @LIBS@ @PTHREAD_LIBS@ @BOOST_ASIO_LIB@
-Cflags: -I${includedir} @PTHREAD_CFLAGS@ @BOOST_CPPFLAGS@
+Libs.private: @LIBS@ @BOOST_ASIO_LIB@ @BOOST_THREAD_LIB@ @BOOST_SYSTEM_LIB@
+Cflags: -I${includedir} @BOOST_CPPFLAGS@
