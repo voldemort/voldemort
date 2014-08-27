@@ -141,11 +141,13 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
         // Note errors that come in after the pipeline has finished.
         // These will *not* get a chance to be called in the loop of
         // responses below.
-        if(ex instanceof InvalidMetadataException && pipeline.isFinished()) {
+        if(ex instanceof InvalidMetadataException && isOperationCompleted.get()) {
             pipelineData.reportException(ex);
-            logger.warn("Received invalid metadata problem after a successful "
-                        + pipeline.getOperation().getSimpleName() + " call on node " + node.getId()
-                        + ", store '" + pipelineData.getStoreName() + "'");
+            if(logger.isInfoEnabled()) {
+                logger.info("Received invalid metadata problem after a successful "
+                            + pipeline.getOperation().getSimpleName() + " call on node "
+                            + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
+            }
         } else {
             return handleResponseError(response, pipeline, failureDetector);
         }
@@ -181,17 +183,20 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
 
     private void abortPipeline(final Pipeline pipeline) {
         isDeleteSuccessful.set(false);
-        isOperationCompleted.set(true);
         pipeline.abort();
     }
 
     private void completePipeline(final Pipeline pipeline) {
         isDeleteSuccessful.set(true);
-        isOperationCompleted.set(true);
         pipeline.addEvent(completeEvent);
     }
 
     public void execute(final Pipeline pipeline) {
+        executeInternal(pipeline);
+        isOperationCompleted.set(true);
+    }
+
+    private void executeInternal(final Pipeline pipeline) {
         List<Node> nodes = pipelineData.getNodes();
         final Map<Integer, Response<ByteArray, Object>> responses = new ConcurrentHashMap<Integer, Response<ByteArray, Object>>();
         int attempts = nodes.size();
