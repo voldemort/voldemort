@@ -24,6 +24,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 
@@ -65,7 +66,13 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
 
     private final HintedHandoff hintedHandoff;
 
+    private final PerformDeleteHintedHandoff hintedHandoffAction;
+
     private final Version version;
+
+    private final AtomicBoolean isDeleteSuccessful;
+
+    private final AtomicBoolean isOperationCompleted;
 
     public PerformParallelDeleteRequests(PD pipelineData,
                                          Event completeEvent,
@@ -76,6 +83,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                          long timeoutMs,
                                          Map<Integer, NonblockingStore> nonblockingStores,
                                          HintedHandoff hintedHandoff,
+                                         PerformDeleteHintedHandoff hintedHandoffAction,
                                          Version version) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;
@@ -86,6 +94,9 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
         this.enableHintedHandoff = hintedHandoff != null;
         this.version = version;
         this.hintedHandoff = hintedHandoff;
+        this.hintedHandoffAction = hintedHandoffAction;
+        this.isDeleteSuccessful = new AtomicBoolean(false);
+        this.isOperationCompleted = new AtomicBoolean(false);
     }
 
     /**
@@ -95,9 +106,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
      * @param isParallel
      * @return true if it is a terminal error, false otherwise
      */
-    private boolean handleException(Response<ByteArray, Object> response,
-                                    Pipeline pipeline,
-                                    boolean isParallel) {
+    private boolean handleException(Response<ByteArray, Object> response, Pipeline pipeline) {
         Node node = response.getNode();
         Exception ex = null;
         if(!(response.getValue() instanceof Exception)) {
@@ -121,14 +130,10 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                      node.getId(),
                                      new Date());
 
-                pipelineData.addFailedNode(node);
-                if(isParallel) {
+                if(isOperationCompleted.get() == false) {
+                    hintedHandoffAction.rememberSlopForLaterEvent(node, slop);
+                } else if(isDeleteSuccessful.get() == true) {
                     hintedHandoff.sendHintParallel(node, version, slop);
-                } else {
-                    // TODO : Ideally should use sendHintParallel, but don't
-                    // have time now to figure out what is the difference,
-                    // and impact. saving it for a rainy day.
-                    hintedHandoff.sendHintSerial(node, version, slop);
                 }
             }
         }
@@ -160,7 +165,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
             responses.remove(responseEntry.getKey());
 
             if(response.getValue() instanceof Exception) {
-                if(handleException(response, pipeline, true)) {
+                if(handleException(response, pipeline)) {
                     return true;
                 }
             } else {
@@ -172,6 +177,18 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
             }
         }
         return false;
+    }
+
+    private void abortPipeline(final Pipeline pipeline) {
+        isDeleteSuccessful.set(false);
+        isOperationCompleted.set(true);
+        pipeline.abort();
+    }
+
+    private void completePipeline(final Pipeline pipeline) {
+        isDeleteSuccessful.set(true);
+        isOperationCompleted.set(true);
+        pipeline.addEvent(completeEvent);
     }
 
     public void execute(final Pipeline pipeline) {
@@ -212,7 +229,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                     responses.put(node.getId(), response);
 
                     if(response.getValue() instanceof Exception && pipeline.isFinished()) {
-                        handleException(response, pipeline, false);
+                        handleException(response, pipeline);
                     }
 
                     attemptsLatch.countDown();
@@ -273,7 +290,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                                                                      new ArrayList<Node>(pipelineData.getNodes()),
                                                                                      new ArrayList<Node>(pipelineData.getFailedNodes()),
                                                                                      pipelineData.getFailures()));
-                pipeline.abort();
+                abortPipeline(pipeline);
                 quorumSatisfied = false;
             }
         }
@@ -282,7 +299,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
             if(pipelineData.getZonesRequired() != null) {
                 int zonesSatisfied = pipelineData.getZoneResponses().size();
                 if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
-                    pipeline.addEvent(completeEvent);
+                    completePipeline(pipeline);
                 } else {
                     long timeMs = (System.nanoTime() - beginTime) / Time.NS_PER_MS;
 
@@ -299,7 +316,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                     }
 
                     if(pipelineData.getZoneResponses().size() >= (pipelineData.getZonesRequired() + 1)) {
-                        pipeline.addEvent(completeEvent);
+                        completePipeline(pipeline);
                     } else {
                         pipelineData.setFatalError(new InsufficientZoneResponsesException((pipelineData.getZonesRequired() + 1)
                                                                                           + " "
@@ -308,12 +325,12 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                                                                           + "s required zone, but only "
                                                                                           + zonesSatisfied
                                                                                           + " succeeded"));
-                        pipeline.abort();
+                        abortPipeline(pipeline);
                     }
                 }
 
             } else {
-                pipeline.addEvent(completeEvent);
+                completePipeline(pipeline);
             }
         }
     }

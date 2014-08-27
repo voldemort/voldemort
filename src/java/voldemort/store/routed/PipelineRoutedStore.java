@@ -51,6 +51,7 @@ import voldemort.store.routed.action.ConfigureNodesLocalZoneOnly;
 import voldemort.store.routed.action.GetAllConfigureNodes;
 import voldemort.store.routed.action.GetAllReadRepair;
 import voldemort.store.routed.action.IncrementClock;
+import voldemort.store.routed.action.PerformDeleteHintedHandoff;
 import voldemort.store.routed.action.PerformParallelDeleteRequests;
 import voldemort.store.routed.action.PerformParallelGetAllRequests;
 import voldemort.store.routed.action.PerformParallelPutRequests;
@@ -667,14 +668,22 @@ public class PipelineRoutedStore extends RoutedStore {
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
         HintedHandoff hintedHandoff = null;
+        PerformDeleteHintedHandoff deleteHintedHandoffAction = null;
 
-        if(isHintedHandoffEnabled())
+        if(isHintedHandoffEnabled()) {
             hintedHandoff = new HintedHandoff(failureDetector,
                                               slopStores,
                                               nonblockingSlopStores,
                                               handoffStrategy,
                                               pipelineData.getFailedNodes(),
                                               deleteOpTimeout);
+
+            deleteHintedHandoffAction = new PerformDeleteHintedHandoff(pipelineData,
+                                                                       Event.COMPLETED,
+                                                                       key,
+                                                                       version,
+                                                                       hintedHandoff);
+        }
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<Boolean, BasicPipelineData<Boolean>>(pipelineData,
@@ -686,7 +695,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                         clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelDeleteRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
-                                                                                                       Event.COMPLETED,
+                                                                                                       isHintedHandoffEnabled() ? Event.RESPONSES_RECEIVED
+                                                                                                                               : Event.COMPLETED,
                                                                                                        key,
                                                                                                        failureDetector,
                                                                                                        storeDef.getPreferredWrites(),
@@ -694,7 +704,13 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                        deleteOpTimeout,
                                                                                                        nonblockingStores,
                                                                                                        hintedHandoff,
+                                                                                                       deleteHintedHandoffAction,
                                                                                                        version));
+
+        if(isHintedHandoffEnabled()) {
+            pipeline.addEventAction(Event.RESPONSES_RECEIVED, deleteHintedHandoffAction);
+
+        }
 
         pipeline.addEvent(Event.STARTED);
         if(logger.isDebugEnabled()) {
