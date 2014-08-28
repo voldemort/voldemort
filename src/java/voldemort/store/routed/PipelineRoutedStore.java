@@ -668,14 +668,22 @@ public class PipelineRoutedStore extends RoutedStore {
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
         HintedHandoff hintedHandoff = null;
+        PerformDeleteHintedHandoff deleteHintedHandoffAction = null;
 
-        if(isHintedHandoffEnabled())
+        if(isHintedHandoffEnabled()) {
             hintedHandoff = new HintedHandoff(failureDetector,
                                               slopStores,
                                               nonblockingSlopStores,
                                               handoffStrategy,
                                               pipelineData.getFailedNodes(),
                                               deleteOpTimeout);
+
+            deleteHintedHandoffAction = new PerformDeleteHintedHandoff(pipelineData,
+                                                                       Event.COMPLETED,
+                                                                       key,
+                                                                       version,
+                                                                       hintedHandoff);
+        }
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<Boolean, BasicPipelineData<Boolean>>(pipelineData,
@@ -696,20 +704,11 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                        deleteOpTimeout,
                                                                                                        nonblockingStores,
                                                                                                        hintedHandoff,
+                                                                                                       deleteHintedHandoffAction,
                                                                                                        version));
 
         if(isHintedHandoffEnabled()) {
-            pipeline.addEventAction(Event.RESPONSES_RECEIVED,
-                                    new PerformDeleteHintedHandoff(pipelineData,
-                                                                   Event.COMPLETED,
-                                                                   key,
-                                                                   version,
-                                                                   hintedHandoff));
-            pipeline.addEventAction(Event.ABORTED, new PerformDeleteHintedHandoff(pipelineData,
-                                                                                  Event.ERROR,
-                                                                                  key,
-                                                                                  version,
-                                                                                  hintedHandoff));
+            pipeline.addEventAction(Event.RESPONSES_RECEIVED, deleteHintedHandoffAction);
 
         }
 

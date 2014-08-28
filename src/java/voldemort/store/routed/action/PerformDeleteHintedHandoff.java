@@ -16,7 +16,7 @@
 
 package voldemort.store.routed.action;
 
-import java.util.Date;
+import java.util.Map;
 
 import voldemort.cluster.Node;
 import voldemort.store.routed.BasicPipelineData;
@@ -42,19 +42,13 @@ public class PerformDeleteHintedHandoff extends
 
     @Override
     public void execute(Pipeline pipeline) {
-        for(Node failedNode: failedNodes) {
-            int failedNodeId = failedNode.getId();
+        for(Map.Entry<Node, Slop> slopToBeSent: slopsToBeSent.entrySet()) {
+            Slop slop = slopToBeSent.getValue();
+            Node failedNode = slopToBeSent.getKey();
             if(logger.isTraceEnabled())
                 logger.trace("Performing hinted handoff for node " + failedNode + ", store "
                              + pipelineData.getStoreName() + "key " + key + ", version" + version);
 
-            Slop slop = new Slop(pipelineData.getStoreName(),
-                                 Slop.Operation.DELETE,
-                                 key,
-                                 null,
-                                 null,
-                                 failedNodeId,
-                                 new Date());
             hintedHandoff.sendHintParallel(failedNode, version, slop);
         }
         pipeline.addEvent(completeEvent);
