@@ -59,10 +59,7 @@ public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[
     private float getThroughput(Tracked trackedOp) {
         if(trackedOp.equals(Tracked.GET)) {
             float getThroughPut = this.storeStats.getThroughput(Tracked.GET);
-            // TODO : GetAll currently ignores the number of keys in the
-            // requests, just counts the number of calls. This might need to be
-            // fixed later.
-            float getAllThroughPut = this.storeStats.getThroughput(Tracked.GET_ALL);
+            float getAllThroughPut = this.storeStats.getGetAllKeysThroughput();
             return getThroughPut + getAllThroughPut;
         } else if(trackedOp.equals(Tracked.PUT)) {
             float putThroughPut = this.storeStats.getThroughput(Tracked.PUT);
