@@ -1,3 +1,10 @@
+Release 1.8.15 on 09/02/2014
+
+* Fixed double-counting stat bug.
+* Merged GET/GET_ALL into READ quotas and PUT/DELETE into WRITE quotas.
+* Cleaned up the slop delete code.
+* Fixed the C++ build so it works on more recent OS. 
+
 Release 1.8.14 on 08/26/2014
 
 * Tehuti 0.5 that includes a fix about Histograms
