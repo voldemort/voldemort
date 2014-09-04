@@ -18,8 +18,8 @@
     <http-port>6001</http-port>
     <socket-port>6002</socket-port>
     <admin-port>6003</admin-port>
-    <partitions>0,12,24,36,48</partitions>
-    <zone-id>0</zone-id>
+    <partitions>1,13,25,37,49</partitions>
+    <zone-id>1</zone-id>
   </server>
   <server>
     <id>1</id>
@@ -27,8 +27,8 @@
     <http-port>6011</http-port>
     <socket-port>6012</socket-port>
     <admin-port>6013</admin-port>
-    <partitions>1,13,25,37,49</partitions>
-    <zone-id>1</zone-id>
+    <partitions>0,12,24,36,48</partitions>
+    <zone-id>0</zone-id>
   </server>
   <server>
     <id>2</id>

@@ -9,11 +9,11 @@
         <proximity-list>1</proximity-list>
     </zone>
     <server>
-        <id>1</id>
+        <id>0</id>
         <host>localhost</host>
-        <http-port>6011</http-port>
-        <socket-port>6012</socket-port>
-        <admin-port>6013</admin-port>
+        <http-port>6001</http-port>
+        <socket-port>6002</socket-port>
+        <admin-port>6003</admin-port>
         <partitions>0, 1, 12, 13, 24, 25, 36, 37, 48, 49</partitions>
         <zone-id>1</zone-id>
     </server>
