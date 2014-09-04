@@ -114,11 +114,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
         }
 
         ex = (Exception) response.getValue();
-        if(ex instanceof ObsoleteVersionException) {
-            // ignore this completely here this means that a higher version was
-            // able to write on this node and should be termed as clean success.
-            return false;
-        }
 
         if(enableHintedHandoff) {
             if(ex instanceof UnreachableStoreException || ex instanceof QuotaExceededException) {
@@ -136,6 +131,21 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                     hintedHandoff.sendHintParallel(node, version, slop);
                 }
             }
+        }
+
+        if(ex instanceof ObsoleteVersionException) {
+            // ignore this completely here this means that a higher version was
+            // able to write on this node and should be termed as clean success.
+            return false;
+        } else if(ex instanceof QuotaExceededException) {
+            // QuotaExceeded exception if passed to the handleResponseError
+            // aborts the pipeline completely.
+
+            // TODO : handle all the ignorable exceptions in handleResponseError
+            // Currently exception handling is very error prone and split across
+            // multiple places. PerformParallelPutRequests eats away the
+            // QuotaException silently as well
+            return false;
         }
 
         // Note errors that come in after the pipeline has finished.
