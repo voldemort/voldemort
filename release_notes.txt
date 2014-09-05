@@ -1,9 +1,14 @@
+Release 1.8.16 on 09/04/2014
+
+* QuotaException causes delete failure.
+* bdb native backup fixups
+
 Release 1.8.15 on 09/02/2014
 
 * Fixed double-counting stat bug.
 * Merged GET/GET_ALL into READ quotas and PUT/DELETE into WRITE quotas.
 * Cleaned up the slop delete code.
-* Fixed the C++ build so it works on more recent OS. 
+* Fixed the C++ build so it works on more recent OS.
 
 Release 1.8.14 on 08/26/2014
 
@@ -38,13 +43,13 @@ Release 1.8.10 on 07/23/2014
 
 Release 1.8.9 on 07/02/2014
 
-* Adding backwards compatibility checks in AdminClient  
+* Adding backwards compatibility checks in AdminClient
 
 Release 1.8.8 on 06/24/2014
 
-* Wrap mime multipart into a mime message to ensure headers are updated in 
+* Wrap mime multipart into a mime message to ensure headers are updated in
   REST ResponseSenders
-* Fix transport client instantiation and HttpClientFactory shutdown 
+* Fix transport client instantiation and HttpClientFactory shutdown
 * Fix build.gradle for setting java builder property in .project file
 
 Release 1.8.6 on 06/11/2014
@@ -119,7 +124,7 @@ Release 1.6.9 on 03/19/2014
 
 * Fix a big where StreamingClient will throw NPE if not initialized
 * Fix multiple broken tests
-* Modified RO Rebalance Test to cover one more case 
+* Modified RO Rebalance Test to cover one more case
 * Adding thin client shell for Voldemort Coordinator
 * Move to tusk-0.0.2
 
@@ -128,9 +133,9 @@ Release 1.6.8 on 02/21/2014
 * Add a tool to dump BDB data to Text and the reverse
 * Fix racing condition problem in CachingStoreClientFactory
 * Testing, client shell and admin tool enhancements from suletm,
-  ahimta, bhsaurabh and Holden Caufield 
+  ahimta, bhsaurabh and Holden Caufield
 * ConsistencyCheckTool enhancement
-* Fix bug in Coordinator for enabling different startup ports 
+* Fix bug in Coordinator for enabling different startup ports
 
 Release 1.6.7 on 02/07/2014
 
@@ -149,11 +154,11 @@ Release 1.6.5 on 02/04/2014
 Release 1.6.4 on 02/03/2014
 
 * Fix bug when RO server NPE when rolled back
-* RO bug fix caused by RW optimization code 
+* RO bug fix caused by RW optimization code
 
 Release 1.6.3 on 01/24/2014
 
-* Fix KeyVersionFetcher to not depend on nodeid 0 
+* Fix KeyVersionFetcher to not depend on nodeid 0
 
 Release 1.6.2 on 01/10/2014
 
@@ -190,7 +195,7 @@ Release 1.5.9 on 11/05/2013
 Release 1.5.8 on 10/29/2013
 
 * Replace resthdfs jar with tusk.jar
-* Incorporate retries into rest hdfs fetcher 
+* Incorporate retries into rest hdfs fetcher
 
 Release 1.5.7 on 10/28/2013
 
@@ -249,7 +254,7 @@ Changes made since 1.4.3
 * Added rebalance shuffle, cluster expansion scripts
 
 Release 1.4.3 on 07/03/2013
- 
+
 Note: Server changes are not backwards compatible. To use new
 rebalancing tooling, servers must be upgraded before hand.
 
@@ -261,7 +266,7 @@ rebalancing tooling, servers must be upgraded before hand.
   - Repartitioning: improved algorithms to optimize partition layout
   - Plan: avoids cross-zone data movement in most rebalance cases. Only
     expanding into a new zone requires data movement across zones.
-  - Controller 
+  - Controller
     - better / more accurate progress monitoring.
     - 'proxy pause' before rebalancing. Ensures clients pick up new
       metadata and allows performance with proxy'ing to be observed
@@ -314,16 +319,16 @@ Release 1.3.4 on 06/19/2013
 * Coordinator
   - Added monitoring capability in the Coordinator
 
-Release 1.3.3 on 04/24/2013 
+Release 1.3.3 on 04/24/2013
 * VoldemortBuildandPush
   - Fixed bug with schema check
 * Streaming Client
   - Fixed issue with redundant callback invocation
-Release 1.3.1 on 03/25/2013 
+Release 1.3.1 on 03/25/2013
 * HDFSFetcher
   - Fixed the bug in calculating checksums when we entere a retry loop
   - refactored per file checksums
-  - added junit test case to simulate intermittent IO exceptions 
+  - added junit test case to simulate intermittent IO exceptions
 * voldemort.client.protocol.admin.AdminClient
   - Added AdminStoreClient so that AdminClient can do store operations
     against specific store on a specific node.
@@ -407,7 +412,7 @@ Release 1.2.3 on 02/20/2013
 Changes made since 1.2.2
 * Added a retry loop and synchronized block while getting Hadoop FS
 * Code cleanup in HdfsFetcher to make it more readable.
-* Throwing explicit exceptions in HdfsFetcher instead of 
+* Throwing explicit exceptions in HdfsFetcher instead of
   returning null to be more precise in the Azkaban logs.
 
 
@@ -457,7 +462,7 @@ Changes made since 1.1.8
 Release 1.1.8 on 01/14/2013
 
 Changes made since release 1.1.7
-* Enhanced Server Monitoring 
+* Enhanced Server Monitoring
    -- Server NIO layer
    -- Streaming operations to the server
    -- BDB storage exception counts
@@ -517,7 +522,7 @@ Changes made since release 1.0.0
 
 IMPORTANT NOTE : This release has significant changes to the BDB storage layer.
 Users are required to read the bin/PREUPGRADE_FOR_1_1_X_README file
-thoroughly before attempting to upgrade to 1.1.0. The necessary data 
+thoroughly before attempting to upgrade to 1.1.0. The necessary data
 conversion will be done through bin/voldemort-convert-bdb.sh
 
 * Upgrading to JE 4.1.17
@@ -593,8 +598,8 @@ Changes made since 0.90.1
  * Monitoring:
      * Append cluster name to various mbeans for better stats display
      * Implement average throughput in bytes
-     * Add BDB JE stats 
-     * Add 95th and 99th latency tracking 
+     * Add BDB JE stats
+     * Add 95th and 99th latency tracking
      * Add stats for ClientRequestExecutorPool
      * Add error/exception count and max getall count
      * BDB+ Data cleanup Monitoring changes
@@ -643,20 +648,20 @@ Changes made since 0.90.1
 Changes made since 0.90
 
  * Updated the documentation for Voldemort shell tool in NOTES
- * Added Admin API to perform Bdb data cleanup (repairJob) 
+ * Added Admin API to perform Bdb data cleanup (repairJob)
    and corresponding unit tests
  * Fixes in restore from replication, store creation code
- * Improved failure detector configuration. ThresholdFailureDetector 
+ * Improved failure detector configuration. ThresholdFailureDetector
    is now the default option
  * Multiple Fixes to the Voldemort ruby client
- * Added additional Jmx metrics to expose Bdb environment statistics, 
+ * Added additional Jmx metrics to expose Bdb environment statistics,
    caching statistics and Voldemort batch operation statistics
  * Updated default timeout for restore 'from replica' to 365 days
- * New feature in the performance tool: '--use-sample' option enables 
-   'read, write back unmodified' transactions in place of writes in 
-   the workload (allows for testing read-write transactions on stores 
+ * New feature in the performance tool: '--use-sample' option enables
+   'read, write back unmodified' transactions in place of writes in
+   the workload (allows for testing read-write transactions on stores
    with complex schemas)
- * Added the ability to dynamically update cluster.xml and 
+ * Added the ability to dynamically update cluster.xml and
    reinitialize the scheduler
 
 Release 0.90 on 7/10/2011
@@ -671,10 +676,10 @@ Changes made since 0.81
  * Web manager
  - Basic GUI in JRuby ( and Sinatra ), capable of querying for store metadata.
  - Read contrib/web-manager/README.md for more details
-  
+
  * Rebalancing
  - New better rebalancing support with (a) checkpointing (b) progress bar (c) support for RO store rebalancing
- - Documentation - https://github.com/voldemort/voldemort/wiki/Voldemort-Rebalancing 
+ - Documentation - https://github.com/voldemort/voldemort/wiki/Voldemort-Rebalancing
  - In the process solves Issue 203, 288, 305, 307, 311
 
  * Client side changes
@@ -684,31 +689,31 @@ Changes made since 0.81
    clients it doesn't make sense to bootstrap the metadata at startup. Hence from now onwards clients instantiated
    from SocketStoreClientFactory give a LazyStoreClient which will not bootstrap till the first request is made
  - Caching store client factory - We have also checked-in a new store client factory which we use internally
-   at LinkedIn to cache store clients for stores which we repeatedly. 
+   at LinkedIn to cache store clients for stores which we repeatedly.
  - Failure detector - We have fixed some bugs in the ThresholdFailureDetector. This is an improvement over the naive
-   BannageFailureDetector which would aggressively mark nodes down after a single failure. More details - 
+   BannageFailureDetector which would aggressively mark nodes down after a single failure. More details -
    https://github.com/voldemort/voldemort/wiki/Client-side-failure-detector-implementations
  - Issue 219: StoreClient::put returns a Version - You may have to upgrade your clients since now the StoreClient returns
    a version to be used in successive requests.
 
  * Read-only store changes
  - Admin based store swapper - Till 0.81 we relied on a servlet based fetcher / swapper.
-   Now we support an admin based store swapper which reports progress. 
+   Now we support an admin based store swapper which reports progress.
  - Other changes - (a) New directory format (b) Two new data format. Support for iterating over read-only data
    (c) Checksum of data in .metadata file (d) Some monitoring changes of RO stores
- 
+
  * Jar upgrades
  - Introduction of JNA 3.2.7 - We have introduced JNA 3.2.7 in this release for supporting symbolic links in read-only stores.
-   More details about the new RO format and changes can be found here - https://github.com/voldemort/voldemort/wiki/Upgrading-from-0.81 
+   More details about the new RO format and changes can be found here - https://github.com/voldemort/voldemort/wiki/Upgrading-from-0.81
  - Protocol Buffers 2.3.0 - Upgrading protocol buffers from 2.2.0 to 2.3.0
  - Avro 1.4.0 - Upgraded Avro from 1.3.0 to 1.4.0
 
  * Storage engine
- - Added support for Krati 0.3.6 as a storage engine ( http://sna-projects.com/krati/ ) - 
+ - Added support for Krati 0.3.6 as a storage engine ( http://sna-projects.com/krati/ ) -
    https://github.com/voldemort/voldemort/tree/release-090/contrib/krati
 
  * Core features
- - Hinted handoff - https://github.com/voldemort/voldemort/wiki/Hinted-Handoff 
+ - Hinted handoff - https://github.com/voldemort/voldemort/wiki/Hinted-Handoff
  - Experimental support for server side transforms - https://github.com/voldemort/voldemort/wiki/Server-side-transforms-in-Voldemort
  - Topology awareness ( i.e. datacenter / rack ) - https://github.com/voldemort/voldemort/wiki/Topology-awareness-capability
  - Repair Job ( Job which will delete data if the node is not responsible for it )
@@ -737,7 +742,7 @@ Changes made since 0.80.2:
   Checksum code
 * Hadoop InputFormat, Pig LoadFunc in Contrib: ability to perform
   Map/Reduce (either directly via Hadoop or using Pig) over data in
-  Voldemort stores. See: 
+  Voldemort stores. See:
   < contrib/hadoop/test/voldemort/hadoop/VoldemortWordCount.java > for
   an example.
 * Voldemort Performance Tool: performance measurement tool based on
@@ -751,7 +756,7 @@ Release 0.80.2 on 4/27/2010
 
 Changes made since 0.80.1:
 
-* Batched NIO writes (improves performance for AdminClient/Streaming 
+* Batched NIO writes (improves performance for AdminClient/Streaming
   operations when the NIO connector is enabled)
 * VoldemortAdminTool: Added support to specify stores, support to
   fetch all keys to a binary file, support to save keys in ASCII
@@ -807,7 +812,7 @@ Changes made since 0.70.1:
   Functionality
 * Support for adding stores on the fly via the Admin
   Service
-* Fixed issue 209: Incorrect object passed to List.contains in 
+* Fixed issue 209: Incorrect object passed to List.contains in
   RebalanceUtils.getLatestCluster()
 * Fixed issue 211: Unnecessary read repairs during getAll() with more
   than one key
@@ -884,7 +889,7 @@ Minor change made since 0.57:
 * Modified build.xml to exclude .git directory from release tarballs/zipfiles
 
 Release 0.57 on 11/16/2009
- 
+
 The following changes were made since 0.56:
 
 * Fixed an issue in ReadOnlyEngine's close() method
@@ -895,7 +900,7 @@ The following changes were made since 0.56:
 Release 0.56 on 10/26/2009
 
 The following changes were made since 0.55:
- 
+
 * Fix for issue 164: Changed default bdb.max.logfile.size to 60MB
 * Make file deletes asynchronous in read only store swap
 * Added better debug logs for bdb stats
@@ -908,11 +913,11 @@ The following changes were made since 0.55:
 * Rely only on the number of versions returned to decide whether to retrieve
   the value for put(K,V)
 * Implemented issue 152: getVersion() API in Store
- 
+
 Release 0.55 on 10/7/2009
- 
+
 The following changes were made since 0.52 (in summary):
- 
+
 * Add an event throttler
 * Added DataCleanupJob
 * Protocol buffers at version 2.2.0
