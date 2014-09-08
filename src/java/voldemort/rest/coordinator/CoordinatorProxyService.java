@@ -1,12 +1,12 @@
 /*
  * Copyright 2014 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -56,14 +56,14 @@ import voldemort.utils.SystemTime;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.Maps;
 
 /*
- * A Netty based service that accepts REST requests from the Voldemort thin clients and invokes the corresponding
- * fat client API.
+ * A Netty based service that accepts REST requests from the Voldemort thin
+ * clients and invokes the corresponding fat client API.
  */
 
 @JmxManaged(description = "Coordinator Service for proxying Voldemort requests from the thin client")
-
 public class CoordinatorProxyService extends AbstractRestService {
 
     private CoordinatorConfig coordinatorConfig = null;
@@ -73,8 +73,12 @@ public class CoordinatorProxyService extends AbstractRestService {
     private SchedulerService schedulerService = null;
     private static final Logger logger = Logger.getLogger(CoordinatorProxyService.class);
     private Map<String, DynamicTimeoutStoreClient<ByteArray, byte[]>> fatClientMap = null;
-    public final static Schema CLIENT_CONFIGS_AVRO_SCHEMA = Schema.parse("{ \"name\": \"clientConfigs\",  \"type\":\"array\","
-                                                                         + "\"items\": { \"name\": \"clientConfig\", \"type\": \"map\", \"values\":\"string\" }}}");
+    public final static String CLIENT_CONFIG_AVRO_SCHEMA_STRING = "{ \"name\": \"clientConfig\", \"type\": \"map\", \"values\": \"string\" }";
+    public final static String CLIENT_CONFIGS_AVRO_SCHEMA_STRING = "{ \"name\": \"clientConfigs\", \"type\": \"array\", \"items\": "
+                                                                   + CLIENT_CONFIG_AVRO_SCHEMA_STRING
+                                                                   + "}";
+    public final static Schema CLIENT_CONFIG_AVRO_SCHEMA = Schema.parse(CLIENT_CONFIG_AVRO_SCHEMA_STRING);
+    public final static Schema CLIENT_CONFIGS_AVRO_SCHEMA = Schema.parse(CLIENT_CONFIGS_AVRO_SCHEMA_STRING);
     private static final String STORE_NAME_KEY = "store_name";
     private static final String IDENTIFIER_STRING_KEY = "identifier_string";
     private final StoreStats coordinatorPerfStats;
@@ -87,10 +91,11 @@ public class CoordinatorProxyService extends AbstractRestService {
     }
 
     /**
-     * Initializes all the Fat clients (1 per store) for the cluster that this Coordinator talks to.
-     * This is invoked once during startup and then every time the Metadata manager detects changes to
-     * the cluster and stores metadata.
-     *
+     * Initializes all the Fat clients (1 per store) for the cluster that this
+     * Coordinator talks to. This is invoked once during startup and then every
+     * time the Metadata manager detects changes to the cluster and stores
+     * metadata.
+     * 
      */
     private void initializeFatClients() {
 
@@ -98,7 +103,8 @@ public class CoordinatorProxyService extends AbstractRestService {
         // Fetch the state once and use this to initialize all the Fat clients
         String storesXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.STORES_KEY);
         String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-        List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml), false);
+        List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml),
+                                                                       false);
 
         // Update the Coordinator Metadata
         this.coordinatorMetadata.setMetadata(clusterXml, storeDefList);
@@ -106,18 +112,19 @@ public class CoordinatorProxyService extends AbstractRestService {
         Map<String, SocketStoreClientFactory> fatClientFactoryMap = readClientConfig(this.coordinatorConfig.getFatClientConfigPath(),
                                                                                      this.coordinatorConfig.getBootstrapURLs());
 
-        // Do not recreate map if it already exists. This function might be called by the AsyncMetadataVersionManager
+        // Do not recreate map if it already exists. This function might be
+        // called by the AsyncMetadataVersionManager
         // if there is a metadata update on the server side
 
-        if (this.fatClientMap == null) {
+        if(this.fatClientMap == null) {
             this.fatClientMap = new HashMap<String, DynamicTimeoutStoreClient<ByteArray, byte[]>>();
         }
 
-        for (StoreDefinition storeDef: storeDefList) {
+        for(StoreDefinition storeDef: storeDefList) {
             String storeName = storeDef.getName();
 
             // Initialize only those stores defined in the client configs file
-            if (fatClientFactoryMap.get(storeName) != null) {
+            if(fatClientFactoryMap.get(storeName) != null) {
                 DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = new DynamicTimeoutStoreClient<ByteArray, byte[]>(storeName,
                                                                                                                             fatClientFactoryMap.get(storeName),
                                                                                                                             1,
@@ -166,25 +173,136 @@ public class CoordinatorProxyService extends AbstractRestService {
                                       this.coordinatorConfig.getMetadataCheckIntervalInMs());
         } catch(BootstrapFailureException be) {
             /*
-             * While testing, the cluster may not be up, but we may still need to verify if the service deploys.
-             * Hence, catch a BootstrapFailureException if any, but continue to register the Netty service (and
-             * listener).
-             *
-             * TODO: Modify the coordinator service to be more lazy. If it cannot initialize the fat clients during
-             * initialization, do this when we get an actual request.
+             * While testing, the cluster may not be up, but we may still need
+             * to verify if the service deploys. Hence, catch a
+             * BootstrapFailureException if any, but continue to register the
+             * Netty service (and listener).
+             * 
+             * TODO: Modify the coordinator service to be more lazy. If it
+             * cannot initialize the fat clients during initialization, do this
+             * when we get an actual request.
              */
         }
     }
 
     /**
+     * Parses a string that contains single fat client config string in avro
+     * format
+     * 
+     * @param configAvro Input string of avro format, that contains config for
+     *        multiple stores
+     * @return Properties of single fat client config
+     */
+    @SuppressWarnings("unchecked")
+    public static Properties readSingleClientConfigAvro(String configAvro) {
+        Properties props = new Properties();
+        try {
+            JsonDecoder decoder = new JsonDecoder(CLIENT_CONFIG_AVRO_SCHEMA, configAvro);
+            GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(CLIENT_CONFIG_AVRO_SCHEMA);
+            Map<Utf8, Utf8> flowMap = (Map<Utf8, Utf8>) datumReader.read(null, decoder);
+            for(Utf8 key: flowMap.keySet()) {
+                props.put(key.toString(), flowMap.get(key).toString());
+            }
+            String storeName = props.getProperty(STORE_NAME_KEY);
+            if(storeName == null || storeName.length() == 0) {
+                throw new Exception("Invalid store name found!");
+            }
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+        return props;
+    }
+
+    /**
+     * Parses a string that contains multiple fat client configs in avro format
+     * 
+     * @param configAvro Input string of avro format, that contains config for
+     *        multiple stores
+     * @return Map of store names to store config properties
+     */
+    @SuppressWarnings("unchecked")
+    public static Map<String, Properties> readMultipleClientConfigAvro(String configAvro) {
+        Map<String, Properties> mapStoreToProps = Maps.newHashMap();
+        try {
+            JsonDecoder decoder = new JsonDecoder(CLIENT_CONFIGS_AVRO_SCHEMA, configAvro);
+            GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(CLIENT_CONFIGS_AVRO_SCHEMA);
+            GenericData.Array<Map<Utf8, Utf8>> flowMaps = (GenericData.Array<Map<Utf8, Utf8>>) datumReader.read(null,
+                                                                                                                decoder);
+            // Flows to return back
+            if(flowMaps != null && flowMaps.size() > 0) {
+                for(Map<Utf8, Utf8> flowMap: flowMaps) {
+                    Properties props = new Properties();
+                    for(Utf8 key: flowMap.keySet()) {
+                        props.put(key.toString(), flowMap.get(key).toString());
+                    }
+
+                    String storeName = props.getProperty(STORE_NAME_KEY);
+                    if(storeName == null || storeName.length() == 0) {
+                        throw new Exception("Invalid store name found!");
+                    }
+
+                    mapStoreToProps.put(storeName, props);
+                }
+            }
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+        return mapStoreToProps;
+    }
+
+    /**
+     * Assembles an avro format string of single store config from store
+     * properties
+     * 
+     * @param props Store properties
+     * @return String in avro format that contains single store configs
+     */
+    public static String writeSingleClientConfigAvro(Properties props) {
+        String avroConfig = new String();
+        Boolean firstProp = true;
+        for(String key: props.stringPropertyNames()) {
+            if(firstProp) {
+                firstProp = false;
+            } else {
+                avroConfig = avroConfig + ", ";
+            }
+            avroConfig = avroConfig + "\"" + key + "\": \"" + props.getProperty(key) + "\"";
+        }
+        return "{" + avroConfig + "}";
+    }
+
+    /**
+     * Assembles an avro format string that contains multiple fat client configs
+     * from map of store to properties
+     * 
+     * @param mapStoreToProps A map of store names to their properties
+     * @return Avro string that contains multiple store configs
+     */
+    public static String writeMultipleClientConfigAvro(Map<String, Properties> mapStoreToProps) {
+        String avroConfig = new String();
+        Boolean firstStore = true;
+        for(String storeName: mapStoreToProps.keySet()) {
+            if(firstStore) {
+                firstStore = false;
+            } else {
+                avroConfig = avroConfig + ", ";
+            }
+            Properties props = mapStoreToProps.get(storeName);
+            avroConfig = avroConfig + "\"" + storeName + "\": "
+                         + writeSingleClientConfigAvro(props);
+
+        }
+        return "{" + avroConfig + "}";
+    }
+
+    /**
      * A function to parse the specified Avro file in order to obtain the config
      * for each fat client managed by this coordinator.
-     *
+     * 
      * @param configFilePath Path of the Avro file containing fat client configs
      * @param bootstrapURLs The server URLs used during bootstrap
      * @return Map of store name to the corresponding fat client config
      */
-    @SuppressWarnings("unchecked")
     private static Map<String, SocketStoreClientFactory> readClientConfig(String configFilePath,
                                                                           String[] bootstrapURLs) {
         String line;
@@ -194,45 +312,31 @@ public class CoordinatorProxyService extends AbstractRestService {
                          .join(IOUtils.readLines(new FileReader(new File(configFilePath))))
                          .trim();
 
-            JsonDecoder decoder = new JsonDecoder(CLIENT_CONFIGS_AVRO_SCHEMA, line);
-            GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(CLIENT_CONFIGS_AVRO_SCHEMA);
-            GenericData.Array<Map<Utf8, Utf8>> flowMaps = (GenericData.Array<Map<Utf8, Utf8>>) datumReader.read(null,
-                                                                                                                decoder);
+            Map<String, Properties> mapStoreToProps = readClientConfigAvro(line);
 
-            // Flows to return back
-            if (flowMaps != null && flowMaps.size() > 0) {
-                for (Map<Utf8, Utf8> flowMap: flowMaps) {
-                    Properties props = new Properties();
-                    for (Utf8 key: flowMap.keySet()) {
-                        props.put(key.toString(), flowMap.get(key).toString());
-                    }
+            for(String storeName: mapStoreToProps.keySet()) {
+                Properties props = mapStoreToProps.get(storeName);
 
-                    String storeName = flowMap.get(new Utf8(STORE_NAME_KEY)).toString();
+                ClientConfig fatClientConfig = new ClientConfig(props);
 
-                    storeName = props.getProperty(STORE_NAME_KEY);
-                    if (storeName == null || storeName.length() == 0) {
-                        throw new Exception("Illegal Store Name !!!");
-                    }
+                fatClientConfig.setBootstrapUrls(bootstrapURLs)
+                               .setEnableCompressionLayer(false)
+                               .setEnableSerializationLayer(false)
+                               .enableDefaultClient(true)
+                               .setEnableLazy(false)
+                               .setIdentifierString(props.getProperty(IDENTIFIER_STRING_KEY, null));
 
-                    ClientConfig fatClientConfig = new ClientConfig(props);
-                    fatClientConfig.setBootstrapUrls(bootstrapURLs)
-                                   .setEnableCompressionLayer(false)
-                                   .setEnableSerializationLayer(false)
-                                   .enableDefaultClient(true)
-                                   .setEnableLazy(false)
-                                   .setIdentifierString(props.getProperty(IDENTIFIER_STRING_KEY,
-                                                                          null));
+                logger.info("Creating a Fat client for store: " + storeName);
+                logger.info("Using config: " + fatClientConfig);
 
-                    logger.info("Creating a Fat client for store: " + storeName);
-                    logger.info("Using config: " + fatClientConfig);
-                    storeFactoryMap.put(storeName, new SocketStoreClientFactory(fatClientConfig));
-                }
+                storeFactoryMap.put(storeName, new SocketStoreClientFactory(fatClientConfig));
             }
-        } catch (FileNotFoundException e) {
+
+        } catch(FileNotFoundException e) {
             e.printStackTrace();
-        } catch (IOException e) {
+        } catch(IOException e) {
             e.printStackTrace();
-        } catch (Exception e) {
+        } catch(Exception e) {
             e.printStackTrace();
         }
         return storeFactoryMap;
@@ -262,44 +366,37 @@ public class CoordinatorProxyService extends AbstractRestService {
         return ServiceType.COORDINATOR_PROXY.getDisplayName();
     }
 
-    @JmxGetter(name = "numberOfActiveThreads",
-            description = "The number of active Netty worker threads.")
+    @JmxGetter(name = "numberOfActiveThreads", description = "The number of active Netty worker threads.")
     public int getNumberOfActiveThreads() {
         return this.workerPool.getActiveCount();
     }
 
-    @JmxGetter(name = "numberOfThreads",
-            description = "The total number of Netty worker threads, active and idle.")
+    @JmxGetter(name = "numberOfThreads", description = "The total number of Netty worker threads, active and idle.")
     public int getNumberOfThreads() {
         return this.workerPool.getPoolSize();
     }
 
-    @JmxGetter(name = "queuedRequests",
-            description = "Number of requests in the Netty worker queue waiting to execute.")
+    @JmxGetter(name = "queuedRequests", description = "Number of requests in the Netty worker queue waiting to execute.")
     public int getQueuedRequests() {
         return this.workerPool.getQueue().size();
     }
 
-    @JmxGetter(name = "averageGetCompletionTimeInMs",
-            description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averageGetCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
     public double getAverageGetCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.GET);
     }
 
-    @JmxGetter(name = "averagePutCompletionTimeInMs",
-            description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averagePutCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
     public double getAveragePutCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.PUT);
     }
 
-    @JmxGetter(name = "averageGetAllCompletionTimeInMs",
-            description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averageGetAllCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
     public double getAverageGetAllCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.GET_ALL);
     }
 
-    @JmxGetter(name = "averageDeleteCompletionTimeInMs",
-            description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averageDeleteCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
     public double getAverageDeleteCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.DELETE);
     }
