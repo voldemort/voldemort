@@ -197,13 +197,13 @@ class StoreClient:
         while attempts < num_nodes:
             new_node_id = (new_node_id + 1) % num_nodes
             new_node = self.nodes[new_node_id]
+            self._close_socket(connection)
             connection = None
             try:
                 connection = self._make_connection(new_node.host, new_node.socket_port)
                 self.request_count = 0
                 return new_node_id, connection
             except socket.error, (err_num, message):
-                self._close_socket(connection)
                 logging.warn('Error connecting to node ' + str(new_node_id) + ': ' + message)
                 attempts += 1
 
