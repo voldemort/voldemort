@@ -131,7 +131,7 @@ public class AggregatedBdbEnvironmentStats {
 
     @JmxGetter(name = "NumRandomWriteKB")
     public long getNumRandomWriteKB() {
-        return Utils.sumLongList(collectLongMetric("getNumRandomWriteBytes")) / 1000;
+        return Utils.sumLongList(collectLongMetric("getNumRandomWriteBytes")) / 1024;
     }
 
     @JmxGetter(name = "NumRandomReads")
@@ -150,7 +150,7 @@ public class AggregatedBdbEnvironmentStats {
 
     @JmxGetter(name = "NumRandomReadKB")
     public long getNumRandomReadKB() {
-        return Utils.sumLongList(collectLongMetric("getNumRandomReadBytes")) / 1000;
+        return Utils.sumLongList(collectLongMetric("getNumRandomReadBytes")) / 1024;
     }
 
     @JmxGetter(name = "NumSequentialWrites")
@@ -169,7 +169,7 @@ public class AggregatedBdbEnvironmentStats {
 
     @JmxGetter(name = "NumSequentialWriteKB")
     public long getNumSequentialWriteKB() {
-        return Utils.sumLongList(collectLongMetric("getNumSequentialWriteBytes")) / 1000;
+        return Utils.sumLongList(collectLongMetric("getNumSequentialWriteBytes")) / 1024;
     }
 
     @JmxGetter(name = "NumSequentialReads")
@@ -188,7 +188,7 @@ public class AggregatedBdbEnvironmentStats {
 
     @JmxGetter(name = "NumSequentialReadKB")
     public long getNumSequentialReadKB() {
-        return Utils.sumLongList(collectLongMetric("getNumSequentialReadBytes")) / 1000;
+        return Utils.sumLongList(collectLongMetric("getNumSequentialReadBytes")) / 1024;
     }
 
     @JmxGetter(name = "NumFSyncs")
@@ -219,7 +219,7 @@ public class AggregatedBdbEnvironmentStats {
 
     @JmxGetter(name = "FileDeletionBacklogKB")
     public long getFileDeletionBacklogKB() {
-        return Utils.sumLongList(collectLongMetric("getFileDeletionBacklogBytes")) / 1000;
+        return Utils.sumLongList(collectLongMetric("getFileDeletionBacklogBytes")) / 1024;
     }
 
     @JmxGetter(name = "CleanerBacklog")
@@ -302,7 +302,7 @@ public class AggregatedBdbEnvironmentStats {
 
     @JmxGetter(name = "NumWriteKBTotal")
     public long getNumWriteKBTotal() {
-        return Utils.sumLongList(collectLongMetric("getNumWriteBytesTotal")) / 1000;
+        return Utils.sumLongList(collectLongMetric("getNumWriteBytesTotal")) / 1024;
     }
 
     @JmxGetter(name = "NumReadsTotal")
@@ -321,7 +321,7 @@ public class AggregatedBdbEnvironmentStats {
 
     @JmxGetter(name = "NumReadKBTotal")
     public long getNumReadKBTotal() {
-        return Utils.sumLongList(collectLongMetric("getNumReadBytesTotal")) / 1000;
+        return Utils.sumLongList(collectLongMetric("getNumReadBytesTotal")) / 1024;
     }
 
     @JmxGetter(name = "PercentRandomWrites")

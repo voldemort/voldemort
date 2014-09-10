@@ -22,7 +22,7 @@ import com.sleepycat.je.StatsConfig;
 public class BdbEnvironmentStats {
 
     // Don't fetch entry count/btree stats more than twice a day
-    private final static long INVASIVE_STATS_TTL_MS = 12 * 3600 * 1000;
+    private final static long INVASIVE_STATS_TTL_MS = 12 * 3600 * 1024;
 
     private final Environment environment;
     private final Database database;
@@ -223,7 +223,7 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "NumRandomWriteKB")
     public long getNumRandomWriteKB() {
-        return getNumRandomWriteBytes() / 1000;
+        return getNumRandomWriteBytes() / 1024;
     }
 
     @JmxGetter(name = "NumRandomReads")
@@ -237,7 +237,7 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "NumRandomReadKB")
     public long getNumRandomReadKB() {
-        return getNumRandomReadBytes() / 1000;
+        return getNumRandomReadBytes() / 1024;
     }
 
     @JmxGetter(name = "NumSequentialWrites")
@@ -251,7 +251,7 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "NumSequentialWriteKB")
     public long getNumSequentialWriteKB() {
-        return getNumSequentialWriteBytes() / 1000;
+        return getNumSequentialWriteBytes() / 1024;
     }
 
     @JmxGetter(name = "NumSequentialReads")
@@ -265,7 +265,7 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "NumSequentialReadKB")
     public long getNumSequentialReadKB() {
-        return getNumSequentialReadBytes() / 1000;
+        return getNumSequentialReadBytes() / 1024;
     }
 
     @JmxGetter(name = "NumFSyncs")
@@ -294,7 +294,7 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "FileDeletionBacklogKB")
     public long getFileDeletionBacklogKB() {
-        return getFileDeletionBacklogBytes() / 1000;
+        return getFileDeletionBacklogBytes() / 1024;
     }
 
     @JmxGetter(name = "CleanerBacklog")
@@ -394,7 +394,7 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "NumWriteKBTotal")
     public long getNumWriteKBTotal() {
-        return getNumWriteBytesTotal() / 1000;
+        return getNumWriteBytesTotal() / 1024;
     }
 
     @JmxGetter(name = "NumReadsTotal")
@@ -408,7 +408,7 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "NumReadKBTotal")
     public long getNumReadKBTotal() {
-        return getNumReadBytesTotal() / 1000;
+        return getNumReadBytesTotal() / 1024;
     }
 
     @JmxGetter(name = "PercentRandomWrites")
