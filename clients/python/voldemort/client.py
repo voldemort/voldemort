@@ -168,6 +168,7 @@ class StoreClient:
             raise VoldemortException("Cannot find store [%s] at %s" % (store_name, bootstrap_urls))
 
         self.node_id = random.randint(0, len(self.nodes) - 1)
+	self.connection = None
         self.node_id, self.connection = self._reconnect()
         self.reconnect_interval = reconnect_interval
         self.open = True
@@ -194,10 +195,10 @@ class StoreClient:
         num_nodes = len(self.nodes)
         attempts = 0
         new_node_id = self.node_id
+        self._close_socket(self.connection)
         while attempts < num_nodes:
             new_node_id = (new_node_id + 1) % num_nodes
             new_node = self.nodes[new_node_id]
-            self._close_socket(connection)
             connection = None
             try:
                 connection = self._make_connection(new_node.host, new_node.socket_port)
@@ -226,7 +227,6 @@ class StoreClient:
     def _maybe_reconnect(self):
         if self.request_count >= self.reconnect_interval:
             logging.debug('Completed ' + str(self.request_count) + ' requests using this connection, reconnecting...')
-            self._close_socket(self.connection)
             self.node_id, self.connection = self._reconnect()
 
 
