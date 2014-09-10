@@ -120,9 +120,18 @@ public class AggregatedBdbEnvironmentStats {
         return Utils.sumLongList(collectLongMetric("getNumRandomWrites"));
     }
 
+    /**
+     * @deprecated Useful data is usually larger than 1K. Use getNumRandomWriteKB
+     */
+    @Deprecated
     @JmxGetter(name = "NumRandomWriteBytes")
     public long getNumRandomWriteBytes() {
         return Utils.sumLongList(collectLongMetric("getNumRandomWriteBytes"));
+    }
+
+    @JmxGetter(name = "NumRandomWriteKB")
+    public long getNumRandomWriteKB() {
+        return Utils.sumLongList(collectLongMetric("getNumRandomWriteBytes")) / 1000;
     }
 
     @JmxGetter(name = "NumRandomReads")
@@ -130,9 +139,18 @@ public class AggregatedBdbEnvironmentStats {
         return Utils.sumLongList(collectLongMetric("getNumRandomReads"));
     }
 
+    /**
+     * @deprecated Useful data is usually larger than 1K. Use getNumRandomReadKB
+     */
+    @Deprecated
     @JmxGetter(name = "NumRandomReadBytes")
     public long getNumRandomReadBytes() {
         return Utils.sumLongList(collectLongMetric("getNumRandomReadBytes"));
+    }
+
+    @JmxGetter(name = "NumRandomReadKB")
+    public long getNumRandomReadKB() {
+        return Utils.sumLongList(collectLongMetric("getNumRandomReadBytes")) / 1000;
     }
 
     @JmxGetter(name = "NumSequentialWrites")
@@ -140,9 +158,18 @@ public class AggregatedBdbEnvironmentStats {
         return Utils.sumLongList(collectLongMetric("getNumSequentialWrites"));
     }
 
+    /**
+     * @deprecated Useful data is usually larger than 1K. Use getNumSequentialWriteKB
+     */
+    @Deprecated
     @JmxGetter(name = "NumSequentialWriteBytes")
     public long getNumSequentialWriteBytes() {
         return Utils.sumLongList(collectLongMetric("getNumSequentialWriteBytes"));
+    }
+
+    @JmxGetter(name = "NumSequentialWriteKB")
+    public long getNumSequentialWriteKB() {
+        return Utils.sumLongList(collectLongMetric("getNumSequentialWriteBytes")) / 1000;
     }
 
     @JmxGetter(name = "NumSequentialReads")
@@ -150,9 +177,18 @@ public class AggregatedBdbEnvironmentStats {
         return Utils.sumLongList(collectLongMetric("getNumSequentialReads"));
     }
 
+    /**
+     * @deprecated Useful data is usually large than 1K. Use getNumSequentialReadKB
+     */
+    @Deprecated
     @JmxGetter(name = "NumSequentialReadBytes")
     public long getNumSequentialReadBytes() {
         return Utils.sumLongList(collectLongMetric("getNumSequentialReadBytes"));
+    }
+
+    @JmxGetter(name = "NumSequentialReadKB")
+    public long getNumSequentialReadKB() {
+        return Utils.sumLongList(collectLongMetric("getNumSequentialReadBytes")) / 1000;
     }
 
     @JmxGetter(name = "NumFSyncs")
@@ -172,9 +208,18 @@ public class AggregatedBdbEnvironmentStats {
         return Utils.sumLongList(collectLongMetric("getFileDeletionBacklog"));
     }
 
+    /**
+     * @deprecated Useful data is usually large than 1K. Use getFileDeletionBacklogKB
+     */
+    @Deprecated
     @JmxGetter(name = "FileDeletionBacklogBytes")
     public long getFileDeletionBacklogBytes() {
         return Utils.sumLongList(collectLongMetric("getFileDeletionBacklogBytes"));
+    }
+
+    @JmxGetter(name = "FileDeletionBacklogKB")
+    public long getFileDeletionBacklogKB() {
+        return Utils.sumLongList(collectLongMetric("getFileDeletionBacklogBytes")) / 1000;
     }
 
     @JmxGetter(name = "CleanerBacklog")
@@ -246,9 +291,18 @@ public class AggregatedBdbEnvironmentStats {
         return Utils.sumLongList(collectLongMetric("getNumWritesTotal"));
     }
 
+    /**
+     * @deprecated Useful data is usually large than 1K. Use getNumWriteKBTotal
+     */
+    @Deprecated
     @JmxGetter(name = "NumWriteBytesTotal")
     public long getNumWriteBytesTotal() {
         return Utils.sumLongList(collectLongMetric("getNumWriteBytesTotal"));
+    }
+
+    @JmxGetter(name = "NumWriteKBTotal")
+    public long getNumWriteKBTotal() {
+        return Utils.sumLongList(collectLongMetric("getNumWriteBytesTotal")) / 1000;
     }
 
     @JmxGetter(name = "NumReadsTotal")
@@ -256,9 +310,18 @@ public class AggregatedBdbEnvironmentStats {
         return Utils.sumLongList(collectLongMetric("getNumReadsTotal"));
     }
 
+    /**
+     * @deprecated Useful data is usually large than 1K. Use getNumReadKBTotal
+     */
+    @Deprecated
     @JmxGetter(name = "NumReadBytesTotal")
     public long getNumReadBytesTotal() {
         return Utils.sumLongList(collectLongMetric("getNumReadBytesTotal"));
+    }
+
+    @JmxGetter(name = "NumReadKBTotal")
+    public long getNumReadKBTotal() {
+        return Utils.sumLongList(collectLongMetric("getNumReadBytesTotal")) / 1000;
     }
 
     @JmxGetter(name = "PercentRandomWrites")
@@ -266,10 +329,14 @@ public class AggregatedBdbEnvironmentStats {
         return Utils.safeGetPercentage(getNumRandomWrites(), getNumWritesTotal());
     }
 
+    /**
+     * @deprecated Useful data is usually large than 1K. Use
+     */
+    @Deprecated
     @JmxGetter(name = "PercentageRandomWriteBytes")
     public double getPercentageRandomWriteBytes() {
-        return Utils.safeGetPercentage(getNumRandomWriteBytes(), getNumRandomWriteBytes()
-                                                                 + getNumSequentialWriteBytes());
+        return Utils.safeGetPercentage(getNumRandomWriteKB(), getNumRandomWriteKB()
+                                                                 + getNumSequentialWriteKB());
     }
 
     @JmxGetter(name = "PercentageRandomReads")
@@ -279,8 +346,8 @@ public class AggregatedBdbEnvironmentStats {
 
     @JmxGetter(name = "PercentageRandomReadBytes")
     public double getPercentageRandomReadBytes() {
-        return Utils.safeGetPercentage(getNumRandomWriteBytes(), getNumRandomReadBytes()
-                                                                 + getNumSequentialReadBytes());
+        return Utils.safeGetPercentage(getNumRandomWriteKB(), getNumRandomReadKB()
+                                                                 + getNumSequentialReadKB());
     }
 
     @JmxGetter(name = "PercentageReads")
@@ -290,8 +357,8 @@ public class AggregatedBdbEnvironmentStats {
 
     @JmxGetter(name = "PercentageReadBytes")
     public double getPercentageReadBytes() {
-        return Utils.safeGetPercentage(getNumReadBytesTotal(), getNumWriteBytesTotal()
-                                                               + getNumReadBytesTotal());
+        return Utils.safeGetPercentage(getNumReadKBTotal(), getNumWriteKBTotal()
+                                                               + getNumReadKBTotal());
     }
 
     @JmxGetter(name = "PercentageCacheHits")
