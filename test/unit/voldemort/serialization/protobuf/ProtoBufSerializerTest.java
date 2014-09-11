@@ -46,6 +46,11 @@ public class ProtoBufSerializerTest extends TestCase {
         public MessageWithNoParseFrom(byte[] bytes) {
             super(bytes);
         }
+
+        @Override
+        protected com.google.protobuf.Message.Builder newBuilderForType(BuilderParent arg0) {
+            return null;
+        }
     }
 
     private static class InvalidMessageWithParseFrom {
@@ -65,6 +70,11 @@ public class ProtoBufSerializerTest extends TestCase {
         @SuppressWarnings("unused")
         public static MessageStub parseFrom(byte[] bytes) {
             return new MessageStub(bytes);
+        }
+
+        @Override
+        protected com.google.protobuf.Message.Builder newBuilderForType(BuilderParent arg0) {
+            return null;
         }
     }
 

@@ -8,282 +8,606 @@ public final class VSlopProto {
   public static void registerAllExtensions(
       com.google.protobuf.ExtensionRegistry registry) {
   }
+  public interface SlopOrBuilder
+      extends com.google.protobuf.MessageOrBuilder {
+
+    // optional string store = 1;
+    /**
+     * <code>optional string store = 1;</code>
+     */
+    boolean hasStore();
+    /**
+     * <code>optional string store = 1;</code>
+     */
+    java.lang.String getStore();
+    /**
+     * <code>optional string store = 1;</code>
+     */
+    com.google.protobuf.ByteString
+        getStoreBytes();
+
+    // optional string operation = 2;
+    /**
+     * <code>optional string operation = 2;</code>
+     */
+    boolean hasOperation();
+    /**
+     * <code>optional string operation = 2;</code>
+     */
+    java.lang.String getOperation();
+    /**
+     * <code>optional string operation = 2;</code>
+     */
+    com.google.protobuf.ByteString
+        getOperationBytes();
+
+    // optional bytes key = 3;
+    /**
+     * <code>optional bytes key = 3;</code>
+     */
+    boolean hasKey();
+    /**
+     * <code>optional bytes key = 3;</code>
+     */
+    com.google.protobuf.ByteString getKey();
+
+    // optional bytes value = 4;
+    /**
+     * <code>optional bytes value = 4;</code>
+     */
+    boolean hasValue();
+    /**
+     * <code>optional bytes value = 4;</code>
+     */
+    com.google.protobuf.ByteString getValue();
+
+    // optional int32 node_id = 5;
+    /**
+     * <code>optional int32 node_id = 5;</code>
+     */
+    boolean hasNodeId();
+    /**
+     * <code>optional int32 node_id = 5;</code>
+     */
+    int getNodeId();
+
+    // optional int64 arrived = 6;
+    /**
+     * <code>optional int64 arrived = 6;</code>
+     */
+    boolean hasArrived();
+    /**
+     * <code>optional int64 arrived = 6;</code>
+     */
+    long getArrived();
+  }
+  /**
+   * Protobuf type {@code voldemort.Slop}
+   */
   public static final class Slop extends
-      com.google.protobuf.GeneratedMessage {
+      com.google.protobuf.GeneratedMessage
+      implements SlopOrBuilder {
     // Use Slop.newBuilder() to construct.
-    private Slop() {
-      initFields();
+    private Slop(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+      super(builder);
+      this.unknownFields = builder.getUnknownFields();
     }
-    private Slop(boolean noInit) {}
-    
+    private Slop(boolean noInit) { this.unknownFields = com.google.protobuf.UnknownFieldSet.getDefaultInstance(); }
+
     private static final Slop defaultInstance;
     public static Slop getDefaultInstance() {
       return defaultInstance;
     }
-    
+
     public Slop getDefaultInstanceForType() {
       return defaultInstance;
     }
-    
+
+    private final com.google.protobuf.UnknownFieldSet unknownFields;
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+        getUnknownFields() {
+      return this.unknownFields;
+    }
+    private Slop(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      initFields();
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            default: {
+              if (!parseUnknownField(input, unknownFields,
+                                     extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+            case 10: {
+              bitField0_ |= 0x00000001;
+              store_ = input.readBytes();
+              break;
+            }
+            case 18: {
+              bitField0_ |= 0x00000002;
+              operation_ = input.readBytes();
+              break;
+            }
+            case 26: {
+              bitField0_ |= 0x00000004;
+              key_ = input.readBytes();
+              break;
+            }
+            case 34: {
+              bitField0_ |= 0x00000008;
+              value_ = input.readBytes();
+              break;
+            }
+            case 40: {
+              bitField0_ |= 0x00000010;
+              nodeId_ = input.readInt32();
+              break;
+            }
+            case 48: {
+              bitField0_ |= 0x00000020;
+              arrived_ = input.readInt64();
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e.getMessage()).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
       return voldemort.serialization.VSlopProto.internal_static_voldemort_Slop_descriptor;
     }
-    
+
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return voldemort.serialization.VSlopProto.internal_static_voldemort_Slop_fieldAccessorTable;
+      return voldemort.serialization.VSlopProto.internal_static_voldemort_Slop_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              voldemort.serialization.VSlopProto.Slop.class, voldemort.serialization.VSlopProto.Slop.Builder.class);
     }
-    
+
+    public static com.google.protobuf.Parser<Slop> PARSER =
+        new com.google.protobuf.AbstractParser<Slop>() {
+      public Slop parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new Slop(input, extensionRegistry);
+      }
+    };
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<Slop> getParserForType() {
+      return PARSER;
+    }
+
+    private int bitField0_;
     // optional string store = 1;
     public static final int STORE_FIELD_NUMBER = 1;
-    private boolean hasStore;
-    private java.lang.String store_ = "";
-    public boolean hasStore() { return hasStore; }
-    public java.lang.String getStore() { return store_; }
-    
+    private java.lang.Object store_;
+    /**
+     * <code>optional string store = 1;</code>
+     */
+    public boolean hasStore() {
+      return ((bitField0_ & 0x00000001) == 0x00000001);
+    }
+    /**
+     * <code>optional string store = 1;</code>
+     */
+    public java.lang.String getStore() {
+      java.lang.Object ref = store_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          store_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string store = 1;</code>
+     */
+    public com.google.protobuf.ByteString
+        getStoreBytes() {
+      java.lang.Object ref = store_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        store_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     // optional string operation = 2;
     public static final int OPERATION_FIELD_NUMBER = 2;
-    private boolean hasOperation;
-    private java.lang.String operation_ = "";
-    public boolean hasOperation() { return hasOperation; }
-    public java.lang.String getOperation() { return operation_; }
-    
+    private java.lang.Object operation_;
+    /**
+     * <code>optional string operation = 2;</code>
+     */
+    public boolean hasOperation() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <code>optional string operation = 2;</code>
+     */
+    public java.lang.String getOperation() {
+      java.lang.Object ref = operation_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          operation_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string operation = 2;</code>
+     */
+    public com.google.protobuf.ByteString
+        getOperationBytes() {
+      java.lang.Object ref = operation_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        operation_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     // optional bytes key = 3;
     public static final int KEY_FIELD_NUMBER = 3;
-    private boolean hasKey;
-    private com.google.protobuf.ByteString key_ = com.google.protobuf.ByteString.EMPTY;
-    public boolean hasKey() { return hasKey; }
-    public com.google.protobuf.ByteString getKey() { return key_; }
-    
+    private com.google.protobuf.ByteString key_;
+    /**
+     * <code>optional bytes key = 3;</code>
+     */
+    public boolean hasKey() {
+      return ((bitField0_ & 0x00000004) == 0x00000004);
+    }
+    /**
+     * <code>optional bytes key = 3;</code>
+     */
+    public com.google.protobuf.ByteString getKey() {
+      return key_;
+    }
+
     // optional bytes value = 4;
     public static final int VALUE_FIELD_NUMBER = 4;
-    private boolean hasValue;
-    private com.google.protobuf.ByteString value_ = com.google.protobuf.ByteString.EMPTY;
-    public boolean hasValue() { return hasValue; }
-    public com.google.protobuf.ByteString getValue() { return value_; }
-    
+    private com.google.protobuf.ByteString value_;
+    /**
+     * <code>optional bytes value = 4;</code>
+     */
+    public boolean hasValue() {
+      return ((bitField0_ & 0x00000008) == 0x00000008);
+    }
+    /**
+     * <code>optional bytes value = 4;</code>
+     */
+    public com.google.protobuf.ByteString getValue() {
+      return value_;
+    }
+
     // optional int32 node_id = 5;
     public static final int NODE_ID_FIELD_NUMBER = 5;
-    private boolean hasNodeId;
-    private int nodeId_ = 0;
-    public boolean hasNodeId() { return hasNodeId; }
-    public int getNodeId() { return nodeId_; }
-    
+    private int nodeId_;
+    /**
+     * <code>optional int32 node_id = 5;</code>
+     */
+    public boolean hasNodeId() {
+      return ((bitField0_ & 0x00000010) == 0x00000010);
+    }
+    /**
+     * <code>optional int32 node_id = 5;</code>
+     */
+    public int getNodeId() {
+      return nodeId_;
+    }
+
     // optional int64 arrived = 6;
     public static final int ARRIVED_FIELD_NUMBER = 6;
-    private boolean hasArrived;
-    private long arrived_ = 0L;
-    public boolean hasArrived() { return hasArrived; }
-    public long getArrived() { return arrived_; }
-    
-    private void initFields() {
+    private long arrived_;
+    /**
+     * <code>optional int64 arrived = 6;</code>
+     */
+    public boolean hasArrived() {
+      return ((bitField0_ & 0x00000020) == 0x00000020);
     }
+    /**
+     * <code>optional int64 arrived = 6;</code>
+     */
+    public long getArrived() {
+      return arrived_;
+    }
+
+    private void initFields() {
+      store_ = "";
+      operation_ = "";
+      key_ = com.google.protobuf.ByteString.EMPTY;
+      value_ = com.google.protobuf.ByteString.EMPTY;
+      nodeId_ = 0;
+      arrived_ = 0L;
+    }
+    private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized != -1) return isInitialized == 1;
+
+      memoizedIsInitialized = 1;
       return true;
     }
-    
+
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       getSerializedSize();
-      if (hasStore()) {
-        output.writeString(1, getStore());
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        output.writeBytes(1, getStoreBytes());
       }
-      if (hasOperation()) {
-        output.writeString(2, getOperation());
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        output.writeBytes(2, getOperationBytes());
       }
-      if (hasKey()) {
-        output.writeBytes(3, getKey());
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        output.writeBytes(3, key_);
       }
-      if (hasValue()) {
-        output.writeBytes(4, getValue());
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+        output.writeBytes(4, value_);
       }
-      if (hasNodeId()) {
-        output.writeInt32(5, getNodeId());
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
+        output.writeInt32(5, nodeId_);
       }
-      if (hasArrived()) {
-        output.writeInt64(6, getArrived());
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
+        output.writeInt64(6, arrived_);
       }
       getUnknownFields().writeTo(output);
     }
-    
+
     private int memoizedSerializedSize = -1;
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
-    
+
       size = 0;
-      if (hasStore()) {
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeStringSize(1, getStore());
+          .computeBytesSize(1, getStoreBytes());
       }
-      if (hasOperation()) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeStringSize(2, getOperation());
+          .computeBytesSize(2, getOperationBytes());
       }
-      if (hasKey()) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeBytesSize(3, getKey());
+          .computeBytesSize(3, key_);
       }
-      if (hasValue()) {
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeBytesSize(4, getValue());
+          .computeBytesSize(4, value_);
       }
-      if (hasNodeId()) {
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt32Size(5, getNodeId());
+          .computeInt32Size(5, nodeId_);
       }
-      if (hasArrived()) {
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(6, getArrived());
+          .computeInt64Size(6, arrived_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
       return size;
     }
-    
+
+    private static final long serialVersionUID = 0L;
+    @java.lang.Override
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
+      return super.writeReplace();
+    }
+
     public static voldemort.serialization.VSlopProto.Slop parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return newBuilder().mergeFrom(data).buildParsed();
+      return PARSER.parseFrom(data);
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return newBuilder().mergeFrom(data, extensionRegistry)
-               .buildParsed();
+      return PARSER.parseFrom(data, extensionRegistry);
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return newBuilder().mergeFrom(data).buildParsed();
+      return PARSER.parseFrom(data);
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return newBuilder().mergeFrom(data, extensionRegistry)
-               .buildParsed();
+      return PARSER.parseFrom(data, extensionRegistry);
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return newBuilder().mergeFrom(input).buildParsed();
+      return PARSER.parseFrom(input);
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return newBuilder().mergeFrom(input, extensionRegistry)
-               .buildParsed();
+      return PARSER.parseFrom(input, extensionRegistry);
     }
     public static voldemort.serialization.VSlopProto.Slop parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      Builder builder = newBuilder();
-      if (builder.mergeDelimitedFrom(input)) {
-        return builder.buildParsed();
-      } else {
-        return null;
-      }
+      return PARSER.parseDelimitedFrom(input);
     }
     public static voldemort.serialization.VSlopProto.Slop parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      Builder builder = newBuilder();
-      if (builder.mergeDelimitedFrom(input, extensionRegistry)) {
-        return builder.buildParsed();
-      } else {
-        return null;
-      }
+      return PARSER.parseDelimitedFrom(input, extensionRegistry);
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
-      return newBuilder().mergeFrom(input).buildParsed();
+      return PARSER.parseFrom(input);
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return newBuilder().mergeFrom(input, extensionRegistry)
-               .buildParsed();
+      return PARSER.parseFrom(input, extensionRegistry);
     }
-    
+
     public static Builder newBuilder() { return Builder.create(); }
     public Builder newBuilderForType() { return newBuilder(); }
     public static Builder newBuilder(voldemort.serialization.VSlopProto.Slop prototype) {
       return newBuilder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
-    
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code voldemort.Slop}
+     */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.serialization.VSlopProto.Slop result;
-      
+        com.google.protobuf.GeneratedMessage.Builder<Builder>
+       implements voldemort.serialization.VSlopProto.SlopOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return voldemort.serialization.VSlopProto.internal_static_voldemort_Slop_descriptor;
+      }
+
+      protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return voldemort.serialization.VSlopProto.internal_static_voldemort_Slop_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                voldemort.serialization.VSlopProto.Slop.class, voldemort.serialization.VSlopProto.Slop.Builder.class);
+      }
+
       // Construct using voldemort.serialization.VSlopProto.Slop.newBuilder()
-      private Builder() {}
-      
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.serialization.VSlopProto.Slop();
-        return builder;
+      private Builder() {
+        maybeForceBuilderInitialization();
       }
-      
-      protected voldemort.serialization.VSlopProto.Slop internalGetResult() {
-        return result;
+
+      private Builder(
+          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
       }
-      
-      public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
         }
-        result = new voldemort.serialization.VSlopProto.Slop();
+      }
+      private static Builder create() {
+        return new Builder();
+      }
+
+      public Builder clear() {
+        super.clear();
+        store_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        operation_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        key_ = com.google.protobuf.ByteString.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000004);
+        value_ = com.google.protobuf.ByteString.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000008);
+        nodeId_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000010);
+        arrived_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000020);
         return this;
       }
-      
+
       public Builder clone() {
-        return create().mergeFrom(result);
+        return create().mergeFrom(buildPartial());
       }
-      
+
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return voldemort.serialization.VSlopProto.Slop.getDescriptor();
+        return voldemort.serialization.VSlopProto.internal_static_voldemort_Slop_descriptor;
       }
-      
+
       public voldemort.serialization.VSlopProto.Slop getDefaultInstanceForType() {
         return voldemort.serialization.VSlopProto.Slop.getDefaultInstance();
       }
-      
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
+
       public voldemort.serialization.VSlopProto.Slop build() {
-        if (result != null && !isInitialized()) {
+        voldemort.serialization.VSlopProto.Slop result = buildPartial();
+        if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
-        return buildPartial();
+        return result;
       }
-      
-      private voldemort.serialization.VSlopProto.Slop buildParsed()
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        if (!isInitialized()) {
-          throw newUninitializedMessageException(
-            result).asInvalidProtocolBufferException();
-        }
-        return buildPartial();
-      }
-      
+
       public voldemort.serialization.VSlopProto.Slop buildPartial() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "build() has already been called on this Builder.");
+        voldemort.serialization.VSlopProto.Slop result = new voldemort.serialization.VSlopProto.Slop(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+          to_bitField0_ |= 0x00000001;
         }
-        voldemort.serialization.VSlopProto.Slop returnMe = result;
-        result = null;
-        return returnMe;
+        result.store_ = store_;
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.operation_ = operation_;
+        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.key_ = key_;
+        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.value_ = value_;
+        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
+          to_bitField0_ |= 0x00000010;
+        }
+        result.nodeId_ = nodeId_;
+        if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
+          to_bitField0_ |= 0x00000020;
+        }
+        result.arrived_ = arrived_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
       }
-      
+
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.serialization.VSlopProto.Slop) {
           return mergeFrom((voldemort.serialization.VSlopProto.Slop)other);
@@ -292,14 +616,18 @@ public final class VSlopProto {
           return this;
         }
       }
-      
+
       public Builder mergeFrom(voldemort.serialization.VSlopProto.Slop other) {
         if (other == voldemort.serialization.VSlopProto.Slop.getDefaultInstance()) return this;
         if (other.hasStore()) {
-          setStore(other.getStore());
+          bitField0_ |= 0x00000001;
+          store_ = other.store_;
+          onChanged();
         }
         if (other.hasOperation()) {
-          setOperation(other.getOperation());
+          bitField0_ |= 0x00000002;
+          operation_ = other.operation_;
+          onChanged();
         }
         if (other.hasKey()) {
           setKey(other.getKey());
@@ -316,195 +644,333 @@ public final class VSlopProto {
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
       }
-      
+
+      public final boolean isInitialized() {
+        return true;
+      }
+
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder(
-            this.getUnknownFields());
-        while (true) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              this.setUnknownFields(unknownFields.build());
-              return this;
-            default: {
-              if (!parseUnknownField(input, unknownFields,
-                                     extensionRegistry, tag)) {
-                this.setUnknownFields(unknownFields.build());
-                return this;
-              }
-              break;
-            }
-            case 10: {
-              setStore(input.readString());
-              break;
-            }
-            case 18: {
-              setOperation(input.readString());
-              break;
-            }
-            case 26: {
-              setKey(input.readBytes());
-              break;
-            }
-            case 34: {
-              setValue(input.readBytes());
-              break;
-            }
-            case 40: {
-              setNodeId(input.readInt32());
-              break;
-            }
-            case 48: {
-              setArrived(input.readInt64());
-              break;
-            }
+        voldemort.serialization.VSlopProto.Slop parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (voldemort.serialization.VSlopProto.Slop) e.getUnfinishedMessage();
+          throw e;
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
           }
         }
+        return this;
       }
-      
-      
+      private int bitField0_;
+
       // optional string store = 1;
+      private java.lang.Object store_ = "";
+      /**
+       * <code>optional string store = 1;</code>
+       */
       public boolean hasStore() {
-        return result.hasStore();
+        return ((bitField0_ & 0x00000001) == 0x00000001);
       }
+      /**
+       * <code>optional string store = 1;</code>
+       */
       public java.lang.String getStore() {
-        return result.getStore();
+        java.lang.Object ref = store_;
+        if (!(ref instanceof java.lang.String)) {
+          java.lang.String s = ((com.google.protobuf.ByteString) ref)
+              .toStringUtf8();
+          store_ = s;
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
-      public Builder setStore(java.lang.String value) {
+      /**
+       * <code>optional string store = 1;</code>
+       */
+      public com.google.protobuf.ByteString
+          getStoreBytes() {
+        java.lang.Object ref = store_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          store_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string store = 1;</code>
+       */
+      public Builder setStore(
+          java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  result.hasStore = true;
-        result.store_ = value;
+  bitField0_ |= 0x00000001;
+        store_ = value;
+        onChanged();
         return this;
       }
+      /**
+       * <code>optional string store = 1;</code>
+       */
       public Builder clearStore() {
-        result.hasStore = false;
-        result.store_ = getDefaultInstance().getStore();
+        bitField0_ = (bitField0_ & ~0x00000001);
+        store_ = getDefaultInstance().getStore();
+        onChanged();
         return this;
       }
-      
-      // optional string operation = 2;
-      public boolean hasOperation() {
-        return result.hasOperation();
-      }
-      public java.lang.String getOperation() {
-        return result.getOperation();
-      }
-      public Builder setOperation(java.lang.String value) {
+      /**
+       * <code>optional string store = 1;</code>
+       */
+      public Builder setStoreBytes(
+          com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  result.hasOperation = true;
-        result.operation_ = value;
+  bitField0_ |= 0x00000001;
+        store_ = value;
+        onChanged();
         return this;
       }
+
+      // optional string operation = 2;
+      private java.lang.Object operation_ = "";
+      /**
+       * <code>optional string operation = 2;</code>
+       */
+      public boolean hasOperation() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <code>optional string operation = 2;</code>
+       */
+      public java.lang.String getOperation() {
+        java.lang.Object ref = operation_;
+        if (!(ref instanceof java.lang.String)) {
+          java.lang.String s = ((com.google.protobuf.ByteString) ref)
+              .toStringUtf8();
+          operation_ = s;
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string operation = 2;</code>
+       */
+      public com.google.protobuf.ByteString
+          getOperationBytes() {
+        java.lang.Object ref = operation_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          operation_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string operation = 2;</code>
+       */
+      public Builder setOperation(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        operation_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string operation = 2;</code>
+       */
       public Builder clearOperation() {
-        result.hasOperation = false;
-        result.operation_ = getDefaultInstance().getOperation();
+        bitField0_ = (bitField0_ & ~0x00000002);
+        operation_ = getDefaultInstance().getOperation();
+        onChanged();
         return this;
       }
-      
+      /**
+       * <code>optional string operation = 2;</code>
+       */
+      public Builder setOperationBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        operation_ = value;
+        onChanged();
+        return this;
+      }
+
       // optional bytes key = 3;
+      private com.google.protobuf.ByteString key_ = com.google.protobuf.ByteString.EMPTY;
+      /**
+       * <code>optional bytes key = 3;</code>
+       */
       public boolean hasKey() {
-        return result.hasKey();
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
+      /**
+       * <code>optional bytes key = 3;</code>
+       */
       public com.google.protobuf.ByteString getKey() {
-        return result.getKey();
+        return key_;
       }
+      /**
+       * <code>optional bytes key = 3;</code>
+       */
       public Builder setKey(com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  result.hasKey = true;
-        result.key_ = value;
+  bitField0_ |= 0x00000004;
+        key_ = value;
+        onChanged();
         return this;
       }
+      /**
+       * <code>optional bytes key = 3;</code>
+       */
       public Builder clearKey() {
-        result.hasKey = false;
-        result.key_ = getDefaultInstance().getKey();
+        bitField0_ = (bitField0_ & ~0x00000004);
+        key_ = getDefaultInstance().getKey();
+        onChanged();
         return this;
       }
-      
+
       // optional bytes value = 4;
+      private com.google.protobuf.ByteString value_ = com.google.protobuf.ByteString.EMPTY;
+      /**
+       * <code>optional bytes value = 4;</code>
+       */
       public boolean hasValue() {
-        return result.hasValue();
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
+      /**
+       * <code>optional bytes value = 4;</code>
+       */
       public com.google.protobuf.ByteString getValue() {
-        return result.getValue();
+        return value_;
       }
+      /**
+       * <code>optional bytes value = 4;</code>
+       */
       public Builder setValue(com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  result.hasValue = true;
-        result.value_ = value;
+  bitField0_ |= 0x00000008;
+        value_ = value;
+        onChanged();
         return this;
       }
+      /**
+       * <code>optional bytes value = 4;</code>
+       */
       public Builder clearValue() {
-        result.hasValue = false;
-        result.value_ = getDefaultInstance().getValue();
+        bitField0_ = (bitField0_ & ~0x00000008);
+        value_ = getDefaultInstance().getValue();
+        onChanged();
         return this;
       }
-      
+
       // optional int32 node_id = 5;
+      private int nodeId_ ;
+      /**
+       * <code>optional int32 node_id = 5;</code>
+       */
       public boolean hasNodeId() {
-        return result.hasNodeId();
+        return ((bitField0_ & 0x00000010) == 0x00000010);
       }
+      /**
+       * <code>optional int32 node_id = 5;</code>
+       */
       public int getNodeId() {
-        return result.getNodeId();
+        return nodeId_;
       }
+      /**
+       * <code>optional int32 node_id = 5;</code>
+       */
       public Builder setNodeId(int value) {
-        result.hasNodeId = true;
-        result.nodeId_ = value;
+        bitField0_ |= 0x00000010;
+        nodeId_ = value;
+        onChanged();
         return this;
       }
+      /**
+       * <code>optional int32 node_id = 5;</code>
+       */
       public Builder clearNodeId() {
-        result.hasNodeId = false;
-        result.nodeId_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000010);
+        nodeId_ = 0;
+        onChanged();
         return this;
       }
-      
+
       // optional int64 arrived = 6;
+      private long arrived_ ;
+      /**
+       * <code>optional int64 arrived = 6;</code>
+       */
       public boolean hasArrived() {
-        return result.hasArrived();
+        return ((bitField0_ & 0x00000020) == 0x00000020);
       }
+      /**
+       * <code>optional int64 arrived = 6;</code>
+       */
       public long getArrived() {
-        return result.getArrived();
+        return arrived_;
       }
+      /**
+       * <code>optional int64 arrived = 6;</code>
+       */
       public Builder setArrived(long value) {
-        result.hasArrived = true;
-        result.arrived_ = value;
+        bitField0_ |= 0x00000020;
+        arrived_ = value;
+        onChanged();
         return this;
       }
+      /**
+       * <code>optional int64 arrived = 6;</code>
+       */
       public Builder clearArrived() {
-        result.hasArrived = false;
-        result.arrived_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000020);
+        arrived_ = 0L;
+        onChanged();
         return this;
       }
-      
+
       // @@protoc_insertion_point(builder_scope:voldemort.Slop)
     }
-    
+
     static {
       defaultInstance = new Slop(true);
-      voldemort.serialization.VSlopProto.internalForceInit();
       defaultInstance.initFields();
     }
-    
+
     // @@protoc_insertion_point(class_scope:voldemort.Slop)
   }
-  
+
   private static com.google.protobuf.Descriptors.Descriptor
     internal_static_voldemort_Slop_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_voldemort_Slop_fieldAccessorTable;
-  
+
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
     return descriptor;
@@ -529,9 +995,7 @@ public final class VSlopProto {
           internal_static_voldemort_Slop_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_Slop_descriptor,
-              new java.lang.String[] { "Store", "Operation", "Key", "Value", "NodeId", "Arrived", },
-              voldemort.serialization.VSlopProto.Slop.class,
-              voldemort.serialization.VSlopProto.Slop.Builder.class);
+              new java.lang.String[] { "Store", "Operation", "Key", "Value", "NodeId", "Arrived", });
           return null;
         }
       };
@@ -540,8 +1004,6 @@ public final class VSlopProto {
         new com.google.protobuf.Descriptors.FileDescriptor[] {
         }, assigner);
   }
-  
-  public static void internalForceInit() {}
-  
+
   // @@protoc_insertion_point(outer_class_scope)
 }
