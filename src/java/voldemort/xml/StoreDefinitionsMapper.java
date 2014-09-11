@@ -33,6 +33,7 @@ import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -99,6 +100,7 @@ public class StoreDefinitionsMapper {
     public final static String VIEW_SERIALIZER_FACTORY_ELMT = "view-serializer-factory";
     private final static String STORE_VERSION_ATTR = "version";
     private final static String STORE_MEMORY_FOOTPRINT = "memory-footprint";
+    private static final Logger logger = Logger.getLogger(StoreDefinitionsMapper.class.getName());
 
     private final Schema schema;
 
@@ -225,13 +227,19 @@ public class StoreDefinitionsMapper {
         Integer retentionThrottleRate = null;
         Integer retentionFreqDays = null;
         if(retention != null) {
-            retentionPolicyDays = Integer.parseInt(retention.getText());
-            Element throttleRate = store.getChild(STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT);
-            if(throttleRate != null)
-                retentionThrottleRate = Integer.parseInt(throttleRate.getText());
-            Element retentionFreqDaysElement = store.getChild(STORE_RETENTION_FREQ_ELMT);
-            if(retentionFreqDaysElement != null)
-                retentionFreqDays = Integer.parseInt(retentionFreqDaysElement.getText());
+            int retentionDays = Integer.parseInt(retention.getText());
+            if(retentionDays > 0) {
+                retentionPolicyDays = retentionDays;
+                Element throttleRate = store.getChild(STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT);
+                if(throttleRate != null)
+                    retentionThrottleRate = Integer.parseInt(throttleRate.getText());
+                Element retentionFreqDaysElement = store.getChild(STORE_RETENTION_FREQ_ELMT);
+                if(retentionFreqDaysElement != null)
+                    retentionFreqDays = Integer.parseInt(retentionFreqDaysElement.getText());
+            } else {
+                logger.error("Invalid retention policy days set. Should be greater than zero. ignoring value "
+                             + retentionDays);
+            }
         }
 
         if(routingStrategyType.compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0

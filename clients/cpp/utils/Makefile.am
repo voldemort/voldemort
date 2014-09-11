@@ -22,7 +22,7 @@ bin_PROGRAMS = voldemortShell
 noinst_PROGRAMS = stress
 
 voldemortShell_SOURCES = voldemortShell.cpp
-voldemortShell_LDADD = ../src/libvoldemort.la
+voldemortShell_LDADD = ../src/libvoldemort.la $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(BOOST_ASIO_LIB)
 
 stress_SOURCES = stress.cpp
-stress_LDADD = ../src/libvoldemort.la
+stress_LDADD = ../src/libvoldemort.la $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(BOOST_ASIO_LIB)

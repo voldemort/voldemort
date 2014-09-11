@@ -29,7 +29,6 @@ import org.apache.log4j.Logger;
  */
 public class StoreStats {
 
-    private final StoreStats parent;
     private final Map<Tracked, RequestCounter> counters;
 
     private static final Logger logger = Logger.getLogger(StoreStats.class.getName());
@@ -71,7 +70,6 @@ public class StoreStats {
 
             counters.put(tracked, requestCounter);
         }
-        this.parent = parent;
 
         if(logger.isDebugEnabled()) {
             logger.debug("Constructed StoreStats object (" + System.identityHashCode(this)
@@ -143,12 +141,11 @@ public class StoreStats {
      * 
      * @param op Operation being tracked
      * @param timeNS Duration of operation
-     * @param numEmptyResponses GET and GET_ALL: number of empty responses being
-     *        sent back, ie requested keys for which there were no values
-     * @param size Total size of response payload, ie sum of lengths of bytes in
-     *        all versions of values
-     * @param getAllAggregateRequests Total of key-values requested in
-     *        aggregatee from get_all operations
+     * @param numEmptyResponses Number of empty responses being sent back,
+     *                          i.e.: requested keys for which there were no values (GET and GET_ALL only)
+     * @param valueSize Size in bytes of the value
+     * @param keySize Size in bytes of the key
+     * @param getAllAggregateRequests Total of amount of keys requested in the operation (GET_ALL only)
      */
     private void recordTime(Tracked op,
                             long timeNS,
@@ -161,13 +158,10 @@ public class StoreStats {
                                     valueSize,
                                     keySize,
                                     getAllAggregateRequests);
-        if(parent != null)
-            parent.recordTime(op,
-                              timeNS,
-                              numEmptyResponses,
-                              valueSize,
-                              keySize,
-                              getAllAggregateRequests);
+
+        if (logger.isTraceEnabled() && !storeName.contains("aggregate") && !storeName.contains("voldsys$"))
+            logger.trace("Store '" + storeName + "' logged a " + op.toString() + " request taking " +
+                    ((double) timeNS / voldemort.utils.Time.NS_PER_MS) + " ms");
     }
 
     public long getCount(Tracked op) {
@@ -234,4 +228,9 @@ public class StoreStats {
     public long getGetAllMaxCount() {
         return counters.get(Tracked.GET_ALL).getGetAllMaxCount();
     }
+
+    /**
+     * @return The rate of keys per seconds that were queried through GetAll requests.
+     */
+    public float getGetAllKeysThroughput() { return counters.get(Tracked.GET_ALL).getGetAllKeysThroughput(); }
 }

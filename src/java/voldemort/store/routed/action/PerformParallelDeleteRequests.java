@@ -24,6 +24,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 
@@ -35,6 +36,7 @@ import voldemort.store.InvalidMetadataException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
+import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
@@ -64,7 +66,13 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
 
     private final HintedHandoff hintedHandoff;
 
+    private final PerformDeleteHintedHandoff hintedHandoffAction;
+
     private final Version version;
+
+    private final AtomicBoolean isDeleteSuccessful;
+
+    private final AtomicBoolean isOperationCompleted;
 
     public PerformParallelDeleteRequests(PD pipelineData,
                                          Event completeEvent,
@@ -75,6 +83,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                          long timeoutMs,
                                          Map<Integer, NonblockingStore> nonblockingStores,
                                          HintedHandoff hintedHandoff,
+                                         PerformDeleteHintedHandoff hintedHandoffAction,
                                          Version version) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;
@@ -85,9 +94,119 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
         this.enableHintedHandoff = hintedHandoff != null;
         this.version = version;
         this.hintedHandoff = hintedHandoff;
+        this.hintedHandoffAction = hintedHandoffAction;
+        this.isDeleteSuccessful = new AtomicBoolean(false);
+        this.isOperationCompleted = new AtomicBoolean(false);
+    }
+
+    /**
+     * 
+     * @param response
+     * @param pipeline
+     * @param isParallel
+     * @return true if it is a terminal error, false otherwise
+     */
+    private boolean handleException(Response<ByteArray, Object> response, Pipeline pipeline) {
+        Node node = response.getNode();
+        Exception ex = null;
+        if(!(response.getValue() instanceof Exception)) {
+            return false;
+        }
+
+        ex = (Exception) response.getValue();
+
+        if(enableHintedHandoff) {
+            if(ex instanceof UnreachableStoreException || ex instanceof QuotaExceededException) {
+                Slop slop = new Slop(pipelineData.getStoreName(),
+                                     Slop.Operation.DELETE,
+                                     key,
+                                     null,
+                                     null,
+                                     node.getId(),
+                                     new Date());
+
+                if(isOperationCompleted.get() == false) {
+                    hintedHandoffAction.rememberSlopForLaterEvent(node, slop);
+                } else if(isDeleteSuccessful.get() == true) {
+                    hintedHandoff.sendHintParallel(node, version, slop);
+                }
+            }
+        }
+
+        if(ex instanceof ObsoleteVersionException) {
+            // ignore this completely here this means that a higher version was
+            // able to write on this node and should be termed as clean success.
+            return false;
+        } else if(ex instanceof QuotaExceededException) {
+            // QuotaExceeded exception if passed to the handleResponseError
+            // aborts the pipeline completely.
+
+            // TODO : handle all the ignorable exceptions in handleResponseError
+            // Currently exception handling is very error prone and split across
+            // multiple places. PerformParallelPutRequests eats away the
+            // QuotaException silently as well
+            return false;
+        }
+
+        // Note errors that come in after the pipeline has finished.
+        // These will *not* get a chance to be called in the loop of
+        // responses below.
+        if(ex instanceof InvalidMetadataException && isOperationCompleted.get()) {
+            pipelineData.reportException(ex);
+            if(logger.isInfoEnabled()) {
+                logger.info("Received invalid metadata problem after a successful "
+                            + pipeline.getOperation().getSimpleName() + " call on node "
+                            + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
+            }
+        } else {
+            return handleResponseError(response, pipeline, failureDetector);
+        }
+        return false;
+    }
+
+    /**
+     * 
+     * @param responses
+     * @param pipeline
+     * @return true if pipeline should be aborted, false otherwise
+     */
+    private boolean processResponses(Map<Integer, Response<ByteArray, Object>> responses,
+                                     Pipeline pipeline) {
+        for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
+            Response<ByteArray, Object> response = responseEntry.getValue();
+            responses.remove(responseEntry.getKey());
+
+            if(response.getValue() instanceof Exception) {
+                if(handleException(response, pipeline)) {
+                    return true;
+                }
+            } else {
+                pipelineData.incrementSuccesses();
+                failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
+                pipelineData.getZoneResponses().add(response.getNode().getZoneId());
+                Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
+                pipelineData.getResponses().add(rCast);
+            }
+        }
+        return false;
+    }
+
+    private void abortPipeline(final Pipeline pipeline) {
+        isDeleteSuccessful.set(false);
+        pipeline.abort();
+    }
+
+    private void completePipeline(final Pipeline pipeline) {
+        isDeleteSuccessful.set(true);
+        pipeline.addEvent(completeEvent);
     }
 
     public void execute(final Pipeline pipeline) {
+        executeInternal(pipeline);
+        isOperationCompleted.set(true);
+    }
+
+    private void executeInternal(final Pipeline pipeline) {
         List<Node> nodes = pipelineData.getNodes();
         final Map<Integer, Response<ByteArray, Object>> responses = new ConcurrentHashMap<Integer, Response<ByteArray, Object>>();
         int attempts = nodes.size();
@@ -117,42 +236,20 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                                                                            key,
                                                                                            result,
                                                                                            requestTime);
+
+                    if(logger.isTraceEnabled()) {
+                        logger.trace(attemptsLatch.getCount() + " attempts remaining. Will block "
+                                     + " for " + blocksLatch.getCount() + " more ");
+                    }
                     responses.put(node.getId(), response);
-                    if(enableHintedHandoff && pipeline.isFinished()
-                       && response.getValue() instanceof UnreachableStoreException) {
-                        Slop slop = new Slop(pipelineData.getStoreName(),
-                                             Slop.Operation.DELETE,
-                                             key,
-                                             null,
-                                             null,
-                                             node.getId(),
-                                             new Date());
-                        pipelineData.addFailedNode(node);
-                        hintedHandoff.sendHintSerial(node, version, slop);
+
+                    if(response.getValue() instanceof Exception && isOperationCompleted.get()) {
+                        handleException(response, pipeline);
                     }
 
                     attemptsLatch.countDown();
                     blocksLatch.countDown();
 
-                    if(logger.isTraceEnabled())
-                        logger.trace(attemptsLatch.getCount() + " attempts remaining. Will block "
-                                     + " for " + blocksLatch.getCount() + " more ");
-
-                    // Note errors that come in after the pipeline has finished.
-                    // These will *not* get a chance to be called in the loop of
-                    // responses below.
-                    if(pipeline.isFinished() && response.getValue() instanceof Exception
-                       && !(response.getValue() instanceof ObsoleteVersionException)) {
-                        if(response.getValue() instanceof InvalidMetadataException) {
-                            pipelineData.reportException((InvalidMetadataException) response.getValue());
-                            logger.warn("Received invalid metadata problem after a successful "
-                                        + pipeline.getOperation().getSimpleName()
-                                        + " call on node " + node.getId() + ", store '"
-                                        + pipelineData.getStoreName() + "'");
-                        } else {
-                            handleResponseError(response, pipeline, failureDetector);
-                        }
-                    }
                 }
             };
 
@@ -175,27 +272,8 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                 logger.warn(e, e);
         }
 
-        for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
-            Response<ByteArray, Object> response = responseEntry.getValue();
-            if(response.getValue() instanceof Exception) {
-                if(response.getValue() instanceof ObsoleteVersionException) {
-                    // ignore this completely here
-                    // this means that a higher version was able
-                    // to write on this node and should be termed as
-                    // clean success.
-                    responses.remove(responseEntry.getKey());
-                } else if(handleResponseError(response, pipeline, failureDetector)) {
-                    return;
-                }
-            } else {
-                pipelineData.incrementSuccesses();
-                failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
-                pipelineData.getZoneResponses().add(response.getNode().getZoneId());
-                Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
-                pipelineData.getResponses().add(rCast);
-                responses.remove(responseEntry.getKey());
-            }
-        }
+        if(processResponses(responses, pipeline))
+            return;
 
         // wait for more responses in case we did not have enough successful
         // response to achieve the required count
@@ -211,26 +289,8 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                         logger.warn(e, e);
                 }
 
-                for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
-                    Response<ByteArray, Object> response = responseEntry.getValue();
-                    if(response.getValue() instanceof Exception) {
-                        if(response.getValue() instanceof ObsoleteVersionException) {
-                            // ignore this completely here
-                            // this means that a higher version was able
-                            // to write on this node and should be termed as
-                            // clean success.
-                            responses.remove(responseEntry.getKey());
-                        } else if(handleResponseError(response, pipeline, failureDetector))
-                            return;
-                    } else {
-                        pipelineData.incrementSuccesses();
-                        failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
-                        pipelineData.getZoneResponses().add(response.getNode().getZoneId());
-                        Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
-                        pipelineData.getResponses().add(rCast);
-                        responses.remove(responseEntry.getKey());
-                    }
-                }
+                if(processResponses(responses, pipeline))
+                    return;
             }
 
             if(pipelineData.getSuccesses() < required) {
@@ -245,7 +305,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                                                                      new ArrayList<Node>(pipelineData.getNodes()),
                                                                                      new ArrayList<Node>(pipelineData.getFailedNodes()),
                                                                                      pipelineData.getFailures()));
-                pipeline.abort();
+                abortPipeline(pipeline);
                 quorumSatisfied = false;
             }
         }
@@ -254,7 +314,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
             if(pipelineData.getZonesRequired() != null) {
                 int zonesSatisfied = pipelineData.getZoneResponses().size();
                 if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
-                    pipeline.addEvent(completeEvent);
+                    completePipeline(pipeline);
                 } else {
                     long timeMs = (System.nanoTime() - beginTime) / Time.NS_PER_MS;
 
@@ -266,25 +326,12 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                 logger.warn(e, e);
                         }
 
-                        for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
-                            Response<ByteArray, Object> response = responseEntry.getValue();
-                            if(response.getValue() instanceof Exception) {
-                                if(handleResponseError(response, pipeline, failureDetector))
-                                    return;
-                            } else {
-                                pipelineData.incrementSuccesses();
-                                failureDetector.recordSuccess(response.getNode(),
-                                                              response.getRequestTime());
-                                pipelineData.getZoneResponses().add(response.getNode().getZoneId());
-                                Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
-                                pipelineData.getResponses().add(rCast);
-                                responses.remove(responseEntry.getKey());
-                            }
-                        }
+                        if(processResponses(responses, pipeline))
+                            return;
                     }
 
                     if(pipelineData.getZoneResponses().size() >= (pipelineData.getZonesRequired() + 1)) {
-                        pipeline.addEvent(completeEvent);
+                        completePipeline(pipeline);
                     } else {
                         pipelineData.setFatalError(new InsufficientZoneResponsesException((pipelineData.getZonesRequired() + 1)
                                                                                           + " "
@@ -293,12 +340,12 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                                                                           + "s required zone, but only "
                                                                                           + zonesSatisfied
                                                                                           + " succeeded"));
-                        pipeline.abort();
+                        abortPipeline(pipeline);
                     }
                 }
 
             } else {
-                pipeline.addEvent(completeEvent);
+                completePipeline(pipeline);
             }
         }
     }

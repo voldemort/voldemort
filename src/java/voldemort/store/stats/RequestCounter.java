@@ -19,7 +19,7 @@ package voldemort.store.stats;
 
 import org.tehuti.Metric;
 import org.tehuti.metrics.MetricConfig;
-import org.tehuti.metrics.Metrics;
+import org.tehuti.metrics.MetricsRepository;
 import org.tehuti.metrics.Sensor;
 import org.tehuti.metrics.stats.*;
 import org.tehuti.utils.Time;
@@ -57,9 +57,9 @@ public class RequestCounter {
             // All-time Count
             requestAllTimeCount,
             // Rates
-            requestThroughput, requestThroughputInBytes;
+            getAllKeysThroughput, requestThroughput, requestThroughputInBytes;
 
-    private Metrics metricsRepository;
+    private MetricsRepository metricsRepository;
 
     private static final Logger logger = Logger.getLogger(RequestCounter.class.getName());
 
@@ -103,7 +103,7 @@ public class RequestCounter {
 
         this.time = time;
 
-        this.metricsRepository = new Metrics(time);
+        this.metricsRepository = new MetricsRepository(time);
 
         // Initialize parent sensors arrays...
         int amountOfParentSensors = 0;
@@ -195,24 +195,42 @@ public class RequestCounter {
         this.getAllKeysCountSampledTotal =
                 this.getAllKeysCountSensor.add(getAllKeysCountSensorName + ".sampled-total", new SampledTotal());
         this.getAllKeysCountMax = this.getAllKeysCountSensor.add(getAllKeysCountSensorName + ".max", new Max(0));
+        this.getAllKeysThroughput = this.getAllKeysCountSensor.add(getAllKeysCountSensorName + ".throughput", new Rate());
     }
 
+    /**
+     * @return The count of queries tracked by this RequestCounter during the current set of (non-expired) sample windows.
+     */
     public long getCount() {
         return (long) requestSampledCount.value();
     }
 
+    /**
+     * @return The total amount of queries tracked by this RequestCounter since the beginning of time.
+     */
     public long getTotalCount() {
         return (long) requestAllTimeCount.value();
     }
 
+    /**
+     * @return The rate of queries per second to this RequestCounter.
+     */
     public float getThroughput() {
-        // TODO: Check for overflow?
-        return new Float(requestThroughput.value());
+        return (float) requestThroughput.value();
     }
 
+    /**
+     * @return The rate of keys per second that were queried through GetAll requests.
+     */
+    public float getGetAllKeysThroughput() {
+        return (float) getAllKeysThroughput.value();
+    }
+
+    /**
+     * @return The rate of bytes per second for queries tracked by this RequestCounter.
+     */
     public float getThroughputInBytes() {
-        // TODO: Check for overflow?
-        return new Float(requestThroughputInBytes.value());
+        return (float) requestThroughputInBytes.value();
     }
 
     public String getDisplayThroughput() {
@@ -226,12 +244,6 @@ public class RequestCounter {
     public String getDisplayAverageTimeInMs() {
         return String.format("%.4f", getAverageTimeInMs());
     }
-
-    // TODO: Make sure this is really useless
-//    public long getDuration() {
-//        return 0;
-////        return durationMs;
-//    }
 
     public long getMaxLatencyInMs() {
         return (long) latencyMax.value();
@@ -279,45 +291,42 @@ public class RequestCounter {
     }
 
     /**
-     * Return the number of requests that have returned returned no value for
-     * the requested key. Tracked only for GET.
+     * @return the number of requests that have returned returned no value for the requested key. Tracked only for GET.
      */
     public long getNumEmptyResponses() {
         return (long) emptyResponseKeysSampledTotal.value();
     }
 
     /**
-     * Return the size of the largest response or request in bytes returned.
-     * Tracked only for GET, GET_ALL and PUT.
+     * @return the size of the largest response or request in bytes returned. Tracked only for GET, GET_ALL and PUT.
      */
     public long getMaxValueSizeInBytes() {
         return (long) valueBytesMax.value();
     }
 
     /**
-     * Return the size of the largest response or request in bytes returned.
+     * @return the size of the largest response or request in bytes returned.
      */
     public long getMaxKeySizeInBytes() {
         return (long) keyBytesMax.value();
     }
 
     /**
-     * Return the average size of all the versioned values returned. Tracked
-     * only for GET, GET_ALL and PUT.
+     * @return the average size of all the versioned values returned. Tracked only for GET, GET_ALL and PUT.
      */
     public double getAverageValueSizeInBytes() {
         return valueBytesAverage.value();
     }
 
     /**
-     * Return the average size of all the keys. Tracked for all operations.
+     * @return the average size of all the keys. Tracked for all operations.
      */
     public double getAverageKeySizeInBytes() {
         return keyBytesAverage.value();
     }
 
     /**
-     * Return the aggregated number of keys returned across all getAll calls,
+     * @return the aggregated number of keys returned across all getAll calls,
      * taking into account multiple values returned per call.
      */
     public long getGetAllAggregatedCount() {
@@ -325,7 +334,7 @@ public class RequestCounter {
     }
 
     /**
-     * Return the maximum number of keys returned across all getAll calls.
+     * @return the maximum number of keys returned across all getAll calls.
      */
     public long getGetAllMaxCount() {
         return (long) getAllKeysCountMax.value();

@@ -95,7 +95,7 @@ public class KeySamplerCLI {
         }
         this.adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
         this.cluster = adminClient.getAdminClientCluster();
-        this.storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue();
+        this.storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList().getValue();
         this.storeNameSet = new HashSet<String>();
         for(StoreDefinition storeDefinition: storeDefinitions) {
             String storeName = storeDefinition.getName();

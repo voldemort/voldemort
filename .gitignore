@@ -1,4 +1,3 @@
-config/*/config/STORES
 classes
 dist
 *.iml
@@ -26,3 +25,4 @@ build
 lib
 .project
 .classpath
+*.class

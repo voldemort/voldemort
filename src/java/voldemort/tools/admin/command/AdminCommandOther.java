@@ -199,6 +199,7 @@ public class AdminCommandOther extends AbstractAdminCommand {
 
             AdminToolUtils.assertServerInNormalState(adminClient, nodeId);
 
+            System.out.println("Please wait while performing native-backup...");
             adminClient.storeMntOps.nativeBackup(nodeId,
                                                  storeName,
                                                  dir,

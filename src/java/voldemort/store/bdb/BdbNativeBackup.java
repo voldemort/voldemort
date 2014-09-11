@@ -57,6 +57,7 @@ public class BdbNativeBackup {
             }
 
             // Start backup, find out what needs to be copied.
+            System.out.println("Native backup started at " + new Date().toString());
             backupHelper.startBackup();
             try {
                 String[] filesForBackup = backupHelper.getLogFilesInBackupSet();
@@ -67,6 +68,7 @@ public class BdbNativeBackup {
                 // Remember to exit backup mode, or all log files won't be
                 // cleaned and disk usage will bloat.
                 backupHelper.endBackup();
+                System.out.println("Native backup completed at " + new Date().toString());
             }
         } catch(Exception e) {
             throw new VoldemortException("Error performing native backup", e);
@@ -75,6 +77,7 @@ public class BdbNativeBackup {
 
     private Long determineLastFile(File backupDir, final AsyncOperationStatus status) {
         status.setStatus("Determining the last backed up file...");
+        System.out.println("Backup directory is \'" + backupDir.getPath() + "\'.");
         File[] backupFiles = backupDir.listFiles(new FilenameFilter() {
 
             public boolean accept(File dir, String name) {
@@ -92,6 +95,12 @@ public class BdbNativeBackup {
                 return true;
             }
         });
+
+        if(backupFiles == null) {
+            throw new VoldemortException("Failed to read backup directory. Please check"
+                                         + "if the directory exists, or permission is granted.");
+        }
+
         if(backupFiles.length == 0) {
             status.setStatus("No backup files found, assuming a full backup is required.");
             return null;

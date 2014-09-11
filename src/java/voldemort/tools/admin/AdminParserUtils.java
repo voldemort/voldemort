@@ -229,7 +229,7 @@ public class AdminParserUtils {
     }
 
     /**
-     * Adds OPT_X | OPT_HEX option to OptionParser, with one argument.
+     * Adds OPT_X | OPT_HEX option to OptionParser, with multiple arguments.
      * 
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
@@ -243,7 +243,7 @@ public class AdminParserUtils {
     }
 
     /**
-     * Adds OPT_J | OPT_JSON option to OptionParser, with one argument.
+     * Adds OPT_J | OPT_JSON option to OptionParser, with multiple arguments.
      * 
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
@@ -258,7 +258,7 @@ public class AdminParserUtils {
     }
 
     /**
-     * Adds OPT_N | OPT_NODE option to OptionParser, with one argument.
+     * Adds OPT_N | OPT_NODE option to OptionParser, with multiple arguments.
      * 
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
@@ -272,7 +272,8 @@ public class AdminParserUtils {
     }
 
     /**
-     * Adds OPT_P | OPT_PARTITION option to OptionParser, with one argument.
+     * Adds OPT_P | OPT_PARTITION option to OptionParser, with multiple
+     * arguments.
      * 
      * @param parser OptionParser to be modified
      * @param required Tells if this option is required or optional
