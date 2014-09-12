@@ -32,11 +32,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.io.JsonDecoder;
-import org.apache.avro.util.Utf8;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.jboss.netty.channel.ChannelPipelineFactory;
@@ -60,7 +55,6 @@ import voldemort.utils.SystemTime;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Maps;
 
 /*
  * A Netty based service that accepts REST requests from the Voldemort thin
@@ -77,14 +71,6 @@ public class CoordinatorProxyService extends AbstractRestService {
     private SchedulerService schedulerService = null;
     private static final Logger logger = Logger.getLogger(CoordinatorProxyService.class);
     private Map<String, DynamicTimeoutStoreClient<ByteArray, byte[]>> fatClientMap = null;
-    public final static String CLIENT_CONFIG_AVRO_SCHEMA_STRING = "{ \"name\": \"clientConfig\", \"type\": \"map\", \"values\": \"string\" }";
-    public final static String CLIENT_CONFIGS_AVRO_SCHEMA_STRING = "{ \"name\": \"clientConfigs\", \"type\": \"array\", \"items\": "
-                                                                   + CLIENT_CONFIG_AVRO_SCHEMA_STRING
-                                                                   + "}";
-    public final static Schema CLIENT_CONFIG_AVRO_SCHEMA = Schema.parse(CLIENT_CONFIG_AVRO_SCHEMA_STRING);
-    public final static Schema CLIENT_CONFIGS_AVRO_SCHEMA = Schema.parse(CLIENT_CONFIGS_AVRO_SCHEMA_STRING);
-    private static final String STORE_NAME_KEY = "store_name";
-    private static final String IDENTIFIER_STRING_KEY = "identifier_string";
     private final StoreStats coordinatorPerfStats;
 
     public CoordinatorProxyService(CoordinatorConfig config) {
@@ -187,116 +173,6 @@ public class CoordinatorProxyService extends AbstractRestService {
     }
 
     /**
-     * Parses a string that contains single fat client config string in avro
-     * format
-     * 
-     * @param configAvro Input string of avro format, that contains config for
-     *        multiple stores
-     * @return Properties of single fat client config
-     */
-    @SuppressWarnings("unchecked")
-    public static Properties readSingleClientConfigAvro(String configAvro) {
-        Properties props = new Properties();
-        try {
-            JsonDecoder decoder = new JsonDecoder(CLIENT_CONFIG_AVRO_SCHEMA, configAvro);
-            GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(CLIENT_CONFIG_AVRO_SCHEMA);
-            Map<Utf8, Utf8> flowMap = (Map<Utf8, Utf8>) datumReader.read(null, decoder);
-            for(Utf8 key: flowMap.keySet()) {
-                props.put(key.toString(), flowMap.get(key).toString());
-            }
-            String storeName = props.getProperty(STORE_NAME_KEY);
-            if(storeName == null || storeName.length() == 0) {
-                throw new Exception("Invalid store name found!");
-            }
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
-        return props;
-    }
-
-    /**
-     * Parses a string that contains multiple fat client configs in avro format
-     * 
-     * @param configAvro Input string of avro format, that contains config for
-     *        multiple stores
-     * @return Map of store names to store config properties
-     */
-    @SuppressWarnings("unchecked")
-    public static Map<String, Properties> readMultipleClientConfigAvro(String configAvro) {
-        Map<String, Properties> mapStoreToProps = Maps.newHashMap();
-        try {
-            JsonDecoder decoder = new JsonDecoder(CLIENT_CONFIGS_AVRO_SCHEMA, configAvro);
-            GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(CLIENT_CONFIGS_AVRO_SCHEMA);
-            GenericData.Array<Map<Utf8, Utf8>> flowMaps = (GenericData.Array<Map<Utf8, Utf8>>) datumReader.read(null,
-                                                                                                                decoder);
-            // Flows to return back
-            if (flowMaps != null && flowMaps.size() > 0) {
-                for (Map<Utf8, Utf8> flowMap: flowMaps) {
-                    Properties props = new Properties();
-                    for (Utf8 key: flowMap.keySet()) {
-                        props.put(key.toString(), flowMap.get(key).toString());
-                    }
-
-                    String storeName = props.getProperty(STORE_NAME_KEY);
-                    if(storeName == null || storeName.length() == 0) {
-                        throw new Exception("Invalid store name found!");
-                    }
-
-                    mapStoreToProps.put(storeName, props);
-                }
-            }
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
-        return mapStoreToProps;
-    }
-
-    /**
-     * Assembles an avro format string of single store config from store
-     * properties
-     * 
-     * @param props Store properties
-     * @return String in avro format that contains single store configs
-     */
-    public static String writeSingleClientConfigAvro(Properties props) {
-        String avroConfig = new String();
-        Boolean firstProp = true;
-        for(String key: props.stringPropertyNames()) {
-            if(firstProp) {
-                firstProp = false;
-            } else {
-                avroConfig = avroConfig + ", ";
-            }
-            avroConfig = avroConfig + "\"" + key + "\": \"" + props.getProperty(key) + "\"";
-        }
-        return "{" + avroConfig + "}";
-    }
-
-    /**
-     * Assembles an avro format string that contains multiple fat client configs
-     * from map of store to properties
-     * 
-     * @param mapStoreToProps A map of store names to their properties
-     * @return Avro string that contains multiple store configs
-     */
-    public static String writeMultipleClientConfigAvro(Map<String, Properties> mapStoreToProps) {
-        String avroConfig = new String();
-        Boolean firstStore = true;
-        for(String storeName: mapStoreToProps.keySet()) {
-            if(firstStore) {
-                firstStore = false;
-            } else {
-                avroConfig = avroConfig + ", ";
-            }
-            Properties props = mapStoreToProps.get(storeName);
-            avroConfig = avroConfig + "\"" + storeName + "\": "
-                         + writeSingleClientConfigAvro(props);
-
-        }
-        return "{" + avroConfig + "}";
-    }
-
-    /**
      * A function to parse the specified Avro file in order to obtain the config
      * for each fat client managed by this coordinator.
      * 
@@ -313,7 +189,7 @@ public class CoordinatorProxyService extends AbstractRestService {
                          .join(IOUtils.readLines(new FileReader(new File(configFilePath))))
                          .trim();
 
-            Map<String, Properties> mapStoreToProps = readMultipleClientConfigAvro(line);
+            Map<String, Properties> mapStoreToProps = ClientConfigUtil.readMultipleClientConfigAvro(line);
 
             for(String storeName: mapStoreToProps.keySet()) {
                 Properties props = mapStoreToProps.get(storeName);
@@ -325,7 +201,7 @@ public class CoordinatorProxyService extends AbstractRestService {
                                .setEnableSerializationLayer(false)
                                .enableDefaultClient(true)
                                .setEnableLazy(false)
-                               .setIdentifierString(props.getProperty(IDENTIFIER_STRING_KEY, null));
+                               .setIdentifierString(props.getProperty(ClientConfigUtil.IDENTIFIER_STRING_KEY, null));
 
                 logger.info("Creating a Fat client for store: " + storeName);
                 logger.info("Using config: " + fatClientConfig);
