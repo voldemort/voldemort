@@ -43,6 +43,44 @@ public class StoreDefinitionBuilder {
     private List<String> owners = null;
     private long memoryFootprintMB = 0;
 
+    public StoreDefinitionBuilder() {
+    }
+
+    public StoreDefinitionBuilder(StoreDefinition storeDef) {
+	setName(storeDef.getName());
+	setType(storeDef.getType());
+	setDescription(storeDef.getDescription());
+	setKeySerializer(storeDef.getKeySerializer());
+	setValueSerializer(storeDef.getValueSerializer());
+	setTransformsSerializer(storeDef.getTransformsSerializer());
+	setRoutingPolicy(storeDef.getRoutingPolicy());
+	setRoutingStrategyType(storeDef.getRoutingStrategyType());
+	if (storeDef.hasPreferredReads())
+	    setPreferredReads(storeDef.getPreferredReads());
+	setRequiredReads(storeDef.getRequiredReads());
+	if (storeDef.hasPreferredWrites())
+	    setPreferredWrites(storeDef.getPreferredWrites());
+	setRequiredWrites(storeDef.getRequiredWrites());
+	// TODO: this field name is inconsistent between StoredDefinition and StoreDefinitionBuilder
+	if (isView())
+	    setViewOf(storeDef.getViewTargetStoreName());
+	// TODO: this field name is inconsistent between StoredDefinition and StoreDefinitionBuilder
+	setView(storeDef.getValueTransformation());
+	setZoneReplicationFactor(storeDef.getZoneReplicationFactor());
+	setZoneCountReads(storeDef.getZoneCountReads());
+	setZoneCountWrites(storeDef.getZoneCountWrites());
+	// TODO: this field name is inconsistent between StoredDefinition and StoreDefinitionBuilder
+	setRetentionPeriodDays(storeDef.getRetentionDays());
+	setRetentionScanThrottleRate(storeDef.getRetentionScanThrottleRate());
+	setRetentionFrequencyDays(storeDef.getRetentionFrequencyDays());
+	setSerializerFactory(storeDef.getSerializerFactory());
+	// TODO: this field name is inconsistent between StoredDefinition and StoreDefinitionBuilder
+	setHintedHandoffStrategy(storeDef.getHintedHandoffStrategyType());
+	setHintPrefListSize(storeDef.getHintPrefListSize());
+	setOwners(storeDef.getOwners());
+	setMemoryFootprintMB(storeDef.getMemoryFootprintMB());
+    }
+
     public String getName() {
         return Utils.notNull(name);
     }
