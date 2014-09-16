@@ -12,8 +12,7 @@ import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
 import voldemort.common.service.AbstractService;
 import voldemort.common.service.ServiceType;
-import voldemort.rest.coordinator.CoordinatorConfig;
-import voldemort.rest.coordinator.CoordinatorProxyService;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.utils.JmxUtils;
 
 public abstract class AbstractRestService extends AbstractService {

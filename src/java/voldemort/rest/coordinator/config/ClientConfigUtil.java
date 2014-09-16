@@ -1,4 +1,4 @@
-package voldemort.rest.coordinator;
+package voldemort.rest.coordinator.config;
 
 import com.google.common.collect.Maps;
 import org.apache.avro.Schema;

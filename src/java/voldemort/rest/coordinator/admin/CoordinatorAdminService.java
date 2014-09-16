@@ -22,7 +22,7 @@ import org.jboss.netty.channel.ChannelPipelineFactory;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.common.service.ServiceType;
 import voldemort.rest.AbstractRestService;
-import voldemort.rest.coordinator.CoordinatorConfig;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.rest.coordinator.CoordinatorMetadata;
 
 /**

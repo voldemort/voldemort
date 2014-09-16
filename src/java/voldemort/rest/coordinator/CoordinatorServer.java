@@ -29,6 +29,8 @@ import voldemort.common.service.AbstractService;
 import voldemort.common.service.ServiceType;
 import voldemort.common.service.VoldemortService;
 import voldemort.rest.coordinator.admin.CoordinatorAdminService;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
+import voldemort.rest.coordinator.config.StoreClientConfigService;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.ImmutableList;
@@ -52,6 +54,7 @@ public class CoordinatorServer extends AbstractService {
     private List<VoldemortService> createServices() {
         List<VoldemortService> services = new ArrayList<VoldemortService>();
         CoordinatorProxyService coordinator = new CoordinatorProxyService(config);
+        StoreClientConfigService.initialize(config);
         services.add(coordinator);
         if (config.isAdminServiceEnabled()) {
             services.add(new CoordinatorAdminService(config));

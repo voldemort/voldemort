@@ -46,6 +46,8 @@ import voldemort.client.scheduler.AsyncMetadataVersionManager;
 import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
 import voldemort.rest.AbstractRestService;
+import voldemort.rest.coordinator.config.ClientConfigUtil;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StoreStats;

@@ -56,28 +56,17 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
                 readingChunks = true;
             } else {
                 HttpResponse response;
-                // Instantiate the appropriate error handler
                 HttpMethod httpMethod = request.getMethod();
                 if (httpMethod.equals(HttpMethod.GET)) {
-                    if(logger.isDebugEnabled()) {
-                        logger.debug("Received a Http GET request at " + System.currentTimeMillis() + " ms");
-                    }
                     response = handleGet();
                 } else if (httpMethod.equals(HttpMethod.POST)) {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Recieved a Http POST request at " + System.currentTimeMillis() + " ms");
-                    }
                     response = handlePut();
                 } else if (httpMethod.equals(HttpMethod.DELETE)) {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Received a Http DELETE request at " + System.currentTimeMillis() + " ms");
-                    }
                     response = handleDelete();
                 } else {
-                    String errorMessage = "Illegal Http request received at " + System.currentTimeMillis() + " ms";
+                    String errorMessage = "Illegal Http Admin request received";
                     logger.error(errorMessage);
-                    RestErrorHandler.writeErrorResponse(messageEvent, BAD_REQUEST, errorMessage);
-                    return;
+                    response = sendResponse(BAD_REQUEST, errorMessage);
                 }
                 messageEvent.getChannel().write(response);
             }
@@ -90,16 +79,22 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
     }
 
     private HttpResponse handleGet() {
+        logger.info("Received a Http GET Admin request");
+
         String configFileContent = StoreClientConfigService.getAllConfigs();
 
         return sendResponse(OK, configFileContent);
     }
 
     private HttpResponse handlePut() {
+        logger.info("Received a Http POST Admin request");
+
         return sendResponse(NOT_FOUND, "GOT A PUT");
     }
 
     private HttpResponse handleDelete() {
+        logger.info("Received a Http DELETE Admin request");
+
         return sendResponse(BAD_REQUEST, "GOT A DELETE OMG OMG");
     }
 
@@ -110,12 +105,13 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
         try {
             outputStream.write(responseBody.getBytes());
         } catch (IOException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            logger.error("IOException while trying to write the outputStream for an admin response", e);
+            throw new RuntimeException(e);
         }
         ChannelBuffer responseContent = ChannelBuffers.dynamicBuffer();
         responseContent.writeBytes(outputStream.toByteArray());
         response.setContent(responseContent);
-        logger.info("Sent " + response);
+        logger.debug("Sent " + response);
         return response;
     }
 

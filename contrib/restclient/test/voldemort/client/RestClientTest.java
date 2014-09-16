@@ -18,7 +18,7 @@ import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.cluster.Cluster;
-import voldemort.rest.coordinator.CoordinatorConfig;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.rest.coordinator.CoordinatorProxyService;
 import voldemort.restclient.RESTClientFactory;
 import voldemort.restclient.RESTClientFactoryConfig;

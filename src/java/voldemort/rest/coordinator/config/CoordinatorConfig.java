@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.rest.coordinator;
+package voldemort.rest.coordinator.config;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -26,7 +26,6 @@ import java.util.Properties;
 
 import org.apache.commons.io.IOUtils;
 
-import voldemort.rest.coordinator.config.StoreClientConfigSource;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.Utils;

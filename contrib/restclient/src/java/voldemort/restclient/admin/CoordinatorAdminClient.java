@@ -14,7 +14,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.common.VoldemortOpCode;
 import voldemort.rest.RestMessageHeaders;
-import voldemort.rest.coordinator.ClientConfigUtil;
+import voldemort.rest.coordinator.config.ClientConfigUtil;
 import voldemort.restclient.R2Store;
 import voldemort.restclient.RESTClientConfig;
 

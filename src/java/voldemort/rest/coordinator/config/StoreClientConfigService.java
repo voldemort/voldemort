@@ -1,7 +1,5 @@
 package voldemort.rest.coordinator.config;
 
-import voldemort.rest.coordinator.CoordinatorConfig;
-
 import java.util.List;
 
 /**
@@ -16,10 +14,13 @@ public abstract class StoreClientConfigService {
     }
 
     public static synchronized void initialize(CoordinatorConfig coordinatorConfig) {
-        if (singleton != null) {
+        if (singleton == null) {
             switch(coordinatorConfig.getFatClientConfigSource()){
-                case FILE: singleton = new FileBasedStoreClientConfigService(coordinatorConfig);
-                case ZOOKEEPER: throw new UnsupportedOperationException("Zookeeper-based configs are not implemented yet!");
+                case FILE:
+                    singleton = new FileBasedStoreClientConfigService(coordinatorConfig);
+                    break;
+                case ZOOKEEPER:
+                    throw new UnsupportedOperationException("Zookeeper-based configs are not implemented yet!");
             }
         } else {
             // Redundant init... No big deal?
