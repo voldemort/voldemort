@@ -42,18 +42,18 @@ public class SampleRESTClient {
 
         RESTClientFactoryConfig mainConfig = new RESTClientFactoryConfig(props, null);
         RESTClientFactory factory = new RESTClientFactory(mainConfig);
-        StoreClient<String, String> clientStore = factory.getStoreClient("test");
+        StoreClient<String, String> storeClient = factory.getStoreClient("test");
 
         try {
 
             // Sample put
             System.out.println("First valid put");
-            clientStore.put("a", "Howdy!!!!");
+            storeClient.put("a", "Howdy!!!!");
             System.out.println("Second valid put");
-            clientStore.put("b", "Partner!!!!");
+            storeClient.put("b", "Partner!!!!");
 
             // Do a sample get operation:
-            Versioned<String> versionedValue = clientStore.get("a");
+            Versioned<String> versionedValue = storeClient.get("a");
             System.out.println("Received response : " + versionedValue);
             Version obsoleteVersion = ((VectorClock) versionedValue.getVersion()).clone();
 
@@ -61,7 +61,7 @@ public class SampleRESTClient {
             System.out.println("First versioned put");
             versionedValue.setObject("New Value !!!");
             System.out.println("************* original version : " + versionedValue.getVersion());
-            Version putVersion = clientStore.put("a", versionedValue);
+            Version putVersion = storeClient.put("a", versionedValue);
             System.out.println("************* Updated version : " + putVersion);
 
             // Obsolete version put
@@ -69,29 +69,29 @@ public class SampleRESTClient {
             Versioned<String> obsoleteVersionedValue = new Versioned<String>("Obsolete value",
                                                                              obsoleteVersion);
             try {
-                clientStore.put("a", obsoleteVersionedValue);
+                storeClient.put("a", obsoleteVersionedValue);
                 System.err.println(" **************** Should not reach this point **************** ");
             } catch(Exception e) {
                 System.out.println("Exception occured as expected: " + e.getMessage());
             }
 
             // Do a get again on the last versioned put operation:
-            versionedValue = clientStore.get("a");
+            versionedValue = storeClient.get("a");
             System.out.println("Received response on the versioned put: " + versionedValue);
 
             System.out.println("Versioned put based on the last put ");
             Versioned<String> newVersionedPut = new Versioned<String>("Yet another value !!!",
                                                                       putVersion);
-            clientStore.put("a", newVersionedPut);
+            storeClient.put("a", newVersionedPut);
 
             // Do a get again on the last versioned put operation:
-            versionedValue = clientStore.get("a");
+            versionedValue = storeClient.get("a");
             System.out.println("Received response on the (second) versioned put: " + versionedValue);
 
             List<String> keyList = new ArrayList<String>();
             keyList.add("a");
             keyList.add("b");
-            System.out.println("Received response : " + clientStore.getAll(keyList));
+            System.out.println("Received response : " + storeClient.getAll(keyList));
 
         } finally {
             factory.close();

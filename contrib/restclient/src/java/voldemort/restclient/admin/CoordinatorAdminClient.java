@@ -3,6 +3,7 @@ package voldemort.restclient.admin;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -26,6 +27,8 @@ import com.linkedin.r2.message.rest.RestRequest;
 import com.linkedin.r2.message.rest.RestRequestBuilder;
 import com.linkedin.r2.message.rest.RestResponse;
 import com.linkedin.r2.transport.common.Client;
+import com.linkedin.r2.transport.common.bridge.client.TransportClientAdapter;
+import com.linkedin.r2.transport.http.client.HttpClientFactory;
 
 public class CoordinatorAdminClient {
 
@@ -43,7 +46,8 @@ public class CoordinatorAdminClient {
     private static final int INVALID_ZONE_ID = -1;
     private final Logger logger = Logger.getLogger(R2Store.class);
 
-    private Client client = null;
+    private HttpClientFactory httpClientFactory;
+    private Client client;
     private RESTClientConfig config;
     private String routingTypeCode = null;
     private int zoneId;
@@ -54,6 +58,11 @@ public class CoordinatorAdminClient {
 
     public CoordinatorAdminClient(RESTClientConfig config) {
         this.config = config;
+        this.httpClientFactory = new HttpClientFactory();
+        Map<String, String> properties = new HashMap<String, String>();
+        properties.put(HttpClientFactory.HTTP_POOL_SIZE,
+                       Integer.toString(this.config.getMaxR2ConnectionPoolSize()));
+        this.client = new TransportClientAdapter(httpClientFactory.getClient(properties));
     }
 
     public String getStoreClientConfigString(List<String> storeNames, String coordinatorUrl) {
