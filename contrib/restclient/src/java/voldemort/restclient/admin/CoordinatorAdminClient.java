@@ -15,7 +15,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.common.VoldemortOpCode;
 import voldemort.rest.RestMessageHeaders;
-import voldemort.rest.coordinator.CoordinatorProxyService;
+import voldemort.rest.coordinator.config.ClientConfigUtil;
 import voldemort.restclient.R2Store;
 import voldemort.restclient.RESTClientConfig;
 
@@ -195,12 +195,12 @@ public class CoordinatorAdminClient {
     public Map<String, String> getStoreClientConfigMap(List<String> storeNames,
                                                        String coordinatorUrl) {
         String configAvro = getStoreClientConfigString(storeNames, coordinatorUrl);
-        Map<String, Properties> mapStoreToProps = CoordinatorProxyService.readMultipleClientConfigAvro(configAvro);
+        Map<String, Properties> mapStoreToProps = ClientConfigUtil.readMultipleClientConfigAvro(configAvro);
         Map<String, String> mapStoreToConfig = Maps.newHashMap();
         for(String storeName: mapStoreToProps.keySet()) {
             Properties props = mapStoreToProps.get(storeName);
             mapStoreToConfig.put(storeName,
-                                 CoordinatorProxyService.writeSingleClientConfigAvro(props));
+                                 ClientConfigUtil.writeSingleClientConfigAvro(props));
         }
         return mapStoreToConfig;
     }
@@ -211,9 +211,9 @@ public class CoordinatorAdminClient {
         for(String storeName: storeClientConfigMap.keySet()) {
             String configAvro = storeClientConfigMap.get(storeName);
             mapStoreToProps.put(storeName,
-                                CoordinatorProxyService.readSingleClientConfigAvro(configAvro));
+                                ClientConfigUtil.readSingleClientConfigAvro(configAvro));
         }
-        return putStoreClientConfigString(CoordinatorProxyService.writeMultipleClientConfigAvro(mapStoreToProps),
+        return putStoreClientConfigString(ClientConfigUtil.writeMultipleClientConfigAvro(mapStoreToProps),
                                           coordinatorUrl);
     }
 

@@ -40,7 +40,7 @@ import org.junit.Test;
 import voldemort.ServerTestUtils;
 import voldemort.rest.RestMessageHeaders;
 import voldemort.rest.RestUtils;
-import voldemort.rest.coordinator.CoordinatorConfig;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.rest.coordinator.CoordinatorProxyService;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;

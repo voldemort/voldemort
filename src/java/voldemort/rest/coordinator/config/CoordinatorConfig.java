@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.rest.coordinator;
+package voldemort.rest.coordinator.config;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -33,6 +33,7 @@ import voldemort.utils.Utils;
 public class CoordinatorConfig {
 
     private volatile List<String> bootstrapURLs = null;
+    private volatile StoreClientConfigSource fatClientConfigSource = StoreClientConfigSource.FILE;
     private volatile String fatClientConfigPath = null;
     private volatile int metadataCheckIntervalInMs = 5000;
     private volatile int serverPort = 8080;
@@ -55,6 +56,7 @@ public class CoordinatorConfig {
 
     /* Propery names for propery-based configuration */
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
+    public static final String FAT_CLIENTS_CONFIG_SOURCE = "fat_clients_config_source";
     public static final String FAT_CLIENTS_CONFIG_FILE_PATH_PROPERTY = "fat_clients_config_file_path";
     public static final String METADATA_CHECK_INTERVAL_IN_MS = "metadata_check_interval_in_ms";
     public static final String NETTY_SERVER_PORT = "netty_server_port";
@@ -116,59 +118,56 @@ public class CoordinatorConfig {
             setBootstrapURLs(props.getList(BOOTSTRAP_URLS_PROPERTY));
         }
 
+        if(props.containsKey(FAT_CLIENTS_CONFIG_SOURCE)) {
+            setFatClientConfigSource(StoreClientConfigSource.get(props.getString(FAT_CLIENTS_CONFIG_SOURCE)));
+        }
+
         if(props.containsKey(FAT_CLIENTS_CONFIG_FILE_PATH_PROPERTY)) {
             setFatClientConfigPath(props.getString(FAT_CLIENTS_CONFIG_FILE_PATH_PROPERTY));
         }
 
         if(props.containsKey(METADATA_CHECK_INTERVAL_IN_MS)) {
-            setMetadataCheckIntervalInMs(props.getInt(METADATA_CHECK_INTERVAL_IN_MS,
-                                                      this.metadataCheckIntervalInMs));
+            setMetadataCheckIntervalInMs(props.getInt(METADATA_CHECK_INTERVAL_IN_MS));
         }
 
         if(props.containsKey(NETTY_SERVER_PORT)) {
-            setServerPort(props.getInt(NETTY_SERVER_PORT, this.serverPort));
+            setServerPort(props.getInt(NETTY_SERVER_PORT));
         }
 
         if(props.containsKey(NETTY_SERVER_BACKLOG)) {
-            setNettyServerBacklog(props.getInt(NETTY_SERVER_BACKLOG, this.nettyServerBacklog));
+            setNettyServerBacklog(props.getInt(NETTY_SERVER_BACKLOG));
         }
 
         if(props.containsKey(COORDINATOR_CORE_THREADS)) {
-            setCoordinatorCoreThreads(props.getInt(COORDINATOR_CORE_THREADS,
-                                                   this.coordinatorCoreThreads));
+            setCoordinatorCoreThreads(props.getInt(COORDINATOR_CORE_THREADS));
         }
 
         if(props.containsKey(COORDINATOR_MAX_THREADS)) {
-            setCoordinatorMaxThreads(props.getInt(COORDINATOR_MAX_THREADS,
-                                                  this.coordinatorMaxThreads));
+            setCoordinatorMaxThreads(props.getInt(COORDINATOR_MAX_THREADS));
         }
 
         if(props.containsKey(COORDINATOR_QUEUED_REQUESTS)) {
-            setCoordinatorQueuedRequestsSize(props.getInt(COORDINATOR_QUEUED_REQUESTS,
-                                                          this.numCoordinatorQueuedRequests));
+            setCoordinatorQueuedRequestsSize(props.getInt(COORDINATOR_QUEUED_REQUESTS));
         }
 
         if(props.containsKey(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH)) {
-            setHttpMessageDecoderMaxInitialLength(props.getInt(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH,
-                                                               this.httpMessageDecoderMaxInitialLength));
+            setHttpMessageDecoderMaxInitialLength(props.getInt(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH));
         }
 
         if(props.containsKey(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE)) {
-            setHttpMessageDecoderMaxHeaderSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE,
-                                                            this.httpMessageDecoderMaxHeaderSize));
+            setHttpMessageDecoderMaxHeaderSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE));
         }
 
         if(props.containsKey(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE)) {
-            setHttpMessageDecoderMaxChunkSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE,
-                                                           this.httpMessageDecoderMaxChunkSize));
+            setHttpMessageDecoderMaxChunkSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE));
         }
 
         if(props.containsKey(ADMIN_ENABLE)) {
-            setAdminServiceEnabled(props.getBoolean(ADMIN_ENABLE, this.enableAdminService));
+            setAdminServiceEnabled(props.getBoolean(ADMIN_ENABLE));
         }
 
         if(props.containsKey(ADMIN_PORT)) {
-            setServerPort(props.getInt(ADMIN_PORT, this.adminPort));
+            setServerPort(props.getInt(ADMIN_PORT));
         }
 
     }
@@ -192,6 +191,15 @@ public class CoordinatorConfig {
         if(this.bootstrapURLs.size() <= 0)
             throw new IllegalArgumentException("Must provide at least one bootstrap URL.");
         return this;
+    }
+
+
+    public StoreClientConfigSource getFatClientConfigSource() {
+        return fatClientConfigSource;
+    }
+
+    public void setFatClientConfigSource(StoreClientConfigSource fatClientConfigSource) {
+        this.fatClientConfigSource = fatClientConfigSource;
     }
 
     public String getFatClientConfigPath() {
@@ -353,7 +361,7 @@ public class CoordinatorConfig {
     }
 
     /**
-     * @param serverPort Defines the port to use while bootstrapping the Netty
+     * @param adminPort Defines the port to use while bootstrapping the Netty
      *        server
      */
     public CoordinatorConfig setAdminPort(int adminPort) {

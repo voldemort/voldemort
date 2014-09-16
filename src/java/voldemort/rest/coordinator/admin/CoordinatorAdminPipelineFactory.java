@@ -30,7 +30,7 @@ import org.jboss.netty.handler.codec.http.HttpContentCompressor;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
-import voldemort.rest.coordinator.CoordinatorConfig;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.rest.coordinator.CoordinatorMetadata;
 import voldemort.utils.DaemonThreadFactory;
 

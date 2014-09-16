@@ -17,9 +17,7 @@
 package voldemort.rest.coordinator.admin;
 
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NO_CONTENT;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
+import static org.jboss.netty.handler.codec.http.HttpResponseStatus.*;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import org.apache.commons.io.output.ByteArrayOutputStream;
@@ -30,14 +28,10 @@ import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelHandler;
-import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
-import org.jboss.netty.handler.codec.http.HttpChunk;
-import org.jboss.netty.handler.codec.http.HttpMethod;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.jboss.netty.handler.codec.http.*;
 
 import voldemort.rest.RestErrorHandler;
-import voldemort.rest.RestMessageHeaders;
+import voldemort.rest.coordinator.config.StoreClientConfigService;
 
 import java.io.IOException;
 
@@ -50,64 +44,75 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent messageEvent) throws Exception {
         logger.info("messageReceived!! (omg)");
-        sendResponse(messageEvent);
-//        if (!readingChunks) {
-//            HttpRequest request = this.request = (HttpRequest) messageEvent.getMessage();
-//            String requestURI = this.request.getUri();
-//            if (logger.isDebugEnabled()) {
-//                logger.debug("Request URI: " + requestURI);
-//            }
-//
-//            if (request.isChunked()) {
-//                readingChunks = true;
-//            } else {
-//                // Instantiate the appropriate error handler
-//                HttpMethod httpMethod = request.getMethod();
-//                if (httpMethod.equals(HttpMethod.GET)) {
-//                    if(logger.isDebugEnabled()) {
-//                        logger.debug("Received a Http GET request at " + System.currentTimeMillis() + " ms");
-//                    }
-//                    // handleGet()
-//                } else if (httpMethod.equals(HttpMethod.POST)) {
-//                    if (logger.isDebugEnabled()) {
-//                        logger.debug("Recieved a Http POST request at " + System.currentTimeMillis() + " ms");
-//                    }
-//                    // handlePut
-//                } else if (httpMethod.equals(HttpMethod.DELETE)) {
-//                    if (logger.isDebugEnabled()) {
-//                        logger.debug("Received a Http DELETE request at " + System.currentTimeMillis() + " ms");
-//                    }
-//                    // handleDelete
-//                } else {
-//                    String errorMessage = "Illegal Http request received at " + System.currentTimeMillis() + " ms";
-//                    logger.error(errorMessage);
-//                    RestErrorHandler.writeErrorResponse(messageEvent, BAD_REQUEST, errorMessage);
-//                    return;
-//                }
-//            }
-//        } else {
-//            HttpChunk chunk = (HttpChunk) messageEvent.getMessage();
-//            if (chunk.isLast()) {
-//                readingChunks = false;
-//            }
-//        }
         //sendResponse(messageEvent);
+        if (!readingChunks) {
+            HttpRequest request = this.request = (HttpRequest) messageEvent.getMessage();
+            String requestURI = this.request.getUri();
+            if (logger.isDebugEnabled()) {
+                logger.debug("Request URI: " + requestURI);
+            }
+
+            if (request.isChunked()) {
+                readingChunks = true;
+            } else {
+                HttpResponse response;
+                HttpMethod httpMethod = request.getMethod();
+                if (httpMethod.equals(HttpMethod.GET)) {
+                    response = handleGet();
+                } else if (httpMethod.equals(HttpMethod.POST)) {
+                    response = handlePut();
+                } else if (httpMethod.equals(HttpMethod.DELETE)) {
+                    response = handleDelete();
+                } else {
+                    String errorMessage = "Illegal Http Admin request received";
+                    logger.error(errorMessage);
+                    response = sendResponse(BAD_REQUEST, errorMessage);
+                }
+                messageEvent.getChannel().write(response);
+            }
+        } else {
+            HttpChunk chunk = (HttpChunk) messageEvent.getMessage();
+            if (chunk.isLast()) {
+                readingChunks = false;
+            }
+        }
     }
 
-    public void sendResponse(MessageEvent messageEvent) {
-        HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
-        response.setHeader(CONTENT_LENGTH, "4");
+    private HttpResponse handleGet() {
+        logger.info("Received a Http GET Admin request");
+
+        String configFileContent = StoreClientConfigService.getAllConfigs();
+
+        return sendResponse(OK, configFileContent);
+    }
+
+    private HttpResponse handlePut() {
+        logger.info("Received a Http POST Admin request");
+
+        return sendResponse(NOT_FOUND, "GOT A PUT");
+    }
+
+    private HttpResponse handleDelete() {
+        logger.info("Received a Http DELETE Admin request");
+
+        return sendResponse(BAD_REQUEST, "GOT A DELETE OMG OMG");
+    }
+
+    public HttpResponse sendResponse(HttpResponseStatus responseCode, String responseBody) {
+        HttpResponse response = new DefaultHttpResponse(HTTP_1_1, responseCode);
+        response.setHeader(CONTENT_LENGTH, responseBody.length());
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         try {
-            outputStream.write("allo".getBytes());
+            outputStream.write(responseBody.getBytes());
         } catch (IOException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            logger.error("IOException while trying to write the outputStream for an admin response", e);
+            throw new RuntimeException(e);
         }
         ChannelBuffer responseContent = ChannelBuffers.dynamicBuffer();
         responseContent.writeBytes(outputStream.toByteArray());
         response.setContent(responseContent);
-        messageEvent.getChannel().write(response);
-        logger.info("Sent");
+        logger.debug("Sent " + response);
+        return response;
     }
 
     @Override
