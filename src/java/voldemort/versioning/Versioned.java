@@ -26,7 +26,9 @@ import com.google.common.base.Objects;
 /**
  * A wrapper for an object that adds a Version.
  * 
- * 
+ * This class it bad to use in map, as the hashCode calls object.hashCode Most
+ * likely the object is byte array and hashCode for array will be different for
+ * different objects though the contents are the same
  */
 public final class Versioned<T> implements Serializable {
 
@@ -72,6 +74,8 @@ public final class Versioned<T> implements Serializable {
     public int hashCode() {
         int value = 31 + version.hashCode();
         if(object != null) {
+            // So two different arrays having same content will return two
+            // different has codes
             value += 31 * object.hashCode();
         }
         return value;

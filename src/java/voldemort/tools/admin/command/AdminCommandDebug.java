@@ -612,14 +612,15 @@ public class AdminCommandDebug extends AbstractAdminCommand {
                         numReplicas = zoneRepMap.get(zone.getId());
                     }
 
-                    System.out.format("%s%s%s\n",
+                    String FormatString = "%s %s %s\n";
+                    System.out.format(FormatString,
                                       Utils.paddedString("REPLICA#", COLUMN_WIDTH),
                                       Utils.paddedString("PARTITION", COLUMN_WIDTH),
                                       Utils.paddedString("NODE", COLUMN_WIDTH));
                     for(int i = 0; i < numReplicas; i++) {
                         Integer nodeId = bRoutingPlan.getNodeIdForZoneNary(zone.getId(), i, key);
                         Integer partitionId = routingPlan.getNodesPartitionIdForKey(nodeId, key);
-                        System.out.format("%s%s%s\n",
+                        System.out.format(FormatString,
                                           Utils.paddedString(i + "", COLUMN_WIDTH),
                                           Utils.paddedString(partitionId.toString(), COLUMN_WIDTH),
                                           Utils.paddedString(nodeId

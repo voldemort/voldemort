@@ -16,6 +16,9 @@
 
 package voldemort.versioning;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import junit.framework.TestCase;
 import voldemort.TestUtils;
 
@@ -62,4 +65,25 @@ public class VersionedTest extends TestCase {
         assertTrue(!v1.equals(v2));
     }
 
+    public void testListByteArray() {
+        byte[] array1 = new byte[] { 1, 2, 3 };
+        byte[] array2 = new byte[] { 1, 2, 3 };
+
+        Version clock1 = TestUtils.getClock(1, 2, 3);
+        Version clock2 = TestUtils.getClock(1, 2, 3);
+
+        Versioned<byte[]> v1 = new Versioned<byte[]>(array1, clock1);
+        Versioned<byte[]> v2 = new Versioned<byte[]>(array2, clock2);
+
+        List<Versioned<byte[]>> versioned1 = new ArrayList<Versioned<byte[]>>();
+        versioned1.add(v1);
+
+        List<Versioned<byte[]>> versioned2 = new ArrayList<Versioned<byte[]>>();
+        versioned2.add(v2);
+
+        assertEquals(versioned1.indexOf(v2), 0);
+        assertEquals(versioned2.indexOf(v1), 0);
+
+        assertEquals(versioned1, versioned2);
+    }
 }
