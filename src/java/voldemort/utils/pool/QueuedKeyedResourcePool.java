@@ -57,7 +57,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /**
-     * Create a new queued pool with key type K, request type R, and value type V.
+     * Create a new queued pool with key type K, request type R, and value type
+     * V.
      * 
      * @param factory The factory that creates objects
      * @param config The pool config
@@ -69,8 +70,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /**
-     * Create a new queued pool using the defaults for key of tyep K,
-     * request of type R, and value of Type V.
+     * Create a new queued pool using the defaults for key of tyep K, request of
+     * type R, and value of Type V.
      * 
      * @param factory The factory that creates objects
      * @return The created pool
@@ -187,6 +188,16 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /**
+     * TODO: The processQueueLoop is typically invoked from the selector (
+     * serial could invoke this as well, but most likely Parallel (Selector
+     * returning connection to the pool )is invoking it). When parallel requests
+     * does not have connections, they enqueue the requests. The next thread to
+     * check in will continue to process these requests, until the queue is
+     * drained or connection is exhausted. There is no number bound on this. For
+     * example If you bump the ExceededQuotaSlopTest to do more than 500
+     * requests it will fail and if you put a bound on this it will pass.
+     * Something that requires deeper investigation in the future.
+     * 
      * Attempts to repeatedly process enqueued resource requests. Tries until no
      * more progress is possible without blocking.
      * 

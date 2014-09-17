@@ -161,6 +161,14 @@ public class ExceededQuotaSlopTest {
         // Set quotas on each server
         setGetPutQuotasForEachServer();
 
+        /**
+         * Look at the comment on this method
+         * 
+         * @see voldemort.utils.pool.QueuedKeyedResourcePool.processQueueLoop(K)
+         *      to see why bumping the number generateKeysForMasterNode will
+         *      fail this test.
+         */
+
         // This test is non-deterministic.
         // 1) The QuotaException is thrown by SerialPut, but parallelPut ignores
         // QuotaException and throws InsufficientOperationalNodesException
