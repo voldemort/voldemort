@@ -1,6 +1,7 @@
 package voldemort.rest.coordinator.config;
 
 import java.util.List;
+import java.util.Properties;
 
 /**
  * Singleton containing APIs for interacting reading and writing client store configs
@@ -8,6 +9,13 @@ import java.util.List;
 public abstract class StoreClientConfigService {
     private static StoreClientConfigService singleton = null;
     protected CoordinatorConfig coordinatorConfig;
+
+    public static final String ERROR_MESSAGE_PARAM_KEY = "error_message";
+    public static final String STORE_NOT_FOUND_ERROR = "This store is not currently defined in the Coordinator config.";
+    protected static final Properties STORE_NOT_FOUND_PROPS = new Properties();
+    static {
+        STORE_NOT_FOUND_PROPS.put(ERROR_MESSAGE_PARAM_KEY, STORE_NOT_FOUND_ERROR);
+    }
 
     protected StoreClientConfigService(CoordinatorConfig coordinatorConfig) {
         this.coordinatorConfig = coordinatorConfig;
