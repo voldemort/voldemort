@@ -2248,7 +2248,9 @@ public class VoldemortAdminTool {
                     }
                 } else {
                     if(queryingNodes.size() == 1) {
-                        out.write("\nNode %d on store %s returned NULL\n");
+                        out.write(String.format("\nNode %d on store %s returned NULL\n",
+                                                queryNodeId,
+                                                storeName));
                         out.write("\n====================================\n");
                     }
                 }

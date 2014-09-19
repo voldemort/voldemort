@@ -115,7 +115,16 @@ public class Utils {
         if(files != null) {
             for(File f: files) {
                 if(f.isDirectory()) {
-                    rm(Arrays.asList(f.listFiles()));
+                    File[] contents = null;
+                    // Sometimes f.listFiles returns null and fails the test
+                    // Making it retry couple of times and ignoring the failure
+                    for(int i = 0; contents == null && i < 2; i++) {
+                        contents = f.listFiles();
+                    }
+
+                    if(contents != null) {
+                        rm(Arrays.asList(contents));
+                    }
                     f.delete();
                 } else {
                     f.delete();
