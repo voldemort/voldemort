@@ -49,6 +49,7 @@ import voldemort.common.service.ServiceType;
 import voldemort.rest.AbstractRestService;
 import voldemort.rest.coordinator.config.ClientConfigUtil;
 import voldemort.rest.coordinator.config.CoordinatorConfig;
+import voldemort.rest.coordinator.config.StoreClientConfigService;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StoreStats;
@@ -78,6 +79,7 @@ public class CoordinatorProxyService extends AbstractRestService {
 
     public CoordinatorProxyService(CoordinatorConfig config) {
         super(ServiceType.COORDINATOR_PROXY, config);
+        StoreClientConfigService.initialize(config);
         this.coordinatorConfig = config;
         this.coordinatorPerfStats = new StoreStats("aggregate.proxy-service");
         this.coordinatorMetadata = new CoordinatorMetadata();

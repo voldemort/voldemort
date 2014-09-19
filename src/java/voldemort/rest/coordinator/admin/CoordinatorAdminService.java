@@ -1,12 +1,12 @@
 /*
  * Copyright 2014 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -22,8 +22,9 @@ import org.jboss.netty.channel.ChannelPipelineFactory;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.common.service.ServiceType;
 import voldemort.rest.AbstractRestService;
-import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.rest.coordinator.CoordinatorMetadata;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
+import voldemort.rest.coordinator.config.StoreClientConfigService;
 
 /**
  * Admin service that accepts REST requests from the Voldemort admin client and
@@ -38,6 +39,7 @@ public class CoordinatorAdminService extends AbstractRestService {
 
     public CoordinatorAdminService(CoordinatorConfig config) {
         super(ServiceType.COORDINATOR_ADMIN, config);
+        StoreClientConfigService.initialize(config);
         this.coordinatorConfig = config;
         this.coordinatorMetadata = new CoordinatorMetadata();
     }
