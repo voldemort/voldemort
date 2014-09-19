@@ -48,6 +48,8 @@ public class AdminCommandStore extends AbstractAdminCommand {
         args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("add")) {
             SubCommandStoreAdd.executeCommand(args);
+        } else if(subCmd.equals("update")) {
+            SubCommandStoreUpdate.executeCommand(args);
         } else if(subCmd.equals("delete")) {
             SubCommandStoreDelete.executeCommand(args);
         } else if(subCmd.equals("rollback-ro")) {
@@ -69,6 +71,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
         stream.println("Voldemort Admin Tool Store Commands");
         stream.println("-----------------------------------");
         stream.println("add                  Add stores from a \'stores.xml\' file.");
+        stream.println("update               Update store definitions from a \'stores.xml\' file.");
         stream.println("delete               Delete stores.");
         stream.println("rollback-ro          Rollback read-only store to a given version.");
         stream.println("truncate-partition   Remove contents of partitions on a node.");
@@ -88,6 +91,8 @@ public class AdminCommandStore extends AbstractAdminCommand {
         String subCmd = (args.length > 0) ? args[0] : "";
         if(subCmd.equals("add")) {
             SubCommandStoreAdd.printHelp(stream);
+        } else if(subCmd.equals("update")) {
+            SubCommandStoreUpdate.printHelp(stream);
         } else if(subCmd.equals("delete")) {
             SubCommandStoreDelete.printHelp(stream);
         } else if(subCmd.equals("rollback-ro")) {
@@ -217,6 +222,122 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 System.out.println("Adding " + storeDef.getName());
                 adminClient.storeMgmtOps.addStore(storeDef, nodeIds);
             }
+        }
+    }
+
+    /**
+     * store update command
+     */
+    public static class SubCommandStoreUpdate extends AbstractAdminCommand {
+
+        /**
+         * Initializes parser
+         * 
+         * @return OptionParser object with all available options
+         */
+        protected static OptionParser getParser() {
+            OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
+            // required options
+            AdminParserUtils.acceptsFile(parser);
+            AdminParserUtils.acceptsUrl(parser);
+            // optional options
+            AdminParserUtils.acceptsNodeMultiple(parser); // either
+                                                          // --node or
+                                                          // --all-nodes
+            AdminParserUtils.acceptsAllNodes(parser); // either --node or
+                                                      // --all-nodes
+            return parser;
+        }
+
+        /**
+         * Prints help menu for command.
+         * 
+         * @param stream PrintStream object for output
+         * @throws IOException
+         */
+        public static void printHelp(PrintStream stream) throws IOException {
+            stream.println();
+            stream.println("NAME");
+            stream.println("  store update - Update store definitions from a \'stores.xml\' file");
+            stream.println();
+            stream.println("SYNOPSIS");
+            stream.println("  store update -f <stores.xml-file-path> -u <url> [-n <node-id-list> | --all-nodes]");
+            stream.println();
+            getParser().printHelpOn(stream);
+            stream.println();
+        }
+
+        /**
+         * Parses command-line and adds store on given nodes from a given
+         * stores.xml file.
+         * 
+         * @param args Command-line input
+         * @param printHelp Tells whether to print help only or execute command
+         *        actually
+         * @throws IOException
+         * 
+         */
+        @SuppressWarnings("unchecked")
+        public static void executeCommand(String[] args) throws IOException {
+
+            OptionParser parser = getParser();
+
+            // declare parameters
+            String storesFile = null;
+            String url = null;
+            List<Integer> nodeIds = null;
+            Boolean allNodes = true;
+
+            // parse command-line input
+            OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_FILE);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
+
+            // load parameters
+            storesFile = (String) options.valueOf(AdminParserUtils.OPT_FILE);
+            url = (String) options.valueOf(AdminParserUtils.OPT_URL);
+            if(options.has(AdminParserUtils.OPT_NODE)) {
+                nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
+                allNodes = false;
+            }
+
+            // execute command
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
+
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
+            }
+
+            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+
+            doStoreUpdate(adminClient, nodeIds, storesFile);
+        }
+
+        /**
+         * Updates store on given nodes from a given stores.xml file.
+         * 
+         * @param adminClient An instance of AdminClient points to given cluster
+         * @param nodeIds Node ids to update stores on
+         * @param storesFile File path of stores.xml to be updated
+         * @throws IOException
+         * 
+         */
+        public static void doStoreUpdate(AdminClient adminClient,
+                                         List<Integer> nodeIds,
+                                         String storesFile) throws IOException {
+            List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesFile));
+            adminClient.metadataMgmtOps.updateRemoteStoreDefList(storeDefs, nodeIds);
         }
     }
 

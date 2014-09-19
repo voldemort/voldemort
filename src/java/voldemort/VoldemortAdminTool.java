@@ -112,8 +112,11 @@ import com.sleepycat.persist.StoreNotFoundException;
 
 /**
  * Provides a command line interface to the
- * {@link voldemort.client.protocol.admin.AdminClient}
+ * {@link voldemort.client.protocol.admin.AdminClient}. This is the old
+ * Voldemort Admin Tool. Please use the new one:
+ * voldemort.tools.admin.VAdminTool
  */
+@Deprecated
 public class VoldemortAdminTool {
 
     private static final String ALL_METADATA = "all";

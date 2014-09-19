@@ -384,10 +384,8 @@ public class AdminServiceBasicTest {
         }
 
         // Reset the store definition back to original
-        for(int nodeId: this.cluster.getNodeIds()) {
-            adminClient.metadataMgmtOps.updateRemoteStoreDefList(nodeId,
-                                                                 originalStoreDefinitionsList);
-        }
+        adminClient.metadataMgmtOps.updateRemoteStoreDefList(originalStoreDefinitionsList,
+                                                             this.cluster.getNodeIds());
 
     }
 

@@ -16,6 +16,12 @@
 #  limitations under the License.
 #
 
+echo
+echo WARNING: THIS VOLDEMORT ADMIN TOOL IS DEPRECATED. PLEASE USE vadmin.sh INSTEAD.
+echo
+
+sleep 5
+
 base_dir=$(dirname $0)/..
 
 $base_dir/bin/run-class.sh voldemort.VoldemortAdminTool $@

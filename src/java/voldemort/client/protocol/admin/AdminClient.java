@@ -1279,58 +1279,73 @@ public class AdminClient {
         }
 
         /**
+         * Update the store definitions on a list of remote nodes.
+         * <p>
+         * 
+         * @param storeDefs The new store definition list
+         * @param nodeIds The node id of the machine
+         * @throws VoldemortException
+         */
+        public void updateRemoteStoreDefList(List<StoreDefinition> storeDefs,
+                                             Collection<Integer> nodeIds) throws VoldemortException {
+            // Check for backwards compatibility
+            StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
+
+            for(Integer nodeId: nodeIds) {
+                logger.info("Updating stores.xml for "
+                            + currentCluster.getNodeById(nodeId).getHost() + ":" + nodeId);
+                // get current version.
+                VectorClock oldClock = (VectorClock) metadataMgmtOps.getRemoteStoreDefList(nodeId)
+                                                                    .getVersion();
+
+                Versioned<String> value = new Versioned<String>(storeMapper.writeStoreList(storeDefs),
+                                                                oldClock.incremented(nodeId, 1));
+
+                ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(MetadataStore.STORES_KEY,
+                                                                      "UTF-8"));
+                Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
+                                                                                        "UTF-8"),
+                                                                     value.getVersion());
+
+                VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                             .setType(VAdminProto.AdminRequestType.UPDATE_STORE_DEFINITIONS)
+                                                                                             .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
+                                                                                                                                                 .setKey(ByteString.copyFrom(keyBytes.get()))
+                                                                                                                                                 .setVersioned(ProtoUtils.encodeVersioned(valueBytes))
+                                                                                                                                                 .build())
+                                                                                             .build();
+                VAdminProto.UpdateMetadataResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                            request,
+                                                                                            VAdminProto.UpdateMetadataResponse.newBuilder());
+                if(response.hasError()) {
+                    helperOps.throwException(response.getError());
+                }
+            }
+        }
+
+        /**
          * Update the store definitions on a remote node.
          * <p>
          * 
          * @param nodeId The node id of the machine
-         * @param storesList The new store list
+         * @param storeDefs The new store definition list
          * @throws VoldemortException
          */
-        public void updateRemoteStoreDefList(int nodeId, List<StoreDefinition> storesList)
+        public void updateRemoteStoreDefList(Integer nodeId, List<StoreDefinition> storeDefs)
                 throws VoldemortException {
-            // Check for backwards compatibility
-            StoreDefinitionUtils.validateSchemasAsNeeded(storesList);
-
-            // get current version.
-            VectorClock oldClock = (VectorClock) metadataMgmtOps.getRemoteStoreDefList(nodeId)
-                                                                .getVersion();
-
-            Versioned<String> value = new Versioned<String>(storeMapper.writeStoreList(storesList),
-                                                            oldClock.incremented(nodeId, 1));
-
-            ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(MetadataStore.STORES_KEY, "UTF-8"));
-            Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
-                                                                                    "UTF-8"),
-                                                                 value.getVersion());
-
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.UPDATE_STORE_DEFINITIONS)
-                                                                                         .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
-                                                                                                                                             .setKey(ByteString.copyFrom(keyBytes.get()))
-                                                                                                                                             .setVersioned(ProtoUtils.encodeVersioned(valueBytes))
-                                                                                                                                             .build())
-                                                                                         .build();
-            VAdminProto.UpdateMetadataResponse.Builder response = rpcOps.sendAndReceive(nodeId,
-                                                                                        request,
-                                                                                        VAdminProto.UpdateMetadataResponse.newBuilder());
-            if(response.hasError())
-                helperOps.throwException(response.getError());
+            updateRemoteStoreDefList(storeDefs, Arrays.asList(nodeId));
         }
 
         /**
-         * Wrapper for updateRemoteStoreDefList : update this for all the nodes
+         * Wrapper for updateRemoteStoreDefList : update this for all nodes
          * <p>
          * 
-         * @param storesList The new store list
+         * @param storeDefs The new store list
          * @throws VoldemortException
          */
-        public void updateRemoteStoreDefList(List<StoreDefinition> storesList)
+        public void updateRemoteStoreDefList(List<StoreDefinition> storeDefs)
                 throws VoldemortException {
-            for(Node node: currentCluster.getNodes()) {
-                logger.info("Updating stores.xml for " + node.getHost() + ":" + node.getId());
-
-                updateRemoteStoreDefList(node.getId(), storesList);
-            }
+            updateRemoteStoreDefList(storeDefs, currentCluster.getNodeIds());
         }
 
         /**
