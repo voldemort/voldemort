@@ -1,16 +1,17 @@
 /*
- * Copyright 2014 LinkedIn, Inc
-<<<<<<< HEAD:src/java/voldemort/rest/coordinator/CoordinatorProxyService.java
- *
-=======
+ * Copyright 2014 LinkedIn, Inc <<<<<<<
+ * HEAD:src/java/voldemort/rest/coordinator/CoordinatorProxyService.java
  * 
->>>>>>> c5995a789325ff959482e0eb39c54eebb911dd70:src/java/voldemort/rest/coordinator/CoordinatorProxyService.java
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- *
+ * =======
+ * 
+ * >>>>>>>
+ * c5995a789325ff959482e0eb39c54eebb911dd70:src/java/voldemort/rest/coordinator
+ * /CoordinatorProxyService.java Licensed under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with the
+ * License. You may obtain a copy of the License at
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -87,7 +88,7 @@ public class CoordinatorProxyService extends AbstractRestService {
      * Coordinator talks to. This is invoked once during startup and then every
      * time the Metadata manager detects changes to the cluster and stores
      * metadata.
-     *
+     * 
      */
     private void initializeFatClients() {
 
@@ -95,7 +96,8 @@ public class CoordinatorProxyService extends AbstractRestService {
         // Fetch the state once and use this to initialize all the Fat clients
         String storesXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.STORES_KEY);
         String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-        List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml), false);
+        List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml),
+                                                                       false);
 
         // Update the Coordinator Metadata
         this.coordinatorMetadata.setMetadata(clusterXml, storeDefList);
@@ -111,11 +113,11 @@ public class CoordinatorProxyService extends AbstractRestService {
             this.fatClientMap = new HashMap<String, DynamicTimeoutStoreClient<ByteArray, byte[]>>();
         }
 
-        for (StoreDefinition storeDef: storeDefList) {
+        for(StoreDefinition storeDef: storeDefList) {
             String storeName = storeDef.getName();
 
             // Initialize only those stores defined in the client configs file
-            if (fatClientFactoryMap.get(storeName) != null) {
+            if(fatClientFactoryMap.get(storeName) != null) {
                 DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = new DynamicTimeoutStoreClient<ByteArray, byte[]>(storeName,
                                                                                                                             fatClientFactoryMap.get(storeName),
                                                                                                                             1,
@@ -164,12 +166,14 @@ public class CoordinatorProxyService extends AbstractRestService {
                                       this.coordinatorConfig.getMetadataCheckIntervalInMs());
         } catch(BootstrapFailureException be) {
             /*
-             * While testing, the cluster may not be up, but we may still need to verify if the service deploys.
-             * Hence, catch a BootstrapFailureException if any, but continue to register the Netty service (and
-             * listener).
-             *
-             * TODO: Modify the coordinator service to be more lazy. If it cannot initialize the fat clients during
-             * initialization, do this when we get an actual request.
+             * While testing, the cluster may not be up, but we may still need
+             * to verify if the service deploys. Hence, catch a
+             * BootstrapFailureException if any, but continue to register the
+             * Netty service (and listener).
+             * 
+             * TODO: Modify the coordinator service to be more lazy. If it
+             * cannot initialize the fat clients during initialization, do this
+             * when we get an actual request.
              */
         }
     }
@@ -202,8 +206,7 @@ public class CoordinatorProxyService extends AbstractRestService {
                                .setEnableCompressionLayer(false)
                                .setEnableSerializationLayer(false)
                                .enableDefaultClient(true)
-                               .setEnableLazy(false)
-                               .setIdentifierString(props.getProperty(ClientConfigUtil.IDENTIFIER_STRING_KEY, null));
+                               .setEnableLazy(false);
 
                 logger.info("Creating a Fat client for store: " + storeName);
                 logger.info("Using config: " + fatClientConfig);
@@ -245,44 +248,37 @@ public class CoordinatorProxyService extends AbstractRestService {
         return ServiceType.COORDINATOR_PROXY.getDisplayName();
     }
 
-    @JmxGetter(name = "numberOfActiveThreads",
-            description = "The number of active Netty worker threads.")
+    @JmxGetter(name = "numberOfActiveThreads", description = "The number of active Netty worker threads.")
     public int getNumberOfActiveThreads() {
         return this.workerPool.getActiveCount();
     }
 
-    @JmxGetter(name = "numberOfThreads",
-            description = "The total number of Netty worker threads, active and idle.")
+    @JmxGetter(name = "numberOfThreads", description = "The total number of Netty worker threads, active and idle.")
     public int getNumberOfThreads() {
         return this.workerPool.getPoolSize();
     }
 
-    @JmxGetter(name = "queuedRequests",
-            description = "Number of requests in the Netty worker queue waiting to execute.")
+    @JmxGetter(name = "queuedRequests", description = "Number of requests in the Netty worker queue waiting to execute.")
     public int getQueuedRequests() {
         return this.workerPool.getQueue().size();
     }
 
-    @JmxGetter(name = "averageGetCompletionTimeInMs",
-            description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averageGetCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
     public double getAverageGetCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.GET);
     }
 
-    @JmxGetter(name = "averagePutCompletionTimeInMs",
-            description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averagePutCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
     public double getAveragePutCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.PUT);
     }
 
-    @JmxGetter(name = "averageGetAllCompletionTimeInMs",
-            description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averageGetAllCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
     public double getAverageGetAllCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.GET_ALL);
     }
 
-    @JmxGetter(name = "averageDeleteCompletionTimeInMs",
-            description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averageDeleteCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
     public double getAverageDeleteCompletionTimeInMs() {
         return this.coordinatorPerfStats.getAvgTimeInMs(Tracked.DELETE);
     }

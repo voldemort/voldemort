@@ -181,6 +181,7 @@ public class ClientConfig {
     public static final String GET_OP_ZONE_AFFINITY = "get_op_zone_affinity";
     public static final String GETALL_OP_ZONE_AFFINITY = "getall_op_zone_affinity";
     public static final String GETVERSIONS_OP_ZONE_AFFINITY = "getversions_op_zone_affinity";
+    public static final String IDENTIFIER_STRING_KEY = "identifier_string";
 
     /**
      * Instantiate the client config using a properties file
@@ -428,6 +429,10 @@ public class ClientConfig {
         if(props.containsKey(GETVERSIONS_OP_ZONE_AFFINITY)) {
             this.getZoneAffinity()
                 .setEnableGetVersionsOpZoneAffinity(props.getBoolean(GETVERSIONS_OP_ZONE_AFFINITY));
+        }
+
+        if(props.containsKey(IDENTIFIER_STRING_KEY)) {
+            this.setIdentifierString(props.getString(IDENTIFIER_STRING_KEY));
         }
 
     }
@@ -897,7 +902,7 @@ public class ClientConfig {
      * Default : null, meaning that users will use jmxId as identifier in
      * AbstractStoreClientFactory
      * 
-     * @param cacheStoreClients
+     * @param identifierString
      */
     public ClientConfig setIdentifierString(String identifierString) {
         this.identifierString = identifierString;

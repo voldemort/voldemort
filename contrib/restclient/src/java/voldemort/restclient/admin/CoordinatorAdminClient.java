@@ -199,8 +199,7 @@ public class CoordinatorAdminClient {
         Map<String, String> mapStoreToConfig = Maps.newHashMap();
         for(String storeName: mapStoreToProps.keySet()) {
             Properties props = mapStoreToProps.get(storeName);
-            mapStoreToConfig.put(storeName,
-                                 ClientConfigUtil.writeSingleClientConfigAvro(props));
+            mapStoreToConfig.put(storeName, ClientConfigUtil.writeSingleClientConfigAvro(props));
         }
         return mapStoreToConfig;
     }
@@ -210,8 +209,7 @@ public class CoordinatorAdminClient {
         Map<String, Properties> mapStoreToProps = Maps.newHashMap();
         for(String storeName: storeClientConfigMap.keySet()) {
             String configAvro = storeClientConfigMap.get(storeName);
-            mapStoreToProps.put(storeName,
-                                ClientConfigUtil.readSingleClientConfigAvro(configAvro));
+            mapStoreToProps.put(storeName, ClientConfigUtil.readSingleClientConfigAvro(configAvro));
         }
         return putStoreClientConfigString(ClientConfigUtil.writeMultipleClientConfigAvro(mapStoreToProps),
                                           coordinatorUrl);
