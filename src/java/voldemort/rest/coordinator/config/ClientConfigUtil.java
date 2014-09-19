@@ -101,17 +101,22 @@ public class ClientConfigUtil {
      * @return String in avro format that contains single store configs
      */
     public static String writeSingleClientConfigAvro(Properties props) {
+        // FIXME: This sucks. We shouldn't be manually manipulating json...
         String avroConfig = new String();
         Boolean firstProp = true;
         for(String key: props.stringPropertyNames()) {
             if(firstProp) {
                 firstProp = false;
             } else {
-                avroConfig = avroConfig + ", ";
+                avroConfig = avroConfig + ",\n";
             }
-            avroConfig = avroConfig + "\"" + key + "\": \"" + props.getProperty(key) + "\"";
+            avroConfig = avroConfig + "\t\t\"" + key + "\": \"" + props.getProperty(key) + "\"";
         }
-        return "{" + avroConfig + "}";
+        if(avroConfig.isEmpty()) {
+            return "{}";
+        } else {
+            return "{\n" + avroConfig + "\n\t}";
+        }
     }
 
     /**
@@ -122,19 +127,20 @@ public class ClientConfigUtil {
      * @return Avro string that contains multiple store configs
      */
     public static String writeMultipleClientConfigAvro(Map<String, Properties> mapStoreToProps) {
+        // FIXME: This sucks. We shouldn't be manually manipulating json...
         String avroConfig = new String();
         Boolean firstStore = true;
         for(String storeName: mapStoreToProps.keySet()) {
             if(firstStore) {
                 firstStore = false;
             } else {
-                avroConfig = avroConfig + ", ";
+                avroConfig = avroConfig + ",\n";
             }
             Properties props = mapStoreToProps.get(storeName);
-            avroConfig = avroConfig + "\"" + storeName + "\": "
+            avroConfig = avroConfig + "\t\"" + storeName + "\": "
                          + writeSingleClientConfigAvro(props);
 
         }
-        return "{" + avroConfig + "}";
+        return "{\n" + avroConfig + "\n}";
     }
 }

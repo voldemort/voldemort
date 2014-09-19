@@ -20,6 +20,7 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGT
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.*;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import com.google.common.collect.Lists;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -34,8 +35,11 @@ import voldemort.rest.RestErrorHandler;
 import voldemort.rest.coordinator.config.StoreClientConfigService;
 
 import java.io.IOException;
+import java.util.List;
 
 public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
+
+    private static final String STORE_OPS_NAMESPACE = "store-client-config-ops";
 
     public HttpRequest request;
     private boolean readingChunks;
@@ -48,25 +52,32 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
         if (!readingChunks) {
             HttpRequest request = this.request = (HttpRequest) messageEvent.getMessage();
             String requestURI = this.request.getUri();
-            if (logger.isDebugEnabled()) {
-                logger.debug("Request URI: " + requestURI);
-            }
+            logger.debug("Admin Request URI: " + requestURI);
 
             if (request.isChunked()) {
                 readingChunks = true;
             } else {
+                String[] requestUriSegments = requestURI.split("/");
                 HttpResponse response;
-                HttpMethod httpMethod = request.getMethod();
-                if (httpMethod.equals(HttpMethod.GET)) {
-                    response = handleGet();
-                } else if (httpMethod.equals(HttpMethod.POST)) {
-                    response = handlePut();
-                } else if (httpMethod.equals(HttpMethod.DELETE)) {
-                    response = handleDelete();
-                } else {
-                    String errorMessage = "Illegal Http Admin request received";
-                    logger.error(errorMessage);
-                    response = sendResponse(BAD_REQUEST, errorMessage);
+                if (requestUriSegments.length > 0 && requestUriSegments[1].equals(STORE_OPS_NAMESPACE)) {
+                    List<String> storeList = null;
+                    if (requestUriSegments.length > 2) {
+                        String csvStoreList = requestUriSegments[2];
+                        String[] storeArray = csvStoreList.split(",");
+                        storeList = Lists.newArrayList(storeArray);
+                    }
+                    HttpMethod httpMethod = request.getMethod();
+                    if (httpMethod.equals(HttpMethod.GET)) {
+                        response = handleGet(storeList);
+                    } else if (httpMethod.equals(HttpMethod.POST)) {
+                        response = handlePut();
+                    } else if (httpMethod.equals(HttpMethod.DELETE)) {
+                        response = handleDelete();
+                    } else { // Bad HTTP method
+                        response = handleBadRequest("Unsupported HTTP method. Only GET, POST and DELETE are supported.");
+                    }
+                } else { // Bad namespace
+                    response = handleBadRequest("Unsupported namespace. Only /" + STORE_OPS_NAMESPACE + "/ is supported.");
                 }
                 messageEvent.getChannel().write(response);
             }
@@ -78,12 +89,27 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
         }
     }
 
-    private HttpResponse handleGet() {
+    private HttpResponse handleGet(List<String> storeList) {
         logger.info("Received a Http GET Admin request");
 
-        String configFileContent = StoreClientConfigService.getAllConfigs();
+        String response;
+        if (storeList == null || storeList.isEmpty()) {
+            response = StoreClientConfigService.getAllConfigs();
+        } else {
+            response = StoreClientConfigService.getSpecificConfigs(storeList);
+        }
 
-        return sendResponse(OK, configFileContent);
+        HttpResponseStatus responseStatus;
+
+        // FIXME: This sucks. We shouldn't be manually manipulating json...
+        if (response.contains(StoreClientConfigService.ERROR_MESSAGE_PARAM_KEY) &&
+                response.contains(StoreClientConfigService.STORE_NOT_FOUND_ERROR)) {
+            responseStatus = NOT_FOUND;
+        } else {
+            responseStatus = OK;
+        }
+
+        return sendResponse(responseStatus, response);
     }
 
     private HttpResponse handlePut() {
@@ -98,12 +124,20 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
         return sendResponse(BAD_REQUEST, "GOT A DELETE OMG OMG");
     }
 
+    private HttpResponse handleBadRequest(String errorCause) {
+        String errorMessage = "Bad Http Admin request received: " + errorCause;
+        logger.error(errorMessage);
+
+        return sendResponse(BAD_REQUEST, errorMessage);
+    }
+
     public HttpResponse sendResponse(HttpResponseStatus responseCode, String responseBody) {
+        String actualResponseBody = responseBody + "\n";
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, responseCode);
-        response.setHeader(CONTENT_LENGTH, responseBody.length());
+        response.setHeader(CONTENT_LENGTH, actualResponseBody.length());
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         try {
-            outputStream.write(responseBody.getBytes());
+            outputStream.write(actualResponseBody.getBytes());
         } catch (IOException e) {
             logger.error("IOException while trying to write the outputStream for an admin response", e);
             throw new RuntimeException(e);

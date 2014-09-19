@@ -1,6 +1,8 @@
 package voldemort.rest.coordinator.config;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 
@@ -8,6 +10,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 /**
  * Stores configs on the local filesystem
@@ -33,7 +37,20 @@ public class FileBasedStoreClientConfigService extends StoreClientConfigService 
     }
 
     @Override
-    protected String getSpecificConfigsImpl(List<String> storeNames) {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    protected String getSpecificConfigsImpl(List<String> requestedStoreNames) {
+        Map<String, Properties> allConfigs = ClientConfigUtil.readMultipleClientConfigAvro(getAllConfigsImpl());
+        Map<String, Properties> requestedConfigs = Maps.newHashMap();
+
+        for (String storeName: requestedStoreNames) {
+            if (storeName == null || storeName.isEmpty()){
+                // We ignore it...
+            } else if (allConfigs.containsKey(storeName)) {
+                requestedConfigs.put(storeName, allConfigs.get(storeName));
+            } else {
+                requestedConfigs.put(storeName, STORE_NOT_FOUND_PROPS);
+            }
+        }
+
+        return ClientConfigUtil.writeMultipleClientConfigAvro(requestedConfigs);
     }
 }
