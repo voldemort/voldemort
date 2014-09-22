@@ -357,7 +357,7 @@ public class CoordinatorAdminCommand extends AbstractAdminCommand {
             stream.println("  delete - Delete store config on coordinators");
             stream.println();
             stream.println("SYNOPSIS");
-            stream.println("  delete -u <url-list> -s <store-name-list>");
+            stream.println("  delete -u <url-list> -s <store-name-list> [--confirm]");
             stream.println();
             getParser().printHelpOn(stream);
             stream.println();
