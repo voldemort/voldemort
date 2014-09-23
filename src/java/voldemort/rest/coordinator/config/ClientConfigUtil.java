@@ -2,6 +2,7 @@ package voldemort.rest.coordinator.config;
 
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
@@ -142,5 +143,47 @@ public class ClientConfigUtil {
 
         }
         return "{\n" + avroConfig + "\n}";
+    }
+
+    /**
+     * Compares two avro strings which contains single store configs
+     * 
+     * @param configAvro1
+     * @param configAvro2
+     * @return true if two config avro strings have same content
+     */
+    public static Boolean compareSingleClientConfigAvro(String configAvro1, String configAvro2) {
+        Properties props1 = readSingleClientConfigAvro(configAvro1);
+        Properties props2 = readSingleClientConfigAvro(configAvro2);
+        if(props1.equals(props2)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Compares two avro strings which contains multiple store configs
+     * 
+     * @param configAvro1
+     * @param configAvro2
+     * @return true if two config avro strings have same content
+     */
+    public static Boolean compareMultipleClientConfigAvro(String configAvro1, String configAvro2) {
+        Map<String, Properties> mapStoreToProps1 = readMultipleClientConfigAvro(configAvro1);
+        Map<String, Properties> mapStoreToProps2 = readMultipleClientConfigAvro(configAvro2);
+        Set<String> keySet1 = mapStoreToProps1.keySet();
+        Set<String> keySet2 = mapStoreToProps2.keySet();
+        if(!keySet1.equals(keySet2)) {
+            return false;
+        }
+        for(String storeName: keySet1) {
+            Properties props1 = mapStoreToProps1.get(storeName);
+            Properties props2 = mapStoreToProps2.get(storeName);
+            if(!props1.equals(props2)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

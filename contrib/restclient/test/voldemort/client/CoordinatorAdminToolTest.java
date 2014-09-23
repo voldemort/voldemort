@@ -21,11 +21,12 @@ import voldemort.rest.coordinator.config.ClientConfigUtil;
 import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.restclient.RESTClientConfig;
 import voldemort.restclient.admin.CoordinatorAdminClient;
+import voldemort.restclient.admin.CoordinatorAdminCommand;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 
-public class CoordinatorAdminClientTest {
+public class CoordinatorAdminToolTest {
 
     private static final String STORE_NAME = "test";
     private static final String FAT_CLIENT_CONFIG_PATH = "test/common/coordinator/config/clientConfigs.avro";
@@ -44,8 +45,8 @@ public class CoordinatorAdminClientTest {
 
     private CoordinatorAdminClient adminClient;
     private static final Integer SERVER_PORT = 9999;
-    private static final Integer ADMIN_PORT = 9090;
     private static final String BOOTSTRAP_URL = "http://localhost:" + SERVER_PORT;
+    private static final Integer ADMIN_PORT = 9090;
     private static final String ADMIN_URL = "http://localhost:" + ADMIN_PORT;
 
     @Before
@@ -109,17 +110,29 @@ public class CoordinatorAdminClientTest {
     public void test() {
         String putConfigAvro = "{\"test\": {\"connection_timeout_ms\": \"1111\", \"socket_timeout_ms\": \"1024\"}}";
         String getConfigAvro1, getConfigAvro2;
+
         // get original config avro
         getConfigAvro1 = adminClient.getStoreClientConfigString(Arrays.asList(STORE_NAME),
                                                                 ADMIN_URL);
-        // delete original config avro
-        adminClient.deleteStoreClientConfig(Arrays.asList(STORE_NAME), ADMIN_URL);
+        // delete original config avro (test delete command)
+        try {
+            CoordinatorAdminCommand.executeCommand(new String[] { "delete", "-s", STORE_NAME, "-u",
+                    ADMIN_URL, "--confirm" });
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
         // get empty config avro
         getConfigAvro2 = adminClient.getStoreClientConfigString(Arrays.asList(STORE_NAME),
                                                                 ADMIN_URL);
         assertFalse(ClientConfigUtil.compareMultipleClientConfigAvro(getConfigAvro1, getConfigAvro2));
-        // put new config avro
-        adminClient.putStoreClientConfigString(putConfigAvro, ADMIN_URL);
+
+        // put new config avro (test delete command)
+        try {
+            CoordinatorAdminCommand.executeCommand(new String[] { "put", "-d", putConfigAvro, "-u",
+                    ADMIN_URL, "--confirm" });
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
         // get new config avro
         getConfigAvro1 = adminClient.getStoreClientConfigString(Arrays.asList(STORE_NAME),
                                                                 ADMIN_URL);
