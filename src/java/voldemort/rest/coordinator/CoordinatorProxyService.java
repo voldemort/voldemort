@@ -63,6 +63,8 @@ import com.google.common.base.Joiner;
 /*
  * A Netty based service that accepts REST requests from the Voldemort thin
  * clients and invokes the corresponding fat client API.
+ *
+ * In other words, this is what proxies client requests to the Voldemort nodes.
  */
 
 @JmxManaged(description = "Coordinator Service for proxying Voldemort requests from the thin client")

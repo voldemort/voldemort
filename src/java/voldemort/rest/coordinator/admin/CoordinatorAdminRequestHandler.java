@@ -21,6 +21,7 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.*;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -32,10 +33,13 @@ import org.jboss.netty.channel.SimpleChannelHandler;
 import org.jboss.netty.handler.codec.http.*;
 
 import voldemort.rest.RestErrorHandler;
+import voldemort.rest.coordinator.config.ClientConfigUtil;
 import voldemort.rest.coordinator.config.StoreClientConfigService;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
 
@@ -70,9 +74,18 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
                     if (httpMethod.equals(HttpMethod.GET)) {
                         response = handleGet(storeList);
                     } else if (httpMethod.equals(HttpMethod.POST)) {
-                        response = handlePut();
+                        Map<String, Properties> configsToPut = Maps.newHashMap();
+
+                        ChannelBuffer content = this.request.getContent();
+                        if (content != null) {
+                            byte[] postBody = new byte[content.capacity()];
+                            content.readBytes(postBody);
+                            configsToPut = ClientConfigUtil.readMultipleClientConfigAvro(new String(postBody));
+                        }
+
+                        response = handlePut(configsToPut);
                     } else if (httpMethod.equals(HttpMethod.DELETE)) {
-                        response = handleDelete();
+                        response = handleDelete(storeList);
                     } else { // Bad HTTP method
                         response = handleBadRequest("Unsupported HTTP method. Only GET, POST and DELETE are supported.");
                     }
@@ -112,16 +125,39 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
         return sendResponse(responseStatus, response);
     }
 
-    private HttpResponse handlePut() {
+    private HttpResponse handlePut(Map<String, Properties> configsToPut) {
         logger.info("Received a Http POST Admin request");
 
-        return sendResponse(NOT_FOUND, "GOT A PUT");
+        String response = StoreClientConfigService.putConfigs(configsToPut);
+
+        HttpResponseStatus responseStatus;
+
+        // FIXME: This sucks. We shouldn't be manually manipulating json...
+        if (response.contains(StoreClientConfigService.ERROR_MESSAGE_PARAM_KEY)) {
+            responseStatus = BAD_REQUEST;
+        } else {
+            responseStatus = OK;
+        }
+
+        return sendResponse(responseStatus, response);
     }
 
-    private HttpResponse handleDelete() {
+    private HttpResponse handleDelete(List<String> storeList) {
         logger.info("Received a Http DELETE Admin request");
 
-        return sendResponse(BAD_REQUEST, "GOT A DELETE OMG OMG");
+        String response = StoreClientConfigService.deleteSpecificConfigs(storeList);
+
+        HttpResponseStatus responseStatus;
+
+        // FIXME: This sucks. We shouldn't be manually manipulating json...
+        if (response.contains(StoreClientConfigService.ERROR_MESSAGE_PARAM_KEY) &&
+                response.contains(StoreClientConfigService.STORE_ALREADY_DOES_NOT_EXIST_WARNING)) {
+            responseStatus = NOT_FOUND;
+        } else {
+            responseStatus = OK;
+        }
+
+        return sendResponse(responseStatus, response);
     }
 
     private HttpResponse handleBadRequest(String errorCause) {
