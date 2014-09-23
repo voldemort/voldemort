@@ -21,10 +21,6 @@
 
 package voldemort.rest.coordinator;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
 import java.io.StringReader;
 import java.util.Date;
 import java.util.HashMap;
@@ -33,7 +29,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 
@@ -47,7 +42,6 @@ import voldemort.client.scheduler.AsyncMetadataVersionManager;
 import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
 import voldemort.rest.AbstractRestService;
-import voldemort.rest.coordinator.config.ClientConfigUtil;
 import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.rest.coordinator.config.StoreClientConfigService;
 import voldemort.store.StoreDefinition;
@@ -57,8 +51,6 @@ import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
 import voldemort.xml.StoreDefinitionsMapper;
-
-import com.google.common.base.Joiner;
 
 /*
  * A Netty based service that accepts REST requests from the Voldemort thin
@@ -106,8 +98,8 @@ public class CoordinatorProxyService extends AbstractRestService {
         // Update the Coordinator Metadata
         this.coordinatorMetadata.setMetadata(clusterXml, storeDefList);
 
-        Map<String, SocketStoreClientFactory> fatClientFactoryMap = readClientConfig(this.coordinatorConfig.getFatClientConfigPath(),
-                                                                                     this.coordinatorConfig.getBootstrapURLs());
+        Map<String, SocketStoreClientFactory> fatClientFactoryMap = getFatClientFactoryMap(
+                this.coordinatorConfig.getBootstrapURLs());
 
         // Do not recreate map if it already exists. This function might be
         // called by the AsyncMetadataVersionManager
@@ -186,20 +178,14 @@ public class CoordinatorProxyService extends AbstractRestService {
      * A function to parse the specified Avro file in order to obtain the config
      * for each fat client managed by this coordinator.
      * 
-     * @param configFilePath Path of the Avro file containing fat client configs
+     *
      * @param bootstrapURLs The server URLs used during bootstrap
      * @return Map of store name to the corresponding fat client config
      */
-    private static Map<String, SocketStoreClientFactory> readClientConfig(String configFilePath,
-                                                                          String[] bootstrapURLs) {
-        String line;
+    private static Map<String, SocketStoreClientFactory> getFatClientFactoryMap(String[] bootstrapURLs) {
         Map<String, SocketStoreClientFactory> storeFactoryMap = new HashMap<String, SocketStoreClientFactory>();
         try {
-            line = Joiner.on(" ")
-                         .join(IOUtils.readLines(new FileReader(new File(configFilePath))))
-                         .trim();
-
-            Map<String, Properties> mapStoreToProps = ClientConfigUtil.readMultipleClientConfigAvro(line);
+            Map<String, Properties> mapStoreToProps = StoreClientConfigService.getAllConfigsMap();
 
             for(String storeName: mapStoreToProps.keySet()) {
                 Properties props = mapStoreToProps.get(storeName);
@@ -218,14 +204,22 @@ public class CoordinatorProxyService extends AbstractRestService {
                 storeFactoryMap.put(storeName, new SocketStoreClientFactory(fatClientConfig));
             }
 
-        } catch(FileNotFoundException e) {
-            e.printStackTrace();
-        } catch(IOException e) {
-            e.printStackTrace();
         } catch(Exception e) {
             e.printStackTrace();
         }
         return storeFactoryMap;
+    }
+
+    private static SocketStoreClientFactory getFatClientFactory(String[] bootstrapURLs, Properties configProps) {
+        ClientConfig fatClientConfig = new ClientConfig(configProps);
+
+        fatClientConfig.setBootstrapUrls(bootstrapURLs)
+                .setEnableCompressionLayer(false)
+                .setEnableSerializationLayer(false)
+                .enableDefaultClient(true)
+                .setEnableLazy(false);
+
+        return new SocketStoreClientFactory(fatClientConfig);
     }
 
     @Override

@@ -79,6 +79,10 @@ public abstract class StoreClientConfigService {
         checkInit();
         return ClientConfigUtil.writeMultipleClientConfigAvro(singleton.getAllConfigsImpl());
     }
+    public static Map<String, Properties> getAllConfigsMap() {
+        checkInit();
+        return singleton.getAllConfigsImpl();
+    }
     protected abstract Map<String, Properties> getAllConfigsImpl();
 
     public static String getSpecificConfigs(List<String> storeNames) {
