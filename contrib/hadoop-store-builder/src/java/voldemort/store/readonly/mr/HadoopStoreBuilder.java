@@ -339,6 +339,7 @@ public class HadoopStoreBuilder {
             FileInputFormat.setInputPaths(conf, inputPath);
             conf.set("final.output.dir", outputDir.toString());
             conf.set("checksum.type", CheckSum.toString(checkSumType));
+            conf.set("dfs.umaskmode", "002");
             FileOutputFormat.setOutputPath(conf, tempDir);
 
             FileSystem outputFs = outputDir.getFileSystem(conf);
