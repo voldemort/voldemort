@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -32,7 +32,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FsShell;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -63,7 +62,7 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * Builds a read-only voldemort store as a hadoop job from the given input data.
- * 
+ *
  */
 @SuppressWarnings("deprecation")
 public class HadoopStoreBuilder {
@@ -95,7 +94,7 @@ public class HadoopStoreBuilder {
     /**
      * Kept for backwards compatibility. We do not use replicationFactor any
      * more since it is derived from the store definition
-     * 
+     *
      * @param conf A base configuration to start with
      * @param mapperClass The class to use as the mapper
      * @param inputFormatClass The input format to use for reading values
@@ -133,7 +132,7 @@ public class HadoopStoreBuilder {
 
     /**
      * Create the store builder
-     * 
+     *
      * @param conf A base configuration to start with
      * @param mapperClass The class to use as the mapper
      * @param inputFormatClass The input format to use for reading values
@@ -173,7 +172,7 @@ public class HadoopStoreBuilder {
 
     /**
      * Create the store builder
-     * 
+     *
      * @param conf A base configuration to start with
      * @param mapperClass The class to use as the mapper
      * @param inputFormatClass The input format to use for reading values
@@ -212,7 +211,7 @@ public class HadoopStoreBuilder {
 
     /**
      * Create the store builder
-     * 
+     *
      * @param conf A base configuration to start with
      * @param mapperClass The class to use as the mapper
      * @param inputFormatClass The input format to use for reading values
@@ -258,7 +257,7 @@ public class HadoopStoreBuilder {
 
     /**
      * Create the store builder
-     * 
+     *
      * @param conf A base configuration to start with
      * @param mapperClass The class to use as the mapper
      * @param inputFormatClass The input format to use for reading values
@@ -472,11 +471,7 @@ public class HadoopStoreBuilder {
                 if(!outputFs.exists(nodePath)) {
                     logger.info("No data generated for node " + node.getId()
                                 + ". Generating empty folder");
-                    outputFs.mkdirs(nodePath); // Create empty folder
-                    outputFs.setPermission(nodePath, new FsPermission(HADOOP_FILE_PERMISSION));
-                    FsShell fshell = new FsShell(conf);
-                    fshell.run(new String[] { "-chmod", "-R", "777", nodePath.toString() });
-
+                    outputFs.mkdirs(nodePath, new FsPermission(HADOOP_FILE_PERMISSION)); // Create empty folder
                     logger.info("Setting permission to 755 for " + nodePath);
                 }
 
@@ -557,7 +552,7 @@ public class HadoopStoreBuilder {
     /**
      * A comparator that sorts index files last. This is required to maintain
      * the order while calculating checksum
-     * 
+     *
      */
     static class IndexFileLastComparator implements Comparator<FileStatus> {
 
