@@ -23,7 +23,12 @@ fi
 
 base_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 
-for file in $base_dir/lib/*.jar;
+for file in $base_dir/public-lib/*.jar;
+do
+	CLASSPATH=$CLASSPATH:$file
+done
+
+for file in $base_dir/private-lib/*.jar;
 do
 	CLASSPATH=$CLASSPATH:$file
 done
