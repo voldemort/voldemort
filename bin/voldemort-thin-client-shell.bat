@@ -19,30 +19,16 @@ REM ** This Windows BAT file is not tested with each Voldemort release. **
 
 set argC=0
 for %%a in (%*) do set /a argC+=1
-if %argC% geq 1 goto :continue
-echo %0 java-class-name [options]
+if %argC% leq 2 goto :continue
+echo USAGE: bin/voldemort-thin-client-shell.bat store_name bootstrap_url [command_file]
 goto :eof
 :continue
 
+setlocal
+
 SET BASE_DIR=%~dp0..
-SET CLASSPATH=.
 
-set VOLDEMORT_CONFIG_DIR=%1%/config
-
-for %%j in ("%BASE_DIR%\dist\*.jar") do (call :append_classpath "%%j")
-for %%j in ("%BASE_DIR%\contrib\*\lib\*.jar") do (call :append_classpath "%%j")
-for %%j in ("%BASE_DIR%\public-lib\*.jar") do (call :append_classpath "%%j")
-for %%j in ("%BASE_DIR%\private-lib\*.jar") do (call :append_classpath "%%j")
-set CLASSPATH=%CLASSPATH%;"%BASE_DIR%\dist\resources"
-goto :run
-
-:append_classpath
-set CLASSPATH=%CLASSPATH%;%1
-goto :eof
-
-:run
-if "%VOLD_OPTS%" == "" set "VOLD_OPTS=-Xmx2G -server -Dcom.sun.management.jmxremote"
-java -Dlog4j.configuration=%VOLDEMORT_CONFIG_DIR%\log4j.properties %VOLD_OPTS% -cp %CLASSPATH% %*
+call "%BASE_DIR%/bin/run-class.bat" jline.ConsoleRunner voldemort.restclient.VoldemortThinClientShell $@
 
 endlocal
 :eof
