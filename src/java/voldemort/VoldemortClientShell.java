@@ -314,10 +314,6 @@ public class VoldemortClientShell {
                 processPut(line.substring("put".length()));
             } else if(line.toLowerCase().startsWith("getall")) {
                 processGetAll(line.substring("getall".length()));
-            } else if(line.toLowerCase().startsWith("get")) {
-                processGet(line.substring("get".length()));
-            } else if(line.toLowerCase().startsWith("delete")) {
-                processDelete(line.substring("delete".length()));
             } else if(line.toLowerCase().startsWith("getmetadata")) {
                 String[] args = line.substring("getmetadata".length() + 1).split("\\s+");
                 int remoteNodeId = Integer.valueOf(args[0]);
@@ -332,6 +328,10 @@ public class VoldemortClientShell {
                     commandOutput.println(versioned.getValue());
                     commandOutput.println();
                 }
+            } else if(line.toLowerCase().startsWith("get")) {
+                processGet(line.substring("get".length()));
+            } else if(line.toLowerCase().startsWith("delete")) {
+                processDelete(line.substring("delete".length()));
             } else if(line.startsWith("preflist")) {
                 JsonReader jsonReader = new JsonReader(new StringReader(line.substring("preflist".length())));
                 Object key = tightenNumericTypes(jsonReader.read());
