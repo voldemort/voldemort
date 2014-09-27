@@ -21,10 +21,8 @@
 
 package voldemort.rest.coordinator;
 
-import java.io.StringReader;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Callable;
@@ -50,12 +48,11 @@ import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
-import voldemort.xml.StoreDefinitionsMapper;
 
 /*
  * A Netty based service that accepts REST requests from the Voldemort thin
  * clients and invokes the corresponding fat client API.
- *
+ * 
  * In other words, this is what proxies client requests to the Voldemort nodes.
  */
 
@@ -70,13 +67,86 @@ public class CoordinatorProxyService extends AbstractRestService {
     private static final Logger logger = Logger.getLogger(CoordinatorProxyService.class);
     private Map<String, DynamicTimeoutStoreClient<ByteArray, byte[]>> fatClientMap = null;
     private final StoreStats coordinatorPerfStats;
+    private final StoreClientConfigService storeClientConfigs;
 
-    public CoordinatorProxyService(CoordinatorConfig config) {
+    public CoordinatorProxyService(CoordinatorConfig config,
+                                   StoreClientConfigService storeClientConfigs) {
         super(ServiceType.COORDINATOR_PROXY, config);
-        StoreClientConfigService.initialize(config);
+        this.storeClientConfigs = storeClientConfigs;
         this.coordinatorConfig = config;
         this.coordinatorPerfStats = new StoreStats("aggregate.proxy-service");
         this.coordinatorMetadata = new CoordinatorMetadata();
+    }
+
+    /**
+     * Updates the CoordinatorMetdada with latest cluster state
+     */
+    private void updateCoordinatorMetadataWithLatestState() {
+        // Fetch the state once and use this to initialize the fat clients
+        String storesXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.STORES_KEY);
+        String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
+
+        // Update the Coordinator Metadata
+        this.coordinatorMetadata.setMetadata(clusterXml, storesXml);
+    }
+
+    /**
+     * Initialize the fat client for the given store.
+     * 
+     * 1. Updates the coordinatorMetadata 2.Gets the new store configs from the
+     * config file 3.Creates a new @SocketStoreClientFactory 4. Subsequently
+     * caches the @StoreClient obtained from the factory.
+     * 
+     * @param storeName
+     */
+    // TODO synchronized needed?
+    private synchronized void initializeFatClient(String storeName) {
+        // updates the coordinator metadata with recent stores and cluster xml
+        updateCoordinatorMetadataWithLatestState();
+
+        /*
+         * FIXME Since the configs are stores in a single file, a single store
+         * lookup is same as parsing the entire file
+         */
+
+        // Assumes that the config for requested store is already persisted
+        Map<String, Properties> storeClientConfigsMap = storeClientConfigs.getAllConfigsMap();
+        Properties storeClientProps = storeClientConfigsMap.get(storeName);
+        logger.info("Creating a Fat client for store: " + storeName);
+        SocketStoreClientFactory fatClientFactory = getFatClientFactory(this.coordinatorConfig.getBootstrapURLs(),
+                                                                        storeClientProps);
+
+        if(this.fatClientMap == null) {
+            this.fatClientMap = new HashMap<String, DynamicTimeoutStoreClient<ByteArray, byte[]>>();
+        }
+        DynamicTimeoutStoreClient<ByteArray, byte[]> fatClient = new DynamicTimeoutStoreClient<ByteArray, byte[]>(storeName,
+                                                                                                                  fatClientFactory,
+                                                                                                                  1,
+                                                                                                                  this.coordinatorMetadata.getStoreDefs(),
+                                                                                                                  this.coordinatorMetadata.getClusterXmlStr());
+        this.fatClientMap.put(storeName, fatClient);
+
+    }
+
+    /**
+     * Create a @SocketStoreClientFactory from the given configPops
+     * 
+     * @param bootstrapURLs
+     * @param configProps
+     * @return
+     */
+    private SocketStoreClientFactory getFatClientFactory(String[] bootstrapURLs,
+                                                         Properties configProps) {
+
+        ClientConfig fatClientConfig = new ClientConfig(configProps);
+        logger.info("Using config: " + fatClientConfig);
+        fatClientConfig.setBootstrapUrls(bootstrapURLs)
+                       .setEnableCompressionLayer(false)
+                       .setEnableSerializationLayer(false)
+                       .enableDefaultClient(true)
+                       .setEnableLazy(false);
+
+        return new SocketStoreClientFactory(fatClientConfig);
     }
 
     /**
@@ -86,41 +156,17 @@ public class CoordinatorProxyService extends AbstractRestService {
      * metadata.
      * 
      */
-    private void initializeFatClients() {
+    private void initializeAllFatClients() {
+        updateCoordinatorMetadataWithLatestState();
 
-        StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
-        // Fetch the state once and use this to initialize all the Fat clients
-        String storesXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.STORES_KEY);
-        String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-        List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml),
-                                                                       false);
+        // get All stores defined in the config file
+        Map<String, Properties> storeClientConfigsMap = storeClientConfigs.getAllConfigsMap();
 
-        // Update the Coordinator Metadata
-        this.coordinatorMetadata.setMetadata(clusterXml, storeDefList);
-
-        Map<String, SocketStoreClientFactory> fatClientFactoryMap = getFatClientFactoryMap(
-                this.coordinatorConfig.getBootstrapURLs());
-
-        // Do not recreate map if it already exists. This function might be
-        // called by the AsyncMetadataVersionManager
-        // if there is a metadata update on the server side
-
-        if(this.fatClientMap == null) {
-            this.fatClientMap = new HashMap<String, DynamicTimeoutStoreClient<ByteArray, byte[]>>();
-        }
-
-        for(StoreDefinition storeDef: storeDefList) {
+        for(StoreDefinition storeDef: this.coordinatorMetadata.getStoresDefs()) {
             String storeName = storeDef.getName();
-
             // Initialize only those stores defined in the client configs file
-            if(fatClientFactoryMap.get(storeName) != null) {
-                DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient = new DynamicTimeoutStoreClient<ByteArray, byte[]>(storeName,
-                                                                                                                            fatClientFactoryMap.get(storeName),
-                                                                                                                            1,
-                                                                                                                            storesXml,
-                                                                                                                            clusterXml);
-
-                fatClientMap.put(storeName, storeClient);
+            if(storeClientConfigsMap.get(storeName) != null) {
+                initializeFatClient(storeName);
             }
         }
     }
@@ -132,7 +178,7 @@ public class CoordinatorProxyService extends AbstractRestService {
         clientConfig.setBootstrapUrls(this.coordinatorConfig.getBootstrapURLs());
         storeClientFactory = new SocketStoreClientFactory(clientConfig);
         try {
-            initializeFatClients();
+            initializeAllFatClients();
             // Setup the Async Metadata checker
             SystemStoreRepository sysRepository = new SystemStoreRepository(clientConfig);
             String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
@@ -146,7 +192,7 @@ public class CoordinatorProxyService extends AbstractRestService {
 
                 @Override
                 public Void call() throws Exception {
-                    initializeFatClients();
+                    initializeAllFatClients();
                     return null;
                 }
 
@@ -172,54 +218,6 @@ public class CoordinatorProxyService extends AbstractRestService {
              * when we get an actual request.
              */
         }
-    }
-
-    /**
-     * A function to parse the specified Avro file in order to obtain the config
-     * for each fat client managed by this coordinator.
-     * 
-     *
-     * @param bootstrapURLs The server URLs used during bootstrap
-     * @return Map of store name to the corresponding fat client config
-     */
-    private static Map<String, SocketStoreClientFactory> getFatClientFactoryMap(String[] bootstrapURLs) {
-        Map<String, SocketStoreClientFactory> storeFactoryMap = new HashMap<String, SocketStoreClientFactory>();
-        try {
-            Map<String, Properties> mapStoreToProps = StoreClientConfigService.getAllConfigsMap();
-
-            for(String storeName: mapStoreToProps.keySet()) {
-                Properties props = mapStoreToProps.get(storeName);
-
-                ClientConfig fatClientConfig = new ClientConfig(props);
-
-                fatClientConfig.setBootstrapUrls(bootstrapURLs)
-                               .setEnableCompressionLayer(false)
-                               .setEnableSerializationLayer(false)
-                               .enableDefaultClient(true)
-                               .setEnableLazy(false);
-
-                logger.info("Creating a Fat client for store: " + storeName);
-                logger.info("Using config: " + fatClientConfig);
-
-                storeFactoryMap.put(storeName, new SocketStoreClientFactory(fatClientConfig));
-            }
-
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
-        return storeFactoryMap;
-    }
-
-    private static SocketStoreClientFactory getFatClientFactory(String[] bootstrapURLs, Properties configProps) {
-        ClientConfig fatClientConfig = new ClientConfig(configProps);
-
-        fatClientConfig.setBootstrapUrls(bootstrapURLs)
-                .setEnableCompressionLayer(false)
-                .setEnableSerializationLayer(false)
-                .enableDefaultClient(true)
-                .setEnableLazy(false);
-
-        return new SocketStoreClientFactory(fatClientConfig);
     }
 
     @Override

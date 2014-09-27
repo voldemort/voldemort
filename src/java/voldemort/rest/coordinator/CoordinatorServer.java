@@ -30,6 +30,8 @@ import voldemort.common.service.ServiceType;
 import voldemort.common.service.VoldemortService;
 import voldemort.rest.coordinator.admin.CoordinatorAdminService;
 import voldemort.rest.coordinator.config.CoordinatorConfig;
+import voldemort.rest.coordinator.config.FileBasedStoreClientConfigService;
+import voldemort.rest.coordinator.config.StoreClientConfigService;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.ImmutableList;
@@ -43,19 +45,30 @@ public class CoordinatorServer extends AbstractService {
     private static final Logger logger = Logger.getLogger(CoordinatorServer.class.getName());
     private final List<VoldemortService> services;
     private final CoordinatorConfig config;
+    private final StoreClientConfigService storeClientConfigs;
 
     public CoordinatorServer(CoordinatorConfig config) {
         super(ServiceType.COORDINATOR_SERVER);
+        switch(config.getFatClientConfigSource()) {
+            case FILE:
+                storeClientConfigs = new FileBasedStoreClientConfigService(config);
+                break;
+            case ZOOKEEPER:
+                throw new UnsupportedOperationException("Zookeeper-based configs are not implemented yet!");
+            default:
+                storeClientConfigs = null;
+        }
         this.config = config;
         this.services = createServices();
     }
 
     private List<VoldemortService> createServices() {
         List<VoldemortService> services = new ArrayList<VoldemortService>();
-        CoordinatorProxyService coordinator = new CoordinatorProxyService(config);
+        CoordinatorProxyService coordinator = new CoordinatorProxyService(config,
+                                                                          storeClientConfigs);
         services.add(coordinator);
         if(config.isAdminServiceEnabled()) {
-            services.add(new CoordinatorAdminService(config));
+            services.add(new CoordinatorAdminService(config, storeClientConfigs));
         }
         return ImmutableList.copyOf(services);
     }

@@ -40,8 +40,10 @@ import org.junit.Test;
 import voldemort.ServerTestUtils;
 import voldemort.rest.RestMessageHeaders;
 import voldemort.rest.RestUtils;
-import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.rest.coordinator.CoordinatorProxyService;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
+import voldemort.rest.coordinator.config.FileBasedStoreClientConfigService;
+import voldemort.rest.coordinator.config.StoreClientConfigService;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -120,8 +122,17 @@ public class CoordinatorRestAPITest {
 
         config.setBootstrapURLs(bootstrapUrls);
         config.setFatClientConfigPath(FAT_CLIENT_CONFIG_FILE_PATH);
-
-        this.coordinator = new CoordinatorProxyService(config);
+        StoreClientConfigService storeClientConfigs = null;
+        switch(config.getFatClientConfigSource()) {
+            case FILE:
+                storeClientConfigs = new FileBasedStoreClientConfigService(config);
+                break;
+            case ZOOKEEPER:
+                throw new UnsupportedOperationException("Zookeeper-based configs are not implemented yet!");
+            default:
+                storeClientConfigs = null;
+        }
+        this.coordinator = new CoordinatorProxyService(config, storeClientConfigs);
         if(!this.coordinator.isStarted()) {
             this.coordinator.start();
         }

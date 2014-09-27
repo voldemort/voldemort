@@ -36,10 +36,12 @@ public class CoordinatorAdminService extends AbstractRestService {
     private static final Logger logger = Logger.getLogger(CoordinatorAdminService.class);
     private CoordinatorConfig coordinatorConfig = null;
     private final CoordinatorMetadata coordinatorMetadata;
+    private final StoreClientConfigService storeClientConfigs;
 
-    public CoordinatorAdminService(CoordinatorConfig config) {
+    public CoordinatorAdminService(CoordinatorConfig config,
+                                   StoreClientConfigService storeClientConfigs) {
         super(ServiceType.COORDINATOR_ADMIN, config);
-        StoreClientConfigService.initialize(config);
+        this.storeClientConfigs = storeClientConfigs;
         this.coordinatorConfig = config;
         this.coordinatorMetadata = new CoordinatorMetadata();
     }
@@ -54,7 +56,9 @@ public class CoordinatorAdminService extends AbstractRestService {
 
     @Override
     protected ChannelPipelineFactory getPipelineFactory() {
-        return new CoordinatorAdminPipelineFactory(this.coordinatorMetadata, this.coordinatorConfig);
+        return new CoordinatorAdminPipelineFactory(this.coordinatorMetadata,
+                                                   this.coordinatorConfig,
+                                                   this.storeClientConfigs);
     }
 
     @Override

@@ -19,6 +19,8 @@ import voldemort.cluster.Cluster;
 import voldemort.rest.coordinator.admin.CoordinatorAdminService;
 import voldemort.rest.coordinator.config.ClientConfigUtil;
 import voldemort.rest.coordinator.config.CoordinatorConfig;
+import voldemort.rest.coordinator.config.FileBasedStoreClientConfigService;
+import voldemort.rest.coordinator.config.StoreClientConfigService;
 import voldemort.restclient.RESTClientConfig;
 import voldemort.restclient.admin.CoordinatorAdminClient;
 import voldemort.restclient.admin.CoordinatorAdminCommand;
@@ -84,7 +86,17 @@ public class CoordinatorAdminToolTest {
                          .setAdminPort(ADMIN_PORT);
 
         try {
-            coordinator = new CoordinatorAdminService(coordinatorConfig);
+            StoreClientConfigService storeClientConfigs = null;
+            switch(coordinatorConfig.getFatClientConfigSource()) {
+                case FILE:
+                    storeClientConfigs = new FileBasedStoreClientConfigService(coordinatorConfig);
+                    break;
+                case ZOOKEEPER:
+                    throw new UnsupportedOperationException("Zookeeper-based configs are not implemented yet!");
+                default:
+                    storeClientConfigs = null;
+            }
+            coordinator = new CoordinatorAdminService(coordinatorConfig, storeClientConfigs);
             coordinator.start();
         } catch(Exception e) {
             e.printStackTrace();

@@ -1,14 +1,19 @@
 package voldemort.rest.coordinator.config;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.Maps;
-import org.apache.commons.io.IOUtils;
-import org.apache.log4j.Logger;
-
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.log4j.Logger;
+
+import com.google.common.base.Joiner;
+import com.google.common.collect.Maps;
 
 /**
  * Stores configs on the local filesystem
@@ -16,10 +21,10 @@ import java.util.Properties;
 public class FileBasedStoreClientConfigService extends StoreClientConfigService {
 
     private Logger logger = Logger.getLogger(this.getClass().toString());
-    private final static String PROBLEM_READING_CONFIG_FILE =  "Problem reading the config file";
-    private final static String PROBLEM_WRITING_CONFIG_FILE =  "Problem writing the config file";
+    private final static String PROBLEM_READING_CONFIG_FILE = "Problem reading the config file";
+    private final static String PROBLEM_WRITING_CONFIG_FILE = "Problem writing the config file";
 
-    protected FileBasedStoreClientConfigService(CoordinatorConfig coordinatorConfig) {
+    public FileBasedStoreClientConfigService(CoordinatorConfig coordinatorConfig) {
         super(coordinatorConfig);
     }
 
@@ -37,35 +42,35 @@ public class FileBasedStoreClientConfigService extends StoreClientConfigService 
             BufferedWriter bw = new BufferedWriter(fw);
             bw.write(newConfigFileContent);
             bw.close();
-        } catch (IOException e) {
+        } catch(IOException e) {
             logger.error(PROBLEM_WRITING_CONFIG_FILE, e);
             throw new RuntimeException(PROBLEM_WRITING_CONFIG_FILE, e);
         }
     }
 
     @Override
-    protected Map<String, Properties> getAllConfigsImpl() {
+    public Map<String, Properties> getAllConfigsMap() {
         try {
             String rawConfigContent = Joiner.on("\n")
-                                      .join(IOUtils.readLines(new FileReader(getConfigFile())))
-                                      .trim();
+                                            .join(IOUtils.readLines(new FileReader(getConfigFile())))
+                                            .trim();
 
             return ClientConfigUtil.readMultipleClientConfigAvro(rawConfigContent);
-        } catch (IOException e) {
+        } catch(IOException e) {
             logger.error(PROBLEM_READING_CONFIG_FILE, e);
             throw new RuntimeException(PROBLEM_READING_CONFIG_FILE, e);
         }
     }
 
     @Override
-    protected Map<String, Properties> getSpecificConfigsImpl(List<String> requestedStoreNames) {
-        Map<String, Properties> allConfigs = getAllConfigsImpl();
+    protected Map<String, Properties> getSpecificConfigsMap(List<String> requestedStoreNames) {
+        Map<String, Properties> allConfigs = getAllConfigsMap();
         Map<String, Properties> requestedConfigs = Maps.newHashMap();
 
-        for (String storeName: requestedStoreNames) {
-            if (storeName == null || storeName.isEmpty()){
+        for(String storeName: requestedStoreNames) {
+            if(storeName == null || storeName.isEmpty()) {
                 // We ignore it...
-            } else if (allConfigs.containsKey(storeName)) {
+            } else if(allConfigs.containsKey(storeName)) {
                 requestedConfigs.put(storeName, allConfigs.get(storeName));
             } else {
                 requestedConfigs.put(storeName, STORE_NOT_FOUND_PROPS);
@@ -76,16 +81,16 @@ public class FileBasedStoreClientConfigService extends StoreClientConfigService 
     }
 
     @Override
-    protected Map<String, Properties> putConfigsImpl(Map<String, Properties> configsToPut) {
-        Map<String, Properties> allConfigs = getAllConfigsImpl();
+    protected Map<String, Properties> putConfigsMap(Map<String, Properties> configsToPut) {
+        Map<String, Properties> allConfigs = getAllConfigsMap();
         Map<String, Properties> newConfigs = Maps.newHashMap(allConfigs);
         Map<String, Properties> response = Maps.newHashMap();
 
-        for (String storeNameToPut: configsToPut.keySet()) {
-            if (allConfigs.containsKey(storeNameToPut)) {
+        for(String storeNameToPut: configsToPut.keySet()) {
+            if(allConfigs.containsKey(storeNameToPut)) {
                 Properties existingProperties = allConfigs.get(storeNameToPut);
 
-                if (existingProperties.equals(configsToPut.get(storeNameToPut))) {
+                if(existingProperties.equals(configsToPut.get(storeNameToPut))) {
                     response.put(storeNameToPut, STORE_UNCHANGED_PROPS);
                 } else {
                     newConfigs.put(storeNameToPut, configsToPut.get(storeNameToPut));
@@ -109,13 +114,13 @@ public class FileBasedStoreClientConfigService extends StoreClientConfigService 
     }
 
     @Override
-    protected Map<String, Properties> deleteSpecificConfigsImpl(List<String> storeNames) {
-        Map<String, Properties> allConfigs = getAllConfigsImpl();
+    protected Map<String, Properties> deleteSpecificConfigsMap(List<String> storeNames) {
+        Map<String, Properties> allConfigs = getAllConfigsMap();
         Map<String, Properties> newConfigs = Maps.newHashMap(allConfigs);
         Map<String, Properties> response = Maps.newHashMap();
 
-        for (String storeNameToDelete: storeNames) {
-            if (allConfigs.containsKey(storeNameToDelete)) {
+        for(String storeNameToDelete: storeNames) {
+            if(allConfigs.containsKey(storeNameToDelete)) {
                 newConfigs.remove(storeNameToDelete);
 
                 // TODO: Actual deletion
