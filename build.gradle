@@ -322,9 +322,7 @@ task junit(dependsOn: test)
 
 Collection<String> testClassesFrom(String dir, String include = '**/*Test.*') {
     //take all *Test.java files found in given dir, make the path relative and replace .java with .class
-    fileTree(dir: dir, includes: [include]).collect {
-		it.absolutePath.replace("\\", "/").replaceAll(file(dir).absolutePath.replace("\\", "/") + "/", "").replaceAll(".java\$", ".class")
-	}
+    fileTree(dir: dir, includes: [include]).collect { it.absolutePath.replace("\\", "/").replaceAll(file(dir).absolutePath.replace("\\", "/") + "/", "").replaceAll(".java\$", ".class")}
 }
 
 test {
