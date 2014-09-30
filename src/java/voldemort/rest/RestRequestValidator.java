@@ -145,7 +145,17 @@ public abstract class RestRequestValidator {
         boolean result = false;
         if(originTime != null) {
             try {
-                this.parsedRequestOriginTimeInMs = Long.parseLong(originTime);
+                // TODO: remove the originTime field from request header,
+                // because coordinator should not accept the request origin time
+                // from the client.. In this commit, we only changed
+                // "this.parsedRequestOriginTimeInMs" from
+                // "Long.parseLong(originTime)" to current system time,
+                // The reason that we did not remove the field from request
+                // header right now, is because this commit is a quick fix for
+                // internal performance test to be available as soon as
+                // possible.
+
+                this.parsedRequestOriginTimeInMs = System.currentTimeMillis();
                 if(this.parsedRequestOriginTimeInMs < 0) {
                     RestErrorHandler.writeErrorResponse(messageEvent,
                                                         HttpResponseStatus.BAD_REQUEST,
