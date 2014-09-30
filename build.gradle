@@ -325,6 +325,12 @@ task junitLong(type: Test) {
     include testClassesFrom(longTestSrcDir)
 }
 
+task junitInt(type: Test) {
+    description = "Runs integration tests"
+    include testClassesFrom(intTestSrcDir)
+}
+
+
 task junitRebalance(type: Test) {
     include testClassesFrom(unitTestSrcDir, '**/*Rebalance*Test.java')
 }
