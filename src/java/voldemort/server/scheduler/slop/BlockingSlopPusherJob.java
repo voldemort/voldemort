@@ -85,6 +85,7 @@ public class BlockingSlopPusherJob extends SlopPusherJob implements Runnable {
         logger.info("Started blocking slop pusher job at " + new Date());
 
         Cluster cluster = metadataStore.getCluster();
+        failureDetector.getConfig().setCluster(cluster);
         Set<String> storeNames = StoreDefinitionUtils.getStoreNamesSet(metadataStore.getStoreDefList());
 
         ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;

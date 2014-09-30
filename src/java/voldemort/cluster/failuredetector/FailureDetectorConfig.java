@@ -88,6 +88,12 @@ public class FailureDetectorConfig {
 
     protected int maximumTolerableFatalFailures = DEFAULT_MAX_TOLERABLE_FATAL_FAILURES;
 
+    // TODO: athirupa, this is messy. Cluster definition changes because of
+    // adding/removing zones or nodes. Having a direct reference the object will
+    // be stale it should have a reference to the interface which can return
+    // cluster, the reference should be authority for the cluster on both server
+    // (MetadataStore) and client (AbstractStoreClientFactory) . But it involved
+    // changing too much code and touching many files, saving it for later.
     private Cluster cluster = null;
 
     /**
@@ -552,7 +558,7 @@ public class FailureDetectorConfig {
      * @return Cluster object which determines the source of truth for the
      *         topology
      */
-
+    // Look at the comments on cluster variable to see why this is problematic
     public Cluster getCluster() {
         return this.cluster;
     }
@@ -564,6 +570,7 @@ public class FailureDetectorConfig {
      *        non-null
      */
 
+    // Look at the comments on cluster variable to see why this is problematic
     public FailureDetectorConfig setCluster(Cluster cluster) {
         Utils.notNull(cluster);
         this.cluster = cluster;

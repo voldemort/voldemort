@@ -305,6 +305,7 @@ public class StreamingSlopPusherJob extends SlopPusherJob implements Runnable {
 
     private void loadMetadata() {
         this.cluster = metadataStore.getCluster();
+        this.failureDetector.getConfig().setCluster(cluster);
         this.slopQueues = new ConcurrentHashMap<Integer, SynchronousQueue<Versioned<Slop>>>(cluster.getNumberOfNodes());
         this.attemptedByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
         this.succeededByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());

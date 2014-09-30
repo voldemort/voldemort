@@ -51,6 +51,8 @@ public class SlopStreamingTestEnvironment extends HintedHandoffTestEnvironment {
             waitForFaultyNodeLatch.await();
         Props property = new Props();
         property.put("streaming.platform.bootstrapURL", bootstrapUrl);
+        property.put("streaming.platform.max.failed.nodes", numFailedNodes);
+
         StreamingClientConfig config = new StreamingClientConfig(property);
         StreamingClient streamer = new StreamingClient(config);
 
