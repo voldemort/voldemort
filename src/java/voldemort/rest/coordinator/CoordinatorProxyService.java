@@ -42,6 +42,7 @@ import voldemort.common.service.ServiceType;
 import voldemort.rest.AbstractRestService;
 import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.rest.coordinator.config.StoreClientConfigService;
+import voldemort.rest.coordinator.config.StoreClientConfigServiceListener;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StoreStats;
@@ -57,7 +58,8 @@ import voldemort.utils.SystemTime;
  */
 
 @JmxManaged(description = "Coordinator Service for proxying Voldemort requests from the thin client")
-public class CoordinatorProxyService extends AbstractRestService {
+public class CoordinatorProxyService extends AbstractRestService implements
+        StoreClientConfigServiceListener {
 
     private CoordinatorConfig coordinatorConfig = null;
     private SocketStoreClientFactory storeClientFactory = null;
@@ -76,6 +78,7 @@ public class CoordinatorProxyService extends AbstractRestService {
         this.coordinatorConfig = config;
         this.coordinatorPerfStats = new StoreStats("aggregate.proxy-service");
         this.coordinatorMetadata = new CoordinatorMetadata();
+        storeClientConfigs.registerListener(ServiceType.COORDINATOR_PROXY, this);
     }
 
     /**
@@ -97,21 +100,16 @@ public class CoordinatorProxyService extends AbstractRestService {
      * config file 3.Creates a new @SocketStoreClientFactory 4. Subsequently
      * caches the @StoreClient obtained from the factory.
      * 
+     * 
+     * This is synchronized because if Coordinator Admin is already doing some
+     * change we want the AsyncMetadataVersionManager to wait.
+     * 
      * @param storeName
      */
-    // TODO synchronized needed?
-    private synchronized void initializeFatClient(String storeName) {
+    private synchronized void initializeFatClient(String storeName, Properties storeClientProps) {
         // updates the coordinator metadata with recent stores and cluster xml
         updateCoordinatorMetadataWithLatestState();
 
-        /*
-         * FIXME Since the configs are stores in a single file, a single store
-         * lookup is same as parsing the entire file
-         */
-
-        // Assumes that the config for requested store is already persisted
-        Map<String, Properties> storeClientConfigsMap = storeClientConfigs.getAllConfigsMap();
-        Properties storeClientProps = storeClientConfigsMap.get(storeName);
         logger.info("Creating a Fat client for store: " + storeName);
         SocketStoreClientFactory fatClientFactory = getFatClientFactory(this.coordinatorConfig.getBootstrapURLs(),
                                                                         storeClientProps);
@@ -155,8 +153,11 @@ public class CoordinatorProxyService extends AbstractRestService {
      * time the Metadata manager detects changes to the cluster and stores
      * metadata.
      * 
+     * This method is synchronized because we do not want Coordinator Admin
+     * changes to interfere with Async metadata version manager
+     * 
      */
-    private void initializeAllFatClients() {
+    private synchronized void initializeAllFatClients() {
         updateCoordinatorMetadataWithLatestState();
 
         // get All stores defined in the config file
@@ -166,8 +167,14 @@ public class CoordinatorProxyService extends AbstractRestService {
             String storeName = storeDef.getName();
             // Initialize only those stores defined in the client configs file
             if(storeClientConfigsMap.get(storeName) != null) {
-                initializeFatClient(storeName);
+                initializeFatClient(storeName, storeClientConfigsMap.get(storeName));
             }
+        }
+    }
+
+    private synchronized void deleteFatClient(String storeName) {
+        if(this.fatClientMap.containsKey(storeName)) {
+            fatClientMap.remove(storeName);
         }
     }
 
@@ -297,6 +304,16 @@ public class CoordinatorProxyService extends AbstractRestService {
     @JmxGetter(name = "q99DeleteLatencyInMs", description = "")
     public double getQ99DeleteLatency() {
         return this.coordinatorPerfStats.getQ99LatencyInMs(Tracked.DELETE);
+    }
+
+    @Override
+    public void onStoreConfigAddOrUpdate(String storeName, Properties storeClientProps) {
+        initializeFatClient(storeName, storeClientProps);
+    }
+
+    @Override
+    public void onStoreConfigDelte(String storeName) {
+        deleteFatClient(storeName);
     }
 
 }

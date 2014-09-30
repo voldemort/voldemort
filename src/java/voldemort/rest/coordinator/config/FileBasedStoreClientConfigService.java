@@ -12,6 +12,9 @@ import java.util.Properties;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 
+import voldemort.client.BootstrapFailureException;
+import voldemort.common.service.ServiceType;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
 
@@ -86,6 +89,11 @@ public class FileBasedStoreClientConfigService extends StoreClientConfigService 
         Map<String, Properties> newConfigs = Maps.newHashMap(allConfigs);
         Map<String, Properties> response = Maps.newHashMap();
 
+        // TODO For now assuming the only Listener is CoordinatorProxyService.
+        // Later need to change the API to accept a servicetype as second
+        // parameter
+        StoreClientConfigServiceListener listener = this.storeClientConfigListeners.get(ServiceType.COORDINATOR_PROXY.getDisplayName());
+
         for(String storeNameToPut: configsToPut.keySet()) {
             if(allConfigs.containsKey(storeNameToPut)) {
                 Properties existingProperties = allConfigs.get(storeNameToPut);
@@ -93,17 +101,42 @@ public class FileBasedStoreClientConfigService extends StoreClientConfigService 
                 if(existingProperties.equals(configsToPut.get(storeNameToPut))) {
                     response.put(storeNameToPut, STORE_UNCHANGED_PROPS);
                 } else {
+                    try {
+                        listener.onStoreConfigAddOrUpdate(storeNameToPut,
+                                                          configsToPut.get(storeNameToPut));
+                    } catch(Exception e) {
+                        String errorMessage = "Got exception when trying to update the fat client for store "
+                                              + storeNameToPut + " - " + e.getMessage();
+                        logger.error(errorMessage);
+                        STORE_NOT_UPDATED_PROPS.put(ERROR_MESSAGE_PARAM_KEY, errorMessage);
+                        response.put(storeNameToPut, STORE_NOT_UPDATED_PROPS);
+                        continue;
+                    }
                     newConfigs.put(storeNameToPut, configsToPut.get(storeNameToPut));
-
-                    // TODO: Actual update
-
                     response.put(storeNameToPut, STORE_UPDATED_PROPS);
                 }
             } else { // Store does not already exist
+                try {
+                    listener.onStoreConfigAddOrUpdate(storeNameToPut,
+                                                      configsToPut.get(storeNameToPut));
+                } catch(BootstrapFailureException bootstrapException) {
+                    logger.error("The store " + storeNameToPut
+                                 + " is not served by Voldemort currently. Exception Message - "
+                                 + bootstrapException.getMessage());
+                    response.put(storeNameToPut, STORE_NOT_SERVED_BY_VOLDEMORT_PROPS);
+                    continue;
+                } catch(Exception e) {
+                    String errorMessage = "Got exception when trying to create fat client for store "
+                                          + storeNameToPut
+                                          + ". Exception Message - "
+                                          + e.getMessage();
+                    logger.error(errorMessage);
+                    STORE_NOT_CREATED_PROPS.put(ERROR_MESSAGE_PARAM_KEY, errorMessage);
+                    response.put(storeNameToPut, STORE_NOT_CREATED_PROPS);
+                    continue;
+
+                }
                 newConfigs.put(storeNameToPut, configsToPut.get(storeNameToPut));
-
-                // TODO: Actual put
-
                 response.put(storeNameToPut, STORE_CREATED_PROPS);
             }
         }
@@ -119,12 +152,26 @@ public class FileBasedStoreClientConfigService extends StoreClientConfigService 
         Map<String, Properties> newConfigs = Maps.newHashMap(allConfigs);
         Map<String, Properties> response = Maps.newHashMap();
 
+        // TODO For now assuming the only Listener is CoordinatorProxyService.
+        // Later need to change the API to accept a servicetype as second
+        // parameter
+        StoreClientConfigServiceListener listener = this.storeClientConfigListeners.get(ServiceType.COORDINATOR_PROXY.getDisplayName());
+
         for(String storeNameToDelete: storeNames) {
             if(allConfigs.containsKey(storeNameToDelete)) {
+                try {
+                    listener.onStoreConfigDelte(storeNameToDelete);
+                } catch(Exception e) {
+                    String errorMessage = "Got exception when trying to remove the fat client for store "
+                                          + storeNameToDelete
+                                          + ". Exception Message - "
+                                          + e.getMessage();
+                    logger.debug(errorMessage);
+                    STORE_NOT_DELETED_PROPS.put(ERROR_MESSAGE_PARAM_KEY, errorMessage);
+                    response.put(storeNameToDelete, STORE_NOT_DELETED_PROPS);
+                    continue;
+                }
                 newConfigs.remove(storeNameToDelete);
-
-                // TODO: Actual deletion
-
                 response.put(storeNameToDelete, STORE_DELETED_PROPS);
             } else { // Store does not already exist
                 response.put(storeNameToDelete, STORE_ALREADY_DOES_NOT_EXIST_PROPS);

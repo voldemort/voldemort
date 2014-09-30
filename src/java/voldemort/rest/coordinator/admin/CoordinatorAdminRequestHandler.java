@@ -75,7 +75,7 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
                 HttpResponse response;
                 if(requestUriSegments.length > 0
                    && requestUriSegments[1].equals(STORE_OPS_NAMESPACE)) {
-                    List<String> storeList = null;
+                    List<String> storeList = Lists.newArrayList();
                     if(requestUriSegments.length > 2) {
                         String csvStoreList = requestUriSegments[2];
                         String[] storeArray = csvStoreList.split(",");
@@ -95,8 +95,13 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
                         }
 
                         response = handlePut(configsToPut);
+
                     } else if(httpMethod.equals(HttpMethod.DELETE)) {
-                        response = handleDelete(storeList);
+                        if(storeList.size() == 0) {
+                            response = handleBadRequest("Cannot delete config for all stores. Please specify at least one store name.");
+                        } else {
+                            response = handleDelete(storeList);
+                        }
                     } else { // Bad HTTP method
                         response = handleBadRequest("Unsupported HTTP method. Only GET, POST and DELETE are supported.");
                     }
