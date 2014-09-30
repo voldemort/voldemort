@@ -25,6 +25,7 @@ import java.net.SocketException;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
@@ -85,6 +86,7 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
         socket.setSendBufferSize(this.socketBufferSize);
         socket.setTcpNoDelay(true);
         socket.setSoTimeout(soTimeoutMs);
+
         socket.setKeepAlive(this.socketKeepAlive);
         socket.connect(new InetSocketAddress(dest.getHost(), dest.getPort()), soTimeoutMs);
 
@@ -92,12 +94,29 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
 
         SocketAndStreams sands = new SocketAndStreams(socket, dest.getRequestFormatType());
         negotiateProtocol(sands, dest.getRequestFormatType());
-
         return sands;
+    }
+
+    // Admin Socket Timeout defaults to 24 hours, which is really a long time
+    // for deducting protocol negotiation failures. Reducing it to max 5 minutes
+    // for Protocol Negotiation to deduct the hung Servers issue.
+    private int getProtocolNegotiationTimeout() {
+        int DEFAULT_TIMEOUT = (int) TimeUnit.MINUTES.toMillis(5);
+
+        if(soTimeoutMs <= 0) {
+            return DEFAULT_TIMEOUT;
+        } else {
+            return Math.min(DEFAULT_TIMEOUT, soTimeoutMs);
+        }
+
     }
 
     private void negotiateProtocol(SocketAndStreams socket, RequestFormatType type)
             throws IOException {
+
+        // See the comment on the method getProtocolNegotiationTimeout
+        socket.getSocket().setSoTimeout(getProtocolNegotiationTimeout());
+
         OutputStream outputStream = socket.getOutputStream();
         byte[] proposal = ByteUtils.getBytes(type.getCode(), "UTF-8");
         outputStream.write(proposal);
@@ -105,6 +124,10 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
         DataInputStream inputStream = socket.getInputStream();
         byte[] responseBytes = new byte[2];
         inputStream.readFully(responseBytes);
+
+        // Set it back to original one for other operations
+        socket.getSocket().setSoTimeout(soTimeoutMs);
+
         String response = ByteUtils.getString(responseBytes, "UTF-8");
         if(response.equals("ok"))
             return;
