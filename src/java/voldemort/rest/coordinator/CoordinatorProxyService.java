@@ -173,6 +173,15 @@ public class CoordinatorProxyService extends AbstractRestService implements
     }
 
     private synchronized void deleteFatClient(String storeName) {
+        /*
+         * We depend on GarbageCollector here to get rid of the previous
+         * instantiation of SocketStoreClientFactory for this store <storeName>
+         * FIXME Currently the SocketStoreClientFactories do not have a shutdown
+         * method. If connections leak or selector threads are not Garbage
+         * Collected in future, we may need to implement the Shutdown method for
+         * SocketStoreClientFactory to gracefully shutdown and call the factory
+         * shutdown method here
+         */
         if(this.fatClientMap.containsKey(storeName)) {
             fatClientMap.remove(storeName);
         }
