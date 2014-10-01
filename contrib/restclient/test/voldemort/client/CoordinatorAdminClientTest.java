@@ -16,11 +16,9 @@ import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.cluster.Cluster;
-import voldemort.rest.coordinator.admin.CoordinatorAdminService;
+import voldemort.rest.coordinator.CoordinatorServer;
 import voldemort.rest.coordinator.config.ClientConfigUtil;
 import voldemort.rest.coordinator.config.CoordinatorConfig;
-import voldemort.rest.coordinator.config.FileBasedStoreClientConfigService;
-import voldemort.rest.coordinator.config.StoreClientConfigService;
 import voldemort.restclient.RESTClientConfig;
 import voldemort.restclient.admin.CoordinatorAdminClient;
 import voldemort.server.VoldemortServer;
@@ -35,7 +33,7 @@ public class CoordinatorAdminClientTest {
 
     String[] bootStrapUrls = null;
     private VoldemortServer[] servers;
-    private CoordinatorAdminService coordinator;
+    private CoordinatorServer coordinator;
     @SuppressWarnings("unused")
     private Cluster cluster;
     public static String socketUrl = "";
@@ -85,17 +83,7 @@ public class CoordinatorAdminClientTest {
                          .setAdminPort(ADMIN_PORT);
 
         try {
-            StoreClientConfigService storeClientConfigs = null;
-            switch(coordinatorConfig.getFatClientConfigSource()) {
-                case FILE:
-                    storeClientConfigs = new FileBasedStoreClientConfigService(coordinatorConfig);
-                    break;
-                case ZOOKEEPER:
-                    throw new UnsupportedOperationException("Zookeeper-based configs are not implemented yet!");
-                default:
-                    storeClientConfigs = null;
-            }
-            coordinator = new CoordinatorAdminService(coordinatorConfig, storeClientConfigs);
+            coordinator = new CoordinatorServer(coordinatorConfig);
             coordinator.start();
         } catch(Exception e) {
             e.printStackTrace();
@@ -119,22 +107,28 @@ public class CoordinatorAdminClientTest {
 
     @Test
     public void test() {
-        String putConfigAvro = "{\"test\": {\"connection_timeout_ms\": \"1111\", \"socket_timeout_ms\": \"1024\"}}";
-        String getConfigAvro1, getConfigAvro2;
-        // get original config avro
-        getConfigAvro1 = adminClient.getStoreClientConfigString(Arrays.asList(STORE_NAME),
-                                                                ADMIN_URL);
-        // delete original config avro
-        adminClient.deleteStoreClientConfig(Arrays.asList(STORE_NAME), ADMIN_URL);
-        // get empty config avro
-        getConfigAvro2 = adminClient.getStoreClientConfigString(Arrays.asList(STORE_NAME),
-                                                                ADMIN_URL);
-        assertFalse(ClientConfigUtil.compareMultipleClientConfigAvro(getConfigAvro1, getConfigAvro2));
-        // put new config avro
-        adminClient.putStoreClientConfigString(putConfigAvro, ADMIN_URL);
-        // get new config avro
-        getConfigAvro1 = adminClient.getStoreClientConfigString(Arrays.asList(STORE_NAME),
-                                                                ADMIN_URL);
-        assertTrue(ClientConfigUtil.compareMultipleClientConfigAvro(putConfigAvro, getConfigAvro1));
+        String configAvro1 = "{\"test\": {\"connection_timeout_ms\": \"1111\", \"socket_timeout_ms\": \"1024\"}}";
+        String configAvro2 = "{\"test\": {\"connection_timeout_ms\": \"1111\", \"socket_timeout_ms\": \"1024\"}}";
+        String getConfigAvro;
+        // put avro 1
+        assertTrue(adminClient.putStoreClientConfigString(configAvro1, ADMIN_URL));
+        // get avro 1
+        getConfigAvro = adminClient.getStoreClientConfigString(Arrays.asList(STORE_NAME), ADMIN_URL);
+        // compare avro 1
+        assertTrue(ClientConfigUtil.compareMultipleClientConfigAvro(configAvro1, getConfigAvro));
+
+        // update avro 2
+        assertTrue(adminClient.putStoreClientConfigString(configAvro2, ADMIN_URL));
+        // get avro 2
+        getConfigAvro = adminClient.getStoreClientConfigString(Arrays.asList(STORE_NAME), ADMIN_URL);
+        // compare avro 2
+        assertTrue(ClientConfigUtil.compareMultipleClientConfigAvro(configAvro2, getConfigAvro));
+
+        // delete avro 2
+        assertTrue(adminClient.deleteStoreClientConfig(Arrays.asList(STORE_NAME), ADMIN_URL));
+        // get avro 2
+        getConfigAvro = adminClient.getStoreClientConfigString(Arrays.asList(STORE_NAME), ADMIN_URL);
+        // compare avro 2
+        assertFalse(ClientConfigUtil.compareMultipleClientConfigAvro(configAvro2, getConfigAvro));
     }
 }
