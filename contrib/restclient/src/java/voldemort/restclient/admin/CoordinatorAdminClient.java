@@ -3,7 +3,6 @@ package voldemort.restclient.admin;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -35,9 +34,12 @@ public class CoordinatorAdminClient {
     private static final String URL_SEPARATOR = "/";
     private static final String STORE_CLIENT_CONFIG_OPS = "store-client-config-ops";
 
-    private static final String GET = "GET";
-    private static final String POST = "POST";
-    private static final String DELETE = "DELETE";
+    private static enum requestType {
+        GET,
+        POST,
+        DELETE
+    }
+
     public static final String CONTENT_TYPE = "Content-Type";
     public static final String CONTENT_LENGTH = "Content-Length";
     public static final String CUSTOM_RESOLVING_STRATEGY = "custom";
@@ -59,97 +61,104 @@ public class CoordinatorAdminClient {
     public CoordinatorAdminClient(RESTClientConfig config) {
         this.config = config;
         this.httpClientFactory = new HttpClientFactory();
-        Map<String, String> properties = new HashMap<String, String>();
+        Map<String, String> properties = Maps.newHashMap();
         properties.put(HttpClientFactory.HTTP_POOL_SIZE,
                        Integer.toString(this.config.getMaxR2ConnectionPoolSize()));
         this.client = new TransportClientAdapter(httpClientFactory.getClient(properties));
     }
 
+    private RestRequestBuilder setCommonRequestHeader(RestRequestBuilder requestBuilder) {
+        requestBuilder.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
+                                 String.valueOf(System.currentTimeMillis()));
+        if(this.routingTypeCode != null) {
+            requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE,
+                                     this.routingTypeCode);
+        }
+        if(this.zoneId != INVALID_ZONE_ID) {
+            requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID, String.valueOf(this.zoneId));
+        }
+        return requestBuilder;
+    }
+
+    private void handleRequestAndResponseException(Exception e) {
+        if(e instanceof ExecutionException) {
+            if(e.getCause() instanceof RestException) {
+                RestException re = (RestException) e.getCause();
+                if(logger.isDebugEnabled()) {
+                    logger.debug("REST Exception Status: " + re.getResponse().getStatus());
+                }
+            } else {
+                throw new VoldemortException("Unknown HTTP request execution exception: "
+                                             + e.getMessage(), e);
+            }
+        } else if(e instanceof InterruptedException) {
+            if(logger.isDebugEnabled()) {
+                logger.debug("Operation interrupted : " + e.getMessage(), e);
+            }
+            throw new VoldemortException("Operation interrupted exception: " + e.getMessage(), e);
+        } else if(e instanceof URISyntaxException) {
+            throw new VoldemortException("Illegal HTTP URL " + e.getMessage(), e);
+        } else if(e instanceof UnsupportedEncodingException) {
+            throw new VoldemortException("Illegal Encoding Type " + e.getMessage());
+        } else {
+            throw new VoldemortException("Unknown exception: " + e.getMessage(), e);
+        }
+    }
+
     public String getStoreClientConfigString(List<String> storeNames, String coordinatorUrl) {
-
-        String result = null;
-
         try {
             // Create the REST request
-            RestRequestBuilder requestBuilder = new RestRequestBuilder(new URI(coordinatorUrl
-                                                                               + URL_SEPARATOR
-                                                                               + STORE_CLIENT_CONFIG_OPS
-                                                                               + URL_SEPARATOR
-                                                                               + Joiner.on(",")
-                                                                                       .join(storeNames)));
+            StringBuilder URIStringBuilder = new StringBuilder().append(coordinatorUrl)
+                                                                .append(URL_SEPARATOR)
+                                                                .append(STORE_CLIENT_CONFIG_OPS)
+                                                                .append(URL_SEPARATOR)
+                                                                .append(Joiner.on(",")
+                                                                              .join(storeNames));
+
+            RestRequestBuilder requestBuilder = new RestRequestBuilder(new URI(URIStringBuilder.toString()));
 
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.GET_OP_CODE));
 
-            requestBuilder.setMethod(GET);
+            requestBuilder.setMethod(requestType.GET.toString());
             requestBuilder.setHeader(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-            requestBuilder.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
-                                     String.valueOf(System.currentTimeMillis()));
-            if(this.routingTypeCode != null) {
-                requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE,
-                                         this.routingTypeCode);
-            }
-            if(this.zoneId != INVALID_ZONE_ID) {
-                requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID,
-                                         String.valueOf(this.zoneId));
-            }
+            requestBuilder = setCommonRequestHeader(requestBuilder);
             RestRequest request = requestBuilder.build();
             Future<RestResponse> future = client.restRequest(request);
             // This will block
             RestResponse response = future.get();
             ByteString entity = response.getEntity();
-            result = entity.asString("UTF-8");
-        } catch(ExecutionException e) {
+            return entity.asString("UTF-8");
+        } catch(Exception e) {
             if(e.getCause() instanceof RestException) {
-                RestException exception = (RestException) e.getCause();
-                if(logger.isDebugEnabled()) {
-                    logger.debug("REST EXCEPTION STATUS : " + exception.getResponse().getStatus());
-                }
-
-            } else {
-                throw new VoldemortException("Unknown HTTP request execution exception: "
-                                             + e.getMessage(), e);
+                return ((RestException) e.getCause()).getResponse().getEntity().asString("UTF-8");
             }
-        } catch(InterruptedException e) {
-            if(logger.isDebugEnabled()) {
-                logger.debug("Operation interrupted : " + e.getMessage(), e);
-            }
-            throw new VoldemortException("Operation interrupted exception: " + e.getMessage(), e);
-        } catch(URISyntaxException e) {
-            throw new VoldemortException("Illegal HTTP URL" + e.getMessage(), e);
+            handleRequestAndResponseException(e);
         }
-        return result;
+        return null;
     }
 
     public boolean putStoreClientConfigString(String storeClientConfigAvro, String coordinatorUrl) {
 
         try {
             // Create the REST request
-            RestRequestBuilder requestBuilder = new RestRequestBuilder(new URI(coordinatorUrl
-                                                                               + URL_SEPARATOR
-                                                                               + STORE_CLIENT_CONFIG_OPS
-                                                                               + URL_SEPARATOR));
+            StringBuilder URIStringBuilder = new StringBuilder().append(coordinatorUrl)
+                                                                .append(URL_SEPARATOR)
+                                                                .append(STORE_CLIENT_CONFIG_OPS)
+                                                                .append(URL_SEPARATOR);
+            RestRequestBuilder requestBuilder = new RestRequestBuilder(new URI(URIStringBuilder.toString()));
 
             byte[] payload = storeClientConfigAvro.getBytes("UTF-8");
 
             // Create a HTTP POST request
-            requestBuilder.setMethod(POST);
+            requestBuilder.setMethod(requestType.POST.toString());
             requestBuilder.setEntity(payload);
             requestBuilder.setHeader(CONTENT_TYPE, "binary");
             requestBuilder.setHeader(CONTENT_LENGTH, "" + payload.length);
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.PUT_OP_CODE));
             requestBuilder.setHeader(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-            requestBuilder.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
-                                     String.valueOf(System.currentTimeMillis()));
-            if(this.routingTypeCode != null) {
-                requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE,
-                                         this.routingTypeCode);
-            }
-            if(this.zoneId != INVALID_ZONE_ID) {
-                requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID,
-                                         String.valueOf(this.zoneId));
-            }
+            requestBuilder = setCommonRequestHeader(requestBuilder);
 
             RestRequest request = requestBuilder.build();
             Future<RestResponse> future = client.restRequest(request);
@@ -163,31 +172,10 @@ public class CoordinatorAdminClient {
                 }
                 return false;
             }
-
             System.out.println(entity.asString("UTF-8"));
-
             return true;
-
-        } catch(ExecutionException e) {
-            if(e.getCause() instanceof RestException) {
-                RestException exception = (RestException) e.getCause();
-                if(logger.isDebugEnabled()) {
-                    logger.debug("REST EXCEPTION STATUS : " + exception.getResponse().getStatus());
-                }
-
-            } else {
-                throw new VoldemortException("Unknown HTTP request execution exception: "
-                                             + e.getMessage(), e);
-            }
-        } catch(InterruptedException e) {
-            if(logger.isDebugEnabled()) {
-                logger.debug("Operation interrupted : " + e.getMessage(), e);
-            }
-            throw new VoldemortException("Operation interrupted exception: " + e.getMessage(), e);
-        } catch(URISyntaxException e) {
-            throw new VoldemortException("Illegal HTTP URL" + e.getMessage(), e);
-        } catch(UnsupportedEncodingException e) {
-            throw new VoldemortException("Illegal Encoding Type " + e.getMessage());
+        } catch(Exception e) {
+            handleRequestAndResponseException(e);
         }
         return false;
     }
@@ -216,30 +204,22 @@ public class CoordinatorAdminClient {
     }
 
     public boolean deleteStoreClientConfig(List<String> storeNames, String coordinatorUrl) {
-
         try {
             // Create the REST request
-            RestRequestBuilder requestBuilder = new RestRequestBuilder(new URI(coordinatorUrl
-                                                                               + URL_SEPARATOR
-                                                                               + STORE_CLIENT_CONFIG_OPS
-                                                                               + URL_SEPARATOR
-                                                                               + Joiner.on(",")
-                                                                                       .join(storeNames)));
+            StringBuilder URIStringBuilder = new StringBuilder().append(coordinatorUrl)
+                                                                .append(URL_SEPARATOR)
+                                                                .append(STORE_CLIENT_CONFIG_OPS)
+                                                                .append(URL_SEPARATOR)
+                                                                .append(Joiner.on(",")
+                                                                              .join(storeNames));
+            RestRequestBuilder requestBuilder = new RestRequestBuilder(new URI(URIStringBuilder.toString()));
             String timeoutStr = Long.toString(this.config.getTimeoutConfig()
                                                          .getOperationTimeout(VoldemortOpCode.GET_OP_CODE));
             // Create a HTTP POST request
-            requestBuilder.setMethod(DELETE);
+            requestBuilder.setMethod(requestType.DELETE.toString());
             requestBuilder.setHeader(RestMessageHeaders.X_VOLD_REQUEST_TIMEOUT_MS, timeoutStr);
-            requestBuilder.setHeader(RestMessageHeaders.X_VOLD_REQUEST_ORIGIN_TIME_MS,
-                                     String.valueOf(System.currentTimeMillis()));
-            if(this.routingTypeCode != null) {
-                requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ROUTING_TYPE_CODE,
-                                         this.routingTypeCode);
-            }
-            if(this.zoneId != INVALID_ZONE_ID) {
-                requestBuilder.setHeader(RestMessageHeaders.X_VOLD_ZONE_ID,
-                                         String.valueOf(this.zoneId));
-            }
+            requestBuilder = setCommonRequestHeader(requestBuilder);
+
             RestRequest request = requestBuilder.build();
             Future<RestResponse> future = client.restRequest(request);
             // This will block
@@ -251,29 +231,10 @@ public class CoordinatorAdminClient {
                 }
                 return false;
             }
-
             System.out.println(entity.asString("UTF-8"));
-
             return true;
-
-        } catch(ExecutionException e) {
-            if(e.getCause() instanceof RestException) {
-                RestException exception = (RestException) e.getCause();
-                if(logger.isDebugEnabled()) {
-                    logger.debug("REST EXCEPTION STATUS : " + exception.getResponse().getStatus());
-                }
-
-            } else {
-                throw new VoldemortException("Unknown HTTP request execution exception: "
-                                             + e.getMessage(), e);
-            }
-        } catch(InterruptedException e) {
-            if(logger.isDebugEnabled()) {
-                logger.debug("Operation interrupted : " + e.getMessage(), e);
-            }
-            throw new VoldemortException("Operation interrupted exception: " + e.getMessage(), e);
-        } catch(URISyntaxException e) {
-            throw new VoldemortException("Illegal HTTP URL" + e.getMessage(), e);
+        } catch(Exception e) {
+            handleRequestAndResponseException(e);
         }
         return false;
     }

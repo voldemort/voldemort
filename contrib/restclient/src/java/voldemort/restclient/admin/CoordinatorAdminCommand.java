@@ -56,7 +56,7 @@ public class CoordinatorAdminCommand extends AbstractAdminCommand {
         stream.println("Voldemort Coordinator Admin Tool");
         stream.println("--------------------------------");
         stream.println("get          Get store client config for stores.");
-        stream.println("put          Put store client config for stroes from input string or given avro file");
+        stream.println("put          Put store client config for stores from input string or given avro file");
         stream.println("delete       Delete store client config for stores");
         stream.println();
         stream.println("To get more information on each command, please try \'help <command-name>\'.");
