@@ -160,7 +160,7 @@ public class FileBasedStoreClientConfigService extends StoreClientConfigService 
         for(String storeNameToDelete: storeNames) {
             if(allConfigs.containsKey(storeNameToDelete)) {
                 try {
-                    listener.onStoreConfigDelte(storeNameToDelete);
+                    listener.onStoreConfigDelete(storeNameToDelete);
                 } catch(Exception e) {
                     String errorMessage = "Got exception when trying to remove the fat client for store "
                                           + storeNameToDelete

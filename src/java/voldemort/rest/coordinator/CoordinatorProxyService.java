@@ -1,14 +1,9 @@
 /*
- * Copyright 2014 LinkedIn, Inc <<<<<<<
- * HEAD:src/java/voldemort/rest/coordinator/CoordinatorProxyService.java
- * 
- * =======
- * 
- * >>>>>>>
- * c5995a789325ff959482e0eb39c54eebb911dd70:src/java/voldemort/rest/coordinator
- * /CoordinatorProxyService.java Licensed under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with the
- * License. You may obtain a copy of the License at
+ * Copyright 2014 LinkedIn, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
  * 
  * http://www.apache.org/licenses/LICENSE-2.0
  * 
@@ -321,7 +316,7 @@ public class CoordinatorProxyService extends AbstractRestService implements
     }
 
     @Override
-    public void onStoreConfigDelte(String storeName) {
+    public void onStoreConfigDelete(String storeName) {
         deleteFatClient(storeName);
     }
 

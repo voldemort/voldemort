@@ -1,11 +1,9 @@
-[
 {
-  "store_name": "test",
-  "socket_timeout_ms": "1500",
-  "routing_timeout_ms": "1500"
-},
-{
-  "store_name": "slow-store-test",
-  "connection_timeout_ms": "500"
+	"test": {
+		"socket_timeout_ms": "1500",
+		"routing_timeout_ms": "1500"
+	},
+	"slow-store-test": {
+		"connection_timeout_ms": "500"
+	}
 }
-]

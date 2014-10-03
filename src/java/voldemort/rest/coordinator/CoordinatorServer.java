@@ -64,9 +64,7 @@ public class CoordinatorServer extends AbstractService {
 
     private List<VoldemortService> createServices() {
         List<VoldemortService> services = new ArrayList<VoldemortService>();
-        CoordinatorProxyService coordinator = new CoordinatorProxyService(config,
-                                                                          storeClientConfigs);
-        services.add(coordinator);
+        services.add(new CoordinatorProxyService(config, storeClientConfigs));
         if(config.isAdminServiceEnabled()) {
             services.add(new CoordinatorAdminService(config, storeClientConfigs));
         }
@@ -125,9 +123,11 @@ public class CoordinatorServer extends AbstractService {
     }
 
     public VoldemortService getService(ServiceType type) {
-        for(VoldemortService service: services)
-            if(service.getType().equals(type))
+        for(VoldemortService service: services) {
+            if(service.getType().equals(type)) {
                 return service;
+            }
+        }
         throw new IllegalStateException(type.getDisplayName() + " has not been initialized.");
     }
 

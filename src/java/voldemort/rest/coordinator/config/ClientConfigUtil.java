@@ -23,9 +23,6 @@ public class ClientConfigUtil {
                                                                    + "}";
     public final static Schema CLIENT_CONFIGS_AVRO_SCHEMA = Schema.parse(CLIENT_CONFIGS_AVRO_SCHEMA_STRING);
 
-    // TODO: Remove STORE_NAME_KEY, as it is useless now.
-    static final String STORE_NAME_KEY = "store_name";
-
     /**
      * Parses a string that contains single fat client config string in avro
      * format
@@ -43,13 +40,6 @@ public class ClientConfigUtil {
             Map<Utf8, Utf8> flowMap = (Map<Utf8, Utf8>) datumReader.read(null, decoder);
             for(Utf8 key: flowMap.keySet()) {
                 props.put(key.toString(), flowMap.get(key).toString());
-            }
-
-            // FIXME: This is never going to be contained in the config
-            // itself... Probably should be removed.
-            String storeName = props.getProperty(STORE_NAME_KEY);
-            if(storeName == null || storeName.length() == 0) {
-                throw new Exception("Invalid store name found!");
             }
         } catch(Exception e) {
             e.printStackTrace();
@@ -102,8 +92,8 @@ public class ClientConfigUtil {
      * @return String in avro format that contains single store configs
      */
     public static String writeSingleClientConfigAvro(Properties props) {
-        // FIXME: This sucks. We shouldn't be manually manipulating json...
-        String avroConfig = new String();
+        // TODO: Use a dedicated json lib. We shouldn't be manually manipulating json...
+        String avroConfig = "";
         Boolean firstProp = true;
         for(String key: props.stringPropertyNames()) {
             if(firstProp) {
@@ -128,8 +118,8 @@ public class ClientConfigUtil {
      * @return Avro string that contains multiple store configs
      */
     public static String writeMultipleClientConfigAvro(Map<String, Properties> mapStoreToProps) {
-        // FIXME: This sucks. We shouldn't be manually manipulating json...
-        String avroConfig = new String();
+        // TODO: Use a dedicated json lib. We shouldn't be manually manipulating json...
+        String avroConfig = "";
         Boolean firstStore = true;
         for(String storeName: mapStoreToProps.keySet()) {
             if(firstStore) {

@@ -109,7 +109,7 @@ public class CoordinatorAdminToolTest {
     @Test
     public void test() {
         String configAvro1 = "{\"test\": {\"connection_timeout_ms\": \"1111\", \"socket_timeout_ms\": \"1024\"}}";
-        String configAvro2 = "{\"test\": {\"connection_timeout_ms\": \"1111\", \"socket_timeout_ms\": \"1024\"}}";
+        String configAvro2 = "{\"test\": {\"connection_timeout_ms\": \"2222\", \"socket_timeout_ms\": \"2048\"}}";
         String getConfigAvro;
 
         // put avro 1

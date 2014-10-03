@@ -43,6 +43,8 @@ public class CoordinatorAdminPipelineFactory implements ChannelPipelineFactory {
     private final CoordinatorConfig coordinatorConfig;
     private final StoreClientConfigService storeClientConfigs;
 
+    private static final int MAX_AGGREGATE_SIZE = 1048576;
+
     public CoordinatorAdminPipelineFactory(CoordinatorMetadata coordinatorMetadata,
                                            CoordinatorConfig config,
                                            StoreClientConfigService storeClientConfigs) {
@@ -61,7 +63,7 @@ public class CoordinatorAdminPipelineFactory implements ChannelPipelineFactory {
     public ChannelPipeline getPipeline() throws Exception {
         ChannelPipeline pipeline = pipeline();
         pipeline.addLast("decoder", new HttpRequestDecoder());
-        pipeline.addLast("aggregator", new HttpChunkAggregator(1048576));
+        pipeline.addLast("aggregator", new HttpChunkAggregator(MAX_AGGREGATE_SIZE));
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast("deflater", new HttpContentCompressor());
         pipeline.addLast("handler", new CoordinatorAdminRequestHandler(storeClientConfigs));

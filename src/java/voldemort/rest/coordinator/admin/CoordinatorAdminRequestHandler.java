@@ -66,8 +66,9 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
         if(!readingChunks) {
             HttpRequest request = this.request = (HttpRequest) messageEvent.getMessage();
             String requestURI = this.request.getUri();
-            logger.debug("Admin Request URI: " + requestURI);
-
+            if (logger.isDebugEnabled()) {
+                logger.debug("Admin Request URI: " + requestURI);
+            }
             if(request.isChunked()) {
                 readingChunks = true;
             } else {
@@ -86,28 +87,27 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
                         response = handleGet(storeList);
                     } else if(httpMethod.equals(HttpMethod.POST)) {
                         Map<String, Properties> configsToPut = Maps.newHashMap();
-
                         ChannelBuffer content = this.request.getContent();
                         if(content != null) {
                             byte[] postBody = new byte[content.capacity()];
                             content.readBytes(postBody);
                             configsToPut = ClientConfigUtil.readMultipleClientConfigAvro(new String(postBody));
                         }
-
                         response = handlePut(configsToPut);
-
                     } else if(httpMethod.equals(HttpMethod.DELETE)) {
                         if(storeList.size() == 0) {
-                            response = handleBadRequest("Cannot delete config for all stores. Please specify at least one store name.");
+                            response = handleBadRequest(
+                                    "Cannot delete config for all stores. Please specify at least one store name.");
                         } else {
                             response = handleDelete(storeList);
                         }
                     } else { // Bad HTTP method
-                        response = handleBadRequest("Unsupported HTTP method. Only GET, POST and DELETE are supported.");
+                        response = handleBadRequest(
+                                "Unsupported HTTP method. Only GET, POST and DELETE are supported.");
                     }
                 } else { // Bad namespace
-                    response = handleBadRequest("Unsupported namespace. Only /"
-                                                + STORE_OPS_NAMESPACE + "/ is supported.");
+                    response = handleBadRequest(
+                            "Unsupported namespace. Only /" + STORE_OPS_NAMESPACE + "/ is supported.");
                 }
                 messageEvent.getChannel().write(response);
             }
@@ -120,67 +120,51 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
     }
 
     private HttpResponse handleGet(List<String> storeList) {
-        logger.info("Received a Http GET Admin request");
-
+        logger.info("Handling a Http GET Admin request");
         String response;
         if(storeList == null || storeList.isEmpty()) {
             response = storeClientConfigs.getAllConfigs();
         } else {
             response = storeClientConfigs.getSpecificConfigs(storeList);
         }
-
         HttpResponseStatus responseStatus;
-
-        // FIXME: This sucks. We shouldn't be manually manipulating json...
         if(response.contains(StoreClientConfigService.ERROR_MESSAGE_PARAM_KEY)
            && response.contains(StoreClientConfigService.STORE_NOT_FOUND_ERROR)) {
             responseStatus = NOT_FOUND;
         } else {
             responseStatus = OK;
         }
-
         return sendResponse(responseStatus, response);
     }
 
     private HttpResponse handlePut(Map<String, Properties> configsToPut) {
-        logger.info("Received a Http POST Admin request");
-
+        logger.info("Handling a Http POST Admin request");
         String response = storeClientConfigs.putConfigs(configsToPut);
-
         HttpResponseStatus responseStatus;
-
-        // FIXME: This sucks. We shouldn't be manually manipulating json...
         if(response.contains(StoreClientConfigService.ERROR_MESSAGE_PARAM_KEY)) {
             responseStatus = BAD_REQUEST;
         } else {
             responseStatus = OK;
         }
-
         return sendResponse(responseStatus, response);
     }
 
     private HttpResponse handleDelete(List<String> storeList) {
-        logger.info("Received a Http DELETE Admin request");
-
+        logger.info("Handling a Http DELETE Admin request");
         String response = storeClientConfigs.deleteSpecificConfigs(storeList);
-
         HttpResponseStatus responseStatus;
-
-        // FIXME: This sucks. We shouldn't be manually manipulating json...
         if(response.contains(StoreClientConfigService.ERROR_MESSAGE_PARAM_KEY)
            && response.contains(StoreClientConfigService.STORE_ALREADY_DOES_NOT_EXIST_WARNING)) {
             responseStatus = NOT_FOUND;
         } else {
             responseStatus = OK;
         }
-
         return sendResponse(responseStatus, response);
     }
 
     private HttpResponse handleBadRequest(String errorCause) {
-        String errorMessage = "Bad Http Admin request received: " + errorCause;
+        String errorMessage = "Handling a Bad Http Admin request received: " + errorCause;
         logger.error(errorMessage);
-
         return sendResponse(BAD_REQUEST, errorMessage);
     }
 
@@ -192,14 +176,15 @@ public class CoordinatorAdminRequestHandler extends SimpleChannelHandler {
         try {
             outputStream.write(actualResponseBody.getBytes());
         } catch(IOException e) {
-            logger.error("IOException while trying to write the outputStream for an admin response",
-                         e);
+            logger.error("IOException while trying to write the outputStream for an admin response", e);
             throw new RuntimeException(e);
         }
         ChannelBuffer responseContent = ChannelBuffers.dynamicBuffer();
         responseContent.writeBytes(outputStream.toByteArray());
         response.setContent(responseContent);
-        logger.debug("Sent " + response);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Sent " + response);
+        }
         return response;
     }
 
