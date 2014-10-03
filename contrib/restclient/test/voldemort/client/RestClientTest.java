@@ -18,8 +18,10 @@ import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.cluster.Cluster;
-import voldemort.rest.coordinator.CoordinatorConfig;
-import voldemort.rest.coordinator.CoordinatorService;
+import voldemort.rest.coordinator.CoordinatorProxyService;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
+import voldemort.rest.coordinator.config.FileBasedStoreClientConfigService;
+import voldemort.rest.coordinator.config.StoreClientConfigService;
 import voldemort.restclient.RESTClientFactory;
 import voldemort.restclient.RESTClientFactoryConfig;
 import voldemort.server.VoldemortServer;
@@ -38,7 +40,7 @@ public class RestClientTest extends DefaultStoreClientTest {
 
     String[] bootStrapUrls = null;
     private VoldemortServer[] servers;
-    private CoordinatorService coordinator;
+    private CoordinatorProxyService coordinator;
     private Cluster cluster;
     public static String socketUrl = "";
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
@@ -83,7 +85,17 @@ public class RestClientTest extends DefaultStoreClientTest {
                          .setServerPort(9999);
 
         try {
-            coordinator = new CoordinatorService(coordinatorConfig);
+            StoreClientConfigService storeClientConfigs = null;
+            switch(coordinatorConfig.getFatClientConfigSource()) {
+                case FILE:
+                    storeClientConfigs = new FileBasedStoreClientConfigService(coordinatorConfig);
+                    break;
+                case ZOOKEEPER:
+                    throw new UnsupportedOperationException("Zookeeper-based configs are not implemented yet!");
+                default:
+                    storeClientConfigs = null;
+            }
+            coordinator = new CoordinatorProxyService(coordinatorConfig, storeClientConfigs);
             coordinator.start();
         } catch(Exception e) {
             e.printStackTrace();

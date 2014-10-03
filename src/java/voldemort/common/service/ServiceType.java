@@ -16,9 +16,11 @@ public enum ServiceType {
     ASYNC_SCHEDULER("async-scheduler"),
     GOSSIP("gossip-service"),
     REBALANCE("rebalance-service"),
-    COORDINATOR("coordinator-service"),
     RESTSERVICE("rest-service"),
-    HDFSAuth("hdfs-auth-service");
+    HDFSAuth("hdfs-auth-service"),
+    COORDINATOR_PROXY("coordinator-proxy-service"),
+    COORDINATOR_ADMIN("coordinator-admin-service"),
+    COORDINATOR_SERVER("coordinator-server");
 
     private final String display;
 

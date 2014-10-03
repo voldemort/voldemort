@@ -1,12 +1,12 @@
 /*
  * Copyright 2013 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.rest.coordinator;
+package voldemort.rest.coordinator.config;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -33,6 +33,7 @@ import voldemort.utils.Utils;
 public class CoordinatorConfig {
 
     private volatile List<String> bootstrapURLs = null;
+    private volatile StoreClientConfigSource fatClientConfigSource = StoreClientConfigSource.FILE;
     private volatile String fatClientConfigPath = null;
     private volatile int metadataCheckIntervalInMs = 5000;
     private volatile int serverPort = 8080;
@@ -46,8 +47,16 @@ public class CoordinatorConfig {
     private volatile int httpMessageDecoderMaxHeaderSize = 8192;
     private volatile int httpMessageDecoderMaxChunkSize = 8192;
 
+    // Coordinator Admin Service related
+    private volatile boolean enableAdminService = true;
+    public volatile int adminPort = 9090;
+    private volatile int adminServiceCoreThreads = 10;
+    private volatile int adminServiceMaxThreads = 20;
+    private volatile int adminServiceQueuedRequests = 100;
+
     /* Propery names for propery-based configuration */
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
+    public static final String FAT_CLIENTS_CONFIG_SOURCE = "fat_clients_config_source";
     public static final String FAT_CLIENTS_CONFIG_FILE_PATH_PROPERTY = "fat_clients_config_file_path";
     public static final String METADATA_CHECK_INTERVAL_IN_MS = "metadata_check_interval_in_ms";
     public static final String NETTY_SERVER_PORT = "netty_server_port";
@@ -59,9 +68,12 @@ public class CoordinatorConfig {
     public static final String HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE = "http_message_decoder_max_header_size";
     public static final String HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE = "http_message_decoder_max_chunk_size";
 
+    public static final String ADMIN_ENABLE = "admin_enable";
+    public static final String ADMIN_PORT = "admin_port";
+
     /**
      * Instantiate the coordinator config using a properties file
-     *
+     * 
      * @param propertyFile Properties file
      */
     public CoordinatorConfig(File propertyFile) {
@@ -82,7 +94,7 @@ public class CoordinatorConfig {
      * Initiate the coordinator config from a set of properties. This is useful
      * for wiring from Spring or for externalizing client properties to a
      * properties file
-     *
+     * 
      * @param properties The properties to use
      */
     public CoordinatorConfig(Properties properties) {
@@ -96,7 +108,7 @@ public class CoordinatorConfig {
 
     /**
      * Set the values using the specified Properties object
-     *
+     * 
      * @param properties Properties object containing specific property values
      *        for the Coordinator config
      */
@@ -106,51 +118,56 @@ public class CoordinatorConfig {
             setBootstrapURLs(props.getList(BOOTSTRAP_URLS_PROPERTY));
         }
 
+        if(props.containsKey(FAT_CLIENTS_CONFIG_SOURCE)) {
+            setFatClientConfigSource(StoreClientConfigSource.get(props.getString(FAT_CLIENTS_CONFIG_SOURCE)));
+        }
+
         if(props.containsKey(FAT_CLIENTS_CONFIG_FILE_PATH_PROPERTY)) {
             setFatClientConfigPath(props.getString(FAT_CLIENTS_CONFIG_FILE_PATH_PROPERTY));
         }
 
         if(props.containsKey(METADATA_CHECK_INTERVAL_IN_MS)) {
-            setMetadataCheckIntervalInMs(props.getInt(METADATA_CHECK_INTERVAL_IN_MS,
-                                                      this.metadataCheckIntervalInMs));
+            setMetadataCheckIntervalInMs(props.getInt(METADATA_CHECK_INTERVAL_IN_MS));
         }
 
         if(props.containsKey(NETTY_SERVER_PORT)) {
-            setServerPort(props.getInt(NETTY_SERVER_PORT, this.serverPort));
+            setServerPort(props.getInt(NETTY_SERVER_PORT));
         }
 
         if(props.containsKey(NETTY_SERVER_BACKLOG)) {
-            setNettyServerBacklog(props.getInt(NETTY_SERVER_BACKLOG, this.nettyServerBacklog));
+            setNettyServerBacklog(props.getInt(NETTY_SERVER_BACKLOG));
         }
 
         if(props.containsKey(COORDINATOR_CORE_THREADS)) {
-            setCoordinatorCoreThreads(props.getInt(COORDINATOR_CORE_THREADS,
-                                                   this.coordinatorCoreThreads));
+            setCoordinatorCoreThreads(props.getInt(COORDINATOR_CORE_THREADS));
         }
 
         if(props.containsKey(COORDINATOR_MAX_THREADS)) {
-            setCoordinatorMaxThreads(props.getInt(COORDINATOR_MAX_THREADS,
-                                                  this.coordinatorMaxThreads));
+            setCoordinatorMaxThreads(props.getInt(COORDINATOR_MAX_THREADS));
         }
 
         if(props.containsKey(COORDINATOR_QUEUED_REQUESTS)) {
-            setCoordinatorQueuedRequestsSize(props.getInt(COORDINATOR_QUEUED_REQUESTS,
-                                                          this.numCoordinatorQueuedRequests));
+            setCoordinatorQueuedRequestsSize(props.getInt(COORDINATOR_QUEUED_REQUESTS));
         }
 
-        if (props.containsKey(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH)) {
-            setHttpMessageDecoderMaxInitialLength(props.getInt(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH,
-                                                               this.httpMessageDecoderMaxInitialLength));
+        if(props.containsKey(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH)) {
+            setHttpMessageDecoderMaxInitialLength(props.getInt(HTTP_MESSAGE_DECODER_MAX_INITIAL_LINE_LENGTH));
         }
 
-        if (props.containsKey(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE)) {
-            setHttpMessageDecoderMaxHeaderSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE,
-                                                            this.httpMessageDecoderMaxHeaderSize));
+        if(props.containsKey(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE)) {
+            setHttpMessageDecoderMaxHeaderSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_HEADER_SIZE));
         }
 
-        if (props.containsKey(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE)) {
-            setHttpMessageDecoderMaxChunkSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE,
-                                                           this.httpMessageDecoderMaxChunkSize));
+        if(props.containsKey(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE)) {
+            setHttpMessageDecoderMaxChunkSize(props.getInt(HTTP_MESSAGE_DECODER_MAX_CHUNK_SIZE));
+        }
+
+        if(props.containsKey(ADMIN_ENABLE)) {
+            setAdminServiceEnabled(props.getBoolean(ADMIN_ENABLE));
+        }
+
+        if(props.containsKey(ADMIN_PORT)) {
+            setAdminPort(props.getInt(ADMIN_PORT));
         }
 
     }
@@ -164,7 +181,7 @@ public class CoordinatorConfig {
     /**
      * Sets the bootstrap URLs used by the different Fat clients inside the
      * Coordinator
-     *
+     * 
      * @param bootstrapUrls list of bootstrap URLs defining which cluster to
      *        connect to
      * @return modified CoordinatorConfig
@@ -176,6 +193,14 @@ public class CoordinatorConfig {
         return this;
     }
 
+    public StoreClientConfigSource getFatClientConfigSource() {
+        return fatClientConfigSource;
+    }
+
+    public void setFatClientConfigSource(StoreClientConfigSource fatClientConfigSource) {
+        this.fatClientConfigSource = fatClientConfigSource;
+    }
+
     public String getFatClientConfigPath() {
         return fatClientConfigPath;
     }
@@ -183,7 +208,7 @@ public class CoordinatorConfig {
     /**
      * Defines individual config for each of the fat clients managed by the
      * Coordinator
-     *
+     * 
      * @param fatClientConfigPath The path of the file containing the fat client
      *        config in Avro format
      */
@@ -225,7 +250,7 @@ public class CoordinatorConfig {
 
     /**
      * @param nettyServerBacklog Defines the netty server backlog value
-     *
+     * 
      */
     public CoordinatorConfig setNettyServerBacklog(int nettyServerBacklog) {
         this.nettyServerBacklog = nettyServerBacklog;
@@ -314,6 +339,57 @@ public class CoordinatorConfig {
 
     public int getHttpMessageDecoderMaxChunkSize() {
         return httpMessageDecoderMaxChunkSize;
+    }
+
+    /**
+     * Determine whether the admin service has been enabled to perform
+     * maintenance operations on the coordinator
+     * 
+     * Default : true
+     */
+    public void setAdminServiceEnabled(boolean enableAdminService) {
+        this.enableAdminService = enableAdminService;
+    }
+
+    public boolean isAdminServiceEnabled() {
+        return enableAdminService;
+    }
+
+    public int getAdminPort() {
+        return adminPort;
+    }
+
+    /**
+     * @param adminPort Defines the port to use while bootstrapping the Netty
+     *        server
+     */
+    public CoordinatorConfig setAdminPort(int adminPort) {
+        this.adminPort = adminPort;
+        return this;
+    }
+
+    public int getAdminServiceCoreThreads() {
+        return adminServiceCoreThreads;
+    }
+
+    public void setAdminServiceCoreThreads(int adminServiceCoreThreads) {
+        this.adminServiceCoreThreads = adminServiceCoreThreads;
+    }
+
+    public int getAdminServiceMaxThreads() {
+        return adminServiceMaxThreads;
+    }
+
+    public void setAdminServiceMaxThreads(int adminServiceMaxThreads) {
+        this.adminServiceMaxThreads = adminServiceMaxThreads;
+    }
+
+    public int getAdminServiceQueuedRequests() {
+        return adminServiceQueuedRequests;
+    }
+
+    public void setAdminServiceQueuedRequests(int adminServiceQueuedRequests) {
+        this.adminServiceQueuedRequests = adminServiceQueuedRequests;
     }
 
 }

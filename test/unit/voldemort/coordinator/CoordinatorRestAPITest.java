@@ -40,8 +40,10 @@ import org.junit.Test;
 import voldemort.ServerTestUtils;
 import voldemort.rest.RestMessageHeaders;
 import voldemort.rest.RestUtils;
-import voldemort.rest.coordinator.CoordinatorConfig;
-import voldemort.rest.coordinator.CoordinatorService;
+import voldemort.rest.coordinator.CoordinatorProxyService;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
+import voldemort.rest.coordinator.config.FileBasedStoreClientConfigService;
+import voldemort.rest.coordinator.config.StoreClientConfigService;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -59,7 +61,7 @@ public class CoordinatorRestAPITest {
                                                                                         10000,
                                                                                         100000,
                                                                                         32 * 1024);
-    private CoordinatorService coordinator = null;
+    private CoordinatorProxyService coordinator = null;
     private final String coordinatorURL = "http://localhost:8080";
 
     private class TestVersionedValue {
@@ -120,8 +122,17 @@ public class CoordinatorRestAPITest {
 
         config.setBootstrapURLs(bootstrapUrls);
         config.setFatClientConfigPath(FAT_CLIENT_CONFIG_FILE_PATH);
-
-        this.coordinator = new CoordinatorService(config);
+        StoreClientConfigService storeClientConfigs = null;
+        switch(config.getFatClientConfigSource()) {
+            case FILE:
+                storeClientConfigs = new FileBasedStoreClientConfigService(config);
+                break;
+            case ZOOKEEPER:
+                throw new UnsupportedOperationException("Zookeeper-based configs are not implemented yet!");
+            default:
+                storeClientConfigs = null;
+        }
+        this.coordinator = new CoordinatorProxyService(config, storeClientConfigs);
         if(!this.coordinator.isStarted()) {
             this.coordinator.start();
         }

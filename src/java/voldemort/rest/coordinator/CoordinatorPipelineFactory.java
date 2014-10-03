@@ -33,6 +33,7 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
 import voldemort.rest.NettyConnectionStats;
 import voldemort.rest.NettyConnectionStatsHandler;
+import voldemort.rest.coordinator.config.CoordinatorConfig;
 import voldemort.store.stats.StoreStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.DaemonThreadFactory;
