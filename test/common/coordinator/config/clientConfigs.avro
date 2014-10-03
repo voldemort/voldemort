@@ -1,6 +1,11 @@
 {
-	"best": {
-		"socket_timeout_ms": "1500",
-		"connection_timeout_ms": "500"
-	}
+  "test":
+  {
+    "socket_timeout_ms": "1500"
+  },
+  "best":
+  {
+    "connection_timeout_ms": "500",
+    "socket_timeout_ms": "1500"
+  }
 }
