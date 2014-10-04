@@ -222,6 +222,16 @@ task tar (type: Tar) {
     destinationDir = project.file(distDir)
 }
 
+/*
+Currently we have 3 library directories
+private-lib - > jars that are not available in maven central
+public-lib -> jars available in maven central, but left there for ant build
+lib -> single directory for command line tools to pick it up.
+
+I want to get rid of public-lib when we get rid of the ant support. 
+Private-lib in theory should eventually disappear as well when the prviate-libs 
+are available in maven central or moved to a version available in maven central.
+*/
 task copyDeps(type: Copy) {
     from  {configurations.compile  }
     into "lib"
