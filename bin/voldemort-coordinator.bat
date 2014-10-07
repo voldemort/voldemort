@@ -17,7 +17,21 @@ REM limitations under the License.
 REM
 REM ** This Windows BAT file is not tested with each Voldemort release. **
 
-set scala_shell="voldemort.VoldemortScalaShell"
+:: Start up a Voldemort REST Coordinator speaking to a Voldemort Cluster. 
+:: Example : 
+:: 1. Bring up a Voldemort single node cluster 
+::     $ bin/voldemort-server.sh config/single_node_cluster
+:: 2. Bring up a Voldemort Coordinator
+::     $ bin/voldemort-coordinator.sh config/coordinator_sample_config/config.properties
+:: 3. Do operations
+::     See config/coordinator_sample_config/curl_samples.txt
+
+set argC=0
+for %%a in (%*) do set /a argC+=1
+if %argC% geq 1 goto :continue
+echo "USAGE: bin/voldemort-coordinator.bat <coordinator-config-file>"
+goto :eof
+:continue
 
 SET BASE_DIR=%~dp0..
 SET CLASSPATH=.
@@ -33,11 +47,9 @@ set CLASSPATH=%CLASSPATH%;%1
 goto :eof
 
 :run
+if "%VOLD_OPTS%" == "" set "VOLD_OPTS=-Xmx1G -server -Dcom.sun.management.jmxremote"
 
-:: add '-Dlog4j.debug ' to debug log4j issues.
-set LOG4JPROPERTIES=-Dlog4j.configuration="file:/%BASE_DIR%/src/java/log4j.properties"
+java -Dlog4j.configuration=src/java/log4j.properties %VOLD_OPTS% -cp %CLASSPATH% voldemort.rest.coordinator.CoordinatorService %*
 
-call "%BASE_DIR%/bin/run-class.bat" voldemort.tools.admin.VAdminTool %*
-
-:: If it is the scala shell is being launched use the scala command else java
-scala %LOG4JPROPERTIES% -cp %CLASSPATH% %scala_shell% %*
+endlocal
+:eof
