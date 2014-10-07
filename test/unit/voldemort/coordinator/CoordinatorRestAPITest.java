@@ -19,6 +19,7 @@ package voldemort.coordinator;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -33,6 +34,7 @@ import javax.mail.internet.MimeMultipart;
 import javax.mail.util.ByteArrayDataSource;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -56,7 +58,8 @@ public class CoordinatorRestAPITest {
     public static String socketUrl = "";
     private static final String STORE_NAME = "slow-store-test";
     private static final String STORES_XML = "test/common/voldemort/config/single-slow-store.xml";
-    private static final String FAT_CLIENT_CONFIG_FILE_PATH = "test/common/voldemort/config/fat-client-config.avro";
+    private static final String FAT_CLIENT_CONFIG_FILE_PATH_ORIGINAL = "test/common/voldemort/config/fat-client-config.avro";
+    private static final String FAT_CLIENT_CONFIG_FILE_PATH = "/tmp/fat-client-config.avro";
     private final SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                         10000,
                                                                                         100000,
@@ -113,6 +116,11 @@ public class CoordinatorRestAPITest {
                                               STORES_XML,
                                               props);
 
+        // create a copy of the config file in /tmp and work on that
+        File src = new File(FAT_CLIENT_CONFIG_FILE_PATH_ORIGINAL);
+        File dest = new File(FAT_CLIENT_CONFIG_FILE_PATH);
+        FileUtils.copyFile(src, dest);
+
         CoordinatorConfig config = new CoordinatorConfig();
         List<String> bootstrapUrls = new ArrayList<String>();
         socketUrl = servers[0].getIdentityNode().getSocketUrl().toString();
@@ -147,6 +155,9 @@ public class CoordinatorRestAPITest {
         if(this.coordinator != null && this.coordinator.isStarted()) {
             this.coordinator.stop();
         }
+        // clean up the temporary file created in set up
+        File fatClientConfigFile = new File(FAT_CLIENT_CONFIG_FILE_PATH);
+        fatClientConfigFile.delete();
     }
 
     public static enum ValueType {

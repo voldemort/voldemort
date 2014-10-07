@@ -4,6 +4,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,7 +29,8 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 public class CoordinatorAdminClientTest {
 
     private static final String STORE_NAME = "test";
-    private static final String FAT_CLIENT_CONFIG_PATH = "test/common/coordinator/config/clientConfigs.avro";
+    private static final String FAT_CLIENT_CONFIG_PATH_ORIGINAL = "test/common/coordinator/config/clientConfigs.avro";
+    private static final String FAT_CLIENT_CONFIG_PATH = "/tmp/clientConfigs.avro";
     private static String storesXmlfile = "test/common/voldemort/config/two-stores.xml";
 
     String[] bootStrapUrls = null;
@@ -49,7 +51,7 @@ public class CoordinatorAdminClientTest {
     private static final String ADMIN_URL = "http://localhost:" + ADMIN_PORT;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         final int numServers = 1;
         servers = new VoldemortServer[numServers];
         int partitionMap[][] = { { 0, 1, 2, 3, 4, 5, 6, 7 } };
@@ -72,6 +74,9 @@ public class CoordinatorAdminClientTest {
         socketUrl = servers[0].getIdentityNode().getSocketUrl().toString();
         List<String> bootstrapUrls = new ArrayList<String>();
         bootstrapUrls.add(socketUrl);
+
+        // create a copy of the config file in /tmp and work on that
+        RestClientTestUtils.copyFile(FAT_CLIENT_CONFIG_PATH_ORIGINAL, FAT_CLIENT_CONFIG_PATH);
 
         // Setup the Coordinator
         CoordinatorConfig coordinatorConfig = new CoordinatorConfig();
@@ -103,6 +108,9 @@ public class CoordinatorAdminClientTest {
             ServerTestUtils.stopVoldemortServer(server);
         }
         coordinator.stop();
+        // clean up the temporary file created in set up
+        File fatClientConfigFile = new File(FAT_CLIENT_CONFIG_PATH);
+        fatClientConfigFile.delete();
     }
 
     @Test
