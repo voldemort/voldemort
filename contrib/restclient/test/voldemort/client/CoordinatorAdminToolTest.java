@@ -11,11 +11,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.rest.coordinator.CoordinatorServer;
 import voldemort.rest.coordinator.config.ClientConfigUtil;
@@ -31,7 +33,7 @@ public class CoordinatorAdminToolTest {
 
     private static final String STORE_NAME = "test";
     private static final String FAT_CLIENT_CONFIG_PATH_ORIGINAL = "test/common/coordinator/config/clientConfigs.avro";
-    private static final String FAT_CLIENT_CONFIG_PATH = "/tmp/clientConfigs.avro";
+    private static File COPY_OF_FAT_CLIENT_CONFIG_FILE;
     private static String storesXmlfile = "test/common/voldemort/config/two-stores.xml";
 
     String[] bootStrapUrls = null;
@@ -76,15 +78,19 @@ public class CoordinatorAdminToolTest {
         List<String> bootstrapUrls = new ArrayList<String>();
         bootstrapUrls.add(socketUrl);
 
-        // create a copy of the config file in /tmp and work on that
-        RestClientTestUtils.copyFile(FAT_CLIENT_CONFIG_PATH_ORIGINAL, FAT_CLIENT_CONFIG_PATH);
+        // create a copy of the config file in a temp directory and work on that
+        File src = new File(FAT_CLIENT_CONFIG_PATH_ORIGINAL);
+        COPY_OF_FAT_CLIENT_CONFIG_FILE = new File(TestUtils.createTempDir(),
+                                                  "clientConfigs_" + System.currentTimeMillis()
+                                                          + ".avro");
+        FileUtils.copyFile(src, COPY_OF_FAT_CLIENT_CONFIG_FILE);
 
         // Setup the Coordinator
         CoordinatorConfig coordinatorConfig = new CoordinatorConfig();
         coordinatorConfig.setBootstrapURLs(bootstrapUrls)
                          .setCoordinatorCoreThreads(100)
                          .setCoordinatorMaxThreads(100)
-                         .setFatClientConfigPath(FAT_CLIENT_CONFIG_PATH)
+                         .setFatClientConfigPath(COPY_OF_FAT_CLIENT_CONFIG_FILE.getAbsolutePath())
                          .setServerPort(SERVER_PORT)
                          .setAdminPort(ADMIN_PORT);
 
@@ -111,8 +117,7 @@ public class CoordinatorAdminToolTest {
         coordinator.stop();
 
         // clean up the temporary file created in set up
-        File fatClientConfigFile = new File(FAT_CLIENT_CONFIG_PATH);
-        fatClientConfigFile.delete();
+        COPY_OF_FAT_CLIENT_CONFIG_FILE.delete();
     }
 
     @Test

@@ -40,6 +40,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
 import voldemort.rest.RestMessageHeaders;
 import voldemort.rest.RestUtils;
 import voldemort.rest.coordinator.CoordinatorProxyService;
@@ -59,7 +60,7 @@ public class CoordinatorRestAPITest {
     private static final String STORE_NAME = "slow-store-test";
     private static final String STORES_XML = "test/common/voldemort/config/single-slow-store.xml";
     private static final String FAT_CLIENT_CONFIG_FILE_PATH_ORIGINAL = "test/common/voldemort/config/fat-client-config.avro";
-    private static final String FAT_CLIENT_CONFIG_FILE_PATH = "/tmp/fat-client-config.avro";
+    private static File COPY_OF_FAT_CLIENT_CONFIG_FILE;
     private final SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                         10000,
                                                                                         100000,
@@ -116,10 +117,12 @@ public class CoordinatorRestAPITest {
                                               STORES_XML,
                                               props);
 
-        // create a copy of the config file in /tmp and work on that
+        // create a copy of the config file in a temp directory and work on that
         File src = new File(FAT_CLIENT_CONFIG_FILE_PATH_ORIGINAL);
-        File dest = new File(FAT_CLIENT_CONFIG_FILE_PATH);
-        FileUtils.copyFile(src, dest);
+        COPY_OF_FAT_CLIENT_CONFIG_FILE = new File(TestUtils.createTempDir(),
+                                                  "fat-client-config" + System.currentTimeMillis()
+                                                          + ".avro");
+        FileUtils.copyFile(src, COPY_OF_FAT_CLIENT_CONFIG_FILE);
 
         CoordinatorConfig config = new CoordinatorConfig();
         List<String> bootstrapUrls = new ArrayList<String>();
@@ -129,7 +132,7 @@ public class CoordinatorRestAPITest {
         System.out.println("\n\n************************ Starting the Coordinator *************************");
 
         config.setBootstrapURLs(bootstrapUrls);
-        config.setFatClientConfigPath(FAT_CLIENT_CONFIG_FILE_PATH);
+        config.setFatClientConfigPath(COPY_OF_FAT_CLIENT_CONFIG_FILE.getAbsolutePath());
         StoreClientConfigService storeClientConfigs = null;
         switch(config.getFatClientConfigSource()) {
             case FILE:
@@ -156,8 +159,7 @@ public class CoordinatorRestAPITest {
             this.coordinator.stop();
         }
         // clean up the temporary file created in set up
-        File fatClientConfigFile = new File(FAT_CLIENT_CONFIG_FILE_PATH);
-        fatClientConfigFile.delete();
+        COPY_OF_FAT_CLIENT_CONFIG_FILE.delete();
     }
 
     public static enum ValueType {
