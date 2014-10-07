@@ -1,3 +1,7 @@
+Release 1.9.2 on 10/07/2014
+
+* Fix Coordinator related tests
+
 Release 1.9.1 on 10/03/2014
 
 * Admin service and client for Coordinator
