@@ -29,12 +29,7 @@ do
   CLASSPATH=$CLASSPATH:$file
 done
 
-for file in $base_dir/public-lib/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-
-for file in $base_dir/private-lib/*.jar;
+for file in $base_dir/lib/*.jar;
 do
   CLASSPATH=$CLASSPATH:$file
 done
