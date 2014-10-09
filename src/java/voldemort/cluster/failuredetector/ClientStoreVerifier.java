@@ -19,6 +19,8 @@ package voldemort.cluster.failuredetector;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.client.HttpStoreClientFactory;
 import voldemort.client.SocketStoreClientFactory;
@@ -39,6 +41,7 @@ import voldemort.utils.ByteArray;
 public abstract class ClientStoreVerifier implements StoreVerifier {
 
     private final Map<Integer, Store<ByteArray, byte[], byte[]>> stores;
+    protected final Logger logger = Logger.getLogger(getClass().getName());
 
     protected ClientStoreVerifier() {
         stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
@@ -51,11 +54,20 @@ public abstract class ClientStoreVerifier implements StoreVerifier {
             store = stores.get(node.getId());
 
             if(store == null) {
+                if(logger.isDebugEnabled()) {
+                    logger.debug("Getting metadata store for node " + node.getId());
+                }
                 store = getStoreInternal(node);
+                if(logger.isDebugEnabled()) {
+                    logger.debug("Successfully retrieved metadata store for node " + node.getId());
+                }
                 stores.put(node.getId(), store);
             }
         }
 
+        if(logger.isDebugEnabled()) {
+            logger.debug("Trying to get node id from metadata store for node " + node.getId());
+        }
         store.get(KEY, null);
     }
 
