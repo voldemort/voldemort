@@ -96,6 +96,11 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
                 getConfig().getTime().sleep(asyncRecoveryInterval);
             } catch(InterruptedException e) {
+                if(logger.isDebugEnabled()) {
+                    logger.debug("InterruptedException while sleeping " + asyncRecoveryInterval
+                                 + " ms before checking node availability", e);
+                }
+
                 break;
             }
 
@@ -121,8 +126,10 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
                     nodeRecovered(node);
                 } catch(UnreachableStoreException e) {
-                    if(logger.isDebugEnabled())
-                        logger.debug("Node " + node.getId() + " still unavailable.");
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Node " + node.getId()
+                                     + " still unavailable due to UnreachableStoreException", e);
+                    }
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.ERROR))
                         logger.error("Node " + node.getId() + " unavailable due to error", e);
