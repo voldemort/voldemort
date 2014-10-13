@@ -334,6 +334,14 @@ message DeleteStoreRebalanceStateResponse {
   optional Error error = 1;
 }
 
+message SetOfflineStateRequest {
+  required bool offline_mode = 1;
+}
+
+message SetOfflineStateResponse {
+  optional Error error = 1;
+}
+
 message NativeBackupRequest {
   required string store_name = 1;
   required string backup_dir = 2;
@@ -383,6 +391,7 @@ enum AdminRequestType {
   SLOP_PURGE_JOB = 31;
   UPDATE_METADATA_PAIR = 32;
   UPDATE_STORE_DEFINITIONS = 33;
+  SET_OFFLINE_STATE = 34;
 }
 
 message VoldemortAdminRequest {
@@ -419,4 +428,5 @@ message VoldemortAdminRequest {
   optional SlopPurgeJobRequest slop_purge_job = 33;
   optional UpdateMetadataPairRequest update_metadata_pair = 34;
   optional UpdateStoreDefinitions update_store_definitions = 35;
+  optional SetOfflineStateRequest set_offline_state = 36;
 }

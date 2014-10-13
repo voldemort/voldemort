@@ -984,7 +984,6 @@ public class AdminClient {
          * @param key Metadata key to update
          * @param value Value for the metadata key
          */
-
         public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value) {
 
             if(key.equals(STORES_VERSION_KEY)) {
@@ -1093,6 +1092,34 @@ public class AdminClient {
                                                                                             VAdminProto.UpdateMetadataPairResponse.newBuilder());
             if(response.hasError())
                 helperOps.throwException(response.getError());
+        }
+
+        /**
+         * Set offline or online state at the given remoteNodeId.
+         * <p>
+         * 
+         * See {@link voldemort.store.metadata.MetadataStore} for more
+         * information.
+         * 
+         * @param remoteNodeId Id of the node
+         * @param setOffline Ture to transit from NORMAL_SERVER to
+         *        OFFLINE_SERVER state, false to transit from OFFLINE_SERVER to
+         *        NORMAL_SERVER state
+         */
+        public void setRemoteOfflineState(int remoteNodeId, boolean setOffline) {
+
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setType(VAdminProto.AdminRequestType.SET_OFFLINE_STATE)
+                                                                                         .setSetOfflineState(VAdminProto.SetOfflineStateRequest.newBuilder()
+                                                                                                                                               .setOfflineMode(setOffline)
+                                                                                                                                               .build())
+                                                                                         .build();
+            VAdminProto.SetOfflineStateResponse.Builder response = rpcOps.sendAndReceive(remoteNodeId,
+                                                                                         request,
+                                                                                         VAdminProto.SetOfflineStateResponse.newBuilder());
+            if(response.hasError()) {
+                helperOps.throwException(response.getError());
+            }
         }
 
         /**
