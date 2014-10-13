@@ -816,11 +816,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.SwapStoreResponse.Builder response = VAdminProto.SwapStoreResponse.newBuilder();
 
         if(!metadataStore.getServerStateUnlocked()
-                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)
+           && !metadataStore.getServerStateUnlocked()
+                            .equals(MetadataStore.VoldemortState.OFFLINE_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Voldemort server "
                                                                             + metadataStore.getNodeId()
-                                                                            + " not in normal state while swapping store "
+                                                                            + " not in normal state nor offline state while swapping store "
                                                                             + storeName
                                                                             + " with directory "
                                                                             + dir)));
@@ -1350,9 +1352,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         // don't try to delete a store in the middle of rebalancing
         if(!metadataStore.getServerStateUnlocked()
-                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)
+           && !metadataStore.getServerStateUnlocked()
+                            .equals(MetadataStore.VoldemortState.OFFLINE_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                     new VoldemortException("Voldemort server is not in normal state")));
+                                                     new VoldemortException("Voldemort server is not in normal state nor offline state")));
             return response.build();
         }
 
@@ -1421,11 +1425,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.AddStoreResponse handleAddStore(VAdminProto.AddStoreRequest request) {
         VAdminProto.AddStoreResponse.Builder response = VAdminProto.AddStoreResponse.newBuilder();
 
-        // don't try to add a store when not in normal state
+        // don't try to add a store when not in normal or offline state
         if(!metadataStore.getServerStateUnlocked()
-                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+                         .equals(MetadataStore.VoldemortState.NORMAL_SERVER)
+           && !metadataStore.getServerStateUnlocked()
+                            .equals(MetadataStore.VoldemortState.OFFLINE_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                     new VoldemortException("Voldemort server is not in normal state")));
+                                                     new VoldemortException("Voldemort server is not in normal state nor offline state")));
             return response.build();
         }
 

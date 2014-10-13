@@ -69,11 +69,12 @@ public class DataCleanupJob<K, V, T> implements Runnable {
         this.metadataStore = metadataStore;
     }
 
-    private boolean isServerInNormalState() {
+    private boolean isServerInNormalStateOrOfflineState() {
         if(metadataStore != null
-           && metadataStore.getServerStateUnlocked() != VoldemortState.NORMAL_SERVER) {
+           && metadataStore.getServerStateUnlocked() != VoldemortState.NORMAL_SERVER
+           && metadataStore.getServerStateUnlocked() != VoldemortState.OFFLINE_SERVER) {
             logger.info("Datacleanup on store " + store.getName()
-                        + " skipped since server is not normal..");
+                        + " skipped since server is not normal nor offline..");
             return false;
         }
         return true;
@@ -83,7 +84,7 @@ public class DataCleanupJob<K, V, T> implements Runnable {
     public void run() {
 
         // if the server is not normal, skip this run.
-        if(isServerInNormalState() == false) {
+        if(isServerInNormalStateOrOfflineState() == false) {
             return;
         }
 
@@ -106,7 +107,7 @@ public class DataCleanupJob<K, V, T> implements Runnable {
                 final long INETERVAL = 10000;
                 long entriesScanned = scanProgressThisRun.get();
                 if(entriesScanned % INETERVAL == 0) {
-                    if(isServerInNormalState() == false) {
+                    if(isServerInNormalStateOrOfflineState() == false) {
                         return;
                     }
                 }

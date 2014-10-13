@@ -228,7 +228,8 @@ public class VoldemortAdminTool {
                                + MetadataStore.REBALANCING_STEAL_INFO
                                + " ] - xml file location, [ " + MetadataStore.SERVER_STATE_KEY
                                + " ] - " + MetadataStore.VoldemortState.NORMAL_SERVER + ","
-                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)
+                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER + ","
+                               + MetadataStore.VoldemortState.OFFLINE_SERVER)
               .withRequiredArg()
               .describedAs("metadata-value")
               .ofType(String.class);
@@ -1168,6 +1169,7 @@ public class VoldemortAdminTool {
     }
 
     private static void executeClearRebalancing(int nodeId, AdminClient adminClient) {
+        // FIXME: add check for server state, must not be in offline state
         System.out.println("Setting " + MetadataStore.SERVER_STATE_KEY + " to "
                            + MetadataStore.VoldemortState.NORMAL_SERVER);
         executeSetMetadata(nodeId,

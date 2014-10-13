@@ -2812,6 +2812,7 @@ public class AdminClient {
          * @param nodeId The node from which we want to retrieve the state
          * @return The server state
          */
+        // TODO: this method should be moved to helperOps
         public Versioned<VoldemortState> getRemoteServerState(int nodeId) {
             Versioned<String> value = metadataMgmtOps.getRemoteMetadata(nodeId,
                                                                         MetadataStore.SERVER_STATE_KEY);

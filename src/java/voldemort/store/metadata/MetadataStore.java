@@ -111,6 +111,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
     public static enum VoldemortState {
         NORMAL_SERVER,
+        OFFLINE_SERVER,
         REBALANCING_MASTER_SERVER
     }
 
@@ -789,6 +790,56 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                 put(REBALANCING_STEAL_INFO, rebalancerState);
                 initCache(REBALANCING_STEAL_INFO);
             }
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Enter OFFLINE_SERVER from NORMAL_SERVER
+     * 
+     */
+    public void enterOfflineState() {
+        // acquire write lock
+        writeLock.lock();
+        try {
+            // Move into offline state
+            if(ByteUtils.getString(get(SERVER_STATE_KEY, null).get(0).getValue(), "UTF-8")
+                        .compareTo(VoldemortState.NORMAL_SERVER.toString()) == 0) {
+                put(SERVER_STATE_KEY, VoldemortState.OFFLINE_SERVER);
+                initCache(SERVER_STATE_KEY);
+            }
+
+            // TODO: disable socket port and http port
+            // TODO: disable fetcher for RO and slop for RW here
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Leave the OFFLINE_SERVER state and go back to NORMAL_SERVER
+     * 
+     */
+    public void leaveOfflineState() {
+        // acquire write lock
+        writeLock.lock();
+        try {
+            // Move into offline state
+            if(ByteUtils.getString(get(SERVER_STATE_KEY, null).get(0).getValue(), "UTF-8")
+                        .compareTo(VoldemortState.OFFLINE_SERVER.toString()) == 0) {
+                put(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER);
+                initCache(SERVER_STATE_KEY);
+            }
+
+            // Enable socket port and http port
+
+            // Don't enable admin port->streaming
+            // When leaving OFFLINE_SERVER, we don't enable RO fetcher or RW
+            // slop.
+
+            init(getNodeId());
+
         } finally {
             writeLock.unlock();
         }

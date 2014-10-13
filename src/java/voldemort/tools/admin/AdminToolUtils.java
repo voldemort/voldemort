@@ -20,7 +20,12 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
@@ -193,13 +198,13 @@ public class AdminToolUtils {
      * @param storeNames Store names to check
      */
     public static void validateUserStoreNamesOnNode(AdminClient adminClient,
-                                                 Integer nodeId,
-                                                 List<String> storeNames) {
+                                                    Integer nodeId,
+                                                    List<String> storeNames) {
         List<StoreDefinition> storeDefList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
                                                                         .getValue();
         Map<String, Boolean> existingStoreNames = new HashMap<String, Boolean>();
         for(StoreDefinition storeDef: storeDefList) {
-          existingStoreNames.put(storeDef.getName(), true);
+            existingStoreNames.put(storeDef.getName(), true);
         }
         for(String storeName: storeNames) {
             if(!Boolean.TRUE.equals(existingStoreNames.get(storeName))) {
@@ -341,7 +346,8 @@ public class AdminToolUtils {
      * @param nodeIds List of node ids to be checked
      * @throws VoldemortException if any node is not in normal state
      */
-    public static void assertServerInNormalState(AdminClient adminClient, Collection<Integer> nodeIds) {
+    public static void assertServerInNormalState(AdminClient adminClient,
+                                                 Collection<Integer> nodeIds) {
         for(Integer nodeId: nodeIds) {
             Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
                                                                                         MetadataStore.SERVER_STATE_KEY);
@@ -355,6 +361,62 @@ public class AdminToolUtils {
                                                           .getHost()
                                              + ") is not in normal state, but in "
                                              + versioned.getValue());
+            }
+        }
+    }
+
+    /**
+     * Utility function that checks the execution state of the server by
+     * checking the state of {@link VoldemortState} <br>
+     * 
+     * This function checks if the nodes are not in offline state (
+     * {@link VoldemortState#OFFLINE_SERVER}).
+     * 
+     * @param adminClient An instance of AdminClient points to given cluster
+     * @param nodeIds List of node ids to be checked
+     * @throws VoldemortException if any node is not in normal state
+     */
+    public static void assertServerNotInOfflineState(AdminClient adminClient,
+                                                     Collection<Integer> nodeIds) {
+        for(Integer nodeId: nodeIds) {
+            Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                        MetadataStore.SERVER_STATE_KEY);
+            VoldemortState state = VoldemortState.valueOf(versioned.getValue());
+            if(state.equals(VoldemortState.OFFLINE_SERVER)) {
+                throw new VoldemortException("Cannot execute admin operation: "
+                                             + nodeId
+                                             + " ("
+                                             + adminClient.getAdminClientCluster()
+                                                          .getNodeById(nodeId)
+                                                          .getHost() + ") is in offline state.");
+            }
+        }
+    }
+
+    /**
+     * Utility function that checks the execution state of the server by
+     * checking the state of {@link VoldemortState} <br>
+     * 
+     * This function checks if the nodes are not in rebalancing state (
+     * {@link VoldemortState#REBALANCING_MASTER_SERVER}).
+     * 
+     * @param adminClient An instance of AdminClient points to given cluster
+     * @param nodeIds List of node ids to be checked
+     * @throws VoldemortException if any node is not in normal state
+     */
+    public static void assertServerNotInRebalancingState(AdminClient adminClient,
+                                                         Collection<Integer> nodeIds) {
+        for(Integer nodeId: nodeIds) {
+            Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                        MetadataStore.SERVER_STATE_KEY);
+            VoldemortState state = VoldemortState.valueOf(versioned.getValue());
+            if(state.equals(VoldemortState.REBALANCING_MASTER_SERVER)) {
+                throw new VoldemortException("Cannot execute admin operation: "
+                                             + nodeId
+                                             + " ("
+                                             + adminClient.getAdminClientCluster()
+                                                          .getNodeById(nodeId)
+                                                          .getHost() + ") is in rebalancing state.");
             }
         }
     }

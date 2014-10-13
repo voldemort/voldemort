@@ -1,12 +1,12 @@
 /**
  * Copyright 2014 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -15,9 +15,21 @@
  */
 package voldemort.tools;
 
+import static voldemort.VoldemortAdminTool.executeSetMetadataPair;
+import static voldemort.store.metadata.MetadataStore.CLUSTER_KEY;
+import static voldemort.store.metadata.MetadataStore.STORES_KEY;
+
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+
 import org.apache.log4j.Logger;
+
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -30,21 +42,11 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-
-import static voldemort.VoldemortAdminTool.executeSetMetadataPair;
-import static voldemort.store.metadata.MetadataStore.STORES_KEY;
-import static voldemort.store.metadata.MetadataStore.CLUSTER_KEY;
-
-
 /**
  * This tool change the cluster topology by dropping one zone
  */
 public class ZoneShrinkageCLI {
+
     public static Logger logger = Logger.getLogger(ZoneShrinkageCLI.class);
     protected AdminClient adminClient;
     protected final Integer droppingZoneId;
@@ -53,14 +55,15 @@ public class ZoneShrinkageCLI {
     public static OptionParser getParser() {
         OptionParser parser = new OptionParser();
         parser.acceptsAll(Arrays.asList("u", "url"), "Bootstrap URL of target cluster")
-                .withRequiredArg()
-                .ofType(String.class)
-                .describedAs("bootstrap-url");
+              .withRequiredArg()
+              .ofType(String.class)
+              .describedAs("bootstrap-url");
         parser.acceptsAll(Arrays.asList("i", "drop-zoneid"), "ID of the zone to be dropped")
-                .withRequiredArg()
-                .ofType(Integer.class)
-                .describedAs("zone-id");
-        parser.acceptsAll(Arrays.asList("real-run"), "If and only if this option is specified, the program will actually execute the shrinkage(Real Run). Otherwise, it will not actually execute the shrinkage");
+              .withRequiredArg()
+              .ofType(Integer.class)
+              .describedAs("zone-id");
+        parser.acceptsAll(Arrays.asList("real-run"),
+                          "If and only if this option is specified, the program will actually execute the shrinkage(Real Run). Otherwise, it will not actually execute the shrinkage");
         parser.acceptsAll(Arrays.asList("h", "help"), "Show help message");
 
         return parser;
@@ -71,12 +74,10 @@ public class ZoneShrinkageCLI {
         if(options.has("help")) {
             exitStatus = 0;
             System.out.println("This tool changes the targeted cluster topology by shrinking one zone. The replication of data in other zones will not change and the targeted zone will disappear from current routing strategy");
-        }
-        else if(!options.has("url")) {
+        } else if(!options.has("url")) {
             System.err.println("Option \"url\" is required");
             exitStatus = 1;
-        }
-        else if(!options.has("drop-zoneid")) {
+        } else if(!options.has("drop-zoneid")) {
             System.err.println("Option \"drop-zoneid\" is required");
             exitStatus = 1;
         }
@@ -94,7 +95,8 @@ public class ZoneShrinkageCLI {
         OptionSet options = parser.parse(argv);
         validateOptions(options);
 
-        ZoneShrinkageCLI cli = new ZoneShrinkageCLI((String)options.valueOf("url"), (Integer) options.valueOf("drop-zoneid"));
+        ZoneShrinkageCLI cli = new ZoneShrinkageCLI((String) options.valueOf("url"),
+                                                    (Integer) options.valueOf("drop-zoneid"));
         try {
             cli.executeShrink(options.has("real-run"));
         } catch(Exception e) {
@@ -111,7 +113,10 @@ public class ZoneShrinkageCLI {
         this.bootstrapUrl = url;
     }
 
-    protected static boolean verifyMetadataConsistency(AdminClient adminClient, Collection<Node> nodes, String clusterXml, String storesXml) {
+    protected static boolean verifyMetadataConsistency(AdminClient adminClient,
+                                                       Collection<Node> nodes,
+                                                       String clusterXml,
+                                                       String storesXml) {
 
         boolean success = true;
         logger.info("Checking metadata consistency on all servers");
@@ -119,8 +124,10 @@ public class ZoneShrinkageCLI {
             int nodeId = node.getId();
 
             boolean nodeGood = true;
-            Versioned<String> currentClusterXmlVersioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId, CLUSTER_KEY);
-            Versioned<String> currentStoresXmlVersioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId, STORES_KEY);
+            Versioned<String> currentClusterXmlVersioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                                         CLUSTER_KEY);
+            Versioned<String> currentStoresXmlVersioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                                        STORES_KEY);
 
             if(currentClusterXmlVersioned == null) {
                 logger.error("Cluster XML does not exist on node " + nodeId);
@@ -156,12 +163,14 @@ public class ZoneShrinkageCLI {
         for(Node node: nodes) {
             Integer nodeId = node.getId();
 
-            Versioned<String> stateVersioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId, MetadataStore.SERVER_STATE_KEY);
+            Versioned<String> stateVersioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                             MetadataStore.SERVER_STATE_KEY);
             if(stateVersioned == null) {
                 logger.error("Node " + nodeId + " State object is null");
                 success = false;
             } else {
-                if(!stateVersioned.getValue().equals("NORMAL_SERVER")) {
+                if(!stateVersioned.getValue()
+                                  .equals(MetadataStore.VoldemortState.NORMAL_SERVER.toString())) {
                     logger.error("Node " + nodeId + " Server state is not normal");
                     success = false;
                 } else {
@@ -178,13 +187,14 @@ public class ZoneShrinkageCLI {
         Cluster intermediateCluster = RebalanceUtils.vacateZone(initialCluster, droppingZoneId);
         Cluster finalCluster = RebalanceUtils.dropZone(intermediateCluster, droppingZoneId);
 
-        String newClusterXml =  new ClusterMapper().writeCluster(finalCluster);
+        String newClusterXml = new ClusterMapper().writeCluster(finalCluster);
         return newClusterXml;
     }
 
     protected static String shrinkStoresXml(String storesXml, int droppingZoneId) {
         List<StoreDefinition> initialStoreDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(storesXml));
-        List<StoreDefinition> finalStoreDefs = RebalanceUtils.dropZone(initialStoreDefs, droppingZoneId);
+        List<StoreDefinition> finalStoreDefs = RebalanceUtils.dropZone(initialStoreDefs,
+                                                                       droppingZoneId);
 
         String newStoresXml = new StoreDefinitionsMapper().writeStoreList(finalStoreDefs);
         return newStoresXml;
@@ -199,15 +209,22 @@ public class ZoneShrinkageCLI {
 
         // Get Metadata from one server
         logger.info("Start fetching metadata for server " + initialClusterFirstNodeId);
-        String initialClusterXml = adminClient.metadataMgmtOps.getRemoteMetadata(initialClusterFirstNodeId, CLUSTER_KEY).getValue();
-        String initialStoresXml = adminClient.metadataMgmtOps.getRemoteMetadata(initialClusterFirstNodeId, STORES_KEY).getValue();
+        String initialClusterXml = adminClient.metadataMgmtOps.getRemoteMetadata(initialClusterFirstNodeId,
+                                                                                 CLUSTER_KEY)
+                                                              .getValue();
+        String initialStoresXml = adminClient.metadataMgmtOps.getRemoteMetadata(initialClusterFirstNodeId,
+                                                                                STORES_KEY)
+                                                             .getValue();
         logger.info("End fetching metadata for server " + initialClusterFirstNodeId);
 
         logger.info("Original cluster.xml: \n" + initialClusterXml + "\n");
         logger.info("Original stores.xml: \n" + initialStoresXml + "\n");
 
         // Query the servers to see if all have the same XML
-        shouldContinue = verifyMetadataConsistency(adminClient, initialClusterNodes, initialClusterXml, initialStoresXml);
+        shouldContinue = verifyMetadataConsistency(adminClient,
+                                                   initialClusterNodes,
+                                                   initialClusterXml,
+                                                   initialStoresXml);
         if(!shouldContinue) {
             logAbort();
             return;
@@ -231,18 +248,21 @@ public class ZoneShrinkageCLI {
         if(realRun) {
             logger.info("Updating metadata(cluster.xml, stores.xml) on all nodes");
             executeSetMetadataPair(-1,
-                    adminClient,
-                    MetadataStore.CLUSTER_KEY,
-                    newClusterXml,
-                    MetadataStore.STORES_KEY,
-                    newStoresXml);
+                                   adminClient,
+                                   MetadataStore.CLUSTER_KEY,
+                                   newClusterXml,
+                                   MetadataStore.STORES_KEY,
+                                   newStoresXml);
         } else {
             logger.info("(dry-run)Skipping updating metadata");
         }
 
         // Check metadata consistency
         if(realRun) {
-            shouldContinue = verifyMetadataConsistency(adminClient, initialClusterNodes, newClusterXml, newStoresXml);
+            shouldContinue = verifyMetadataConsistency(adminClient,
+                                                       initialClusterNodes,
+                                                       newClusterXml,
+                                                       newStoresXml);
             if(!shouldContinue) {
                 logAbort();
                 return;
