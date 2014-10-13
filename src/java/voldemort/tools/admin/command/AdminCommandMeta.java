@@ -481,6 +481,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          * 
          */
         public static void doMetaClearRebalance(AdminClient adminClient, List<Integer> nodeIds) {
+            AdminToolUtils.assertServerNotInOfflineState(adminClient, nodeIds);
             System.out.println("Setting " + MetadataStore.SERVER_STATE_KEY + " to "
                                + MetadataStore.VoldemortState.NORMAL_SERVER);
             doMetaSet(adminClient,
