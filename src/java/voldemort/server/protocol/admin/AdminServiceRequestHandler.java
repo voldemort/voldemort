@@ -259,6 +259,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleDeleteStoreRebalanceState(request.getDeleteStoreRebalanceState()));
                 break;
+            case SET_OFFLINE_STATE:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleSetOfflineState(request.getSetOfflineState()));
+                break;
             case REPAIR_JOB:
                 ProtoUtils.writeMessage(outputStream, handleRepairJob(request.getRepairJob()));
                 break;
@@ -319,6 +323,23 @@ public class AdminServiceRequestHandler implements RequestHandler {
                              e);
             }
         }
+        return response.build();
+    }
+
+    public VAdminProto.SetOfflineStateResponse handleSetOfflineState(VAdminProto.SetOfflineStateRequest request) {
+        VAdminProto.SetOfflineStateResponse.Builder response = VAdminProto.SetOfflineStateResponse.newBuilder();
+
+        try {
+            Boolean setToOffline = request.getOfflineMode();
+            logger.info("Setting OFFLINE_SERVER state to " + setToOffline.toString());
+            metadataStore.setOfflineState(setToOffline);
+            // TODO: deal with online services here
+            // TODO: deal with slop pushing here
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleSetOfflineState failed for request(" + request.toString() + ")", e);
+        }
+
         return response.build();
     }
 
@@ -822,7 +843,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Voldemort server "
                                                                             + metadataStore.getNodeId()
-                                                                            + " not in normal state nor offline state while swapping store "
+                                                                            + " is neither in normal state nor in offline state while swapping store "
                                                                             + storeName
                                                                             + " with directory "
                                                                             + dir)));
@@ -1356,7 +1377,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
            && !metadataStore.getServerStateUnlocked()
                             .equals(MetadataStore.VoldemortState.OFFLINE_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                     new VoldemortException("Voldemort server is not in normal state nor offline state")));
+                                                     new VoldemortException("Voldemort server is neither in normal state nor in offline state")));
             return response.build();
         }
 
@@ -1431,7 +1452,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
            && !metadataStore.getServerStateUnlocked()
                             .equals(MetadataStore.VoldemortState.OFFLINE_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                     new VoldemortException("Voldemort server is not in normal state nor offline state")));
+                                                     new VoldemortException("Voldemort server is neither in normal state nor in offline state")));
             return response.build();
         }
 

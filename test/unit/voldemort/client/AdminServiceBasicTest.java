@@ -1541,12 +1541,8 @@ public class AdminServiceBasicTest {
                      state);
 
         // change to OFFLINE_SERVER
-        updateRemoteServerState(client,
-                                getVoldemortServer(0).getIdentityNode().getId(),
-                                MetadataStore.VoldemortState.OFFLINE_SERVER,
-                                ((VectorClock) client.rebalanceOps.getRemoteServerState(0)
-                                                                  .getVersion()).incremented(0,
-                                                                                             System.currentTimeMillis()));
+        client.metadataMgmtOps.setRemoteOfflineState(getVoldemortServer(0).getIdentityNode()
+                                                                          .getId(), true);
 
         state = getVoldemortServer(0).getMetadataStore().getServerStateUnlocked();
         assertEquals("State should be changed correctly to offline state",
@@ -1554,12 +1550,8 @@ public class AdminServiceBasicTest {
                      state);
 
         // change back to NORMAL_SERVER
-        updateRemoteServerState(client,
-                                getVoldemortServer(0).getIdentityNode().getId(),
-                                MetadataStore.VoldemortState.NORMAL_SERVER,
-                                ((VectorClock) client.rebalanceOps.getRemoteServerState(0)
-                                                                  .getVersion()).incremented(0,
-                                                                                             System.currentTimeMillis()));
+        client.metadataMgmtOps.setRemoteOfflineState(getVoldemortServer(0).getIdentityNode()
+                                                                          .getId(), false);
 
         state = getVoldemortServer(0).getMetadataStore().getServerStateUnlocked();
         assertEquals("State should be changed correctly to normal state",

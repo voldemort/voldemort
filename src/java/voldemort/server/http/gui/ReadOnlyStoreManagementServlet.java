@@ -200,7 +200,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
                             .equals(MetadataStore.VoldemortState.NORMAL_SERVER)
            && !metadataStore.getServerStateUnlocked()
                             .equals(MetadataStore.VoldemortState.OFFLINE_SERVER)) {
-            throw new ServletException("Voldemort server not in normal state nor offline mode");
+            throw new ServletException("Voldemort server is neither in normal state nor in offline state");
         }
 
         ReadOnlyStorageEngine store = this.getStore(storeName);
