@@ -320,6 +320,7 @@ public class CoordinatorAdminCommand extends AbstractAdminCommand {
             } else {
                 System.out.println("Successfully put config to all coordinators.");
             }
+            System.out.println();
         }
     }
 
@@ -416,6 +417,7 @@ public class CoordinatorAdminCommand extends AbstractAdminCommand {
             } else {
                 System.out.println("Successfully deleted config on all coordinators.");
             }
+            System.out.println();
         }
     }
 }
