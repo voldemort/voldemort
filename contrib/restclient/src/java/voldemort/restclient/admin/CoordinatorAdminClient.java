@@ -99,7 +99,7 @@ public class CoordinatorAdminClient {
         } else if(e instanceof URISyntaxException) {
             throw new VoldemortException("Illegal HTTP URL " + e.getMessage(), e);
         } else if(e instanceof UnsupportedEncodingException) {
-            throw new VoldemortException("Illegal Encoding Type " + e.getMessage());
+            throw new VoldemortException("Illegal Encoding Type " + e.getMessage(), e);
         } else {
             throw new VoldemortException("Unknown exception: " + e.getMessage(), e);
         }
@@ -140,6 +140,9 @@ public class CoordinatorAdminClient {
 
     public boolean putStoreClientConfigString(String storeClientConfigAvro, String coordinatorUrl) {
 
+        String responseMessage = null;
+        Boolean success = false;
+
         try {
             // Create the REST request
             StringBuilder URIStringBuilder = new StringBuilder().append(coordinatorUrl)
@@ -170,14 +173,24 @@ public class CoordinatorAdminClient {
                 if(logger.isDebugEnabled()) {
                     logger.debug("Empty response !");
                 }
-                return false;
+                responseMessage = "Received empty response from " + coordinatorUrl;
+            } else {
+                responseMessage = entity.asString("UTF-8");
+                success = true;
             }
-            System.out.println(entity.asString("UTF-8"));
-            return true;
         } catch(Exception e) {
+            if(e.getCause() instanceof RestException) {
+                responseMessage = ((RestException) e.getCause()).getResponse()
+                                                                .getEntity()
+                                                                .asString("UTF-8");
+            } else {
+                responseMessage = "An exception other than RestException happens!";
+            }
             handleRequestAndResponseException(e);
+        } finally {
+            System.out.println(responseMessage);
         }
-        return false;
+        return success;
     }
 
     public Map<String, String> getStoreClientConfigMap(List<String> storeNames,
@@ -204,6 +217,10 @@ public class CoordinatorAdminClient {
     }
 
     public boolean deleteStoreClientConfig(List<String> storeNames, String coordinatorUrl) {
+
+        String responseMessage = null;
+        Boolean success = false;
+
         try {
             // Create the REST request
             StringBuilder URIStringBuilder = new StringBuilder().append(coordinatorUrl)
@@ -229,13 +246,23 @@ public class CoordinatorAdminClient {
                 if(logger.isDebugEnabled()) {
                     logger.debug("Empty response !");
                 }
-                return false;
+                responseMessage = "Received empty response from " + coordinatorUrl;
+            } else {
+                responseMessage = entity.asString("UTF-8");
+                success = true;
             }
-            System.out.println(entity.asString("UTF-8"));
-            return true;
         } catch(Exception e) {
+            if(e.getCause() instanceof RestException) {
+                responseMessage = ((RestException) e.getCause()).getResponse()
+                                                                .getEntity()
+                                                                .asString("UTF-8");
+            } else {
+                responseMessage = "An exception other than RestException happens!";
+            }
             handleRequestAndResponseException(e);
+        } finally {
+            System.out.println(responseMessage);
         }
-        return false;
+        return success;
     }
 }
