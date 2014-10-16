@@ -44,6 +44,7 @@ import voldemort.common.nio.ByteBufferBackedInputStream;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.VoldemortServer;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.server.rebalance.Rebalancer;
@@ -100,6 +101,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationService asyncService;
     private final Rebalancer rebalancer;
+    private final VoldemortServer server;
     private FileFetcher fileFetcher;
 
     public AdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
@@ -108,12 +110,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                       MetadataStore metadataStore,
                                       VoldemortConfig voldemortConfig,
                                       AsyncOperationService asyncService,
-                                      Rebalancer rebalancer) {
+                                      Rebalancer rebalancer,
+                                      VoldemortServer server) {
         this.errorCodeMapper = errorCodeMapper;
         this.storageService = storageService;
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
+        this.server = server;
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
         this.asyncService = asyncService;
@@ -333,7 +337,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
             Boolean setToOffline = request.getOfflineMode();
             logger.info("Setting OFFLINE_SERVER state to " + setToOffline.toString());
             metadataStore.setOfflineState(setToOffline);
-            // TODO: deal with online services here
+            if(setToOffline) {
+                server.stopOnlineServices();
+            } else {
+                server.createOnlineServices();
+                server.startOnlineServices();
+            }
             // TODO: deal with slop pushing here
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));

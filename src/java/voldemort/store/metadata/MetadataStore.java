@@ -1029,7 +1029,6 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
         initCache(REBALANCING_SOURCE_CLUSTER_XML, null);
         initCache(REBALANCING_SOURCE_STORES_XML, null);
-        initCache(ONLINE_SERVICE_KEY, null);
 
         // set transient values
         updateRoutingStrategies(getCluster(), getStoreDefList());

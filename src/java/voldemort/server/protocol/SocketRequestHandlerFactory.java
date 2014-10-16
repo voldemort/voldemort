@@ -4,6 +4,7 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.VoldemortServer;
 import voldemort.server.protocol.admin.AdminServiceRequestHandler;
 import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.protocol.pb.ProtoBuffRequestHandler;
@@ -27,19 +28,22 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationService asyncService;
     private final Rebalancer rebalancer;
+    private final VoldemortServer server;
 
     public SocketRequestHandlerFactory(StorageService storageService,
                                        StoreRepository repository,
                                        MetadataStore metadata,
                                        VoldemortConfig voldemortConfig,
                                        AsyncOperationService asyncService,
-                                       Rebalancer rebalancer) {
+                                       Rebalancer rebalancer,
+                                       VoldemortServer server) {
         this.storage = storageService;
         this.repository = repository;
         this.metadata = metadata;
         this.voldemortConfig = voldemortConfig;
         this.asyncService = asyncService;
         this.rebalancer = rebalancer;
+        this.server = server;
     }
 
     public RequestHandler getRequestHandler(RequestFormatType type) {
@@ -61,7 +65,8 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
                                                       metadata,
                                                       voldemortConfig,
                                                       asyncService,
-                                                      rebalancer);
+                                                      rebalancer,
+                                                      server);
             default:
                 throw new VoldemortException("Unknown wire format " + type);
         }
