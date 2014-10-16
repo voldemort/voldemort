@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -96,6 +97,7 @@ import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.system.SystemStoreConstants;
+import voldemort.store.venice.VeniceStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.store.views.ViewStorageEngine;
@@ -785,9 +787,9 @@ public class StorageService extends AbstractService {
         /* Now add any store wrappers that are enabled */
         Store<ByteArray, byte[], byte[]> store = engine;
 
-        boolean isMetadata = store.getName().compareTo(MetadataStore.METADATA_STORE_NAME) == 0;
-        boolean isSlop = storeType.compareTo("slop") == 0;
-        boolean isView = storeType.compareTo(ViewStorageConfiguration.TYPE_NAME) == 0;
+        boolean isMetadata = store.getName().equals(MetadataStore.METADATA_STORE_NAME);
+        boolean isSlop = storeType.equals("slop");
+        boolean isView = storeType.equals(ViewStorageConfiguration.TYPE_NAME);
 
         if(voldemortConfig.isVerboseLoggingEnabled())
             store = new LoggingStore<ByteArray, byte[], byte[]>(store,
@@ -894,6 +896,17 @@ public class StorageService extends AbstractService {
                 }
                 store = rateLimitingStore;
             }
+        }
+
+        // let Venice be the outermost layer as all writes will be funnelled into Venice from Kafka
+        // this means anything outside of this layer will be skipped by Venice!
+        if (voldemortConfig.isVeniceEnabled()) {
+            store = new VeniceStore<ByteArray, byte[], byte[]>(store,
+                                                               voldemortConfig.getVeniceKafkaTopicName(),
+                                                               Arrays.asList(voldemortConfig.getVeniceKafkaBroker()),
+                                                               voldemortConfig.getVeniceKafkaBrokerPort(),
+                                                               voldemortConfig.getVeniceKafkaPartitionCount(),
+                                                               voldemortConfig.getVeniceKafkaPartitionThreads());
         }
 
         storeRepository.addLocalStore(store);
