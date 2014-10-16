@@ -126,6 +126,7 @@ public class AdminServiceFailureTest extends TestCase {
                                                                                                                                null,
                                                                                                                                new Properties()),
                                                                                             null,
+                                                                                            null,
                                                                                             null);
         return ServerTestUtils.getSocketService(useNio,
                                                 requestHandlerFactory,

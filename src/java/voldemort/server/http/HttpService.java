@@ -75,6 +75,7 @@ public class HttpService extends AbstractService {
                                                               server.getMetadataStore(),
                                                               server.getVoldemortConfig(),
                                                               server.getAsyncRunner(),
+                                                              null,
                                                               null).getRequestHandler(requestType);
     }
 
@@ -133,8 +134,7 @@ public class HttpService extends AbstractService {
         this.context = null;
     }
 
-    @JmxGetter(name = "numberOfThreads",
-            description = "The number of threads used for the thread pool for HTTP.")
+    @JmxGetter(name = "numberOfThreads", description = "The number of threads used for the thread pool for HTTP.")
     public int getNumberOfThreads() {
         return numberOfThreads;
     }

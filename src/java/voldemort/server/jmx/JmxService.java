@@ -96,6 +96,18 @@ public class JmxService extends AbstractService {
         registeredBeans.clear();
     }
 
+    public void registerServices(List<VoldemortService> services) {
+        for(VoldemortService service: services) {
+            registerBean(service, JmxUtils.createObjectName(service.getClass()));
+        }
+    }
+
+    public void unregisterServices(List<VoldemortService> services) {
+        for(VoldemortService service: services) {
+            unregisterBean(JmxUtils.createObjectName(service.getClass()));
+        }
+    }
+
     private void registerBean(Object o, ObjectName name) {
         synchronized(registeredBeans) {
             try {
@@ -111,4 +123,19 @@ public class JmxService extends AbstractService {
         }
     }
 
+    private void unregisterBean(ObjectName name) {
+        synchronized(registeredBeans) {
+            try {
+                if(mbeanServer.isRegistered(name)) {
+                    logger.warn("Overwriting mbean " + name);
+                    JmxUtils.unregisterMbean(mbeanServer, name);
+                }
+                if(registeredBeans.contains(name)) {
+                    registeredBeans.remove(name);
+                }
+            } catch(Exception e) {
+                logger.error("Error unregistering bean with name '" + name + "':", e);
+            }
+        }
+    }
 }
