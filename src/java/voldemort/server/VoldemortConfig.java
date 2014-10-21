@@ -56,6 +56,7 @@ import voldemort.store.readonly.InterpolationSearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.venice.KafkaConsumerConfig;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
@@ -206,6 +207,8 @@ public class VoldemortConfig implements Serializable {
     private boolean enableQuotaLimiting;
     private boolean enableVeniceRouting;
 
+    private KafkaConsumerConfig kafkaConsumerConfig;
+
     private List<String> storageConfigurations;
 
     private Props allProps;
@@ -263,12 +266,6 @@ public class VoldemortConfig implements Serializable {
     private int repairJobMaxKeysScannedPerSec;
     private int pruneJobMaxKeysScannedPerSec;
     private int slopPurgeJobMaxKeysScannedPerSec;
-
-    private int veniceKafkaPartitionCount;
-    private int veniceKafkaPartitionThreads;
-    private String veniceKafkaBroker;
-    private String veniceKafkaTopicName;
-    private int veniceKafkaBrokerPort;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -473,12 +470,10 @@ public class VoldemortConfig implements Serializable {
         this.enableQuotaLimiting = props.getBoolean("enable.quota.limiting", true);
         this.enableVeniceRouting = props.getBoolean("enable.venice", false);
 
-        // for venice layer routing
-        this.veniceKafkaBroker = props.getString("venice.kafka.broker", "localhost");
-        this.veniceKafkaBrokerPort = props.getInt("venice.kafka.broker.port", 9092);
-        this.veniceKafkaPartitionCount = props.getInt("venice.kafka.partition.count", 2);
-        this.veniceKafkaPartitionThreads = props.getInt("venice.kafka.partition.thread.count", 1);
-        this.veniceKafkaTopicName = props.getString("venice.kafka.topic.name", "default_topic");
+        // creates a new config object specifically for Venice
+        if (this.enableVeniceRouting) {
+            kafkaConsumerConfig = new KafkaConsumerConfig(props);
+        }
 
         this.gossipIntervalMs = props.getInt("gossip.interval.ms", 30 * 1000);
 
@@ -2995,7 +2990,13 @@ public class VoldemortConfig implements Serializable {
         return enableQuotaLimiting;
     }
 
-    public boolean isVeniceEnabled() { return enableVeniceRouting; }
+    public boolean isVeniceEnabled() {
+        return enableVeniceRouting;
+    }
+
+    public KafkaConsumerConfig getKafkaConsumerConfig() {
+        return kafkaConsumerConfig;
+    }
 
     /**
      * If enabled, provides the ability to enforce quotas per operation, per
@@ -3274,76 +3275,6 @@ public class VoldemortConfig implements Serializable {
 
     public String getFileFetcherClass() {
         return this.fileFetcherClass;
-    }
-
-    /**
-     * Number of Kafka Partitions to be used for the Venice Store Layer
-     *
-     * <ul>
-     * <li>Property :"venice.kafka.partition.count"</li>
-     * <li>Default : 2 </li>
-     * </ul>
-     *
-     * @return
-     */
-    public int getVeniceKafkaPartitionCount() {
-        return veniceKafkaPartitionCount;
-    }
-
-    /**
-     * Number of Threads to use for consumption in each Kafka Partition
-     *
-     * <ul>
-     * <li>Property :"venice.kafka.partition.thread.count"</li>
-     * <li>Default : 1 </li>
-     * </ul>
-     *
-     * @return
-     */
-    public int getVeniceKafkaPartitionThreads() {
-        return veniceKafkaPartitionThreads;
-    }
-
-    /**
-     * Name of the Kafka Broker Host
-     *
-     * <ul>
-     * <li>Property :"venice.kafka.broker"</li>
-     * <li>Default : "localhost"</li>
-     * </ul>
-     *
-     * @return
-     */
-    public String getVeniceKafkaBroker() {
-        return veniceKafkaBroker;
-    }
-
-    /**
-     * Name of the Kafka topic to consume from
-     *
-     * <ul>
-     * <li>Property :"venice.kafka.topic.name"</li>
-     * <li>Default : "default_topic"</li>
-     * </ul>
-     *
-     * @return
-     */
-    public String getVeniceKafkaTopicName() {
-        return veniceKafkaTopicName;
-    }
-
-    /**
-     * Port on the Kafka Broker to read Kafka from
-     *
-     * <ul>
-     * <li>Property :"venice.kafka.broker.port"</li>
-     * <li>Default : 9092</li>
-     * </ul>
-     *
-     * @return
-     */
-    public int getVeniceKafkaBrokerPort() {
-        return veniceKafkaBrokerPort;
     }
 
 }

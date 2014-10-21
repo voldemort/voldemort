@@ -84,8 +84,9 @@ public class VeniceSerializer implements Encoder<VeniceMessage>, Decoder<VeniceM
 
     } catch (IOException e) {
 
-      logger.error("IOException while converting: " + e);
+      logger.error("IOException while performing deserialization: " + e);
       e.printStackTrace();
+      return new VeniceMessage(OperationType.ERROR, "");
 
     } finally {
 
