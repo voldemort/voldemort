@@ -479,10 +479,6 @@ public class StoreDefinitionsMapper {
 
     }
 
-    public void setStoreVeniceEnabledElmt(boolean b) {
-
-    }
-
     public String writeStoreList(List<StoreDefinition> stores) {
         Element root = new Element(STORES_ELMT);
         for(StoreDefinition def: stores) {
