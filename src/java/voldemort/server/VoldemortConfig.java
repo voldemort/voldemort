@@ -56,7 +56,6 @@ import voldemort.store.readonly.InterpolationSearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.stats.StatTrackingStore;
-import voldemort.store.venice.KafkaConsumerConfig;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
@@ -206,8 +205,6 @@ public class VoldemortConfig implements Serializable {
     private boolean enableJmxClusterName;
     private boolean enableQuotaLimiting;
     private boolean enableVeniceRouting;
-
-    private KafkaConsumerConfig kafkaConsumerConfig;
 
     private List<String> storageConfigurations;
 
@@ -469,11 +466,6 @@ public class VoldemortConfig implements Serializable {
         this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
         this.enableQuotaLimiting = props.getBoolean("enable.quota.limiting", true);
         this.enableVeniceRouting = props.getBoolean("enable.venice", false);
-
-        // creates a new config object specifically for Venice
-        if (this.enableVeniceRouting) {
-            kafkaConsumerConfig = new KafkaConsumerConfig(props);
-        }
 
         this.gossipIntervalMs = props.getInt("gossip.interval.ms", 30 * 1000);
 
@@ -2992,10 +2984,6 @@ public class VoldemortConfig implements Serializable {
 
     public boolean isVeniceEnabled() {
         return enableVeniceRouting;
-    }
-
-    public KafkaConsumerConfig getKafkaConsumerConfig() {
-        return kafkaConsumerConfig;
     }
 
     /**

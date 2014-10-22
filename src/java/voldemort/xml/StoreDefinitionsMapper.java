@@ -279,13 +279,11 @@ public class StoreDefinitionsMapper {
         if(memoryFootprintStr != null)
             memoryFootprintMB = Long.parseLong(memoryFootprintStr);
 
-        KafkaConsumerDefinition kafkaConsumer;
-        try {
+        KafkaConsumerDefinition kafkaConsumer = null;
+
+        // Venice tag is not mandatory
+        if (store.getChild(STORE_VENICE_ELMT) != null)
             kafkaConsumer = readKafkaConsumer(store.getChild(STORE_VENICE_ELMT));
-        } catch (Exception e) {
-            logger.error("Caught exception while initializing kafka consumer definition: " + e);
-            kafkaConsumer = null;
-        }
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
@@ -435,8 +433,11 @@ public class StoreDefinitionsMapper {
      * */
     public KafkaConsumerDefinition readKafkaConsumer(Element elmt) {
 
-        boolean enableVenice = new Boolean(elmt.getChildText(STORE_VENICE_ENABLED_ELMT));
+        if (null == elmt) {
+            return null;
+        }
 
+        boolean enableVenice = new Boolean(elmt.getChildText(STORE_VENICE_ENABLED_ELMT));
         if (!enableVenice) {
             return null;
         }
