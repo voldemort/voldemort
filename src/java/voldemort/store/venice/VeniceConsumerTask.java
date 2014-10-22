@@ -48,7 +48,7 @@ public class VeniceConsumerTask implements Runnable {
     private final int FIND_LEADER_CYCLE_DELAY = 1000;
     private final int READ_CYCLE_DELAY = 500;
 
-    private KafkaConsumerConfig consumerConfig;
+    private KafkaConsumerDefinition consumerDefinition;
 
     // kafka metadata
     private String topic;
@@ -65,10 +65,10 @@ public class VeniceConsumerTask implements Runnable {
     private VeniceSerializer serializer;
     private VeniceStore store;
 
-    public VeniceConsumerTask(VeniceStore store, KafkaConsumerConfig consumerConfig, int partition, long startingOffset) {
+    public VeniceConsumerTask(VeniceStore store, KafkaConsumerDefinition consumerDefinition, int partition, long startingOffset) {
 
         this.store = store;
-        this.consumerConfig = consumerConfig;
+        this.consumerDefinition = consumerDefinition;
 
         // static serialization service for Venice Messages
         this.serializer = new VeniceSerializer(new VerifiableProperties());
@@ -79,9 +79,9 @@ public class VeniceConsumerTask implements Runnable {
 
         // consumer configurables
         this.partition = partition;
-        this.topic = consumerConfig.getKafkaTopicName();
-        this.seedBrokers = consumerConfig.getKafkaBrokers();
-        this.port = consumerConfig.getKafkaBrokerPort();
+        this.topic = consumerDefinition.getKafkaTopicName();
+        this.seedBrokers = consumerDefinition.getKafkaBrokers();
+        this.port = consumerDefinition.getKafkaBrokerPort();
 
         // a unique client name for Kafka debugging
         this.consumerClientName = "Voldemort_Venice_" + topic + "_" + partition;
@@ -91,8 +91,8 @@ public class VeniceConsumerTask implements Runnable {
     /**
      *  Constuctor that sets the starting offset value to the default value of -1
      * */
-    public VeniceConsumerTask(VeniceStore store, KafkaConsumerConfig consumerConfig, int partition) {
-        this(store, consumerConfig, partition, -1);
+    public VeniceConsumerTask(VeniceStore store, KafkaConsumerDefinition consumerDefinition, int partition) {
+        this(store, consumerDefinition, partition, -1);
     }
 
     /**
@@ -114,14 +114,14 @@ public class VeniceConsumerTask implements Runnable {
             if (null == consumer) {
                 consumer = new SimpleConsumer(leadBroker,
                         port,
-                        consumerConfig.getRequestTimeout(),
-                        consumerConfig.getRequestBufferSize(),
+                        consumerDefinition.getRequestTimeout(),
+                        consumerDefinition.getRequestBufferSize(),
                         consumerClientName);
             }
 
             FetchRequest req = new FetchRequestBuilder()
                     .clientId(consumerClientName)
-                    .addFetch(topic, partition, readOffset, consumerConfig.getRequestFetchSize())
+                    .addFetch(topic, partition, readOffset, consumerDefinition.getRequestFetchSize())
                     .build();
 
             FetchResponse fetchResponse = consumer.fetch(req);
@@ -167,8 +167,8 @@ public class VeniceConsumerTask implements Runnable {
             String leadBroker = metadata.leader().get().host();
             consumer = new SimpleConsumer(leadBroker,
                     port,
-                    consumerConfig.getRequestTimeout(),
-                    consumerConfig.getRequestBufferSize(),
+                    consumerDefinition.getRequestTimeout(),
+                    consumerDefinition.getRequestBufferSize(),
                     consumerClientName);
 
             // read from the last available offset if not given
@@ -365,7 +365,7 @@ public class VeniceConsumerTask implements Runnable {
      * */
     private String findNewLeader(String oldLeader, String topic, int partition, int port) throws Exception {
 
-        for (int i = 0; i < consumerConfig.getNumberOfRetriesBeforeFailure(); i++) {
+        for (int i = 0; i < consumerDefinition.getNumberOfRetriesBeforeFailure(); i++) {
 
             boolean goToSleep;
             PartitionMetadata metadata = findLeader(replicaBrokers, port, topic, partition);
@@ -417,8 +417,8 @@ public class VeniceConsumerTask implements Runnable {
 
                 consumer = new SimpleConsumer(host,
                         port,
-                        consumerConfig.getRequestTimeout(),
-                        consumerConfig.getRequestBufferSize(),
+                        consumerDefinition.getRequestTimeout(),
+                        consumerDefinition.getRequestBufferSize(),
                         LEADER_ELECTION_TASK_NAME);
 
                 Seq<String> topics = JavaConversions.asScalaBuffer(Collections.singletonList(topic));

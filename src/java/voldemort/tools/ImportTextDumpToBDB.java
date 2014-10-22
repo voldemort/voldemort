@@ -163,7 +163,7 @@ public class ImportTextDumpToBDB {
         BdbStorageConfiguration bdbConfiguration = new BdbStorageConfiguration(voldemortConfig);
         class MockStoreDefinition extends StoreDefinition {
             public MockStoreDefinition() {
-                super(storeName,null,null,null,null,null,null,null,0,null,0,null,0,null,null,null,null,null,null,null,null,null,null,null,null,0);
+                super(storeName,null,null,null,null,null,null,null,0,null,0,null,0,null,null,null,null,null,null,null,null,null,null,null,null,0,null);
             }
             @Override
             public boolean hasMemoryFootprint() {

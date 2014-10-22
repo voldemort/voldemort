@@ -326,7 +326,9 @@ public class StorageService extends AbstractService {
                                                                       null,
                                                                       null,
                                                                       null,
-                                                                      0);
+                                                                      0,
+                                                                      null);
+
             SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(slopStoreDefinition,
                                                                                  new RoutingStrategyFactory().updateRoutingStrategy(slopStoreDefinition,
                                                                                                                                     metadata.getCluster())),
@@ -901,11 +903,13 @@ public class StorageService extends AbstractService {
 
         // let Venice be the outermost layer as all writes will be funnelled into Venice from Kafka
         // this means anything outside of this layer will be skipped by Venice!
-        if (voldemortConfig.isVeniceEnabled()) {
-            store = new VeniceStore<>(store, voldemortConfig.getKafkaConsumerConfig());
+        if(storeDef != null && storeDef.getKafkaConsumer() != null) {
+            logger.info("Initializing Venice Store on " + store.getName() + " store.");
+            store = new VeniceStore<ByteArray, byte[], byte[]>(store, storeDef.getKafkaConsumer());
         }
 
         storeRepository.addLocalStore(store);
+
     }
 
     /**

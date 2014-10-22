@@ -38,7 +38,8 @@
             <xs:element name="enable-hinted-handoff" type="xs:boolean" minOccurs="0" maxOccurs="1" />
             <xs:element name="hinted-handoff-strategy" type="xs:token" minOccurs="0" maxOccurs="1" />
             <xs:element name="hint-preflist-size" type="xs:token" minOccurs="0" maxOccurs="1" />
-			<xs:element name="key-serializer" type="serializer" />
+            <xs:element name="venice" type="kafka-consumer" minOccurs="0" maxOccurs="1" />
+            <xs:element name="key-serializer" type="serializer" />
 			<xs:element name="value-serializer" type="serializer" />
 			<xs:element name="retention-days" type="xs:nonNegativeInteger"
 				minOccurs="0" maxOccurs="1" />
@@ -122,5 +123,16 @@
 			<xs:enumeration value="none" />
 		</xs:restriction>
 	</xs:simpleType>
+
+    <!-- A key or value serializer -->
+    <xs:complexType name="kafka-consumer">
+        <xs:sequence>
+            <xs:element name="enabled" type="xs:boolean" minOccurs="0" maxOccurs="1" />
+            <xs:element name="kafka-topic-name" type="xs:token" minOccurs="0" maxOccurs="1" />
+            <xs:element name="kafka-broker-url" type="xs:token" minOccurs="0" maxOccurs="1" />
+            <xs:element name="kafka-zookeeper-url" type="xs:token" minOccurs="0" maxOccurs="1" />
+            <xs:element name="kafka-partition-count" type="xs:int" minOccurs="0" maxOccurs="1" />
+        </xs:sequence>
+    </xs:complexType>
 
 </xs:schema>

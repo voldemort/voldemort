@@ -21,6 +21,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,7 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.system.SystemStoreConstants;
+import voldemort.store.venice.KafkaConsumerDefinition;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.Utils;
 
@@ -100,6 +102,14 @@ public class StoreDefinitionsMapper {
     public final static String VIEW_SERIALIZER_FACTORY_ELMT = "view-serializer-factory";
     private final static String STORE_VERSION_ATTR = "version";
     private final static String STORE_MEMORY_FOOTPRINT = "memory-footprint";
+
+    private final static String STORE_VENICE_ELMT = "venice";
+    private final static String STORE_VENICE_ENABLED_ELMT = "enabled";
+    private final static String STORE_VENICE_TOPIC_NAME = "kafka-topic-name";
+    private final static String STORE_KAFKA_BROKER_URL_ELMT = "kafka-broker-url";
+    private final static String STORE_KAFKA_ZOOKEEPER_URL_ELMT = "kafka-zookeeper-url";
+    private final static String STORE_KAFKA_PARTITION_COUNT_ELMT = "kafka-partition-count";
+
     private static final Logger logger = Logger.getLogger(StoreDefinitionsMapper.class.getName());
 
     private final Schema schema;
@@ -269,6 +279,14 @@ public class StoreDefinitionsMapper {
         if(memoryFootprintStr != null)
             memoryFootprintMB = Long.parseLong(memoryFootprintStr);
 
+        KafkaConsumerDefinition kafkaConsumer;
+        try {
+            kafkaConsumer = readKafkaConsumer(store.getChild(STORE_VENICE_ELMT));
+        } catch (Exception e) {
+            logger.error("Caught exception while initializing kafka consumer definition: " + e);
+            kafkaConsumer = null;
+        }
+
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
                                            .setDescription(description)
@@ -291,6 +309,7 @@ public class StoreDefinitionsMapper {
                                            .setHintedHandoffStrategy(hintedHandoffStrategy)
                                            .setHintPrefListSize(hintPrefListSize)
                                            .setMemoryFootprintMB(memoryFootprintMB)
+                                           .setKafkaConsumer(kafkaConsumer)
                                            .build();
     }
 
@@ -406,6 +425,61 @@ public class StoreDefinitionsMapper {
             compression = new Compression(compressionElmt.getChildText("type"),
                                           compressionElmt.getChildText("options"));
         return new SerializerDefinition(name, schemaInfosByVersion, hasVersion, compression);
+    }
+
+    /**
+     * Given an stores.xml venice element, initializes a venice consumer configuration object.
+     * The XML element must be directly above the venice configuration tags
+     * Note that if an illegal configuration is given, venice will be disabled.
+     * A null return object signifies that venice is disabled.
+     * */
+    public KafkaConsumerDefinition readKafkaConsumer(Element elmt) {
+
+        boolean enableVenice = new Boolean(elmt.getChildText(STORE_VENICE_ENABLED_ELMT));
+
+        if (!enableVenice) {
+            return null;
+        }
+
+        // Check for variables that MUST be set properly for Venice to run
+        String kafkaBrokerUrl = elmt.getChildText(STORE_KAFKA_BROKER_URL_ELMT);
+        if (null == kafkaBrokerUrl) {
+            logger.error("Kafka broker is not given. Disabling Venice.");
+            return null;
+        }
+
+        String kafkaTopicName = elmt.getChildText(STORE_VENICE_TOPIC_NAME);
+        if (null == kafkaTopicName) {
+            logger.error("Kafka topic is not properly given. Disabling Venice.");
+            return null;
+        }
+
+        int kafkaPartitionCount = new Integer(elmt.getChildText(STORE_KAFKA_PARTITION_COUNT_ELMT));
+        if (0 == kafkaPartitionCount) {
+            logger.error("Kafka partition count is not given or set properly. Disabling Venice.");
+            return null;
+        }
+
+        // split the kafka URL
+        String[] kafkaUrlSplits = kafkaBrokerUrl.split(":");
+        List<String> brokerList = null;
+        int kafkaBrokerPort = -1;
+
+        // Retrieve the host and post of the URL
+        if (kafkaUrlSplits.length == 2) {
+            brokerList = Arrays.asList(kafkaBrokerUrl.split(":")[0]);
+            kafkaBrokerPort = Integer.parseInt(kafkaBrokerUrl.split(":")[1]);
+        } else {
+            logger.error("Kafka URL is of an illegal format. Disabling Venice...");
+            return null;
+        }
+
+        return new KafkaConsumerDefinition(brokerList, kafkaBrokerPort, kafkaPartitionCount, kafkaTopicName);
+
+    }
+
+    public void setStoreVeniceEnabledElmt(boolean b) {
+
     }
 
     public String writeStoreList(List<StoreDefinition> stores) {

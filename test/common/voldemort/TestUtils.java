@@ -509,7 +509,8 @@ public class TestUtils {
                                    null,
                                    null,
                                    null,
-                                   0);
+                                   0,
+                                   null);
     }
 
     /**
@@ -542,7 +543,8 @@ public class TestUtils {
                                    null,
                                    null,
                                    null,
-                                   memFootprintMB);
+                                   memFootprintMB,
+                                   null);
     }
 
     /**
