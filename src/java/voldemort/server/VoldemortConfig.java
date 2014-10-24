@@ -19,6 +19,7 @@ package voldemort.server;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.Timer;
@@ -56,6 +57,7 @@ import voldemort.store.readonly.InterpolationSearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.venice.VeniceConsumerTuning;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
@@ -92,6 +94,15 @@ public class VoldemortConfig implements Serializable {
     private String voldemortHome;
     private String dataDirectory;
     private String metadataDirectory;
+
+    private boolean veniceEnabled;
+    private List<String> veniceKafkaBrokerList;
+    private int veniceKafkaBrokerPort;
+    private VeniceConsumerTuning veniceConsumerTuning;
+    private int veniceNumberOfRetriesBeforeFailure;
+    private int veniceKafkaRequestTimeout;
+    private int veniceKafkaRequestFetchSize;
+    private int veniceKafkaRequestBufferSize;
 
     private long bdbCacheSize;
     private boolean bdbWriteTransactions;
@@ -204,7 +215,6 @@ public class VoldemortConfig implements Serializable {
     private boolean enableRebalanceService;
     private boolean enableJmxClusterName;
     private boolean enableQuotaLimiting;
-    private boolean enableVeniceRouting;
 
     private List<String> storageConfigurations;
 
@@ -279,6 +289,23 @@ public class VoldemortConfig implements Serializable {
                                                                + "data");
         this.metadataDirectory = props.getString("metadata.directory", voldemortHome
                                                                        + File.separator + "config");
+
+        this.veniceEnabled = props.getBoolean("venice.enabled", false);
+        this.veniceKafkaBrokerList = Arrays.asList(props.getString("venice.kafka.broker.list", "localhost"));
+        this.veniceKafkaBrokerPort = props.getInt("venice.kafka.port", 9092);
+        this.veniceNumberOfRetriesBeforeFailure = props.getInt("venice.kafka.num.retries",
+                VeniceConsumerTuning.DEFAULT_NUM_RETRIES);
+        this.veniceKafkaRequestTimeout = props.getInt("venice.kafka.request.timeout",
+                VeniceConsumerTuning.DEFAULT_REQUEST_TIMEOUT);
+        this.veniceKafkaRequestFetchSize = props.getInt("venice.kafka.request.fetch.size",
+                VeniceConsumerTuning.DEFAULT_REQUEST_FETCH_SIZE);
+        this.veniceKafkaRequestBufferSize = props.getInt("venice.kafka.request.buffer.size",
+                VeniceConsumerTuning.DEFAULT_REQUEST_BUFFER_SIZE);
+
+        this.veniceConsumerTuning = new VeniceConsumerTuning(veniceNumberOfRetriesBeforeFailure,
+                                                             veniceKafkaRequestTimeout,
+                                                             veniceKafkaRequestFetchSize,
+                                                             veniceKafkaRequestBufferSize);
 
         this.bdbCacheSize = props.getBytes("bdb.cache.size", 200 * 1024 * 1024);
         this.bdbWriteTransactions = props.getBoolean("bdb.write.transactions", false);
@@ -465,7 +492,6 @@ public class VoldemortConfig implements Serializable {
         this.enableSlopPurgeJob = props.getBoolean("enable.slop.purge.job", true);
         this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
         this.enableQuotaLimiting = props.getBoolean("enable.quota.limiting", true);
-        this.enableVeniceRouting = props.getBoolean("enable.venice", false);
 
         this.gossipIntervalMs = props.getInt("gossip.interval.ms", 30 * 1000);
 
@@ -2983,7 +3009,19 @@ public class VoldemortConfig implements Serializable {
     }
 
     public boolean isVeniceEnabled() {
-        return enableVeniceRouting;
+        return this.veniceEnabled;
+    }
+
+    public List<String> getVeniceKafkaBrokerList() {
+        return this.veniceKafkaBrokerList;
+    }
+
+    public int getVeniceKafkaBrokerPort() {
+        return this.veniceKafkaBrokerPort;
+    }
+
+    public VeniceConsumerTuning getVeniceConsumerTuning() {
+        return this.veniceConsumerTuning;
     }
 
     /**

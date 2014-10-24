@@ -9,6 +9,11 @@
   <required-reads>1</required-reads>
   <required-writes>1</required-writes>
   <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>
+  <venice>
+    <enabled>true</enabled>
+    <kafka-topic-name>default_topic</kafka-topic-name>
+    <kafka-partition-count>5</kafka-partition-count>  
+</venice>
   <key-serializer>
     <type>string</type>
   </key-serializer>

@@ -437,45 +437,38 @@ public class StoreDefinitionsMapper {
             return null;
         }
 
-        boolean enableVenice = new Boolean(elmt.getChildText(STORE_VENICE_ENABLED_ELMT));
-        if (!enableVenice) {
+        // Read <enabled>
+        try {
+            boolean enableVenice = new Boolean(elmt.getChildText(STORE_VENICE_ENABLED_ELMT));
+            if (!enableVenice) {
+                return null;
+            }
+        } catch (Exception e) {
+            logger.error("<enabled> not set properly for venice."); // type cast fails
             return null;
         }
 
-        // Check for variables that MUST be set properly for Venice to run
-        String kafkaBrokerUrl = elmt.getChildText(STORE_KAFKA_BROKER_URL_ELMT);
-        if (null == kafkaBrokerUrl) {
-            logger.error("Kafka broker is not given. Disabling Venice.");
-            return null;
-        }
-
+        // Read <kafka-topic-name>
         String kafkaTopicName = elmt.getChildText(STORE_VENICE_TOPIC_NAME);
         if (null == kafkaTopicName) {
             logger.error("Kafka topic is not properly given. Disabling Venice.");
             return null;
         }
 
-        int kafkaPartitionCount = new Integer(elmt.getChildText(STORE_KAFKA_PARTITION_COUNT_ELMT));
-        if (0 == kafkaPartitionCount) {
-            logger.error("Kafka partition count is not given or set properly. Disabling Venice.");
+        // Read <kafka-partition-count>
+        int kafkaPartitionCount = 0;
+        try {
+            kafkaPartitionCount = new Integer(elmt.getChildText(STORE_KAFKA_PARTITION_COUNT_ELMT));
+            if (kafkaPartitionCount < 1) {
+                logger.error("<kafka-partition-count> is not above 0. Disabling Venice.");
+                return null;
+            }
+        } catch (Exception e) {
+            logger.error("<kafka-partition-count> is not given or set properly. Disabling Venice."); // type cast fails
             return null;
         }
 
-        // split the kafka URL
-        String[] kafkaUrlSplits = kafkaBrokerUrl.split(":");
-        List<String> brokerList = null;
-        int kafkaBrokerPort = -1;
-
-        // Retrieve the host and post of the URL
-        if (kafkaUrlSplits.length == 2) {
-            brokerList = Arrays.asList(kafkaBrokerUrl.split(":")[0]);
-            kafkaBrokerPort = Integer.parseInt(kafkaBrokerUrl.split(":")[1]);
-        } else {
-            logger.error("Kafka URL is of an illegal format. Disabling Venice...");
-            return null;
-        }
-
-        return new KafkaConsumerDefinition(brokerList, kafkaBrokerPort, kafkaPartitionCount, kafkaTopicName);
+        return new KafkaConsumerDefinition(kafkaTopicName, kafkaPartitionCount);
 
     }
 

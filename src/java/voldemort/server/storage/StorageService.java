@@ -901,9 +901,15 @@ public class StorageService extends AbstractService {
 
         // let Venice be the outermost layer as all writes will be funnelled into Venice from Kafka
         // this means anything outside of this layer will be skipped by Venice!
-        if(storeDef != null && storeDef.getKafkaConsumer() != null) {
+        if(voldemortConfig.isVeniceEnabled() && storeDef != null && storeDef.getKafkaConsumer() != null) {
             logger.info("Initializing Venice Store on " + store.getName() + " store.");
-            store = new VeniceStore<ByteArray, byte[], byte[]>(store, storeDef.getKafkaConsumer());
+            store = new VeniceStore<ByteArray, byte[], byte[]>(store,
+                    voldemortConfig.getVeniceKafkaBrokerList(),
+                    voldemortConfig.getVeniceKafkaBrokerPort(),
+                    storeDef.getKafkaConsumer().getKafkaTopicName(),
+                    storeDef.getKafkaConsumer().getKafkaPartitionReplicaCount(),
+                    voldemortConfig.getVeniceConsumerTuning()
+            );
         }
 
         storeRepository.addLocalStore(store);

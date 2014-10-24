@@ -48,7 +48,7 @@ public class VeniceConsumerTask implements Runnable {
     private final int FIND_LEADER_CYCLE_DELAY = 1000;
     private final int READ_CYCLE_DELAY = 500;
 
-    private KafkaConsumerDefinition consumerDefinition;
+    private VeniceConsumerTuning veniceConsumerTuning;
 
     // kafka metadata
     private String topic;
@@ -61,14 +61,19 @@ public class VeniceConsumerTask implements Runnable {
     // offset management
     private long startingOffset;
 
+    // speed and throttling
+    private VeniceConsumerState consumerState;
+
+    // serialization
     private VeniceMessage vm;
     private VeniceSerializer serializer;
     private VeniceStore store;
 
-    public VeniceConsumerTask(VeniceStore store, KafkaConsumerDefinition consumerDefinition, int partition, long startingOffset) {
+    public VeniceConsumerTask(VeniceStore store, List<String> seedBrokers, int port, String topic, int partition,
+                              long startingOffset, VeniceConsumerTuning veniceConsumerTuning) {
 
         this.store = store;
-        this.consumerDefinition = consumerDefinition;
+        this.veniceConsumerTuning = veniceConsumerTuning;
 
         // static serialization service for Venice Messages
         this.serializer = new VeniceSerializer(new VerifiableProperties());
@@ -76,12 +81,13 @@ public class VeniceConsumerTask implements Runnable {
         // consumer metadata
         this.replicaBrokers = new ArrayList<String>();
         this.startingOffset = startingOffset;
+        this.consumerState = VeniceConsumerState.RUNNING;
 
         // consumer configurables
         this.partition = partition;
-        this.topic = consumerDefinition.getKafkaTopicName();
-        this.seedBrokers = consumerDefinition.getKafkaBrokers();
-        this.port = consumerDefinition.getKafkaBrokerPort();
+        this.topic = topic;
+        this.seedBrokers = seedBrokers;
+        this.port = port;
 
         // a unique client name for Kafka debugging
         this.consumerClientName = "Voldemort_Venice_" + topic + "_" + partition;
@@ -91,8 +97,8 @@ public class VeniceConsumerTask implements Runnable {
     /**
      *  Constuctor that sets the starting offset value to the default value of -1
      * */
-    public VeniceConsumerTask(VeniceStore store, KafkaConsumerDefinition consumerDefinition, int partition) {
-        this(store, consumerDefinition, partition, -1);
+    public VeniceConsumerTask(VeniceStore store, List<String> seedBrokers, int port, String topic, int partition, VeniceConsumerTuning veniceConsumerTuning) {
+        this(store, seedBrokers, port, topic, partition, -1, veniceConsumerTuning);
     }
 
     /**
@@ -114,14 +120,14 @@ public class VeniceConsumerTask implements Runnable {
             if (null == consumer) {
                 consumer = new SimpleConsumer(leadBroker,
                         port,
-                        consumerDefinition.getRequestTimeout(),
-                        consumerDefinition.getRequestBufferSize(),
+                        veniceConsumerTuning.getRequestTimeout(),
+                        veniceConsumerTuning.getRequestBufferSize(),
                         consumerClientName);
             }
 
             FetchRequest req = new FetchRequestBuilder()
                     .clientId(consumerClientName)
-                    .addFetch(topic, partition, readOffset, consumerDefinition.getRequestFetchSize())
+                    .addFetch(topic, partition, readOffset, veniceConsumerTuning.getRequestFetchSize())
                     .build();
 
             FetchResponse fetchResponse = consumer.fetch(req);
@@ -167,8 +173,8 @@ public class VeniceConsumerTask implements Runnable {
             String leadBroker = metadata.leader().get().host();
             consumer = new SimpleConsumer(leadBroker,
                     port,
-                    consumerDefinition.getRequestTimeout(),
-                    consumerDefinition.getRequestBufferSize(),
+                    veniceConsumerTuning.getRequestTimeout(),
+                    veniceConsumerTuning.getRequestBufferSize(),
                     consumerClientName);
 
             // read from the last available offset if not given
@@ -183,30 +189,36 @@ public class VeniceConsumerTask implements Runnable {
 
                 long numReadsInIteration = 0;
 
-                Iterator<MessageAndOffset> messageAndOffsetIterator = getMessageAndOffsetIterator(leadBroker,
-                        consumer,
-                        readOffset);
+                // flag that may be set to false if consumer is being throttled/paused
+                if (consumerState != VeniceConsumerState.PAUSED) {
 
-                while (messageAndOffsetIterator.hasNext()) {
+                    Iterator<MessageAndOffset> messageAndOffsetIterator = getMessageAndOffsetIterator(leadBroker,
+                            consumer,
+                            readOffset);
 
-                    MessageAndOffset messageAndOffset = messageAndOffsetIterator.next();
-                    long currentOffset = messageAndOffset.offset();
+                    while (messageAndOffsetIterator.hasNext()) {
 
-                    // TODO: A mismatch here suggests that the given readOffset is incorrect, decide what to do here
-                    if (currentOffset != readOffset) {
-                        throw new VoldemortVeniceException("Found mismatching offsets: " + currentOffset
-                                + " Expecting: " + readOffset);
+                        MessageAndOffset messageAndOffset = messageAndOffsetIterator.next();
+                        long currentOffset = messageAndOffset.offset();
+
+                        // Due to Kafka compression, fetch request may return a bulk of messages,
+                        // including some that have already be read. Thus, push forward to find the one we want.
+                        if (currentOffset < readOffset) {
+                            continue;
+                        }
+
+                        readMessage(messageAndOffset.message());
+                        store.updatePartitionOffset(partition, currentOffset);
+
+                        readOffset = messageAndOffset.nextOffset();
+                        numReadsInIteration++;
+
                     }
-
-                    readMessage(messageAndOffset.message());
-                    store.updatePartitionOffset(partition, currentOffset);
-
-                    readOffset = messageAndOffset.nextOffset();
-                    numReadsInIteration++;
 
                 }
 
                 // Nothing was read in the last iteration, slow down and reduce load on Consumer
+                // Can occur due to throttling or lack of inputs
                 if (0 == numReadsInIteration) {
                     try {
                         Thread.sleep(READ_CYCLE_DELAY);
@@ -303,7 +315,7 @@ public class VeniceConsumerTask implements Runnable {
 
             // deleting values
             case DELETE:
-                logger.info("Partition: " + partition + "Deleting: " + key);
+                logger.info("Partition: " + partition + " Deleting: " + key);
                 store.delete(voldemortKey, new VectorClock());
                 break;
 
@@ -365,7 +377,7 @@ public class VeniceConsumerTask implements Runnable {
      * */
     private String findNewLeader(String oldLeader, String topic, int partition, int port) throws Exception {
 
-        for (int i = 0; i < consumerDefinition.getNumberOfRetriesBeforeFailure(); i++) {
+        for (int i = 0; i < veniceConsumerTuning.getNumberOfRetriesBeforeFailure(); i++) {
 
             boolean goToSleep;
             PartitionMetadata metadata = findLeader(replicaBrokers, port, topic, partition);
@@ -417,8 +429,8 @@ public class VeniceConsumerTask implements Runnable {
 
                 consumer = new SimpleConsumer(host,
                         port,
-                        consumerDefinition.getRequestTimeout(),
-                        consumerDefinition.getRequestBufferSize(),
+                        veniceConsumerTuning.getRequestTimeout(),
+                        veniceConsumerTuning.getRequestBufferSize(),
                         LEADER_ELECTION_TASK_NAME);
 
                 Seq<String> topics = JavaConversions.asScalaBuffer(Collections.singletonList(topic));
@@ -477,6 +489,14 @@ public class VeniceConsumerTask implements Runnable {
 
         return returnMetaData;
 
+    }
+
+    public void setConsumerState(VeniceConsumerState state) {
+        this.consumerState = state;
+    }
+
+    public VeniceConsumerState getConsumerState() {
+        return consumerState;
     }
 
 }
