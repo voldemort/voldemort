@@ -310,13 +310,13 @@ public class VeniceConsumerTask implements Runnable {
             case PUT:
                 logger.info("Partition: " + partition + " Putting: " + key + ", " + msg.getPayload());
                 versionedMessage = new Versioned<byte[]>(msg.getPayload().getBytes());
-                store.put(voldemortKey, versionedMessage, null);
+                store.putFromKafka(voldemortKey, versionedMessage, null);
                 break;
 
             // deleting values
             case DELETE:
                 logger.info("Partition: " + partition + " Deleting: " + key);
-                store.delete(voldemortKey, new VectorClock());
+                store.deleteFromKafka(voldemortKey, new VectorClock());
                 break;
 
             // partial update

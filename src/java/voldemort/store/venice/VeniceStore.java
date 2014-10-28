@@ -57,16 +57,16 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
     // or creating a wrapper script that starts Kafka and Venice together?
     public void startUpConsumers() {
 
-        // Create n consumers for p partitions. Total count will be n * p.
+        // Create a consumers for each partition.
         for (int partition = 0; partition < replicaCount; partition++) {
 
-            if (partitionOffsetMap.containsKey(partition)) {
-                task = new VeniceConsumerTask(this, seedBrokers, port, topic, partition,
-                        partitionOffsetMap.get(partition), consumerTuning);
-            } else {
-                task = new VeniceConsumerTask(this, seedBrokers, port, topic, partition, consumerTuning);
+            if (!partitionOffsetMap.containsKey(partition)) {
+                // initialize a new offset at -1
                 partitionOffsetMap.put(partition, new Long(-1));
             }
+
+            task = new VeniceConsumerTask(this, seedBrokers, port, topic, partition,
+                    partitionOffsetMap.get(partition), consumerTuning);
 
             // launch each consumer task on a new thread
             executor = Executors.newFixedThreadPool(1);
@@ -113,7 +113,8 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     @Override
     public boolean delete(K key, Version version) throws VoldemortException {
-        return super.delete(key, version);
+        logger.error("Cannot execute delete: This store is configured to use Venice only!");
+        return false;
     }
 
     @Override
@@ -131,7 +132,21 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     @Override
     public void put(K key, Versioned<V> value, T transform) throws VoldemortException {
+        logger.error("Cannot execute put: This store is configured to use Venice only!");
+    }
+
+    /**
+     * A put API designed to only be used by the VeniceConsumerTask
+     * */
+    protected void putFromKafka(K key, Versioned<V> value, T transform) throws VoldemortException {
         super.put(key, value, transform);
+    }
+
+    /**
+     * A delete API designed to only be used by the VeniceConsumerTask
+     * */
+    protected boolean deleteFromKafka(K key, Version version) throws VoldemortException {
+        return super.delete(key, version);
     }
 
 }
