@@ -6,7 +6,7 @@ import java.util.List;
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
-import voldemort.store.venice.KafkaConsumerDefinition;
+import voldemort.store.venice.KafkaTopicDefinition;
 import voldemort.utils.Utils;
 
 /**
@@ -43,7 +43,7 @@ public class StoreDefinitionBuilder {
     private Integer hintPrefListSize = null;
     private List<String> owners = null;
     private long memoryFootprintMB = 0;
-    private KafkaConsumerDefinition kafkaConsumer = null;
+    private KafkaTopicDefinition kafkaConsumer = null;
 
     public String getName() {
         return Utils.notNull(name);
@@ -295,11 +295,11 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
-    public KafkaConsumerDefinition getKafkaConsumer() {
+    public KafkaTopicDefinition getKafkaConsumer() {
         return this.kafkaConsumer;
     }
 
-    public StoreDefinitionBuilder setKafkaConsumer(KafkaConsumerDefinition kafkaConsumer) {
+    public StoreDefinitionBuilder setKafkaConsumer(KafkaTopicDefinition kafkaConsumer) {
         this.kafkaConsumer = kafkaConsumer;
         return this;
     }

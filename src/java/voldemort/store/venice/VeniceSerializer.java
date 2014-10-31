@@ -44,7 +44,7 @@ public class VeniceSerializer implements Encoder<VeniceMessage>, Decoder<VeniceM
     byte magicByte;
     byte schemaVersion;
     OperationType operationType = null;
-    StringBuffer payload = new StringBuffer();
+    byte[] output = null;
 
     ByteArrayInputStream bytesIn = null;
     ObjectInputStream ois = null;
@@ -78,15 +78,16 @@ public class VeniceSerializer implements Encoder<VeniceMessage>, Decoder<VeniceM
       /* read payload, one character at a time */
       int byteCount = ois.available();
 
+      output = new byte[byteCount];
       for (int i = 0; i < byteCount; i++) {
-        payload.append(Character.toString((char) ois.readByte()));
+        output[i] = ois.readByte();
       }
 
     } catch (IOException e) {
 
       logger.error("IOException while performing deserialization: " + e);
       e.printStackTrace();
-      return new VeniceMessage(OperationType.ERROR, "");
+      return new VeniceMessage(OperationType.ERROR, new byte[0]);
 
     } finally {
 
@@ -96,7 +97,7 @@ public class VeniceSerializer implements Encoder<VeniceMessage>, Decoder<VeniceM
 
     }
 
-    return new VeniceMessage(operationType, payload.toString());
+    return new VeniceMessage(operationType, output);
 
   }
 
@@ -136,7 +137,7 @@ public class VeniceSerializer implements Encoder<VeniceMessage>, Decoder<VeniceM
       oos.writeByte(vm.getSchemaVersion());
 
       // write the payload to the byte array
-      oos.writeBytes(vm.getPayload());
+      oos.write(vm.getPayload());
       oos.flush();
 
       message = bytesOut.toByteArray();

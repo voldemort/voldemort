@@ -6,13 +6,13 @@ package voldemort.store.venice;
  * Read from the stores.xml files
  *
  */
-public class KafkaConsumerDefinition {
+public class KafkaTopicDefinition {
 
     private int kafkaPartitionReplicaCount;
-    private String kafkaTopicName;
+    private String name;
 
-    public KafkaConsumerDefinition(String kafkaTopicName, int kafkaPartitionReplicaCount) {
-        this.kafkaTopicName = kafkaTopicName;
+    public KafkaTopicDefinition(String kafkaTopicName, int kafkaPartitionReplicaCount) {
+        this.name = kafkaTopicName;
         this.kafkaPartitionReplicaCount = kafkaPartitionReplicaCount;
     }
 
@@ -20,8 +20,8 @@ public class KafkaConsumerDefinition {
         return kafkaPartitionReplicaCount;
     }
 
-    public String getKafkaTopicName() {
-        return kafkaTopicName;
+    public String getName() {
+        return name;
     }
 
 }

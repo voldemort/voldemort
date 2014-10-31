@@ -24,6 +24,9 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import kafka.producer.Partitioner;
+import kafka.utils.VerifiableProperties;
+import org.apache.commons.codec.DecoderException;
 import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
@@ -47,7 +50,7 @@ import com.google.common.collect.Sets;
  * 
  * 
  */
-public class ConsistentRoutingStrategy implements RoutingStrategy {
+public class ConsistentRoutingStrategy implements RoutingStrategy, Partitioner {
 
     // the replication factor.
     private final int numReplicas;
@@ -55,6 +58,15 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     private final HashFunction hash;
 
     private static final Logger logger = Logger.getLogger(ConsistentRoutingStrategy.class);
+
+    /**
+     * Constructor used by the Kafka Producer
+     * */
+    public ConsistentRoutingStrategy(VerifiableProperties properties) {
+        numReplicas = -1;
+        partitionToNode = new Node[0];
+        hash = new FnvHashFunction();
+    }
 
     public ConsistentRoutingStrategy(Cluster cluster, int numReplicas) {
         this(new FnvHashFunction(), cluster, numReplicas);
@@ -72,7 +84,6 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     public ConsistentRoutingStrategy(HashFunction hash, Cluster cluster, int numReplicas) {
         this.numReplicas = numReplicas;
         this.hash = hash;
-
         this.partitionToNode = cluster.getPartitionIdToNodeArray();
     }
 
@@ -119,6 +130,9 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
             return new ArrayList<Node>(0);
         // pull out the nodes corresponding to the target partitions
         List<Node> preferenceList = new ArrayList<Node>(partitionList.size());
+
+        logger.info("Key " + ByteUtils.toHexString(key) + " mapped to partitions " + partitionList);
+
         for(int partition: partitionList) {
             preferenceList.add(partitionToNode[partition]);
         }
@@ -169,7 +183,43 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
      */
     @Override
     public Integer getMasterPartition(byte[] key) {
-        return abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
+        return getMasterPartition(key, partitionToNode.length);
+    }
+
+    /**
+     * A new function created to be used by both clients and Kafka
+     * */
+    private int getMasterPartition(byte[] key, int numReplicas) {
+        return abs(hash.hash(key)) % (Math.max(1, numReplicas));
+    }
+
+    /**
+     * Obtain the master partition for a given key and number of replicas
+     * This class is used by Kafka producer to determine the partition location
+     *
+     * @param key
+     * @param numReplicas
+     * @return master partition id
+     */
+    @Override
+    public int partition(Object key, int numReplicas) {
+        byte[] byteKey;
+
+        try {
+            byteKey = ByteUtils.fromHexString(key.toString());
+        } catch (DecoderException e) {
+            logger.error(e);
+            e.printStackTrace();
+            return -1;
+        }
+
+        int partition = getMasterPartition(byteKey, numReplicas);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Hashing: " + key.toString() + " goes to partition "
+                    + partition + " of [0," + (numReplicas - 1) + "]");
+        }
+        return partition;
+
     }
 
     @Override

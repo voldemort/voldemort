@@ -25,6 +25,7 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
     private VeniceConsumerTask task;
 
     // offset management
+    private List<Integer> partitionIds;
     private Map<Integer, VeniceConsumerTask> partitionTaskMap;
     private Map<Integer, Long> partitionOffsetMap;
 
@@ -35,9 +36,9 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     // store level configs
     private String topic;
-    private int replicaCount;
 
-    public VeniceStore(Store<K, V, T> store, List<String> seedBrokers, int port, String topic, int replicaCount, VeniceConsumerTuning consumerTuning) {
+    public VeniceStore(Store<K, V, T> store, List<String> seedBrokers, int port, String topic,
+                       List<Integer> partitionIds, VeniceConsumerTuning consumerTuning) {
 
         super(store);
 
@@ -45,7 +46,8 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
         this.port = port;
         this.consumerTuning = consumerTuning;
         this.topic = topic;
-        this.replicaCount = replicaCount;
+
+        this.partitionIds = partitionIds;
         this.partitionOffsetMap = new ConcurrentHashMap<Integer, Long>();
         this.partitionTaskMap = new HashMap<Integer, VeniceConsumerTask>();
 
@@ -57,8 +59,8 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
     // or creating a wrapper script that starts Kafka and Venice together?
     public void startUpConsumers() {
 
-        // Create a consumers for each partition.
-        for (int partition = 0; partition < replicaCount; partition++) {
+        // Create n consumers for p partitions. Total count will be n * p.
+        for (int partition : partitionIds) {
 
             if (!partitionOffsetMap.containsKey(partition)) {
                 // initialize a new offset at -1

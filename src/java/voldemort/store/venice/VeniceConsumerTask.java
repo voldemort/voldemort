@@ -146,15 +146,11 @@ public class VeniceConsumerTask implements Runnable {
                     logger.error("Error while finding new leader: " + e);
                     return null;
                 }
-
             } else {
                 messageAndOffsetIterator = fetchResponse.messageSet(topic, partition).iterator();
             }
-
         }
-
         return messageAndOffsetIterator;
-
     }
 
     /**
@@ -212,11 +208,8 @@ public class VeniceConsumerTask implements Runnable {
 
                         readOffset = messageAndOffset.nextOffset();
                         numReadsInIteration++;
-
                     }
-
                 }
-
                 // Nothing was read in the last iteration, slow down and reduce load on Consumer
                 // Can occur due to throttling or lack of inputs
                 if (0 == numReadsInIteration) {
@@ -226,27 +219,23 @@ public class VeniceConsumerTask implements Runnable {
                     }
                 }
             }
-
         } catch (VoldemortVeniceException e) {
-
             logger.error("Killing Consumer Task on [" + topic + ", " + partition + "]");
             logger.error(e);
             e.printStackTrace();
 
         } catch (VoldemortException e) {
-
             logger.error(e);
             e.printStackTrace();
 
         } finally {
 
+            // TODO: find a safe way to restart consumer tasks after they die
             if (consumer != null) {
-                logger.warn("Closing consumer..");
+                logger.warn("Closing consumer on [" + topic + ", " + partition + "]");
                 consumer.close();
             }
-
         }
-
     }
 
     /**
@@ -300,7 +289,9 @@ public class VeniceConsumerTask implements Runnable {
             throw new VoldemortVeniceException("Venice Message does not have operation type!");
         }
 
-        Versioned<byte[]> versionedMessage;
+
+        // Provide an empty vector clock for all writes from Kafka
+        VectorClock clock = new VectorClock();
         ByteArray voldemortKey = new ByteArray(key.getBytes());;
 
         switch (msg.getOperationType()) {
@@ -309,14 +300,14 @@ public class VeniceConsumerTask implements Runnable {
             // as Kafka log serves the same purpose of ordering
             case PUT:
                 logger.info("Partition: " + partition + " Putting: " + key + ", " + msg.getPayload());
-                versionedMessage = new Versioned<byte[]>(msg.getPayload().getBytes());
+                Versioned<byte[]> versionedMessage = new Versioned<byte[]>(msg.getPayload(), clock);
                 store.putFromKafka(voldemortKey, versionedMessage, null);
                 break;
 
             // deleting values
             case DELETE:
                 logger.info("Partition: " + partition + " Deleting: " + key);
-                store.deleteFromKafka(voldemortKey, new VectorClock());
+                store.deleteFromKafka(voldemortKey, clock);
                 break;
 
             // partial update

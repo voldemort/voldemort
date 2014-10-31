@@ -262,7 +262,7 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
      * 
      * @param <T> Return type
      * 
-     * @param clientRequest ClientRequest implementation used to write the
+     * @param delegate ClientRequest implementation used to write the
      *        request and read the response
      * @param operationName Simple string representing the type of request
      * 
@@ -357,7 +357,7 @@ public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implem
      * 
      * @param <T> Return type
      * 
-     * @param clientRequest ClientRequest implementation used to write the
+     * @param delegate ClientRequest implementation used to write the
      *        request and read the response
      * @param operationName Simple string representing the type of request
      * 

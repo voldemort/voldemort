@@ -901,13 +901,18 @@ public class StorageService extends AbstractService {
 
         // let Venice be the outermost layer as all writes will be funnelled into Venice from Kafka
         // this means anything outside of this layer will be skipped by Venice!
-        if(voldemortConfig.isVeniceEnabled() && storeDef != null && storeDef.getKafkaConsumer() != null) {
+        if(voldemortConfig.isVeniceEnabled() && storeDef != null && storeDef.hasKafkaTopic()) {
+
             logger.info("Initializing Venice Store on " + store.getName() + " store.");
+
+            // create Kafka partitions from the definition in stores.xml file
+            // TODO: add replicas
+            List<Integer> partitionIds = cluster.getNodeById(voldemortConfig.getNodeId()).getPartitionIds();
             store = new VeniceStore<ByteArray, byte[], byte[]>(store,
                     voldemortConfig.getVeniceKafkaBrokerList(),
                     voldemortConfig.getVeniceKafkaBrokerPort(),
-                    storeDef.getKafkaConsumer().getKafkaTopicName(),
-                    storeDef.getKafkaConsumer().getKafkaPartitionReplicaCount(),
+                    storeDef.getKafkaTopic().getName(),
+                    partitionIds,
                     voldemortConfig.getVeniceConsumerTuning()
             );
         }

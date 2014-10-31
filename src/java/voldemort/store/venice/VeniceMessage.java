@@ -6,27 +6,27 @@ package voldemort.store.venice;
 public class VeniceMessage {
 
   // TODO: eliminate magic numbers when finished debugging
-  public static final byte DEFAULT_MAGIC_BYTE = 13;
+  public static final byte DEFAULT_MAGIC_BYTE = 22;
   public static final byte DEFAULT_SCHEMA_VERSION = 17;
 
   private byte magicByte;
   private byte schemaVersion;
 
   private OperationType operationType;
-  private String payload;
+  private byte[] payload;
 
   // TODO: find best data type for timestamp
   private Object timestamp;
 
-  public VeniceMessage(OperationType type, String payload) {
+  public VeniceMessage(OperationType type, byte[] payload) {
 
-    magicByte = DEFAULT_MAGIC_BYTE;
-    schemaVersion = DEFAULT_SCHEMA_VERSION;
+    this.magicByte = DEFAULT_MAGIC_BYTE;
+    this.schemaVersion = DEFAULT_SCHEMA_VERSION;
 
-    operationType = type;
+    this.operationType = type;
     this.payload = payload;
 
-    timestamp = null;
+    this.timestamp = null;
 
   }
 
@@ -42,12 +42,12 @@ public class VeniceMessage {
     return schemaVersion;
   }
 
-  public String getPayload() {
+  public byte[] getPayload() {
     return payload;
   }
 
   public String toString() {
-    return operationType.toString() + " " + payload;
+    return operationType.toString() + " " + payload.toString();
   }
 
   public Object getTimestamp() {

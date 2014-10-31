@@ -21,7 +21,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +52,7 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.system.SystemStoreConstants;
-import voldemort.store.venice.KafkaConsumerDefinition;
+import voldemort.store.venice.KafkaTopicDefinition;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.Utils;
 
@@ -141,7 +140,6 @@ public class StoreDefinitionsMapper {
 
     public List<StoreDefinition> readStoreList(Reader input, boolean verifySchema) {
         try {
-
             SAXBuilder builder = new SAXBuilder();
             Document doc = builder.build(input);
             if(verifySchema) {
@@ -279,7 +277,7 @@ public class StoreDefinitionsMapper {
         if(memoryFootprintStr != null)
             memoryFootprintMB = Long.parseLong(memoryFootprintStr);
 
-        KafkaConsumerDefinition kafkaConsumer = null;
+        KafkaTopicDefinition kafkaConsumer = null;
 
         // Venice tag is not mandatory
         if (store.getChild(STORE_VENICE_ELMT) != null)
@@ -431,7 +429,7 @@ public class StoreDefinitionsMapper {
      * Note that if an illegal configuration is given, venice will be disabled.
      * A null return object signifies that venice is disabled.
      * */
-    public KafkaConsumerDefinition readKafkaConsumer(Element elmt) {
+    public KafkaTopicDefinition readKafkaConsumer(Element elmt) {
 
         if (null == elmt) {
             return null;
@@ -468,7 +466,7 @@ public class StoreDefinitionsMapper {
             return null;
         }
 
-        return new KafkaConsumerDefinition(kafkaTopicName, kafkaPartitionCount);
+        return new KafkaTopicDefinition(kafkaTopicName, kafkaPartitionCount);
 
     }
 
@@ -541,6 +539,12 @@ public class StoreDefinitionsMapper {
         addSerializer(valueSerializer, storeDefinition.getValueSerializer());
         store.addContent(valueSerializer);
 
+        if(storeDefinition.hasKafkaTopic()) {
+            Element kafkaTopic = new Element(STORE_VENICE_ELMT);
+            addKafkaTopic(kafkaTopic, storeDefinition.getKafkaTopic());
+            store.addContent(kafkaTopic);
+        }
+
         if(storeDefinition.hasRetentionPeriod())
             store.addContent(new Element(STORE_RETENTION_POLICY_ELMT).setText(Integer.toString(storeDefinition.getRetentionDays())));
 
@@ -598,6 +602,13 @@ public class StoreDefinitionsMapper {
             store.addContent(serializerFactory);
         }
         return store;
+    }
+
+    public static void addKafkaTopic(Element parent, KafkaTopicDefinition def) {
+        parent.addContent(new Element(STORE_VENICE_ENABLED_ELMT).setText("true"));
+        parent.addContent(new Element(STORE_VENICE_TOPIC_NAME).setText(def.getName()));
+        parent.addContent(new Element(STORE_KAFKA_PARTITION_COUNT_ELMT).setText(
+                Integer.toString(def.getKafkaPartitionReplicaCount())));
     }
 
     public static void addSerializer(Element parent, SerializerDefinition def) {
