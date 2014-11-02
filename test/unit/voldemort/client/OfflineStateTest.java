@@ -18,12 +18,14 @@ package voldemort.client;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,15 +38,19 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortServer;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.slop.Slop;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -148,6 +154,13 @@ public class OfflineStateTest {
         return adminClient;
     }
 
+    private Store<ByteArray, byte[], byte[]> getStore(int nodeID, String storeName) {
+        Store<ByteArray, byte[], byte[]> store = getVoldemortServer(nodeID).getStoreRepository()
+                                                                           .getStorageEngine(storeName);
+        assertNotSame("Store '" + storeName + "' should not be null", null, store);
+        return store;
+    }
+
     private boolean testOnlineTraffic() {
         String key = "k-e-y", value = Long.toString(System.nanoTime());
         try {
@@ -158,6 +171,40 @@ public class OfflineStateTest {
             }
         } catch(Exception e) {
             e.printStackTrace();
+        }
+        return false;
+    }
+
+    private boolean testSlopStreaming() {
+        final List<Versioned<Slop>> entrySet = ServerTestUtils.createRandomSlops(0,
+                                                                                 10000,
+                                                                                 testStoreName,
+                                                                                 "users",
+                                                                                 "test-replication-persistent",
+                                                                                 "test-readrepair-memory",
+                                                                                 "test-consistent",
+                                                                                 "test-consistent-with-pref-list");
+
+        Iterator<Versioned<Slop>> slopIterator = entrySet.iterator();
+        try {
+            getAdminClient().streamingOps.updateSlopEntries(0, slopIterator);
+        } catch(VoldemortException e) {
+            return false;
+        }
+
+        // check updated values
+        Iterator<Versioned<Slop>> entrysetItr = entrySet.iterator();
+
+        while(entrysetItr.hasNext()) {
+            Versioned<Slop> versioned = entrysetItr.next();
+            Slop nextSlop = versioned.getValue();
+            Store<ByteArray, byte[], byte[]> store = getStore(0, nextSlop.getStoreName());
+
+            if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
+                return store.get(nextSlop.getKey(), null).size() != 0;
+            } else if(nextSlop.getOperation().equals(Slop.Operation.DELETE)) {
+                return store.get(nextSlop.getKey(), null).size() == 0;
+            }
         }
         return false;
     }
@@ -190,11 +237,24 @@ public class OfflineStateTest {
     public void testStateTransitions() {
         AdminClient client = getAdminClient();
         assertTrue(testOnlineTraffic());
+        assertTrue(testSlopStreaming());
         toOfflineState(client);
+        assertFalse(testOnlineTraffic());
+        assertFalse(testSlopStreaming());
         toNormalState(client);
+        assertTrue(testOnlineTraffic());
+        assertTrue(testSlopStreaming());
         toOfflineState(client);
+        assertFalse(testOnlineTraffic());
+        assertFalse(testSlopStreaming());
         toNormalState(client);
+        assertTrue(testOnlineTraffic());
+        assertTrue(testSlopStreaming());
         toOfflineState(client);
+        assertFalse(testOnlineTraffic());
+        assertFalse(testSlopStreaming());
         toNormalState(client);
+        assertTrue(testOnlineTraffic());
+        assertTrue(testSlopStreaming());
     }
 }

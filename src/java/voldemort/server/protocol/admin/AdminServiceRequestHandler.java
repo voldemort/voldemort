@@ -554,7 +554,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return new UpdateSlopEntriesRequestHandler(request,
                                                    errorCodeMapper,
                                                    storeRepository,
-                                                   voldemortConfig);
+                                                   voldemortConfig,
+                                                   metadataStore);
     }
 
     public StreamRequestHandler handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request) {
@@ -607,7 +608,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                            voldemortConfig,
                                                                            storageEngine,
                                                                            storeRepository,
-                                                                           networkClassLoader);
+                                                                           networkClassLoader,
+                                                                           metadataStore);
         } else {
             // else resort to vector clock based resolving..
             if(doesStorageEngineSupportMultiVersionPuts(storageEngine)) {
@@ -616,7 +618,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                               voldemortConfig,
                                                                               storageEngine,
                                                                               storeRepository,
-                                                                              networkClassLoader);
+                                                                              networkClassLoader,
+                                                                              metadataStore);
 
             } else {
                 return new UpdatePartitionEntriesStreamRequestHandler(request,
@@ -624,7 +627,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                       voldemortConfig,
                                                                       storageEngine,
                                                                       storeRepository,
-                                                                      networkClassLoader);
+                                                                      networkClassLoader,
+                                                                      metadataStore);
             }
         }
     }
