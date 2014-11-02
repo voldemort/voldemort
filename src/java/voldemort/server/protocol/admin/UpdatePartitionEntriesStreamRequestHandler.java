@@ -20,6 +20,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
@@ -60,6 +61,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
 
     protected final StorageEngine<ByteArray, byte[], byte[]> storageEngine;
 
+    protected final MetadataStore metadataStore;
+
     protected int counter;
 
     protected final long startTime;
@@ -75,11 +78,13 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
                                                       VoldemortConfig voldemortConfig,
                                                       StorageEngine<ByteArray, byte[], byte[]> storageEngine,
                                                       StoreRepository storeRepository,
-                                                      NetworkClassLoader networkClassLoader) {
+                                                      NetworkClassLoader networkClassLoader,
+                                                      MetadataStore metadataStore) {
         super();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
         this.storageEngine = storageEngine;
+        this.metadataStore = metadataStore;
         throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         filter = (request.hasFilter()) ? AdminServiceRequestHandler.getFilterFromRequest(request.getFilter(),
                                                                                          voldemortConfig,
@@ -99,6 +104,11 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
+        if(!metadataStore.getPartitionStreamingEnabledUnlocked()) {
+            throw new VoldemortException("Partition streaming is disabled on node "
+                                         + metadataStore.getNodeId() + " under "
+                                         + metadataStore.getServerStateUnlocked() + " state.");
+        }
         long startNs = System.nanoTime();
         if(request == null) {
             int size = 0;
@@ -168,7 +178,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
             } finally {
                 if(streamStats != null) {
                     streamStats.reportStreamingPut(Operation.UPDATE_ENTRIES);
-                    streamStats.reportStorageTime(Operation.UPDATE_ENTRIES, Utils.elapsedTimeNs(startNs, System.nanoTime()));
+                    streamStats.reportStorageTime(Operation.UPDATE_ENTRIES,
+                                                  Utils.elapsedTimeNs(startNs, System.nanoTime()));
                 }
             }
             throttler.maybeThrottle(key.length() + AdminServiceRequestHandler.valueSize(value));

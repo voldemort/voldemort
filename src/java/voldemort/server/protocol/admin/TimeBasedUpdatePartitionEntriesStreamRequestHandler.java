@@ -10,6 +10,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.storage.KeyLockHandle;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.versioning.VectorClock;
@@ -37,13 +38,15 @@ public class TimeBasedUpdatePartitionEntriesStreamRequestHandler extends
                                                                VoldemortConfig voldemortConfig,
                                                                StorageEngine<ByteArray, byte[], byte[]> storageEngine,
                                                                StoreRepository storeRepository,
-                                                               NetworkClassLoader networkClassLoader) {
+                                                               NetworkClassLoader networkClassLoader,
+                                                               MetadataStore metadataStore) {
         super(request,
               errorCodeMapper,
               voldemortConfig,
               storageEngine,
               storeRepository,
-              networkClassLoader);
+              networkClassLoader,
+              metadataStore);
     }
 
     @Override

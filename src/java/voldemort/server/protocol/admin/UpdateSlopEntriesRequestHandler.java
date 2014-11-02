@@ -17,6 +17,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
@@ -36,6 +37,8 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
     private final StoreRepository storeRepository;
 
+    private final MetadataStore metadataStore;
+
     private final long startTime;
 
     private long networkTimeNs;
@@ -49,7 +52,8 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
     public UpdateSlopEntriesRequestHandler(UpdateSlopEntriesRequest request,
                                            ErrorCodeMapper errorCodeMapper,
                                            StoreRepository storeRepository,
-                                           VoldemortConfig voldemortConfig) {
+                                           VoldemortConfig voldemortConfig,
+                                           MetadataStore metadataStore) {
         super();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
@@ -57,6 +61,7 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
         startTime = System.currentTimeMillis();
         networkTimeNs = 0;
         this.isJmxEnabled = voldemortConfig.isJmxEnabled();
+        this.metadataStore = metadataStore;
     }
 
     public StreamRequestDirection getDirection() {
@@ -77,6 +82,11 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
+        if(!metadataStore.getSlopStreamingEnabledUnlocked()) {
+            throw new VoldemortException("Slop streaming is disabled on node "
+                                         + metadataStore.getNodeId() + " under "
+                                         + metadataStore.getServerStateUnlocked() + " state.");
+        }
         long startNs = System.nanoTime();
         if(request == null) {
             int size = 0;
