@@ -7,6 +7,7 @@ import voldemort.store.Store;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +26,8 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
     private VeniceConsumerTask task;
 
     // offset management
-    private List<Integer> partitionIds;
+    // TODO: do we want to create a distinction between masters and replicas when creating ConsumerTasks?
+    private Collection<Integer> partitionIds;
     private Map<Integer, VeniceConsumerTask> partitionTaskMap;
     private Map<Integer, Long> partitionOffsetMap;
 
@@ -37,8 +39,8 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
     // store level configs
     private String topic;
 
-    public VeniceStore(Store<K, V, T> store, List<String> seedBrokers, int port, String topic,
-                       List<Integer> partitionIds, VeniceConsumerTuning consumerTuning) {
+    public VeniceStore(Store<K, V, T> store, List<Broker> seedBrokers, String topic,
+                       Collection<Integer> partitionIds, VeniceConsumerTuning consumerTuning) {
 
         super(store);
 

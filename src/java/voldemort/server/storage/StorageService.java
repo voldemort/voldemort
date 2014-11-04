@@ -25,9 +25,11 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -56,6 +58,7 @@ import voldemort.common.service.ServiceType;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -905,14 +908,12 @@ public class StorageService extends AbstractService {
 
             logger.info("Initializing Venice Store on " + store.getName() + " store.");
 
-            // create Kafka partitions from the definition in stores.xml file
-            // TODO: add replicas
-            List<Integer> partitionIds = cluster.getNodeById(voldemortConfig.getNodeId()).getPartitionIds();
+            StoreRoutingPlan plan = new StoreRoutingPlan(cluster, storeDef);
             store = new VeniceStore<ByteArray, byte[], byte[]>(store,
                     voldemortConfig.getVeniceKafkaBrokerList(),
                     voldemortConfig.getVeniceKafkaBrokerPort(),
                     storeDef.getKafkaTopic().getName(),
-                    partitionIds,
+                    plan.getZoneNAryPartitionIds(voldemortConfig.getNodeId()),
                     voldemortConfig.getVeniceConsumerTuning()
             );
         }
