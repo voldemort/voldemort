@@ -70,16 +70,16 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
                 zoneAffinity);
 
         this.cluster = cluster;
-        this.producer = getKafkaProducer();
+        this.producer = getKafkaProducer(storeDef.getKafkaTopic().getBrokerListString());
 
     }
 
-    public Producer<ByteArray, VeniceMessage> getKafkaProducer() {
+    private Producer<ByteArray, VeniceMessage> getKafkaProducer(String metadataBrokerList) {
 
         Properties kafkaProducerProperties = new Properties();
 
         // TODO: allow metadata to pass broker config to client
-        kafkaProducerProperties.setProperty("metadata.broker.list", "localhost:9092");
+        kafkaProducerProperties.setProperty("metadata.broker.list", metadataBrokerList);
         kafkaProducerProperties.setProperty("request.required.acks", "1");
 
         // set custom serializer for key and value

@@ -1,5 +1,6 @@
 package voldemort.store.venice;
 
+import kafka.common.LeaderNotAvailableException;
 import org.apache.log4j.Logger;
 
 import kafka.api.FetchRequest;
@@ -45,7 +46,7 @@ public class VeniceConsumerTask implements Runnable {
 
     private final String ENCODING = "UTF-8";
     private final String LEADER_ELECTION_TASK_NAME = "Voldemort_Venice_LeaderLookup";
-    private final int FIND_LEADER_CYCLE_DELAY = 1000;
+    private final int FIND_LEADER_CYCLE_DELAY = 2000;
     private final int READ_CYCLE_DELAY = 500;
 
     private VeniceConsumerTuning veniceConsumerTuning;
@@ -53,9 +54,8 @@ public class VeniceConsumerTask implements Runnable {
     // kafka metadata
     private String topic;
     private int partition;
-    private List<String> seedBrokers;
-    private List<String> replicaBrokers;
-    private int port;
+    private List<Broker> seedBrokers;
+    private List<Broker> replicaBrokers;
     private String consumerClientName;
 
     // offset management
@@ -69,7 +69,7 @@ public class VeniceConsumerTask implements Runnable {
     private VeniceSerializer serializer;
     private VeniceStore store;
 
-    public VeniceConsumerTask(VeniceStore store, List<String> seedBrokers, int port, String topic, int partition,
+    public VeniceConsumerTask(VeniceStore store, List<Broker> seedBrokers, String topic, int partition,
                               long startingOffset, VeniceConsumerTuning veniceConsumerTuning) {
 
         this.store = store;
@@ -79,7 +79,7 @@ public class VeniceConsumerTask implements Runnable {
         this.serializer = new VeniceSerializer(new VerifiableProperties());
 
         // consumer metadata
-        this.replicaBrokers = new ArrayList<String>();
+        this.replicaBrokers = new ArrayList<Broker>();
         this.startingOffset = startingOffset;
         this.consumerState = VeniceConsumerState.RUNNING;
 
@@ -87,7 +87,6 @@ public class VeniceConsumerTask implements Runnable {
         this.partition = partition;
         this.topic = topic;
         this.seedBrokers = seedBrokers;
-        this.port = port;
 
         // a unique client name for Kafka debugging
         this.consumerClientName = "Voldemort_Venice_" + topic + "_" + partition;
@@ -95,61 +94,38 @@ public class VeniceConsumerTask implements Runnable {
     }
 
     /**
-     *  Constuctor that sets the starting offset value to the default value of -1
-     * */
-    public VeniceConsumerTask(VeniceStore store, List<String> seedBrokers, int port, String topic, int partition, VeniceConsumerTuning veniceConsumerTuning) {
-        this(store, seedBrokers, port, topic, partition, -1, veniceConsumerTuning);
-    }
-
-    /**
      *  Returns an iterator object for the current position in the Kafka log.
-     *  Handles leader election, leader failure, and Kafka request/response semantics
+     *  Handles Kafka request/response semantics
      *
      *  @param leadBroker - The current leader of the Kafka Broker
      *  @param consumer - A SimpleConsumer object tied to the Kafka instance
      *  @param readOffset - The offset in the Kafka log to begin reading from
      * */
-    private Iterator<MessageAndOffset> getMessageAndOffsetIterator(String leadBroker,
+    private Iterator<MessageAndOffset> getMessageAndOffsetIterator(Broker leadBroker,
                                                                    SimpleConsumer consumer, long readOffset) {
 
-        boolean isFound = false;
-        Iterator<MessageAndOffset> messageAndOffsetIterator = null;
+        FetchRequest req = new FetchRequestBuilder()
+                .clientId(consumerClientName)
+                .addFetch(topic, partition, readOffset, veniceConsumerTuning.getRequestFetchSize())
+                .build();
 
-        while (null == messageAndOffsetIterator) {
-
-            if (null == consumer) {
-                consumer = new SimpleConsumer(leadBroker,
-                        port,
-                        veniceConsumerTuning.getRequestTimeout(),
-                        veniceConsumerTuning.getRequestBufferSize(),
-                        consumerClientName);
-            }
-
-            FetchRequest req = new FetchRequestBuilder()
-                    .clientId(consumerClientName)
-                    .addFetch(topic, partition, readOffset, veniceConsumerTuning.getRequestFetchSize())
-                    .build();
+        Iterator<MessageAndOffset> messageAndOffsetIterator;
+        try {
 
             FetchResponse fetchResponse = consumer.fetch(req);
 
+            // This is a separate case from the one below. The fetch worked but returned an error.
             if (fetchResponse.hasError()) {
-
-                logger.error("Kafka error found! Finding new leader....");
-                logger.error("Message: " + fetchResponse.errorCode(topic, partition));
-
-                consumer.close();
-                consumer = null;
-
-                try {
-                    leadBroker = findNewLeader(leadBroker, topic, partition, port);
-                } catch (Exception e) {
-                    logger.error("Error while finding new leader: " + e);
-                    return null;
-                }
-            } else {
-                messageAndOffsetIterator = fetchResponse.messageSet(topic, partition).iterator();
+                throw new Exception("FetchResponse error code: "
+                        + fetchResponse.errorCode(topic, partition));
             }
+            messageAndOffsetIterator = fetchResponse.messageSet(topic, partition).iterator();
+
+        } catch (Exception e) {
+            logger.error("FetchResponse could not perform fetch on [" + topic + ", " + partition + "]");
+            throw new LeaderNotAvailableException(e.getMessage());
         }
+
         return messageAndOffsetIterator;
     }
 
@@ -163,12 +139,12 @@ public class VeniceConsumerTask implements Runnable {
         try {
 
             // find the meta data
-            PartitionMetadata metadata = findLeader(seedBrokers, port, topic, partition);
+            PartitionMetadata metadata = findLeader(seedBrokers, topic, partition);
             validateConsumerMetadata(metadata);
 
-            String leadBroker = metadata.leader().get().host();
-            consumer = new SimpleConsumer(leadBroker,
-                    port,
+            Broker leadBroker = metadata.leader().get();
+            consumer = new SimpleConsumer(leadBroker.host(),
+                    leadBroker.port(),
                     veniceConsumerTuning.getRequestTimeout(),
                     veniceConsumerTuning.getRequestBufferSize(),
                     consumerClientName);
@@ -183,31 +159,56 @@ public class VeniceConsumerTask implements Runnable {
             // execute this thread infinitely until a Venice exception is thrown
             while (true) {
 
+                if (null == consumer) {
+                    consumer = new SimpleConsumer(leadBroker.host(),
+                            leadBroker.port(),
+                            veniceConsumerTuning.getRequestTimeout(),
+                            veniceConsumerTuning.getRequestBufferSize(),
+                            consumerClientName);
+                }
+
                 long numReadsInIteration = 0;
 
                 // flag that may be set to false if consumer is being throttled/paused
                 if (consumerState != VeniceConsumerState.PAUSED) {
 
-                    Iterator<MessageAndOffset> messageAndOffsetIterator = getMessageAndOffsetIterator(leadBroker,
-                            consumer,
-                            readOffset);
+                    Iterator<MessageAndOffset> messageAndOffsetIterator = null;
+                    try {
 
-                    while (messageAndOffsetIterator.hasNext()) {
+                        messageAndOffsetIterator = getMessageAndOffsetIterator(leadBroker, consumer, readOffset);
+                        while (messageAndOffsetIterator.hasNext()) {
 
-                        MessageAndOffset messageAndOffset = messageAndOffsetIterator.next();
-                        long currentOffset = messageAndOffset.offset();
+                            MessageAndOffset messageAndOffset = messageAndOffsetIterator.next();
+                            long currentOffset = messageAndOffset.offset();
 
-                        // Due to Kafka compression, fetch request may return a bulk of messages,
-                        // including some that have already be read. Thus, push forward to find the one we want.
-                        if (currentOffset < readOffset) {
-                            continue;
+                            // Due to Kafka compression, fetch request may return a bulk of messages,
+                            // including some that have already be read. Thus, push forward to find the one we want.
+                            if (currentOffset < readOffset) {
+                                continue;
+                            }
+
+                            readMessage(messageAndOffset.message());
+                            store.updatePartitionOffset(partition, currentOffset);
+
+                            readOffset = messageAndOffset.nextOffset();
+                            numReadsInIteration++;
                         }
 
-                        readMessage(messageAndOffset.message());
-                        store.updatePartitionOffset(partition, currentOffset);
+                    } catch (LeaderNotAvailableException e) {
 
-                        readOffset = messageAndOffset.nextOffset();
-                        numReadsInIteration++;
+                        logger.error("Kafka error found! Finding new leader....");
+                        logger.error(e);
+                        consumer.close();
+                        consumer = null;
+
+                        try {
+                            leadBroker = findNewLeader(leadBroker, topic, partition);
+                        } catch (Exception leaderException) {
+
+                            // Even leader re-election has failed, the task needs to die
+                            logger.error("Error while finding new leader: " + leaderException);
+                            throw new VoldemortVeniceException(leaderException);
+                        }
                     }
                 }
                 // Nothing was read in the last iteration, slow down and reduce load on Consumer
@@ -219,12 +220,8 @@ public class VeniceConsumerTask implements Runnable {
                     }
                 }
             }
-        } catch (VoldemortVeniceException e) {
+        } catch (Exception e) {
             logger.error("Killing Consumer Task on [" + topic + ", " + partition + "]");
-            logger.error(e);
-            e.printStackTrace();
-
-        } catch (VoldemortException e) {
             logger.error(e);
             e.printStackTrace();
 
@@ -366,23 +363,25 @@ public class VeniceConsumerTask implements Runnable {
      * This method taken from Kafka 0.8 SimpleConsumer Example
      * Used when the lead Kafka partition dies, and the new leader needs to be elected
      * */
-    private String findNewLeader(String oldLeader, String topic, int partition, int port) throws Exception {
+    private Broker findNewLeader(Broker oldLeader, String topic, int partition) throws Exception {
 
         for (int i = 0; i < veniceConsumerTuning.getNumberOfRetriesBeforeFailure(); i++) {
 
             boolean goToSleep;
-            PartitionMetadata metadata = findLeader(replicaBrokers, port, topic, partition);
+            PartitionMetadata metadata = findLeader(replicaBrokers, topic, partition);
 
             // can't find the leader partition
             if (null == metadata || null == metadata.leader()) {
                 goToSleep = true;
 
-                // old leader is same as new leader
-            } else if (oldLeader.equalsIgnoreCase(metadata.leader().get().host()) && i == 0) {
+            // old leader is same as new leader, this may happen on the first pass if ZK is not updated yet
+            } else if (oldLeader.getConnectionString().equals(metadata.leader().get().getConnectionString()) && i == 0) {
                 goToSleep = true;
 
             } else {
-                return metadata.leader().get().host();
+                logger.warn("Electing " + metadata.leader().get() + " as new leader for ["
+                        + topic + "," + partition + "].");
+                return metadata.leader().get();
             }
 
             // Let the thread go to sleep so that ZooKeeper/Other external services can recover
@@ -401,25 +400,24 @@ public class VeniceConsumerTask implements Runnable {
     /**
      * Finds the leader for a given Kafka topic and partition
      * @param seedBrokers - List of all Kafka Brokers
-     * @param port - Port to connect to
      * @param topic - String name of the topic to search for
      * @param partition - Partition Number to search for
      * @return A PartitionMetadata Object for the partition found
      * */
-    private PartitionMetadata findLeader(List<String> seedBrokers, int port, String topic, int partition) {
+    private PartitionMetadata findLeader(List<Broker> seedBrokers, String topic, int partition) {
 
         PartitionMetadata returnMetaData = null;
 
         loop:
         /* Iterate through all the Brokers, Topics and their Partitions */
-        for (String host : seedBrokers) {
+        for (Broker broker : seedBrokers) {
 
             SimpleConsumer consumer = null;
 
             try {
 
-                consumer = new SimpleConsumer(host,
-                        port,
+                consumer = new SimpleConsumer(broker.host(),
+                        broker.port(),
                         veniceConsumerTuning.getRequestTimeout(),
                         veniceConsumerTuning.getRequestBufferSize(),
                         LEADER_ELECTION_TASK_NAME);
@@ -450,7 +448,7 @@ public class VeniceConsumerTask implements Runnable {
 
             } catch (Exception e) {
 
-                logger.error("Error communicating with " + host + " to find [" + topic + ", " + partition + "]");
+                logger.warn("Error communicating with " + broker + " to find [" + topic + ", " + partition + "]");
                 logger.error(e);
 
             } finally {
@@ -473,7 +471,7 @@ public class VeniceConsumerTask implements Runnable {
 
             while (replicaIterator.hasNext()) {
                 Broker replica = replicaIterator.next();
-                replicaBrokers.add(replica.host());
+                replicaBrokers.add(new Broker(0, replica.host(), replica.port()));
             }
 
         }

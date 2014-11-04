@@ -473,7 +473,6 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
                 values.add(new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(), "UTF-8"),
                                                  value.getVersion()));
-
                 return values;
             } else {
                 throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore get()");
@@ -1145,7 +1144,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             }
         } else if(this.storeNames.contains(key)) {
             valueStr = "<stores>";
-            if(value.getValue() != null) {
+            if (value.getValue() != null) {
                 valueStr += value.getValue();
             }
             valueStr += "</stores>";

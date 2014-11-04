@@ -1,5 +1,6 @@
 package voldemort.store.venice;
 
+import kafka.cluster.Broker;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
@@ -27,13 +28,14 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     // offset management
     // TODO: do we want to create a distinction between masters and replicas when creating ConsumerTasks?
+
     private Collection<Integer> partitionIds;
+
     private Map<Integer, VeniceConsumerTask> partitionTaskMap;
     private Map<Integer, Long> partitionOffsetMap;
 
     // server level configs
-    private List<String> seedBrokers;
-    private int port;
+    private List<Broker> seedBrokers;
     private VeniceConsumerTuning consumerTuning;
 
     // store level configs
@@ -45,7 +47,6 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
         super(store);
 
         this.seedBrokers = seedBrokers;
-        this.port = port;
         this.consumerTuning = consumerTuning;
         this.topic = topic;
 
@@ -69,7 +70,7 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
                 partitionOffsetMap.put(partition, new Long(-1));
             }
 
-            task = new VeniceConsumerTask(this, seedBrokers, port, topic, partition,
+            task = new VeniceConsumerTask(this, seedBrokers, topic, partition,
                     partitionOffsetMap.get(partition), consumerTuning);
 
             // launch each consumer task on a new thread

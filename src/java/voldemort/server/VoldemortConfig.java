@@ -96,8 +96,6 @@ public class VoldemortConfig implements Serializable {
     private String metadataDirectory;
 
     private boolean veniceEnabled;
-    private List<String> veniceKafkaBrokerList;
-    private int veniceKafkaBrokerPort;
     private VeniceConsumerTuning veniceConsumerTuning;
     private int veniceNumberOfRetriesBeforeFailure;
     private int veniceKafkaRequestTimeout;
@@ -291,8 +289,6 @@ public class VoldemortConfig implements Serializable {
                                                                        + File.separator + "config");
 
         this.veniceEnabled = props.getBoolean("venice.enabled", false);
-        this.veniceKafkaBrokerList = Arrays.asList(props.getString("venice.kafka.broker.list", "localhost"));
-        this.veniceKafkaBrokerPort = props.getInt("venice.kafka.port", 9092);
         this.veniceNumberOfRetriesBeforeFailure = props.getInt("venice.kafka.num.retries",
                 VeniceConsumerTuning.DEFAULT_NUM_RETRIES);
         this.veniceKafkaRequestTimeout = props.getInt("venice.kafka.request.timeout",
@@ -3010,14 +3006,6 @@ public class VoldemortConfig implements Serializable {
 
     public boolean isVeniceEnabled() {
         return this.veniceEnabled;
-    }
-
-    public List<String> getVeniceKafkaBrokerList() {
-        return this.veniceKafkaBrokerList;
-    }
-
-    public int getVeniceKafkaBrokerPort() {
-        return this.veniceKafkaBrokerPort;
     }
 
     public VeniceConsumerTuning getVeniceConsumerTuning() {

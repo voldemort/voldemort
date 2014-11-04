@@ -105,8 +105,7 @@ public class StoreDefinitionsMapper {
     private final static String STORE_VENICE_ELMT = "venice";
     private final static String STORE_VENICE_ENABLED_ELMT = "enabled";
     private final static String STORE_VENICE_TOPIC_NAME = "kafka-topic-name";
-    private final static String STORE_KAFKA_BROKER_URL_ELMT = "kafka-broker-url";
-    private final static String STORE_KAFKA_ZOOKEEPER_URL_ELMT = "kafka-zookeeper-url";
+    private final static String STORE_KAFKA_BROKER_LIST_ELMT = "kafka-broker-list";
     private final static String STORE_KAFKA_PARTITION_COUNT_ELMT = "kafka-partition-count";
 
     private static final Logger logger = Logger.getLogger(StoreDefinitionsMapper.class.getName());
@@ -277,11 +276,11 @@ public class StoreDefinitionsMapper {
         if(memoryFootprintStr != null)
             memoryFootprintMB = Long.parseLong(memoryFootprintStr);
 
-        KafkaTopicDefinition kafkaConsumer = null;
+        KafkaTopicDefinition kafkaTopic = null;
 
         // Venice tag is not mandatory
         if (store.getChild(STORE_VENICE_ELMT) != null)
-            kafkaConsumer = readKafkaConsumer(store.getChild(STORE_VENICE_ELMT));
+            kafkaTopic = readKafkaTopic(store.getChild(STORE_VENICE_ELMT));
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
@@ -305,7 +304,7 @@ public class StoreDefinitionsMapper {
                                            .setHintedHandoffStrategy(hintedHandoffStrategy)
                                            .setHintPrefListSize(hintPrefListSize)
                                            .setMemoryFootprintMB(memoryFootprintMB)
-                                           .setKafkaConsumer(kafkaConsumer)
+                                           .setKafkaConsumer(kafkaTopic)
                                            .build();
     }
 
@@ -429,7 +428,7 @@ public class StoreDefinitionsMapper {
      * Note that if an illegal configuration is given, venice will be disabled.
      * A null return object signifies that venice is disabled.
      * */
-    public KafkaTopicDefinition readKafkaConsumer(Element elmt) {
+    public KafkaTopicDefinition readKafkaTopic(Element elmt) {
 
         if (null == elmt) {
             return null;
@@ -466,8 +465,14 @@ public class StoreDefinitionsMapper {
             return null;
         }
 
-        return new KafkaTopicDefinition(kafkaTopicName, kafkaPartitionCount);
+        // Read <kafka-broker-list>
+        String kafkaBrokerListString = elmt.getChildText(STORE_KAFKA_BROKER_LIST_ELMT);
+        if (null == kafkaBrokerListString) {
+            logger.error("Kafka broker list is not properly given. Disabling Venice.");
+            return null;
+        }
 
+        return new KafkaTopicDefinition(kafkaTopicName, kafkaPartitionCount, kafkaBrokerListString);
     }
 
     public String writeStoreList(List<StoreDefinition> stores) {
@@ -609,6 +614,7 @@ public class StoreDefinitionsMapper {
         parent.addContent(new Element(STORE_VENICE_TOPIC_NAME).setText(def.getName()));
         parent.addContent(new Element(STORE_KAFKA_PARTITION_COUNT_ELMT).setText(
                 Integer.toString(def.getKafkaPartitionReplicaCount())));
+        parent.addContent(new Element(STORE_KAFKA_BROKER_LIST_ELMT).setText(def.getBrokerListString()));
     }
 
     public static void addSerializer(Element parent, SerializerDefinition def) {

@@ -910,8 +910,7 @@ public class StorageService extends AbstractService {
 
             StoreRoutingPlan plan = new StoreRoutingPlan(cluster, storeDef);
             store = new VeniceStore<ByteArray, byte[], byte[]>(store,
-                    voldemortConfig.getVeniceKafkaBrokerList(),
-                    voldemortConfig.getVeniceKafkaBrokerPort(),
+                    storeDef.getKafkaTopic().getBrokerList(),
                     storeDef.getKafkaTopic().getName(),
                     plan.getZoneNAryPartitionIds(voldemortConfig.getNodeId()),
                     voldemortConfig.getVeniceConsumerTuning()
