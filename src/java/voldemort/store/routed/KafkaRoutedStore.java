@@ -25,6 +25,7 @@ import voldemort.store.venice.VeniceMessage;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.SystemTime;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import java.util.ArrayList;
@@ -40,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 public class KafkaRoutedStore extends PipelineRoutedStore {
 
     private Producer<ByteArray, VeniceMessage> producer;
-    private Cluster cluster;
 
     public KafkaRoutedStore(Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
                                Map<Integer, NonblockingStore> nonblockingStores,
@@ -69,7 +69,6 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
                 identifierString,
                 zoneAffinity);
 
-        this.cluster = cluster;
         this.producer = getKafkaProducer(storeDef.getKafkaTopic().getBrokerListString());
 
     }
@@ -101,8 +100,17 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
         VeniceMessage vm = new VeniceMessage(OperationType.PUT, versioned.getValue());
         KeyedMessage<ByteArray, VeniceMessage> message
                 = new KeyedMessage<ByteArray, VeniceMessage>(storeDef.getKafkaTopic().getName(), key, vm);
-
         producer.send(message);
+    }
+
+    @Override
+    public boolean delete(ByteArray key, Version version) throws VoldemortException {
+
+        VeniceMessage vm = new VeniceMessage(OperationType.DELETE);
+        KeyedMessage<ByteArray, VeniceMessage> message
+                = new KeyedMessage<ByteArray, VeniceMessage>(storeDef.getKafkaTopic().getName(), key, vm);
+        producer.send(message);
+        return true;
 
     }
 

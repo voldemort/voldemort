@@ -419,11 +419,17 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
         if(this.config.isEnableInconsistencyResolvingLayer()) {
-            InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver()
-                                                                                    : resolver;
-            finalStore = new InconsistencyResolvingStore<K, V, T>(finalStore,
-                                                                  new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
-                                                                                                    secondaryResolver));
+
+            // For Venice, we only resolve differences with TimeBasedInconsistencies
+            if(storeDef.hasKafkaTopic()) {
+                finalStore = new InconsistencyResolvingStore<K,V,T>(finalStore, new TimeBasedInconsistencyResolver());
+            } else {
+                InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver()
+                        : resolver;
+                finalStore = new InconsistencyResolvingStore<K, V, T>(finalStore,
+                        new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
+                                secondaryResolver));
+            }
         }
 
         return finalStore;

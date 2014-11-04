@@ -23,7 +23,6 @@ import scala.collection.Iterator;
 import scala.collection.JavaConversions;
 import scala.collection.Seq;
 import voldemort.utils.ByteArray;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import java.nio.ByteBuffer;
@@ -285,10 +284,7 @@ public class VeniceConsumerTask implements Runnable {
             throw new VoldemortVeniceException("Venice Message does not have operation type!");
         }
 
-
-        // Provide an empty vector clock for all writes from Kafka
-        VectorClock clock = new VectorClock();
-        ByteArray voldemortKey = new ByteArray(key.getBytes());;
+        ByteArray voldemortKey = new ByteArray(key.getBytes());
 
         switch (msg.getOperationType()) {
 
@@ -296,14 +292,14 @@ public class VeniceConsumerTask implements Runnable {
             // as Kafka log serves the same purpose of ordering
             case PUT:
                 logger.info("Partition: " + partition + " Putting: " + key + ", " + msg.getPayload());
-                Versioned<byte[]> versionedMessage = new Versioned<byte[]>(msg.getPayload(), clock);
+                Versioned<byte[]> versionedMessage = new Versioned<byte[]>(msg.getPayload());
                 store.putFromKafka(voldemortKey, versionedMessage, null);
                 break;
 
             // deleting values
             case DELETE:
                 logger.info("Partition: " + partition + " Deleting: " + key);
-                store.deleteFromKafka(voldemortKey, clock);
+                store.deleteFromKafka(voldemortKey, null);
                 break;
 
             // partial update

@@ -131,7 +131,9 @@ public class ConsistentRoutingStrategy implements RoutingStrategy, Partitioner {
         // pull out the nodes corresponding to the target partitions
         List<Node> preferenceList = new ArrayList<Node>(partitionList.size());
 
-        logger.info("Key " + ByteUtils.toHexString(key) + " mapped to partitions " + partitionList);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Key " + ByteUtils.toHexString(key) + " mapped to partitions " + partitionList);
+        }
 
         for(int partition: partitionList) {
             preferenceList.add(partitionToNode[partition]);

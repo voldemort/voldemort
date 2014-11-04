@@ -16,12 +16,14 @@ public class BdbRuntimeConfig {
     public static final boolean DEFAULT_EXPOSE_SPACE_UTIL = true;
     public static final boolean DEFAULT_MINIMIZE_SCAN_IMPACT = false;
     public static final boolean DEFAULT_TURNOFF_CHECKPOINTER_BATCH_WRITES = false;
+    public static final boolean DEFAULT_ALLOW_OBSOLETE_WRITES = false;
 
     private long statsCacheTtlMs = DEFAULT_STATS_CACHE_TTL_MS;
     private LockMode lockMode = DEFAULT_LOCK_MODE;
     private boolean exposeSpaceUtil = DEFAULT_EXPOSE_SPACE_UTIL;
     private boolean minimizeScanImpact = DEFAULT_MINIMIZE_SCAN_IMPACT;
     private boolean checkpointerOffForBatchWrites = DEFAULT_TURNOFF_CHECKPOINTER_BATCH_WRITES;
+    private boolean allowObsoleteWrites = DEFAULT_ALLOW_OBSOLETE_WRITES;
 
     public BdbRuntimeConfig() {
 
@@ -79,4 +81,11 @@ public class BdbRuntimeConfig {
         this.checkpointerOffForBatchWrites = checkpointerOffForBulkWrites;
     }
 
+    public void setAllowObsoleteWrites(boolean allowObsoleteWrites) {
+        this.allowObsoleteWrites = allowObsoleteWrites;
+    }
+
+    public boolean getAllowObsoleteWrites() {
+        return allowObsoleteWrites;
+    }
 }
