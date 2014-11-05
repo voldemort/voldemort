@@ -761,6 +761,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                            + " (meta-value is stores.xml file path)");
             stream.println("    " + MetadataStore.SLOP_STREAMING_ENABLED_KEY);
             stream.println("    " + MetadataStore.PARTITION_STREAMING_ENABLED_KEY);
+            stream.println("    " + MetadataStore.READONLY_FETCH_ENABLED_KEY);
             stream.println("    " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML);
             stream.println("    " + MetadataStore.REBALANCING_STEAL_INFO);
             stream.println("  To set a pair of metadata values, valid meta keys are:");
@@ -889,7 +890,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                     }
                     doMetaUpdateVersionsOnStores(adminClient, oldStoreDefs, newStoreDefs);
                 } else if(metaKey.equals(MetadataStore.SLOP_STREAMING_ENABLED_KEY)
-                          || metaKey.equals(MetadataStore.PARTITION_STREAMING_ENABLED_KEY)) {
+                          || metaKey.equals(MetadataStore.PARTITION_STREAMING_ENABLED_KEY)
+                          || metaKey.equals(MetadataStore.READONLY_FETCH_ENABLED_KEY)) {
                     doMetaSet(adminClient, nodeIds, metaKey, metaValue);
                 } else if(metaKey.equals(MetadataStore.REBALANCING_STEAL_INFO)) {
                     if(!Utils.isReadableFile(metaFile)) {

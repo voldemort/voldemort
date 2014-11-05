@@ -162,6 +162,26 @@ public class StoreSwapperTest {
     }
 
     @Test
+    public void testAdminStoreSwapperForOffline() throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
+
+        try {
+            // Use the admin store swapper
+            StoreSwapper swapper = new AdminStoreSwapper(cluster,
+                                                         executor,
+                                                         adminClient,
+                                                         1000000,
+                                                         true,
+                                                         true);
+            adminClient.metadataMgmtOps.setRemoteOfflineState(0, true);
+            testFetchSwap(swapper);
+            fail("RO Fetcher should fail on offline state.");
+        } catch(Exception e) {} finally {
+            executor.shutdown();
+        }
+    }
+
+    @Test
     public void testHttpStoreSwapper() throws Exception {
         ExecutorService executor = Executors.newCachedThreadPool();
         DefaultHttpClient client = null;
@@ -182,6 +202,35 @@ public class StoreSwapperTest {
                                                         true);
             testFetchSwap(swapper);
         } finally {
+            executor.shutdown();
+            VoldemortIOUtils.closeQuietly(client);
+        }
+    }
+
+    @Test
+    public void testHttpStoreSwapperForOffline() throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
+        DefaultHttpClient client = null;
+        try {
+            // Use the http store swapper
+            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
+
+            connectionManager.setMaxTotal(10);
+            connectionManager.setDefaultMaxPerRoute(10);
+
+            client = new DefaultHttpClient(connectionManager);
+
+            StoreSwapper swapper = new HttpStoreSwapper(cluster,
+                                                        executor,
+                                                        client,
+                                                        "read-only/mgmt",
+                                                        true,
+                                                        true);
+
+            adminClient.metadataMgmtOps.setRemoteOfflineState(0, true);
+            testFetchSwap(swapper);
+            fail("RO Fetcher should fail on offline state.");
+        } catch(Exception e) {} finally {
             executor.shutdown();
             VoldemortIOUtils.closeQuietly(client);
         }

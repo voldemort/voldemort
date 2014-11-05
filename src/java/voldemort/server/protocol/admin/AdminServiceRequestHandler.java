@@ -884,6 +884,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setDescription("Fetch store")
                                                                                                             .setStatus("started");
         try {
+            if(!metadataStore.getReadOnlyFetchEnabledUnlocked()) {
+                throw new VoldemortException("Read-only fetcher is disabled in "
+                                             + metadataStore.getServerStateUnlocked()
+                                             + " state on node " + metadataStore.getNodeId());
+            }
             final ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
                                                                          storeRepository,
                                                                          storeName);
