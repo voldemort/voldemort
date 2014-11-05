@@ -41,6 +41,8 @@ import java.util.concurrent.TimeUnit;
 public class KafkaRoutedStore extends PipelineRoutedStore {
 
     private Producer<ByteArray, VeniceMessage> producer;
+    public static final byte[] FULL_OPERATION_BYTE = { 0 };
+    public static final byte[] PARTIAL_OPERATION_BYTE = { 1 };
 
     public KafkaRoutedStore(Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
                                Map<Integer, NonblockingStore> nonblockingStores,
@@ -70,16 +72,13 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
                 zoneAffinity);
 
         this.producer = getKafkaProducer(storeDef.getKafkaTopic().getBrokerListString());
-
     }
 
     private Producer<ByteArray, VeniceMessage> getKafkaProducer(String metadataBrokerList) {
 
         Properties kafkaProducerProperties = new Properties();
 
-        // TODO: allow metadata to pass broker config to client
         kafkaProducerProperties.setProperty("metadata.broker.list", metadataBrokerList);
-        kafkaProducerProperties.setProperty("request.required.acks", "1");
 
         // set custom serializer for key and value
         kafkaProducerProperties.setProperty("key.serializer.class", "voldemort.store.venice.VeniceKeySerializer");
@@ -97,9 +96,12 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
     public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
             throws VoldemortException {
 
+        // TODO: when partial puts are enabled, insert the partial put byte (1) and the sub-schema id.
         VeniceMessage vm = new VeniceMessage(OperationType.PUT, versioned.getValue());
+        ByteArray kafkaKey = new ByteArray(FULL_OPERATION_BYTE).append(key);
+
         KeyedMessage<ByteArray, VeniceMessage> message
-                = new KeyedMessage<ByteArray, VeniceMessage>(storeDef.getKafkaTopic().getName(), key, vm);
+                = new KeyedMessage<ByteArray, VeniceMessage>(storeDef.getKafkaTopic().getName(), kafkaKey, vm);
         producer.send(message);
     }
 
@@ -107,11 +109,12 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
 
         VeniceMessage vm = new VeniceMessage(OperationType.DELETE);
+        ByteArray kafkaKey = new ByteArray(FULL_OPERATION_BYTE).append(key);
+
         KeyedMessage<ByteArray, VeniceMessage> message
-                = new KeyedMessage<ByteArray, VeniceMessage>(storeDef.getKafkaTopic().getName(), key, vm);
+                = new KeyedMessage<ByteArray, VeniceMessage>(storeDef.getKafkaTopic().getName(), kafkaKey, vm);
         producer.send(message);
         return true;
-
     }
 
     @Override

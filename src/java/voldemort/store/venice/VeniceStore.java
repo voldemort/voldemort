@@ -26,11 +26,10 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
     private ExecutorService executor;
     private VeniceConsumerTask task;
 
-    // offset management
     // TODO: do we want to create a distinction between masters and replicas when creating ConsumerTasks?
-
     private Collection<Integer> partitionIds;
 
+    // offset management
     private Map<Integer, VeniceConsumerTask> partitionTaskMap;
     private Map<Integer, Long> partitionOffsetMap;
 

@@ -31,6 +31,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.FnvHashFunction;
 import voldemort.utils.HashFunction;
@@ -205,17 +206,11 @@ public class ConsistentRoutingStrategy implements RoutingStrategy, Partitioner {
      */
     @Override
     public int partition(Object key, int numReplicas) {
-        byte[] byteKey;
 
-        try {
-            byteKey = ByteUtils.fromHexString(key.toString());
-        } catch (DecoderException e) {
-            logger.error(e);
-            e.printStackTrace();
-            return -1;
-        }
+        // For Voldemort Venice integration, all keys from Kafka should be of type ByteArray
+        ByteArray byteKey = ((ByteArray)key);
+        int partition = getMasterPartition(byteKey.get(), numReplicas);
 
-        int partition = getMasterPartition(byteKey, numReplicas);
         if (logger.isDebugEnabled()) {
             logger.debug("Hashing: " + key.toString() + " goes to partition "
                     + partition + " of [0," + (numReplicas - 1) + "]");

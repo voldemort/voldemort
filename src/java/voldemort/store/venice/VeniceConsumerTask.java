@@ -27,6 +27,7 @@ import voldemort.versioning.Versioned;
 
 import java.nio.ByteBuffer;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
@@ -48,6 +49,8 @@ public class VeniceConsumerTask implements Runnable {
     private final int READ_CYCLE_DELAY = 500;
 
     private VeniceConsumerConfig veniceConsumerConfig;
+    private final byte FULL_OPERATION_BYTE = 0;
+    private final byte PARTIAL_OPERATION_BYTE = 1;
 
     // kafka metadata
     private String topic;
@@ -256,7 +259,6 @@ public class VeniceConsumerTask implements Runnable {
         ByteBuffer key = msg.key();
         byte[] keyBytes = new byte[key.limit()];
         key.get(keyBytes);
-        String keyString = new String(keyBytes);
 
         // Read Payload
         ByteBuffer payload = msg.payload();
@@ -266,14 +268,14 @@ public class VeniceConsumerTask implements Runnable {
         // De-serialize payload into Venice Message format
         vm = serializer.fromBytes(payloadBytes);
 
-        readVeniceMessage(keyString, vm);
+        readVeniceMessage(keyBytes, vm);
 
     }
 
     /**
      * Given the attached store, interpret the VeniceMessage and perform the required action
      * */
-    private void readVeniceMessage(String key, VeniceMessage msg) throws VoldemortVeniceException {
+    private void readVeniceMessage(byte[] key, VeniceMessage msg) throws VoldemortVeniceException {
 
         // check for invalid inputs
         if (null == msg) {
@@ -284,29 +286,38 @@ public class VeniceConsumerTask implements Runnable {
             throw new VoldemortVeniceException("Venice Message does not have operation type!");
         }
 
-        ByteArray voldemortKey = new ByteArray(key.getBytes());
-
+        ByteArray keyBytes;
         switch (msg.getOperationType()) {
 
             // Note that vector clocks are not to be used with the Venice implementation,
             // as Kafka log serves the same purpose of ordering
             case PUT:
-                logger.info("Partition: " + partition + " Putting: " + key + ", " + msg.getPayload());
-                Versioned<byte[]> versionedMessage = new Versioned<byte[]>(msg.getPayload());
-                store.putFromKafka(voldemortKey, versionedMessage, null);
+
+                keyBytes = parseBytesForFullPut(key);
+                if (keyBytes != null) {
+                    Versioned<byte[]> versionedMessage = new Versioned<byte[]>(msg.getPayload());
+                    logger.info("Partition: " + partition + " Putting: " + keyBytes + ", " + msg.getPayload());
+                    store.putFromKafka(keyBytes, versionedMessage, null);
+                }
+
                 break;
 
             // deleting values
             case DELETE:
-                logger.info("Partition: " + partition + " Deleting: " + key);
-                store.deleteFromKafka(voldemortKey, null);
+
+                keyBytes = parseBytesForFullPut(key);
+                if (keyBytes != null) {
+                    logger.info("Partition: " + partition + " Deleting: " + keyBytes);
+                    store.deleteFromKafka(keyBytes, null);
+                }
+
                 break;
 
             // partial update
             case PARTIAL_PUT:
                 throw new UnsupportedOperationException("Partial puts not yet implemented");
 
-                // error
+            // error
             case ERROR:
                 throw new VoldemortVeniceException("Error while creating Venice Message.");
 
@@ -314,6 +325,24 @@ public class VeniceConsumerTask implements Runnable {
                 throw new VoldemortVeniceException("Unrecognized operation type submitted: " + msg.getOperationType());
         }
 
+    }
+
+    /**
+     * A utility function that verifies that a byte[] is a valid full put,
+     * and converts it to a ByteArray.
+     * @param key - An array of bytes from Kafka
+     * @return A ByteArray if the array is valid, null otherwise.
+     *
+     * */
+    private ByteArray parseBytesForFullPut(byte[] key) {
+        if (FULL_OPERATION_BYTE == key[0]) {
+            // remove the header once it has been verified
+            key = Arrays.copyOfRange(key, 1, key.length);
+            return new ByteArray(key);
+        } else {
+            logger.error("Received a Kafka message that is missing the correct identifier byte.");
+            return null;
+        }
     }
 
     /**

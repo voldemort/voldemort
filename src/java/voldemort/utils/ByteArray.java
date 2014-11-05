@@ -60,4 +60,25 @@ public final class ByteArray implements Serializable {
     public int length() {
         return underlying.length;
     }
+
+    /**
+     * Appends one ByteArray to the end of another
+     * */
+    public ByteArray append(ByteArray toAdd) {
+
+        byte[] thisArray = this.underlying;
+        byte[] toAddArray = toAdd.underlying;
+        byte[] appended = new byte[thisArray.length + toAddArray.length];
+
+        for (int i = 0; i < thisArray.length; i++) {
+            appended[i] = thisArray[i];
+        }
+
+        int offset = thisArray.length;
+        for (int i = 0; i < toAddArray.length; i++) {
+            appended[i + offset] = toAddArray[i];
+        }
+        return new ByteArray(appended);
+    }
+
 }

@@ -903,17 +903,26 @@ public class StorageService extends AbstractService {
 
         // let Venice be the outermost layer as all writes will be funnelled into Venice from Kafka
         // this means anything outside of this layer will be skipped by Venice!
-        if(voldemortConfig.isVeniceEnabled() && storeDef != null && storeDef.hasKafkaTopic()) {
+        if(voldemortConfig.isVeniceEnabled() && storeDef != null) {
 
-            logger.info("Initializing Venice Store on " + store.getName() + " store.");
+            // Make sure user did things correctly
+            if (storeDef.hasKafkaTopic()
+                    && storeDef.getRoutingStrategyType().equals(RoutingStrategyType.CONSISTENT_STRATEGY)) {
 
-            StoreRoutingPlan plan = new StoreRoutingPlan(cluster, storeDef);
-            store = new VeniceStore<ByteArray, byte[], byte[]>(store,
-                    KafkaTopicUtils.brokerStringToList(storeDef.getKafkaTopic().getBrokerListString()),
-                    storeDef.getKafkaTopic().getName(),
-                    plan.getZoneNAryPartitionIds(voldemortConfig.getNodeId()),
-                    voldemortConfig.getVeniceConsumerConfig()
-            );
+                logger.info("Initializing Venice Store on " + store.getName() + " store.");
+
+                StoreRoutingPlan plan = new StoreRoutingPlan(cluster, storeDef);
+                store = new VeniceStore<ByteArray, byte[], byte[]>(store,
+                        KafkaTopicUtils.brokerStringToList(storeDef.getKafkaTopic().getBrokerListString()),
+                        storeDef.getKafkaTopic().getName(),
+                        plan.getZoneNAryPartitionIds(voldemortConfig.getNodeId()),
+                        voldemortConfig.getVeniceConsumerConfig()
+                );
+
+            } else {
+                logger.warn("Disabling Venice on this store as it is not properly configured.");
+                logger.warn("Kafka topic must be defined in store and consistent routing must be used.");
+            }
         }
 
         storeRepository.addLocalStore(store);
