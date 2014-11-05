@@ -3,7 +3,7 @@ package voldemort.store.venice;
 /**
  * A class which stores the tuning variables needed for initializing a kafka consumer
  */
-public class VeniceConsumerTuning {
+public class VeniceConsumerConfig {
 
     public static final int DEFAULT_NUM_RETRIES = 3;
     public static final int DEFAULT_REQUEST_TIMEOUT = 100000;
@@ -17,14 +17,14 @@ public class VeniceConsumerTuning {
     private int requestBufferSize;
 
     /* To be used only in test scenarios */
-    public VeniceConsumerTuning() {
+    public VeniceConsumerConfig() {
         this.numberOfRetriesBeforeFailure = DEFAULT_NUM_RETRIES;
         this.requestTimeout = DEFAULT_REQUEST_TIMEOUT;
         this.requestFetchSize = DEFAULT_REQUEST_FETCH_SIZE;
         this.requestBufferSize = DEFAULT_REQUEST_BUFFER_SIZE;
     }
 
-    public VeniceConsumerTuning(int numberOfRetriesBeforeFailure,
+    public VeniceConsumerConfig(int numberOfRetriesBeforeFailure,
                                 int requestTimeout,
                                 int requestFetchSize,
                                 int requestBufferSize) {

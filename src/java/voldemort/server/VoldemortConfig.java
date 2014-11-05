@@ -19,7 +19,6 @@ package voldemort.server;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.Timer;
@@ -57,7 +56,7 @@ import voldemort.store.readonly.InterpolationSearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.stats.StatTrackingStore;
-import voldemort.store.venice.VeniceConsumerTuning;
+import voldemort.store.venice.VeniceConsumerConfig;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
@@ -96,7 +95,7 @@ public class VoldemortConfig implements Serializable {
     private String metadataDirectory;
 
     private boolean veniceEnabled;
-    private VeniceConsumerTuning veniceConsumerTuning;
+    private VeniceConsumerConfig veniceConsumerConfig;
     private int veniceNumberOfRetriesBeforeFailure;
     private int veniceKafkaRequestTimeout;
     private int veniceKafkaRequestFetchSize;
@@ -290,15 +289,15 @@ public class VoldemortConfig implements Serializable {
 
         this.veniceEnabled = props.getBoolean("venice.enabled", false);
         this.veniceNumberOfRetriesBeforeFailure = props.getInt("venice.kafka.num.retries",
-                VeniceConsumerTuning.DEFAULT_NUM_RETRIES);
+                VeniceConsumerConfig.DEFAULT_NUM_RETRIES);
         this.veniceKafkaRequestTimeout = props.getInt("venice.kafka.request.timeout",
-                VeniceConsumerTuning.DEFAULT_REQUEST_TIMEOUT);
+                VeniceConsumerConfig.DEFAULT_REQUEST_TIMEOUT);
         this.veniceKafkaRequestFetchSize = props.getInt("venice.kafka.request.fetch.size",
-                VeniceConsumerTuning.DEFAULT_REQUEST_FETCH_SIZE);
+                VeniceConsumerConfig.DEFAULT_REQUEST_FETCH_SIZE);
         this.veniceKafkaRequestBufferSize = props.getInt("venice.kafka.request.buffer.size",
-                VeniceConsumerTuning.DEFAULT_REQUEST_BUFFER_SIZE);
+                VeniceConsumerConfig.DEFAULT_REQUEST_BUFFER_SIZE);
 
-        this.veniceConsumerTuning = new VeniceConsumerTuning(veniceNumberOfRetriesBeforeFailure,
+        this.veniceConsumerConfig = new VeniceConsumerConfig(veniceNumberOfRetriesBeforeFailure,
                                                              veniceKafkaRequestTimeout,
                                                              veniceKafkaRequestFetchSize,
                                                              veniceKafkaRequestBufferSize);
@@ -3008,8 +3007,8 @@ public class VoldemortConfig implements Serializable {
         return this.veniceEnabled;
     }
 
-    public VeniceConsumerTuning getVeniceConsumerTuning() {
-        return this.veniceConsumerTuning;
+    public VeniceConsumerConfig getVeniceConsumerConfig() {
+        return this.veniceConsumerConfig;
     }
 
     /**

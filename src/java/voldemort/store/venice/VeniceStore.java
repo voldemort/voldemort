@@ -36,18 +36,18 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     // server level configs
     private List<Broker> seedBrokers;
-    private VeniceConsumerTuning consumerTuning;
+    private VeniceConsumerConfig consumerConfig;
 
     // store level configs
     private String topic;
 
     public VeniceStore(Store<K, V, T> store, List<Broker> seedBrokers, String topic,
-                       Collection<Integer> partitionIds, VeniceConsumerTuning consumerTuning) {
+                       Collection<Integer> partitionIds, VeniceConsumerConfig consumerConfig) {
 
         super(store);
 
         this.seedBrokers = seedBrokers;
-        this.consumerTuning = consumerTuning;
+        this.consumerConfig = consumerConfig;
         this.topic = topic;
 
         this.partitionIds = partitionIds;
@@ -71,7 +71,7 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
             }
 
             task = new VeniceConsumerTask(this, seedBrokers, topic, partition,
-                    partitionOffsetMap.get(partition), consumerTuning);
+                    partitionOffsetMap.get(partition), consumerConfig);
 
             // launch each consumer task on a new thread
             executor = Executors.newFixedThreadPool(1);

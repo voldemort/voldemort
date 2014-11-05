@@ -22,7 +22,6 @@ import kafka.utils.VerifiableProperties;
 import scala.collection.Iterator;
 import scala.collection.JavaConversions;
 import scala.collection.Seq;
-import voldemort.VoldemortException;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -49,7 +48,7 @@ public class VeniceConsumerTask implements Runnable {
     private final int FIND_LEADER_CYCLE_DELAY = 2000;
     private final int READ_CYCLE_DELAY = 500;
 
-    private VeniceConsumerTuning veniceConsumerTuning;
+    private VeniceConsumerConfig veniceConsumerConfig;
 
     // kafka metadata
     private String topic;
@@ -70,10 +69,10 @@ public class VeniceConsumerTask implements Runnable {
     private VeniceStore store;
 
     public VeniceConsumerTask(VeniceStore store, List<Broker> seedBrokers, String topic, int partition,
-                              long startingOffset, VeniceConsumerTuning veniceConsumerTuning) {
+                              long startingOffset, VeniceConsumerConfig veniceConsumerConfig) {
 
         this.store = store;
-        this.veniceConsumerTuning = veniceConsumerTuning;
+        this.veniceConsumerConfig = veniceConsumerConfig;
 
         // static serialization service for Venice Messages
         this.serializer = new VeniceSerializer(new VerifiableProperties());
@@ -94,42 +93,6 @@ public class VeniceConsumerTask implements Runnable {
     }
 
     /**
-     *  Returns an iterator object for the current position in the Kafka log.
-     *  Handles Kafka request/response semantics
-     *
-     *  @param leadBroker - The current leader of the Kafka Broker
-     *  @param consumer - A SimpleConsumer object tied to the Kafka instance
-     *  @param readOffset - The offset in the Kafka log to begin reading from
-     * */
-    private Iterator<MessageAndOffset> getMessageAndOffsetIterator(Broker leadBroker,
-                                                                   SimpleConsumer consumer, long readOffset) {
-
-        FetchRequest req = new FetchRequestBuilder()
-                .clientId(consumerClientName)
-                .addFetch(topic, partition, readOffset, veniceConsumerTuning.getRequestFetchSize())
-                .build();
-
-        Iterator<MessageAndOffset> messageAndOffsetIterator;
-        try {
-
-            FetchResponse fetchResponse = consumer.fetch(req);
-
-            // This is a separate case from the one below. The fetch worked but returned an error.
-            if (fetchResponse.hasError()) {
-                throw new Exception("FetchResponse error code: "
-                        + fetchResponse.errorCode(topic, partition));
-            }
-            messageAndOffsetIterator = fetchResponse.messageSet(topic, partition).iterator();
-
-        } catch (Exception e) {
-            logger.error("FetchResponse could not perform fetch on [" + topic + ", " + partition + "]");
-            throw new LeaderNotAvailableException(e.getMessage());
-        }
-
-        return messageAndOffsetIterator;
-    }
-
-    /**
      *  Parallelized method which performs Kafka consumption and relays messages to the Store
      * */
     public void run() {
@@ -145,8 +108,8 @@ public class VeniceConsumerTask implements Runnable {
             Broker leadBroker = metadata.leader().get();
             consumer = new SimpleConsumer(leadBroker.host(),
                     leadBroker.port(),
-                    veniceConsumerTuning.getRequestTimeout(),
-                    veniceConsumerTuning.getRequestBufferSize(),
+                    veniceConsumerConfig.getRequestTimeout(),
+                    veniceConsumerConfig.getRequestBufferSize(),
                     consumerClientName);
 
             // read from the last available offset if not given
@@ -162,8 +125,8 @@ public class VeniceConsumerTask implements Runnable {
                 if (null == consumer) {
                     consumer = new SimpleConsumer(leadBroker.host(),
                             leadBroker.port(),
-                            veniceConsumerTuning.getRequestTimeout(),
-                            veniceConsumerTuning.getRequestBufferSize(),
+                            veniceConsumerConfig.getRequestTimeout(),
+                            veniceConsumerConfig.getRequestBufferSize(),
                             consumerClientName);
                 }
 
@@ -233,6 +196,42 @@ public class VeniceConsumerTask implements Runnable {
                 consumer.close();
             }
         }
+    }
+
+    /**
+     *  Returns an iterator object for the current position in the Kafka log.
+     *  Handles Kafka request/response semantics
+     *
+     *  @param leadBroker - The current leader of the Kafka Broker
+     *  @param consumer - A SimpleConsumer object tied to the Kafka instance
+     *  @param readOffset - The offset in the Kafka log to begin reading from
+     * */
+    private Iterator<MessageAndOffset> getMessageAndOffsetIterator(Broker leadBroker,
+                                                                   SimpleConsumer consumer, long readOffset) {
+
+        FetchRequest req = new FetchRequestBuilder()
+                .clientId(consumerClientName)
+                .addFetch(topic, partition, readOffset, veniceConsumerConfig.getRequestFetchSize())
+                .build();
+
+        Iterator<MessageAndOffset> messageAndOffsetIterator;
+        try {
+
+            FetchResponse fetchResponse = consumer.fetch(req);
+
+            // This is a separate case from the one below. The fetch worked but returned an error.
+            if (fetchResponse.hasError()) {
+                throw new Exception("FetchResponse error code: "
+                        + fetchResponse.errorCode(topic, partition));
+            }
+            messageAndOffsetIterator = fetchResponse.messageSet(topic, partition).iterator();
+
+        } catch (Exception e) {
+            logger.error("FetchResponse could not perform fetch on [" + topic + ", " + partition + "]");
+            throw new LeaderNotAvailableException(e.getMessage());
+        }
+
+        return messageAndOffsetIterator;
     }
 
     /**
@@ -365,7 +364,7 @@ public class VeniceConsumerTask implements Runnable {
      * */
     private Broker findNewLeader(Broker oldLeader, String topic, int partition) throws Exception {
 
-        for (int i = 0; i < veniceConsumerTuning.getNumberOfRetriesBeforeFailure(); i++) {
+        for (int i = 0; i < veniceConsumerConfig.getNumberOfRetriesBeforeFailure(); i++) {
 
             boolean goToSleep;
             PartitionMetadata metadata = findLeader(replicaBrokers, topic, partition);
@@ -418,8 +417,8 @@ public class VeniceConsumerTask implements Runnable {
 
                 consumer = new SimpleConsumer(broker.host(),
                         broker.port(),
-                        veniceConsumerTuning.getRequestTimeout(),
-                        veniceConsumerTuning.getRequestBufferSize(),
+                        veniceConsumerConfig.getRequestTimeout(),
+                        veniceConsumerConfig.getRequestBufferSize(),
                         LEADER_ELECTION_TASK_NAME);
 
                 Seq<String> topics = JavaConversions.asScalaBuffer(Collections.singletonList(topic));

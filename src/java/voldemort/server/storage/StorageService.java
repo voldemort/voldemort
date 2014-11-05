@@ -25,11 +25,9 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -110,6 +108,7 @@ import voldemort.utils.DaemonThreadFactory;
 import voldemort.utils.DynamicThrottleLimit;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
+import voldemort.utils.KafkaTopicUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.StoreDefinitionUtils;
@@ -910,10 +909,10 @@ public class StorageService extends AbstractService {
 
             StoreRoutingPlan plan = new StoreRoutingPlan(cluster, storeDef);
             store = new VeniceStore<ByteArray, byte[], byte[]>(store,
-                    storeDef.getKafkaTopic().getBrokerList(),
+                    KafkaTopicUtils.brokerStringToList(storeDef.getKafkaTopic().getBrokerListString()),
                     storeDef.getKafkaTopic().getName(),
                     plan.getZoneNAryPartitionIds(voldemortConfig.getNodeId()),
-                    voldemortConfig.getVeniceConsumerTuning()
+                    voldemortConfig.getVeniceConsumerConfig()
             );
         }
 
