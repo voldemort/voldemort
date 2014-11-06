@@ -374,7 +374,7 @@ public class AdminToolUtils {
      * 
      * @param adminClient An instance of AdminClient points to given cluster
      * @param nodeIds List of node ids to be checked
-     * @throws VoldemortException if any node is not in normal state
+     * @throws VoldemortException if any node is in offline state
      */
     public static void assertServerNotInOfflineState(AdminClient adminClient,
                                                      Collection<Integer> nodeIds) {
@@ -401,8 +401,38 @@ public class AdminToolUtils {
      * {@link VoldemortState#REBALANCING_MASTER_SERVER}).
      * 
      * @param adminClient An instance of AdminClient points to given cluster
+     * @throws VoldemortException if any node is in rebalancing state
+     */
+    public static void assertServerNotInRebalancingState(AdminClient adminClient) {
+        assertServerNotInRebalancingState(adminClient, adminClient.getAdminClientCluster()
+                                                                  .getNodeIds());
+    }
+
+    /**
+     * Utility function that checks the execution state of the server by
+     * checking the state of {@link VoldemortState} <br>
+     * 
+     * This function checks if the nodes are not in rebalancing state (
+     * {@link VoldemortState#REBALANCING_MASTER_SERVER}).
+     * 
+     * @param adminClient An instance of AdminClient points to given cluster
+     * @param nodeId Node id to be checked
+     * @throws VoldemortException if any node is in rebalancing state
+     */
+    public static void assertServerNotInRebalancingState(AdminClient adminClient, Integer nodeId) {
+        assertServerNotInRebalancingState(adminClient, Lists.newArrayList(new Integer[] { nodeId }));
+    }
+
+    /**
+     * Utility function that checks the execution state of the server by
+     * checking the state of {@link VoldemortState} <br>
+     * 
+     * This function checks if the nodes are not in rebalancing state (
+     * {@link VoldemortState#REBALANCING_MASTER_SERVER}).
+     * 
+     * @param adminClient An instance of AdminClient points to given cluster
      * @param nodeIds List of node ids to be checked
-     * @throws VoldemortException if any node is not in normal state
+     * @throws VoldemortException if any node is in rebalancing state
      */
     public static void assertServerNotInRebalancingState(AdminClient adminClient,
                                                          Collection<Integer> nodeIds) {
