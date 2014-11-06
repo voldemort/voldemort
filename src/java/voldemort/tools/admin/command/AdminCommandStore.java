@@ -200,7 +200,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeIds);
 
             doStoreAdd(adminClient, nodeIds, storesFile);
         }
@@ -319,7 +319,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeIds);
 
             doStoreUpdate(adminClient, nodeIds, storesFile);
         }
@@ -456,7 +456,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeIds);
 
             doStoreDelete(adminClient, nodeIds, storeNames);
         }
@@ -605,7 +605,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeIds);
 
             adminClient.readonlyOps.rollbackStore(nodeIds, storeName, pushVersion);
         }
@@ -740,7 +740,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 AdminToolUtils.validateUserStoreNamesOnNode(adminClient, nodeId, storeNames);
             }
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeId);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeId);
 
             doStoreTruncatePartition(adminClient, nodeId, storeNames, partIds);
         }
@@ -881,7 +881,7 @@ public class AdminCommandStore extends AbstractAdminCommand {
                 nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeIds);
 
             doStoreTruncateStore(adminClient, nodeIds, storeNames);
         }

@@ -196,7 +196,7 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
                 nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeIds);
 
             doCleanupOrphanedData(adminClient, nodeIds);
         }
@@ -331,7 +331,7 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
                 nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeIds);
 
             doCleanupVectorClocks(adminClient, nodeIds, storeNames);
         }
@@ -472,7 +472,7 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
                 nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeIds);
 
             adminClient.storeMntOps.slopPurgeJob(nodeIds, zoneId, storeNames);
         }

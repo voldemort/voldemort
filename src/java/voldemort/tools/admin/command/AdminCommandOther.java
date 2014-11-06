@@ -197,7 +197,7 @@ public class AdminCommandOther extends AbstractAdminCommand {
             }
             AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeId);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeId);
 
             System.out.println("Please wait while performing native-backup...");
             adminClient.storeMntOps.nativeBackup(nodeId,
@@ -312,7 +312,7 @@ public class AdminCommandOther extends AbstractAdminCommand {
                 return;
             }
             AdminClient adminClient = AdminToolUtils.getAdminClient(url);
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeId);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeId);
 
             System.out.println("Starting restore");
             adminClient.restoreOps.restoreDataFromReplications(nodeId, parallel, zoneId);

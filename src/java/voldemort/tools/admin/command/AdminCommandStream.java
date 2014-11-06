@@ -826,8 +826,8 @@ public class AdminCommandStream extends AbstractAdminCommand {
                 AdminToolUtils.validateUserStoreNamesOnNode(srcAdminClient, srcNodeId, storeNames);
             }
 
-            AdminToolUtils.assertServerInNormalState(srcAdminClient, srcNodeId);
-            AdminToolUtils.assertServerInNormalState(destAdminClient, destNodeId);
+            AdminToolUtils.assertServerNotInRebalancingState(srcAdminClient, srcNodeId);
+            AdminToolUtils.assertServerNotInRebalancingState(destAdminClient, destNodeId);
             destAdminClient.restoreOps.mirrorData(destNodeId, srcNodeId, srcUrl, storeNames);
         }
     }

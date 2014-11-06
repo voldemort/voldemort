@@ -351,7 +351,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
                 nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
             }
 
-            AdminToolUtils.assertServerInNormalState(adminClient, nodeIds);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient, nodeIds);
 
             adminClient.quotaMgmtOps.reserveMemory(nodeIds, storeNames, memoryMBSize);
         }
@@ -483,7 +483,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
             AdminClient adminClient = AdminToolUtils.getAdminClient(url);
             Map<String, String> quotaMap = AdminToolUtils.convertListToMap(quota);
 
-            AdminToolUtils.assertServerInNormalState(adminClient);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient);
 
             doQuotaSet(adminClient, storeNames, quotaMap);
         }
@@ -628,7 +628,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
 
             AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
-            AdminToolUtils.assertServerInNormalState(adminClient);
+            AdminToolUtils.assertServerNotInRebalancingState(adminClient);
 
             doQuotaUnset(adminClient, storeNames, quotaTypes);
         }
