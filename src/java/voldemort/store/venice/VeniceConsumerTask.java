@@ -22,6 +22,7 @@ import kafka.utils.VerifiableProperties;
 import scala.collection.Iterator;
 import scala.collection.JavaConversions;
 import scala.collection.Seq;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
@@ -43,14 +44,14 @@ public class VeniceConsumerTask implements Runnable {
 
     static final Logger logger = Logger.getLogger(VeniceConsumerTask.class.getName());
 
-    private final String ENCODING = "UTF-8";
     private final String LEADER_ELECTION_TASK_NAME = "Voldemort_Venice_LeaderLookup";
     private final int FIND_LEADER_CYCLE_DELAY = 2000;
     private final int READ_CYCLE_DELAY = 500;
 
     private VeniceConsumerConfig veniceConsumerConfig;
-    private final byte FULL_OPERATION_BYTE = 0;
-    private final byte PARTIAL_OPERATION_BYTE = 1;
+
+    // schema validation
+    private SerializerDefinition valueSerializer;
 
     // kafka metadata
     private String topic;
@@ -66,18 +67,20 @@ public class VeniceConsumerTask implements Runnable {
     private VeniceConsumerState consumerState;
 
     // serialization
-    private VeniceMessage vm;
-    private VeniceSerializer serializer;
     private VeniceStore store;
 
-    public VeniceConsumerTask(VeniceStore store, List<Broker> seedBrokers, String topic, int partition,
-                              long startingOffset, VeniceConsumerConfig veniceConsumerConfig) {
+    public VeniceConsumerTask(VeniceStore store,
+                              List<Broker> seedBrokers,
+                              String topic,
+                              int partition,
+                              long startingOffset,
+                              SerializerDefinition valueSerializer,
+                              VeniceConsumerConfig veniceConsumerConfig) {
 
         this.store = store;
         this.veniceConsumerConfig = veniceConsumerConfig;
 
-        // static serialization service for Venice Messages
-        this.serializer = new VeniceSerializer(new VerifiableProperties());
+        this.valueSerializer = valueSerializer;
 
         // consumer metadata
         this.replicaBrokers = new ArrayList<Broker>();
@@ -152,15 +155,14 @@ public class VeniceConsumerTask implements Runnable {
                                 continue;
                             }
 
+                            // Read message, notify and iterate
                             readMessage(messageAndOffset.message());
                             store.updatePartitionOffset(partition, currentOffset);
-
                             readOffset = messageAndOffset.nextOffset();
                             numReadsInIteration++;
                         }
 
                     } catch (LeaderNotAvailableException e) {
-
                         logger.error("Kafka error found! Finding new leader....");
                         logger.error(e);
                         consumer.close();
@@ -174,6 +176,14 @@ public class VeniceConsumerTask implements Runnable {
                             logger.error("Error while finding new leader: " + leaderException);
                             throw new VoldemortVeniceException(leaderException);
                         }
+                    } catch (IllegalArgumentException e) {
+                        logger.error(e + " Skipping inputted message.");
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Skipping message at: [ Topic " + topic +  ", Partition "
+                                    + partition + ", Offset " + readOffset + " ]");
+                        }
+                        // forcefully skip over this bad offset
+                        readOffset++;
                     }
                 }
                 // Nothing was read in the last iteration, slow down and reduce load on Consumer
@@ -266,10 +276,8 @@ public class VeniceConsumerTask implements Runnable {
         payload.get(payloadBytes);
 
         // De-serialize payload into Venice Message format
-        vm = serializer.fromBytes(payloadBytes);
-
-        readVeniceMessage(keyBytes, vm);
-
+        VeniceSerializer serializer = new VeniceSerializer(new VerifiableProperties());
+        readVeniceMessage(keyBytes, serializer.fromBytes(payloadBytes));
     }
 
     /**
@@ -277,54 +285,30 @@ public class VeniceConsumerTask implements Runnable {
      * */
     private void readVeniceMessage(byte[] key, VeniceMessage msg) throws VoldemortVeniceException {
 
-        // check for invalid inputs
-        if (null == msg) {
-            throw new VoldemortVeniceException("Given null Venice Message.");
-        }
-
-        if (null == msg.getOperationType()) {
-            throw new VoldemortVeniceException("Venice Message does not have operation type!");
-        }
-
-        ByteArray keyBytes;
+        // Note that vector clocks are not to be used with the Venice implementation,
+        // as Kafka log serves the same purpose of ordering
+        ByteArray keyBytes = parseKeyForFullPut(key);
+        Versioned<byte[]> versionedMessage = parsePayload(msg);
         switch (msg.getOperationType()) {
-
-            // Note that vector clocks are not to be used with the Venice implementation,
-            // as Kafka log serves the same purpose of ordering
             case PUT:
-
-                keyBytes = parseBytesForFullPut(key);
-                if (keyBytes != null) {
-                    Versioned<byte[]> versionedMessage = new Versioned<byte[]>(msg.getPayload());
-                    logger.info("Partition: " + partition + " Putting: " + keyBytes + ", " + msg.getPayload());
-                    store.putFromKafka(keyBytes, versionedMessage, null);
-                }
-
+                logger.info("Partition: " + partition + " Putting: " + keyBytes + ", " + msg.getPayload());
+                store.putFromKafka(keyBytes, versionedMessage, null);
                 break;
 
-            // deleting values
             case DELETE:
-
-                keyBytes = parseBytesForFullPut(key);
-                if (keyBytes != null) {
-                    logger.info("Partition: " + partition + " Deleting: " + keyBytes);
-                    store.deleteFromKafka(keyBytes, null);
-                }
-
+                logger.info("Partition: " + partition + " Deleting: " + keyBytes + ", " + msg.getPayload());
+                store.deleteFromKafka(keyBytes, null);
                 break;
 
-            // partial update
             case PARTIAL_PUT:
-                throw new UnsupportedOperationException("Partial puts not yet implemented");
+                throw new IllegalArgumentException("Partial puts not yet implemented");
 
-            // error
             case ERROR:
-                throw new VoldemortVeniceException("Error while creating Venice Message.");
+                throw new IllegalArgumentException("Error while creating Venice Message.");
 
             default:
-                throw new VoldemortVeniceException("Unrecognized operation type submitted: " + msg.getOperationType());
+                throw new IllegalArgumentException("Unrecognized operation type submitted: " + msg.getOperationType());
         }
-
     }
 
     /**
@@ -334,15 +318,39 @@ public class VeniceConsumerTask implements Runnable {
      * @return A ByteArray if the array is valid, null otherwise.
      *
      * */
-    private ByteArray parseBytesForFullPut(byte[] key) {
-        if (FULL_OPERATION_BYTE == key[0]) {
+    private ByteArray parseKeyForFullPut(byte[] key) {
+        if (VeniceMessage.FULL_OPERATION_BYTE == key[0]) {
             // remove the header once it has been verified
             key = Arrays.copyOfRange(key, 1, key.length);
             return new ByteArray(key);
         } else {
-            logger.error("Received a Kafka message that is missing the correct identifier byte.");
-            return null;
+            throw new IllegalArgumentException("Received a Kafka message that is missing the correct identifier byte.");
         }
+    }
+
+    private Versioned<byte[]> parsePayload(VeniceMessage msg) {
+
+        // check for null inputs
+        if (null == msg) {
+            throw new IllegalArgumentException("Given null Venice Message.");
+        }
+
+        if (null == msg.getOperationType()) {
+            throw new IllegalArgumentException("Venice Message does not have operation type!");
+        }
+
+        // check for Magic Byte
+        if (msg.getMagicByte() != VeniceMessage.DEFAULT_MAGIC_BYTE) {
+            throw new IllegalArgumentException("Venice Message does not have correct magic byte!");
+        }
+
+        // schema version
+        if (valueSerializer.hasSchemaInfo() &&
+                !valueSerializer.getAllSchemaInfoVersions().containsKey(msg.getSchemaVersion())) {
+            throw new IllegalArgumentException("Unrecognized schema version for value-serializer");
+        }
+
+        return new Versioned<byte[]>(msg.getPayload());
     }
 
     /**

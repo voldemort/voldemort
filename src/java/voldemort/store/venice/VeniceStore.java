@@ -5,6 +5,8 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
+import voldemort.utils.KafkaTopicUtils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -24,6 +26,8 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
     private static final Logger logger = Logger.getLogger(VeniceStore.class.getName());
 
     private ExecutorService executor;
+    private StoreDefinition storeDef;
+    private KafkaTopicDefinition kafkaDef;
     private VeniceConsumerTask task;
 
     // TODO: do we want to create a distinction between masters and replicas when creating ConsumerTasks?
@@ -40,14 +44,18 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
     // store level configs
     private String topic;
 
-    public VeniceStore(Store<K, V, T> store, List<Broker> seedBrokers, String topic,
-                       Collection<Integer> partitionIds, VeniceConsumerConfig consumerConfig) {
+    public VeniceStore(Store<K, V, T> store,
+                       StoreDefinition storeDef,
+                       Collection<Integer> partitionIds,
+                       VeniceConsumerConfig consumerConfig) {
 
         super(store);
 
-        this.seedBrokers = seedBrokers;
+        this.storeDef = storeDef;
+        this.kafkaDef = storeDef.getKafkaTopic();
+        this.seedBrokers = KafkaTopicUtils.brokerStringToList(kafkaDef.getBrokerListString());
         this.consumerConfig = consumerConfig;
-        this.topic = topic;
+        this.topic = kafkaDef.getName();
 
         this.partitionIds = partitionIds;
         this.partitionOffsetMap = new ConcurrentHashMap<Integer, Long>();
@@ -56,7 +64,7 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
         startUpConsumers();
     }
 
-    // TODO: These params must match the value given to kakfa, so look into ways that can be done.
+    // TODO: These params must match the value given to Kakfa, so look into ways that can be done.
     // should we be reading Kafka config files?
     // or creating a wrapper script that starts Kafka and Venice together?
     public void startUpConsumers() {
@@ -69,8 +77,13 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
                 partitionOffsetMap.put(partition, new Long(-1));
             }
 
-            task = new VeniceConsumerTask(this, seedBrokers, topic, partition,
-                    partitionOffsetMap.get(partition), consumerConfig);
+            task = new VeniceConsumerTask(this,
+                    seedBrokers,
+                    topic,
+                    partition,
+                    partitionOffsetMap.get(partition),
+                    storeDef.getValueSerializer(),
+                    consumerConfig);
 
             // launch each consumer task on a new thread
             executor = Executors.newFixedThreadPool(1);

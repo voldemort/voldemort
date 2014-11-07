@@ -25,134 +25,141 @@ import java.io.IOException;
  */
 public class VeniceSerializer implements Encoder<VeniceMessage>, Decoder<VeniceMessage> {
 
-  static final Logger logger = Logger.getLogger(VeniceSerializer.class.getName()); // log4j logger
+    static final Logger logger = Logger.getLogger(VeniceSerializer.class.getName()); // log4j logger
 
-  private static final int HEADER_LENGTH = 3; // length of the VeniceMessage header in bytes
-
-  public VeniceSerializer(VerifiableProperties verifiableProperties) {
+    public VeniceSerializer(VerifiableProperties verifiableProperties) {
     /* This constructor is not used, but is required for compilation */
-  }
+    }
 
-  @Override
-  /**
-   * Converts from a byte array to a VeniceMessage
-   * @param byteArray - byte array to be converted
-   * @return Converted Venice Message
-   * */
-  public VeniceMessage fromBytes(byte[] byteArray) {
+    @Override
+    /**
+     * Converts from a byte array to a VeniceMessage
+     * @param byteArray - byte array to be converted
+     * @return Converted Venice Message
+     * */
+    public VeniceMessage fromBytes(byte[] byteArray) {
 
-    byte magicByte;
-    byte schemaVersion;
-    OperationType operationType = null;
-    byte[] output = null;
+        byte magicByte;
+        byte schemaVersion;
+        OperationType operationType = null;
+        byte[] output = null;
 
-    ByteArrayInputStream bytesIn = null;
-    ObjectInputStream ois = null;
+        ByteArrayInputStream bytesIn = null;
+        ObjectInputStream ois = null;
 
-    try {
+        try {
 
-      bytesIn = new ByteArrayInputStream(byteArray);
-      ois = new ObjectInputStream(bytesIn);
+            bytesIn = new ByteArrayInputStream(byteArray);
+            ois = new ObjectInputStream(bytesIn);
 
-      /* read magicByte TODO: currently unused */
-      magicByte = ois.readByte();
+             /* read magicByte */
+            magicByte = ois.readByte();
 
-      /* read operation type */
-      byte opTypeByte = ois.readByte();
+            if (magicByte != VeniceMessage.DEFAULT_MAGIC_BYTE) {
+                throw new VoldemortVeniceException("Illegal magic byte given: " + magicByte);
+            }
 
-      switch (opTypeByte) {
-        case 1:
-          operationType = OperationType.PUT;
-          break;
-        case 2:
-          operationType = OperationType.DELETE;
-          break;
-        default:
-          operationType = null;
-          logger.error("Illegal serialized operation type found: " + opTypeByte);
-      }
+            /* read operation type */
+            byte opTypeByte = ois.readByte();
 
-      /* read schemaVersion - TODO: currently unused */
-      schemaVersion = ois.readByte();
+            switch (opTypeByte) {
+                case 1:
+                    operationType = OperationType.PUT;
+                    break;
+                case 2:
+                    operationType = OperationType.DELETE;
+                    break;
+                default:
+                    operationType = null;
+                    logger.error("Illegal serialized operation type found: " + opTypeByte);
+            }
 
-      /* read payload, one character at a time */
-      int byteCount = ois.available();
+             /* read schemaVersions */
+            schemaVersion = ois.readByte();
 
-      output = new byte[byteCount];
-      for (int i = 0; i < byteCount; i++) {
-        output[i] = ois.readByte();
-      }
+            /* read payload, one character at a time */
+            int byteCount = ois.available();
 
-    } catch (IOException e) {
+            output = new byte[byteCount];
+            for (int i = 0; i < byteCount; i++) {
+                output[i] = ois.readByte();
+            }
 
-      logger.error("IOException while performing deserialization: " + e);
-      e.printStackTrace();
-      return new VeniceMessage(OperationType.ERROR, new byte[0]);
+        } catch (VoldemortVeniceException vve) {
 
-    } finally {
+            logger.error("Error occurred during deserialization of Venice Message.");
+            logger.error(vve);
+            return new VeniceMessage(OperationType.ERROR);
 
-      // safely close the input/output streams
-      try { ois.close(); } catch (IOException e) {}
-      try { bytesIn.close(); } catch (IOException e) {}
+        } catch (IOException e) {
+
+            logger.error("IOException while performing deserialization: " + e);
+            e.printStackTrace();
+            return new VeniceMessage(OperationType.ERROR);
+
+        } finally {
+
+            // safely close the input/output streams
+            try { ois.close(); } catch (IOException e) {}
+            try { bytesIn.close(); } catch (IOException e) {}
+
+        }
+
+        return new VeniceMessage(operationType, output, schemaVersion);
 
     }
 
-    return new VeniceMessage(operationType, output);
+    @Override
+    /**
+     * Converts from a VeniceMessage to a byte array
+     * @param byteArray - byte array to be converted
+     * @return Converted Venice Message
+     * */
+    public byte[] toBytes(VeniceMessage vm) {
 
-  }
+        ByteArrayOutputStream bytesOut = null;
+        ObjectOutputStream oos = null;
+        byte[] message = new byte[0];
 
-  @Override
-  /**
-   * Converts from a VeniceMessage to a byte array
-   * @param byteArray - byte array to be converted
-   * @return Converted Venice Message
-   * */
-  public byte[] toBytes(VeniceMessage vm) {
+        try {
 
-    ByteArrayOutputStream bytesOut = null;
-    ObjectOutputStream oos = null;
-    byte[] message = new byte[0];
+            bytesOut = new ByteArrayOutputStream();
+            oos = new ObjectOutputStream(bytesOut);
 
-    try {
+            oos.writeByte(vm.getMagicByte());
 
-      bytesOut = new ByteArrayOutputStream();
-      oos = new ObjectOutputStream(bytesOut);
+            // serialize the operation type enum
+            switch(vm.getOperationType()) {
+                case PUT:
+                    oos.write(1);
+                    break;
+                case DELETE:
+                    oos.write(2);
+                    break;
+                default:
+                    logger.error("Operation Type not recognized: " + vm.getOperationType());
+                    oos.write(0);
+                    break;
+            }
 
-      oos.writeByte(vm.getMagicByte());
+            oos.writeByte(vm.getSchemaVersion());
 
-      // serialize the operation type enum
-      switch(vm.getOperationType()) {
-        case PUT:
-          oos.write(1);
-          break;
-        case DELETE:
-          oos.write(2);
-          break;
-        default:
-          logger.error("Operation Type not recognized: " + vm.getOperationType());
-          oos.write(0);
-          break;
-      }
+            // write the payload to the byte array
+            oos.write(vm.getPayload());
+            oos.flush();
 
-      oos.writeByte(vm.getSchemaVersion());
+            message = bytesOut.toByteArray();
 
-      // write the payload to the byte array
-      oos.write(vm.getPayload());
-      oos.flush();
+        } catch (IOException e) {
+            logger.error("Could not serialize message: " + vm.getPayload());
+        } finally {
 
-      message = bytesOut.toByteArray();
+            // safely close the input/output streams
+            try { oos.close(); } catch (IOException e) {}
+            try { bytesOut.close(); } catch (IOException e) {}
 
-    } catch (IOException e) {
-      logger.error("Could not serialize message: " + vm.getPayload());
-    } finally {
-
-      // safely close the input/output streams
-      try { oos.close(); } catch (IOException e) {}
-      try { bytesOut.close(); } catch (IOException e) {}
-
+        }
+        return message;
     }
-
-    return message;
-  }
 
 }
