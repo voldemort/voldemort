@@ -7,12 +7,17 @@ import voldemort.store.routed.Pipeline;
  */
 public class VeniceMessage {
 
-    // TODO: eliminate magic numbers when finished debugging
     public static final byte DEFAULT_MAGIC_BYTE = 22;
-    public static final byte DEFAULT_SCHEMA_VERSION = 17;
+    public static final byte DEFAULT_SCHEMA_VERSION = -1;
+
+    public static final byte FULL_OPERATION_BYTE = 0;
+    public static final byte PARTIAL_OPERATION_BYTE = 1;
+    public static final byte[] FULL_OPERATION_BYTEARRAY = { FULL_OPERATION_BYTE };
+    public static final byte[] PARTIAL_OPERATION_BYTEARRAY = { PARTIAL_OPERATION_BYTE };
 
     private byte magicByte;
-    private byte schemaVersion;
+    private int keySchemaVersion;
+    private int valueSchemaVersion;
 
     private OperationType operationType;
     private byte[] payload;
@@ -24,17 +29,23 @@ public class VeniceMessage {
     public VeniceMessage(OperationType type) {
         this.operationType = (type == OperationType.PUT) ? OperationType.ERROR : type;
         this.magicByte = DEFAULT_MAGIC_BYTE;
-        this.schemaVersion = DEFAULT_SCHEMA_VERSION;
         this.timestamp = null;
+        this.keySchemaVersion = DEFAULT_SCHEMA_VERSION;
+        this.valueSchemaVersion = DEFAULT_SCHEMA_VERSION;
         this.payload = new byte[0];
     }
 
     public VeniceMessage(OperationType type, byte[] payload) {
+        this(type, payload, DEFAULT_SCHEMA_VERSION, DEFAULT_SCHEMA_VERSION);
+    }
+
+    public VeniceMessage(OperationType type, byte[] payload, int keySchemaVersion, int valueSchemaVersion) {
         this.magicByte = DEFAULT_MAGIC_BYTE;
-        this.schemaVersion = DEFAULT_SCHEMA_VERSION;
+        this.timestamp = null;
+        this.keySchemaVersion = keySchemaVersion;
+        this.valueSchemaVersion = valueSchemaVersion;
         this.operationType = type;
         this.payload = payload;
-        this.timestamp = null;
     }
 
     public byte getMagicByte() {
@@ -45,8 +56,12 @@ public class VeniceMessage {
         return operationType;
     }
 
-    public byte getSchemaVersion() {
-        return schemaVersion;
+    public int getKeySchemaVersion() {
+        return keySchemaVersion;
+    }
+
+    public int getValueSchemaVersion() {
+        return valueSchemaVersion;
     }
 
     public byte[] getPayload() {

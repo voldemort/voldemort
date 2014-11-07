@@ -9,6 +9,8 @@ import voldemort.client.ZoneAffinity;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.common.VoldemortOpCode;
+import voldemort.routing.RoutingStrategyType;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreRequest;
@@ -41,8 +43,9 @@ import java.util.concurrent.TimeUnit;
 public class KafkaRoutedStore extends PipelineRoutedStore {
 
     private Producer<ByteArray, VeniceMessage> producer;
-    public static final byte[] FULL_OPERATION_BYTE = { 0 };
-    public static final byte[] PARTIAL_OPERATION_BYTE = { 1 };
+
+    private SerializerDefinition keySerializerDef;
+    private SerializerDefinition valueSerializerDef;
 
     public KafkaRoutedStore(Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
                                Map<Integer, NonblockingStore> nonblockingStores,
@@ -72,6 +75,8 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
                 zoneAffinity);
 
         this.producer = getKafkaProducer(storeDef.getKafkaTopic().getBrokerListString());
+        this.keySerializerDef = storeDef.getKeySerializer();
+        this.valueSerializerDef = storeDef.getValueSerializer();
     }
 
     private Producer<ByteArray, VeniceMessage> getKafkaProducer(String metadataBrokerList) {
@@ -96,20 +101,29 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
     public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
             throws VoldemortException {
 
+        // clfung: Why does SerializerDefinition return an int when the value is later put in a ByteArray?
+        int keySchema = keySerializerDef.hasSchemaInfo() ?
+                keySerializerDef.getCurrentSchemaVersion() : VeniceMessage.DEFAULT_SCHEMA_VERSION;
+
+        int valueSchema = valueSerializerDef.hasSchemaInfo() ?
+                valueSerializerDef.getCurrentSchemaVersion() : VeniceMessage.DEFAULT_SCHEMA_VERSION;
+
+        VeniceMessage vm = new VeniceMessage(OperationType.PUT, versioned.getValue(), keySchema, valueSchema);
+
         // TODO: when partial puts are enabled, insert the partial put byte (1) and the sub-schema id.
-        VeniceMessage vm = new VeniceMessage(OperationType.PUT, versioned.getValue());
-        ByteArray kafkaKey = new ByteArray(FULL_OPERATION_BYTE).append(key);
+        ByteArray kafkaKey = new ByteArray(VeniceMessage.FULL_OPERATION_BYTEARRAY).append(key);
 
         KeyedMessage<ByteArray, VeniceMessage> message
                 = new KeyedMessage<ByteArray, VeniceMessage>(storeDef.getKafkaTopic().getName(), kafkaKey, vm);
         producer.send(message);
+
     }
 
     @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
 
         VeniceMessage vm = new VeniceMessage(OperationType.DELETE);
-        ByteArray kafkaKey = new ByteArray(FULL_OPERATION_BYTE).append(key);
+        ByteArray kafkaKey = new ByteArray(VeniceMessage.FULL_OPERATION_BYTEARRAY).append(key);
 
         KeyedMessage<ByteArray, VeniceMessage> message
                 = new KeyedMessage<ByteArray, VeniceMessage>(storeDef.getKafkaTopic().getName(), kafkaKey, vm);
