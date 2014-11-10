@@ -16,8 +16,7 @@ public class VeniceMessage {
     public static final byte[] PARTIAL_OPERATION_BYTEARRAY = { PARTIAL_OPERATION_BYTE };
 
     private byte magicByte;
-    private int keySchemaVersion;
-    private int valueSchemaVersion;
+    private int schemaVersion;
 
     private OperationType operationType;
     private byte[] payload;
@@ -30,20 +29,18 @@ public class VeniceMessage {
         this.operationType = (type == OperationType.PUT) ? OperationType.ERROR : type;
         this.magicByte = DEFAULT_MAGIC_BYTE;
         this.timestamp = null;
-        this.keySchemaVersion = DEFAULT_SCHEMA_VERSION;
-        this.valueSchemaVersion = DEFAULT_SCHEMA_VERSION;
+        this.schemaVersion = DEFAULT_SCHEMA_VERSION;
         this.payload = new byte[0];
     }
 
     public VeniceMessage(OperationType type, byte[] payload) {
-        this(type, payload, DEFAULT_SCHEMA_VERSION, DEFAULT_SCHEMA_VERSION);
+        this(type, payload, DEFAULT_SCHEMA_VERSION);
     }
 
-    public VeniceMessage(OperationType type, byte[] payload, int keySchemaVersion, int valueSchemaVersion) {
+    public VeniceMessage(OperationType type, byte[] payload, int schemaVersion) {
         this.magicByte = DEFAULT_MAGIC_BYTE;
         this.timestamp = null;
-        this.keySchemaVersion = keySchemaVersion;
-        this.valueSchemaVersion = valueSchemaVersion;
+        this.schemaVersion = schemaVersion;
         this.operationType = type;
         this.payload = payload;
     }
@@ -56,12 +53,8 @@ public class VeniceMessage {
         return operationType;
     }
 
-    public int getKeySchemaVersion() {
-        return keySchemaVersion;
-    }
-
-    public int getValueSchemaVersion() {
-        return valueSchemaVersion;
+    public int getSchemaVersion() {
+        return schemaVersion;
     }
 
     public byte[] getPayload() {

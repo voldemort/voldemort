@@ -82,7 +82,6 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
                     topic,
                     partition,
                     partitionOffsetMap.get(partition),
-                    storeDef.getKeySerializer(),
                     storeDef.getValueSerializer(),
                     consumerConfig);
 

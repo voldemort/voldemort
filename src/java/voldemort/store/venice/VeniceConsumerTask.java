@@ -51,7 +51,6 @@ public class VeniceConsumerTask implements Runnable {
     private VeniceConsumerConfig veniceConsumerConfig;
 
     // schema validation
-    private SerializerDefinition keySerializer;
     private SerializerDefinition valueSerializer;
 
     // kafka metadata
@@ -75,14 +74,12 @@ public class VeniceConsumerTask implements Runnable {
                               String topic,
                               int partition,
                               long startingOffset,
-                              SerializerDefinition keySerializer,
                               SerializerDefinition valueSerializer,
                               VeniceConsumerConfig veniceConsumerConfig) {
 
         this.store = store;
         this.veniceConsumerConfig = veniceConsumerConfig;
 
-        this.keySerializer = keySerializer;
         this.valueSerializer = valueSerializer;
 
         // consumer metadata
@@ -158,12 +155,10 @@ public class VeniceConsumerTask implements Runnable {
                                 continue;
                             }
 
-                            // We actually want to advance the offset before reading,
-                            // if an exception is thrown we don't want to reread the bad message
-                            readOffset = messageAndOffset.nextOffset();
-                            store.updatePartitionOffset(partition, currentOffset);
-
+                            // Read message, notify and iterate
                             readMessage(messageAndOffset.message());
+                            store.updatePartitionOffset(partition, currentOffset);
+                            readOffset = messageAndOffset.nextOffset();
                             numReadsInIteration++;
                         }
 
@@ -182,8 +177,13 @@ public class VeniceConsumerTask implements Runnable {
                             throw new VoldemortVeniceException(leaderException);
                         }
                     } catch (IllegalArgumentException e) {
-                        logger.error(e);
-                        logger.error("Skipping inputted message.");
+                        logger.error(e + " Skipping inputted message.");
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Skipping message at: [ Topic " + topic +  ", Partition "
+                                    + partition + ", Offset " + readOffset + " ]");
+                        }
+                        // forcefully skip over this bad offset
+                        readOffset++;
                     }
                 }
                 // Nothing was read in the last iteration, slow down and reduce load on Consumer
@@ -330,7 +330,7 @@ public class VeniceConsumerTask implements Runnable {
 
     private Versioned<byte[]> parsePayload(VeniceMessage msg) {
 
-       // check for null inputs
+        // check for null inputs
         if (null == msg) {
             throw new IllegalArgumentException("Given null Venice Message.");
         }
@@ -344,14 +344,9 @@ public class VeniceConsumerTask implements Runnable {
             throw new IllegalArgumentException("Venice Message does not have correct magic byte!");
         }
 
-        // check for schema versions
-        if (keySerializer.hasSchemaInfo() &&
-                !keySerializer.getAllSchemaInfoVersions().containsKey(msg.getKeySchemaVersion())) {
-            throw new IllegalArgumentException("Unrecognized schema version for key-serializer");
-        }
-
+        // schema version
         if (valueSerializer.hasSchemaInfo() &&
-                !valueSerializer.getAllSchemaInfoVersions().containsKey(msg.getValueSchemaVersion())) {
+                !valueSerializer.getAllSchemaInfoVersions().containsKey(msg.getSchemaVersion())) {
             throw new IllegalArgumentException("Unrecognized schema version for value-serializer");
         }
 

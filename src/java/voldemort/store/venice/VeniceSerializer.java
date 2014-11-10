@@ -40,8 +40,7 @@ public class VeniceSerializer implements Encoder<VeniceMessage>, Decoder<VeniceM
     public VeniceMessage fromBytes(byte[] byteArray) {
 
         byte magicByte;
-        byte keySchemaVersion;
-        byte valueSchemaVersion;
+        byte schemaVersion;
         OperationType operationType = null;
         byte[] output = null;
 
@@ -76,8 +75,7 @@ public class VeniceSerializer implements Encoder<VeniceMessage>, Decoder<VeniceM
             }
 
              /* read schemaVersions */
-            keySchemaVersion = ois.readByte();
-            valueSchemaVersion = ois.readByte();
+            schemaVersion = ois.readByte();
 
             /* read payload, one character at a time */
             int byteCount = ois.available();
@@ -107,7 +105,7 @@ public class VeniceSerializer implements Encoder<VeniceMessage>, Decoder<VeniceM
 
         }
 
-        return new VeniceMessage(operationType, output, keySchemaVersion, valueSchemaVersion);
+        return new VeniceMessage(operationType, output, schemaVersion);
 
     }
 
@@ -144,8 +142,7 @@ public class VeniceSerializer implements Encoder<VeniceMessage>, Decoder<VeniceM
                     break;
             }
 
-            oos.writeByte(vm.getKeySchemaVersion());
-            oos.writeByte(vm.getValueSchemaVersion());
+            oos.writeByte(vm.getSchemaVersion());
 
             // write the payload to the byte array
             oos.write(vm.getPayload());

@@ -44,7 +44,6 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
 
     private Producer<ByteArray, VeniceMessage> producer;
 
-    private SerializerDefinition keySerializerDef;
     private SerializerDefinition valueSerializerDef;
 
     public KafkaRoutedStore(Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
@@ -75,7 +74,6 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
                 zoneAffinity);
 
         this.producer = getKafkaProducer(storeDef.getKafkaTopic().getBrokerListString());
-        this.keySerializerDef = storeDef.getKeySerializer();
         this.valueSerializerDef = storeDef.getValueSerializer();
     }
 
@@ -102,13 +100,10 @@ public class KafkaRoutedStore extends PipelineRoutedStore {
             throws VoldemortException {
 
         // clfung: Why does SerializerDefinition return an int when the value is later put in a ByteArray?
-        int keySchema = keySerializerDef.hasSchemaInfo() ?
-                keySerializerDef.getCurrentSchemaVersion() : VeniceMessage.DEFAULT_SCHEMA_VERSION;
-
-        int valueSchema = valueSerializerDef.hasSchemaInfo() ?
+        int schema = valueSerializerDef.hasSchemaInfo() ?
                 valueSerializerDef.getCurrentSchemaVersion() : VeniceMessage.DEFAULT_SCHEMA_VERSION;
 
-        VeniceMessage vm = new VeniceMessage(OperationType.PUT, versioned.getValue(), keySchema, valueSchema);
+        VeniceMessage vm = new VeniceMessage(OperationType.PUT, versioned.getValue(), schema);
 
         // TODO: when partial puts are enabled, insert the partial put byte (1) and the sub-schema id.
         ByteArray kafkaKey = new ByteArray(VeniceMessage.FULL_OPERATION_BYTEARRAY).append(key);
