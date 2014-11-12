@@ -2,16 +2,18 @@
 
 ## Overview ##
 
-* Data is automatically replicated over multiple servers.
+* Data is automatically replicated over multiple servers across multiple datacenters.
 * Data is automatically partitioned so each server contains only a subset of the total data
 * Server failure is handled transparently
 * Pluggable serialization is supported to allow rich keys and values including lists and tuples with named fields, as well as to integrate with common serialization frameworks like Protocol Buffers, Thrift, and Java Serialization
 * Data items are versioned to maximize data integrity in failure scenarios without compromising availability of the system
 * Each node is independent of other nodes with no central point of failure or coordination
-* Good single node performance: you can expect 10-20k operations per second depending on the machines, the network, the disk system, and the data replication factor
+* Pluggable storage engines, to cater to different workloads
+* SSD Optimized Read Write storage engine, with support for multi-tenancy
+* Built in mechanism to fetch & serve batch computed data from Hadoop 
 * Support for pluggable data placement strategies to support things like distribution across data centers that are geographical far apart.
 
-It is used at LinkedIn for certain high-scalability storage problems where simple functional partitioning is not sufficient. It is still a new system which has rough edges, bad error messages, and probably plenty of uncaught bugs. Let us know if you find one of these, so we can fix it.
+It is used at LinkedIn by numerous critical services powering a large portion of the site. .
 
 ## QuickStart ##
 
