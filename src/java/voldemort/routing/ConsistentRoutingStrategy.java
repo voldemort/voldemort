@@ -31,6 +31,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.store.venice.VeniceMessage;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.FnvHashFunction;
@@ -198,7 +199,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy, Partitioner {
 
     /**
      * Obtain the master partition for a given key and number of replicas
-     * This class is used by Kafka producer to determine the partition location
+     * This class is ONLY used by Kafka producer to determine the partition location
      *
      * @param key
      * @param numReplicas
@@ -209,8 +210,24 @@ public class ConsistentRoutingStrategy implements RoutingStrategy, Partitioner {
 
         // For Voldemort Venice integration, all keys from Kafka should be of type ByteArray
         ByteArray byteKey = ((ByteArray)key);
-        int partition = getMasterPartition(byteKey.get(), numReplicas);
+        ByteArray keyToPartition;
 
+        // One important thing to note here is that Venice keys will be prepended with Magic Bytes
+        // and possibly schema info. We want the 'true' key to be used when partitioning the data
+        if (byteKey.get()[0] == VeniceMessage.FULL_OPERATION_BYTE) {
+            keyToPartition = byteKey.subArray(1);
+
+        } else if (byteKey.get()[1] == VeniceMessage.PARTIAL_OPERATION_BYTE) {
+            // TODO: To implement partial puts, remove sub-schema from the key before partitioning
+            logger.error("Partial puts are not yet supported. Returning -1.");
+            return -1;
+
+        } else {
+            logger.error("Found an illegal first byte. Returning -1.");
+            return -1;
+        }
+
+        int partition = getMasterPartition(keyToPartition.get(), numReplicas);
         if (logger.isDebugEnabled()) {
             logger.debug("Hashing: " + key.toString() + " goes to partition "
                     + partition + " of [0," + (numReplicas - 1) + "]");

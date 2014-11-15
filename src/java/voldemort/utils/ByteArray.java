@@ -81,4 +81,17 @@ public final class ByteArray implements Serializable {
         return new ByteArray(appended);
     }
 
+    /**
+     *  Similar to substring, returns the ByteArray
+     *  from byte[start] to byte[end]
+     *
+     * */
+    public ByteArray subArray(int start, int end) {
+        return new ByteArray(Arrays.copyOfRange(this.underlying, start, end));
+    }
+
+    public ByteArray subArray(int start) {
+        return subArray(start, this.underlying.length);
+    }
+
 }

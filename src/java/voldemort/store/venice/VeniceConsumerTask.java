@@ -179,7 +179,7 @@ public class VeniceConsumerTask implements Runnable {
                     } catch (IllegalArgumentException e) {
                         logger.error(e + " Skipping inputted message.");
                         if (logger.isDebugEnabled()) {
-                            logger.debug("Skipping message at: [ Topic " + topic +  ", Partition "
+                            logger.debug("Skipping message at: [ Topic " + topic + ", Partition "
                                     + partition + ", Offset " + readOffset + " ]");
                         }
                         // forcefully skip over this bad offset
@@ -267,17 +267,24 @@ public class VeniceConsumerTask implements Runnable {
 
         // Get the Venice Key
         ByteBuffer key = msg.key();
+        ByteBuffer payload = msg.payload();
+
+        if (null == key || null == payload) {
+            throw new IllegalArgumentException("Received a Kafka Message with No Key.");
+        }
+
+        // Read Key
         byte[] keyBytes = new byte[key.limit()];
         key.get(keyBytes);
 
         // Read Payload
-        ByteBuffer payload = msg.payload();
         byte[] payloadBytes = new byte[payload.limit()];
         payload.get(payloadBytes);
 
         // De-serialize payload into Venice Message format
         VeniceSerializer serializer = new VeniceSerializer(new VerifiableProperties());
         readVeniceMessage(keyBytes, serializer.fromBytes(payloadBytes));
+
     }
 
     /**
@@ -344,8 +351,9 @@ public class VeniceConsumerTask implements Runnable {
             throw new IllegalArgumentException("Venice Message does not have correct magic byte!");
         }
 
-        // schema version
-        if (valueSerializer.hasSchemaInfo() &&
+        // validate schema version for PUT
+        if (msg.getOperationType() == OperationType.PUT &&
+                valueSerializer.hasSchemaInfo() &&
                 !valueSerializer.getAllSchemaInfoVersions().containsKey(msg.getSchemaVersion())) {
             throw new IllegalArgumentException("Unrecognized schema version for value-serializer");
         }
