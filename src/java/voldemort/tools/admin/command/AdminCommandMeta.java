@@ -896,9 +896,12 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                           || metaKey.equals(MetadataStore.READONLY_FETCH_ENABLED_KEY)) {
                     doMetaSet(adminClient, nodeIds, metaKey, metaValue);
                 } else if(metaKey.equals(KEY_OFFLINE)) {
+                    boolean setOffline = Boolean.parseBoolean(metaValue);
+                    if(setOffline && nodeIds.size() > 1) {
+                        throw new VoldemortException("Setting more than one node to offline is not allowed.");
+                    }
                     for(Integer nodeId: nodeIds) {
-                        adminClient.metadataMgmtOps.setRemoteOfflineState(nodeId,
-                                                                          Boolean.parseBoolean(metaValue));
+                        adminClient.metadataMgmtOps.setRemoteOfflineState(nodeId, setOffline);
                     }
                 } else if(metaKey.equals(MetadataStore.REBALANCING_STEAL_INFO)) {
                     if(!Utils.isReadableFile(metaFile)) {
@@ -1300,24 +1303,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                                  List<Integer> nodeIds,
                                  String metaKey,
                                  String metaValue) {
-        VectorClock updatedVersion = null;
-        for(Integer nodeId: nodeIds) {
-            if(updatedVersion == null) {
-                updatedVersion = (VectorClock) adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
-                                                                                             metaKey)
-                                                                          .getVersion();
-            } else {
-                updatedVersion = updatedVersion.merge((VectorClock) adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
-                                                                                                                  metaKey)
-                                                                                               .getVersion());
-            }
-            // Bump up version on first node
-            updatedVersion = updatedVersion.incremented(nodeIds.iterator().next(),
-                                                        System.currentTimeMillis());
-        }
-        adminClient.metadataMgmtOps.updateRemoteMetadata(nodeIds,
-                                                         metaKey,
-                                                         Versioned.value(metaValue, updatedVersion));
+        adminClient.metadataMgmtOps.updateRemoteMetadata(nodeIds, metaKey, metaValue);
     }
 
     /**
