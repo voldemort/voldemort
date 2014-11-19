@@ -903,11 +903,10 @@ public class StorageService extends AbstractService {
 
         // let Venice be the outermost layer as all writes will be funnelled into Venice from Kafka
         // this means anything outside of this layer will be skipped by Venice!
-        if(voldemortConfig.isVeniceEnabled() && storeDef != null) {
+        if(voldemortConfig.isVeniceEnabled() && storeDef != null && storeDef.hasKafkaTopic()) {
 
             // Make sure user did things correctly
-            if (storeDef.hasKafkaTopic()
-                    && storeDef.getRoutingStrategyType().equals(RoutingStrategyType.CONSISTENT_STRATEGY)) {
+            if (storeDef.getRoutingStrategyType().equals(RoutingStrategyType.CONSISTENT_STRATEGY)) {
 
                 logger.info("Initializing Venice Store on " + store.getName() + " store.");
 
@@ -920,7 +919,7 @@ public class StorageService extends AbstractService {
 
             } else {
                 logger.warn("Disabling Venice on this store as it is not properly configured.");
-                logger.warn("Kafka topic must be defined in store and consistent routing must be used.");
+                logger.warn("Consistent routing must be used.");
             }
         }
 

@@ -43,7 +43,7 @@ public class StoreDefinitionBuilder {
     private Integer hintPrefListSize = null;
     private List<String> owners = null;
     private long memoryFootprintMB = 0;
-    private KafkaTopicDefinition kafkaConsumer = null;
+    private KafkaTopicDefinition kafkaTopic = null;
 
     public String getName() {
         return Utils.notNull(name);
@@ -295,12 +295,12 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
-    public KafkaTopicDefinition getKafkaConsumer() {
-        return this.kafkaConsumer;
+    public KafkaTopicDefinition getKafkaTopic() {
+        return this.kafkaTopic;
     }
 
-    public StoreDefinitionBuilder setKafkaConsumer(KafkaTopicDefinition kafkaConsumer) {
-        this.kafkaConsumer = kafkaConsumer;
+    public StoreDefinitionBuilder setKafkaTopic(KafkaTopicDefinition kafkaTopic) {
+        this.kafkaTopic = kafkaTopic;
         return this;
     }
 
@@ -331,7 +331,7 @@ public class StoreDefinitionBuilder {
                                                        this.getHintPrefListSize(),
                                                        this.getOwners(),
                                                        this.getMemoryFootprintMB(),
-                                                       this.getKafkaConsumer()
+                                                       this.getKafkaTopic()
                                                        );
         storeDef.checkParameterLegality();
         return storeDef;

@@ -100,6 +100,7 @@ public class VoldemortConfig implements Serializable {
     private int veniceKafkaRequestTimeout;
     private int veniceKafkaRequestFetchSize;
     private int veniceKafkaRequestBufferSize;
+    private int veniceOffsetCommitCycle;
 
     private long bdbCacheSize;
     private boolean bdbWriteTransactions;
@@ -296,11 +297,15 @@ public class VoldemortConfig implements Serializable {
                 VeniceConsumerConfig.DEFAULT_REQUEST_FETCH_SIZE);
         this.veniceKafkaRequestBufferSize = props.getInt("venice.kafka.request.buffer.size",
                 VeniceConsumerConfig.DEFAULT_REQUEST_BUFFER_SIZE);
+        this.veniceOffsetCommitCycle = props.getInt("venice.offset.commit.cycle",
+                VeniceConsumerConfig.DEFAULT_OFFSET_COMMIT_CYCLE);
 
         this.veniceConsumerConfig = new VeniceConsumerConfig(veniceNumberOfRetriesBeforeFailure,
                                                              veniceKafkaRequestTimeout,
                                                              veniceKafkaRequestFetchSize,
-                                                             veniceKafkaRequestBufferSize);
+                                                             veniceKafkaRequestBufferSize,
+                                                             veniceOffsetCommitCycle,
+                                                             dataDirectory);
 
         this.bdbCacheSize = props.getBytes("bdb.cache.size", 200 * 1024 * 1024);
         this.bdbWriteTransactions = props.getBoolean("bdb.write.transactions", false);

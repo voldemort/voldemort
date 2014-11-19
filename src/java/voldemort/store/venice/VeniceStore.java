@@ -6,15 +6,16 @@ import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.bdb.BdbStorageEngine;
 import voldemort.utils.KafkaTopicUtils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -24,10 +25,12 @@ import java.util.concurrent.Executors;
 public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     private static final Logger logger = Logger.getLogger(VeniceStore.class.getName());
+    private static final String OFFSET_FILE_NAME = "offsets";
 
     private ExecutorService executor;
     private StoreDefinition storeDef;
     private KafkaTopicDefinition kafkaDef;
+    private KafkaOffsetCommitmentTask commitTask;
     private VeniceConsumerTask task;
 
     // TODO: do we want to create a distinction between masters and replicas when creating ConsumerTasks?
@@ -35,7 +38,6 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     // offset management
     private Map<Integer, VeniceConsumerTask> partitionTaskMap;
-    private Map<Integer, Long> partitionOffsetMap;
 
     // server level configs
     private List<Broker> seedBrokers;
@@ -58,10 +60,19 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
         this.topic = kafkaDef.getName();
 
         this.partitionIds = partitionIds;
-        this.partitionOffsetMap = new ConcurrentHashMap<Integer, Long>();
         this.partitionTaskMap = new HashMap<Integer, VeniceConsumerTask>();
 
+        // TODO: Smarter thread management. Right now I'm doing one thread per partition, and one for offsets.
+        this.executor = Executors.newFixedThreadPool(partitionIds.size() + 1);
+
+        startOffsetStore();
         startUpConsumers();
+    }
+
+    private void startOffsetStore() {
+        String bdbPath = consumerConfig.getOffsetMetadataPath() + File.separator + OFFSET_FILE_NAME;
+        commitTask = new KafkaOffsetCommitmentTask(bdbPath, partitionIds, consumerConfig);
+        executor.submit(commitTask);
     }
 
     // TODO: These params must match the value given to Kakfa, so look into ways that can be done.
@@ -72,33 +83,27 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
         // Create n consumers for p partitions. Total count will be n * p.
         for (int partition : partitionIds) {
 
-            if (!partitionOffsetMap.containsKey(partition)) {
-                // initialize a new offset at -1
-                partitionOffsetMap.put(partition, new Long(-1));
-            }
-
             task = new VeniceConsumerTask(this,
                     seedBrokers,
                     topic,
                     partition,
-                    partitionOffsetMap.get(partition),
+                    commitTask.getOffset(partition),
                     storeDef.getValueSerializer(),
                     consumerConfig);
 
             // launch each consumer task on a new thread
-            executor = Executors.newFixedThreadPool(1);
             executor.submit(task);
             partitionTaskMap.put(partition, task);
         }
     }
 
     /**
-     *  TODO: offset management, and when to trigger such operations
      *  Updates the offset for the corresponding partition.
      *  This can be used by either the consumers or management tools
      * */
     public void updatePartitionOffset(int partition, long newOffset) {
-        partitionOffsetMap.put(partition, newOffset);
+        // load into BDB store
+        commitTask.updateOffset(partition, newOffset);
         logger.debug("Updating read partition: " + partition + ", " + newOffset);
     }
 

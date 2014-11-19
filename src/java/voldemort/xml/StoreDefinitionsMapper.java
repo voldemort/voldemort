@@ -304,7 +304,7 @@ public class StoreDefinitionsMapper {
                                            .setHintedHandoffStrategy(hintedHandoffStrategy)
                                            .setHintPrefListSize(hintPrefListSize)
                                            .setMemoryFootprintMB(memoryFootprintMB)
-                                           .setKafkaConsumer(kafkaTopic)
+                                           .setKafkaTopic(kafkaTopic)
                                            .build();
     }
 

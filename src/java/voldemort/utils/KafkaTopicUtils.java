@@ -2,6 +2,11 @@ package voldemort.utils;
 
 import kafka.cluster.Broker;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.log4j.Logger;
@@ -47,4 +52,45 @@ public class KafkaTopicUtils {
         return brokerArrayList;
     }
 
+    /**
+     * Converts an offset value into an array of Bytes
+     * */
+    public static byte[] longToBytes(long offset) {
+
+        ByteArrayOutputStream bytesOut = null;
+        ObjectOutputStream oos = null;
+        byte[] output = new byte[0];
+
+        try {
+            bytesOut = new ByteArrayOutputStream();
+            oos = new ObjectOutputStream(bytesOut);
+            oos.writeLong(offset);
+            oos.flush();
+            output = bytesOut.toByteArray();
+        } catch (IOException e) {
+            logger.error("Error while performing serialization from Long to bytes.");
+            return null;
+        }
+        return output;
+    }
+
+    /**
+     * Converts a serialized byteArray into its corresponding offset value
+     * */
+    public static long bytestoLong(byte[] bytes) {
+
+        ByteArrayInputStream bytesIn = null;
+        ObjectInputStream ois = null;
+        long output = 0;
+
+        try {
+            bytesIn = new ByteArrayInputStream(bytes);
+            ois = new ObjectInputStream(bytesIn);
+            output = ois.readLong();
+        } catch (IOException e) {
+            logger.error("Error while performing serialization from Long to bytes.");
+            return -1;
+        }
+        return output;
+    }
 }
