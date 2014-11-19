@@ -48,6 +48,7 @@ public class VeniceConsumerTask implements Runnable {
     private final int FIND_LEADER_CYCLE_DELAY = 2000;
     private final int READ_CYCLE_DELAY = 500;
 
+    private String storeName;
     private VeniceConsumerConfig veniceConsumerConfig;
 
     // schema validation
@@ -78,6 +79,8 @@ public class VeniceConsumerTask implements Runnable {
                               VeniceConsumerConfig veniceConsumerConfig) {
 
         this.store = store;
+        this.storeName = store.getName();
+
         this.veniceConsumerConfig = veniceConsumerConfig;
 
         this.valueSerializer = valueSerializer;
@@ -93,7 +96,7 @@ public class VeniceConsumerTask implements Runnable {
         this.seedBrokers = seedBrokers;
 
         // a unique client name for Kafka debugging
-        this.consumerClientName = "Voldemort_Venice_" + topic + "_" + partition;
+        this.consumerClientName = "Voldemort_Venice_" + storeName + "_" + topic + "_" + partition;
 
     }
 
@@ -190,6 +193,7 @@ public class VeniceConsumerTask implements Runnable {
                 // Can occur due to throttling or lack of inputs
                 if (0 == numReadsInIteration) {
                     try {
+                        logger.debug("Empty read cycle. Waiting....");
                         Thread.sleep(READ_CYCLE_DELAY);
                     } catch (InterruptedException ie) {
                     }
@@ -236,6 +240,7 @@ public class VeniceConsumerTask implements Runnable {
                 throw new Exception("FetchResponse error code: "
                         + fetchResponse.errorCode(topic, partition));
             }
+
             messageAndOffsetIterator = fetchResponse.messageSet(topic, partition).iterator();
 
         } catch (Exception e) {
@@ -298,12 +303,16 @@ public class VeniceConsumerTask implements Runnable {
         Versioned<byte[]> versionedMessage = parsePayload(msg);
         switch (msg.getOperationType()) {
             case PUT:
-                logger.info("Partition: " + partition + " Putting: " + keyBytes + ", " + msg.getPayload());
+                logger.info("Store: " + storeName +
+                        " partition: " + partition +
+                        " Putting: " + keyBytes + ", " + msg.getPayload());
                 store.putFromKafka(keyBytes, versionedMessage, null);
                 break;
 
             case DELETE:
-                logger.info("Partition: " + partition + " Deleting: " + keyBytes + ", " + msg.getPayload());
+                logger.info("Store: " + storeName +
+                        " partition: " + partition +
+                        " Deleting: " + keyBytes + ", " + msg.getPayload());
                 store.deleteFromKafka(keyBytes, null);
                 break;
 
@@ -392,7 +401,7 @@ public class VeniceConsumerTask implements Runnable {
         }
 
         long[] offsets = javaResponse.offsets(topic, partition);
-        logger.info("Partition " + partition + " last offset at: " + offsets[0]);
+        logger.info("From Kafka metadata, partition " + partition + " last offset at: " + offsets[0]);
         store.updatePartitionOffset(partition, offsets[0]);
 
         return offsets[0];
