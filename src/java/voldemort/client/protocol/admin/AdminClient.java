@@ -1050,6 +1050,35 @@ public class AdminClient {
         }
 
         /**
+         * Sets metadata.
+         * 
+         * @param adminClient An instance of AdminClient points to given cluster
+         * @param nodeIds Node ids to set metadata
+         * @param metaKey Metadata key to set
+         * @param metaValue Metadata value to set
+         */
+        public void updateRemoteMetadata(List<Integer> nodeIds, String metaKey, String metaValue) {
+            VectorClock updatedVersion = null;
+            for(Integer nodeId: nodeIds) {
+                if(updatedVersion == null) {
+                    updatedVersion = (VectorClock) metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                     metaKey)
+                                                                  .getVersion();
+                } else {
+                    updatedVersion = updatedVersion.merge((VectorClock) metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                                          metaKey)
+                                                                                       .getVersion());
+                }
+                // Bump up version on first node
+                updatedVersion = updatedVersion.incremented(nodeIds.iterator().next(),
+                                                            System.currentTimeMillis());
+            }
+            metadataMgmtOps.updateRemoteMetadata(nodeIds,
+                                                 metaKey,
+                                                 Versioned.value(metaValue, updatedVersion));
+        }
+
+        /**
          * Update metadata pair <cluster,stores> at the given remoteNodeId.
          * 
          * @param remoteNodeId Id of the node
@@ -1223,6 +1252,15 @@ public class AdminClient {
                                  new Versioned<String>(storeMapper.writeStoreList(finalStoreDefList),
                                                        oldClock.incremented(nodeId, 1)));
 
+        }
+
+        public synchronized void fetchAndUpdateRemoteMetadata(int nodeId, String key, String value) {
+            VectorClock currentClock = (VectorClock) getRemoteMetadata(nodeId, key).getVersion();
+
+            updateRemoteMetadata(nodeId,
+                                 key,
+                                 new Versioned<String>(Boolean.toString(false),
+                                                       currentClock.incremented(nodeId, 1)));
         }
 
         /**
