@@ -1,3 +1,11 @@
+Release 1.9.3 on 11/25/2014
+
+* Add support for disabling the client traffic (Offline server) to do maintenance on the server.
+* Add support for enabling/disabling slop streaming, partition streaming, ro fetch independently.
+* VAdmin support for offline server and other switches.
+* ReplaceNodeCLI command to swap a node in the cluster with other voldemort node.
+* Additional logging for failure detector.
+
 Release 1.9.2 on 10/07/2014
 
 * Fix Coordinator related tests
