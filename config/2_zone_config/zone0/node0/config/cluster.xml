@@ -3,11 +3,11 @@
   <name>universe</name>
   <zone>
     <zone-id>0</zone-id>
-    <proximity-list>0</proximity-list>
+    <proximity-list>1</proximity-list>
   </zone>
   <zone>
     <zone-id>1</zone-id>
-    <proximity-list>1</proximity-list>
+    <proximity-list>0</proximity-list>
   </zone>
   <server>
     <id>0</id>
