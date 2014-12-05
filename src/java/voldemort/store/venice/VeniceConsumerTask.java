@@ -189,6 +189,7 @@ public class VeniceConsumerTask implements Runnable {
                         readOffset++;
                     }
                 }
+
                 // Nothing was read in the last iteration, slow down and reduce load on Consumer
                 // Can occur due to throttling or lack of inputs
                 if (0 == numReadsInIteration) {
@@ -197,6 +198,8 @@ public class VeniceConsumerTask implements Runnable {
                         Thread.sleep(READ_CYCLE_DELAY);
                     } catch (InterruptedException ie) {
                     }
+                } else {
+                    logger.info("Consumed " + numReadsInIteration + " messages in the last iteration.");
                 }
             }
         } catch (Exception e) {
