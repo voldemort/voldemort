@@ -303,16 +303,20 @@ public class VeniceConsumerTask implements Runnable {
         Versioned<byte[]> versionedMessage = parsePayload(msg);
         switch (msg.getOperationType()) {
             case PUT:
-                logger.info("Store: " + storeName +
-                        " partition: " + partition +
-                        " Putting: " + keyBytes + ", " + msg.getPayload());
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Store: " + storeName +
+                            " partition: " + partition +
+                            " Putting: " + keyBytes + ", " + msg.getPayload());
+                }
                 store.putFromKafka(keyBytes, versionedMessage, null);
                 break;
 
             case DELETE:
-                logger.info("Store: " + storeName +
-                        " partition: " + partition +
-                        " Deleting: " + keyBytes + ", " + msg.getPayload());
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Store: " + storeName +
+                            " partition: " + partition +
+                            " Deleting: " + keyBytes + ", " + msg.getPayload());
+                }
                 store.deleteFromKafka(keyBytes, null);
                 break;
 
