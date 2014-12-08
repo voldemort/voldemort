@@ -470,7 +470,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             logger.debug("Failure detector already exists. Updating the state and flushing cached verifier stores.");
             synchronized(this) {
                 failureDetector.getConfig().setCluster(this.cluster);
-                failureDetector.getConfig().getStoreVerifier().flushCachedStores();
+                failureDetector.getConfig().getConnectionVerifier().flushCachedStores();
             }
         }
 

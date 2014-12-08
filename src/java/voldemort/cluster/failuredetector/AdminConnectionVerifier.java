@@ -29,7 +29,7 @@ import voldemort.store.metadata.MetadataStore;
  * AdminConnectionVerifier is used to verify admin port connectivity.
  */
 
-public class AdminConnectionVerifier implements StoreVerifier {
+public class AdminConnectionVerifier implements ConnectionVerifier {
 
     private final Cluster cluster;
 
@@ -44,7 +44,7 @@ public class AdminConnectionVerifier implements StoreVerifier {
     }
 
     @Override
-    public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
+    public void verifyConnection(Node node) throws UnreachableStoreException, VoldemortException {
         Integer returnNodeId = Integer.parseInt(getAdminClient().metadataMgmtOps.getRemoteMetadata(node.getId(),
                                                                                                    MetadataStore.NODE_ID_KEY)
                                                                                 .getValue());

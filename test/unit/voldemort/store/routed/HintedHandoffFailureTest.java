@@ -45,7 +45,7 @@ import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
-import voldemort.cluster.failuredetector.MutableStoreVerifier;
+import voldemort.cluster.failuredetector.MutableStoreConnectionVerifier;
 import voldemort.cluster.failuredetector.ThresholdFailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
@@ -158,7 +158,7 @@ public class HintedHandoffFailureTest {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig();
         failureDetectorConfig.setImplementationClassName(ThresholdFailureDetector.class.getName());
         failureDetectorConfig.setCluster(cluster);
-        failureDetectorConfig.setStoreVerifier(MutableStoreVerifier.create(subStores));
+        failureDetectorConfig.setConnectionVerifier(MutableStoreConnectionVerifier.create(subStores));
 
         failureDetector = FailureDetectorUtils.create(failureDetectorConfig, false);
     }

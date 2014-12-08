@@ -51,7 +51,7 @@ import voldemort.cluster.failuredetector.AdminSlopStreamingVerifier;
 import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
-import voldemort.cluster.failuredetector.ServerStoreVerifier;
+import voldemort.cluster.failuredetector.ServerStoreConnectionVerifier;
 import voldemort.common.service.AbstractService;
 import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
@@ -174,12 +174,12 @@ public class StorageService extends AbstractService {
                                                           config.getSocketKeepAlive());
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setCluster(metadata.getCluster())
-                                                                                                .setStoreVerifier(new ServerStoreVerifier(storeFactory,
+                                                                                                .setConnectionVerifier(new ServerStoreConnectionVerifier(storeFactory,
                                                                                                                                           metadata,
                                                                                                                                           config));
         FailureDetectorConfig slopStreamingFailureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setImplementationClassName(AsyncRecoveryFailureDetector.class.getName())
                                                                                                              .setCluster(metadata.getCluster())
-                                                                                                             .setStoreVerifier(new AdminSlopStreamingVerifier(this.metadata.getCluster()));
+                                                                                                             .setConnectionVerifier(new AdminSlopStreamingVerifier(this.metadata.getCluster()));
         this.failureDetector = create(failureDetectorConfig, config.isJmxEnabled());
         this.slopStreamingFailureDetector = create(slopStreamingFailureDetectorConfig,
                                                    config.isJmxEnabled());

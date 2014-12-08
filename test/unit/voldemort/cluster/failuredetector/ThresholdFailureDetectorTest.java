@@ -22,7 +22,7 @@ import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
 import static voldemort.VoldemortTestConstants.getTenNodeCluster;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
+import static voldemort.cluster.failuredetector.MutableStoreConnectionVerifier.create;
 
 import java.net.UnknownHostException;
 
@@ -37,20 +37,20 @@ import com.google.common.collect.Iterables;
 
 public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
 
-    private MutableStoreVerifier storeVerifier;
+    private MutableStoreConnectionVerifier connectionVerifier;
 
     @Override
     public FailureDetector createFailureDetector() throws Exception {
         // This test does not create any VoldemortServer. It uses the test store
         // verifier which can be controlled via the functions recordException
         // and recordSuccess to set and clear error states for a node.
-        storeVerifier = create(cluster.getNodes());
+        connectionVerifier = create(cluster.getNodes());
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(ThresholdFailureDetector.class.getName())
                                                                                  .setBannagePeriod(BANNAGE_MILLIS)
                                                                                  .setAsyncRecoveryInterval(250)
                                                                                  .setThresholdInterval(500)
                                                                                  .setCluster(cluster)
-                                                                                 .setStoreVerifier(storeVerifier)
+                                                                                 .setConnectionVerifier(connectionVerifier)
                                                                                  .setTime(time);
         return create(failureDetectorConfig, true);
     }
@@ -191,7 +191,7 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
     public void testChangeMetadata() throws Exception {
         cluster = getTenNodeCluster();
         Node node = cluster.getNodeById(9);
-        storeVerifier.addStore(node);
+        connectionVerifier.addStore(node);
         for(int i = 0; i < 10; i++) {
             failureDetector.recordException(node,
                                             0,

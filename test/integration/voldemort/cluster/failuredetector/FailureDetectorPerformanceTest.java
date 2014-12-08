@@ -18,7 +18,7 @@ package voldemort.cluster.failuredetector;
 
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
+import static voldemort.cluster.failuredetector.MutableStoreConnectionVerifier.create;
 
 import java.io.IOException;
 
@@ -72,7 +72,7 @@ public abstract class FailureDetectorPerformanceTest {
         Cluster cluster = getNineNodeCluster();
 
         failureDetectorConfig.setCluster(cluster)
-                             .setStoreVerifier(create(cluster.getNodes()))
+                             .setConnectionVerifier(create(cluster.getNodes()))
                              .setAsyncRecoveryInterval(asyncScanInterval)
                              .setBannagePeriod(bannagePeriod)
                              .setThresholdInterval(thresholdInterval);
@@ -128,7 +128,7 @@ public abstract class FailureDetectorPerformanceTest {
                                                boolean shouldMarkAvailable) {
         UnreachableStoreException e = shouldMarkAvailable ? null
                                                          : new UnreachableStoreException("test error");
-        ((MutableStoreVerifier) failureDetectorConfig.getStoreVerifier()).setErrorStore(node, e);
+        ((MutableStoreConnectionVerifier) failureDetectorConfig.getConnectionVerifier()).setErrorStore(node, e);
     }
 
 }

@@ -18,7 +18,7 @@ package voldemort;
 
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.cluster.failuredetector.MutableStoreVerifier;
+import voldemort.cluster.failuredetector.MutableStoreConnectionVerifier;
 import voldemort.store.UnreachableStoreException;
 
 public class FailureDetectorTestUtils {
@@ -31,7 +31,7 @@ public class FailureDetectorTestUtils {
                                        Node node,
                                        long requestTime,
                                        UnreachableStoreException e) {
-        ((MutableStoreVerifier) failureDetector.getConfig().getStoreVerifier()).setErrorStore(node,
+        ((MutableStoreConnectionVerifier) failureDetector.getConfig().getConnectionVerifier()).setErrorStore(node,
                                                                                               new UnreachableStoreException("junit injected test error"));
         failureDetector.recordException(node, requestTime, e);
     }
@@ -44,7 +44,7 @@ public class FailureDetectorTestUtils {
                                      Node node,
                                      long requestTime,
                                      boolean shouldWait) throws Exception {
-        ((MutableStoreVerifier) failureDetector.getConfig().getStoreVerifier()).setErrorStore(node,
+        ((MutableStoreConnectionVerifier) failureDetector.getConfig().getConnectionVerifier()).setErrorStore(node,
                                                                                               null);
         failureDetector.recordSuccess(node, requestTime);
 

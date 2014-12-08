@@ -33,7 +33,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
-import voldemort.cluster.failuredetector.MutableStoreVerifier;
+import voldemort.cluster.failuredetector.MutableStoreConnectionVerifier;
 import voldemort.cluster.failuredetector.ThresholdFailureDetector;
 import voldemort.common.service.ServiceType;
 import voldemort.common.service.VoldemortService;
@@ -274,7 +274,7 @@ public class HintedHandoffSendHintTest {
         failureDetectorConfig.setImplementationClassName(failureDetectorCls.getName());
         failureDetectorConfig.setThreshold(50);
         failureDetectorConfig.setCluster(cluster);
-        failureDetectorConfig.setStoreVerifier(MutableStoreVerifier.create(subStores));
+        failureDetectorConfig.setConnectionVerifier(MutableStoreConnectionVerifier.create(subStores));
         failureDetector = FailureDetectorUtils.create(failureDetectorConfig, false);
 
         // make routedStore

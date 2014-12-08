@@ -32,13 +32,15 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 
 /**
- * ServerStoreVerifier is used to verify store connectivity for a server
- * environment. The node->store mapping is not known at the early point in the
- * client lifecycle that it can be provided, so it is performed on demand using
- * the {@link StoreRepository}.
+ * ServerStoreConnectionVerifier is used to verify store connectivity for a
+ * server environment. The node->store mapping is not known at the early point
+ * in the client lifecycle that it can be provided, so it is performed on demand
+ * using the {@link StoreRepository}.
  */
 
-public class ServerStoreVerifier implements StoreVerifier {
+public class ServerStoreConnectionVerifier implements ConnectionVerifier {
+
+    public static final ByteArray KEY = new ByteArray(MetadataStore.NODE_ID_KEY.getBytes());
 
     private final SocketStoreFactory storeFactory;
 
@@ -48,16 +50,16 @@ public class ServerStoreVerifier implements StoreVerifier {
 
     private final Map<Integer, Store<ByteArray, byte[], byte[]>> stores;
 
-    public ServerStoreVerifier(SocketStoreFactory storeFactory,
-                               MetadataStore metadataStore,
-                               VoldemortConfig voldemortConfig) {
+    public ServerStoreConnectionVerifier(SocketStoreFactory storeFactory,
+                                         MetadataStore metadataStore,
+                                         VoldemortConfig voldemortConfig) {
         this.storeFactory = Utils.notNull(storeFactory);
         this.metadataStore = Utils.notNull(metadataStore);
         this.voldemortConfig = Utils.notNull(voldemortConfig);
         stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
     }
 
-    public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
+    public void verifyConnection(Node node) throws UnreachableStoreException, VoldemortException {
         Store<ByteArray, byte[], byte[]> store = null;
 
         if(node.getId() == voldemortConfig.getNodeId()) {

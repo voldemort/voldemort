@@ -21,7 +21,7 @@ import static voldemort.FailureDetectorTestUtils.recordSuccess;
 import static voldemort.TestUtils.getClock;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
+import static voldemort.cluster.failuredetector.MutableStoreConnectionVerifier.create;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -2277,7 +2277,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(BannagePeriodFailureDetector.class.getName())
                                                                                  .setBannagePeriod(BANNAGE_PERIOD)
                                                                                  .setCluster(cluster)
-                                                                                 .setStoreVerifier(create(subStores));
+                                                                                 .setConnectionVerifier(create(subStores));
         failureDetector = create(failureDetectorConfig, false);
     }
 }

@@ -41,7 +41,7 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 
 @RunWith(Parameterized.class)
-public class ServerStoreVerifierTest {
+public class ServerStoreConnectionVerifierTest {
 
     private final String storesXmlfile = "test/common/voldemort/config/single-store.xml";
 
@@ -56,7 +56,7 @@ public class ServerStoreVerifierTest {
                                                                                   100000,
                                                                                   32 * 1024);
 
-    public ServerStoreVerifierTest(boolean useNio) {
+    public ServerStoreConnectionVerifierTest(boolean useNio) {
         this.useNio = useNio;
     }
 
@@ -102,12 +102,12 @@ public class ServerStoreVerifierTest {
         for(Node node: cluster.getNodes()) {
             VoldemortServer voldemortServer = serverMap.get(node.getId());
             StorageService ss = (StorageService) voldemortServer.getService(ServiceType.STORAGE);
-            ServerStoreVerifier ssv = new ServerStoreVerifier(ss.getSocketStoreFactory(),
+            ServerStoreConnectionVerifier ssv = new ServerStoreConnectionVerifier(ss.getSocketStoreFactory(),
                                                               voldemortServer.getMetadataStore(),
                                                               voldemortServer.getVoldemortConfig());
 
             for(Node siblingNodes: cluster.getNodes())
-                ssv.verifyStore(siblingNodes);
+                ssv.verifyConnection(siblingNodes);
         }
     }
 

@@ -33,7 +33,7 @@ public class AdminSlopStreamingVerifier extends AdminConnectionVerifier {
     }
 
     @Override
-    public void verifyStore(Node node) throws SlopStreamingDisabledException {
+    public void verifyConnection(Node node) throws SlopStreamingDisabledException {
         Boolean enabled = Boolean.parseBoolean(getAdminClient().metadataMgmtOps.getRemoteMetadata(node.getId(),
                                                                                                   MetadataStore.SLOP_STREAMING_ENABLED_KEY)
                                                                                .getValue());
