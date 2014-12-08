@@ -15,6 +15,7 @@
  */
 package voldemort.server.scheduler.slop;
 
+import java.net.SocketException;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,7 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.SlopStorageEngine;
+import voldemort.store.slop.SlopStreamingDisabledException;
 import voldemort.store.stats.StreamingStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
@@ -481,6 +483,14 @@ public class StreamingSlopPusherJob extends SlopPusherJob implements Runnable {
                                                 System.currentTimeMillis() - this.startTime,
                                                 e);
                 throw e;
+            } catch(Exception e) {
+                if(e.getCause() instanceof SocketException) {
+                    failureDetector.recordException(metadataStore.getCluster().getNodeById(nodeId),
+                                                    System.currentTimeMillis() - this.startTime,
+                                                    new SlopStreamingDisabledException("Slop streaming is disabled on node "
+                                                                                       + nodeId));
+                }
+                throw new VoldemortException(e);
             } finally {
                 // Clean the slop queue and remove the queue from the global
                 // queue

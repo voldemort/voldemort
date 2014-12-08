@@ -47,6 +47,8 @@ import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.ClientThreadPool;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.AdminSlopStreamingVerifier;
+import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.ServerStoreVerifier;
@@ -142,7 +144,7 @@ public class StorageService extends AbstractService {
     private final SocketStoreFactory storeFactory;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
-    private final FailureDetector failureDetector;
+    private final FailureDetector failureDetector, slopStreamingFailureDetector;
     private final StoreStats storeStats;
     private final QuotaLimitStats aggregatedQuotaStats;
     private final RoutedStoreFactory routedStoreFactory;
@@ -175,7 +177,12 @@ public class StorageService extends AbstractService {
                                                                                                 .setStoreVerifier(new ServerStoreVerifier(storeFactory,
                                                                                                                                           metadata,
                                                                                                                                           config));
+        FailureDetectorConfig slopStreamingFailureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setImplementationClassName(AsyncRecoveryFailureDetector.class.getName())
+                                                                                                             .setCluster(metadata.getCluster())
+                                                                                                             .setStoreVerifier(new AdminSlopStreamingVerifier(this.metadata.getCluster()));
         this.failureDetector = create(failureDetectorConfig, config.isJmxEnabled());
+        this.slopStreamingFailureDetector = create(slopStreamingFailureDetectorConfig,
+                                                   config.isJmxEnabled());
         this.storeStats = new StoreStats("aggregate.storage-service");
         this.routedStoreFactory = new RoutedStoreFactory();
         this.routedStoreFactory.setThreadPool(this.clientThreadPool);
@@ -349,7 +356,7 @@ public class StorageService extends AbstractService {
                                                                                                                                  scanPermitWrapper)
                                                                                                     : new StreamingSlopPusherJob(storeRepository,
                                                                                                                                  metadata,
-                                                                                                                                 failureDetector,
+                                                                                                                                 slopStreamingFailureDetector,
                                                                                                                                  voldemortConfig,
                                                                                                                                  scanPermitWrapper),
                                    nextRun,
