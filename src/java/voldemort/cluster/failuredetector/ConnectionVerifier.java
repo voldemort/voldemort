@@ -19,15 +19,13 @@ package voldemort.cluster.failuredetector;
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
-import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.ByteArray;
 
 /**
- * A StoreVerifier is used to test a Store given a Node. The act of testing a
- * store for a given node is not the same depending on your environment (in the
- * server itself, on a client (and even further it depends on what transport is
- * used for connecting to the server), unit tests, etc.). This helps to extract
- * away the differences.
+ * A ConnectionVerifier is used to test node connectivity. The act of testing
+ * node connectivity is not the same depending on your environment (in the
+ * server itself, on a regular client or admin client (and even further it
+ * depends on what transport is used for connecting to the server), unit tests,
+ * etc.). This helps to extract away the differences.
  * 
  * <p/>
  * 
@@ -36,9 +34,7 @@ import voldemort.utils.ByteArray;
  * 
  */
 
-public interface StoreVerifier {
-
-    public static final ByteArray KEY = new ByteArray(MetadataStore.NODE_ID_KEY.getBytes());
+public interface ConnectionVerifier {
 
     /**
      * Verifies the ability to connect to a Store for this node.
@@ -46,7 +42,7 @@ public interface StoreVerifier {
      * @param node Node to test
      */
 
-    public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException;
+    public void verifyConnection(Node node) throws UnreachableStoreException, VoldemortException;
 
     /**
      * Flushes the cached stores if any

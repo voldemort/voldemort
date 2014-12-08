@@ -27,27 +27,30 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 
 /**
- * ClientStoreVerifier is used to test stores in a client environment. The
- * node->store mapping is not known at the early point in the client lifecycle
- * that it can be provided, so it is performed on demand. This class is abstract
- * due to needing to be implemented differently by the known store client
- * implementations {@link SocketStoreClientFactory} and
+ * ClientStoreConnectionVerifier is used to test stores in a client environment.
+ * The node->store mapping is not known at the early point in the client
+ * lifecycle that it can be provided, so it is performed on demand. This class
+ * is abstract due to needing to be implemented differently by the known store
+ * client implementations {@link SocketStoreClientFactory} and
  * {@link HttpStoreClientFactory}.
  */
 
-public abstract class ClientStoreVerifier implements StoreVerifier {
+public abstract class ClientStoreConnectionVerifier implements ConnectionVerifier {
+
+    public static final ByteArray KEY = new ByteArray(MetadataStore.NODE_ID_KEY.getBytes());
 
     private final Map<Integer, Store<ByteArray, byte[], byte[]>> stores;
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
-    protected ClientStoreVerifier() {
+    protected ClientStoreConnectionVerifier() {
         stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
     }
 
-    public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
+    public void verifyConnection(Node node) throws UnreachableStoreException, VoldemortException {
         Store<ByteArray, byte[], byte[]> store = null;
 
         synchronized(stores) {

@@ -111,14 +111,14 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                 if(logger.isDebugEnabled())
                     logger.debug("Checking previously unavailable node " + node.getId());
 
-                StoreVerifier storeVerifier = getConfig().getStoreVerifier();
+                ConnectionVerifier verifier = getConfig().getConnectionVerifier();
 
                 try {
                     // This is our test.
                     if(logger.isDebugEnabled())
                         logger.debug("Verifying previously unavailable node " + node.getId());
 
-                    storeVerifier.verifyStore(node);
+                    verifier.verifyConnection(node);
 
                     if(logger.isDebugEnabled())
                         logger.debug("Verified previously unavailable node " + node.getId()

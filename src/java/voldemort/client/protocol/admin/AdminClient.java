@@ -24,6 +24,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
@@ -88,6 +89,7 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
+import voldemort.store.slop.SlopStreamingDisabledException;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -2802,7 +2804,13 @@ public class AdminClient {
                 }
             } catch(IOException e) {
                 helperOps.close(sands.getSocket());
-                throw new VoldemortException(e);
+                if(e instanceof SocketException) {
+                    throw new SlopStreamingDisabledException("Failed to update slop entries to node "
+                                                                     + node.getId(),
+                                                             e);
+                } else {
+                    throw new VoldemortException(e);
+                }
             } finally {
                 socketPool.checkin(destination, sands);
             }

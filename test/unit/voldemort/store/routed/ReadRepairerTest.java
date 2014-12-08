@@ -23,7 +23,7 @@ import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
 import static voldemort.TestUtils.getClock;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
+import static voldemort.cluster.failuredetector.MutableStoreConnectionVerifier.create;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -145,7 +145,7 @@ public class ReadRepairerTest {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
                                                                                  .setBannagePeriod(1000)
                                                                                  .setCluster(cluster)
-                                                                                 .setStoreVerifier(create(subStores))
+                                                                                 .setConnectionVerifier(create(subStores))
                                                                                  .setTime(time);
 
         failureDetector = create(failureDetectorConfig, false);

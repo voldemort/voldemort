@@ -16,28 +16,29 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
- * MutableStoreVerifier is used when we want to simulate a downed node during
- * testing. For a given Node we can update this StoreVerifier to cause node
- * availability discovery to fail (which we want to be able to control for our
- * tests).
+ * MutableStoreConnectionVerifier is used when we want to simulate a downed node
+ * during testing. For a given Node we can update this ConnectionVerifier to
+ * cause node availability discovery to fail (which we want to be able to
+ * control for our tests).
  * 
  */
 
-public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[], byte[]> {
+public class MutableStoreConnectionVerifier extends
+        BasicStoreConnectionVerifier<ByteArray, byte[], byte[]> {
 
     private Map<Integer, VoldemortException> errorStores;
 
-    private MutableStoreVerifier(Map<Integer, Store<ByteArray, byte[], byte[]>> stores) {
+    private MutableStoreConnectionVerifier(Map<Integer, Store<ByteArray, byte[], byte[]>> stores) {
         super(stores, new ByteArray((byte) 1));
         errorStores = new HashMap<Integer, VoldemortException>();
     }
 
     @Override
-    public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
+    public void verifyConnection(Node node) throws UnreachableStoreException, VoldemortException {
         VoldemortException e = errorStores.get(node.getId());
 
         if(e == null)
-            super.verifyStore(node);
+            super.verifyConnection(node);
         else
             throw e;
     }
@@ -50,18 +51,18 @@ public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[], 
         stores.put(node.getId(), createStore());
     }
 
-    public static MutableStoreVerifier create(Map<Integer, Store<ByteArray, byte[], byte[]>> stores) {
-        return new MutableStoreVerifier(stores);
+    public static MutableStoreConnectionVerifier create(Map<Integer, Store<ByteArray, byte[], byte[]>> stores) {
+        return new MutableStoreConnectionVerifier(stores);
     }
 
-    public static MutableStoreVerifier create(Collection<Node> nodes) {
+    public static MutableStoreConnectionVerifier create(Collection<Node> nodes) {
         Map<Integer, Store<ByteArray, byte[], byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
 
         for(Node node: nodes) {
             stores.put(node.getId(), createStore());
         }
 
-        return new MutableStoreVerifier(stores);
+        return new MutableStoreConnectionVerifier(stores);
     }
 
     private static Store<ByteArray, byte[], byte[]> createStore() {

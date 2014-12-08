@@ -37,7 +37,7 @@ import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
-import voldemort.cluster.failuredetector.MutableStoreVerifier;
+import voldemort.cluster.failuredetector.MutableStoreConnectionVerifier;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortServer;
 import voldemort.store.SleepyStore;
@@ -182,7 +182,7 @@ public class RoutedStoreParallelismTest {
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(BannagePeriodFailureDetector.class.getName())
                                                                                  .setCluster(cluster)
-                                                                                 .setStoreVerifier(MutableStoreVerifier.create(stores));
+                                                                                 .setConnectionVerifier(MutableStoreConnectionVerifier.create(stores));
         FailureDetector failureDetector = FailureDetectorUtils.create(failureDetectorConfig, false);
 
         ExecutorService routedStoreThreadPool = Executors.newFixedThreadPool(clientConfig.getMaxThreads());

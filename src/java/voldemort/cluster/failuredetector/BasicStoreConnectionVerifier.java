@@ -24,24 +24,25 @@ import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 
 /**
- * BasicStoreVerifier is used to test Node->Store mappings when the mappings are
- * already present at the time of FailureDetector implementation creation. This
- * is usually (always) in the case of tests rather than running "live."
+ * BasicStoreConnectionVerifier is used to test Node->Store mappings when the
+ * mappings are already present at the time of FailureDetector implementation
+ * creation. This is usually (always) in the case of tests rather than running
+ * "live."
  * 
  */
 
-public class BasicStoreVerifier<K, V, T> implements StoreVerifier {
+public class BasicStoreConnectionVerifier<K, V, T> implements ConnectionVerifier {
 
     protected final Map<Integer, Store<K, V, T>> stores;
 
     private final K key;
 
-    public BasicStoreVerifier(Map<Integer, Store<K, V, T>> stores, K key) {
+    public BasicStoreConnectionVerifier(Map<Integer, Store<K, V, T>> stores, K key) {
         this.stores = stores;
         this.key = key;
     }
 
-    public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
+    public void verifyConnection(Node node) throws UnreachableStoreException, VoldemortException {
         Store<K, V, T> store = stores.get(node.getId());
 
         if(store == null)
