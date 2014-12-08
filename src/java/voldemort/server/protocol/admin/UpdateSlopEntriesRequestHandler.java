@@ -18,6 +18,7 @@ import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.slop.SlopStreamingDisabledException;
 import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
@@ -83,9 +84,10 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
                                                    DataOutputStream outputStream)
             throws IOException {
         if(!metadataStore.getSlopStreamingEnabledUnlocked()) {
-            throw new VoldemortException("Slop streaming is disabled on node "
-                                         + metadataStore.getNodeId() + " under "
-                                         + metadataStore.getServerStateUnlocked() + " state.");
+            throw new SlopStreamingDisabledException("Slop streaming is disabled on node "
+                                                     + metadataStore.getNodeId() + " under "
+                                                     + metadataStore.getServerStateUnlocked()
+                                                     + " state.");
         }
         long startNs = System.nanoTime();
         if(request == null) {
