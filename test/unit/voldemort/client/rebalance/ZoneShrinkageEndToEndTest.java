@@ -18,6 +18,7 @@ package voldemort.client.rebalance;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -37,9 +38,7 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortAdminTool;
 import voldemort.client.ClientConfig;
-import voldemort.client.ClientTrafficVerifier;
-import voldemort.client.LazyStoreClient;
-import voldemort.client.ZenStoreClient;
+import voldemort.client.ClientTrafficGenerator;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -135,84 +134,15 @@ public class ZoneShrinkageEndToEndTest {
 
     @Test(timeout = 60000)
     public void endToEndTestUpdateTogether() throws InterruptedException {
-        List<ClientTrafficVerifier> clients = new ArrayList<ClientTrafficVerifier>();
-        clients.add(new ClientTrafficVerifier("1st_CLIENT_211_STORE_ZONE_1",
-                                              bootstrapURL,
-                                              STORE211_NAME,
-                                              1));
-        clients.add(new ClientTrafficVerifier("1st_CLIENT_211_STORE_ZONE_2",
-                                              bootstrapURL,
-                                              STORE211_NAME,
-                                              2));
-        clients.add(new ClientTrafficVerifier("1st_CLIENT_322_STORE_ZONE_1",
-                                              bootstrapURL,
-                                              STORE322_NAME,
-                                              1));
-        clients.add(new ClientTrafficVerifier("1st_CLIENT_322_STORE_ZONE_2",
-                                              bootstrapURL,
-                                              STORE322_NAME,
-                                              2));
-        clients.add(new ClientTrafficVerifier("2nd_CLIENT_211_STORE_ZONE_1",
-                                              bootstrapURL,
-                                              STORE211_NAME,
-                                              1).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_GET));
-        clients.add(new ClientTrafficVerifier("2nd_CLIENT_211_STORE_ZONE_2",
-                                              bootstrapURL,
-                                              STORE211_NAME,
-                                              2).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_GET));
-        clients.add(new ClientTrafficVerifier("2nd_CLIENT_322_STORE_ZONE_1",
-                                              bootstrapURL,
-                                              STORE322_NAME,
-                                              1).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_GET));
-        clients.add(new ClientTrafficVerifier("2nd_CLIENT_322_STORE_ZONE_2",
-                                              bootstrapURL,
-                                              STORE322_NAME,
-                                              2).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_GET));
-        clients.add(new ClientTrafficVerifier("3nd_CLIENT_211_STORE_ZONE_1",
-                                              bootstrapURL,
-                                              STORE211_NAME,
-                                              1).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_PUT));
-        clients.add(new ClientTrafficVerifier("3nd_CLIENT_211_STORE_ZONE_2",
-                                              bootstrapURL,
-                                              STORE211_NAME,
-                                              2).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_PUT));
-        clients.add(new ClientTrafficVerifier("3nd_CLIENT_322_STORE_ZONE_1",
-                                              bootstrapURL,
-                                              STORE322_NAME,
-                                              1).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_PUT));
-        clients.add(new ClientTrafficVerifier("3nd_CLIENT_322_STORE_ZONE_2",
-                                              bootstrapURL,
-                                              STORE322_NAME,
-                                              2).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_PUT));
-        clients.add(new ClientTrafficVerifier("4nd_CLIENT_211_STORE_ZONE_1",
-                                              bootstrapURL,
-                                              STORE211_NAME,
-                                              1).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_GETALL));
-        clients.add(new ClientTrafficVerifier("4nd_CLIENT_211_STORE_ZONE_2",
-                                              bootstrapURL,
-                                              STORE211_NAME,
-                                              2).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_GETALL));
-        clients.add(new ClientTrafficVerifier("4nd_CLIENT_322_STORE_ZONE_1",
-                                              bootstrapURL,
-                                              STORE322_NAME,
-                                              1).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_GETALL));
-        clients.add(new ClientTrafficVerifier("4nd_CLIENT_322_STORE_ZONE_2",
-                                              bootstrapURL,
-                                              STORE322_NAME,
-                                              2).setOperationMode(ClientTrafficVerifier.MODE_ALLOW_GETALL));
+        List<String> storeNames = Arrays.asList(new String[] { STORE211_NAME, STORE322_NAME });
+        List<Integer> zones = Arrays.asList(new Integer[] { 1, 2 });
+        final int numberOfThreads = 4;
+        ClientTrafficGenerator trafficGenerator = new ClientTrafficGenerator(bootstrapURL,
+                                                                             storeNames,
+                                                                             zones,
+                                                                             numberOfThreads);
         try {
-            logger.info("-------------------------------");
-            logger.info("       STARTING CLIENT         ");
-            logger.info("-------------------------------");
-            // start clients
-            for(ClientTrafficVerifier client: clients) {
-                client.initialize();
-                client.start();
-            }
-            logger.info("-------------------------------");
-            logger.info("        CLIENT STARTED         ");
-            logger.info("-------------------------------");
-
+            trafficGenerator.start();
             // warm up
             Thread.sleep(5000);
 
@@ -220,42 +150,9 @@ public class ZoneShrinkageEndToEndTest {
 
             // cool down
             Thread.sleep(15000);
+            trafficGenerator.stop();
 
-            logger.info("-------------------------------");
-            logger.info("         STOPPING CLIENT       ");
-            logger.info("-------------------------------");
-
-            for(ClientTrafficVerifier client: clients) {
-                client.stop();
-            }
-
-            logger.info("-------------------------------");
-            logger.info("         STOPPED CLIENT        ");
-            logger.info("-------------------------------");
-
-            // verify that all clients has new cluster now
-            Integer failCount = 0;
-            for(ClientTrafficVerifier client: clients) {
-                if(client.client instanceof LazyStoreClient) {
-                    LazyStoreClient<String, String> lsc = (LazyStoreClient<String, String>) client.client;
-                    if(lsc.getStoreClient() instanceof ZenStoreClient) {
-                        ZenStoreClient<String, String> zsc = (ZenStoreClient<String, String>) lsc.getStoreClient();
-                        Long clusterMetadataVersion = zsc.getAsyncMetadataVersionManager()
-                                                         .getClusterMetadataVersion();
-                        if(clusterMetadataVersion == 0) {
-                            failCount++;
-                            logger.error(String.format("The client %s did not pick up the new cluster metadata\n",
-                                                       client.clientName));
-                        }
-                    } else {
-                        Assert.fail("There is problem with DummyClient's real client's real client, which should be ZenStoreClient but not");
-                    }
-                } else {
-                    Assert.fail("There is problem with DummyClient's real client which should be LazyStoreClient but not");
-                }
-            }
-            Assert.assertTrue(failCount.toString() + " client(s) did not pickup new metadata",
-                              failCount == 0);
+            trafficGenerator.verifyIfClientsDetectedNewClusterXMLs();
 
             ServerTestUtils.waitForSlopDrain(vservers, 30000L);
         } catch(InterruptedException e) {
@@ -265,27 +162,7 @@ public class ZoneShrinkageEndToEndTest {
             e.printStackTrace();
             throw e;
         } finally {
-            for(ClientTrafficVerifier client: clients) {
-                if(!client.stopped) {
-                    client.stop();
-                }
-            }
-
-            for(ClientTrafficVerifier client: clients) {
-                Map<String, Integer> eMap = client.exceptionCount;
-                logger.info("-------------------------------------------------------------------");
-                logger.info("Client Operation Info of [" + client.clientName + "]");
-                logger.info(client.requestCount.toString());
-                if(eMap.size() == 0) {
-                    logger.info("No Exception reported by ClientTrafficVerifier(ObsoleteVersionException are ignored)");
-                } else {
-                    logger.info("Exceptions Count Map of the client: ");
-                    logger.info(eMap.toString());
-                    Assert.fail("Found Exceptions by Client");
-                }
-
-                logger.info("-------------------------------------------------------------------");
-            }
+            trafficGenerator.verifyPostConditions();
         }
     }
 
