@@ -87,6 +87,7 @@ public class ClientTrafficVerifier implements Runnable {
         }
     }
 
+    @SuppressWarnings("serial")
     @Override
     public void run() {
         Random r = new Random(System.currentTimeMillis());
