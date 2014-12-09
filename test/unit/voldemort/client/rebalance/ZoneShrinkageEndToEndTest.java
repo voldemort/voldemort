@@ -56,12 +56,10 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.slop.Slop;
-import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.TestSocketStoreFactory;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -259,7 +257,7 @@ public class ZoneShrinkageEndToEndTest {
             Assert.assertTrue(failCount.toString() + " client(s) did not pickup new metadata",
                               failCount == 0);
 
-            waitSlopDrain(vservers, 30000L);
+            ServerTestUtils.waitForSlopDrain(vservers, 30000L);
         } catch(InterruptedException e) {
             e.printStackTrace();
             throw e;
@@ -402,7 +400,7 @@ public class ZoneShrinkageEndToEndTest {
         logger.info("           SENT SLOPS          ");
         logger.info("-------------------------------");
 
-        waitSlopDrain(vservers, 30000L);
+        ServerTestUtils.waitForSlopDrain(vservers, 30000L);
 
         // verify all proper slops is processed properly (arrived or dropped)
         boolean hasError = false;
@@ -505,44 +503,4 @@ public class ZoneShrinkageEndToEndTest {
         }
     }
 
-    public static void waitSlopDrain(Map<Integer, VoldemortServer> vservers, Long slopDrainTimoutMs)
-            throws InterruptedException {
-        logger.info("-------------------------------");
-        logger.info("  WAITING FOR SLOPS TO DRAIN   ");
-        logger.info("-------------------------------");
-
-        long timeStart = System.currentTimeMillis();
-        boolean allSlopsEmpty = false;
-        while(System.currentTimeMillis() < timeStart + slopDrainTimoutMs) {
-            allSlopsEmpty = true;
-            for(Integer nodeId: vservers.keySet()) {
-                VoldemortServer vs = vservers.get(nodeId);
-                SlopStorageEngine sse = vs.getStoreRepository().getSlopStore();
-                ClosableIterator<ByteArray> keys = sse.keys();
-                long count = 0;
-                while(keys.hasNext()) {
-                    keys.next();
-                    count++;
-                }
-                keys.close();
-                if(count > 0) {
-                    allSlopsEmpty = false;
-                    logger.info(String.format("Slop engine for node %d is not yet empty with %d slops\n",
-                                              nodeId,
-                                              count));
-                }
-            }
-            if(allSlopsEmpty) {
-                break;
-            }
-            Thread.sleep(1000);
-        }
-        if(!allSlopsEmpty) {
-            Assert.fail("Timeout while waiting for all slops to drain");
-        }
-
-        logger.info("-------------------------------");
-        logger.info("        ALL SLOPS DRAINED      ");
-        logger.info("-------------------------------");
-    }
 }
