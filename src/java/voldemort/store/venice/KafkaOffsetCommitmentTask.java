@@ -42,12 +42,11 @@ public class KafkaOffsetCommitmentTask implements Runnable {
     public void run() {
 
         while (true) {
-            logger.debug("Committing Offset.");
-            commitOffsets();
             try {
                 Thread.sleep(offsetCommitCycle);
             } catch (InterruptedException e) {
             }
+            commitOffsets();
         }
     }
 
@@ -120,13 +119,29 @@ public class KafkaOffsetCommitmentTask implements Runnable {
      * */
     private void commitOffsets() {
 
+        long totalChange = 0;
+
         for (Integer partition : partitionOffsetMap.keySet()) {
 
             byte[] partitionKey = { partition.byteValue() } ;
+            long originalOffset = 0;
+
+            List<Versioned<byte[]>> result = offsetStore.get(new ByteArray(partitionKey), null);
+            if (result.size() > 0) {
+                originalOffset = KafkaTopicUtils.bytestoLong(result.get(result.size() - 1).getValue());
+            }
+
             long offset = partitionOffsetMap.get(partition);
             offsetStore.put(new ByteArray(partitionKey),
                     new Versioned<byte[]>(KafkaTopicUtils.longToBytes(offset)), null);
+
+            totalChange += (offset - originalOffset);
         }
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("Committed " + totalChange + " offsets in " + offsetCommitCycle + " ms.");
+        }
+
     }
 
     /**

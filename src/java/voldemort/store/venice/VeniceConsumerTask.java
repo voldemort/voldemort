@@ -198,8 +198,6 @@ public class VeniceConsumerTask implements Runnable {
                         Thread.sleep(READ_CYCLE_DELAY);
                     } catch (InterruptedException ie) {
                     }
-                } else {
-                    logger.info("Consumed " + numReadsInIteration + " messages in the last iteration.");
                 }
             }
         } catch (Exception e) {
@@ -304,6 +302,7 @@ public class VeniceConsumerTask implements Runnable {
         // as Kafka log serves the same purpose of ordering
         ByteArray keyBytes = parseKeyForFullPut(key);
         Versioned<byte[]> versionedMessage = parsePayload(msg);
+
         switch (msg.getOperationType()) {
             case PUT:
                 if (logger.isDebugEnabled()) {
