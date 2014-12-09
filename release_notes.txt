@@ -1,3 +1,9 @@
+Release 1.9.4 on 12/08/2014
+
+* Add separate failure detector for slop pusher job so that metadata slop.streaming.enabled functions.
+* Rename StoreVerifier to ConnectionVerifier.
+* Create AdminConnectionVerifier and AdminSlopStreamingVerifier for failure detectors under OFFLINE_SERVER.
+
 Release 1.9.3 on 11/25/2014
 
 * Add support for disabling the client traffic (Offline server) to do maintenance on the server.
