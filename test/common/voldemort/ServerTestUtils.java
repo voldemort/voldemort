@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -71,11 +72,13 @@ import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ClosableIterator;
 import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -87,8 +90,8 @@ import com.google.common.collect.Sets;
 
 /**
  * Helper functions for testing with real server implementations
- * 
- * 
+ *
+ *
  */
 public class ServerTestUtils {
 
@@ -244,7 +247,7 @@ public class ServerTestUtils {
 
     /**
      * Return a free port as chosen by new ServerSocket(0).
-     * 
+     *
      * There is no guarantee that the port returned will be free when the caller
      * attempts to bind to the port. This is a time-of-check-to-time-of-use
      * (TOCTOU) issue that cannot be avoided.
@@ -255,7 +258,7 @@ public class ServerTestUtils {
 
     /**
      * Return an array of free ports as chosen by new ServerSocket(0)
-     * 
+     *
      * There is no guarantee that the ports returned will be free when the
      * caller attempts to bind to some returned port. This is a
      * time-of-check-to-time-of-use (TOCTOU) issue that cannot be avoided.
@@ -351,7 +354,7 @@ public class ServerTestUtils {
     /**
      * Update a cluster by replacing the specified server with a new host, i.e.
      * new ports since they are all localhost
-     * 
+     *
      * @param original The original cluster to be updated
      * @param serverIds The ids of the server to be replaced with new hosts
      * @return updated cluster
@@ -391,7 +394,7 @@ public class ServerTestUtils {
     /**
      * Returns a list of zones with their proximity list being in increasing
      * order
-     * 
+     *
      * @param numberOfZones The number of zones to return
      * @return List of zones
      */
@@ -414,7 +417,7 @@ public class ServerTestUtils {
     /**
      * Given zone ids, this method returns a list of zones with their proximity
      * list
-     * 
+     *
      * @param list of zone ids
      * @return List of zones
      */
@@ -438,7 +441,7 @@ public class ServerTestUtils {
      * Returns a cluster with <b>numberOfNodes</b> nodes in <b>numberOfZones</b>
      * zones. It is important that <b>numberOfNodes</b> be divisible by
      * <b>numberOfZones</b>
-     * 
+     *
      * @param numberOfNodes Number of nodes in the cluster
      * @param partitionsPerNode Number of partitions in one node
      * @param numberOfZones Number of zones
@@ -501,7 +504,7 @@ public class ServerTestUtils {
      * Returns a cluster with <b>numberOfNodes</b> nodes in <b>numberOfZones</b>
      * zones. It is important that <b>numberOfNodes</b> be divisible by
      * <b>numberOfZones</b>
-     * 
+     *
      * @param numberOfNodes Number of nodes in the cluster
      * @param partitionsPerNode Number of partitions in one node
      * @param numberOfZones Number of zones
@@ -540,9 +543,9 @@ public class ServerTestUtils {
      * <b>nodesPerZone<b> indicates how many nodes are in each of the zones. The
      * a nodes in <b>numberOfZones</b> zones. It is important that
      * <b>numberOfNodes</b> be divisible by <b>numberOfZones</b>
-     * 
+     *
      * Does
-     * 
+     *
      * @param numberOfZones The number of zones in the cluster.
      * @param nodeIdsPerZone An array of size <b>numberOfZones<b> in which each
      *        internal array is a node ID.
@@ -557,7 +560,7 @@ public class ServerTestUtils {
     public static Cluster getLocalZonedCluster(int numberOfZones,
                                                int[][] nodeIdsPerZone,
                                                int[][] partitionMap) {
-        
+
 
         if(numberOfZones < 1) {
             throw new VoldemortException("The number of zones must be positive (" + numberOfZones
@@ -987,15 +990,15 @@ public class ServerTestUtils {
 
     /**
      * Starts a Voldemort server for testing purposes.
-     * 
+     *
      * Unless the ports passed in via cluster are guaranteed to be available,
      * this method is susceptible to BindExceptions in VoldemortServer.start().
      * (And, there is no good way of guaranteeing that ports will be available,
      * so...)
-     * 
+     *
      * The method {@link ServerTestUtils#startVoldemortCluster} should be used
      * in preference to this method.}
-     * 
+     *
      * @param socketStoreFactory
      * @param config
      * @param cluster
@@ -1073,12 +1076,12 @@ public class ServerTestUtils {
     }
 
     /***
-     * 
-     * 
+     *
+     *
      * NOTE: This relies on the current behavior of the AsyncOperationService to
      * remove an operation if an explicit isComplete() is invoked. If/When that
      * is changed, this method will always block upto timeoutMs & return
-     * 
+     *
      * @param server
      * @param asyncOperationPattern substring to match with the operation
      *        description
@@ -1157,7 +1160,7 @@ public class ServerTestUtils {
      * to bind to them. If this method returns, it will return a non-null
      * cluster. This method is not guaranteed to return, but will likely
      * eventually do so...
-     * 
+     *
      * @param numServers
      * @param voldemortServers
      * @param partitionMap
@@ -1199,7 +1202,7 @@ public class ServerTestUtils {
      * to bind to them. If this method returns, it will return a non-null
      * cluster. This method is not guaranteed to return, but will likely
      * eventually do so...
-     * 
+     *
      * @param numServers
      * @param voldemortServers
      * @param partitionMap
@@ -1339,4 +1342,39 @@ public class ServerTestUtils {
 
         return servers[0];
     }
+
+    public static void waitForSlopDrain(Map<Integer, VoldemortServer> vservers,
+                                        Long slopDrainTimoutMs) throws InterruptedException {
+
+        long timeStart = System.currentTimeMillis();
+        boolean allSlopsEmpty = false;
+        while(System.currentTimeMillis() < timeStart + slopDrainTimoutMs) {
+            allSlopsEmpty = true;
+            for(Integer nodeId: vservers.keySet()) {
+                VoldemortServer vs = vservers.get(nodeId);
+                SlopStorageEngine sse = vs.getStoreRepository().getSlopStore();
+                ClosableIterator<ByteArray> keys = sse.keys();
+                long count = 0;
+                while(keys.hasNext()) {
+                    keys.next();
+                    count++;
+                }
+                keys.close();
+                if(count > 0) {
+                    allSlopsEmpty = false;
+                    logger.info(String.format("Slop engine for node %d is not yet empty with %d slops\n",
+                                              nodeId,
+                                              count));
+                }
+            }
+            if(allSlopsEmpty) {
+                break;
+            }
+            Thread.sleep(1000);
+        }
+        if(!allSlopsEmpty) {
+            throw new RuntimeException("Timeout while waiting for all slops to drain");
+        }
+    }
+
 }
