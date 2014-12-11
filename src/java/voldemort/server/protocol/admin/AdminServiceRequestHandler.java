@@ -64,6 +64,7 @@ import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.store.readonly.chunk.ChunkedFileSet;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
@@ -246,6 +247,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case GET_RO_STORAGE_FORMAT:
                 ProtoUtils.writeMessage(outputStream,
                                         handleGetROStorageFormat(request.getGetRoStorageFormat()));
+                break;
+            case GET_RO_STORAGE_FILE_LIST:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleGetROStorageFileList(request.getGetRoStorageFileList()));
                 break;
             case FETCH_PARTITION_FILES:
                 return handleFetchROPartitionFiles(request.getFetchPartitionFiles());
@@ -539,6 +544,24 @@ public class AdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleFailedFetch failed for request(" + request.toString() + ")", e);
+        }
+        return response.build();
+    }
+
+    public VAdminProto.GetROStorageFileListResponse handleGetROStorageFileList(VAdminProto.GetROStorageFileListRequest request) {
+        String storeName = request.getStoreName();
+        VAdminProto.GetROStorageFileListResponse.Builder response = VAdminProto.GetROStorageFileListResponse.newBuilder();
+
+        try {
+            ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
+                                                                   storeRepository,
+                                                                   storeName);
+            ChunkedFileSet chunkedFileSet = store.getChunkedFileSet();
+            response.addAllFileName(chunkedFileSet.getFileNames());
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleGetROStorageFileList failed for request(" + request.toString()
+                         + ")", e);
         }
         return response.build();
     }
