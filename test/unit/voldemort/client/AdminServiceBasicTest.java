@@ -1643,12 +1643,11 @@ public class AdminServiceBasicTest {
             int replicaType = entry.getKey();
             for(int partitionId: entry.getValue()) {
                 for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                    File index = new File(versionDir, Integer.toString(partitionId) + "_"
-                                                      + Integer.toString(replicaType) + "_"
-                                                      + Integer.toString(chunkId) + ".index");
-                    File data = new File(versionDir, Integer.toString(partitionId) + "_"
-                                                     + Integer.toString(replicaType) + "_"
-                                                     + Integer.toString(chunkId) + ".data");
+                    String fileName = Integer.toString(partitionId) + "_"
+                                      + Integer.toString(replicaType) + "_"
+                                      + Integer.toString(chunkId);
+                    File index = new File(versionDir, fileName + ".index");
+                    File data = new File(versionDir, fileName + ".data");
                     // write some random crap for index and data
                     FileOutputStream dataOs = new FileOutputStream(data);
                     for(int i = 0; i < dataSize; i++)
@@ -1838,6 +1837,24 @@ public class AdminServiceBasicTest {
             // Check if metadata file exists
             metadataFile = new File(tempDir, ".metadata");
             assertEquals(metadataFile.exists(), true);
+
+            // testGetROStorageFileList
+            List<String> fileList = getAdminClient().readonlyOps.getROStorageFileList(node.getId(),
+                                                                                      "test-readonly-fetchfiles");
+            int fileCount = 0;
+            for(Entry<Integer, List<Integer>> entry: nodeBuckets.entrySet()) {
+                int replicaType = entry.getKey();
+                for(int partitionId: entry.getValue()) {
+                    for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                        String fileName = Integer.toString(partitionId) + "_"
+                                          + Integer.toString(replicaType) + "_"
+                                          + Integer.toString(chunkId);
+                        assertTrue("Assuming file exists:" + fileName, fileList.contains(fileName));
+                        fileCount++;
+                    }
+                }
+            }
+            assertEquals(fileCount, fileList.size());
         }
     }
 

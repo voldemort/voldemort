@@ -3794,6 +3794,31 @@ public class AdminClient {
         }
 
         /**
+         * Returns the file names of a specific store on one node.
+         * 
+         * @param nodeId Id of the node to query from
+         * @param storeName Name of the store to look up
+         * @return A list of file names corresponding to the store and node
+         */
+
+        public List<String> getROStorageFileList(int nodeId, String storeName) {
+            VAdminProto.GetROStorageFileListRequest.Builder getRORequest = VAdminProto.GetROStorageFileListRequest.newBuilder()
+                                                                                                                  .setStoreName(storeName);
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                              .setGetRoStorageFileList(getRORequest)
+                                                                                              .setType(VAdminProto.AdminRequestType.GET_RO_STORAGE_FILE_LIST)
+                                                                                              .build();
+            VAdminProto.GetROStorageFileListResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                              adminRequest,
+                                                                                              VAdminProto.GetROStorageFileListResponse.newBuilder());
+            if(response.hasError()) {
+                helperOps.throwException(response.getError());
+            }
+
+            return response.getFileNameList();
+        }
+
+        /**
          * Fetch read-only store files to a specified directory. This is run on
          * the stealer node side
          * 

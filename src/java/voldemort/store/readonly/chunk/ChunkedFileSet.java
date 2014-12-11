@@ -46,6 +46,7 @@ public class ChunkedFileSet {
     private final File baseDir;
     private final List<Integer> indexFileSizes;
     private final List<Integer> dataFileSizes;
+    private final List<String> fileNames;
     private final List<MappedByteBuffer> indexFiles;
 
     private List<MappedFileReader> mappedIndexFileReader;
@@ -65,16 +66,18 @@ public class ChunkedFileSet {
 
         this.enforceMlock = enforceMlock;
         this.baseDir = directory;
-        if (!Utils.isReadableDir(directory)) {
-            throw new VoldemortException(directory.getAbsolutePath() + " is not a readable directory.");
+        if(!Utils.isReadableDir(directory)) {
+            throw new VoldemortException(directory.getAbsolutePath()
+                                         + " is not a readable directory.");
         }
-       
+
         File metadataFile = new File(baseDir, ".metadata");
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
-        
+
         // Check if metadata file exists. If not, create one with RO2 format.
-        if (!metadataFile.exists()) {
-            metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V2.getCode());
+        if(!metadataFile.exists()) {
+            metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                         ReadOnlyStorageFormat.READONLY_V2.getCode());
             try {
                 FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
             } catch(IOException e) {
@@ -83,7 +86,7 @@ public class ChunkedFileSet {
             }
         }
         // Read metadata file to populate metadata object
-        if (Utils.isReadableFile(metadataFile)) {
+        if(Utils.isReadableFile(metadataFile)) {
             try {
                 metadata = new ReadOnlyStorageMetadata(metadataFile);
             } catch(IOException e) {
@@ -95,6 +98,7 @@ public class ChunkedFileSet {
                                                                                   ReadOnlyStorageFormat.READONLY_V2.getCode()));
         this.indexFileSizes = new ArrayList<Integer>();
         this.dataFileSizes = new ArrayList<Integer>();
+        this.fileNames = new ArrayList<String>();
         this.indexFiles = new ArrayList<MappedByteBuffer>();
         this.mappedIndexFileReader = new ArrayList<MappedFileReader>();
 
@@ -123,7 +127,8 @@ public class ChunkedFileSet {
                      + " chunks and format  " + storageFormat);
     }
 
-    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId) throws IOException {
+    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId)
+                                                                                      throws IOException {
         this(directory, routingStrategy, nodeId, false);
 
     }
@@ -158,8 +163,9 @@ public class ChunkedFileSet {
         // initialize all the chunks
         int chunkId = 0;
         while(true) {
-            File index = new File(baseDir, Integer.toString(chunkId) + ".index");
-            File data = new File(baseDir, Integer.toString(chunkId) + ".data");
+            String fileName = Integer.toString(chunkId);
+            File index = new File(baseDir, fileName + ".index");
+            File data = new File(baseDir, fileName + ".data");
             if(!index.exists() && !data.exists())
                 break;
             else if(index.exists() ^ data.exists())
@@ -172,6 +178,7 @@ public class ChunkedFileSet {
             validateFileSizes(indexLength, dataLength);
             indexFileSizes.add((int) indexLength);
             dataFileSizes.add((int) dataLength);
+            fileNames.add(fileName);
 
             /* Add the file channel for data */
             dataFiles.add(openChannel(data));
@@ -235,6 +242,7 @@ public class ChunkedFileSet {
                     validateFileSizes(indexLength, dataLength);
                     indexFileSizes.add((int) indexLength);
                     dataFileSizes.add((int) dataLength);
+                    fileNames.add(fileName);
 
                     /* Add the file channel for data */
                     dataFiles.add(openChannel(data));
@@ -274,9 +282,9 @@ public class ChunkedFileSet {
 
                     // Find intersection with nodes partition ids
                     Pair<Integer, Integer> bucket = null;
-                    for (int replicatingPartition = 0; replicatingPartition < routingPartitionList.size(); replicatingPartition++) {
+                    for(int replicatingPartition = 0; replicatingPartition < routingPartitionList.size(); replicatingPartition++) {
 
-                        if (nodePartitionIds.contains(routingPartitionList.get(replicatingPartition))) {
+                        if(nodePartitionIds.contains(routingPartitionList.get(replicatingPartition))) {
                             if(bucket == null) {
 
                                 // Generate bucket information
@@ -329,6 +337,7 @@ public class ChunkedFileSet {
                                     validateFileSizes(indexLength, dataLength);
                                     indexFileSizes.add((int) indexLength);
                                     dataFileSizes.add((int) dataLength);
+                                    fileNames.add(fileName);
 
                                     /* Add the file channel for data */
                                     dataFiles.add(openChannel(data));
@@ -780,4 +789,7 @@ public class ChunkedFileSet {
         return this.dataFileSizes.get(chunk);
     }
 
+    public List<String> getFileNames() {
+        return this.fileNames;
+    }
 }

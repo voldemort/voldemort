@@ -302,6 +302,15 @@ message GetROStorageFormatResponse {
   optional Error error = 2;
 }
 
+message GetROStorageFileListRequest {
+  required string store_name = 1;
+}
+
+message GetROStorageFileListResponse {
+  repeated string file_name = 1;
+  optional Error error = 2;
+}
+
 message FailedFetchStoreRequest {
   required string store_name = 1;
   required string store_dir = 2;
@@ -392,6 +401,7 @@ enum AdminRequestType {
   UPDATE_METADATA_PAIR = 32;
   UPDATE_STORE_DEFINITIONS = 33;
   SET_OFFLINE_STATE = 34;
+  GET_RO_STORAGE_FILE_LIST = 35;
 }
 
 message VoldemortAdminRequest {
@@ -429,4 +439,5 @@ message VoldemortAdminRequest {
   optional UpdateMetadataPairRequest update_metadata_pair = 34;
   optional UpdateStoreDefinitions update_store_definitions = 35;
   optional SetOfflineStateRequest set_offline_state = 36;
+  optional GetROStorageFileListRequest get_ro_storage_file_list = 37;
 }
