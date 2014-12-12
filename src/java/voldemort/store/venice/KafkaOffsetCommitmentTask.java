@@ -1,17 +1,11 @@
 package voldemort.store.venice;
 
-import com.sleepycat.je.Database;
-import com.sleepycat.je.DatabaseConfig;
-import com.sleepycat.je.Environment;
-import com.sleepycat.je.EnvironmentConfig;
 import org.apache.log4j.Logger;
-import voldemort.store.bdb.BdbRuntimeConfig;
 import voldemort.store.bdb.BdbStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.KafkaTopicUtils;
 import voldemort.versioning.Versioned;
 
-import java.io.File;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -21,22 +15,25 @@ import java.util.concurrent.ConcurrentHashMap;
  *  A task which periodically sends its Kafka offsets to a BDB store.
  *  On store startup, the initial offsets are read from this store.
  *
+ *  The key for each offset is "storeName_partition"
+ *
  * */
 public class KafkaOffsetCommitmentTask implements Runnable {
 
     private static final Logger logger = Logger.getLogger(KafkaOffsetCommitmentTask.class.getName());
-    private static final String OFFSET_STORE_NAME = "offsets";
 
-    private BdbStorageEngine offsetStore;
     private Map<Integer, Long> partitionOffsetMap;
     private Collection<Integer> partitionIds;
+    private String storeName;
+    private String bdbPath;
     private int offsetCommitCycle;
 
-    public KafkaOffsetCommitmentTask(String bdbPath, Collection<Integer> partitionIds, VeniceConsumerConfig config) {
+    public KafkaOffsetCommitmentTask(String storeName, Collection<Integer> partitionIds, VeniceConsumerConfig config) {
+        this.storeName = storeName;
         this.partitionIds = partitionIds;
-        this.offsetStore = startOffsetStore(bdbPath);
-        this.partitionOffsetMap = getInitialOffsets();
+        this.bdbPath = config.getOffsetBbdPath();
         this.offsetCommitCycle = config.getOffsetCommitCycle();
+        this.partitionOffsetMap = getInitialOffsets();
     }
 
     public void run() {
@@ -51,40 +48,18 @@ public class KafkaOffsetCommitmentTask implements Runnable {
     }
 
     /**
-     *  Initialize the BDB Database
-     * */
-    private BdbStorageEngine startOffsetStore(String bdbPath) {
-        BdbRuntimeConfig config = new BdbRuntimeConfig();
-        config.setAllowObsoleteWrites(true);
-
-        EnvironmentConfig envCfg = new EnvironmentConfig();
-        envCfg.setAllowCreate(true);
-        envCfg.setTransactional(true);
-
-        DatabaseConfig dbCfg = new DatabaseConfig();
-        dbCfg.setAllowCreate(true);
-        dbCfg.setTransactional(true);
-
-        File offsetBdbDir = new File(bdbPath);
-        if (!offsetBdbDir.exists()) {
-            offsetBdbDir.mkdirs();
-        }
-
-        Environment env = new Environment(offsetBdbDir, envCfg);
-        Database db = env.openDatabase(null, OFFSET_STORE_NAME, dbCfg);
-
-        return new BdbStorageEngine(OFFSET_STORE_NAME, env, db, config);
-    }
-
-    /**
      * Reads the initial values of the offset store
      * */
     private ConcurrentHashMap<Integer, Long> getInitialOffsets() {
 
         ConcurrentHashMap<Integer, Long> offsetMap = new ConcurrentHashMap<Integer, Long>();
+        BdbStorageEngine offsetStore = KafkaOffsetStore.getOffsetStore(bdbPath);
+
         for (Integer partition : partitionIds) {
+
             // try to find the offset in BDB store
-            byte[] partitionKey = {partition.byteValue()};
+            String key = new StringBuffer(storeName).append("_").append(partition).toString();
+            byte[] partitionKey = key.getBytes();
             List<Versioned<byte[]>> result = offsetStore.get(new ByteArray(partitionKey), null);
 
             // initialize if not found
@@ -120,10 +95,12 @@ public class KafkaOffsetCommitmentTask implements Runnable {
     private void commitOffsets() {
 
         long totalChange = 0;
+        BdbStorageEngine offsetStore = KafkaOffsetStore.getOffsetStore(bdbPath);
 
         for (Integer partition : partitionOffsetMap.keySet()) {
 
-            byte[] partitionKey = { partition.byteValue() } ;
+            String key = new StringBuffer(storeName).append("_").append(partition).toString();
+            byte[] partitionKey = key.getBytes();
             long originalOffset = 0;
 
             List<Versioned<byte[]>> result = offsetStore.get(new ByteArray(partitionKey), null);

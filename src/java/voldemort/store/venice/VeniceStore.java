@@ -1,5 +1,6 @@
 package voldemort.store.venice;
 
+import kafka.Kafka;
 import kafka.cluster.Broker;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
@@ -70,8 +71,7 @@ public class VeniceStore<K, V, T> extends DelegatingStore<K, V, T> {
     }
 
     private void startOffsetStore() {
-        String bdbPath = consumerConfig.getOffsetMetadataPath() + File.separator + OFFSET_FILE_NAME;
-        commitTask = new KafkaOffsetCommitmentTask(bdbPath, partitionIds, consumerConfig);
+        commitTask = new KafkaOffsetCommitmentTask(storeDef.getName(), partitionIds, consumerConfig);
         executor.submit(commitTask);
     }
 

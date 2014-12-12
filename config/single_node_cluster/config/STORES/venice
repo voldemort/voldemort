@@ -10,93 +10,15 @@
   <required-writes>1</required-writes>
   <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>
   <venice>
-    <enabled>true</enabled>
+    <enabled>false</enabled>
     <kafka-topic-name>venice-internal</kafka-topic-name>
-    <kafka-partition-count>8</kafka-partition-count>
-    <kafka-broker-list>eat1-kafka-vip-6.corp.linkedin.com:10251</kafka-broker-list>
+    <kafka-partition-count>2</kafka-partition-count>
+    <kafka-broker-list>localhost:9092</kafka-broker-list>
   </venice>
    <key-serializer>
       <type>string</type>
    </key-serializer>
    <value-serializer>
-      <type>avro-generic-versioned</type>
-      <schema-info version="0">
-                  {
-                      "type" : "record",
-                      "name" : "positionSnippetType",
-                      "fields" : [ {
-                        "name" : "common",
-                        "type" : {
-                          "type" : "record",
-                          "name" : "commonEntryType",
-                          "fields" : [ {
-                            "name" : "entryID",
-                            "type" : "long",
-                            "doc" : "entryID"
-                          }, {
-                            "name" : "createdTime",
-                            "type" : "long",
-                            "doc" : "createdTime"
-                          }, {
-                            "name" : "lastModifiedTime",
-                            "type" : "long",
-                            "doc" : "last modified time"
-                          }, {
-                            "name" : "visibilitySettings",
-                            "type" : "string",
-                            "doc" : "visibility settings"
-                          } ]
-                        },
-                        "doc" : "common"
-                      }, {
-                        "name" : "localizedEntries",
-                        "type" : {
-                          "type" : "record",
-                          "name" : "positionLocalizedEntriesType",
-                          "fields" : [ {
-                            "name" : "positionLocalizedEntryType",
-                            "type" : {
-                              "type" : "array",
-                              "items" : {
-                                "type" : "record",
-                                "name" : "positionLocalizedEntryType",
-                                "fields" : [ {
-                                  "name" : "positionTitle",
-                                  "type" : "string",
-                                  "doc" : "positionTitle"
-                                }, {
-                                  "name" : "positionCompany",
-                                  "type" : "string",
-                                  "doc" : "position company"
-                                }, {
-                                  "name" : "positionSummary",
-                                  "type" : [ "null", "string" ],
-                                  "doc" : "position summary"
-                                }, {
-                                  "name" : "locale",
-                                  "type" : "string",
-                                  "doc" : "locale"
-                                }, {
-                                  "name" : "localeVisibility",
-                                  "type" : "boolean",
-                                  "doc" : "locale visibility"
-                                }, {
-                                  "name" : "lastModifiedTime",
-                                  "type" : "long",
-                                  "doc" : "last modified time"
-                                } ]
-                              }
-                            },
-                            "doc" : "localizedEntry"
-                          }, {
-                            "name" : "size",
-                            "type" : "string",
-                            "doc" : "size"
-                          } ]
-                        },
-                        "doc" : "localizedEntries"
-                      } ]
-                    }
-      </schema-info>
+      <type>string</type>
     </value-serializer>
 </store>

@@ -1,5 +1,7 @@
 package voldemort.store.venice;
 
+import java.io.File;
+
 /**
  * A class which stores the tuning variables needed for initializing a kafka consumer
  */
@@ -11,6 +13,7 @@ public class VeniceConsumerConfig {
     public static final int DEFAULT_OFFSET_COMMIT_CYCLE = 5000; // 5 seconds
     public static final int DEFAULT_REQUEST_FETCH_SIZE = 10000000;
     public static final int DEFAULT_REQUEST_BUFFER_SIZE = 1024 * 1024;
+    private static final String OFFSET_FILE_NAME = "offsets";
 
     // tuning variables
     private final int numberOfRetriesBeforeFailure;
@@ -21,6 +24,7 @@ public class VeniceConsumerConfig {
 
     // Venice metadata location
     private final String offsetMetadataPath;
+    private final String offsetBbdPath;
 
     /* To be used only in test scenarios */
     public VeniceConsumerConfig() {
@@ -30,6 +34,7 @@ public class VeniceConsumerConfig {
         this.requestBufferSize = DEFAULT_REQUEST_BUFFER_SIZE;
         this.offsetCommitCycle = DEFAULT_OFFSET_COMMIT_CYCLE;
         this.offsetMetadataPath = "";
+        this.offsetBbdPath = "";
     }
 
     public VeniceConsumerConfig(int numberOfRetriesBeforeFailure,
@@ -44,6 +49,7 @@ public class VeniceConsumerConfig {
         this.requestBufferSize = requestBufferSize;
         this.offsetCommitCycle = offsetCommitCycle;
         this.offsetMetadataPath = offsetMetadataPath;
+        this.offsetBbdPath = offsetMetadataPath + File.separator + OFFSET_FILE_NAME;
     }
 
     public int getNumberOfRetriesBeforeFailure() {
@@ -67,5 +73,9 @@ public class VeniceConsumerConfig {
     }
 
     public String getOffsetMetadataPath() { return offsetMetadataPath; }
+
+    public String getOffsetBbdPath() {
+        return offsetBbdPath;
+    }
 
 }
