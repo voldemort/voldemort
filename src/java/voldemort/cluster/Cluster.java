@@ -122,7 +122,7 @@ public class Cluster implements Serializable {
             }
         }
         this.numberOfPartitionIds = getNumberOfTags(nodes);
-        
+
         this.partitionIdToNodeArray = new Node[this.numberOfPartitionIds];
         for(int partitionId = 0; partitionId < this.numberOfPartitionIds; partitionId++) {
             this.partitionIdToNodeArray[partitionId] = partitionIdToNodeMap.get(partitionId);

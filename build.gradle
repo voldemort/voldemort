@@ -547,6 +547,10 @@ dependencies {
 
     compile 'com.google.code.typica:typica:1.7.2'
     compile 'com.sna-projects.krati:krati:0.4.9'
+
+    // kafka dependencies for Venice
+    compile 'org.apache.kafka:kafka_2.10:0.8.1.1'
+
 }
 
 eclipse {

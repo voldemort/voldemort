@@ -84,6 +84,7 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
     protected final boolean minimizeScanImpact;
     protected final boolean checkpointerOffForBatchWrites;
     private volatile int numOutstandingBatchWriteJobs = 0;
+    private final boolean allowObsoleteWrites;
 
     public BdbStorageEngine(String name,
                             Environment environment,
@@ -100,6 +101,7 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
                                                            config.getExposeSpaceUtil());
         this.minimizeScanImpact = config.getMinimizeScanImpact();
         this.checkpointerOffForBatchWrites = config.isCheckpointerOffForBatchWrites();
+        this.allowObsoleteWrites = config.getAllowObsoleteWrites();
     }
 
     @Override
@@ -319,23 +321,32 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
                                                           valueEntry,
                                                           LockMode.RMW);
             if(OperationStatus.SUCCESS == status) {
+
                 // update
                 vals = StoreBinaryFormat.fromByteArray(valueEntry.getData());
-                // compare vector clocks and throw out old ones, for updates
 
-                Iterator<Versioned<byte[]>> iter = vals.iterator();
-                while(iter.hasNext()) {
-                    Versioned<byte[]> curr = iter.next();
-                    Occurred occurred = value.getVersion().compare(curr.getVersion());
-                    if(occurred == Occurred.BEFORE)
-                        throw new ObsoleteVersionException("Key "
-                                                           + new String(hexCodec.encode(key.get()))
-                                                           + " "
-                                                           + value.getVersion().toString()
-                                                           + " is obsolete, it is no greater than the current version of "
-                                                           + curr.getVersion().toString() + ".");
-                    else if(occurred == Occurred.AFTER)
-                        iter.remove();
+                // if using a Venice implementation, writes can be sent directly
+                // through as Vector clocks are not in use
+                if (!allowObsoleteWrites) {
+
+                    // compare vector clocks and throw out old ones, for updates
+                    // clfung: Is there a reason why version checking occurs here?
+                    //         Why not in its own store, one layer higher?
+                    Iterator<Versioned<byte[]>> iter = vals.iterator();
+                    while(iter.hasNext()) {
+                        Versioned<byte[]> curr = iter.next();
+
+                        Occurred occurred = value.getVersion().compare(curr.getVersion());
+                        if (occurred == Occurred.BEFORE)
+                            throw new ObsoleteVersionException("Key "
+                                    + new String(hexCodec.encode(key.get()))
+                                    + " "
+                                    + value.getVersion().toString()
+                                    + " is obsolete, it is no greater than the current version of "
+                                    + curr.getVersion().toString() + ".");
+                        else if (occurred == Occurred.AFTER)
+                            iter.remove();
+                    }
                 }
             } else {
                 // insert

@@ -58,6 +58,7 @@ import voldemort.common.service.ServiceType;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -98,6 +99,7 @@ import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.system.SystemStoreConstants;
+import voldemort.store.venice.VeniceStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.store.views.ViewStorageEngine;
@@ -108,6 +110,7 @@ import voldemort.utils.DaemonThreadFactory;
 import voldemort.utils.DynamicThrottleLimit;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
+import voldemort.utils.KafkaTopicUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.StoreDefinitionUtils;
@@ -330,7 +333,9 @@ public class StorageService extends AbstractService {
                                                                       null,
                                                                       null,
                                                                       null,
-                                                                      0);
+                                                                      0,
+                                                                      null);
+
             SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(slopStoreDefinition,
                                                                                  new RoutingStrategyFactory().updateRoutingStrategy(slopStoreDefinition,
                                                                                                                                     metadata.getCluster())),
@@ -349,7 +354,7 @@ public class StorageService extends AbstractService {
 
                 scheduler.schedule("slop",
                                    (voldemortConfig.getPusherType()
-                                                   .compareTo(BlockingSlopPusherJob.TYPE_NAME) == 0) ? new BlockingSlopPusherJob(storeRepository,
+                                                   .equals(BlockingSlopPusherJob.TYPE_NAME)) ? new BlockingSlopPusherJob(storeRepository,
                                                                                                                                  metadata,
                                                                                                                                  failureDetector,
                                                                                                                                  voldemortConfig,
@@ -635,14 +640,14 @@ public class StorageService extends AbstractService {
                                              + " but " + storeDef.getType()
                                              + " storage engine has not been enabled.");
 
-        boolean isReadOnly = storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
+        boolean isReadOnly = storeDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME);
         final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                                    metadata.getCluster());
 
         final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef,
                                                                                 routingStrategy);
         // Update the routing strategy + add listener to metadata
-        if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+        if(storeDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME)) {
             metadata.addMetadataStoreListener(storeDef.getName(), new MetadataStoreListener() {
 
                 public void updateRoutingStrategy(RoutingStrategy updatedRoutingStrategy) {
@@ -688,9 +693,9 @@ public class StorageService extends AbstractService {
         String storeName = engine.getName();
         Store<ByteArray, byte[], byte[]> store = storeRepository.removeLocalStore(storeName);
 
-        boolean isSlop = storeType.compareTo("slop") == 0;
-        boolean isView = storeType.compareTo(ViewStorageConfiguration.TYPE_NAME) == 0;
-        boolean isMetadata = storeName.compareTo(MetadataStore.METADATA_STORE_NAME) == 0;
+        boolean isSlop = storeType.equals("slop");
+        boolean isView = storeType.equals(ViewStorageConfiguration.TYPE_NAME);
+        boolean isMetadata = storeName.equals(MetadataStore.METADATA_STORE_NAME);
 
         if(store != null) {
             if(voldemortConfig.isJmxEnabled()) {
@@ -792,9 +797,9 @@ public class StorageService extends AbstractService {
         /* Now add any store wrappers that are enabled */
         Store<ByteArray, byte[], byte[]> store = engine;
 
-        boolean isMetadata = store.getName().compareTo(MetadataStore.METADATA_STORE_NAME) == 0;
-        boolean isSlop = storeType.compareTo("slop") == 0;
-        boolean isView = storeType.compareTo(ViewStorageConfiguration.TYPE_NAME) == 0;
+        boolean isMetadata = store.getName().equals(MetadataStore.METADATA_STORE_NAME);
+        boolean isSlop = storeType.equals("slop");
+        boolean isView = storeType.equals(ViewStorageConfiguration.TYPE_NAME);
 
         if(voldemortConfig.isVerboseLoggingEnabled())
             store = new LoggingStore<ByteArray, byte[], byte[]>(store,
@@ -903,7 +908,30 @@ public class StorageService extends AbstractService {
             }
         }
 
+        // let Venice be the outermost layer as all writes will be funnelled into Venice from Kafka
+        // this means anything outside of this layer will be skipped by Venice!
+        if(voldemortConfig.isVeniceEnabled() && storeDef != null && storeDef.hasKafkaTopic()) {
+
+            // Make sure user did things correctly
+            if (storeDef.getRoutingStrategyType().equals(RoutingStrategyType.CONSISTENT_STRATEGY)) {
+
+                logger.info("Initializing Venice Store on " + store.getName() + " store.");
+
+                StoreRoutingPlan plan = new StoreRoutingPlan(cluster, storeDef);
+                store = new VeniceStore<ByteArray, byte[], byte[]>(store,
+                        storeDef,
+                        plan.getZoneNAryPartitionIds(voldemortConfig.getNodeId()),
+                        voldemortConfig.getVeniceConsumerConfig()
+                );
+
+            } else {
+                logger.warn("Disabling Venice on this store as it is not properly configured.");
+                logger.warn("Consistent routing must be used.");
+            }
+        }
+
         storeRepository.addLocalStore(store);
+
     }
 
     /**

@@ -181,9 +181,9 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     protected Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
-        if(items.size() == 0)
+        if (items.size() == 0)
             return defaultValue;
-        else if(items.size() == 1)
+        else if (items.size() == 1)
             return items.get(0);
         else
             throw new InconsistentDataException("Unresolved versions returned from get(" + key
@@ -196,8 +196,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     public Map<K, Versioned<V>> getAll(Iterable<K> keys) {
         Map<K, List<Versioned<V>>> items = null;
-        for(int attempts = 0;; attempts++) {
-            if(attempts >= this.metadataRefreshAttempts)
+        for (int attempts = 0;; attempts++) {
+            if (attempts >= this.metadataRefreshAttempts)
                 throw new VoldemortException(this.metadataRefreshAttempts
                                              + " metadata refresh attempts failed.");
             try {
@@ -272,7 +272,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     public boolean applyUpdate(UpdateAction<K, V> action, int maxTries) {
         boolean success = false;
         try {
-            for(int i = 0; i < maxTries; i++) {
+            for (int i = 0; i < maxTries; i++) {
                 try {
                     action.update(this);
                     success = true;
@@ -282,7 +282,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 }
             }
         } finally {
-            if(!success)
+            if (!success)
                 action.rollback();
         }
 
@@ -301,9 +301,9 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     @SuppressWarnings("unused")
     protected Version getVersion(K key) {
         List<Version> versions = getVersions(key);
-        if(versions.size() == 0)
+        if (versions.size() == 0)
             return null;
-        else if(versions.size() == 1)
+        else if (versions.size() == 1)
             return versions.get(0);
         else
             throw new InconsistentDataException("Unresolved versions returned from get(" + key
@@ -316,8 +316,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     public Map<K, Versioned<V>> getAll(Iterable<K> keys, Map<K, Object> transforms) {
         Map<K, List<Versioned<V>>> items = null;
-        for(int attempts = 0;; attempts++) {
-            if(attempts >= this.metadataRefreshAttempts)
+        for (int attempts = 0;; attempts++) {
+            if (attempts >= this.metadataRefreshAttempts)
                 throw new VoldemortException(this.metadataRefreshAttempts
                                              + " metadata refresh attempts failed.");
             try {
@@ -340,13 +340,13 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private Version getVersionWithResolution(K key) {
         List<Version> versions = getVersions(key);
-        if(versions.isEmpty())
+        if (null == versions || versions.isEmpty())
             return null;
-        else if(versions.size() == 1)
+        else if (versions.size() == 1)
             return versions.get(0);
         else {
             Versioned<V> versioned = get(key, null);
-            if(versioned == null)
+            if (versioned == null)
                 return null;
             else
                 return versioned.getVersion();
@@ -355,7 +355,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private Version getVersionForPut(K key) {
         Version version = getVersionWithResolution(key);
-        if(version == null) {
+        if (version == null) {
             version = new VectorClock();
         }
         return version;

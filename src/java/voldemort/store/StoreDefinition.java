@@ -24,6 +24,7 @@ import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.system.SystemStoreConstants;
+import voldemort.store.venice.KafkaTopicDefinition;
 import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
@@ -63,6 +64,7 @@ public class StoreDefinition implements Serializable {
     private final Integer hintPrefListSize;
     private final List<String> owners;
     private final long memoryFootprintMB;
+    private final KafkaTopicDefinition kafkaTopic;
 
     public StoreDefinition(String name,
                            String type,
@@ -89,7 +91,9 @@ public class StoreDefinition implements Serializable {
                            HintedHandoffStrategyType hintedHandoffStrategyType,
                            Integer hintPrefListSize,
                            List<String> owners,
-                           long memoryFootprintMB) {
+                           long memoryFootprintMB,
+                           KafkaTopicDefinition kafkaTopic) {
+
         this.name = Utils.notNull(name);
         this.type = type;
         this.description = description;
@@ -116,6 +120,7 @@ public class StoreDefinition implements Serializable {
         this.hintedHandoffStrategyType = hintedHandoffStrategyType;
         this.hintPrefListSize = hintPrefListSize;
         this.owners = owners;
+        this.kafkaTopic = kafkaTopic;
     }
 
     private void throwIllegalException(String errorMessage) {
@@ -361,6 +366,10 @@ public class StoreDefinition implements Serializable {
     public boolean hasMemoryFootprint() {
         return memoryFootprintMB != 0;
     }
+
+    public boolean hasKafkaTopic() { return kafkaTopic != null; }
+
+    public KafkaTopicDefinition getKafkaTopic() { return kafkaTopic; }
 
     @Override
     public boolean equals(Object o) {

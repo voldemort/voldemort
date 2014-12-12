@@ -61,9 +61,7 @@ public class ConfigureNodesDefault<V, PD extends BasicPipelineData<V>> extends
     }
 
     public void execute(Pipeline pipeline) {
-        List<Node> nodes = null;
-
-        nodes = getNodes(key);
+        List<Node> nodes = getNodes(key);
         if(nodes == null) {
             pipeline.abort();
             return;

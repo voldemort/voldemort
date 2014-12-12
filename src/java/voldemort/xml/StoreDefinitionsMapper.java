@@ -52,6 +52,7 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.system.SystemStoreConstants;
+import voldemort.store.venice.KafkaTopicDefinition;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.Utils;
 
@@ -100,6 +101,13 @@ public class StoreDefinitionsMapper {
     public final static String VIEW_SERIALIZER_FACTORY_ELMT = "view-serializer-factory";
     private final static String STORE_VERSION_ATTR = "version";
     private final static String STORE_MEMORY_FOOTPRINT = "memory-footprint";
+
+    private final static String STORE_VENICE_ELMT = "venice";
+    private final static String STORE_VENICE_ENABLED_ELMT = "enabled";
+    private final static String STORE_VENICE_TOPIC_NAME = "kafka-topic-name";
+    private final static String STORE_KAFKA_BROKER_LIST_ELMT = "kafka-broker-list";
+    private final static String STORE_KAFKA_PARTITION_COUNT_ELMT = "kafka-partition-count";
+
     private static final Logger logger = Logger.getLogger(StoreDefinitionsMapper.class.getName());
 
     private final Schema schema;
@@ -131,7 +139,6 @@ public class StoreDefinitionsMapper {
 
     public List<StoreDefinition> readStoreList(Reader input, boolean verifySchema) {
         try {
-
             SAXBuilder builder = new SAXBuilder();
             Document doc = builder.build(input);
             if(verifySchema) {
@@ -269,6 +276,12 @@ public class StoreDefinitionsMapper {
         if(memoryFootprintStr != null)
             memoryFootprintMB = Long.parseLong(memoryFootprintStr);
 
+        KafkaTopicDefinition kafkaTopic = null;
+
+        // Venice tag is not mandatory
+        if (store.getChild(STORE_VENICE_ELMT) != null)
+            kafkaTopic = readKafkaTopic(store.getChild(STORE_VENICE_ELMT));
+
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
                                            .setDescription(description)
@@ -291,6 +304,7 @@ public class StoreDefinitionsMapper {
                                            .setHintedHandoffStrategy(hintedHandoffStrategy)
                                            .setHintPrefListSize(hintPrefListSize)
                                            .setMemoryFootprintMB(memoryFootprintMB)
+                                           .setKafkaTopic(kafkaTopic)
                                            .build();
     }
 
@@ -408,6 +422,59 @@ public class StoreDefinitionsMapper {
         return new SerializerDefinition(name, schemaInfosByVersion, hasVersion, compression);
     }
 
+    /**
+     * Given an stores.xml venice element, initializes a venice consumer configuration object.
+     * The XML element must be directly above the venice configuration tags
+     * Note that if an illegal configuration is given, venice will be disabled.
+     * A null return object signifies that venice is disabled.
+     * */
+    public KafkaTopicDefinition readKafkaTopic(Element elmt) {
+
+        if (null == elmt) {
+            return null;
+        }
+
+        // Read <enabled>
+        try {
+            boolean enableVenice = new Boolean(elmt.getChildText(STORE_VENICE_ENABLED_ELMT));
+            if (!enableVenice) {
+                return null;
+            }
+        } catch (Exception e) {
+            logger.error("<enabled> not set properly for venice."); // type cast fails
+            return null;
+        }
+
+        // Read <kafka-topic-name>
+        String kafkaTopicName = elmt.getChildText(STORE_VENICE_TOPIC_NAME);
+        if (null == kafkaTopicName) {
+            logger.error("Kafka topic is not properly given. Disabling Venice.");
+            return null;
+        }
+
+        // Read <kafka-partition-count>
+        int kafkaPartitionCount = 0;
+        try {
+            kafkaPartitionCount = new Integer(elmt.getChildText(STORE_KAFKA_PARTITION_COUNT_ELMT));
+            if (kafkaPartitionCount < 1) {
+                logger.error("<kafka-partition-count> is not above 0. Disabling Venice.");
+                return null;
+            }
+        } catch (Exception e) {
+            logger.error("<kafka-partition-count> is not given or set properly. Disabling Venice."); // type cast fails
+            return null;
+        }
+
+        // Read <kafka-broker-list>
+        String kafkaBrokerListString = elmt.getChildText(STORE_KAFKA_BROKER_LIST_ELMT);
+        if (null == kafkaBrokerListString) {
+            logger.error("Kafka broker list is not properly given. Disabling Venice.");
+            return null;
+        }
+
+        return new KafkaTopicDefinition(kafkaTopicName, kafkaPartitionCount, kafkaBrokerListString);
+    }
+
     public String writeStoreList(List<StoreDefinition> stores) {
         Element root = new Element(STORES_ELMT);
         for(StoreDefinition def: stores) {
@@ -477,6 +544,12 @@ public class StoreDefinitionsMapper {
         addSerializer(valueSerializer, storeDefinition.getValueSerializer());
         store.addContent(valueSerializer);
 
+        if(storeDefinition.hasKafkaTopic()) {
+            Element kafkaTopic = new Element(STORE_VENICE_ELMT);
+            addKafkaTopic(kafkaTopic, storeDefinition.getKafkaTopic());
+            store.addContent(kafkaTopic);
+        }
+
         if(storeDefinition.hasRetentionPeriod())
             store.addContent(new Element(STORE_RETENTION_POLICY_ELMT).setText(Integer.toString(storeDefinition.getRetentionDays())));
 
@@ -534,6 +607,14 @@ public class StoreDefinitionsMapper {
             store.addContent(serializerFactory);
         }
         return store;
+    }
+
+    public static void addKafkaTopic(Element parent, KafkaTopicDefinition def) {
+        parent.addContent(new Element(STORE_VENICE_ENABLED_ELMT).setText("true"));
+        parent.addContent(new Element(STORE_VENICE_TOPIC_NAME).setText(def.getName()));
+        parent.addContent(new Element(STORE_KAFKA_PARTITION_COUNT_ELMT).setText(
+                Integer.toString(def.getKafkaPartitionReplicaCount())));
+        parent.addContent(new Element(STORE_KAFKA_BROKER_LIST_ELMT).setText(def.getBrokerListString()));
     }
 
     public static void addSerializer(Element parent, SerializerDefinition def) {

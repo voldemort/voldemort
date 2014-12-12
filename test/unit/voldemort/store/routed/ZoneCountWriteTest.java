@@ -122,7 +122,8 @@ public class ZoneCountWriteTest {
                                        storeDef.getHintedHandoffStrategyType(),
                                        storeDef.getHintPrefListSize(),
                                        storeDef.getOwners(),
-                                       storeDef.getMemoryFootprintMB());
+                                       storeDef.getMemoryFootprintMB(),
+                                       storeDef.getKafkaTopic());
         storeDefs.set(0, storeDef);
         SocketStoreClientFactory socketStoreClientFactory = new SocketStoreClientFactory(clientConfig);
         for(Integer nodeId: cluster.getNodeIds()) {

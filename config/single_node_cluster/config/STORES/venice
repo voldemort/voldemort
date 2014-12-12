@@ -1,0 +1,24 @@
+<store>
+  <name>venice</name>
+  <persistence>bdb</persistence>
+  <description>Test store for Hadoop to Venice Bridge </description>
+  <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+  <routing-strategy>consistent-routing</routing-strategy>
+  <routing>client</routing>
+  <replication-factor>1</replication-factor>
+  <required-reads>1</required-reads>
+  <required-writes>1</required-writes>
+  <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>
+  <venice>
+    <enabled>false</enabled>
+    <kafka-topic-name>venice-internal</kafka-topic-name>
+    <kafka-partition-count>2</kafka-partition-count>
+    <kafka-broker-list>localhost:9092</kafka-broker-list>
+  </venice>
+   <key-serializer>
+      <type>string</type>
+   </key-serializer>
+   <value-serializer>
+      <type>string</type>
+    </value-serializer>
+</store>

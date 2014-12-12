@@ -66,13 +66,13 @@ public class RoutedStoreFactory {
             nonblockingStores.put(entry.getKey(), toNonblockingStore(entry.getValue()));
 
         return create(cluster,
-                      storeDefinition,
-                      nodeStores,
-                      nonblockingStores,
-                      null,
-                      null,
-                      failureDetector,
-                      routedStoreConfig);
+                storeDefinition,
+                nodeStores,
+                nonblockingStores,
+                null,
+                null,
+                failureDetector,
+                routedStoreConfig);
     }
 
     public RoutedStore create(Cluster cluster,
@@ -83,18 +83,35 @@ public class RoutedStoreFactory {
                               Map<Integer, NonblockingStore> nonblockingSlopStores,
                               FailureDetector failureDetector,
                               RoutedStoreConfig routedStoreConfig) {
-        return new PipelineRoutedStore(nodeStores,
-                                       nonblockingStores,
-                                       slopStores,
-                                       nonblockingSlopStores,
-                                       cluster,
-                                       storeDefinition,
-                                       failureDetector,
-                                       routedStoreConfig.getRepairReads(),
-                                       routedStoreConfig.getTimeoutConfig(),
-                                       routedStoreConfig.getClientZoneId(),
-                                       routedStoreConfig.isJmxEnabled(),
-                                       routedStoreConfig.getIdentifierString(),
-                                       routedStoreConfig.getZoneAffinity());
+        if (storeDefinition.hasKafkaTopic()) {
+            return new KafkaRoutedStore(nodeStores,
+                    nonblockingStores,
+                    slopStores,
+                    nonblockingSlopStores,
+                    cluster,
+                    storeDefinition,
+                    failureDetector,
+                    false,
+                    routedStoreConfig.getTimeoutConfig(),
+                    routedStoreConfig.getClientZoneId(),
+                    routedStoreConfig.isJmxEnabled(),
+                    routedStoreConfig.getIdentifierString(),
+                    routedStoreConfig.getZoneAffinity());
+        } else {
+            return new PipelineRoutedStore(nodeStores,
+                    nonblockingStores,
+                    slopStores,
+                    nonblockingSlopStores,
+                    cluster,
+                    storeDefinition,
+                    failureDetector,
+                    routedStoreConfig.getRepairReads(),
+                    routedStoreConfig.getTimeoutConfig(),
+                    routedStoreConfig.getClientZoneId(),
+                    routedStoreConfig.isJmxEnabled(),
+                    routedStoreConfig.getIdentifierString(),
+                    routedStoreConfig.getZoneAffinity());
+        }
+
     }
 }

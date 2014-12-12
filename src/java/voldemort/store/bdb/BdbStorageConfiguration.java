@@ -182,7 +182,11 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 String storeName = storeDef.getName();
                 Environment environment = getEnvironment(storeDef);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
+
+                // For Venice, we disable Vector clocks on BDB. Only do this if defined on server AND store.
                 BdbRuntimeConfig runtimeConfig = new BdbRuntimeConfig(voldemortConfig);
+                runtimeConfig.setAllowObsoleteWrites(storeDef.hasKafkaTopic() && voldemortConfig.isVeniceEnabled());
+
                 BdbStorageEngine engine = null;
                 if(voldemortConfig.getBdbPrefixKeysWithPartitionId()) {
                     engine = new PartitionPrefixedBdbStorageEngine(storeName,
