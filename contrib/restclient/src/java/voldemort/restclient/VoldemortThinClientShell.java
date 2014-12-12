@@ -2,13 +2,13 @@ package voldemort.restclient;
 
 /*
  * Copyright 2008-2014 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -38,7 +38,7 @@ import voldemort.utils.Utils;
 
 /**
  * Shell to interact with the voldemort coordinator from the command line...
- * 
+ *
  */
 public class VoldemortThinClientShell extends VoldemortClientShell {
 
@@ -105,12 +105,18 @@ public class VoldemortThinClientShell extends VoldemortClientShell {
 
     @Override
     protected Object parseKey(String argStr, MutableInt parsePos) {
-        return parseObject(restClientFactory.getKeySerializer(this.storeName), argStr, parsePos);
+        return parseObject(restClientFactory.getKeySerializer(this.storeName),
+                           argStr,
+                           parsePos,
+                           this.errorStream);
     }
 
     @Override
     protected Object parseValue(String argStr, MutableInt parsePos) {
-        return parseObject(restClientFactory.getValueSerializer(this.storeName), argStr, parsePos);
+        return parseObject(restClientFactory.getValueSerializer(this.storeName),
+                           argStr,
+                           parsePos,
+                           this.errorStream);
     }
 
     @Override

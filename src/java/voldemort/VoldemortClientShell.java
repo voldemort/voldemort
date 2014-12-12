@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -69,7 +69,7 @@ import com.google.common.collect.Lists;
 
 /**
  * Shell to interact with the voldemort cluster from the command line...
- * 
+ *
  */
 public class VoldemortClientShell {
 
@@ -195,9 +195,10 @@ public class VoldemortClientShell {
         shell.process(fileInput);
     }
 
-    protected Object parseObject(SerializerDefinition serializerDef,
-                                 String argStr,
-                                 MutableInt parsePos) {
+    public static Object parseObject(SerializerDefinition serializerDef,
+                                     String argStr,
+                                     MutableInt parsePos,
+                                     PrintStream errorStream) {
         Object obj = null;
         try {
             // TODO everything is read as json string now..
@@ -235,11 +236,11 @@ public class VoldemortClientShell {
     }
 
     protected Object parseKey(String argStr, MutableInt parsePos) {
-        return parseObject(storeDef.getKeySerializer(), argStr, parsePos);
+        return parseObject(storeDef.getKeySerializer(), argStr, parsePos, this.errorStream);
     }
 
     protected Object parseValue(String argStr, MutableInt parsePos) {
-        return parseObject(storeDef.getValueSerializer(), argStr, parsePos);
+        return parseObject(storeDef.getValueSerializer(), argStr, parsePos, this.errorStream);
     }
 
     protected void processPut(String putArgStr) {
@@ -251,7 +252,7 @@ public class VoldemortClientShell {
     }
 
     /**
-     * 
+     *
      * @param getAllArgStr space separated list of key strings
      */
 
@@ -545,7 +546,7 @@ public class VoldemortClientShell {
      * schema coerce them to the proper
      */
     @SuppressWarnings("unchecked")
-    protected static Object tightenNumericTypes(Object o) {
+    public static Object tightenNumericTypes(Object o) {
         if(o == null) {
             return null;
         } else if(o instanceof List) {
