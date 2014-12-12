@@ -3665,6 +3665,19 @@ public class AdminClient {
         }
 
         /**
+         * Wrapper to get RO storage format for single store on one node
+         * 
+         * @param nodeId
+         * @param storeName
+         * @return
+         */
+        public String getROStorageFormat(int nodeId, String storeName) {
+            Map<String, String> mapStoreToFormat = getROStorageFormat(nodeId,
+                                                                      Lists.newArrayList(storeName));
+            return mapStoreToFormat.get(storeName);
+        }
+
+        /**
          * Returns the max version of push currently being used by read-only
          * store. Important to remember that this may not be the 'current'
          * version since multiple pushes (with greater version numbers) may be
