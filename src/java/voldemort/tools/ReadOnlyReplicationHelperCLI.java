@@ -247,6 +247,8 @@ public class ReadOnlyReplicationHelperCLI {
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
 
+        outputStream.println("store_name,source_node_id,source_file_name,dest_file_name");
+
         List<String> infoList = getReadOnlyReplicationInfo(adminClient, nodeId);
         for(String info: infoList) {
             outputStream.println(info);
