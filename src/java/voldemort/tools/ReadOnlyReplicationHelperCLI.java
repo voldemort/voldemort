@@ -19,6 +19,7 @@ package voldemort.tools;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -192,10 +193,25 @@ public class ReadOnlyReplicationHelperCLI {
 
                 // Now find out which node hosts one of these replicas
                 Node sourceNode = cluster.getNodeForPartitionId(naryPartitionIds.get(0));
+                Integer sourceNodeId = sourceNode.getId();
+                Long sourceVersion = adminClient.readonlyOps.getROCurrentVersion(sourceNodeId,
+                                                                                 Arrays.asList(storeName))
+                                                            .get(storeName);
+                String sourcePath = adminClient.readonlyOps.getROCurrentVersionDir(sourceNodeId,
+                                                                                   Arrays.asList(storeName))
+                                                           .get(storeName);
+                Long destVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                               Arrays.asList(storeName))
+                                                          .get(storeName);
+                String destPath = adminClient.readonlyOps.getROCurrentVersionDir(nodeId,
+                                                                                 Arrays.asList(storeName))
+                                                         .get(storeName);
+
+                // TODO FROM HERE
 
                 // Now get all the file names from this node.
                 List<String> fileNames = adminClient.readonlyOps.getROStorageFileList(sourceNode.getId(),
-                                                                                      storeDef.getName());
+                                                                                      storeName);
 
                 List<String> sourceFileNames = parseAndCompare(fileNames, masterPartitionId);
 
@@ -218,7 +234,9 @@ public class ReadOnlyReplicationHelperCLI {
                                                          .concat(SPLIT_LITERAL)
                                                          .concat(chunkId);
 
-                        infoList.add(storeName + "," + sourceNode.getId() + "," + sourceFileName
+                        infoList.add(storeName + "," + sourceNode.getHost() + ","
+                                     + sourceNode.getId() + "," + sourceVersion + "," + sourcePath
+                                     + "," + sourceFileName + "," + destVersion + "," + destPath
                                      + "," + destFileName);
                     }
                 } else {
@@ -247,7 +265,7 @@ public class ReadOnlyReplicationHelperCLI {
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
 
-        outputStream.println("store_name,source_node_id,source_file_name,dest_file_name");
+        outputStream.println("store_name,src_host_name,src_node_id,src_version,src_file_path,src_file_name,dest_version,dest_file_path,dest_file_name");
 
         List<String> infoList = getReadOnlyReplicationInfo(adminClient, nodeId);
         for(String info: infoList) {
