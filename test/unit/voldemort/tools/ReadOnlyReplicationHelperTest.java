@@ -89,9 +89,14 @@ public class ReadOnlyReplicationHelperTest {
                                            Integer srcNodeId) {
         List<String> fileList = Lists.newArrayList();
         for(String info: infoList) {
-            String[] split = info.split(",");
-            if(storeName.equals(split[0]) && srcNodeId.equals(Integer.parseInt(split[1]))) {
-                fileList.add(split[2]);
+            String[] infoSplit = info.split(",");
+            String nodeId = infoSplit[1];
+            String relPath = infoSplit[2];
+            String[] pathSplit = relPath.split("/");
+            String parsedStoreName = pathSplit[0];
+            String parserFileName = pathSplit[2];
+            if(storeName.equals(parsedStoreName) && srcNodeId.equals(Integer.parseInt(nodeId))) {
+                fileList.add(parserFileName);
             }
         }
         return fileList;
@@ -100,9 +105,14 @@ public class ReadOnlyReplicationHelperTest {
     private List<String> getDestFileList(List<String> infoList, String storeName, Integer srcNodeId) {
         List<String> fileList = Lists.newArrayList();
         for(String info: infoList) {
-            String[] split = info.split(",");
-            if(storeName.equals(split[0]) && srcNodeId.equals(Integer.parseInt(split[1]))) {
-                fileList.add(split[3]);
+            String[] infoSplit = info.split(",");
+            String nodeId = infoSplit[1];
+            String relPath = infoSplit[3];
+            String[] pathSplit = relPath.split("/");
+            String parsedStoreName = pathSplit[0];
+            String parserFileName = pathSplit[2];
+            if(storeName.equals(parsedStoreName) && srcNodeId.equals(Integer.parseInt(nodeId))) {
+                fileList.add(parserFileName);
             }
         }
         return fileList;
