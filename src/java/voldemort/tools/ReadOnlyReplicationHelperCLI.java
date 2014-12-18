@@ -194,20 +194,9 @@ public class ReadOnlyReplicationHelperCLI {
                 // Now find out which node hosts one of these replicas
                 Node sourceNode = cluster.getNodeForPartitionId(naryPartitionIds.get(0));
                 Integer sourceNodeId = sourceNode.getId();
-                Long sourceVersion = adminClient.readonlyOps.getROCurrentVersion(sourceNodeId,
-                                                                                 Arrays.asList(storeName))
-                                                            .get(storeName);
-                String sourcePath = adminClient.readonlyOps.getROCurrentVersionDir(sourceNodeId,
-                                                                                   Arrays.asList(storeName))
-                                                           .get(storeName);
-                Long destVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
-                                                                               Arrays.asList(storeName))
-                                                          .get(storeName);
-                String destPath = adminClient.readonlyOps.getROCurrentVersionDir(nodeId,
-                                                                                 Arrays.asList(storeName))
-                                                         .get(storeName);
-
-                // TODO FROM HERE
+                Long version = adminClient.readonlyOps.getROCurrentVersion(sourceNodeId,
+                                                                           Arrays.asList(storeName))
+                                                      .get(storeName);
 
                 // Now get all the file names from this node.
                 List<String> fileNames = adminClient.readonlyOps.getROStorageFileList(sourceNode.getId(),
@@ -233,11 +222,12 @@ public class ReadOnlyReplicationHelperCLI {
                                                          .concat(replicaId)
                                                          .concat(SPLIT_LITERAL)
                                                          .concat(chunkId);
+                        String sourceRelPath = storeName + "/version-" + version + "/"
+                                               + sourceFileName;
+                        String destRelPath = storeName + "/version-" + version + "/" + destFileName;
 
-                        infoList.add(storeName + "," + sourceNode.getHost() + ","
-                                     + sourceNode.getId() + "," + sourceVersion + "," + sourcePath
-                                     + "," + sourceFileName + "," + destVersion + "," + destPath
-                                     + "," + destFileName);
+                        infoList.add(sourceNode.getHost() + "," + sourceNode.getId() + ","
+                                     + sourceRelPath + "," + destRelPath);
                     }
                 } else {
                     logger.warn("Cannot find file for partition " + masterPartitionId
@@ -265,7 +255,7 @@ public class ReadOnlyReplicationHelperCLI {
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
 
-        outputStream.println("store_name,src_host_name,src_node_id,src_version,src_file_path,src_file_name,dest_version,dest_file_path,dest_file_name");
+        outputStream.println("src_host_name,src_node_id,src_rel_path,dest_rel_path");
 
         List<String> infoList = getReadOnlyReplicationInfo(adminClient, nodeId);
         for(String info: infoList) {
