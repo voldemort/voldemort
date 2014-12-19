@@ -389,10 +389,10 @@ public class DeleteKeysCLI {
             keyFileReader.close();
         }
 
-        private void writeKeyResult(String keyStr, boolean isKeyDeleted) throws IOException {
+        private void writeKeyResult(String keyStr, boolean isKeyPresent) throws IOException {
             successWriter.write(keyStr + "\n");
 
-            if(isKeyDeleted == false) {
+            if(isKeyPresent == false) {
                 missingKeyWriter.write(keyStr + "\n");
             }
         }
@@ -439,6 +439,11 @@ public class DeleteKeysCLI {
             while((keyStr = keyFileReader.readLine()) != null) {
                 if(keyStr.length() == 0) {
                     System.out.println("Skipping empty line");
+                    continue;
+                }
+
+                if(this.checkKeysCount > 0 && totalKeysFound >= this.checkKeysCount) {
+                    break;
                 }
 
                 MutableInt nextParsePos = new MutableInt(0);
@@ -520,7 +525,7 @@ public class DeleteKeysCLI {
                         }
                     }
 
-                    boolean isKeyDeleted = true;
+                    boolean isKeyPresent = true;
                     if(this.checkKeysCount > 0) {
                         for(Version v: versions) {
                             updateKeyCounters(v);
@@ -528,20 +533,15 @@ public class DeleteKeysCLI {
                             findKeyWriter.write(message);
                         }
                         totalKeysFound++;
-
-                        if(totalKeysFound > this.checkKeysCount) {
-                            break;
-                        }
                     } else if(hasFetchedVersions) {
-                        isKeyDeleted = true;
                         for(Version v: versions) {
                             boolean result = client.delete(key, v);
-                            isKeyDeleted = isKeyDeleted && result;
+                            isKeyPresent = isKeyPresent && result;
                         }
                     } else {
-                        isKeyDeleted = client.delete(key);
+                        isKeyPresent = client.delete(key);
                     }
-                    writeKeyResult(keyStr, isKeyDeleted);
+                    writeKeyResult(keyStr, isKeyPresent);
 
                 } catch(Exception e) {
                     outputError(failedKeyWriter,
