@@ -17,12 +17,15 @@ REM limitations under the License.
 REM
 REM ** This Windows BAT file is not tested with each Voldemort release. **
 
-echo.
-echo WARNING: THIS VOLDEMORT ADMIN TOOL IS DEPRECATED. PLEASE USE vadmin.bat INSTEAD.
-echo.
-
-timeout /t 5 > NUL
+::  This shell script provides Voldemort Admin Tool command-line interface.
+::  To see help menu, please type 'vadmin.sh help'.
 
 SET BASE_DIR=%~dp0..
 
-call "%BASE_DIR%/bin/run-class.bat" voldemort.VoldemortAdminTool %*
+setlocal
+
+set LOG4JPROPERTIES=-Dlog4j.configuration="file:/%BASE_DIR%/src/java/log4j-admin.properties"
+
+call "%BASE_DIR%/bin/run-class.bat" voldemort.tools.admin.VAdminTool %*
+
+endlocal

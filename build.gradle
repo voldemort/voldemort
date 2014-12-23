@@ -149,12 +149,6 @@ task voldJar(type:Jar) {
     destinationDir = project.file(distDir)
 }
 
-war {
-    from sourceSets.main.output
-    webXml = project.file('web.xml')
-    destinationDir = project.file(distDir)
-}
-
 task contribJar(type:Jar) {
     dependsOn voldJar, testJar, sourceSets.contrib.output
     baseName = projectName + "-contrib"
@@ -237,6 +231,14 @@ task copyDeps(type: Copy) {
     into "lib"
 }
 
+war {
+    dependsOn copyDeps
+    from sourceSets.main.output
+    webXml = project.file('web.xml')
+    destinationDir = project.file(distDir)
+}
+
+assemble.dependsOn copyDeps
 
 jar.dependsOn contribJar,srcJar, copyDeps
 compileContribJava.dependsOn voldJar
@@ -322,7 +324,7 @@ task junit(dependsOn: test)
 
 Collection<String> testClassesFrom(String dir, String include = '**/*Test.*') {
     //take all *Test.java files found in given dir, make the path relative and replace .java with .class
-    fileTree(dir: dir, includes: [include]).collect { it.absolutePath.replaceAll(file(dir).absolutePath + "/", "").replaceAll(".java\$", ".class")}
+    fileTree(dir: dir, includes: [include]).collect { it.absolutePath.replace("\\", "/").replaceAll(file(dir).absolutePath.replace("\\", "/") + "/", "").replaceAll(".java\$", ".class")}
 }
 
 test {
