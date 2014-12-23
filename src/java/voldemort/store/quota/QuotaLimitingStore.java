@@ -16,11 +16,7 @@
 
 package voldemort.store.quota;
 
-import java.util.List;
-import java.util.Map;
-
 import org.apache.log4j.Logger;
-
 import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
@@ -32,23 +28,26 @@ import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import java.util.List;
+import java.util.Map;
+
 public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[]> {
 
     private static final Logger logger = Logger.getLogger(QuotaLimitingStore.class.getName());
 
-    private final StoreStats storeStats;
+    private final StoreStats stats;
     private final QuotaLimitStats quotaStats;
     private final FileBackedCachingStorageEngine quotaStore;
 
     private final String getQuotaKey;
     private final String putQuotaKey;
 
-    public QuotaLimitingStore(Store<ByteArray, byte[], byte[]> innerStore,
-                              StoreStats storeStats,
+	public QuotaLimitingStore(Store<ByteArray, byte[], byte[]> innerStore,
+                              StoreStats stats,
                               QuotaLimitStats quotaStats,
                               FileBackedCachingStorageEngine quotaStore) {
         super(innerStore);
-        this.storeStats = storeStats;
+        this.stats = stats;
         this.quotaStore = quotaStore;
 
         this.getQuotaKey = QuotaUtils.makeQuotaKey(innerStore.getName(), QuotaType.GET_THROUGHPUT);
@@ -56,14 +55,18 @@ public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[
         this.quotaStats = quotaStats;
     }
 
+    public StoreStats getStats() {
+		return stats;
+	}
+
     private float getThroughput(Tracked trackedOp) {
         if(trackedOp.equals(Tracked.GET)) {
-            float getThroughPut = this.storeStats.getThroughput(Tracked.GET);
-            float getAllThroughPut = this.storeStats.getGetAllKeysThroughput();
+            float getThroughPut = this.stats.getThroughput(Tracked.GET);
+            float getAllThroughPut = this.stats.getGetAllKeysThroughput();
             return getThroughPut + getAllThroughPut;
         } else if(trackedOp.equals(Tracked.PUT)) {
-            float putThroughPut = this.storeStats.getThroughput(Tracked.PUT);
-            float deleteThroughPut = this.storeStats.getThroughput(Tracked.DELETE);
+            float putThroughPut = this.stats.getThroughput(Tracked.PUT);
+            float deleteThroughPut = this.stats.getThroughput(Tracked.DELETE);
             return putThroughPut + deleteThroughPut;
         } else {
             throw new IllegalArgumentException("Expected GET or PUT, received " + trackedOp);
