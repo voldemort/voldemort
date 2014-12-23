@@ -199,6 +199,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                         if(hasTransform) {
                             int numTrans = inputStream.readInt();
                             for(int i = 0; i < numTrans; i++) {
+								readKey(inputStream);
                                 readTransforms(inputStream);
                             }
                         }
