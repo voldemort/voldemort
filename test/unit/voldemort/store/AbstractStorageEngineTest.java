@@ -232,6 +232,35 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         }
     }
 
+    @Test
+    public void testEntryIteration() {
+        final int numPut = 10000;
+        final StorageEngine<ByteArray, byte[], byte[]> store = getStorageEngine();
+        
+        for(int i = 0; i < numPut; i++) {
+            String key = "key-" + i;
+            String value = "Value for " + key;
+            store.put(new ByteArray(key.getBytes()), new Versioned<byte[]>(value.getBytes()), null);
+        }
+        
+        int numGet = 0;
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;
+        
+        try {
+            it = store.entries();
+            while (it.hasNext()) {
+                it.next();
+                numGet++;
+            }
+        } finally {
+            if (it != null) {
+                it.close();
+            }
+        }
+        
+        assertEquals("Iterator returned by the call to entries() did not contain the expected number of values", numPut, numGet);
+    }
+
     @SuppressWarnings("unused")
     private boolean remove(List<byte[]> list, byte[] item) {
         Iterator<byte[]> it = list.iterator();
