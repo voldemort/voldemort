@@ -105,7 +105,8 @@ public class KratiStorageEngine extends AbstractStorageEngine<ByteArray, byte[],
                 // TODO: Move to DynamicDataStore code
                 ByteBuffer bb = ByteBuffer.wrap(returnedBytes);
                 int cnt = bb.getInt();
-                if(cnt > 0) {
+                // Loop over all keys at this index
+                for(int i = 0; i < cnt; i++) {
                     int keyLen = bb.getInt();
                     byte[] key = new byte[keyLen];
                     bb.get(key);
