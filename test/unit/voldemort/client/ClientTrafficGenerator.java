@@ -3,7 +3,6 @@ package voldemort.client;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.log4j.Logger;
 
@@ -98,26 +97,13 @@ public class ClientTrafficGenerator {
 
     public void verifyPostConditions() {
         for(ClientTrafficVerifier client: verifiers) {
-            if(!client.stopped) {
+            if(!client.isStopped()) {
                 client.stop();
             }
         }
 
         for(ClientTrafficVerifier client: verifiers) {
-            Map<String, Integer> eMap = client.exceptionCount;
-            logger.info("-------------------------------------------------------------------");
-            logger.info("Client Operation Info of [" + client.clientName + "]");
-            logger.info(client.requestCount.toString());
-            if(eMap.size() == 0) {
-                logger.info("No Exception reported by ClientTrafficVerifier(ObsoleteVersionException are ignored)");
-
-                logger.info("-------------------------------------------------------------------");
-            } else {
-                logger.info("Exceptions Count Map of the client: ");
-                logger.info(eMap.toString());
-                logger.info("-------------------------------------------------------------------");
-                throw new RuntimeException("Found Exceptions by Client" + eMap);
-            }
+            client.verifyPostConditions();
         }
     }
 

@@ -132,7 +132,7 @@ public class ZoneShrinkageEndToEndTest {
         bootstrapURL = survivingNodes.get(0).getSocketUrl().toString();
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 120000)
     public void endToEndTestUpdateTogether() throws InterruptedException {
         List<String> storeNames = Arrays.asList(new String[] { STORE211_NAME, STORE322_NAME });
         List<Integer> zones = Arrays.asList(new Integer[] { 1, 2 });
@@ -178,8 +178,10 @@ public class ZoneShrinkageEndToEndTest {
         Map<Integer, SocketStore> slopStoresCreatedBeforeShrink = new HashMap<Integer, SocketStore>();
         Map<Integer, SocketStore> slopStoresCreatedAfterShrink = new HashMap<Integer, SocketStore>();
 
-        // generate for keys each all servers that will be hosted on each server except itself (2*N*(N-1) keys)
-        // Map<Integer slopFinalDestinationNodeId, List<Pair<ByteArray key, Integer hostNodeId>>>
+        // generate for keys each all servers that will be hosted on each server
+        // except itself (2*N*(N-1) keys)
+        // Map<Integer slopFinalDestinationNodeId, List<Pair<ByteArray key,
+        // Integer hostNodeId>>>
         Map<Integer, List<Pair<ByteArray, Integer>>> serverKeys = new HashMap<Integer, List<Pair<ByteArray, Integer>>>();
         for(Node slopFinalDestinationNode: cluster.getNodes()) {
             serverKeys.put(slopFinalDestinationNode.getId(),

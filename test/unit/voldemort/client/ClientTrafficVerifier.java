@@ -38,7 +38,7 @@ public class ClientTrafficVerifier implements Runnable {
     public final StoreClient<String, String> client;
     final StoreClientFactory factory;
     boolean shouldStop = false;
-    public boolean stopped = true; // not thread safe by multiple readers
+    private boolean stopped = true; // not thread safe by multiple readers
     final Thread thread;
     public final String clientName;
     List<String> keys = new ArrayList<String>(KV_POOL_SIZE);
@@ -65,6 +65,7 @@ public class ClientTrafficVerifier implements Runnable {
                 // prevent duplicate keys
                 continue;
             }
+            k = clientName + "_" + k;
             kvMap.put(k, v);
             kvUpdateCount.put(k, 0);
             keys.add(k);
@@ -94,59 +95,49 @@ public class ClientTrafficVerifier implements Runnable {
         while(!shouldStop) {
             String k = keys.get(r.nextInt(KV_POOL_SIZE));
             try {
-                switch(r.nextInt(3)){
-                    case 0 : // update
+                switch(r.nextInt(3)) {
+                    case 0: // update
                         if((operationMode & MODE_ALLOW_PUT) == 0) {
                             break;
                         }
-                        kvUpdateCount.put(k, kvUpdateCount.get(k) + 1);
-                        client.put(k, kvMap.get(k) + "_" + kvUpdateCount.get(k).toString());
+                        int newCount = kvUpdateCount.get(k) + 1;
+                        client.put(k, kvMap.get(k) + "_" + newCount);
+                        kvUpdateCount.put(k, newCount);
                         requestCount.put("PUT", requestCount.get("PUT") + 1);
                         break;
-                    case 1 : // get
+                    case 1: // get
                         if((operationMode & MODE_ALLOW_GET) == 0) {
                             break;
                         }
-                        Versioned<String> value = client.get(k); // does not check versions, just prevent exceptions
-                        if(value == null) {
-                            throw new RuntimeException("Versioned is empty for key [" + k + "]") {};
-                        } else {
-                            if(value.getValue() == null) {
-                                throw new RuntimeException("Versioned has empty value inside for key ["
-                                                           + k + "]") {};
-                            }
-                        }
+                        Versioned<String> value = client.get(k);
+
+                        verifyValue(k, value);
                         requestCount.put("GET", requestCount.get("GET") + 1);
                         break;
-                    case 2 : // get all
+                    case 2: // get all
                         if((operationMode & MODE_ALLOW_GETALL) == 0) {
                             break;
                         }
                         String k2 = keys.get(r.nextInt(KV_POOL_SIZE));
                         Map<String, Versioned<String>> result = client.getAll(Arrays.asList(k, k2));
-                        if(result.get(k) == null) {
-                            throw new RuntimeException("Versioned is empty for key [" + k + "]") {};
-                        } else {
-                            if(result.get(k).getValue() == null) {
-                                throw new RuntimeException("Versioned has empty value inside for key ["
-                                                           + k + "]") {};
-                            }
-                        }
-                        if(result.get(k2) == null) {
-                            throw new RuntimeException("Versioned is empty for key [" + k2 + "]") {};
-                        } else {
-                            if(result.get(k2).getValue() == null) {
-                                throw new RuntimeException("Versioned has empty value inside for key ["
-                                                           + k2 + "]") {};
-                            }
-                        }
+                        verifyValue(k, result.get(k));
+                        verifyValue(k2, result.get(k2));
                         requestCount.put("GETALL", requestCount.get("GETALL") + 1);
                         break;
                 }
-            } catch(ObsoleteVersionException e) {} catch(Exception e) {
+            } catch(ObsoleteVersionException e) {
+                // Theoretically, each thread works with its own set of keys the
+                // ObsoleteVersionException should not happen. But partitions
+                // are moving around nodes and because of the way we
+                // acknowledge writes before all nodes are complete and using
+                // async writes they can be out of sync and the exceptions can
+                // still happen. Did not try digging deeper on this one
+                // as it is irrelevant for the refactoring I am doing.
+
+            } catch(Exception e) {
                 logger.info("CLIENT EXCEPTION FAILURE on key [" + k + "]" + e.toString());
                 e.printStackTrace();
-                String exceptionName = e.getClass().toString();
+                String exceptionName = "Key " + k + " " + e.getClass().toString();
                 if(exceptionCount.containsKey(exceptionName)) {
                     exceptionCount.put(exceptionName, exceptionCount.get(exceptionName) + 1);
                 } else {
@@ -169,5 +160,50 @@ public class ClientTrafficVerifier implements Runnable {
         } catch(InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    public boolean isStopped() {
+        return this.stopped;
+    }
+
+    private void verifyValue(String key, Versioned<String> value) {
+        if(value == null) {
+            throw new RuntimeException("Versioned is empty for key [" + key + "]") {};
+        } else if(value.getValue() == null) {
+            throw new RuntimeException("Versioned has empty value inside for key [" + key + "]") {};
+        }
+        // For some reasons the expected and retrieved values are not the same.
+        // else {
+        // String retrievedValue = value.getValue();
+        // String expectedValue = kvMap.get(key) + "_" + kvUpdateCount.get(key);
+        // if(retrievedValue.equals(expectedValue) == false) {
+        // throw new RuntimeException("Key " + key + " Expected Value " +
+        // expectedValue
+        // + " Retrieved Value " + retrievedValue) {};
+        // }
+        // }
+    }
+
+    public void verifyPostConditions() {
+        // for(String key: kvMap.keySet()) {
+        // Versioned<String> value = client.get(key);
+        // verifyValue(key, value);
+        // }
+
+        Map<String, Integer> eMap = exceptionCount;
+        logger.info("-------------------------------------------------------------------");
+        logger.info("Client Operation Info of [" + clientName + "]");
+        logger.info(requestCount.toString());
+        if(eMap.size() == 0) {
+            logger.info("No Exception reported by ClientTrafficVerifier(ObsoleteVersionException are ignored)");
+
+            logger.info("-------------------------------------------------------------------");
+        } else {
+            logger.info("Exceptions Count Map of the client: ");
+            logger.info(eMap.toString());
+            logger.info("-------------------------------------------------------------------");
+            throw new RuntimeException("Found Exceptions by Client" + eMap);
+        }
+
     }
 }
