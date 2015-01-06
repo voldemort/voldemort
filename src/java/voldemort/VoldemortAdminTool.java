@@ -93,7 +93,6 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
@@ -837,7 +836,7 @@ public class VoldemortAdminTool {
                 byte[] keyBytes = kvPair.getFirst().get();
                 byte[] valueBytes = kvPair.getSecond().getValue();
                 keyObject = serializer.toObject(keyBytes);
-                if(!keyObject.equals(MetadataVersionStoreUtils.VERSIONS_METADATA_KEY)) {
+                if(!keyObject.equals(SystemStoreConstants.VERSIONS_METADATA_KEY)) {
                     continue;
                 }
                 valueObject = serializer.toObject(valueBytes);
