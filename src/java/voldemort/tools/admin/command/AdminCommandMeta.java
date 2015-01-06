@@ -50,7 +50,6 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.tools.admin.AdminParserUtils;
 import voldemort.tools.admin.AdminToolUtils;
 import voldemort.utils.ByteArray;
-import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -1307,14 +1306,14 @@ public class AdminCommandMeta extends AbstractAdminCommand {
     private static Properties doMetaGetVersionsForNode(AdminClient adminClient, Integer nodeId)
             throws IOException {
 
-        ByteArray keyArray = new ByteArray(MetadataVersionStoreUtils.VERSIONS_METADATA_KEY.getBytes("UTF8"));
+        ByteArray keyArray = new ByteArray(SystemStoreConstants.VERSIONS_METADATA_KEY.getBytes("UTF8"));
         List<Versioned<byte[]>> valueObj = adminClient.storeOps.getNodeKey(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
                                                                            nodeId,
                                                                            keyArray);
 
         if(valueObj.size() != 1) {
             throw new IOException("Expected one value for the key "
-                                  + MetadataVersionStoreUtils.VERSIONS_METADATA_KEY
+                                  + SystemStoreConstants.VERSIONS_METADATA_KEY
                                   + " on node id " + nodeId + " but found " + valueObj.size());
         }
 

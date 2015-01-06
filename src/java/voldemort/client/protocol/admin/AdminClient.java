@@ -145,9 +145,6 @@ public class AdminClient {
     private static final long PRINT_STATS_THRESHOLD = 10000;
     private static final long PRINT_STATS_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
-    private static final String CLUSTER_VERSION_KEY = "cluster.xml";
-    private static final String STORES_VERSION_KEY = "stores.xml";
-
     public final static List<String> restoreStoreEngineBlackList = Arrays.asList(ReadOnlyStorageConfiguration.TYPE_NAME,
                                                                                  ViewStorageConfiguration.TYPE_NAME);
 
@@ -988,7 +985,7 @@ public class AdminClient {
          */
         public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value) {
 
-            if(key.equals(STORES_VERSION_KEY)) {
+            if(key.equals(SystemStoreConstants.STORES_VERSION_KEY)) {
                 List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(value.getValue()));
                 // Check for backwards compatibility
                 StoreDefinitionUtils.validateSchemasAsNeeded(storeDefs);
@@ -1040,7 +1037,8 @@ public class AdminClient {
              * Assume everything will be fine, increment the metadata version
              * for the key Would not harm even if the operation fails
              */
-            if(key.equals(CLUSTER_VERSION_KEY) || key.equals(STORES_VERSION_KEY)) {
+            if(key.equals(SystemStoreConstants.CLUSTER_VERSION_KEY)
+               || key.equals(SystemStoreConstants.STORES_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(key);
             }
             for(Integer currentNodeId: remoteNodeIds) {
@@ -1176,10 +1174,10 @@ public class AdminClient {
              * We first increment the metadata version for the cluster and the
              * stores which does not harm even if the operation fail
              */
-            if(clusterKey.equals(CLUSTER_VERSION_KEY)) {
+            if(clusterKey.equals(SystemStoreConstants.CLUSTER_VERSION_KEY)) {
                 metadataMgmtOps.updateMetadataversion(clusterKey);
             }
-            if(storesKey.equals(STORES_VERSION_KEY)) {
+            if(storesKey.equals(SystemStoreConstants.STORES_VERSION_KEY)) {
                 StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
                 List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new StringReader(storesValue.getValue()));
                 if(storeDefs != null) {
@@ -2991,7 +2989,7 @@ public class AdminClient {
                  */
                 if(changeClusterMetadata) {
                     try {
-                        metadataMgmtOps.updateMetadataversion(CLUSTER_VERSION_KEY);
+                        metadataMgmtOps.updateMetadataversion(SystemStoreConstants.CLUSTER_VERSION_KEY);
                     } catch(Exception e) {
                         logger.info("Exception occurred while setting cluster metadata version during Rebalance state change !!!");
                     }

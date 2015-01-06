@@ -34,8 +34,8 @@ import voldemort.versioning.Versioned;
 
 /**
  * Test that the storage service is able to load all stores.
- * 
- * 
+ *
+ *
  */
 @RunWith(Parameterized.class)
 public class StorageServiceTest extends TestCase {
@@ -115,7 +115,7 @@ public class StorageServiceTest extends TestCase {
 
             Integer[] nodeIds = cluster.getNodeIds().toArray(new Integer[0]);
 
-            for (int index = 0; index < cluster.getNumberOfNodes(); index++) {
+            for(int index = 0; index < cluster.getNumberOfNodes(); index++) {
                 assertTrue("Missing node store '" + def.getName() + "'.",
                            repo.hasNodeStore(def.getName(), nodeIds[index]));
                 assertEquals(def.getName(), repo.getNodeStore(def.getName(), nodeIds[index])
@@ -130,7 +130,7 @@ public class StorageServiceTest extends TestCase {
         Properties props = new Properties();
 
         try {
-            ByteArray metadataVersionsKey = new ByteArray(StorageService.VERSIONS_METADATA_STORE.getBytes());
+            ByteArray metadataVersionsKey = new ByteArray(SystemStoreConstants.VERSIONS_METADATA_KEY.getBytes());
             List<Versioned<byte[]>> versionList = versionStore.get(metadataVersionsKey, null);
 
             if(versionList != null && versionList.size() > 0) {
@@ -139,35 +139,35 @@ public class StorageServiceTest extends TestCase {
                     props.load(new ByteArrayInputStream(versionsByteArray));
                 } else {
                     fail("Illegal value returned for metadata key: "
-                         + StorageService.VERSIONS_METADATA_STORE);
+                         + SystemStoreConstants.VERSIONS_METADATA_KEY);
                 }
             } else {
                 fail("Illegal value returned for metadata key: "
-                     + StorageService.VERSIONS_METADATA_STORE);
+                     + SystemStoreConstants.VERSIONS_METADATA_KEY);
             }
 
             // Check if version exists for cluster.xml
-            if(!props.containsKey(StorageService.CLUSTER_VERSION_KEY)) {
-                fail(StorageService.CLUSTER_VERSION_KEY + " not present in "
-                     + StorageService.VERSIONS_METADATA_STORE);
+            if(!props.containsKey(SystemStoreConstants.CLUSTER_VERSION_KEY)) {
+                fail(SystemStoreConstants.CLUSTER_VERSION_KEY + " not present in "
+                     + SystemStoreConstants.VERSIONS_METADATA_KEY);
             }
 
             // Check if version exists for stores.xml
-            if(!props.containsKey(StorageService.STORES_VERSION_KEY)) {
-                fail(StorageService.STORES_VERSION_KEY + " not present in "
-                     + StorageService.VERSIONS_METADATA_STORE);
+            if(!props.containsKey(SystemStoreConstants.STORES_VERSION_KEY)) {
+                fail(SystemStoreConstants.STORES_VERSION_KEY + " not present in "
+                     + SystemStoreConstants.VERSIONS_METADATA_KEY);
             }
 
             // Check if version exists for each store
             for(StoreDefinition def: storeDefs) {
                 if(!props.containsKey(def.getName())) {
                     fail(def.getName() + " store not present in "
-                         + StorageService.VERSIONS_METADATA_STORE);
+                         + SystemStoreConstants.VERSIONS_METADATA_KEY);
                 }
             }
         } catch(Exception e) {
             fail("Error in retrieving : "
-                 + StorageService.VERSIONS_METADATA_STORE
+                 + SystemStoreConstants.VERSIONS_METADATA_KEY
                  + " key from "
                  + SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name()
                  + " store. ");
