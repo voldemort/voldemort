@@ -26,6 +26,7 @@ import voldemort.cluster.Zone;
 import voldemort.store.StoreDefinition;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -162,7 +163,7 @@ public class ReplaceNodeCLI {
 
     /**
      * Return args parser
-     * 
+     *
      * @return program parser
      * */
     private static OptionParser getParser() {
@@ -440,6 +441,10 @@ public class ReplaceNodeCLI {
                                                             Boolean.toString(true));
     }
 
+    private void updateClusterVersion() {
+        newAdminClient.metadataMgmtOps.updateMetadataversion(SystemStoreConstants.CLUSTER_VERSION_KEY);
+    }
+
     public static void main(String[] args) throws Exception {
         OptionParser parser = null;
         OptionSet options = null;
@@ -493,5 +498,8 @@ public class ReplaceNodeCLI {
         }
 
         nodeReplacer.enableSlopStreaming();
+
+        nodeReplacer.updateClusterVersion();
+
     }
 }
