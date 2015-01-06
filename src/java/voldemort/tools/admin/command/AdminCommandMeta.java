@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -41,8 +42,6 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.serialization.Serializer;
-import voldemort.serialization.StringSerializer;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -52,7 +51,6 @@ import voldemort.tools.admin.AdminParserUtils;
 import voldemort.tools.admin.AdminToolUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.MetadataVersionStoreUtils;
-import voldemort.utils.Pair;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -1163,19 +1161,13 @@ public class AdminCommandMeta extends AbstractAdminCommand {
          * 
          */
         public static void doMetaSyncVersion(AdminClient adminClient, Integer nodeId) {
-            String valueObject = doMetaGetVersionsForNode(adminClient, nodeId);
-            Properties props = new Properties();
             try {
-                props.load(new ByteArrayInputStream(valueObject.getBytes()));
-                if(props.size() == 0) {
-                    System.err.println("The specified node does not have any versions metadata ! Exiting ...");
-                    System.exit(-1);
-                }
+                Properties props = doMetaGetVersionsForNode(adminClient, nodeId);
                 adminClient.metadataMgmtOps.setMetadataversion(props);
                 System.out.println("Metadata versions synchronized successfully.");
             } catch(IOException e) {
                 System.err.println("Error while retrieving Metadata versions from node : " + nodeId
-                                   + ". Exception = \n");
+                                   + ". Exception = " + e.getMessage() + " \n");
                 e.printStackTrace();
                 System.exit(-1);
             }
@@ -1265,13 +1257,12 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             Map<Properties, Integer> versionsNodeMap = new HashMap<Properties, Integer>();
 
             for(Integer nodeId: adminClient.getAdminClientCluster().getNodeIds()) {
-                String valueObject = doMetaGetVersionsForNode(adminClient, nodeId);
-                Properties props = new Properties();
+                Properties props = null;
                 try {
-                    props.load(new ByteArrayInputStream(valueObject.getBytes()));
+                    props = doMetaGetVersionsForNode(adminClient, nodeId);
                 } catch(IOException e) {
-                    System.err.println("Error while parsing Metadata versions for node : " + nodeId
-                                       + ". Exception = \n");
+                    System.err.println("Error while retrieving Metadata versions from node : "
+                                       + nodeId + ". Exception = " + e.getMessage() + " \n");
                     e.printStackTrace();
                     System.exit(-1);
                 }
@@ -1286,7 +1277,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                     System.out.println(entry.getKey());
                 }
             } else {
-                System.err.println("All the nodes have the same metadata versions.");
+                System.err.println("All the nodes have the same metadata versions."
+                                   + Arrays.toString(versionsNodeMap.keySet().toArray()));
             }
         }
     }
@@ -1312,41 +1304,23 @@ public class AdminCommandMeta extends AbstractAdminCommand {
      * @param adminClient An instance of AdminClient points to given cluster
      * @param nodeId Node id to get metadata version from
      */
-    private static String doMetaGetVersionsForNode(AdminClient adminClient, Integer nodeId) {
-        List<Integer> partitionIdList = Lists.newArrayList();
+    private static Properties doMetaGetVersionsForNode(AdminClient adminClient, Integer nodeId)
+            throws IOException {
 
-        for(Node nodeIter: adminClient.getAdminClientCluster().getNodes()) {
-            partitionIdList.addAll(nodeIter.getPartitionIds());
+        ByteArray keyArray = new ByteArray(MetadataVersionStoreUtils.VERSIONS_METADATA_KEY.getBytes("UTF8"));
+        List<Versioned<byte[]>> valueObj = adminClient.storeOps.getNodeKey(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                                           nodeId,
+                                                                           keyArray);
+
+        if(valueObj.size() != 1) {
+            throw new IOException("Expected one value for the key "
+                                  + MetadataVersionStoreUtils.VERSIONS_METADATA_KEY
+                                  + " on node id " + nodeId + " but found " + valueObj.size());
         }
 
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.bulkFetchOps.fetchEntries(nodeId,
-                                                                                                             SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
-                                                                                                             partitionIdList,
-                                                                                                             null,
-                                                                                                             true);
+        Properties props = new Properties();
+        props.load(new ByteArrayInputStream(valueObj.get(0).getValue()));
+        return props;
 
-        Serializer<String> serializer = new StringSerializer("UTF8");
-        String keyObject = null;
-        String valueObject = null;
-
-        while(entriesIterator.hasNext()) {
-            try {
-                Pair<ByteArray, Versioned<byte[]>> kvPair = entriesIterator.next();
-                byte[] keyBytes = kvPair.getFirst().get();
-                byte[] valueBytes = kvPair.getSecond().getValue();
-                keyObject = serializer.toObject(keyBytes);
-                if(!keyObject.equals(MetadataVersionStoreUtils.VERSIONS_METADATA_KEY)) {
-                    continue;
-                }
-                valueObject = serializer.toObject(valueBytes);
-            } catch(Exception e) {
-                System.err.println("Error while retrieving Metadata versions from node : " + nodeId
-                                   + ". Exception = \n");
-                e.printStackTrace();
-                System.exit(-1);
-            }
-        }
-
-        return valueObject;
     }
 }
