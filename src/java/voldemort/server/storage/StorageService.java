@@ -127,9 +127,6 @@ import voldemort.versioning.Versioned;
 public class StorageService extends AbstractService {
 
     private static final Logger logger = Logger.getLogger(StorageService.class.getName());
-    public static final String VERSIONS_METADATA_STORE = "metadata-versions";
-    public static final String CLUSTER_VERSION_KEY = "cluster.xml";
-    public static final String STORES_VERSION_KEY = "stores.xml";
 
     private final VoldemortConfig voldemortConfig;
     private final StoreRepository storeRepository;
@@ -436,7 +433,7 @@ public class StorageService extends AbstractService {
         Properties props = new Properties();
 
         try {
-            ByteArray metadataVersionsKey = new ByteArray(VERSIONS_METADATA_STORE.getBytes());
+            ByteArray metadataVersionsKey = new ByteArray(SystemStoreConstants.VERSIONS_METADATA_KEY.getBytes());
             List<Versioned<byte[]>> versionList = versionStore.get(metadataVersionsKey, null);
             VectorClock newClock = null;
 
@@ -452,13 +449,13 @@ public class StorageService extends AbstractService {
             }
 
             // Check if version exists for cluster.xml
-            if(!props.containsKey(CLUSTER_VERSION_KEY)) {
-                props.setProperty(CLUSTER_VERSION_KEY, "0");
+            if(!props.containsKey(SystemStoreConstants.CLUSTER_VERSION_KEY)) {
+                props.setProperty(SystemStoreConstants.CLUSTER_VERSION_KEY, "0");
             }
 
             // Check if version exists for stores.xml
-            if(!props.containsKey(STORES_VERSION_KEY)) {
-                props.setProperty(STORES_VERSION_KEY, "0");
+            if(!props.containsKey(SystemStoreConstants.STORES_VERSION_KEY)) {
+                props.setProperty(SystemStoreConstants.STORES_VERSION_KEY, "0");
             }
 
             // Check if version exists for each store

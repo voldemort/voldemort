@@ -23,6 +23,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.client.SystemStoreRepository;
 import voldemort.store.InvalidMetadataException;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.MetadataVersionStoreUtils;
 
 /**
@@ -41,8 +42,7 @@ import voldemort.utils.MetadataVersionStoreUtils;
 
 public class AsyncMetadataVersionManager implements Runnable {
 
-    private final String CLUSTER_VERSION_KEY = "cluster.xml";
-    private String storesVersionKey = "stores.xml";
+    private String storesVersionKey = SystemStoreConstants.STORES_VERSION_KEY;
 
     private final Logger logger = Logger.getLogger(this.getClass());
     private Long currentClusterVersion;
@@ -64,7 +64,8 @@ public class AsyncMetadataVersionManager implements Runnable {
         Properties versionProps = MetadataVersionStoreUtils.getProperties(this.systemStoreRepository.getMetadataVersionStore());
 
         // Initialize base cluster version to do all subsequent comparisons
-        this.currentClusterVersion = initializeVersion(CLUSTER_VERSION_KEY, versionProps);
+        this.currentClusterVersion = initializeVersion(SystemStoreConstants.CLUSTER_VERSION_KEY,
+                                                       versionProps);
 
         // Initialize base store version to do all subsequent comparisons
         this.currentStoreVersion = initializeVersion(storesVersionKey, versionProps);
@@ -139,7 +140,8 @@ public class AsyncMetadataVersionManager implements Runnable {
     public void run() {
 
         logger.debug("************* AsyncMetadataVersionManger running. Checking for "
-                     + CLUSTER_VERSION_KEY + " and  " + storesVersionKey + " *************");
+                     + SystemStoreConstants.CLUSTER_VERSION_KEY + " and  " + storesVersionKey
+                     + " *************");
         try {
             /*
              * Get the properties object from the system store (containing
@@ -147,7 +149,7 @@ public class AsyncMetadataVersionManager implements Runnable {
              */
             Properties versionProps = MetadataVersionStoreUtils.getProperties(this.systemStoreRepository.getMetadataVersionStore());
 
-            Long newClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY,
+            Long newClusterVersion = fetchNewVersion(SystemStoreConstants.CLUSTER_VERSION_KEY,
                                                      this.currentClusterVersion,
                                                      versionProps);
             Long newStoreVersion = fetchNewVersion(storesVersionKey,
@@ -200,7 +202,9 @@ public class AsyncMetadataVersionManager implements Runnable {
     // Fetch the latest versions for cluster metadata
     public void updateMetadataVersions() {
         Properties versionProps = MetadataVersionStoreUtils.getProperties(this.systemStoreRepository.getMetadataVersionStore());
-        Long newVersion = fetchNewVersion(CLUSTER_VERSION_KEY, null, versionProps);
+        Long newVersion = fetchNewVersion(SystemStoreConstants.CLUSTER_VERSION_KEY,
+                                          null,
+                                          versionProps);
         if(newVersion != null) {
             this.currentClusterVersion = newVersion;
         }

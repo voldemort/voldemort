@@ -38,6 +38,10 @@ public class SystemStoreConstants {
         voldsys$_store_quotas;
     }
 
+    public static final String CLUSTER_VERSION_KEY = "cluster.xml";
+    public static final String STORES_VERSION_KEY = "stores.xml";
+    public static final String VERSIONS_METADATA_KEY = "metadata-versions";
+
     // The route to all strategy does not bother about zones or rep factor
     public static final String SYSTEM_STORE_SCHEMA = "<stores>"
                                                      + "  <store>"
