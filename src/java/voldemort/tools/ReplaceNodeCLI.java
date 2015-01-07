@@ -93,6 +93,22 @@ public class ReplaceNodeCLI {
                                                                            false);
     }
 
+    public void execute() {
+        this.verifyPreConditions();
+
+        this.makeServersOffline();
+
+        this.modifyTopology();
+
+        if(skipRestore == false) {
+            this.restoreFromReplica();
+        }
+
+        this.enableSlopStreaming();
+
+        this.updateClusterVersion();
+    }
+
     private Map<Integer, String> getMetadataXML(String key) {
         Map<Integer, String> metadataXMLsInNodes = new HashMap<Integer, String>();
         for(Integer i: cluster.getNodeIds()) {
@@ -487,19 +503,6 @@ public class ReplaceNodeCLI {
                                                          skipRestore,
                                                          parallelism);
 
-        nodeReplacer.verifyPreConditions();
-
-        nodeReplacer.makeServersOffline();
-
-        nodeReplacer.modifyTopology();
-
-        if(skipRestore == false) {
-            nodeReplacer.restoreFromReplica();
-        }
-
-        nodeReplacer.enableSlopStreaming();
-
-        nodeReplacer.updateClusterVersion();
-
+        nodeReplacer.execute();
     }
 }
