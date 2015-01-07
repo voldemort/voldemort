@@ -1248,17 +1248,28 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             }
         }
 
+        private static void printProperty(String propName, String propValue) {
+            System.out.print(propName + "=" + propValue);
+            Long lValue = tryParse(propValue);
+            if(lValue != 0) {
+                Date date = new Date(lValue);
+                System.out.print(" [ " + date.toString() + " ] ");
+            }
+
+            System.out.println();
+        }
+
+        private static void printProperty(String propName, String propValue, List<Integer> nodes) {
+            System.out.println("**************************** Node(s): "
+                               + Arrays.toString(nodes.toArray())
+                               + " ****************************");
+            printProperty(propName, propValue);
+        }
+
         private static void printProperties(Properties props) {
             for(String propName: props.stringPropertyNames()) {
-                String value = props.getProperty(propName);
-                System.out.print(propName + "=" + props.getProperty(propName));
-                Long lValue = tryParse(value);
-                if(lValue != 0) {
-                    Date date = new Date(lValue);
-                    System.out.print(" [ " + date.toString() + " ] ");
-                }
-
-                System.out.println();
+                String propValue = props.getProperty(propName);
+                printProperty(propName, propValue);
             }
             System.out.println();
         }
@@ -1286,12 +1297,66 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 System.err.println("All the nodes have the same metadata versions.");
                 printProperties(versionsNodeMap.keySet().iterator().next());
             } else {
-                System.err.println("Mismatching versions detected !!!");
+                System.err.println("Mismatching versions detected !!! . All are supposed to be written by the same client "
+                                   + ""
+                                   + " and hence they should exactly match but somethign different, let us analyze deeper ");
+                Map<String, Map<String, List<Integer>>> propertyValueMap = new HashMap<String, Map<String, List<Integer>>>();
                 for(Entry<Properties, List<Integer>> entry: versionsNodeMap.entrySet()) {
                     System.out.println("**************************** Node(s): "
                                        + Arrays.toString(entry.getValue().toArray())
                                        + " ****************************");
-                    printProperties(entry.getKey());
+                    Properties props = entry.getKey();
+                    printProperties(props);
+
+                    for(String propName: props.stringPropertyNames()) {
+                        String propValue = props.getProperty(propName);
+
+                        if(propertyValueMap.containsKey(propName) == false) {
+                            propertyValueMap.put(propName, new HashMap<String, List<Integer>>());
+                        }
+                        Map<String, List<Integer>> valuetoNodeMap = propertyValueMap.get(propName);
+                        if(valuetoNodeMap.containsKey(propValue) == false) {
+                            valuetoNodeMap.put(propValue, new ArrayList<Integer>());
+                        }
+                        valuetoNodeMap.get(propValue).addAll(entry.getValue());
+                    }
+                }
+                
+                System.out.println("########## Properties discrepancy report ########");
+                for(Entry<String, Map<String, List<Integer>>> entry: propertyValueMap.entrySet()) {
+                    Map<String, List<Integer>> valueToNodeMap = entry.getValue();
+                    String propName = entry.getKey();
+                    List<Integer> allNodeIds = new ArrayList<Integer>();
+                    allNodeIds.addAll(adminClient.getAdminClientCluster().getNodeIds());
+                    
+                    List<Integer> nodesWithValues = new ArrayList<Integer>();
+                    if(valueToNodeMap.size() != 1) {
+                        System.out.println("Properties with multiple values");
+                        for(Entry<String, List<Integer>> valueToNodeEntry: valueToNodeMap
+                                                                              .entrySet()) {
+                            String propValue = valueToNodeEntry.getKey();
+                            nodesWithValues.addAll(valueToNodeEntry.getValue());
+                            printProperty(propName, propValue, valueToNodeEntry.getValue());
+                        }
+                    } else  {
+                        Map.Entry<String, List<Integer>> valueToNodeEntry = valueToNodeMap.entrySet()
+                                                                                          .iterator()
+                                                                                          .next();
+
+                        nodesWithValues.addAll(valueToNodeEntry.getValue());
+                        if(nodesWithValues.size() < allNodeIds.size()) {
+                            String propValue = valueToNodeEntry.getKey();
+                            printProperty(propName, propValue, valueToNodeEntry.getValue());
+                        }
+                    }
+
+                    allNodeIds.removeAll(nodesWithValues);
+                    if(allNodeIds.size() > 0) {
+                        System.out.println("The Property " + propName + " is present in the nodes "
+                                           + Arrays.toString(nodesWithValues.toArray())
+                                           + " but missing from the nodes "
+                                           + Arrays.toString(allNodeIds.toArray()));
+                    }
                 }
             }
         }
@@ -1347,6 +1412,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         }
 
         Properties props = new Properties();
+        System.out.println(" Node : " + nodeId + " Version : " + valueObj.get(0).getVersion());
         props.load(new ByteArrayInputStream(valueObj.get(0).getValue()));
         return props;
     }
