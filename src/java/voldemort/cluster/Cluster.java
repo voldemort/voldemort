@@ -368,7 +368,7 @@ public class Cluster implements Serializable {
                 return false;
             }
 
-            if(nodeA.getZoneId() != nodeB.getZoneId()) {
+            if(nodeA.isEqualState(nodeB) == false) {
                 return false;
             }
 
