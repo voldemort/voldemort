@@ -17,6 +17,7 @@ import joptsimple.OptionSet;
 
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortApplicationException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -107,6 +108,8 @@ public class ReplaceNodeCLI {
         this.enableSlopStreaming();
 
         this.updateClusterVersion();
+
+        this.verifyPostConditions();
     }
 
     private Map<Integer, String> getMetadataXML(String key) {
@@ -128,7 +131,8 @@ public class ReplaceNodeCLI {
         }
 
         if(metadataXMLsInNodes.size() < 1) {
-            Utils.croak("No XML found or only one node in cluster for Key " + key);
+            throw new VoldemortApplicationException("No XML found or only one node in cluster for Key "
+                                                    + key);
         }
 
         return metadataXMLsInNodes;
@@ -148,7 +152,7 @@ public class ReplaceNodeCLI {
                 existingCluster = cluster;
                 clusterXML = xml;
             } else if(existingCluster.equals(cluster) == false) {
-                Utils.croak("Cluster XMLs are different across nodes, fix that before the node swap...aborting "
+                throw new VoldemortApplicationException("Cluster XMLs are different across nodes, fix that before the node swap...aborting "
                             + clusterNodeId.getKey());
             }
         }
@@ -170,7 +174,7 @@ public class ReplaceNodeCLI {
                 storeList = storeDefinitions;
                 storeXML = xml;
             } else if(storeList.equals(storeDefinitions) == false) {
-                Utils.croak("Store XMLs are different across nodes, fix that before the node swap...aborting "
+                throw new VoldemortApplicationException("Store XMLs are different across nodes, fix that before the node swap...aborting "
                             + storeNodeId.getKey());
             }
         }
@@ -253,7 +257,8 @@ public class ReplaceNodeCLI {
                 bootstrapUrl = new URI(url);
             } catch(Exception e) {
                 logger.error("error parsing url " + url, e);
-                Utils.croak("error parsing url " + url + "  " + e.getMessage());
+                throw new VoldemortApplicationException("error parsing url " + url + "  "
+                                                        + e.getMessage());
             }
             int urlPort = bootstrapUrl.getPort();
             if(urlPort == adminPort) {
@@ -263,15 +268,27 @@ public class ReplaceNodeCLI {
         }
 
         if(isAdminPortUsed == false) {
-            Utils.croak("The bootstrap URL should point to the admin port as the client port will be made offline ... aborting "
+            throw new VoldemortApplicationException("The bootstrap URL should point to the admin port as the client port will be made offline ... aborting "
                         + " url " + url);
+        }
+    }
+
+    private void verifyPostConditions() {
+        try {
+            getClusterXML();
+            getStoresXML();
+        } catch(VoldemortApplicationException e) {
+            throw new VoldemortApplicationException(" Verify Post conditions failed after the node is replaced "
+                                                            + e.getMessage(),
+                                                    e);
         }
     }
 
     private void verifyPreConditions() {
         // Verify node id exists in the current cluster
         if(cluster.hasNodeWithId(nodeId) == false) {
-            Utils.croak(" Node " + nodeId
+            throw new VoldemortApplicationException(" Node "
+                                                    + nodeId
                         + " could not be found in the existing cluster. Please check the node id ");
         }
 
@@ -291,7 +308,7 @@ public class ReplaceNodeCLI {
             newStores.addAll(newStoreDefinitions);
 
             if(existingStores.equals(newStores) == false) {
-                Utils.croak("Command called with skip data restore, but store definitions do not match... aborting ");
+                throw new VoldemortApplicationException("Command called with skip data restore, but store definitions do not match... aborting ");
             }
 
             // If the machine has other hardware failure, but hard drive is
@@ -303,7 +320,7 @@ public class ReplaceNodeCLI {
                 // If hard drive restore node count should match, if not
                 // something fishy, abort
                 if(cluster.getNumberOfNodes() != newCluster.getNumberOfNodes()) {
-                    Utils.croak("number of nodes in new "
+                    throw new VoldemortApplicationException("number of nodes in new "
                                 + newCluster.getNumberOfNodes()
                                 + " and old cluster "
                                 + cluster.getNumberOfNodes()
@@ -321,18 +338,18 @@ public class ReplaceNodeCLI {
                         if(oldNode.isEqualState(newNode)) {
                             // TODO: this might report issue if replaceNode
                             // command is restarted.
-                            Utils.croak(" node in the new cluster has the same metadata as the node being replaced. \n"
+                            throw new VoldemortApplicationException(" node in the new cluster has the same metadata as the node being replaced. \n"
                                         + "fix the new cluster to have the correct host and ports... aborting");
                         }
                     } else {
                         if(oldNode.isEqualState(newNode) == false) {
-                            Utils.croak(" node in the old and new cluster should be the same except for the one being replaced. "
+                            throw new VoldemortApplicationException(" node in the old and new cluster should be the same except for the one being replaced. "
                                         + "Node id : " + oldNode.getId() + "... aborting");
                         }
                     }
 
                     if(oldNode.getPartitionIds().equals(newNode.getPartitionIds()) == false) {
-                        Utils.croak("old node and new node has different partition ids, is this a correct replacement for node Id"
+                        throw new VoldemortApplicationException("old node and new node has different partition ids, is this a correct replacement for node Id"
                                     + oldNode.getId() + " ... aborting");
                     }
                 }
@@ -345,14 +362,14 @@ public class ReplaceNodeCLI {
             if(newCluster.getNumberOfNodes() != 1) {
                 // TODO: this might report issue if replaceNode command is
                 // restarted.
-                Utils.croak("needs data restore and new cluster has more than one nodes... aborting");
+                throw new VoldemortApplicationException("needs data restore and new cluster has more than one nodes... aborting");
             }
 
             List<StoreDefinition> readOnlyStoreDefs = StoreDefinitionUtils.filterStores(storeDefinitions,
                                                                                         true);
 
             if(readOnlyStoreDefs.size() > 0) {
-                Utils.croak("data restore not supported for clusters with read only stores. Read only store name "
+                throw new VoldemortApplicationException("data restore not supported for clusters with read only stores. Read only store name "
                             + readOnlyStoreDefs.get(0));
             }
         }
@@ -374,9 +391,7 @@ public class ReplaceNodeCLI {
             logger.info("Ignoring the error while updating the old node.", e);
         }
 
-        if(cluster.equals(newCluster) == false) {
-            setNodeOffline(newAdminClient, newNodeId);
-        }
+        setNodeOffline(newAdminClient, newNodeId);
     }
 
     private String updateClusterXML() {
@@ -409,7 +424,7 @@ public class ReplaceNodeCLI {
 
         if(isInserted == false) {
             logger.error("Unable to insert the new node, something odd happened");
-            Utils.croak("Unable to insert the new node, something odd happened");
+            throw new VoldemortApplicationException("Unable to insert the new node, something odd happened");
         }
 
         Cluster updatedCluster = new Cluster(cluster.getName(), nodes, zones);
@@ -503,6 +518,11 @@ public class ReplaceNodeCLI {
                                                          skipRestore,
                                                          parallelism);
 
-        nodeReplacer.execute();
+        try {
+            nodeReplacer.execute();
+        } catch(VoldemortApplicationException e) {
+            logger.error("Error during node replace", e);
+            Utils.croak(e.getMessage());
+        }
     }
 }

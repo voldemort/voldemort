@@ -1,10 +1,15 @@
 package voldemort.client;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+
+import voldemort.cluster.Zone;
+
+import voldemort.cluster.Zone;
 
 public class ClientTrafficGenerator {
 
@@ -15,6 +20,10 @@ public class ClientTrafficGenerator {
     static Logger logger = Logger.getLogger(ClientTrafficGenerator.class);
 
     List<ClientTrafficVerifier> verifiers = new ArrayList<ClientTrafficVerifier>();
+
+    public ClientTrafficGenerator(String bootstrapURL, Collection<String> storeNames, int threads) {
+        this(bootstrapURL, storeNames, Arrays.asList(Zone.UNSET_ZONE_ID), threads);
+    }
 
     public ClientTrafficGenerator(String bootstrapURL,
                                   Collection<String> storeNames,
