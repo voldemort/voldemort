@@ -433,6 +433,7 @@ public class StorageService extends AbstractService {
         Properties props = new Properties();
 
         try {
+            boolean isPropertyAdded = false;
             ByteArray metadataVersionsKey = new ByteArray(SystemStoreConstants.VERSIONS_METADATA_KEY.getBytes());
             List<Versioned<byte[]>> versionList = versionStore.get(metadataVersionsKey, null);
             VectorClock newClock = null;
@@ -451,30 +452,36 @@ public class StorageService extends AbstractService {
             // Check if version exists for cluster.xml
             if(!props.containsKey(SystemStoreConstants.CLUSTER_VERSION_KEY)) {
                 props.setProperty(SystemStoreConstants.CLUSTER_VERSION_KEY, "0");
+                isPropertyAdded = true;
             }
 
             // Check if version exists for stores.xml
             if(!props.containsKey(SystemStoreConstants.STORES_VERSION_KEY)) {
                 props.setProperty(SystemStoreConstants.STORES_VERSION_KEY, "0");
+                isPropertyAdded = true;
             }
 
             // Check if version exists for each store
             for(StoreDefinition def: storeDefs) {
                 if(!props.containsKey(def.getName())) {
                     props.setProperty(def.getName(), "0");
+                    isPropertyAdded = true;
                 }
             }
 
-            StringBuilder finalVersionList = new StringBuilder();
-            for(String propName: props.stringPropertyNames()) {
-                finalVersionList.append(propName + "=" + props.getProperty(propName) + "\n");
+            if(isPropertyAdded) {
+                StringBuilder finalVersionList = new StringBuilder();
+                for(String propName: props.stringPropertyNames()) {
+                    finalVersionList.append(propName + "=" + props.getProperty(propName) + "\n");
+                }
+                versionStore.put(metadataVersionsKey,
+                                 new Versioned<byte[]>(finalVersionList.toString().getBytes(),
+                                                       newClock),
+                                 null);
             }
-            versionStore.put(metadataVersionsKey,
-                             new Versioned<byte[]>(finalVersionList.toString().getBytes(), newClock),
-                             null);
 
         } catch(Exception e) {
-            e.printStackTrace();
+            logger.error("Error while intializing metadata versions " ,e);
         }
     }
 

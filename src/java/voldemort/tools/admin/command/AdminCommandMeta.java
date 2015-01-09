@@ -1299,7 +1299,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             } else {
                 System.err.println("Mismatching versions detected !!! . All are supposed to be written by the same client "
                                    + ""
-                                   + " and hence they should exactly match but somethign different, let us analyze deeper ");
+                                   + " and hence they should exactly match but something different, let us analyze deeper ");
                 Map<String, Map<String, List<Integer>>> propertyValueMap = new HashMap<String, Map<String, List<Integer>>>();
                 for(Entry<Properties, List<Integer>> entry: versionsNodeMap.entrySet()) {
                     System.out.println("**************************** Node(s): "
