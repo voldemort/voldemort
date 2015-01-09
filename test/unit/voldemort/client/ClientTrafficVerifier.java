@@ -10,6 +10,7 @@ import java.util.Random;
 import org.apache.log4j.Logger;
 
 import voldemort.TestUtils;
+import voldemort.cluster.Zone;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
@@ -39,7 +40,7 @@ public class ClientTrafficVerifier implements Runnable {
     final StoreClientFactory factory;
     boolean shouldStop = false;
     private boolean stopped = true; // not thread safe by multiple readers
-    final Thread thread;
+    Thread thread;
     public final String clientName;
     List<String> keys = new ArrayList<String>(KV_POOL_SIZE);
     Map<String, String> kvMap = new HashMap<String, String>(KV_POOL_SIZE);
@@ -51,10 +52,12 @@ public class ClientTrafficVerifier implements Runnable {
                                  String bootstrapURL,
                                  String storeName,
                                  Integer clientZoneId) {
-        factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapURL)
-                                                                 .setClientZoneId(clientZoneId));
+        ClientConfig config = new ClientConfig().setBootstrapUrls(bootstrapURL);
+        if(clientZoneId != Zone.UNSET_ZONE_ID) {
+            config.setClientZoneId(clientZoneId);
+        }
+        factory = new SocketStoreClientFactory(config);
         client = factory.getStoreClient(storeName);
-        thread = new Thread(this);
         this.clientName = clientName;
 
         int i = 0;
@@ -82,10 +85,14 @@ public class ClientTrafficVerifier implements Runnable {
         return this;
     }
 
+    boolean isInitialized = false;
     public void initialize() {
+        if(isInitialized)
+            return;
         for(String k: kvMap.keySet()) {
             client.put(k, kvMap.get(k) + "_" + kvUpdateCount.get(k).toString());
         }
+        isInitialized = true;
     }
 
     @SuppressWarnings("serial")
@@ -148,6 +155,7 @@ public class ClientTrafficVerifier implements Runnable {
     }
 
     public void start() {
+        this.thread = new Thread(this);
         this.thread.start();
         this.stopped = false;
     }
