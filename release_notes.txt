@@ -1,3 +1,15 @@
+Release 1.9.5 on 01/12/2015
+
+* Version metadata key fix for incorrectly incrementing on each restarts
+* ReplaceNodeCLI fixes and adding post conditions.
+* Tests refactoring and a new class ClientTrafficGenerator for sending traffic
+* Fixed Cluster.equals to do the node state check
+* Enhanced meta check-version to do the auto analysis and give output
+* Readonly replication helper tool to output, to boot strap the dead node
+* Windows batch file equivalents for new command functionalities
+* DeleteKeysCLI tool to delete the serialized keys from Voldemort
+* Krati entries iterator bug fix
+
 Release 1.9.4 on 12/08/2014
 
 * Add separate failure detector for slop pusher job so that metadata slop.streaming.enabled functions.
