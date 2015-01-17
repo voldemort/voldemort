@@ -61,6 +61,42 @@ public class MetadataVersionStoreUtils {
         return props;
     }
 
+    private static String getPropertiesString(Properties props) {
+        StringBuilder finalVersionList = new StringBuilder();
+        for(String propName: props.stringPropertyNames()) {
+            if(finalVersionList.length() == 0) {
+                finalVersionList.append(propName + "=" + props.getProperty(propName));
+            } else {
+                finalVersionList.append("\n" + propName + "=" + props.getProperty(propName));
+            }
+        }
+
+        return finalVersionList.toString();
+    }
+
+    /**
+     * Writes the Properties object to the Version metadata system store
+     * 
+     * @param versionStore The system store client used to retrieve the metadata
+     *        versions
+     * @param props The Properties object to write to the System store
+     */
+    public static void setProperties(SystemStoreClient<String, String> versionStore,
+                                     Versioned<Properties> props) {
+        if(props == null || props.getValue() == null) {
+            return;
+        }
+
+        try {
+            String versionString = getPropertiesString(props.getValue());
+            Versioned<String> versionedString = new Versioned<String>(versionString,
+                                                                      props.getVersion());
+            versionStore.putSysStore(SystemStoreConstants.VERSIONS_METADATA_KEY, versionedString);
+        } catch(Exception e) {
+            logger.debug("Got exception in setting properties : " + e.getMessage());
+        }
+    }
+
     /**
      * Writes the Properties object to the Version metadata system store
      *
@@ -75,16 +111,9 @@ public class MetadataVersionStoreUtils {
         }
 
         try {
-            StringBuilder finalVersionList = new StringBuilder();
-            for(String propName: props.stringPropertyNames()) {
-                if(finalVersionList.length() == 0) {
-                    finalVersionList.append(propName + "=" + props.getProperty(propName));
-                } else {
-                    finalVersionList.append("\n" + propName + "=" + props.getProperty(propName));
-                }
-            }
+            String versionString = getPropertiesString(props);
             versionStore.putSysStore(SystemStoreConstants.VERSIONS_METADATA_KEY,
-                                     finalVersionList.toString());
+                                     versionString);
         } catch(Exception e) {
             logger.debug("Got exception in setting properties : " + e.getMessage());
         }

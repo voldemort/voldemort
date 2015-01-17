@@ -968,6 +968,17 @@ public class AdminClient {
         }
 
         /**
+         * Set the metadata versions to the given set
+         * 
+         * @param newProperties The new metadata versions to be set across all
+         *        the nodes in the cluster
+         */
+        public void setMetadataversion(Versioned<Properties> newProperties) {
+            MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
+                                                    newProperties);
+        }
+
+        /**
          * Update metadata at the given remoteNodeId.
          * <p>
          * 
