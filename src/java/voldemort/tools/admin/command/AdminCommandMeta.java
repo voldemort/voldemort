@@ -1072,8 +1072,6 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             OptionParser parser = new OptionParser();
             // help options
             AdminParserUtils.acceptsHelp(parser);
-            // required options
-            AdminParserUtils.acceptsNodeSingle(parser);
             AdminParserUtils.acceptsUrl(parser);
             // optional options
             AdminParserUtils.acceptsConfirm(parser);
@@ -1092,7 +1090,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             stream.println("  meta sync-version - Synchronize metadata versions across all nodes");
             stream.println();
             stream.println("SYNOPSIS");
-            stream.println("  meta sync-version -n <base-node-id> -u <url> [--confirm]");
+            stream.println("  meta sync-version -u <url> [--confirm]");
             stream.println();
             getParser().printHelpOn(stream);
             stream.println();
@@ -1111,9 +1109,6 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         public static void executeCommand(String[] args) throws IOException {
 
             OptionParser parser = getParser();
-
-            // declare parameters
-            Integer nodeId = null;
             String url = null;
             Boolean confirm = false;
 
@@ -1124,12 +1119,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 return;
             }
 
-            // check required options and/or conflicting options
-            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_NODE);
             AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
 
-            // load parameters
-            nodeId = (Integer) options.valueOf(AdminParserUtils.OPT_NODE);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
@@ -1137,33 +1128,67 @@ public class AdminCommandMeta extends AbstractAdminCommand {
 
             // print summary
             System.out.println("Synchronize metadata versions across all nodes");
-            System.out.println("Base node id = " + nodeId);
             System.out.println("Location:");
             System.out.println("  bootstrap url = " + url);
             System.out.println("  node = all nodes");
-
-            // execute command
-            if(!AdminToolUtils.askConfirm(confirm, "synchronize metadata version"))
-                return;
 
             AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
             AdminToolUtils.assertServerNotInRebalancingState(adminClient);
 
-            doMetaSyncVersion(adminClient, nodeId);
+            Versioned<Properties> versionedProps = mergeAllVersions(adminClient);
+
+            printVersions(versionedProps);
+
+            // execute command
+            if(!AdminToolUtils.askConfirm(confirm,
+                                          "do you want to synchronize metadata versions to all node"))
+                return;
+
+            adminClient.metadataMgmtOps.setMetadataversion(versionedProps);
         }
 
-        /**
-         * Synchronizes metadata versions across all nodes.
-         * 
-         * @param adminClient An instance of AdminClient points to given cluster
-         * @param nodeId Base node id to get metadata version from
-         * 
-         */
-        public static void doMetaSyncVersion(AdminClient adminClient, Integer nodeId) {
-            Properties props = doMetaGetVersionsForNode_ExitOnError(adminClient, nodeId);
-            adminClient.metadataMgmtOps.setMetadataversion(props);
-            System.out.println("Metadata versions synchronized successfully.");
+        private static void printVersions(Versioned<Properties> versionedProps) {
+            Version version = versionedProps.getVersion();
+            Properties props = versionedProps.getValue();
+            System.out.println("Version value " + version);
+            for(String propName: props.stringPropertyNames()) {
+                SubCommandMetaCheckVersion.printProperty(propName, props.getProperty(propName));
+            }
+        }
+
+        private static Versioned<Properties> mergeAllVersions(AdminClient adminClient) {
+            Properties props = null;
+            VectorClock version = null;
+
+            for(Integer nodeId: adminClient.getAdminClientCluster().getNodeIds()) {
+                Versioned<Properties> versionedProp = doMetaGetVersionsForNode_ExitOnError(adminClient,
+                                                                                           nodeId);
+                Properties newProps = versionedProp.getValue();
+                VectorClock newVersion = (VectorClock) versionedProp.getVersion();
+                
+                if(props == null) {
+                    props = newProps;
+                    version = newVersion;
+                } else {
+                    version = version.merge(newVersion);
+                    for(String propName: props.stringPropertyNames()) {
+                        String currValue = props.getProperty(propName);
+                        Long currlValue = SubCommandMetaCheckVersion.tryParse(currValue);
+
+                        String newValue = newProps.getProperty(propName);
+                        Long lValue = SubCommandMetaCheckVersion.tryParse(newValue);
+                        if(lValue > currlValue) {
+                            props.setProperty(propName, lValue.toString());
+                        }
+                    }
+                }
+            }
+
+            version = version.incremented(version.getVersionMap().firstKey(),
+                                System.currentTimeMillis());
+
+            return new Versioned<Properties>(props, version);
         }
     }
 
@@ -1240,18 +1265,18 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             doMetaCheckVersion(adminClient);
         }
 
-        private static Long tryParse(String s) {
+        public static Long tryParse(String s) {
             try {
                 return Long.parseLong(s);
             } catch(NumberFormatException e) {
-                return 0L;
+                return -1L;
             }
         }
 
         private static void printProperty(String propName, String propValue) {
             System.out.print(propName + "=" + propValue);
             Long lValue = tryParse(propValue);
-            if(lValue != 0) {
+            if(lValue > 0) {
                 Date date = new Date(lValue);
                 System.out.print(" [ " + date.toString() + " ] ");
             }
@@ -1284,7 +1309,9 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             Map<Properties, List<Integer>> versionsNodeMap = new HashMap<Properties, List<Integer>>();
 
             for(Integer nodeId: adminClient.getAdminClientCluster().getNodeIds()) {
-                Properties props = doMetaGetVersionsForNode_ExitOnError(adminClient, nodeId);
+                Versioned<Properties> versionedProp = doMetaGetVersionsForNode_ExitOnError(adminClient,
+                                                                                           nodeId);
+                Properties props = versionedProp.getValue();
                 if(versionsNodeMap.containsKey(props) == false) {
                     versionsNodeMap.put(props, new ArrayList<Integer>());
                 }
@@ -1377,18 +1404,18 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         adminClient.metadataMgmtOps.updateRemoteMetadata(nodeIds, metaKey, metaValue);
     }
     
-    private static Properties doMetaGetVersionsForNode_ExitOnError(AdminClient adminClient,
+    private static Versioned<Properties> doMetaGetVersionsForNode_ExitOnError(AdminClient adminClient,
                                                                    Integer nodeId) {
-        Properties props = null;
+
         try {
-            props = doMetaGetVersionsForNode(adminClient, nodeId);
+            return doMetaGetVersionsForNode(adminClient, nodeId);
         } catch(IOException e) {
             System.err.println("Error while retrieving Metadata versions from node : " + nodeId
                                + ". Exception = " + e.getMessage() + " \n");
             e.printStackTrace();
             System.exit(-1);
+            return null;
         }
-        return props;
     }
 
     /**
@@ -1397,7 +1424,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
      * @param adminClient An instance of AdminClient points to given cluster
      * @param nodeId Node id to get metadata version from
      */
-    private static Properties doMetaGetVersionsForNode(AdminClient adminClient, Integer nodeId)
+    private static Versioned<Properties> doMetaGetVersionsForNode(AdminClient adminClient,
+                                                                           Integer nodeId)
             throws IOException {
 
         ByteArray keyArray = new ByteArray(SystemStoreConstants.VERSIONS_METADATA_KEY.getBytes("UTF8"));
@@ -1414,6 +1442,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         Properties props = new Properties();
         System.out.println(" Node : " + nodeId + " Version : " + valueObj.get(0).getVersion());
         props.load(new ByteArrayInputStream(valueObj.get(0).getValue()));
-        return props;
+        
+        Version version = valueObj.get(0).getVersion();
+        return new Versioned<Properties>(props, version);
     }
 }
