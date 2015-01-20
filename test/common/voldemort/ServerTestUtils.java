@@ -988,6 +988,13 @@ public class ServerTestUtils {
         }
     }
 
+    private static void trySleep(long milliseconds) {
+        try {
+            Thread.sleep(100);
+        } catch(InterruptedException e) {}
+    }
+
+
     /**
      * Starts a Voldemort server for testing purposes.
      *
@@ -1019,31 +1026,36 @@ public class ServerTestUtils {
         // Need to trace through the constructor VoldemortServer(VoldemortConfig
         // config, Cluster cluster) to understand how this error is possible,
         // and why it only happens intermittently.
-        VoldemortServer server = new VoldemortServer(config, cluster);
-        try {
-            server.start();
-        } catch(VoldemortException ve) {
-            if(ve.getCause() instanceof BindException) {
-                ve.printStackTrace();
-                throw new BindException(ve.getMessage());
-            } else {
-                throw ve;
+        final int MAX_ATTEMPTS = 3;
+        VoldemortException lastVE = null;
+        for(int i = 0; i < MAX_ATTEMPTS; i++) {
+            try {
+                VoldemortServer server = null;
+                if(cluster != null) {
+                    server = new VoldemortServer(config, cluster);
+                } else {
+                    server = new VoldemortServer(config);
+                }
+                server.start();
+                ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
+                // wait till server starts or throw exception
+                return server;
+            } catch(VoldemortException ve) {
+                if(ve.getCause() instanceof BindException) {
+                    ve.printStackTrace();
+                    trySleep(100);
+                    lastVE = ve;
+                } else {
+                    throw ve;
+                }
             }
         }
-
-        ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
-        // wait till server starts or throw exception
-        return server;
+        throw new BindException(lastVE.getMessage());
     }
 
     public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
-                                                       VoldemortConfig config) {
-        VoldemortServer server = new VoldemortServer(config);
-        server.start();
-
-        ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
-        // wait till server start or throw exception
-        return server;
+                                                       VoldemortConfig config) throws BindException {
+        return startVoldemortServer(socketStoreFactory, config, null);
     }
 
     public static void waitForServerStart(SocketStoreFactory socketStoreFactory, Node node) {
