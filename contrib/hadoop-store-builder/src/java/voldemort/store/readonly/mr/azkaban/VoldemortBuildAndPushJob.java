@@ -108,9 +108,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final String hdfsFetcherProtocol;
 
     /* Informed stuff */
-    private final String informedURL = "http://informed.corp.linkedin.com/_post";
-    private final List<Future> informedResults;
+    private String informedURL;
+    private List<Future> informedResults;
     private ExecutorService informedExecutor;
+    private boolean postJobStatus;
 
     private String jsonKeyField;
     private String jsonValueField;
@@ -121,6 +122,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         this.storeName = props.getString("push.store.name").trim();
         this.clusterUrl = new ArrayList<String>();
         this.dataDirs = new ArrayList<String>();
+        this.postJobStatus = props.getBoolean("log.postJobStatus", false);
+        if (postJobStatus) {
+            this.informedURL = props.getString("log.postURL");
+            if (this.informedURL == null)
+                throw new RuntimeException("Need to specify log.postURL if log.postJobStatus=true");
+        }
 
         String clusterUrlText = props.getString("push.cluster");
         for(String url: Utils.COMMA_SEP.split(clusterUrlText.trim()))
@@ -143,8 +150,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         this.nodeId = props.getInt("push.node", 0);
         this.log = Logger.getLogger(name);
-        this.informedResults = Lists.newArrayList();
-        this.informedExecutor = Executors.newFixedThreadPool(2);
+        if (postJobStatus) {
+            this.informedResults = Lists.newArrayList();
+            this.informedExecutor = Executors.newFixedThreadPool(2);
+        }
 
         this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
         this.hdfsFetcherPort = props.getString("voldemort.fetcher.port", "50070");
@@ -287,12 +296,15 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 }
             }
             if (push) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Informing about push start ...");
+                if(postJobStatus) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Informing about push start ...");
+                    }
+                    informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                            "Running",
+                            this.getId())));
                 }
-                informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                    "Running",
-                                                                                    this.getId())));
+
                 log.info("Pushing to clusterURl" + clusterUrl.get(index));
                 // If we are not building and just pushing then we want to get the built
                 // from the dataDirs, or else we will just the one that we built earlier
@@ -306,9 +318,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                         continue;
                     }
                     runPushStore(props, url, buildOutputDir);
-                    informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                        "Finished",
-                                                                                        this.getId())));
+                    if(postJobStatus) {
+                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                                "Finished",
+                                this.getId())));
+                    }
+
                 } catch(Exception e) {
                     log.error("Exception during push for url " + url, e);
                     exceptions.put(url, e);
@@ -324,14 +339,17 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             HadoopUtils.deletePathIfExists(jobConf, buildOutputDir);
             log.info("Deleted " + buildOutputDir);
         }
-        for (Future result: informedResults) {
-            try {
-                result.get();
-            } catch(Exception e) {
-                this.log.error("Exception in consumer", e);
+        if(postJobStatus) {
+            for (Future result : informedResults) {
+                try {
+                    result.get();
+                } catch (Exception e) {
+                    this.log.error("Exception in consumer", e);
+                }
             }
+            this.informedExecutor.shutdownNow();
         }
-        this.informedExecutor.shutdownNow();
+
         if (exceptions.size() > 0) {
             log.error("Got exceptions while pushing to " + Joiner.on(",").join(exceptions.keySet())
                       + " => " + Joiner.on(",").join(exceptions.values()));
