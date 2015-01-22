@@ -41,9 +41,9 @@ public class ChunkedFileSet {
 
     private static Logger logger = Logger.getLogger(ChunkedFileSet.class);
 
-    private final int numChunks;
+    private int numChunks;
     private final int nodeId;
-    private final File baseDir;
+    private File baseDir;
     private final List<Integer> indexFileSizes;
     private final List<Integer> dataFileSizes;
     private final List<String> fileNames;
@@ -409,6 +409,28 @@ public class ChunkedFileSet {
                                          + dataLength + " bytes.");
     }
 
+    /*
+     * Ideally all methods after the close should throw an Exception if called,
+     * but that will involve changing a lot of code ( this file and callers )
+     * and testing. So reseting most of the collections so that the read returns
+     * empty data. Before this method was introduced JVM used to crash when the
+     * memory mapped file was accessed after it was closed.
+     */
+    private void reset() {
+        this.numChunks = 0;
+        this.baseDir = null;
+        this.indexFileSizes.clear();
+        this.dataFileSizes.clear();
+        this.fileNames.clear();
+        this.indexFiles.clear();
+        this.mappedIndexFileReader.clear();
+
+        this.dataFiles.clear();
+        this.chunkIdToChunkStart.clear();
+        this.chunkIdToNumChunks.clear();
+
+    }
+
     public void close() {
         for(int chunk = 0; chunk < this.numChunks; chunk++) {
             FileChannel channel = dataFileFor(chunk);
@@ -426,6 +448,8 @@ public class ChunkedFileSet {
                 logger.error("Error while closing file.", e);
             }
         }
+        reset();
+
     }
 
     private FileChannel openChannel(File file) {
@@ -496,6 +520,11 @@ public class ChunkedFileSet {
      * @return Chunk id
      */
     public int getChunkForKey(byte[] key) {
+        if(numChunks == 0) {
+            // The ChunkedFileSet is closed
+            return -1;
+        }
+
         switch(storageFormat) {
             case READONLY_V0: {
                 return ReadOnlyUtils.chunk(ByteUtils.md5(key), numChunks);

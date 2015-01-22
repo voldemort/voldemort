@@ -545,6 +545,10 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
             List<KeyValueLocation> keysAndValueLocations = Lists.newArrayList();
             for(ByteArray key: keys) {
                 int chunk = fileSet.getChunkForKey(key.get());
+                if(chunk < 0) {
+                    logger.warn("Invalid chunk id returned. ignoring");
+                    continue;
+                }
                 int valueLocation = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
                                                            fileSet.keyToStorageFormat(key.get()),
                                                            fileSet.getIndexFileSize(chunk));
