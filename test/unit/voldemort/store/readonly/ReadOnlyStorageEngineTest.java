@@ -499,6 +499,42 @@ public class ReadOnlyStorageEngineTest {
     }
 
     @Test
+    public void testReadAfterTruncate() throws Exception {
+
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
+                                                                                              dir,
+                                                                                              TEST_SIZE,
+                                                                                              2,
+                                                                                              2,
+                                                                                              serDef,
+                                                                                              serDef,
+                                                                                              storageType);
+
+        for(Map.Entry<Integer, ReadOnlyStorageEngine> engine: testData.getReadOnlyStores()
+                                                                      .entrySet()) {
+            engine.getValue().truncate();
+        }
+
+
+        for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
+            for(Node node: testData.routeRequest(entry.getKey())) {
+                Store<String, String, String> store = testData.getNodeStores().get(node.getId());
+                List<Versioned<String>> found = store.get(entry.getKey(), null);
+                assertEquals(found.size(), 0);
+            }
+        }
+
+        Set<String> keys = testData.getData().keySet();
+        for(Map.Entry<Integer, Store<String, String, String>> entry: testData.getNodeStores()
+                                                                             .entrySet()) {
+            Map<String, List<Versioned<String>>> getAllValues = entry.getValue().getAll(keys, null);
+            assertEquals(getAllValues.size(), 0);
+        }
+
+        testData.delete();
+
+    }
+    @Test
     public void testTruncate() throws IOException {
         createStoreFiles(dir, this.indexEntrySize * 5, 4 * 5 * 10, node, 2);
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",

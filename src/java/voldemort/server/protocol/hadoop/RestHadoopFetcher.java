@@ -175,13 +175,11 @@ public class RestHadoopFetcher implements FileFetcher {
                 return null;
             }
         } catch(RestFSException rfse) {
-            rfse.printStackTrace();
             logger.error("Encountered exception while accessing hadoop via RestHdfsClient : "
                          + rfse);
             throw new VoldemortException("Error while accessing hadoop via RestHdfsClient : "
                                          + rfse);
         } catch(Throwable te) {
-            te.printStackTrace();
             logger.error("Error thrown while trying to get Hadoop filesystem");
             throw new VoldemortException("Error thrown while trying to get Hadoop filesystem : "
                                          + te);
@@ -326,7 +324,6 @@ public class RestHadoopFetcher implements FileFetcher {
                 if(te.getCause() != null) {
                     logger.error("Cause of error ", te.getCause());
                 }
-                te.printStackTrace();
 
                 if(attempt < maxAttempts - 1) {
                     logger.info("Will retry copying after " + retryDelayMs + " ms");
