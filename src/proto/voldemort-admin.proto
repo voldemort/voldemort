@@ -130,6 +130,14 @@ message AsyncOperationStatusRequest {
   required int32 request_id = 1;
 }
 
+message AsyncOperationStatusResponse {
+  optional int32 request_id = 1;
+  optional string description = 2;
+  optional string status = 3;
+  optional bool complete = 4;
+  optional Error error = 5;
+}
+
 message AsyncOperationStopRequest {
   required int32 request_id = 1;
 }
@@ -145,6 +153,39 @@ message AsyncOperationListRequest {
 message AsyncOperationListResponse {
   repeated int32 request_ids = 1;
   optional Error error = 2;
+}
+
+message ListScheduledJobsRequest {
+}
+
+message ListScheduledJobsResponse {
+  repeated string job_ids = 1;
+  optional Error error = 2;
+}
+
+message GetScheduledJobStatusRequest {
+  required string job_id = 1;
+}
+
+message GetScheduledJobStatusResponse {
+  required bool enabled = 1;
+  optional Error error = 2;
+}
+
+message StopScheduledJobRequest {
+  required string job_id = 1;
+}
+
+message StopScheduledJobResponse {
+  optional Error error = 1;
+}
+
+message EnableScheduledJobRequest {
+  required string job_id = 1;
+}
+
+message EnableScheduledJobResponse {
+  optional Error error = 1;
 }
 
 message PartitionTuple {
@@ -184,14 +225,6 @@ message InitiateRebalanceNodeRequest {
 
 message InitiateRebalanceNodeOnDonorRequest {
   repeated RebalancePartitionInfoMap rebalance_partition_info = 1;
-}
-
-message AsyncOperationStatusResponse {
-  optional int32 request_id = 1;
-  optional string description = 2;
-  optional string status = 3;
-  optional bool complete = 4;
-  optional Error error = 5;
 }
 
 message TruncateEntriesRequest {
@@ -411,6 +444,10 @@ enum AdminRequestType {
   SET_OFFLINE_STATE = 34;
   GET_RO_STORAGE_FILE_LIST = 35;
   GET_RO_COMPRESSION_CODEC_LIST = 36;
+  LIST_SCHEDULED_JOBS = 37;
+  GET_SCHEDULED_JOB_STATUS = 38;
+  STOP_SCHEDULED_JOB = 39;
+  ENABLE_SCHEDULED_JOB = 40;
 }
 
 message VoldemortAdminRequest {
@@ -450,4 +487,8 @@ message VoldemortAdminRequest {
   optional SetOfflineStateRequest set_offline_state = 36;
   optional GetROStorageFileListRequest get_ro_storage_file_list = 37;
   optional GetROStorageCompressionCodecListRequest get_ro_compression_codec_list = 38;
+  optional ListScheduledJobsRequest list_scheduled_jobs = 39;
+  optional GetScheduledJobStatusRequest get_scheduled_job_status = 40;
+  optional StopScheduledJobRequest stop_scheduled_job = 41;
+  optional EnableScheduledJobRequest enable_scheduled_job = 42;
 }

@@ -29,6 +29,7 @@ import javax.management.MBeanOperationInfo;
 
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
@@ -152,6 +153,18 @@ public class SchedulerService extends AbstractService {
     @JmxGetter(name = "getScheduledJobs", description = "Returns names of jobs in the scheduler")
     public List<String> getScheduledJobs() {
         return Lists.newArrayList(scheduledJobResults.keySet());
+    }
+
+    public List<String> getAllJobs() {
+        return Lists.newArrayList(allJobs.keySet());
+    }
+
+    public boolean getJobEnabled(String id) {
+        if(allJobs.containsKey(id)) {
+            return scheduledJobResults.containsKey(id);
+        } else {
+            throw new VoldemortException("Job id "+id + " does not exist.");
+        }
     }
 
     public void scheduleNow(Runnable runnable) {

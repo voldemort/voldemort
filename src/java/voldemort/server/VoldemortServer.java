@@ -291,12 +291,13 @@ public class VoldemortServer extends AbstractService {
             }
 
             SocketRequestHandlerFactory adminRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,
-                                                                                                   this.storeRepository,
-                                                                                                   this.metadata,
-                                                                                                   this.voldemortConfig,
-                                                                                                   this.asyncService,
-                                                                                                   rebalancer,
-                                                                                                   this);
+                                                                                                     this.storeRepository,
+                                                                                                     this.metadata,
+                                                                                                     this.voldemortConfig,
+                                                                                                     this.asyncService,
+                                                                                                     scheduler,
+                                                                                                     rebalancer,
+                                                                                                     this);
 
             if(voldemortConfig.getUseNioConnector()) {
                 logger.info("Using NIO Connector for Admin Service.");

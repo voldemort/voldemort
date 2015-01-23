@@ -2,6 +2,7 @@ package voldemort.server.protocol;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.common.service.SchedulerService;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
@@ -27,6 +28,7 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
     private final MetadataStore metadata;
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationService asyncService;
+    private final SchedulerService scheduler;
     private final Rebalancer rebalancer;
     private final VoldemortServer server;
 
@@ -35,6 +37,7 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
                                        MetadataStore metadata,
                                        VoldemortConfig voldemortConfig,
                                        AsyncOperationService asyncService,
+                                       SchedulerService scheduler,
                                        Rebalancer rebalancer,
                                        VoldemortServer server) {
 
@@ -45,6 +48,7 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
         this.metadata = metadata;
         this.voldemortConfig = voldemortConfig;
         this.asyncService = asyncService;
+        this.scheduler = scheduler;
         this.rebalancer = rebalancer;
         this.server = server;
     }
@@ -57,12 +61,13 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
     @Override
     public RequestHandler getRequestHandler(RequestFormatType type) {
         if(type == RequestFormatType.ADMIN_PROTOCOL_BUFFERS) {
-                return new AdminServiceRequestHandler(new ErrorCodeMapper(),
+            return new AdminServiceRequestHandler(new ErrorCodeMapper(),
                                                   storage,
                                                   repository,
                                                   metadata,
                                                   voldemortConfig,
                                                   asyncService,
+                                                  scheduler,
                                                   rebalancer,
                                                   server);
         }

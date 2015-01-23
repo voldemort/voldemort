@@ -43,6 +43,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.common.nio.ByteBufferBackedInputStream;
 import voldemort.common.nio.ByteBufferContainer;
+import voldemort.common.service.SchedulerService;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -103,6 +104,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private final NetworkClassLoader networkClassLoader;
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationService asyncService;
+    private final SchedulerService scheduler;
     private final Rebalancer rebalancer;
     private final VoldemortServer server;
     private FileFetcher fileFetcher;
@@ -113,6 +115,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                       MetadataStore metadataStore,
                                       VoldemortConfig voldemortConfig,
                                       AsyncOperationService asyncService,
+                                      SchedulerService scheduler,
                                       Rebalancer rebalancer,
                                       VoldemortServer server) {
         this.errorCodeMapper = errorCodeMapper;
@@ -124,6 +127,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
         this.asyncService = asyncService;
+        this.scheduler = scheduler;
         this.rebalancer = rebalancer;
         setFetcherClass(voldemortConfig);
     }
@@ -226,6 +230,22 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case ASYNC_OPERATION_STOP:
                 ProtoUtils.writeMessage(outputStream,
                                         handleAsyncOperationStop(request.getAsyncOperationStop()));
+                break;
+            case LIST_SCHEDULED_JOBS:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleListScheduledJobs(request.getListScheduledJobs()));
+                break;
+            case GET_SCHEDULED_JOB_STATUS:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleGetScheduledJobStatus(request.getGetScheduledJobStatus()));
+                break;
+            case STOP_SCHEDULED_JOB:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleStopScheduledJob(request.getStopScheduledJob()));
+                break;
+            case ENABLE_SCHEDULED_JOB:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleEnableScheduledJob(request.getEnableScheduledJob()));
                 break;
             case TRUNCATE_ENTRIES:
                 ProtoUtils.writeMessage(outputStream,
@@ -721,6 +741,75 @@ public class AdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAsyncOperationStop failed for request(" + request.toString() + ")",
+                         e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.ListScheduledJobsResponse handleListScheduledJobs(VAdminProto.ListScheduledJobsRequest request) {
+
+        VAdminProto.ListScheduledJobsResponse.Builder response = VAdminProto.ListScheduledJobsResponse.newBuilder();
+        try {
+            logger.info("Retrieving list of scheduled jobs");
+            List<String> jobIds = scheduler.getAllJobs();
+            logger.info("Retrieved list of scheduled jobs - " + jobIds);
+            response.addAllJobIds(jobIds);
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleListScheduledJobs failed for request(" + request.toString() + ")",
+                         e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.GetScheduledJobStatusResponse handleGetScheduledJobStatus(VAdminProto.GetScheduledJobStatusRequest request) {
+
+        VAdminProto.GetScheduledJobStatusResponse.Builder response = VAdminProto.GetScheduledJobStatusResponse.newBuilder();
+        try {
+            String jobId = request.getJobId();
+            logger.info("Retrieving scheduled job status");
+            boolean enabled = scheduler.getJobEnabled(jobId);
+            logger.info("Retrieved scheduled job status - " + jobId);
+            response.setEnabled(enabled);
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleGetScheduledJobStatus failed for request(" + request.toString() + ")",
+                         e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.StopScheduledJobResponse handleStopScheduledJob(VAdminProto.StopScheduledJobRequest request) {
+
+        VAdminProto.StopScheduledJobResponse.Builder response = VAdminProto.StopScheduledJobResponse.newBuilder();
+        String jobId = request.getJobId();
+        try {
+            logger.info("Stopping job id " + jobId);
+            scheduler.terminate(jobId);
+            logger.info("Successfully stopped job id " + jobId);
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleStopScheduledJob failed for request(" + request.toString() + ")",
+                         e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.EnableScheduledJobResponse handleEnableScheduledJob(VAdminProto.EnableScheduledJobRequest request) {
+
+        VAdminProto.EnableScheduledJobResponse.Builder response = VAdminProto.EnableScheduledJobResponse.newBuilder();
+        String jobId = request.getJobId();
+        try {
+            logger.info("Enabling job id " + jobId);
+            scheduler.enable(jobId);
+            logger.info("Successfully enabled job id " + jobId);
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleEnableScheduledJob failed for request(" + request.toString() + ")",
                          e);
         }
 

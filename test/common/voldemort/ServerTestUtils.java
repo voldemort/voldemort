@@ -141,6 +141,7 @@ public class ServerTestUtils {
                                                null,
                                                null,
                                                null,
+                                               null,
                                                null);
     }
 
@@ -1005,7 +1006,7 @@ public class ServerTestUtils {
     }
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {
-        return new SocketRequestHandlerFactory(null, repository, null, null, null, null, null);
+        return new SocketRequestHandlerFactory(null, repository, null, null, null, null, null, null);
     }
 
     public static void stopVoldemortServer(VoldemortServer server) throws IOException {
