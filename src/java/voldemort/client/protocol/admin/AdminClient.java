@@ -741,6 +741,101 @@ public class AdminClient {
         }
 
         /**
+         * Retrieves a list of scheduled job ids on the server.
+         * 
+         * @param nodeId The id of the node whose job ids we want
+         * @return List of job ids
+         */
+        public List<String> getScheduledJobsList(int nodeId) {
+            VAdminProto.ListScheduledJobsRequest listScheduledJobsRequest = VAdminProto.ListScheduledJobsRequest.newBuilder()
+                                                                                                                   .build();
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                              .setType(VAdminProto.AdminRequestType.LIST_SCHEDULED_JOBS)
+                                                                                              .setListScheduledJobs(listScheduledJobsRequest)
+                                                                                              .build();
+            VAdminProto.ListScheduledJobsResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                           adminRequest,
+                                                                                           VAdminProto.ListScheduledJobsResponse.newBuilder());
+            if(response.hasError()) {
+                helperOps.throwException(response.getError());
+            }
+
+            return response.getJobIdsList();
+        }
+
+        /**
+         * Retrieves status of a scheduled job on the particular node
+         * 
+         * @param nodeId The id of the node on which the request is running
+         * @param jobId The id of the job to terminate
+         * @returns true if job is enabled
+         */
+        public boolean getScheduledJobStatus(int nodeId, String jobId) {
+            VAdminProto.GetScheduledJobStatusRequest getScheduledJobStatusRequest = VAdminProto.GetScheduledJobStatusRequest.newBuilder()
+                                                                                                                            .setJobId(jobId)
+                                                                                                                            .build();
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                              .setType(VAdminProto.AdminRequestType.GET_SCHEDULED_JOB_STATUS)
+                                                                                              .setGetScheduledJobStatus(getScheduledJobStatusRequest)
+                                                                                              .build();
+            VAdminProto.GetScheduledJobStatusResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                          adminRequest,
+                                                                                          VAdminProto.GetScheduledJobStatusResponse.newBuilder());
+
+            if(response.hasError()) {
+                helperOps.throwException(response.getError());
+            }
+
+            return response.getEnabled();
+        }
+
+        /**
+         * Terminates a scheduled job on the particular node
+         * 
+         * @param nodeId The id of the node on which the request is running
+         * @param jobId The id of the job to terminate
+         */
+        public void stopScheduledJob(int nodeId, String jobId) {
+            VAdminProto.StopScheduledJobRequest stopScheduledJobRequest = VAdminProto.StopScheduledJobRequest.newBuilder()
+                                                                                                             .setJobId(jobId)
+                                                                                                             .build();
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                              .setType(VAdminProto.AdminRequestType.STOP_SCHEDULED_JOB)
+                                                                                              .setStopScheduledJob(stopScheduledJobRequest)
+                                                                                              .build();
+            VAdminProto.StopScheduledJobResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                          adminRequest,
+                                                                                          VAdminProto.StopScheduledJobResponse.newBuilder());
+
+            if(response.hasError()) {
+                helperOps.throwException(response.getError());
+            }
+        }
+
+        /**
+         * Enables a scheduled job on the particular node
+         * 
+         * @param nodeId The id of the node on which the request is running
+         * @param jobId The id of the job to terminate
+         */
+        public void enableScheduledJob(int nodeId, String jobId) {
+            VAdminProto.EnableScheduledJobRequest enableScheduledJobRequest = VAdminProto.EnableScheduledJobRequest.newBuilder()
+                                                                                                                   .setJobId(jobId)
+                                                                                                                   .build();
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                              .setType(VAdminProto.AdminRequestType.ENABLE_SCHEDULED_JOB)
+                                                                                              .setEnableScheduledJob(enableScheduledJobRequest)
+                                                                                              .build();
+            VAdminProto.EnableScheduledJobResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                            adminRequest,
+                                                                                            VAdminProto.EnableScheduledJobResponse.newBuilder());
+
+            if(response.hasError()) {
+                helperOps.throwException(response.getError());
+            }
+        }
+
+        /**
          * Wait for async task at (remote) nodeId to finish completion, using
          * exponential backoff to poll the task completion status.
          * <p>

@@ -233,6 +233,7 @@ public class VoldemortServer extends AbstractService {
                                                                                                 this.voldemortConfig,
                                                                                                 this.asyncService,
                                                                                                 null,
+                                                                                                null,
                                                                                                 null);
 
             if(voldemortConfig.getUseNioConnector()) {
@@ -291,6 +292,7 @@ public class VoldemortServer extends AbstractService {
                                                                                                      this.metadata,
                                                                                                      this.voldemortConfig,
                                                                                                      this.asyncService,
+                                                                                                     scheduler,
                                                                                                      rebalancer,
                                                                                                      this);
 

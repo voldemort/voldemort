@@ -37,6 +37,8 @@ public class AdminCommand extends AbstractAdminCommand {
         args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("async-job")) {
             AdminCommandAsyncJob.executeCommand(args);
+        } else if(subCmd.equals("scheduled")) {
+            AdminCommandScheduled.executeCommand(args);
         } else if(subCmd.equals("cleanup")) {
             AdminCommandCleanup.executeCommand(args);
         } else if(subCmd.equals("debug")) {
@@ -69,6 +71,7 @@ public class AdminCommand extends AbstractAdminCommand {
         stream.println("debug                  Check keys or routing plan.");
         stream.println("meta                   Get, set, clear metadata; check or sync metadata version.");
         stream.println("quota                  Get, set, unset quota or reserve memory on stores.");
+        stream.println("scheduled              List, stop and enable scheduled jobs on server node.");
         stream.println("store                  Add, delete, rollback, truncate stores, or truncate");
         stream.println("                       partitions.");
         stream.println("stream                 Fetch keys or entries, or mirror data across nodes, or");
@@ -91,6 +94,8 @@ public class AdminCommand extends AbstractAdminCommand {
         args = AdminToolUtils.copyArrayCutFirst(args);
         if(subCmd.equals("async-job")) {
             AdminCommandAsyncJob.executeHelp(args, stream);
+        } else if(subCmd.equals("scheduled")) {
+            AdminCommandScheduled.executeHelp(args, stream);
         } else if(subCmd.equals("cleanup")) {
             AdminCommandCleanup.executeHelp(args, stream);
         } else if(subCmd.equals("debug")) {

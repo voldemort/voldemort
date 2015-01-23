@@ -188,8 +188,8 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
                 for(int asyncId: asyncIds) {
                     System.out.println("Async Job Id " + asyncId + " ] "
                                        + adminClient.rpcOps.getAsyncRequestStatus(nodeId, asyncId));
-                    System.out.println();
                 }
+                System.out.println();
             }
         }
     }

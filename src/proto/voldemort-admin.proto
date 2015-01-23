@@ -130,6 +130,14 @@ message AsyncOperationStatusRequest {
   required int32 request_id = 1;
 }
 
+message AsyncOperationStatusResponse {
+  optional int32 request_id = 1;
+  optional string description = 2;
+  optional string status = 3;
+  optional bool complete = 4;
+  optional Error error = 5;
+}
+
 message AsyncOperationStopRequest {
   required int32 request_id = 1;
 }
@@ -145,6 +153,39 @@ message AsyncOperationListRequest {
 message AsyncOperationListResponse {
   repeated int32 request_ids = 1;
   optional Error error = 2;
+}
+
+message ListScheduledJobsRequest {
+}
+
+message ListScheduledJobsResponse {
+  repeated string job_ids = 1;
+  optional Error error = 2;
+}
+
+message GetScheduledJobStatusRequest {
+  required string job_id = 1;
+}
+
+message GetScheduledJobStatusResponse {
+  required bool enabled = 1;
+  optional Error error = 2;
+}
+
+message StopScheduledJobRequest {
+  required string job_id = 1;
+}
+
+message StopScheduledJobResponse {
+  optional Error error = 1;
+}
+
+message EnableScheduledJobRequest {
+  required string job_id = 1;
+}
+
+message EnableScheduledJobResponse {
+  optional Error error = 1;
 }
 
 message PartitionTuple {
@@ -184,14 +225,6 @@ message InitiateRebalanceNodeRequest {
 
 message InitiateRebalanceNodeOnDonorRequest {
   repeated RebalancePartitionInfoMap rebalance_partition_info = 1;
-}
-
-message AsyncOperationStatusResponse {
-  optional int32 request_id = 1;
-  optional string description = 2;
-  optional string status = 3;
-  optional bool complete = 4;
-  optional Error error = 5;
 }
 
 message TruncateEntriesRequest {
@@ -402,6 +435,10 @@ enum AdminRequestType {
   UPDATE_STORE_DEFINITIONS = 33;
   SET_OFFLINE_STATE = 34;
   GET_RO_STORAGE_FILE_LIST = 35;
+  LIST_SCHEDULED_JOBS = 36;
+  GET_SCHEDULED_JOB_STATUS = 37;
+  STOP_SCHEDULED_JOB = 38;
+  ENABLE_SCHEDULED_JOB = 39;
 }
 
 message VoldemortAdminRequest {
@@ -440,4 +477,8 @@ message VoldemortAdminRequest {
   optional UpdateStoreDefinitions update_store_definitions = 35;
   optional SetOfflineStateRequest set_offline_state = 36;
   optional GetROStorageFileListRequest get_ro_storage_file_list = 37;
+  optional ListScheduledJobsRequest list_scheduled_jobs = 38;
+  optional GetScheduledJobStatusRequest get_scheduled_job_status = 39;
+  optional StopScheduledJobRequest stop_scheduled_job = 40;
+  optional EnableScheduledJobRequest enable_scheduled_job = 41;
 }

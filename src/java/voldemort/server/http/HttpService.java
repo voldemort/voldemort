@@ -76,6 +76,7 @@ public class HttpService extends AbstractService {
                                                               server.getVoldemortConfig(),
                                                               server.getAsyncRunner(),
                                                               null,
+                                                              null,
                                                               null).getRequestHandler(requestType);
     }
 

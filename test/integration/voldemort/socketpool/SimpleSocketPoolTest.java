@@ -97,6 +97,7 @@ public class SimpleSocketPoolTest extends TestCase {
                                                                                                         null,
                                                                                                         null,
                                                                                                         null,
+                                                                                                        null,
                                                                                                         null),
                                                                         7666,
                                                                         50,
@@ -139,6 +140,7 @@ public class SimpleSocketPoolTest extends TestCase {
         // start a dummy server
         AbstractSocketService server = ServerTestUtils.getSocketService(useNio,
                                                                         new SocketRequestHandlerFactory(null,
+                                                                                                        null,
                                                                                                         null,
                                                                                                         null,
                                                                                                         null,
