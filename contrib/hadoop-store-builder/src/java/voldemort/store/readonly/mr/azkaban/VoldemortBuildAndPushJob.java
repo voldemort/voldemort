@@ -28,9 +28,12 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -58,6 +61,7 @@ import voldemort.store.readonly.mr.utils.AvroUtils;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.store.readonly.mr.utils.JsonSchema;
 import voldemort.store.readonly.mr.utils.VoldemortUtils;
+import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
 import azkaban.common.jobs.AbstractJob;
 import azkaban.common.utils.Props;
@@ -107,13 +111,17 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final String hdfsFetcherPort;
     private final String hdfsFetcherProtocol;
 
-    /* Informed stuff */
+    // TODO: Clean up Informed code from OSS.
     private final String informedURL = "http://informed.corp.linkedin.com/_post";
     private final List<Future> informedResults;
     private ExecutorService informedExecutor;
 
     private String jsonKeyField;
     private String jsonValueField;
+
+    private final Set<BuildAndPushHook> hooks = new HashSet<BuildAndPushHook>();
+    private final int heartBeatHookIntervalTime;
+    private final HeartBeatHookRunnable heartBeatHookRunnable;
 
     public VoldemortBuildAndPushJob(String name, Props props) {
         super(name);
@@ -143,6 +151,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         this.nodeId = props.getInt("push.node", 0);
         this.log = Logger.getLogger(name);
+
+        // TODO: Clean up Informed code from OSS.
         this.informedResults = Lists.newArrayList();
         this.informedExecutor = Executors.newFixedThreadPool(2);
 
@@ -172,6 +182,42 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         }
 
+        // Initializing hooks
+        heartBeatHookIntervalTime = props.getInt("heartbeat.hook.interval.ms", 60000);
+        heartBeatHookRunnable = new HeartBeatHookRunnable(heartBeatHookIntervalTime);
+        String hookNamesText = props.getString("hooks");
+        if (hookNamesText != null && !hookNamesText.isEmpty()) {
+            Properties javaProps = props.toProperties();
+            for (String hookName : Utils.COMMA_SEP.split(hookNamesText.trim())) {
+                try {
+                    BuildAndPushHook hook = (BuildAndPushHook) ReflectUtils.callConstructor(Class.forName(hookName));
+                    try {
+                        hook.init(javaProps);
+                        log.info("Initialized BuildAndPushHook [" + hook.getName() + "]");
+                        hooks.add(hook);
+                    } catch (Exception e) {
+                        log.warn("Failed to initialize BuildAndPushHook [" + hook.getName() + "]. It will not be invoked.", e);
+                    }
+                } catch (ClassNotFoundException e) {
+                    log.error("The requested BuildAndPushHook [" + hookName + "] was not found! Check your classpath and config!", e);
+                }
+            }
+        }
+    }
+
+    private void invokeHooks(BuildAndPushStatus status) {
+        invokeHooks(status, null);
+    }
+
+    private void invokeHooks(BuildAndPushStatus status, String details) {
+        for (BuildAndPushHook hook : hooks) {
+            try {
+                hook.invoke(status, details);
+            } catch (Exception e) {
+                // Hooks are never allowed to fail a job...
+                log.warn("Failed to invoke BuildAndPushHook [" + hook.getName() + "] because of exception: ", e);
+            }
+        }
     }
 
     /**
@@ -201,7 +247,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     /**
      * Check if all cluster objects in the list are congruent.
      * 
-     * @param list of cluster objects
+     * @param clusterUrls of cluster objects
      * @return
      * 
      */
@@ -247,96 +293,142 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     @Override
     public void run() throws Exception {
-        // These two options control the build and push phases of the job respectively.
-        boolean build = props.getBoolean("build", true);
-        boolean push = props.getBoolean("push", true);
-        jsonKeyField = props.getString("key.selection", null);
-        jsonValueField = props.getString("value.selection", null);
-        
-        checkForPreconditions(build, push);
-        
+        invokeHooks(BuildAndPushStatus.STARTING);
+        if (hooks.size() > 0) {
+            Thread t = new Thread(heartBeatHookRunnable);
+            t.setDaemon(true);
+            t.start();
+        }
+
         try {
-            allClustersEqual(clusterUrl);
-        } catch(VoldemortException e) {
-            log.error("Exception during cluster equality check", e);
-            System.exit(-1);
-        }
-        // Create a hashmap to capture exception per url
-        HashMap<String, Exception> exceptions = Maps.newHashMap();
-        String buildOutputDir = null;
-        for (int index = 0; index < clusterUrl.size(); index++) {
-            String url = clusterUrl.get(index);
-            if (isAvroJob) {
-                // Verify the schema if the store exists or else add the new store
-                verifyOrAddStoreAvro(url, isAvroVersioned);
-            } else {
-                // Verify the schema if the store exists or else add the new store
-                verifyOrAddStore(url);
-            }
-            if (build) { 
-                // If we are only building and not pushing then we want the build to 
-                // happen on all three clusters || we are pushing and we want to build
-                // it to only once
-                if (!push || buildOutputDir == null) {
-                    try {
-                        buildOutputDir = runBuildStore(props, url);
-                    } catch(Exception e) {
-                    log.error("Exception during build for url " + url, e);
-                    exceptions.put(url, e);
-                    }
-                }
-            }
-            if (push) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Informing about push start ...");
-                }
-                informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                    "Running",
-                                                                                    this.getId())));
-                log.info("Pushing to clusterURl" + clusterUrl.get(index));
-                // If we are not building and just pushing then we want to get the built
-                // from the dataDirs, or else we will just the one that we built earlier
-                try {
-                    if (!build) {
-                        buildOutputDir = dataDirs.get(index);
-                    }
-                    // If there was an exception during the build part the buildOutputDir might be null, check 
-                    // if that's the case, if yes then continue and don't even try pushing
-                    if (buildOutputDir == null) {
-                        continue;
-                    }
-                    runPushStore(props, url, buildOutputDir);
-                    informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                                                                        "Finished",
-                                                                                        this.getId())));
-                } catch(Exception e) {
-                    log.error("Exception during push for url " + url, e);
-                    exceptions.put(url, e);
-                }
-            }
-        }
-        if (build && push && buildOutputDir != null && !props.getBoolean("build.output.keep", false)) {
-            JobConf jobConf = new JobConf();
-            if (props.containsKey("hadoop.job.ugi")) {
-                jobConf.set("hadoop.job.ugi", props.getString("hadoop.job.ugi"));
-            }
-            log.info("Informing about delete start ..." + buildOutputDir);
-            HadoopUtils.deletePathIfExists(jobConf, buildOutputDir);
-            log.info("Deleted " + buildOutputDir);
-        }
-        for (Future result: informedResults) {
+            // These two options control the build and push phases of the job respectively.
+            boolean build = props.getBoolean("build", true);
+            boolean push = props.getBoolean("push", true);
+            jsonKeyField = props.getString("key.selection", null);
+            jsonValueField = props.getString("value.selection", null);
+
+            checkForPreconditions(build, push);
+
             try {
-                result.get();
-            } catch(Exception e) {
-                this.log.error("Exception in consumer", e);
+                allClustersEqual(clusterUrl);
+            } catch(VoldemortException e) {
+                log.error("Exception during cluster equality check", e);
+                fail("Exception during cluster equality check: " + e.toString());
+                System.exit(-1); // FIXME: seems messy to do a System.exit here... Can we just return instead? Leaving as is for now...
             }
+            // Create a hashmap to capture exception per url
+            HashMap<String, Exception> exceptions = Maps.newHashMap();
+            String buildOutputDir = null;
+            for (int index = 0; index < clusterUrl.size(); index++) {
+                String url = clusterUrl.get(index);
+                if (isAvroJob) {
+                    // Verify the schema if the store exists or else add the new store
+                    verifyOrAddStoreAvro(url, isAvroVersioned);
+                } else {
+                    // Verify the schema if the store exists or else add the new store
+                    verifyOrAddStore(url);
+                }
+                if (build) {
+                    // If we are only building and not pushing then we want the build to
+                    // happen on all three clusters || we are pushing and we want to build
+                    // it to only once
+                    if (!push || buildOutputDir == null) {
+                        try {
+                            invokeHooks(BuildAndPushStatus.BUILDING);
+                            buildOutputDir = runBuildStore(props, url);
+                        } catch(Exception e) {
+                            log.error("Exception during build for url " + url, e);
+                            exceptions.put(url, e);
+                        }
+                    }
+                }
+                if (push) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Informing about push start ...");
+                    }
+                    // TODO: Clean up Informed code from OSS.
+                    informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                            "Running",
+                            this.getId())));
+                    log.info("Pushing to clusterURl" + clusterUrl.get(index));
+                    // If we are not building and just pushing then we want to get the built
+                    // from the dataDirs, or else we will just the one that we built earlier
+                    try {
+                        if (!build) {
+                            buildOutputDir = dataDirs.get(index);
+                        }
+                        // If there was an exception during the build part the buildOutputDir might be null, check
+                        // if that's the case, if yes then continue and don't even try pushing
+                        if (buildOutputDir == null) {
+                            continue;
+                        }
+                        invokeHooks(BuildAndPushStatus.PUSHING, url);
+                        runPushStore(props, url, buildOutputDir);
+                        // TODO: Clean up Informed code from OSS.
+                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
+                                "Finished",
+                                this.getId())));
+                    } catch(Exception e) {
+                        log.error("Exception during push for url " + url, e);
+                        exceptions.put(url, e);
+                    }
+                }
+            }
+            if (build && push && buildOutputDir != null && !props.getBoolean("build.output.keep", false)) {
+                JobConf jobConf = new JobConf();
+                if (props.containsKey("hadoop.job.ugi")) {
+                    jobConf.set("hadoop.job.ugi", props.getString("hadoop.job.ugi"));
+                }
+                log.info("Informing about delete start ..." + buildOutputDir);
+                HadoopUtils.deletePathIfExists(jobConf, buildOutputDir);
+                log.info("Deleted " + buildOutputDir);
+            }
+
+            // TODO: Clean up Informed code from OSS.
+            for (Future result: informedResults) {
+                try {
+                    result.get();
+                } catch(Exception e) {
+                    this.log.error("Exception in consumer", e);
+                }
+            }
+            this.informedExecutor.shutdownNow();
+
+            if (exceptions.size() == 0) {
+                invokeHooks(BuildAndPushStatus.FINISHED);
+                cleanUp();
+            } else {
+                String errorMessage = "Got exceptions while pushing to " + Joiner.on(",").join(exceptions.keySet())
+                        + " => " + Joiner.on(",").join(exceptions.values());
+                log.error(errorMessage);
+                fail(errorMessage);
+                System.exit(-1); // FIXME: seems messy to do a System.exit here... Can we just return instead? Leaving as is for now...
+            }
+        } catch (Exception e) {
+            log.error("An exception occurred during Build and Push !!", e);
+            fail(e.toString());
+        } catch (Throwable t) {
+            // This is for OOMs, StackOverflows and other uber nasties...
+            // We'll try to invoke hooks but all bets are off at this point :/
+            log.fatal("A non-Exception Throwable was caught! (OMG) We will try to invoke hooks on a best effort basis...", t);
+            fail(t.toString());
         }
-        this.informedExecutor.shutdownNow();
-        if (exceptions.size() > 0) {
-            log.error("Got exceptions while pushing to " + Joiner.on(",").join(exceptions.keySet())
-                      + " => " + Joiner.on(",").join(exceptions.values()));
-            System.exit(-1);
-        }
+    }
+
+    @Override
+    public void cancel() throws java.lang.Exception {
+        log.info("VoldemortBuildAndPushJob.cancel() has been called!");
+        invokeHooks(BuildAndPushStatus.CANCELLED);
+        cleanUp();
+    }
+
+    private void fail(String details) {
+        invokeHooks(BuildAndPushStatus.FAILED, details);
+        cleanUp();
+    }
+
+    private void cleanUp() {
+        heartBeatHookRunnable.stop();
     }
 
     /**
@@ -440,7 +532,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
      * Check if store exists and then verify the schema. Returns false if store doesn't exist
      * 
      * @param url to check
-     * @param storeDefXml
+     * @param newStoreDefXml
      * @param hasCompression
      * @param replicationFactor
      * @param requiredReads
@@ -786,7 +878,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
      * Check if store exists and then verify the schema. Returns false if store doesn't exist
      * 
      * @param url to check
-     * @param storeDefXml
+     * @param newStoreDefXml
      * @param hasCompression
      * @param replicationFactor
      * @param requiredReads
@@ -944,6 +1036,31 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         }
     }
 
+    private class HeartBeatHookRunnable implements Runnable {
+        final int sleepTimeMs;
+        boolean keepRunning = true;
+
+        HeartBeatHookRunnable(int sleepTimeMs) {
+            this.sleepTimeMs = sleepTimeMs;
+        }
+
+        public void stop() {
+            keepRunning = false;
+        }
+
+        public void run() {
+            while (keepRunning) {
+                try {
+                    Thread.sleep(sleepTimeMs);
+                    invokeHooks(BuildAndPushStatus.HEARTBEAT);
+                } catch (InterruptedException e) {
+                    keepRunning = false;
+                }
+            }
+        }
+    }
+
+    // TODO: Clean up Informed code from OSS.
     private class InformedClient implements Runnable {
 
         private Props props;
@@ -957,7 +1074,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         }
 
         @SuppressWarnings("unchecked")
-        @Override
         public void run() {
             try {
                 URL url = new URL(informedURL);

@@ -90,7 +90,7 @@ public class StoreRepository {
     private final ConcurrentMap<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>> redirectingSocketStores;
 
     /*
-     * Repair Job object registered with StoreRepository
+     * RepairJob object registered with StoreRepository
      */
     private RepairJob repairJob;
 
