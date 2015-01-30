@@ -123,14 +123,60 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final int heartBeatHookIntervalTime;
     private final HeartBeatHookRunnable heartBeatHookRunnable;
 
+    // build.required
+    private final static String BUILD_INPUT_PATH = "build.input.path";
+    private final static String BUILD_OUTPUT_DIR = "build.output.dir";
+    // build.optional
+    private final static String BUILD_TEMP_DIR = "build.temp.dir";
+    private final static String BUILD_REPLICATION_FACTOR = "build.replication.factor";
+    private final static String BUILD_COMPRESS_VALUE = "build.compress.value";
+    private final static String BUILD_CHUNK_SIZE = "build.chunk.size";
+    private final static String BUILD_OUTPUT_KEEP = "build.output.keep";
+    private final static String BUILD_TYPE_AVRO = "build.type.avro";
+    private final static String BUILD_REQUIRED_READS = "build.required.reads";
+    private final static String BUILD_REQUIRED_WRITES = "build.required.writes";
+    private final static String BUILD_FORCE_SCHEMA_KEY = "build.force.schema.key";
+    private final static String BUILD_FORCE_SCHEMA_VALUE = "build.force.schema.value";
+    private final static String BUILD_PREFERRED_READS = "build.preferred.reads";
+    private final static String BUILD_PREFERRED_WRITES = "build.preferred.writes";
+    // push.required
+    private final static String PUSH_STORE_NAME = "push.store.name";
+    private final static String PUSH_CLUSTER = "push.cluster";
+    private final static String PUSH_STORE_OWNERS = "push.store.owners";
+    private final static String PUSH_STORE_DESCRIPTION = "push.store.description";
+    // push.optional
+    private final static String PUSH_HTTP_TIMEOUT_SECONDS = "push.http.timeout.seconds";
+    private final static String PUSH_NODE = "push.node";
+    private final static String PUSH_VERSION = "push.version";
+    private final static String PUSH_VERSION_TIMESTAMP = "push.version.timestamp";
+    private final static String PUSH_BACKOFF_DELAY_SECONDS = "push.backoff.delay.seconds";
+    private final static String PUSH_ROLLBACK = "push.rollback";
+    private final static String PUSH_FORCE_SCHEMA_KEY = "push.force.schema.key";
+    private final static String PUSH_FORCE_SCHEMA_VALUE = "push.force.schema.value";
+    // others.optional
+    private final static String KEY_SELECTION = "key.selection";
+    private final static String VALUE_SELECTION = "value.selection";
+    private final static String NUM_CHUNKS = "num.chunks";
+    private final static String BUILD = "build";
+    private final static String PUSH = "push";
+    private final static String VOLDEMORT_FETCHER_PROTOCOL = "voldemort.fetcher.protocol";
+    private final static String VOLDEMORT_FETCHER_PORT = "voldemort.fetcher.port";
+    private final static String AVRO_SERIALIZER_VERSIONED = "avro.serializer.versioned";
+    private final static String AVRO_KEY_FIELD = "avro.key.field";
+    private final static String AVRO_VALUE_FIELD = "avro.value.field";
+    private final static String HADOOP_JOB_UGI = "hadoop.job.ugi";
+    private final static String REDUCER_PER_BUCKET = "reducer.per.bucket";
+    private final static String CHECKSUM__TYPE = "checksum.type";
+    private final static String SAVE_KEYS = "save.keys";
+
     public VoldemortBuildAndPushJob(String name, Props props) {
         super(name);
         this.props = props;
-        this.storeName = props.getString("push.store.name").trim();
+        this.storeName = props.getString(PUSH_STORE_NAME).trim();
         this.clusterUrl = new ArrayList<String>();
         this.dataDirs = new ArrayList<String>();
 
-        String clusterUrlText = props.getString("push.cluster");
+        String clusterUrlText = props.getString(PUSH_CLUSTER);
         for(String url: Utils.COMMA_SEP.split(clusterUrlText.trim()))
             if(url.trim().length() > 0)
                 this.clusterUrl.add(url);
@@ -138,10 +184,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         if(clusterUrl.size() <= 0)
             throw new RuntimeException("Number of urls should be atleast 1");
 
-        // Support multiple output dirs if the user mentions only "push", no
-        // "build".
+        // Support multiple output dirs if the user mentions only PUSH, no
+        // BUILD.
         // If user mentions both then should have only one
-        String dataDirText = props.getString("build.output.dir");
+        String dataDirText = props.getString(BUILD_OUTPUT_DIR);
         for(String dataDir: Utils.COMMA_SEP.split(dataDirText.trim()))
             if(dataDir.trim().length() > 0)
                 this.dataDirs.add(dataDir);
@@ -149,29 +195,29 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         if(dataDirs.size() <= 0)
             throw new RuntimeException("Number of data dirs should be atleast 1");
 
-        this.nodeId = props.getInt("push.node", 0);
+        this.nodeId = props.getInt(PUSH_NODE, 0);
         this.log = Logger.getLogger(name);
 
         // TODO: Clean up Informed code from OSS.
         this.informedResults = Lists.newArrayList();
         this.informedExecutor = Executors.newFixedThreadPool(2);
 
-        this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
-        this.hdfsFetcherPort = props.getString("voldemort.fetcher.port", "50070");
+        this.hdfsFetcherProtocol = props.getString(VOLDEMORT_FETCHER_PROTOCOL, "hftp");
+        this.hdfsFetcherPort = props.getString(VOLDEMORT_FETCHER_PORT, "50070");
 
-        log.info("voldemort.fetcher.protocol is set to : " + hdfsFetcherProtocol);
-        log.info("voldemort.fetcher.port is set to : " + hdfsFetcherPort);
+        log.info(VOLDEMORT_FETCHER_PROTOCOL + " is set to : " + hdfsFetcherProtocol);
+        log.info(VOLDEMORT_FETCHER_PORT + " is set to : " + hdfsFetcherPort);
 
-        isAvroJob = props.getBoolean("build.type.avro", false);
+        isAvroJob = props.getBoolean(BUILD_TYPE_AVRO, false);
 
         // Set default to false
         // this ensures existing clients who are not aware of the new serializer
         // type dont bail out
-        isAvroVersioned = props.getBoolean("avro.serializer.versioned", false);
+        isAvroVersioned = props.getBoolean(AVRO_SERIALIZER_VERSIONED, false);
 
-        keyField = props.getString("avro.key.field", null);
+        keyField = props.getString(AVRO_KEY_FIELD, null);
 
-        valueField = props.getString("avro.value.field", null);
+        valueField = props.getString(AVRO_VALUE_FIELD, null);
 
         if(isAvroJob) {
             if(keyField == null)
@@ -302,10 +348,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         try {
             // These two options control the build and push phases of the job respectively.
-            boolean build = props.getBoolean("build", true);
-            boolean push = props.getBoolean("push", true);
-            jsonKeyField = props.getString("key.selection", null);
-            jsonValueField = props.getString("value.selection", null);
+            boolean build = props.getBoolean(BUILD, true);
+            boolean push = props.getBoolean(PUSH, true);
+            jsonKeyField = props.getString(KEY_SELECTION, null);
+            jsonValueField = props.getString(VALUE_SELECTION, null);
 
             checkForPreconditions(build, push);
 
@@ -374,10 +420,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     }
                 }
             }
-            if (build && push && buildOutputDir != null && !props.getBoolean("build.output.keep", false)) {
+            if(build && push && buildOutputDir != null
+               && !props.getBoolean(BUILD_OUTPUT_KEEP, false)) {
                 JobConf jobConf = new JobConf();
-                if (props.containsKey("hadoop.job.ugi")) {
-                    jobConf.set("hadoop.job.ugi", props.getString("hadoop.job.ugi"));
+                if(props.containsKey(HADOOP_JOB_UGI)) {
+                    jobConf.set(HADOOP_JOB_UGI, props.getString(HADOOP_JOB_UGI));
                 }
                 log.info("Informing about delete start ..." + buildOutputDir);
                 HadoopUtils.deletePathIfExists(jobConf, buildOutputDir);
@@ -441,11 +488,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private void verifyOrAddStore(String url) throws Exception {
         // create new json store def with schema from the metadata in the input path
         JsonSchema schema = HadoopUtils.getSchemaFromPath(getInputPath());
-        int replicationFactor = props.getInt("build.replication.factor", 2);
-        int requiredReads = props.getInt("build.required.reads", 1);
-        int requiredWrites = props.getInt("build.required.writes", 1);
-        String description = props.getString("push.store.description", "");
-        String owners = props.getString("push.store.owners", "");
+        int replicationFactor = props.getInt(BUILD_REPLICATION_FACTOR, 2);
+        int requiredReads = props.getInt(BUILD_REQUIRED_READS, 1);
+        int requiredWrites = props.getInt(BUILD_REQUIRED_WRITES, 1);
+        String description = props.getString(PUSH_STORE_DESCRIPTION, "");
+        String owners = props.getString(PUSH_STORE_OWNERS, "");
         String keySchema = "\n\t\t<type>json</type>\n\t\t<schema-info version=\"0\">"
                            + schema.getKeyType() + "</schema-info>\n\t";
 
@@ -463,7 +510,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         }
 
         boolean hasCompression = false;
-        if (props.containsKey("build.compress.value")) {
+        if(props.containsKey(BUILD_COMPRESS_VALUE)) {
             hasCompression = true;
         }
 
@@ -471,25 +518,25 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             valSchema += "\t<compression><type>gzip</type></compression>\n\t";
         }
 
-        if(props.containsKey("build.force.schema.key")) {
-            keySchema = props.get("build.force.schema.key");
+        if(props.containsKey(BUILD_FORCE_SCHEMA_KEY)) {
+            keySchema = props.get(BUILD_FORCE_SCHEMA_KEY);
         }
 
-        if(props.containsKey("build.force.schema.value")) {
-            valSchema = props.get("build.force.schema.value");
+        if(props.containsKey(BUILD_FORCE_SCHEMA_VALUE)) {
+            valSchema = props.get(BUILD_FORCE_SCHEMA_VALUE);
         }
 
         String newStoreDefXml = VoldemortUtils.getStoreDefXml(storeName,
                                                               replicationFactor,
                                                               requiredReads,
                                                               requiredWrites,
-                                                              props.containsKey("build.preferred.reads") ? props.getInt("build.preferred.reads")
+                                                              props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
                                                                                                         : null,
-                                                              props.containsKey("build.preferred.writes") ? props.getInt("build.preferred.writes")
+                                                              props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
                                                                                                          : null,
-                                                              (props.containsKey("push.force.schema.key")) ? props.getString("push.force.schema.key")
+                                                              (props.containsKey(PUSH_FORCE_SCHEMA_KEY)) ? props.getString(PUSH_FORCE_SCHEMA_KEY)
                                                                                                           : keySchema,
-                                                              (props.containsKey("push.force.schema.value")) ? props.getString("push.force.schema.value")
+                                                              (props.containsKey(PUSH_FORCE_SCHEMA_VALUE)) ? props.getString(PUSH_FORCE_SCHEMA_VALUE)
                                                                                                             : valSchema,
                                                               description,
                                                               owners);
@@ -518,9 +565,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                               replicationFactor,
                                                                                               requiredReads,
                                                                                               requiredWrites,
-                                                                                              props.containsKey("build.preferred.reads") ? props.getInt("build.preferred.reads")
+                                                                                              props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
                                                                                                                                         : null,
-                                                                                              props.containsKey("build.preferred.writes") ? props.getInt("build.preferred.writes")
+                                                                                              props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
                                                                                                                                          : null,
                                                                                               keySchema,
                                                                                               valSchema)));
@@ -591,9 +638,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                replicationFactor,
                                                                                requiredReads,
                                                                                requiredWrites,
-                                                                               props.containsKey("build.preferred.reads") ? props.getInt("build.preferred.reads")
+                                                                               props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
                                                                                                                          : null,
-                                                                               props.containsKey("build.preferred.writes") ? props.getInt("build.preferred.writes")
+                                                                               props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
                                                                                                                           : null,
                                                                                "\n\t\t<type>json</type>\n\t\t<schema-info version=\"0\">"
                                                                                        + remoteKeySerializerDef.getCurrentSchemaInfo()
@@ -635,11 +682,14 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private void addStore(String description, String owners, String url, StoreDefinition newStoreDef) {
         if (description.length() == 0) {
             throw new RuntimeException("Description field missing in store definition. "
-                                       + "Please add \"push.store.description\" with a line describing your store");
+                                       + "Please add \"" + PUSH_STORE_DESCRIPTION
+                                       + "\" with a line describing your store");
         }
         if (owners.length() == 0) {
             throw new RuntimeException("Owner field missing in store definition. "
-                                       + "Please add \"push.store.owners\" with value being comma-separated list of LinkedIn email ids");
+                                       + "Please add \""
+                                       + PUSH_STORE_OWNERS
+                                       + "\" with value being comma-separated list of LinkedIn email ids");
 
         }
         log.info("Could not find store " + storeName + " on Voldemort. Adding it to all nodes ");
@@ -656,20 +706,20 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     }
 
     public String runBuildStore(Props props, String url) throws Exception {
-        int replicationFactor = props.getInt("build.replication.factor", 2);
-        int chunkSize = props.getInt("build.chunk.size", 1024 * 1024 * 1024);
-        Path tempDir = new Path(props.getString("build.temp.dir", "/tmp/vold-build-and-push-"
+        int replicationFactor = props.getInt(BUILD_REPLICATION_FACTOR, 2);
+        int chunkSize = props.getInt(BUILD_CHUNK_SIZE, 1024 * 1024 * 1024);
+        Path tempDir = new Path(props.getString(BUILD_TEMP_DIR, "/tmp/vold-build-and-push-"
                                                                   + new Random().nextLong()));
         URI uri = new URI(url);
-        Path outputDir = new Path(props.getString("build.output.dir"), uri.getHost());
+        Path outputDir = new Path(props.getString(BUILD_OUTPUT_DIR), uri.getHost());
         Path inputPath = getInputPath();
-        String keySelection = props.getString("key.selection", null);
-        String valSelection = props.getString("value.selection", null);
-        CheckSumType checkSumType = CheckSum.fromString(props.getString("checksum.type",
+        String keySelection = props.getString(KEY_SELECTION, null);
+        String valSelection = props.getString(VALUE_SELECTION, null);
+        CheckSumType checkSumType = CheckSum.fromString(props.getString(CHECKSUM__TYPE,
                                                                         CheckSum.toString(CheckSumType.MD5)));
-        boolean saveKeys = props.getBoolean("save.keys", true);
-        boolean reducerPerBucket = props.getBoolean("reducer.per.bucket", false);
-        int numChunks = props.getInt("num.chunks", -1);
+        boolean saveKeys = props.getBoolean(SAVE_KEYS, true);
+        boolean reducerPerBucket = props.getBoolean(REDUCER_PER_BUCKET, false);
+        int numChunks = props.getInt(NUM_CHUNKS, -1);
 
         if(isAvroJob) {
             String recSchema = getRecordSchema();
@@ -724,14 +774,14 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     public void runPushStore(Props props, String url, String dataDir) throws Exception {
         // For backwards compatibility http timeout = admin timeout
-        int httpTimeoutMs = 1000 * props.getInt("push.http.timeout.seconds", 24 * 60 * 60);
-        long pushVersion = props.getLong("push.version", -1L);
-        if(props.containsKey("push.version.timestamp")) {
+        int httpTimeoutMs = 1000 * props.getInt(PUSH_HTTP_TIMEOUT_SECONDS, 24 * 60 * 60);
+        long pushVersion = props.getLong(PUSH_VERSION, -1L);
+        if(props.containsKey(PUSH_VERSION_TIMESTAMP)) {
             DateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
             pushVersion = Long.parseLong(format.format(new Date()));
         }
-        int maxBackoffDelayMs = 1000 * props.getInt("push.backoff.delay.seconds", 60);
-        boolean rollback = props.getBoolean("push.rollback", true);
+        int maxBackoffDelayMs = 1000 * props.getInt(PUSH_BACKOFF_DELAY_SECONDS, 60);
+        boolean rollback = props.getBoolean(PUSH_ROLLBACK, true);
 
         new VoldemortSwapJob(this.getId() + "-push-store",
                              props,
@@ -749,7 +799,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
      * #LATEST tag is expanded.
      */
     private Path getInputPath() throws IOException {
-        Path path = new Path(props.getString("build.input.path"));
+        Path path = new Path(props.getString(BUILD_INPUT_PATH));
         return HadoopUtils.getSanitizedPath(path);
     }
 
@@ -789,11 +839,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public void verifyOrAddStoreAvro(String url, boolean isVersioned) throws Exception {
         // create new n store def with schema from the metadata in the input path
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
-        int replicationFactor = props.getInt("build.replication.factor", 2);
-        int requiredReads = props.getInt("build.required.reads", 1);
-        int requiredWrites = props.getInt("build.required.writes", 1);
-        String description = props.getString("push.store.description", "");
-        String owners = props.getString("push.store.owners", "");
+        int replicationFactor = props.getInt(BUILD_REPLICATION_FACTOR, 2);
+        int requiredReads = props.getInt(BUILD_REQUIRED_READS, 1);
+        int requiredWrites = props.getInt(BUILD_REQUIRED_WRITES, 1);
+        String description = props.getString(PUSH_STORE_DESCRIPTION, "");
+        String owners = props.getString(PUSH_STORE_OWNERS, "");
         String serializerName;
         if (isVersioned)
             serializerName = AVRO_GENERIC_VERSIONED_TYPE_NAME;
@@ -806,7 +856,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                            + schema.getField(valueField).schema() + "</schema-info>\n\t";
 
         boolean hasCompression = false;
-        if (props.containsKey("build.compress.value")) {
+        if(props.containsKey(BUILD_COMPRESS_VALUE)) {
             hasCompression = true;
         }
 
@@ -814,25 +864,25 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             valSchema += "\t<compression><type>gzip</type></compression>\n\t";
         }
 
-        if(props.containsKey("build.force.schema.key")) {
-            keySchema = props.get("build.force.schema.key");
+        if(props.containsKey(BUILD_FORCE_SCHEMA_KEY)) {
+            keySchema = props.get(BUILD_FORCE_SCHEMA_KEY);
         }
 
-        if(props.containsKey("build.force.schema.value")) {
-            valSchema = props.get("build.force.schema.value");
+        if(props.containsKey(BUILD_FORCE_SCHEMA_VALUE)) {
+            valSchema = props.get(BUILD_FORCE_SCHEMA_VALUE);
         }
 
         String newStoreDefXml = VoldemortUtils.getStoreDefXml(storeName,
                                                               replicationFactor,
                                                               requiredReads,
                                                               requiredWrites,
-                                                              props.containsKey("build.preferred.reads") ? props.getInt("build.preferred.reads")
+                                                              props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
                                                                                                         : null,
-                                                              props.containsKey("build.preferred.writes") ? props.getInt("build.preferred.writes")
+                                                              props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
                                                                                                          : null,
-                                                              (props.containsKey("push.force.schema.key")) ? props.getString("push.force.schema.key")
+                                                              (props.containsKey(PUSH_FORCE_SCHEMA_KEY)) ? props.getString(PUSH_FORCE_SCHEMA_KEY)
                                                                                                           : keySchema,
-                                                              (props.containsKey("push.force.schema.value")) ? props.getString("push.force.schema.value")
+                                                              (props.containsKey(PUSH_FORCE_SCHEMA_VALUE)) ? props.getString(PUSH_FORCE_SCHEMA_VALUE)
                                                                                                             : valSchema,
                                                               description,
                                                               owners);
@@ -864,9 +914,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                               replicationFactor,
                                                                                               requiredReads,
                                                                                               requiredWrites,
-                                                                                              props.containsKey("build.preferred.reads") ? props.getInt("build.preferred.reads")
+                                                                                              props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
                                                                                                                                         : null,
-                                                                                              props.containsKey("build.preferred.writes") ? props.getInt("build.preferred.writes")
+                                                                                              props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
                                                                                                                                          : null,
                                                                                               returnSchemaObj.keySchema,
                                                                                               returnSchemaObj.valSchema)));
@@ -993,9 +1043,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                replicationFactor,
                                                                                requiredReads,
                                                                                requiredWrites,
-                                                                               props.containsKey("build.preferred.reads") ? props.getInt("build.preferred.reads")
+                                                                               props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
                                                                                                                          : null,
-                                                                               props.containsKey("build.preferred.writes") ? props.getInt("build.preferred.writes")
+                                                                               props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
                                                                                                                           : null,
                                                                                keySerializerStr,
                                                                                valueSerializerStr);
@@ -1083,10 +1133,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 conn.setDoInput(true);
                 conn.setRequestProperty("Content-Type", "application/json");
 
-                String storeName = this.props.getString("push.store.name", "null");
-                String clusterName = this.props.getString("push.cluster", "null");
-                String owners = this.props.getString("push.store.owners", "null");
-                String replicationFactor = this.props.getString("build.replication.factor", "null");
+                String storeName = this.props.getString(PUSH_STORE_NAME, "null");
+                String clusterName = this.props.getString(PUSH_CLUSTER, "null");
+                String owners = this.props.getString(PUSH_STORE_OWNERS, "null");
+                String replicationFactor = this.props.getString(BUILD_REPLICATION_FACTOR,
+                                                                "null");
 
                 // JSON Object did not work for some reason. Hence doing my own
                 // Json.
