@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -410,8 +411,13 @@ public class ConsistencyCheckTest {
         assertNull(tracker.nextFinished());
 
         tracker.finishAll();
-        assertEquals(new ByteArray(value3), tracker.nextFinished());
-        assertEquals(new ByteArray(value4), tracker.nextFinished());
+        List<ByteArray> expectedFinished = Arrays.asList(new ByteArray(value3),
+                                                         new ByteArray(value4));
+
+        List<ByteArray> actualFinished = Arrays.asList(tracker.nextFinished(),
+                                                       tracker.nextFinished());
+
+        assertTrue(Utils.compareList(expectedFinished, actualFinished));
         assertNull(tracker.nextFinished());
     }
 
