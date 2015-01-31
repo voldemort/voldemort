@@ -152,9 +152,10 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
 
         Schema typeDefWriter = Schema.parse(typeDefVersions.get(version));
 
-        byte[] dataBytes = new byte[bytes.length - 1];
-        System.arraycopy(bytes, 1, dataBytes, 0, bytes.length - 1);
-        Decoder decoder = DecoderFactory.defaultFactory().createBinaryDecoder(dataBytes, null);
+        Decoder decoder = DecoderFactory.defaultFactory().createBinaryDecoder(bytes,
+                                                                              1,
+                                                                              bytes.length - 1,
+                                                                              null);
         GenericDatumReader<Object> reader = null;
         try {
             reader = new GenericDatumReader<Object>(typeDefWriter, typeDef);
