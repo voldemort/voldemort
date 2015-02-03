@@ -28,14 +28,15 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 
+import org.apache.log4j.Logger;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
-import azkaban.common.jobs.AbstractJob;
-import azkaban.common.utils.Props;
+import azkaban.jobExecutor.AbstractJob;
+import azkaban.utils.Props;
 
 /*
  * Call voldemort to swap the current store for the specified store
@@ -48,7 +49,7 @@ public class VoldemortSwapJob extends AbstractJob {
     private String hdfsFetcherPort;
 
     public VoldemortSwapJob(String id, Props props) throws IOException {
-        super(id);
+        super(id, Logger.getLogger(VoldemortSwapJob.class.getName()));
         _props = props;
 
         this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
@@ -57,7 +58,7 @@ public class VoldemortSwapJob extends AbstractJob {
     }
 
     public VoldemortSwapJob(String id, Props props, VoldemortSwapConf conf) throws IOException {
-        super(id);
+        super(id, Logger.getLogger(VoldemortSwapJob.class.getName()));
         _props = props;
         this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
         this.hdfsFetcherPort = props.getString("voldemort.fetcher.port", "50070");

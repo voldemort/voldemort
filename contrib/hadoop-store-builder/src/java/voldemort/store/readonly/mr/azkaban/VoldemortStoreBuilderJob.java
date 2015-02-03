@@ -37,7 +37,7 @@ import voldemort.store.readonly.mr.VoldemortStoreBuilderMapper;
 import voldemort.store.readonly.mr.serialization.JsonSequenceFileInputFormat;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
-import azkaban.common.utils.Props;
+import azkaban.utils.Props;
 
 /**
  * Build a voldemort store from input data.

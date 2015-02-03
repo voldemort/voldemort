@@ -22,7 +22,7 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.OutputCollector;
 
 import voldemort.serialization.Serializer;
-import azkaban.common.utils.Utils;
+import voldemort.utils.Utils;
 
 /**
  * Output collector that handles JSON serialization
@@ -39,9 +39,9 @@ public class JsonOutputCollector<K, V> implements OutputCollector<K, V> {
     public JsonOutputCollector(OutputCollector<BytesWritable, BytesWritable> innerCollector,
                                Serializer<Object> keySerializer,
                                Serializer<Object> valueSerializer) {
-        this.innerCollector = Utils.nonNull(innerCollector);
-        this.keySerializer = Utils.nonNull(keySerializer);
-        this.valueSerializer = Utils.nonNull(valueSerializer);
+        this.innerCollector = Utils.notNull(innerCollector);
+        this.keySerializer = Utils.notNull(keySerializer);
+        this.valueSerializer = Utils.notNull(valueSerializer);
     }
 
     public void collect(K key, V value) throws IOException {

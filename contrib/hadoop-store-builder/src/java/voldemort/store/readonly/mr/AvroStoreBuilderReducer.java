@@ -34,7 +34,7 @@ import org.apache.hadoop.mapred.Reporter;
 
 import voldemort.store.readonly.disk.HadoopStoreWriter;
 import voldemort.store.readonly.disk.KeyValueWriter;
-import azkaban.common.utils.Utils;
+import voldemort.utils.ReflectUtils;
 
 /**
  * Take key md5s and value bytes and build a Avro read-only store from these
@@ -46,7 +46,7 @@ public class AvroStoreBuilderReducer implements
     // The Class implementing the keyvaluewriter
     // this provides a pluggable mechanism for generating your own on disk
     // format for the data and index files
-    String keyValueWriterClass;
+    Class keyValueWriterClass = null;
     @SuppressWarnings("rawtypes")
     KeyValueWriter writer;
 
@@ -92,9 +92,9 @@ public class AvroStoreBuilderReducer implements
         JobConf conf = job;
         try {
 
-            keyValueWriterClass = conf.get("writer.class");
+            keyValueWriterClass = conf.getClass("writer.class", null);
             if(keyValueWriterClass != null)
-                writer = (KeyValueWriter) Utils.callConstructor(keyValueWriterClass);
+                writer = (KeyValueWriter) ReflectUtils.callConstructor(keyValueWriterClass);
             else
                 writer = new HadoopStoreWriter();
 

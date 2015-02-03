@@ -26,7 +26,7 @@ import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StoreStatsJmx;
 import voldemort.utils.DaemonThreadFactory;
 import voldemort.utils.JmxUtils;
-import azkaban.common.utils.Utils;
+import voldemort.utils.Utils;
 
 public class RestPipelineFactory implements ChannelPipelineFactory {
 
@@ -80,7 +80,7 @@ public class RestPipelineFactory implements ChannelPipelineFactory {
                                                         List<StoreDefinition> storeDefinitions) {
         storeStatsMap = new ConcurrentHashMap<String, StoreStats>();
         boolean isJmxEnabled = config.isJmxEnabled();
-        for(StoreDefinition storeDefinition: Utils.nonNull(storeDefinitions)) {
+        for(StoreDefinition storeDefinition: Utils.notNull(storeDefinitions)) {
             String storeName = storeDefinition.getName();
 
             // Add to concurrentHashMap

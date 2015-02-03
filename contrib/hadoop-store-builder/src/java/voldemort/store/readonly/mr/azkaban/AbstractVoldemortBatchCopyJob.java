@@ -27,11 +27,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 
+import org.apache.log4j.Logger;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
-import azkaban.common.jobs.AbstractJob;
-import azkaban.common.utils.Props;
+import azkaban.jobExecutor.AbstractJob;
+import azkaban.utils.Props;
 
 /**
  * A test job that throws an exception
@@ -51,7 +52,7 @@ public abstract class AbstractVoldemortBatchCopyJob extends AbstractJob {
     private final Props _props;
 
     public AbstractVoldemortBatchCopyJob(String name, Props props) throws IOException {
-        super(name);
+        super(name, Logger.getLogger(AbstractVoldemortBatchCopyJob.class.getName()));
         _props = props;
     }
 

@@ -29,7 +29,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.store.readonly.disk.HadoopStoreWriterPerBucket;
 import voldemort.store.readonly.disk.KeyValueWriter;
-import azkaban.common.utils.Utils;
+import voldemort.utils.ReflectUtils;
 
 /**
  * Take key md5s and value bytes and build a read-only store from these values
@@ -40,7 +40,7 @@ public class HadoopStoreBuilderReducerPerBucket extends AbstractStoreBuilderConf
 
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilderReducerPerBucket.class);
 
-    String keyValueWriterClass;
+    Class keyValueWriterClass = null;
     @SuppressWarnings("rawtypes")
     KeyValueWriter writer;
 
@@ -66,9 +66,9 @@ public class HadoopStoreBuilderReducerPerBucket extends AbstractStoreBuilderConf
 
         try {
 
-            keyValueWriterClass = job.get("writer.class");
+            keyValueWriterClass = job.getClass("writer.class", null);
             if(keyValueWriterClass != null)
-                writer = (KeyValueWriter) Utils.callConstructor(keyValueWriterClass);
+                writer = (KeyValueWriter) ReflectUtils.callConstructor(keyValueWriterClass);
             else
                 writer = new HadoopStoreWriterPerBucket();
 
