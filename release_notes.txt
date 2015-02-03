@@ -1,3 +1,18 @@
+Release 1.9.6 on 02/13/2015
+
+* Bug fix for diverging metadata versions.
+* IntelliJ support in gradle build.
+* Avoid extra allocation on AvroGenericVersioned.
+* Unit test fixes.
+* Dependency upgrades:
+  * Jackson moved to 1.9.13
+  * Azkaban moved to 2.5.0, fetched from Maven Central, and removed from private-lib.
+* Build and Push clean ups and improvements:
+  * Cleaned up config strings into constants.
+  * Sanity checks and error messages for bad avro configs.
+  * Removed proprietary LinkedIn monitoring code.
+  * Added open-source friendly hooks for running arbitrary code in BnP.
+
 Release 1.9.5 on 01/12/2015
 
 * Version metadata key fix for incorrectly incrementing on each restarts
