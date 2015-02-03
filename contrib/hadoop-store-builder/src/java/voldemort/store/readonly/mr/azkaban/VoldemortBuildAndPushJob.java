@@ -16,13 +16,8 @@
 
 package voldemort.store.readonly.mr.azkaban;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -34,9 +29,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import org.apache.avro.Schema;
 import org.apache.commons.lang.Validate;
@@ -63,12 +55,11 @@ import voldemort.store.readonly.mr.utils.JsonSchema;
 import voldemort.store.readonly.mr.utils.VoldemortUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
-import azkaban.common.jobs.AbstractJob;
-import azkaban.common.utils.Props;
+import azkaban.jobExecutor.AbstractJob;
+import azkaban.utils.Props;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 public class VoldemortBuildAndPushJob extends AbstractJob {
@@ -92,9 +83,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     // Reads from properties to check if this takes Avro input
     private final boolean isAvroJob;
 
-    private final String keyField;
+    private final String keyFieldName;
 
-    private final String valueField;
+    private final String valueFieldName;
 
     private final boolean isAvroVersioned;
 
@@ -110,11 +101,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private final String hdfsFetcherPort;
     private final String hdfsFetcherProtocol;
-
-    // TODO: Clean up Informed code from OSS.
-    private final String informedURL = "http://informed.corp.linkedin.com/_post";
-    private final List<Future> informedResults;
-    private ExecutorService informedExecutor;
 
     private String jsonKeyField;
     private String jsonValueField;
@@ -170,7 +156,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final static String SAVE_KEYS = "save.keys";
 
     public VoldemortBuildAndPushJob(String name, Props props) {
-        super(name);
+        super(name, Logger.getLogger(VoldemortBuildAndPushJob.class.getName()));
         this.props = props;
         this.storeName = props.getString(PUSH_STORE_NAME).trim();
         this.clusterUrl = new ArrayList<String>();
@@ -198,10 +184,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         this.nodeId = props.getInt(PUSH_NODE, 0);
         this.log = Logger.getLogger(name);
 
-        // TODO: Clean up Informed code from OSS.
-        this.informedResults = Lists.newArrayList();
-        this.informedExecutor = Executors.newFixedThreadPool(2);
-
         this.hdfsFetcherProtocol = props.getString(VOLDEMORT_FETCHER_PROTOCOL, "hftp");
         this.hdfsFetcherPort = props.getString(VOLDEMORT_FETCHER_PORT, "50070");
 
@@ -215,15 +197,15 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // type dont bail out
         isAvroVersioned = props.getBoolean(AVRO_SERIALIZER_VERSIONED, false);
 
-        keyField = props.getString(AVRO_KEY_FIELD, null);
+        keyFieldName = props.getString(AVRO_KEY_FIELD, null);
 
-        valueField = props.getString(AVRO_VALUE_FIELD, null);
+        valueFieldName = props.getString(AVRO_VALUE_FIELD, null);
 
         if(isAvroJob) {
-            if(keyField == null)
+            if(keyFieldName == null)
                 throw new RuntimeException("The key field must be specified in the properties for the Avro build and push job!");
 
-            if(valueField == null)
+            if(valueFieldName == null)
                 throw new RuntimeException("The value field must be specified in the properties for the Avro build and push job!");
 
         }
@@ -231,7 +213,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // Initializing hooks
         heartBeatHookIntervalTime = props.getInt("heartbeat.hook.interval.ms", 60000);
         heartBeatHookRunnable = new HeartBeatHookRunnable(heartBeatHookIntervalTime);
-        String hookNamesText = props.getString("hooks");
+        String hookNamesText = props.getString("hooks", null);
         if (hookNamesText != null && !hookNamesText.isEmpty()) {
             Properties javaProps = props.toProperties();
             for (String hookName : Utils.COMMA_SEP.split(hookNamesText.trim())) {
@@ -392,10 +374,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     if (log.isDebugEnabled()) {
                         log.debug("Informing about push start ...");
                     }
-                    // TODO: Clean up Informed code from OSS.
-                    informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                            "Running",
-                            this.getId())));
                     log.info("Pushing to clusterURl" + clusterUrl.get(index));
                     // If we are not building and just pushing then we want to get the built
                     // from the dataDirs, or else we will just the one that we built earlier
@@ -410,10 +388,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                         }
                         invokeHooks(BuildAndPushStatus.PUSHING, url);
                         runPushStore(props, url, buildOutputDir);
-                        // TODO: Clean up Informed code from OSS.
-                        informedResults.add(this.informedExecutor.submit(new InformedClient(this.props,
-                                "Finished",
-                                this.getId())));
                     } catch(Exception e) {
                         log.error("Exception during push for url " + url, e);
                         exceptions.put(url, e);
@@ -431,16 +405,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 log.info("Deleted " + buildOutputDir);
             }
 
-            // TODO: Clean up Informed code from OSS.
-            for (Future result: informedResults) {
-                try {
-                    result.get();
-                } catch(Exception e) {
-                    this.log.error("Exception in consumer", e);
-                }
-            }
-            this.informedExecutor.shutdownNow();
-
             if (exceptions.size() == 0) {
                 invokeHooks(BuildAndPushStatus.FINISHED);
                 cleanUp();
@@ -454,11 +418,14 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         } catch (Exception e) {
             log.error("An exception occurred during Build and Push !!", e);
             fail(e.toString());
+            throw e;
         } catch (Throwable t) {
             // This is for OOMs, StackOverflows and other uber nasties...
             // We'll try to invoke hooks but all bets are off at this point :/
             log.fatal("A non-Exception Throwable was caught! (OMG) We will try to invoke hooks on a best effort basis...", t);
             fail(t.toString());
+            // N.B.: Azkaban's AbstractJob#run throws Exception, not Throwable, so we can't rethrow directly...
+            throw new Exception("A non-Exception Throwable was caught! Bubbling it up as an Exception...", t);
         }
     }
 
@@ -744,8 +711,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                        saveKeys,
                                                                        reducerPerBucket,
                                                                        numChunks,
-                                                                       keyField,
-                                                                       valueField,
+                                                 keyFieldName,
+                                                 valueFieldName,
                                                                        recSchema,
                                                                        keySchema,
                                                                        valSchema), true).run();
@@ -813,14 +780,14 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     // Extract schema of the key field
     public String getKeySchema() throws IOException {
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
-        String keySchema = schema.getField(keyField).schema().toString();
+        String keySchema = schema.getField(keyFieldName).schema().toString();
         return keySchema;
     }
 
     // Extract schema of the value field
     public String getValueSchema() throws IOException {
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
-        String valueSchema = schema.getField(valueField).schema().toString();
+        String valueSchema = schema.getField(valueFieldName).schema().toString();
         return valueSchema;
     }
     
@@ -850,78 +817,108 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         else
             serializerName = AVRO_GENERIC_TYPE_NAME;
 
-        String keySchema = "\n\t\t<type>" + serializerName + "</type>\n\t\t<schema-info version=\"0\">"
-                           + schema.getField(keyField).schema() + "</schema-info>\n\t";
-        String valSchema = "\n\t\t<type>" + serializerName + "</type>\n\t\t<schema-info version=\"0\">"
-                           + schema.getField(valueField).schema() + "</schema-info>\n\t";
-
         boolean hasCompression = false;
         if(props.containsKey(BUILD_COMPRESS_VALUE)) {
             hasCompression = true;
         }
 
-        if(hasCompression) {
-            valSchema += "\t<compression><type>gzip</type></compression>\n\t";
-        }
+        String keySchema, valSchema;
 
-        if(props.containsKey(BUILD_FORCE_SCHEMA_KEY)) {
-            keySchema = props.get(BUILD_FORCE_SCHEMA_KEY);
-        }
-
-        if(props.containsKey(BUILD_FORCE_SCHEMA_VALUE)) {
-            valSchema = props.get(BUILD_FORCE_SCHEMA_VALUE);
-        }
-
-        String newStoreDefXml = VoldemortUtils.getStoreDefXml(storeName,
-                                                              replicationFactor,
-                                                              requiredReads,
-                                                              requiredWrites,
-                                                              props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
-                                                                                                        : null,
-                                                              props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
-                                                                                                         : null,
-                                                              (props.containsKey(PUSH_FORCE_SCHEMA_KEY)) ? props.getString(PUSH_FORCE_SCHEMA_KEY)
-                                                                                                          : keySchema,
-                                                              (props.containsKey(PUSH_FORCE_SCHEMA_VALUE)) ? props.getString(PUSH_FORCE_SCHEMA_VALUE)
-                                                                                                            : valSchema,
-                                                              description,
-                                                              owners);
-        KeyValueSchema returnSchemaObj = new KeyValueSchema(keySchema, valSchema);
-        boolean foundStore = findAndVerifyAvro(url,
-                                               newStoreDefXml,
-                                               hasCompression,
-                                               replicationFactor,
-                                               requiredReads,
-                                               requiredWrites,
-                                               serializerName,
-                                               returnSchemaObj);
-        if (!foundStore) {
-            try {
-                StoreDefinition newStoreDef = VoldemortUtils.getStoreDef(newStoreDefXml);
-                addStore(description, owners, url, newStoreDef);
+        try {
+            if(props.containsKey(BUILD_FORCE_SCHEMA_KEY)) {
+                keySchema = props.get(BUILD_FORCE_SCHEMA_KEY);
+            } else {
+                Schema.Field keyField = schema.getField(keyFieldName);
+                if (keyField == null) {
+                    throw new VoldemortException("The configured key field (" + keyFieldName + ") was not found in the input data.");
+                } else {
+                    keySchema = "\n\t\t<type>" + serializerName + "</type>\n\t\t<schema-info version=\"0\">"
+                            + keyField.schema() + "</schema-info>\n\t";
+                }
             }
-            catch(RuntimeException e) {
-                log.error("Error in adding store definition from: " + url, e); 
-                System.exit(-1);
-            }
+        } catch (VoldemortException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new VoldemortException("Error while trying to extract the key field", e);
         }
-        AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
-        // don't use newStoreDef because we want to ALWAYS use the JSON definition since the store 
-        // builder assumes that you are using JsonTypeSerializer. This allows you to tweak your 
-        // value/key store xml  as you see fit, but still uses the json sequence file meta data
-        // to  build the store.
-        storeDefs = ImmutableList.of(VoldemortUtils.getStoreDef(VoldemortUtils.getStoreDefXml(storeName,
-                                                                                              replicationFactor,
-                                                                                              requiredReads,
-                                                                                              requiredWrites,
-                                                                                              props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
-                                                                                                                                        : null,
-                                                                                              props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
-                                                                                                                                         : null,
-                                                                                              returnSchemaObj.keySchema,
-                                                                                              returnSchemaObj.valSchema)));
-        cluster = adminClient.getAdminClientCluster();
-        adminClient.close();
+
+        try {
+            if(props.containsKey(BUILD_FORCE_SCHEMA_VALUE)) {
+                valSchema = props.get(BUILD_FORCE_SCHEMA_VALUE);
+            } else {
+                Schema.Field valueField = schema.getField(valueFieldName);
+                if (valueField == null) {
+                    throw new VoldemortException("The configured value field (" + valueFieldName + ") was not found in the input data.");
+                } else {
+                    valSchema = "\n\t\t<type>" + serializerName + "</type>\n\t\t<schema-info version=\"0\">"
+                            + valueField.schema() + "</schema-info>\n\t";
+
+                    if(hasCompression) {
+                        valSchema += "\t<compression><type>gzip</type></compression>\n\t";
+                    }
+                }
+            }
+        } catch (VoldemortException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new VoldemortException("Error while trying to extract the value field", e);
+        }
+
+        if (keySchema == null || valSchema == null) {
+            // This should already have failed on previous exceptions, but just in case...
+            throw new VoldemortException("There was a problem defining the key or value schema for this job.");
+        } else {
+            String newStoreDefXml = VoldemortUtils.getStoreDefXml(storeName,
+                    replicationFactor,
+                    requiredReads,
+                    requiredWrites,
+                    props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
+                            : null,
+                    props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
+                            : null,
+                    (props.containsKey(PUSH_FORCE_SCHEMA_KEY)) ? props.getString(PUSH_FORCE_SCHEMA_KEY)
+                            : keySchema,
+                    (props.containsKey(PUSH_FORCE_SCHEMA_VALUE)) ? props.getString(PUSH_FORCE_SCHEMA_VALUE)
+                            : valSchema,
+                    description,
+                    owners);
+            KeyValueSchema returnSchemaObj = new KeyValueSchema(keySchema, valSchema);
+            boolean foundStore = findAndVerifyAvro(url,
+                    newStoreDefXml,
+                    hasCompression,
+                    replicationFactor,
+                    requiredReads,
+                    requiredWrites,
+                    serializerName,
+                    returnSchemaObj);
+            if (!foundStore) {
+                try {
+                    StoreDefinition newStoreDef = VoldemortUtils.getStoreDef(newStoreDefXml);
+                    addStore(description, owners, url, newStoreDef);
+                }
+                catch(RuntimeException e) {
+                    log.error("Error in adding store definition from: " + url, e);
+                    throw new VoldemortException("Error in adding store definition from: " + url, e);
+                }
+            }
+            AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+            // don't use newStoreDef because we want to ALWAYS use the JSON definition since the store
+            // builder assumes that you are using JsonTypeSerializer. This allows you to tweak your
+            // value/key store xml  as you see fit, but still uses the json sequence file meta data
+            // to  build the store.
+            storeDefs = ImmutableList.of(VoldemortUtils.getStoreDef(VoldemortUtils.getStoreDefXml(storeName,
+                    replicationFactor,
+                    requiredReads,
+                    requiredWrites,
+                    props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
+                            : null,
+                    props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
+                            : null,
+                    returnSchemaObj.keySchema,
+                    returnSchemaObj.valSchema)));
+            cluster = adminClient.getAdminClientCluster();
+            adminClient.close();
+        }
     }
  
     /**
@@ -1109,79 +1106,4 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             }
         }
     }
-
-    // TODO: Clean up Informed code from OSS.
-    private class InformedClient implements Runnable {
-
-        private Props props;
-        private String status;
-        private String source;
-
-        public InformedClient(Props props, String status, String source) {
-            this.props = props;
-            this.status = status;
-            this.source = source;
-        }
-
-        @SuppressWarnings("unchecked")
-        public void run() {
-            try {
-                URL url = new URL(informedURL);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setDoOutput(true);
-                conn.setDoInput(true);
-                conn.setRequestProperty("Content-Type", "application/json");
-
-                String storeName = this.props.getString(PUSH_STORE_NAME, "null");
-                String clusterName = this.props.getString(PUSH_CLUSTER, "null");
-                String owners = this.props.getString(PUSH_STORE_OWNERS, "null");
-                String replicationFactor = this.props.getString(BUILD_REPLICATION_FACTOR,
-                                                                "null");
-
-                // JSON Object did not work for some reason. Hence doing my own
-                // Json.
-                String message = "Store : " + storeName.replaceAll("[\'\"]", "") + ",  Status : "
-                                 + this.status.replaceAll("[\'\"]", "") + ",  URL : "
-                                 + clusterName.replaceAll("[\'\"]", "") + ",  owners : "
-                                 + owners.replaceAll("[\'\"]", "") + ",  replication : "
-                                 + replicationFactor.replaceAll("[\'\"]", "");
-                String payloadStr = "{\"message\":\"" + message
-                                    + "\",\"topic\":\"build-and-push\",\"source\":\"" + this.source
-                                    + "\",\"user\":\"bandp\"}";
-                if(log.isDebugEnabled())
-                    log.debug("Payload : " + payloadStr);
-
-                OutputStream out = conn.getOutputStream();
-                out.write(payloadStr.getBytes());
-                out.close();
-
-                if(conn.getResponseCode() != 200) {
-                    System.out.println(conn.getResponseCode());
-                    log.error("Illegal response : " + conn.getResponseMessage());
-                    throw new IOException(conn.getResponseMessage());
-                }
-
-                // Buffer the result into a string
-                BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while((line = rd.readLine()) != null) {
-                    sb.append(line);
-                }
-                rd.close();
-
-                if(log.isDebugEnabled())
-                    log.debug("Received response: " + sb);
-
-                conn.disconnect();
-
-            } catch(Exception e) {
-                log.error(e.getMessage());
-                e.printStackTrace();
-            }
-        }
-
-    }
-
 }

@@ -35,14 +35,15 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.RunningJob;
+import org.apache.log4j.Logger;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import voldemort.store.readonly.mr.IdentityJsonReducer;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
-import azkaban.common.jobs.AbstractJob;
-import azkaban.common.utils.Props;
+import azkaban.jobExecutor.AbstractJob;
+import azkaban.utils.Props;
 
 /**
  * An abstract Base class for Hadoop Jobs
@@ -64,7 +65,7 @@ public abstract class AbstractHadoopJob extends AbstractJob {
     private final static String hadoopLibPath = "hdfs.default.classpath.dir";
 
     public AbstractHadoopJob(String name, Props props) {
-        super(name);
+        super(name, Logger.getLogger(AbstractHadoopJob.class.getName()));
         this._props = props;
     }
 
@@ -230,7 +231,7 @@ public abstract class AbstractHadoopJob extends AbstractJob {
         }
 
         // May want to add this to HadoopUtils, but will await refactoring
-        for(String key: getProps().keySet()) {
+        for(String key: getProps().getKeySet()) {
             String lowerCase = key.toLowerCase();
             if(lowerCase.startsWith(HADOOP_PREFIX)) {
                 String newKey = key.substring(HADOOP_PREFIX.length());

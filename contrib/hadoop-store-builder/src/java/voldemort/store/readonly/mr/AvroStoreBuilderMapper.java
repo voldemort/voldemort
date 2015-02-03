@@ -50,7 +50,7 @@ import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.utils.ByteUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
-import azkaban.common.utils.Props;
+import azkaban.utils.Props;
 
 /**
  * Avro container files are not sequence input format files they contain records

@@ -34,8 +34,8 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.readonly.mr.utils.VoldemortUtils;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
-import azkaban.common.jobs.AbstractJob;
-import azkaban.common.utils.Props;
+import azkaban.jobExecutor.AbstractJob;
+import azkaban.utils.Props;
 
 import com.google.common.collect.Maps;
 
@@ -56,7 +56,7 @@ public class VoldemortRollbackJob extends AbstractJob {
     private List<String> clusterUrls;
 
     public VoldemortRollbackJob(String name, Props props) throws IOException {
-        super(name);
+        super(name, Logger.getLogger(VoldemortRollbackJob.class.getName()));
         this.props = props;
         this.log = Logger.getLogger(name);
         this.storeNames = VoldemortUtils.getCommaSeparatedStringValues(props.getString("store.name"),

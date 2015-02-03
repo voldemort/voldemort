@@ -19,7 +19,7 @@ package voldemort.store.readonly.mr.utils;
 import java.util.Arrays;
 
 import voldemort.serialization.json.JsonTypeDefinition;
-import azkaban.common.utils.Utils;
+import voldemort.utils.Utils;
 
 public class JsonSchema {
 
@@ -28,8 +28,8 @@ public class JsonSchema {
 
     public JsonSchema(JsonTypeDefinition key, JsonTypeDefinition value) {
         super();
-        this.key = Utils.nonNull(key);
-        this.value = Utils.nonNull(value);
+        this.key = Utils.notNull(key);
+        this.value = Utils.notNull(value);
     }
 
     public JsonTypeDefinition getKeyType() {

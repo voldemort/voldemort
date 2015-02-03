@@ -24,8 +24,8 @@ import org.apache.hadoop.mapred.JobConf;
 import voldemort.serialization.json.JsonTypeSerializer;
 import voldemort.store.readonly.mr.azkaban.StoreBuilderTransformation;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
-import azkaban.common.utils.Props;
-import azkaban.common.utils.Utils;
+import azkaban.utils.Props;
+import voldemort.utils.ReflectUtils;
 
 public class VoldemortStoreBuilderMapper extends AbstractHadoopStoreBuilderMapper<Object, Object> {
 
@@ -71,13 +71,13 @@ public class VoldemortStoreBuilderMapper extends AbstractHadoopStoreBuilderMappe
         _valSelection = props.getString("value.selection", null);
         _inputKeySerializer = getSchemaFromJob(conf, "mapper.input.key.schema");
         _inputValueSerializer = getSchemaFromJob(conf, "mapper.input.value.schema");
-        String _keyTransClass = props.getString("key.transformation.class", null);
-        String _valueTransClass = props.getString("value.transformation.class", null);
+        Class _keyTransClass = props.getClass("key.transformation.class", null);
+        Class _valueTransClass = props.getClass("value.transformation.class", null);
 
         if(_keyTransClass != null)
-            _keyTrans = (StoreBuilderTransformation) Utils.callConstructor(_keyTransClass);
+            _keyTrans = (StoreBuilderTransformation) ReflectUtils.callConstructor(_keyTransClass);
         if(_valueTransClass != null)
-            _valTrans = (StoreBuilderTransformation) Utils.callConstructor(_valueTransClass);
+            _valTrans = (StoreBuilderTransformation) ReflectUtils.callConstructor(_valueTransClass);
     }
 
     protected JsonTypeSerializer getSchemaFromJob(JobConf conf, String key) {

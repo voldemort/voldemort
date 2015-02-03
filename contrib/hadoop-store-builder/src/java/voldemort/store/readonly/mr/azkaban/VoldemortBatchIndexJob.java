@@ -52,7 +52,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.mr.serialization.JsonConfigurable;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.utils.ByteUtils;
-import azkaban.common.utils.Props;
+import azkaban.utils.Props;
 
 /**
  * Creates Index and value files using Voldemort hash keys for easy batch

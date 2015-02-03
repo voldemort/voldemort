@@ -60,8 +60,8 @@ import voldemort.store.readonly.mr.utils.JsonSchema;
 import voldemort.store.readonly.mr.utils.VoldemortUtils;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.utils.Pair;
-import azkaban.common.jobs.AbstractJob;
-import azkaban.common.utils.Props;
+import azkaban.jobExecutor.AbstractJob;
+import azkaban.utils.Props;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
@@ -105,7 +105,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
     }
 
     public VoldemortMultiStoreBuildAndPushJob(String name, Props props) throws IOException {
-        super(name);
+        super(name, Logger.getLogger(VoldemortMultiStoreBuildAndPushJob.class.getName()));
         this.props = props;
         this.log = Logger.getLogger(name);
         // TODO: this is a bug, it needs to initialize with -1 as 0 can be an

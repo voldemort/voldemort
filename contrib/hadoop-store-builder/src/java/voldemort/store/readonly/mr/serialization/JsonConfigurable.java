@@ -23,7 +23,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
 
 import voldemort.serialization.json.JsonTypeSerializer;
-import azkaban.common.utils.Utils;
+import voldemort.utils.Utils;
 
 /**
  * Base class for a JsonMapper or JsonReducer with a few basic fields
@@ -60,19 +60,19 @@ public abstract class JsonConfigurable implements JobConfigurable, Closeable {
     }
 
     protected void setInputKeySerializer(JsonTypeSerializer inputKeySerializer) {
-        _inputKeySerializer = Utils.nonNull(inputKeySerializer);
+        _inputKeySerializer = Utils.notNull(inputKeySerializer);
     }
 
     protected void setInputValueSerializer(JsonTypeSerializer inputValueSerializer) {
-        _inputValueSerializer = Utils.nonNull(inputValueSerializer);
+        _inputValueSerializer = Utils.notNull(inputValueSerializer);
     }
 
     protected void setOutputKeySerializer(JsonTypeSerializer outputKeySerializer) {
-        _outputKeySerializer = Utils.nonNull(outputKeySerializer);
+        _outputKeySerializer = Utils.notNull(outputKeySerializer);
     }
 
     protected void setOutputValueSerializer(JsonTypeSerializer outputValueSerializer) {
-        _outputValueSerializer = Utils.nonNull(outputValueSerializer);
+        _outputValueSerializer = Utils.notNull(outputValueSerializer);
     }
 
     protected void setConfigured(boolean isConfigured) {

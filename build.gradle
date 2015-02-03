@@ -425,10 +425,10 @@ dependencies {
     compile 'org.apache.httpcomponents:httpcore:4.1.2'
 
     // JSON mapping library from Java Objects to JSON
-    compile 'org.codehaus.jackson:jackson-mapper-asl:1.4.0'
+    compile 'org.codehaus.jackson:jackson-mapper-asl:1.9.13'
 
     // JSON processing library
-    compile 'org.codehaus.jackson:jackson-core-asl:1.4.0'
+    compile 'org.codehaus.jackson:jackson-core-asl:1.9.13'
 
     // Used for reading XML files and Document.
     compile 'jdom:jdom:1.1'
@@ -546,6 +546,7 @@ dependencies {
     compile 'com.linkedin.pegasus:r2:1.8.3'
     compile 'com.linkedin.pegasus:data:1.8.3'
     compile 'com.linkedin.pegasus:pegasus-common:1.8.3'
+    compile 'com.linkedin.azkaban:azkaban:2.5.0'
 
     compile 'com.google.code.typica:typica:1.7.2'
     compile 'com.sna-projects.krati:krati:0.4.9'
