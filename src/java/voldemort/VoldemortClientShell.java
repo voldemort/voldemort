@@ -521,12 +521,12 @@ public class VoldemortClientShell {
                 printObject(obj);
             commandOutput.print("]");
         } else if(o instanceof Map) {
-            Map<String, Object> m = (Map<String, Object>) o;
+            Map<Object, Object> m = (Map<Object, Object>) o;
             commandOutput.print('{');
-            for(String s: m.keySet()) {
-                printObject(s);
+            for(Object key: m.keySet()) {
+                printObject(key);
                 commandOutput.print(':');
-                printObject(m.get(s));
+                printObject(m.get(key));
                 commandOutput.print(", ");
             }
             commandOutput.print('}');
