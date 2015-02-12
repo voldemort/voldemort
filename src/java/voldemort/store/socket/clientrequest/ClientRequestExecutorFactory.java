@@ -207,7 +207,7 @@ public class ClientRequestExecutorFactory implements
             boolean awaitResult = clientRequest.await();
 
             if(awaitResult == false) {
-                String errorMessage = "Protocol negotation timed out for socket "
+                String errorMessage = "Protocol negotiation timed out for socket "
                                       + socketChannel.socket();
                 throw new TimeoutException(errorMessage);
             } else {
