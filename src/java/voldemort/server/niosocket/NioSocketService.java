@@ -101,10 +101,12 @@ public class NioSocketService extends AbstractSocketService {
         this.endpoint = new InetSocketAddress(port);
 
         this.selectorManagers = new NioSelectorManager[selectors];
+
+        String threadFactoryPrefix = "voldemort-" + serviceName;
         this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
-                                                                      new DaemonThreadFactory("voldemort-niosocket-server"));
+                                                                      new DaemonThreadFactory(threadFactoryPrefix));
         this.statusManager = new StatusManager((ThreadPoolExecutor) this.selectorManagerThreadPool);
-        this.acceptorThread = new Thread(new Acceptor(), "NioSocketService.Acceptor");
+        this.acceptorThread = new Thread(new Acceptor(), threadFactoryPrefix + ".Acceptor");
     }
 
     @Override
