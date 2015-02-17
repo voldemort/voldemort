@@ -374,7 +374,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     if (log.isDebugEnabled()) {
                         log.debug("Informing about push start ...");
                     }
-                    log.info("Pushing to clusterURl" + clusterUrl.get(index));
+                    log.info("Pushing to cluster url " + clusterUrl.get(index));
                     // If we are not building and just pushing then we want to get the built
                     // from the dataDirs, or else we will just the one that we built earlier
                     try {
