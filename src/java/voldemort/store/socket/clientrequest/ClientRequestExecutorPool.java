@@ -98,12 +98,31 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                                         soTimeoutMs,
                                                         socketBufferSize,
                                                         socketKeepAlive,
-                                                        stats);
+                                                        stats,
+                                                        this.identifierString);
         this.queuedPool = new QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor>(factory,
                                                                                                 config);
         if(stats != null) {
             this.stats.setPool(queuedPool);
         }
+    }
+
+    public ClientRequestExecutorPool(int selectors,
+                                     int maxConnectionsPerNode,
+                                     int connectionTimeoutMs,
+                                     int soTimeoutMs,
+                                     int socketBufferSize,
+                                     boolean socketKeepAlive,
+                                     String identifierString) {
+        // JMX bean is disabled by default
+        this(selectors,
+             maxConnectionsPerNode,
+             connectionTimeoutMs,
+             soTimeoutMs,
+             socketBufferSize,
+             socketKeepAlive,
+             DEFAULT_JMX_ENABLED,
+             identifierString);
     }
 
     public ClientRequestExecutorPool(int selectors,

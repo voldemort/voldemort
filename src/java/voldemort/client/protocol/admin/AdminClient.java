@@ -357,6 +357,7 @@ public class AdminClient {
                     ClientConfig clientConfig = new ClientConfig();
                     clientConfig.setBootstrapUrls(bootstrapUrls);
                     clientConfig.setClientZoneId(zoneId);
+                    clientConfig.setIdentifierString("admin");
                     systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
                 }
                 String metadataVersionStoreName = SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name();
@@ -2461,7 +2462,8 @@ public class AdminClient {
                                                        clientConfig.getConnectionTimeout(TimeUnit.MILLISECONDS),
                                                        clientConfig.getSocketTimeout(TimeUnit.MILLISECONDS),
                                                        clientConfig.getSocketBufferSize(),
-                                                       clientConfig.getSocketKeepAlive());
+                                                       clientConfig.getSocketKeepAlive(),
+                                                       "-admin");
             nodeStoreSocketCache = new ConcurrentHashMap<NodeStore, SocketStore>();
         }
 

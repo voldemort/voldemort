@@ -38,6 +38,14 @@ public class SystemStoreClientFactory<K, V> {
     public SystemStoreClientFactory(ClientConfig clientConfig) {
         ClientConfig systemStoreConfig = new ClientConfig();
 
+        String clientIdentifier = clientConfig.getIdentifierString();
+        String identifierString;
+        if(clientIdentifier != null && clientIdentifier.length() > 0) {
+            identifierString = clientIdentifier + "-system";
+        } else {
+            identifierString = "system";
+        }
+
         systemStoreConfig.setSelectors(1)
                          .setBootstrapUrls(clientConfig.getBootstrapUrls())
                          .setMaxConnectionsPerNode(clientConfig.getSysMaxConnectionsPerNode())
@@ -48,7 +56,8 @@ public class SystemStoreClientFactory<K, V> {
                          .setRoutingTimeout(clientConfig.getSysRoutingTimeout(),
                                             TimeUnit.MILLISECONDS)
                          .setEnableJmx(clientConfig.getSysEnableJmx())
-                         .setClientZoneId(clientConfig.getClientZoneId());
+                         .setClientZoneId(clientConfig.getClientZoneId())
+                         .setIdentifierString(identifierString);
         this.socketStoreFactory = new SocketStoreClientFactory(systemStoreConfig);
     }
 

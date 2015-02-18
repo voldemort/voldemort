@@ -137,11 +137,15 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         if(str == null) {
             str = JmxUtils.getJmxId(jmxId);
         }
+        // Update the identifier string, so that system thread names get the suffix
+        config.setIdentifierString(str);
+
         if(str.equals("")) {
             this.identifierString = str;
         } else {
             this.identifierString = "-" + str;
         }
+
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         this.aggregateStats = new StoreStats("aggregate.abstract-store-client-factory");
         this.storeClientFactoryStats = new StoreClientFactoryStats();

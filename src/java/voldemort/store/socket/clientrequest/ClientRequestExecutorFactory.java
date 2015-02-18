@@ -70,7 +70,8 @@ public class ClientRequestExecutorFactory implements
                                         int soTimeoutMs,
                                         int socketBufferSize,
                                         boolean socketKeepAlive,
-                                        ClientSocketStats stats) {
+                                        ClientSocketStats stats,
+                                        String identifier) {
         this.connectTimeoutMs = connectTimeoutMs;
         this.soTimeoutMs = soTimeoutMs;
         this.created = new AtomicInteger(0);
@@ -80,8 +81,18 @@ public class ClientRequestExecutorFactory implements
         this.stats = stats;
 
         this.selectorManagers = new ClientRequestSelectorManager[selectors];
+
+        String threadPrefix = "voldemort-niosocket-client";
+        if(identifier != null && identifier.length() > 0) {
+            // Append the factory identifier to the thread Prefix
+            // JMX counters are exposes at a factory level and they have the
+            // factory identifier if the client creates more than one
+            // factory.
+            threadPrefix += identifier;
+        }
+
         this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
-                                                                      new DaemonThreadFactory("voldemort-niosocket-client-"));
+                                                                      new DaemonThreadFactory(threadPrefix));
 
         for(int i = 0; i < selectorManagers.length; i++) {
             selectorManagers[i] = new ClientRequestSelectorManager();
