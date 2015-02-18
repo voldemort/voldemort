@@ -496,18 +496,27 @@ public class HadoopStoreBuilder {
 
                         for(FileStatus file: storeFiles) {
                             try {
+                                // HDFS NameNodes can sometimes GC for extended periods of time,
+                                // hence the exponential back-off strategy below.
+                                // TODO: Refactor all BnP/Voldemort retry code into a pluggable/configurable mechanism
+
                                 int totalAttempts = 4;
                                 int attemptsRemaining = totalAttempts;
                                 while (attemptsRemaining > 0) {
                                     try {
                                         attemptsRemaining--;
                                         input = outputFs.open(file.getPath());
+                                        byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
+                                        input.read(fileCheckSum);
+                                        logger.debug("Checksum for file " + file.toString() + " - "
+                                                + new String(Hex.encodeHex(fileCheckSum)));
+                                        checkSumGenerator.update(fileCheckSum);
                                     } catch (Exception e) {
                                         if (attemptsRemaining < 1) {
                                             throw e;
                                         }
 
-                                        // Exponential back-off: 5s, 25s, 45s.
+                                        // Exponential back-off sleep times: 5s, 25s, 45s.
                                         int sleepTime = ((totalAttempts - attemptsRemaining) ^ 2) * 5;
                                         logger.error("Error getting checksum file from HDFS. Retries left: " +
                                                 attemptsRemaining + ". Back-off until next retry: " + sleepTime + " seconds.", e);
@@ -515,11 +524,6 @@ public class HadoopStoreBuilder {
                                         Thread.sleep(sleepTime * 1000);
                                     }
                                 }
-                                byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
-                                input.read(fileCheckSum);
-                                logger.debug("Checksum for file " + file.toString() + " - "
-                                             + new String(Hex.encodeHex(fileCheckSum)));
-                                checkSumGenerator.update(fileCheckSum);
                             } catch(Exception e) {
                                 logger.error("Error getting checksum file from HDFS", e);
                             } finally {
