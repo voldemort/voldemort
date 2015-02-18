@@ -59,7 +59,7 @@ class HttpHookRunnable implements Runnable {
 
             int responseCode = conn.getResponseCode();
 
-            if(responseCode != 200) {
+            if(responseCode != HttpURLConnection.HTTP_OK) {
                 handleResponse(responseCode, conn.getErrorStream());
                 throw new IOException("HttpHook [" + hookName + "] received '" +
                         responseCode + ": " + conn.getResponseMessage() +
