@@ -1,4 +1,4 @@
-package voldemort.store.readonly.mr.azkaban;
+package voldemort.store.readonly.hooks;
 
 import java.util.Properties;
 

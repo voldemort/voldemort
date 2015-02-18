@@ -47,6 +47,8 @@ import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.hooks.BuildAndPushHook;
+import voldemort.store.readonly.hooks.BuildAndPushStatus;
 import voldemort.store.readonly.mr.azkaban.VoldemortStoreBuilderJob.VoldemortStoreBuilderConf;
 import voldemort.store.readonly.mr.azkaban.VoldemortSwapJob.VoldemortSwapConf;
 import voldemort.store.readonly.mr.utils.AvroUtils;
@@ -110,53 +112,58 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final HeartBeatHookRunnable heartBeatHookRunnable;
 
     // build.required
-    private final static String BUILD_INPUT_PATH = "build.input.path";
-    private final static String BUILD_OUTPUT_DIR = "build.output.dir";
+    public final static String BUILD_INPUT_PATH = "build.input.path";
+    public final static String BUILD_OUTPUT_DIR = "build.output.dir";
     // build.optional
-    private final static String BUILD_TEMP_DIR = "build.temp.dir";
-    private final static String BUILD_REPLICATION_FACTOR = "build.replication.factor";
-    private final static String BUILD_COMPRESS_VALUE = "build.compress.value";
-    private final static String BUILD_CHUNK_SIZE = "build.chunk.size";
-    private final static String BUILD_OUTPUT_KEEP = "build.output.keep";
-    private final static String BUILD_TYPE_AVRO = "build.type.avro";
-    private final static String BUILD_REQUIRED_READS = "build.required.reads";
-    private final static String BUILD_REQUIRED_WRITES = "build.required.writes";
-    private final static String BUILD_FORCE_SCHEMA_KEY = "build.force.schema.key";
-    private final static String BUILD_FORCE_SCHEMA_VALUE = "build.force.schema.value";
-    private final static String BUILD_PREFERRED_READS = "build.preferred.reads";
-    private final static String BUILD_PREFERRED_WRITES = "build.preferred.writes";
+    public final static String BUILD_TEMP_DIR = "build.temp.dir";
+    public final static String BUILD_REPLICATION_FACTOR = "build.replication.factor";
+    public final static String BUILD_COMPRESS_VALUE = "build.compress.value";
+    public final static String BUILD_CHUNK_SIZE = "build.chunk.size";
+    public final static String BUILD_OUTPUT_KEEP = "build.output.keep";
+    public final static String BUILD_TYPE_AVRO = "build.type.avro";
+    public final static String BUILD_REQUIRED_READS = "build.required.reads";
+    public final static String BUILD_REQUIRED_WRITES = "build.required.writes";
+    public final static String BUILD_FORCE_SCHEMA_KEY = "build.force.schema.key";
+    public final static String BUILD_FORCE_SCHEMA_VALUE = "build.force.schema.value";
+    public final static String BUILD_PREFERRED_READS = "build.preferred.reads";
+    public final static String BUILD_PREFERRED_WRITES = "build.preferred.writes";
     // push.required
-    private final static String PUSH_STORE_NAME = "push.store.name";
-    private final static String PUSH_CLUSTER = "push.cluster";
-    private final static String PUSH_STORE_OWNERS = "push.store.owners";
-    private final static String PUSH_STORE_DESCRIPTION = "push.store.description";
+    public final static String PUSH_STORE_NAME = "push.store.name";
+    public final static String PUSH_CLUSTER = "push.cluster";
+    public final static String PUSH_STORE_OWNERS = "push.store.owners";
+    public final static String PUSH_STORE_DESCRIPTION = "push.store.description";
     // push.optional
-    private final static String PUSH_HTTP_TIMEOUT_SECONDS = "push.http.timeout.seconds";
-    private final static String PUSH_NODE = "push.node";
-    private final static String PUSH_VERSION = "push.version";
-    private final static String PUSH_VERSION_TIMESTAMP = "push.version.timestamp";
-    private final static String PUSH_BACKOFF_DELAY_SECONDS = "push.backoff.delay.seconds";
-    private final static String PUSH_ROLLBACK = "push.rollback";
-    private final static String PUSH_FORCE_SCHEMA_KEY = "push.force.schema.key";
-    private final static String PUSH_FORCE_SCHEMA_VALUE = "push.force.schema.value";
+    public final static String PUSH_HTTP_TIMEOUT_SECONDS = "push.http.timeout.seconds";
+    public final static String PUSH_NODE = "push.node";
+    public final static String PUSH_VERSION = "push.version";
+    public final static String PUSH_VERSION_TIMESTAMP = "push.version.timestamp";
+    public final static String PUSH_BACKOFF_DELAY_SECONDS = "push.backoff.delay.seconds";
+    public final static String PUSH_ROLLBACK = "push.rollback";
+    public final static String PUSH_FORCE_SCHEMA_KEY = "push.force.schema.key";
+    public final static String PUSH_FORCE_SCHEMA_VALUE = "push.force.schema.value";
     // others.optional
-    private final static String KEY_SELECTION = "key.selection";
-    private final static String VALUE_SELECTION = "value.selection";
-    private final static String NUM_CHUNKS = "num.chunks";
-    private final static String BUILD = "build";
-    private final static String PUSH = "push";
-    private final static String VOLDEMORT_FETCHER_PROTOCOL = "voldemort.fetcher.protocol";
-    private final static String VOLDEMORT_FETCHER_PORT = "voldemort.fetcher.port";
-    private final static String AVRO_SERIALIZER_VERSIONED = "avro.serializer.versioned";
-    private final static String AVRO_KEY_FIELD = "avro.key.field";
-    private final static String AVRO_VALUE_FIELD = "avro.value.field";
-    private final static String HADOOP_JOB_UGI = "hadoop.job.ugi";
-    private final static String REDUCER_PER_BUCKET = "reducer.per.bucket";
-    private final static String CHECKSUM__TYPE = "checksum.type";
-    private final static String SAVE_KEYS = "save.keys";
+    public final static String KEY_SELECTION = "key.selection";
+    public final static String VALUE_SELECTION = "value.selection";
+    public final static String NUM_CHUNKS = "num.chunks";
+    public final static String BUILD = "build";
+    public final static String PUSH = "push";
+    public final static String VOLDEMORT_FETCHER_PROTOCOL = "voldemort.fetcher.protocol";
+    public final static String VOLDEMORT_FETCHER_PORT = "voldemort.fetcher.port";
+    public final static String AVRO_SERIALIZER_VERSIONED = "avro.serializer.versioned";
+    public final static String AVRO_KEY_FIELD = "avro.key.field";
+    public final static String AVRO_VALUE_FIELD = "avro.value.field";
+    public final static String HADOOP_JOB_UGI = "hadoop.job.ugi";
+    public final static String REDUCER_PER_BUCKET = "reducer.per.bucket";
+    public final static String CHECKSUM_TYPE = "checksum.type";
+    public final static String SAVE_KEYS = "save.keys";
+    public final static String HEARTBEAT_HOOK_INTERVAL_MS = "heartbeat.hook.interval.ms";
+    public final static String HOOKS = "hooks";
 
     public VoldemortBuildAndPushJob(String name, Props props) {
-        super(name, Logger.getLogger(VoldemortBuildAndPushJob.class.getName()));
+        super(name, Logger.getLogger(name));
+        this.log = getLog();
+        log.info("Job props.toString(): " + props.toString());
+
         this.props = props;
         this.storeName = props.getString(PUSH_STORE_NAME).trim();
         this.clusterUrl = new ArrayList<String>();
@@ -182,7 +189,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             throw new RuntimeException("Number of data dirs should be atleast 1");
 
         this.nodeId = props.getInt(PUSH_NODE, 0);
-        this.log = Logger.getLogger(name);
 
         this.hdfsFetcherProtocol = props.getString(VOLDEMORT_FETCHER_PROTOCOL, "hftp");
         this.hdfsFetcherPort = props.getString(VOLDEMORT_FETCHER_PORT, "50070");
@@ -211,9 +217,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         }
 
         // Initializing hooks
-        heartBeatHookIntervalTime = props.getInt("heartbeat.hook.interval.ms", 60000);
+        heartBeatHookIntervalTime = props.getInt(HEARTBEAT_HOOK_INTERVAL_MS, 60000);
         heartBeatHookRunnable = new HeartBeatHookRunnable(heartBeatHookIntervalTime);
-        String hookNamesText = props.getString("hooks", null);
+        String hookNamesText = props.getString(HOOKS, null);
         if (hookNamesText != null && !hookNamesText.isEmpty()) {
             Properties javaProps = props.toProperties();
             for (String hookName : Utils.COMMA_SEP.split(hookNamesText.trim())) {
@@ -682,7 +688,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         Path inputPath = getInputPath();
         String keySelection = props.getString(KEY_SELECTION, null);
         String valSelection = props.getString(VALUE_SELECTION, null);
-        CheckSumType checkSumType = CheckSum.fromString(props.getString(CHECKSUM__TYPE,
+        CheckSumType checkSumType = CheckSum.fromString(props.getString(CHECKSUM_TYPE,
                                                                         CheckSum.toString(CheckSumType.MD5)));
         boolean saveKeys = props.getBoolean(SAVE_KEYS, true);
         boolean reducerPerBucket = props.getBoolean(REDUCER_PER_BUCKET, false);
