@@ -506,11 +506,6 @@ public class HadoopStoreBuilder {
                                     try {
                                         attemptsRemaining--;
                                         input = outputFs.open(file.getPath());
-                                        byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
-                                        input.read(fileCheckSum);
-                                        logger.debug("Checksum for file " + file.toString() + " - "
-                                                + new String(Hex.encodeHex(fileCheckSum)));
-                                        checkSumGenerator.update(fileCheckSum);
                                     } catch (Exception e) {
                                         if (attemptsRemaining < 1) {
                                             throw e;
@@ -524,6 +519,11 @@ public class HadoopStoreBuilder {
                                         Thread.sleep(sleepTime * 1000);
                                     }
                                 }
+                                byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
+                                input.read(fileCheckSum);
+                                logger.debug("Checksum for file " + file.toString() + " - "
+                                        + new String(Hex.encodeHex(fileCheckSum)));
+                                checkSumGenerator.update(fileCheckSum);
                             } catch(Exception e) {
                                 logger.error("Error getting checksum file from HDFS", e);
                             } finally {
