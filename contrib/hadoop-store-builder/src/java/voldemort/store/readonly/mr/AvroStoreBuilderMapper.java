@@ -46,11 +46,9 @@ import voldemort.serialization.avro.versioned.AvroVersionedGenericSerializer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
-import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.utils.ByteUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
-import azkaban.utils.Props;
 
 /**
  * Avro container files are not sequence input format files they contain records
@@ -276,9 +274,6 @@ public class AvroStoreBuilderMapper extends
 
         routingStrategy = new ConsistentRoutingStrategy(getCluster(),
                                                         getStoreDef().getReplicationFactor());
-
-        Props props = HadoopUtils.getPropsFromJob(conf);
-
     }
 
     private int numChunks;
