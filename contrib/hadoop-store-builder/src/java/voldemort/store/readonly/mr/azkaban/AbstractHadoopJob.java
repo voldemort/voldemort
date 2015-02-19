@@ -97,16 +97,6 @@ public abstract class AbstractHadoopJob extends AbstractJob {
     }
 
     public JobConf createJobConf(Class<? extends Mapper> mapperClass,
-                                 Class<? extends Reducer> reducerClass,
-                                 Class<? extends Reducer> combinerClass) throws IOException,
-            URISyntaxException {
-        JobConf conf = createJobConf(mapperClass, reducerClass);
-        conf.setCombinerClass(combinerClass);
-
-        return conf;
-    }
-
-    public JobConf createJobConf(Class<? extends Mapper> mapperClass,
                                  Class<? extends Reducer> reducerClass) throws IOException,
             URISyntaxException {
         JobConf conf = new JobConf();

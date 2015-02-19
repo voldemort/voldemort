@@ -1,4 +1,4 @@
-package voldemort.store.readonly.mr.azkaban;
+package voldemort.store.readonly.hooks;
 
 /**
  * This enum describes the various stages a Build and Push can be in.
