@@ -22,6 +22,7 @@ import java.io.PrintStream;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.cluster.Zone;
 import voldemort.tools.admin.AdminParserUtils;
 import voldemort.tools.admin.AdminToolUtils;
 
@@ -271,7 +272,7 @@ public class AdminCommandOther extends AbstractAdminCommand {
             // declare parameters
             Integer nodeId = null;
             String url = null;
-            Integer zoneId = null;
+            Integer zoneId = Zone.UNSET_ZONE_ID;
             Integer parallel = 5;
             Boolean confirm = false;
 
@@ -285,7 +286,6 @@ public class AdminCommandOther extends AbstractAdminCommand {
             // check required options and/or conflicting options
             AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_NODE);
             AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
-            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_ZONE);
 
             // load parameters
             nodeId = (Integer) options.valueOf(AdminParserUtils.OPT_NODE);
@@ -296,6 +296,9 @@ public class AdminCommandOther extends AbstractAdminCommand {
             }
             if(options.has(AdminParserUtils.OPT_CONFIRM)) {
                 confirm = true;
+            }
+            if(options.has(AdminParserUtils.OPT_ZONE)) {
+                zoneId = (Integer) options.valueOf(AdminParserUtils.OPT_ZONE);
             }
 
             // print summary
