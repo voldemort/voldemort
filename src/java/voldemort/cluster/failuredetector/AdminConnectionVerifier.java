@@ -37,9 +37,8 @@ public class AdminConnectionVerifier implements ConnectionVerifier {
     public AdminConnectionVerifier(Cluster cluster) {
         this.cluster = cluster;
         this.adminClient = new AdminClient(this.cluster,
-                                           new AdminClientConfig().setMaxConnectionsPerNode(1),
-                                           new ClientConfig().setSelectors(1)
-                                                             .setMaxConnectionsPerNode(1));
+                                           new AdminClientConfig(),
+                                           new ClientConfig().setSelectors(1));
     }
 
     public AdminClient getAdminClient() {
