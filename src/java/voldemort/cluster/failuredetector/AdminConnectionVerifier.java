@@ -32,15 +32,18 @@ import voldemort.store.metadata.MetadataStore;
 public class AdminConnectionVerifier implements ConnectionVerifier {
 
     private final Cluster cluster;
+    private final AdminClient adminClient;
 
     public AdminConnectionVerifier(Cluster cluster) {
         this.cluster = cluster;
+        this.adminClient = new AdminClient(this.cluster,
+                                           new AdminClientConfig().setMaxConnectionsPerNode(1),
+                                           new ClientConfig().setSelectors(1)
+                                                             .setMaxConnectionsPerNode(1));
     }
 
     public AdminClient getAdminClient() {
-        return new AdminClient(cluster,
-                               new AdminClientConfig().setMaxConnectionsPerNode(1),
-                               new ClientConfig());
+        return this.adminClient;
     }
 
     @Override
