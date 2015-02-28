@@ -24,6 +24,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.utils.Utils;
 
 /**
  * AdminConnectionVerifier is used to verify admin port connectivity.
@@ -31,18 +32,22 @@ import voldemort.store.metadata.MetadataStore;
 
 public class AdminConnectionVerifier implements ConnectionVerifier {
 
-    private final Cluster cluster;
-    private final AdminClient adminClient;
+    private Cluster cluster;
+    private AdminClient adminClient;
 
     public AdminConnectionVerifier(Cluster cluster) {
+        Utils.notNull(cluster);
         this.cluster = cluster;
-        this.adminClient = new AdminClient(this.cluster,
-                                           new AdminClientConfig(),
-                                           new ClientConfig().setSelectors(1));
+        this.adminClient = null;
     }
 
-    public AdminClient getAdminClient() {
-        return this.adminClient;
+    public synchronized AdminClient getAdminClient() {
+        if (adminClient == null) {
+            adminClient = new AdminClient(this.cluster,
+                                          new AdminClientConfig(),
+                                          new ClientConfig().setSelectors(1));
+        }
+        return adminClient;
     }
 
     @Override
@@ -58,5 +63,14 @@ public class AdminConnectionVerifier implements ConnectionVerifier {
 
     @Override
     public void flushCachedStores() {}
+
+    public synchronized void setCluster(Cluster cluster) {
+        Utils.notNull(cluster);
+        this.cluster = cluster;
+        if(this.adminClient != null) {
+            this.adminClient.close();
+            this.adminClient = null;
+        }
+    }
 
 }
