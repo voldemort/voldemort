@@ -574,6 +574,15 @@ public class FailureDetectorConfig {
     public FailureDetectorConfig setCluster(Cluster cluster) {
         Utils.notNull(cluster);
         this.cluster = cluster;
+        /*
+         * FIXME: this is the hacky way to refresh the admin connection
+         * verifier, but it'll just work. The clean way to do so is to have a
+         * centralized metadata management, and all references of cluster object
+         * point to that.
+         */
+        if(this.connectionVerifier instanceof AdminConnectionVerifier) {
+            ((AdminConnectionVerifier) connectionVerifier).setCluster(cluster);
+        }
         return this;
     }
 
