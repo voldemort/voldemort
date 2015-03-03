@@ -1042,7 +1042,7 @@ public class AdminClient {
          * @param value Value for the metadata key
          * 
          * */
-        public void updateRemoteMetadata(List<Integer> remoteNodeIds,
+        public void updateRemoteMetadata(Collection<Integer> remoteNodeIds,
                                          String key,
                                          Versioned<String> value) {
             /*
@@ -1066,19 +1066,19 @@ public class AdminClient {
          * 
          * @param adminClient An instance of AdminClient points to given cluster
          * @param nodeIds Node ids to set metadata
-         * @param metaKey Metadata key to set
-         * @param metaValue Metadata value to set
+         * @param key Metadata key to set
+         * @param value Metadata value to set
          */
-        public void updateRemoteMetadata(List<Integer> nodeIds, String metaKey, String metaValue) {
+        public void updateRemoteMetadata(Collection<Integer> nodeIds,
+ String key, String value) {
             VectorClock updatedVersion = null;
             for(Integer nodeId: nodeIds) {
                 if(updatedVersion == null) {
-                    updatedVersion = (VectorClock) metadataMgmtOps.getRemoteMetadata(nodeId,
-                                                                                     metaKey)
+                    updatedVersion = (VectorClock) metadataMgmtOps.getRemoteMetadata(nodeId, key)
                                                                   .getVersion();
                 } else {
                     updatedVersion = updatedVersion.merge((VectorClock) metadataMgmtOps.getRemoteMetadata(nodeId,
-                                                                                                          metaKey)
+                                                                                                          key)
                                                                                        .getVersion());
                 }
                 // Bump up version on first node
@@ -1086,8 +1086,32 @@ public class AdminClient {
                                                             System.currentTimeMillis());
             }
             metadataMgmtOps.updateRemoteMetadata(nodeIds,
-                                                 metaKey,
-                                                 Versioned.value(metaValue, updatedVersion));
+                                                 key,
+                                                 Versioned.value(value, updatedVersion));
+        }
+
+        /**
+         * Wrapper for updateRemoteMetadata function used against a single Node
+         * It basically loops over the entire list of Nodes that we need to
+         * execute the required operation against. It also increments the
+         * version of the corresponding metadata in the system store.
+         * <p>
+         * 
+         * Metadata keys can be one of {@link MetadataStore#METADATA_KEYS}<br>
+         * eg.<br>
+         * <li>cluster metadata (cluster.xml as string)
+         * <li>stores definitions (stores.xml as string)
+         * <li>Server states <br <br>
+         * See {@link voldemort.store.metadata.MetadataStore} for more
+         * information.
+         * 
+         * @param nodeId
+         * @param key Metadata key to update
+         * @param value Value for the metadata key
+         * 
+         * */
+        public void updateRemoteMetadata(Integer nodeId, String key, String value) {
+            updateRemoteMetadata(Lists.newArrayList(nodeId), key, value);
         }
 
         /**

@@ -318,6 +318,34 @@ public class ServerTestUtils {
         return new Cluster("test-cluster", nodes);
     }
 
+    /**
+     * Generates new cluster object from a given cluster, with one node replaced
+     * 
+     * @param cluster Cluster object as template
+     * @param nodeId Id of node to be replaced (only port id replaced)
+     * @return
+     */
+    public static Cluster getLocalClusterWithOneNodeReplaced(Cluster cluster, int nodeId) {
+        List<Node> nodes = Lists.newArrayList();
+        if(!cluster.hasNodeWithId(nodeId)) {
+            throw new VoldemortException("Node " + nodeId + " doesn't exist in cluster object!");
+        }
+        for(Node node: cluster.getNodes()) {
+            if(node.getId() != nodeId) {
+                nodes.add(node);
+            } else {
+                int[] freePorts = findFreePorts(3);
+                nodes.add(new Node(nodeId,
+                                      "localhost",
+                                      freePorts[0],
+                                      freePorts[1],
+                                      freePorts[2],
+                                      node.getPartitionIds()));
+            }
+        }
+        return new Cluster(cluster.getName(), nodes);
+    }
+
     public static Cluster getLocalNonContiguousNodesCluster(int[] nodeIds, int[][] partitionMap) {
         return getLocalNonContiguousNodesCluster(nodeIds,
                                                  findFreePorts(3 * nodeIds.length),
@@ -981,10 +1009,17 @@ public class ServerTestUtils {
     }
 
     public static void stopVoldemortServer(VoldemortServer server) throws IOException {
+        ServerTestUtils.stopVoldemortServer(server, true);
+    }
+
+    public static void stopVoldemortServer(VoldemortServer server, boolean removeVoldemortHome)
+            throws IOException {
         try {
             server.stop();
         } finally {
-            FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
+            if(removeVoldemortHome) {
+                FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
+            }
         }
     }
 
