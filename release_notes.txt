@@ -1,3 +1,9 @@
+Release 1.9.7 on 03/04/2015
+* Improve Voldemort BuildAndPush
+* Fix bugs in FailureDetector and AdminConnectionVerifier for slop streaming
+* Fix log messages and English typo
+* Fix NIO client thread, selector and admin thread names
+
 Release 1.9.6 on 02/13/2015
 
 * Bug fix for diverging metadata versions.
