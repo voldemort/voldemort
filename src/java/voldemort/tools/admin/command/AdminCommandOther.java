@@ -252,7 +252,7 @@ public class AdminCommandOther extends AbstractAdminCommand {
             stream.println("  restore-from-replica - Restore data from peer replication");
             stream.println();
             stream.println("SYNOPSIS");
-            stream.println("  restore-from-replica -n <node-id> -u <url> -z <zone-id> [--parallel <num>]");
+            stream.println("  restore-from-replica -n <node-id> -u <url> [-z <zone-id>] [--parallel <num>]");
             stream.println("                       [--confirm]");
             stream.println();
             getParser().printHelpOn(stream);
@@ -290,7 +290,6 @@ public class AdminCommandOther extends AbstractAdminCommand {
             // load parameters
             nodeId = (Integer) options.valueOf(AdminParserUtils.OPT_NODE);
             url = (String) options.valueOf(AdminParserUtils.OPT_URL);
-            zoneId = (Integer) options.valueOf(AdminParserUtils.OPT_ZONE);
             if(options.has(OPT_PARALLEL)) {
                 parallel = (Integer) options.valueOf(OPT_PARALLEL);
             }
