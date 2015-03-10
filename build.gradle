@@ -550,6 +550,9 @@ dependencies {
 
     compile 'com.google.code.typica:typica:1.7.2'
     compile 'com.sna-projects.krati:krati:0.4.9'
+
+    // rocksdb from maven
+    compile 'org.rocksdb:rocksdbjni:3.6.2'
 }
 
 eclipse {
