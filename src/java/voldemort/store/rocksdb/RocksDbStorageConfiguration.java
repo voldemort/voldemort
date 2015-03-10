@@ -5,8 +5,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
-import org.rocksdb.BloomFilter;
-import org.rocksdb.CompressionType;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.util.SizeUnit;
@@ -57,17 +55,14 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
 
             // TODO: Validate those default mandatory options and make them
             // configurable
-            Options rdbOptions = new Options().setCreateIfMissing(true)
-                                              .createStatistics()
-                                              .setWriteBufferSize(8 * SizeUnit.KB)
-                                              .setMaxWriteBufferNumber(3)
-                                              .setDisableSeekCompaction(true)
-                                              .setBlockSize(64 * SizeUnit.KB)
-                                              .setMaxBackgroundCompactions(10)
-                                              .setFilter(new BloomFilter(10))
-                                              .setCompressionType(CompressionType.SNAPPY_COMPRESSION);
-
             try {
+                Options rdbOptions = new Options().setCreateIfMissing(true)
+                                                  .createStatistics()
+                                                  .setWriteBufferSize(8 * SizeUnit.KB)
+                                                  .setMaxWriteBufferNumber(3)
+                                                  .setMaxBackgroundCompactions(10)
+                                                  .setCompressionType(org.rocksdb.CompressionType.SNAPPY_COMPRESSION);
+
                 RocksDB rdbStore = null;
                 RocksDbStorageEngine rdbStorageEngine;
                 if(this.voldemortconfig.getRocksdbPrefixKeysWithPartitionId()) {
