@@ -777,8 +777,7 @@ public class AdminClient {
                 try {
                     AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
                     if(!status.getStatus().equalsIgnoreCase(oldStatus)) {
-                        logger.info("Status from node " + nodeId + " (" + status.getDescription()
-                                    + ") - " + status.getStatus());
+                        logger.info("Status from node [" + nodeId + "] "+  status);
                     }
                     oldStatus = status.getStatus();
 
@@ -788,11 +787,15 @@ public class AdminClient {
                                                + status.getStatus());
                     }
                     description = status.getDescription();
-                    if(status.hasException())
+                    if(status.hasException()) {
+                        logger.error("Error waiting for completion of status " + status, status.getException());
                         throw status.getException();
+                    }
 
-                    if(status.isComplete())
+                    if(status.isComplete()) {
+                        logger.info(status.toString() + " Completed.");
                         return status.getStatus();
+                    }
 
                     if(delay < adminClientConfig.getMaxBackoffDelayMs())
                         delay <<= 1;
@@ -3008,6 +3011,7 @@ public class AdminClient {
                                               false);
                         completedNodeIds.add(node.getId());
                     } catch(Exception e) {
+                        logger.error("Error during rebalance on node " + node.getId(), e);
                         exceptions.put(node.getId(), e);
                         if(failEarly) {
                             throw e;

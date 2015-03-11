@@ -1131,7 +1131,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                         storageEngine.put(key, value, null);
                                     } catch(ObsoleteVersionException e) {
                                         // log and ignore
-                                        logger.debug("Fetch and update threw Obsolete version exception. Ignoring");
+                                        if(logger.isDebugEnabled()) {
+                                            logger.debug("Fetch and update threw Obsolete version exception. Ignoring");
+                                        }
                                     } finally {
                                         if(streamingStats != null) {
                                             streamingStats.reportStreamingPut(Operation.UPDATE_ENTRIES);
@@ -1145,13 +1147,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                     throttler.maybeThrottle(key.length() + valueSize(value));
                                     if((numTuples % 100000) == 0 && numTuples > 0) {
                                         logger.info(numTuples + " entries copied from node "
-                                                    + nodeId + " for store '" + storeName + "'c");
+                                                    + nodeId + " for store '" + storeName + "' in "
+                                                    + totalTime + " seconds");
                                         updateStatus(numTuples + " entries copied from node "
                                                      + nodeId + " for store '" + storeName
                                                      + "' in " + totalTime + " seconds");
                                     }
                                     numTuples++;
-                                    startNs = System.nanoTime();
                                 }
 
                                 long totalTime = (System.currentTimeMillis() - startTime) / 1000;

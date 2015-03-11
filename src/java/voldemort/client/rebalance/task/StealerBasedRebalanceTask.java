@@ -88,16 +88,20 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     @Override
     public void run() {
         int rebalanceAsyncId = INVALID_REBALANCE_ID;
+        String threadName = Thread.currentThread().getName();
 
         try {
+            Thread.currentThread().setName(threadName + "-Task-" + taskId + "-asyncid-"
+                                           + rebalanceAsyncId);
+
             acquirePermit(stealInfos.get(0).getDonorId());
 
             // Start rebalance task and then wait.
             rebalanceAsyncId = startNodeRebalancing();
-            taskStart(rebalanceAsyncId);
+            taskStart(taskId, rebalanceAsyncId);
 
             adminClient.rpcOps.waitForCompletion(stealerNodeId, rebalanceAsyncId);
-            taskDone(rebalanceAsyncId);
+            taskDone(taskId, rebalanceAsyncId);
 
         } catch(UnreachableStoreException e) {
             exception = e;
@@ -109,6 +113,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
             exception = e;
             logger.error("Rebalance failed : " + e.getMessage(), e);
         } finally {
+            Thread.currentThread().setName(threadName);
             donorPermit.release();
             isComplete.set(true);
             scheduler.doneTask(stealerNodeId, donorNodeId);

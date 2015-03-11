@@ -65,6 +65,10 @@ public class AsyncOperationStatus {
         builder.append(isComplete());
         builder.append(", status = ");
         builder.append(getStatus());
+        if(this.hasException()) {
+            builder.append(", Exception = ");
+            builder.append(getException());
+        }
         builder.append(")");
 
         return builder.toString();

@@ -177,10 +177,14 @@ public class RebalanceScheduler {
     protected synchronized StealerBasedRebalanceTask scheduleNextTask(boolean executeService) {
         // Make sure there is work left to do.
         if(doneSignal.getCount() == 0) {
+            logger.info("All tasks completion signaled... returning");
+
             return null;
         }
         // Limit number of tasks outstanding.
         if(this.numTasksExecuting >= maxParallelRebalancing) {
+            logger.info("Executing more tasks than [" + this.numTasksExecuting
+                        + "] the parallel allowed " + maxParallelRebalancing);
             return null;
         }
         // Shuffle list of stealer IDs each time a new task to schedule needs to
@@ -190,12 +194,15 @@ public class RebalanceScheduler {
         Collections.shuffle(stealerIds);
         for(int stealerId: stealerIds) {
             if(nodeIdsWithWork.contains(stealerId)) {
+                logger.info("Stealer " + stealerId + " is already working... continuing");
                 continue;
             }
 
             for(StealerBasedRebalanceTask sbTask: tasksByStealer.get(stealerId)) {
                 int donorId = sbTask.getStealInfos().get(0).getDonorId();
                 if(nodeIdsWithWork.contains(donorId)) {
+                    logger.info("Stealer " + stealerId + " Donor " + donorId
+                                + " is already working... continuing");
                     continue;
                 }
                 // Book keeping
@@ -207,16 +214,33 @@ public class RebalanceScheduler {
                 tasksByStealer.get(stealerId).remove(sbTask);
                 try {
                     if(executeService) {
+                        logger.info("Stealer " + stealerId + " Donor " + donorId
+                                    + " going to schedule work");
                         service.execute(sbTask);
                     }
                 } catch(RejectedExecutionException ree) {
-                    logger.error("Rebalancing task rejected by executor service.", ree);
-                    throw new VoldemortRebalancingException("Rebalancing task rejected by executor service.");
+                    logger.error("Stealer " + stealerId
+                                 + "Rebalancing task rejected by executor service.", ree);
+                    throw new VoldemortRebalancingException("Stealer "
+                                                            + stealerId
+                                                            + "Rebalancing task rejected by executor service.");
                 }
                 return sbTask;
             }
         }
+        printRemainingTasks(stealerIds);
         return null;
+    }
+
+    private void printRemainingTasks(List<Integer> stealerIds) {
+        for(int stealerId: stealerIds) {
+            List<Integer> donorIds = new ArrayList<Integer>();
+            for(StealerBasedRebalanceTask sbTask: tasksByStealer.get(stealerId)) {
+                int donorId = sbTask.getStealInfos().get(0).getDonorId();
+                donorIds.add(donorId);
+            }
+            logger.info(" Remaining work for Stealer " + stealerId + " Donors : " + donorIds);
+        }
     }
 
     /**
@@ -227,7 +251,7 @@ public class RebalanceScheduler {
     public synchronized void addNodesToWorkerList(List<Integer> nodeIds) {
         // Bookkeeping for nodes that will be involved in the next task
         nodeIdsWithWork.addAll(nodeIds);
-        logger.info("Node IDs with work: " + nodeIdsWithWork);
+        logger.info("Node IDs with work: " + nodeIdsWithWork + " Newly added nodes " + nodeIds);
     }
 
     /**

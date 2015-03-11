@@ -88,8 +88,14 @@ public abstract class RebalanceTask implements Runnable {
 
     protected void acquirePermit(int nodeId) throws InterruptedException {
         permitStart(nodeId);
-        donorPermit.acquire();
-        permitAcquired(nodeId);
+        boolean isPermitAcquired = false;
+        while(isPermitAcquired == false) {
+            isPermitAcquired = donorPermit.tryAcquire(5, TimeUnit.MINUTES);
+            if(isPermitAcquired == false) {
+                logPermitStatus(nodeId, "Waiting to acquire log ");
+            }
+        }
+        logPermitStatus(nodeId, "Acquired donor permit for node ");
     }
 
     @Override
@@ -122,14 +128,14 @@ public abstract class RebalanceTask implements Runnable {
      * 
      * @param nodeId node ID for which donor permit is required
      */
-    protected void permitAcquired(int nodeId) {
+    protected void logPermitStatus(int nodeId, String prefix) {
         String durationString = "";
         if(permitAcquisitionTimeMs >= 0) {
             long durationMs = System.currentTimeMillis() - permitAcquisitionTimeMs;
             permitAcquisitionTimeMs = -1;
             durationString = " in " + TimeUnit.MILLISECONDS.toSeconds(durationMs) + " seconds.";
         }
-        taskLog("Acquired donor permit for node " + nodeId + durationString);
+        taskLog(prefix + nodeId + durationString);
     }
 
     /**
@@ -137,9 +143,9 @@ public abstract class RebalanceTask implements Runnable {
      * 
      * @param rebalanceAsyncId ID of the async rebalancing task
      */
-    protected void taskStart(int rebalanceAsyncId) {
+    protected void taskStart(int taskId, int rebalanceAsyncId) {
         taskCompletionTimeMs = System.currentTimeMillis();
-        taskLog("Starting rebalance of " + partitionStoreCount
+        taskLog("[TaskId : " + taskId + " ] Starting rebalance of " + partitionStoreCount
                 + " partition-stores for async operation id " + rebalanceAsyncId + ".");
         progressBar.beginTask(taskId);
     }
@@ -149,14 +155,15 @@ public abstract class RebalanceTask implements Runnable {
      * 
      * @param rebalanceAsyncId ID of the async rebalancing task
      */
-    protected void taskDone(int rebalanceAsyncId) {
+    protected void taskDone(int taskId, int rebalanceAsyncId) {
         String durationString = "";
         if(taskCompletionTimeMs >= 0) {
             long durationMs = System.currentTimeMillis() - taskCompletionTimeMs;
             taskCompletionTimeMs = -1;
             durationString = " in " + TimeUnit.MILLISECONDS.toSeconds(durationMs) + " seconds.";
         }
-        taskLog("Successfully finished rebalance of " + partitionStoreCount
+        taskLog("[TaskId : " + taskId + " ] Successfully finished rebalance of "
+                + partitionStoreCount
                 + " for async operation id " + rebalanceAsyncId + durationString);
 
         progressBar.completeTask(taskId, partitionStoreCount);
