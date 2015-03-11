@@ -176,9 +176,9 @@ clean {
 }
 
 task copySources (type: Copy) {
-    from ('.') { include 'bin/**' }
+    from ('.') { include 'bin/*.sh', 'bin/*.bat' , 'bin/*.py' }
     from ('.') { include  distDir + '/*.jar'}
-    from ('.') { exclude distDir + '/**' ,'bin/**' , 'build/**', '.git/**' , '.gradle/**' }
+    from ('.') { exclude distDir + '/**' ,'bin/**' , 'build/**', '.git/**' , '.gradle/**', 'config/**/data/**' }
     into archiveDirectoryPath
 }
 
