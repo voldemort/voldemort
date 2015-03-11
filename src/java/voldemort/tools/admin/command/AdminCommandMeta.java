@@ -326,6 +326,17 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                             }
                             Map<Object, List<String>> storeDefMap = storeNodeValueMap.get(storeName);
                             addMetadataValue(storeDefMap, storeDef, nodeName);
+                            try {
+                            // Just do a random get of the String 
+                            adminClient.storeOps.getNodeKey(storeName,
+                                                            node.getId(),
+                                                            new ByteArray((byte) 0));
+                            } catch(Exception e) {
+                                System.out.println(" Error doing sample key get from Store "
+                                                   + storeName + " Node " + nodeName + " Error "
+                                                   + e.getMessage());
+                                e.printStackTrace();
+                            }
                         }
                     } else {
                         if(key.compareTo(MetadataStore.CLUSTER_KEY) == 0
@@ -774,6 +785,95 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             stream.println();
         }
 
+        private static void printMessage(List<String> storeNames, String message, PrintStream stream) {
+            if(storeNames.size() > 0) {
+                stream.println(message + Arrays.toString(storeNames.toArray()));
+            }
+        }
+
+        private static void printChangeStoreSummary(List<StoreDefinition> oldStoreDefs,
+                                              List<StoreDefinition> newStoreDefs,
+                                                    PrintStream stream) {
+            Set<String> storeNamesUnion = new HashSet<String>();
+            Map<String, StoreDefinition> oldStoreDefinitionMap = new HashMap<String, StoreDefinition>();
+            Map<String, StoreDefinition> newStoreDefinitionMap = new HashMap<String, StoreDefinition>();
+            
+            List<String> newStores = new ArrayList<String>();
+            List<String> deletedStores = new ArrayList<String>();
+            List<String> schemaChangeStores = new ArrayList<String>();
+            List<String> replicationFactorChangeStores = new ArrayList<String>();
+            List<String> allOtherChanges = new ArrayList<String>();
+            List<String> noChanges = new ArrayList<String>();
+
+            for(StoreDefinition storeDef: oldStoreDefs) {
+                String storeName = storeDef.getName();
+                storeNamesUnion.add(storeName);
+                oldStoreDefinitionMap.put(storeName, storeDef);
+            }
+            for(StoreDefinition storeDef: newStoreDefs) {
+                String storeName = storeDef.getName();
+                storeNamesUnion.add(storeName);
+                newStoreDefinitionMap.put(storeName, storeDef);
+            }
+            for(String storeName: storeNamesUnion) {
+                StoreDefinition oldStoreDef = oldStoreDefinitionMap.get(storeName);
+                StoreDefinition newStoreDef = newStoreDefinitionMap.get(storeName);
+                if(oldStoreDef == null && newStoreDef != null) {
+                    newStores.add(newStoreDef.getName());
+                } else if(oldStoreDef != null && newStoreDef == null) {
+                    deletedStores.add(oldStoreDef.getName());
+                } else if(oldStoreDef.equals(newStoreDef)) {
+                    noChanges.add(oldStoreDef.getName());
+                } else {
+                    boolean isRecognizedChange = false;
+                    if(!oldStoreDef.getKeySerializer().equals(newStoreDef.getKeySerializer())
+                       || !oldStoreDef.getValueSerializer()
+                                      .equals(newStoreDef.getValueSerializer())) {
+                        schemaChangeStores.add(newStoreDef.getName());
+                        isRecognizedChange = true;
+                    }
+
+                    boolean isZoneReplicationChanged = false;
+                    Map<Integer,Integer> oldZoneReplication = oldStoreDef.getZoneReplicationFactor();
+                    Map<Integer,Integer> newZoneReplication = newStoreDef.getZoneReplicationFactor();
+                    if((oldZoneReplication == null && newZoneReplication != null)
+                       || (oldZoneReplication != null && newZoneReplication == null)) {
+                        isZoneReplicationChanged = true;
+                    }
+                     else if(oldZoneReplication != null && newZoneReplication != null
+                              && !oldZoneReplication.equals(newZoneReplication)) {
+                        isZoneReplicationChanged = true;
+                    }
+
+                    if(oldStoreDef.getReplicationFactor() != newStoreDef.getReplicationFactor()
+                       || oldStoreDef.getRequiredReads() != newStoreDef.getRequiredReads()
+                       || oldStoreDef.getRequiredWrites() != newStoreDef.getRequiredWrites()
+                       || oldStoreDef.getZoneCountReads() != newStoreDef.getZoneCountReads()
+                       || oldStoreDef.getZoneCountWrites() != newStoreDef.getZoneCountWrites()
+                       || isZoneReplicationChanged) {
+                        replicationFactorChangeStores.add(newStoreDef.getName());
+                        isRecognizedChange = true;
+                    }
+                    if(isRecognizedChange == false) {
+                        allOtherChanges.add(newStoreDef.getName());
+                    }
+                }
+            }
+
+            printMessage(deletedStores,
+                         "***WARNING!!!! Use delete store command, this will leave the cluster in an inconsistent state. Deleted Stores ",
+                         stream);
+            printMessage(newStores,
+                         "***WARNING!!!! Use add store command, this will leave the cluster in an inconsistent state. Added Stores ",
+                         stream);
+            printMessage(noChanges, "Unchanged Stores ", stream);
+            printMessage(schemaChangeStores, "Schema modified stores ", stream);
+            printMessage(replicationFactorChangeStores,
+                         "Replication Factor Changed Stores ",
+                         stream);
+            printMessage(allOtherChanges, "All Other Changes in Stores ", stream);
+        }
+
         /**
          * Parses command-line and sets metadata.
          * 
@@ -840,11 +940,6 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 System.out.println("  node = " + Joiner.on(", ").join(nodeIds));
             }
 
-            // execute command
-            if(!AdminToolUtils.askConfirm(confirm, "set metadata")) {
-                return;
-            }
-
             AdminClient adminClient = AdminToolUtils.getAdminClient(url);
 
             if(allNodes) {
@@ -857,15 +952,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 String metaKey = meta.get(0), metaValue = meta.get(1);
                 String metaFile = metaValue.replace("~", System.getProperty("user.home"));
 
-                if(metaKey.equals(MetadataStore.CLUSTER_KEY)
-                   || metaKey.equals(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML)) {
-                    if(!Utils.isReadableFile(metaFile)) {
-                        throw new VoldemortException("Cluster xml file path incorrect");
-                    }
-                    ClusterMapper mapper = new ClusterMapper();
-                    Cluster newCluster = mapper.readCluster(new File(metaFile));
-                    doMetaSet(adminClient, nodeIds, metaKey, mapper.writeCluster(newCluster));
-                } else if(metaKey.equals(MetadataStore.STORES_KEY)) {
+                if(metaKey.equals(MetadataStore.STORES_KEY)) {
                     if(!Utils.isReadableFile(metaFile)) {
                         throw new VoldemortException("Stores definition xml file path incorrect");
                     }
@@ -880,6 +967,12 @@ public class AdminCommandMeta extends AbstractAdminCommand {
 
                     List<StoreDefinition> oldStoreDefs = mapper.readStoreList(new StringReader(storesXML.getValue()));
 
+                    printChangeStoreSummary(oldStoreDefs, newStoreDefs, System.err);
+                    if(!AdminToolUtils.askConfirm(confirm, "set metadata")) {
+                        return;
+                    }
+
+                    // execute command
                     doMetaSet(adminClient, nodeIds, metaKey, mapper.writeStoreList(newStoreDefs));
                     if(!allNodes) {
                         System.err.println("WARNING: Metadata version update of stores goes to all servers, "
@@ -889,27 +982,43 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                         }
                     }
                     doMetaUpdateVersionsOnStores(adminClient, oldStoreDefs, newStoreDefs);
-                } else if(metaKey.equals(MetadataStore.SLOP_STREAMING_ENABLED_KEY)
-                          || metaKey.equals(MetadataStore.PARTITION_STREAMING_ENABLED_KEY)
-                          || metaKey.equals(MetadataStore.READONLY_FETCH_ENABLED_KEY)) {
-                    doMetaSet(adminClient, nodeIds, metaKey, metaValue);
-                } else if(metaKey.equals(KEY_OFFLINE)) {
-                    boolean setOffline = Boolean.parseBoolean(metaValue);
-                    if(setOffline && nodeIds.size() > 1) {
-                        throw new VoldemortException("Setting more than one node to offline is not allowed.");
-                    }
-                    for(Integer nodeId: nodeIds) {
-                        adminClient.metadataMgmtOps.setRemoteOfflineState(nodeId, setOffline);
-                    }
-                } else if(metaKey.equals(MetadataStore.REBALANCING_STEAL_INFO)) {
-                    if(!Utils.isReadableFile(metaFile)) {
-                        throw new VoldemortException("Rebalancing steal info file path incorrect");
-                    }
-                    String rebalancingStealInfoJsonString = FileUtils.readFileToString(new File(metaFile));
-                    RebalancerState state = RebalancerState.create(rebalancingStealInfoJsonString);
-                    doMetaSet(adminClient, nodeIds, metaKey, state.toJsonString());
                 } else {
-                    throw new VoldemortException("Incorrect metadata key");
+
+                    // execute command
+                    if(!AdminToolUtils.askConfirm(confirm, "set metadata")) {
+                        return;
+                    }
+
+                    if(metaKey.equals(MetadataStore.CLUSTER_KEY)
+                       || metaKey.equals(MetadataStore.REBALANCING_SOURCE_CLUSTER_XML)) {
+                        if(!Utils.isReadableFile(metaFile)) {
+                            throw new VoldemortException("Cluster xml file path incorrect");
+                        }
+                        ClusterMapper mapper = new ClusterMapper();
+                        Cluster newCluster = mapper.readCluster(new File(metaFile));
+                        doMetaSet(adminClient, nodeIds, metaKey, mapper.writeCluster(newCluster));
+                    } else if(metaKey.equals(MetadataStore.SLOP_STREAMING_ENABLED_KEY)
+                              || metaKey.equals(MetadataStore.PARTITION_STREAMING_ENABLED_KEY)
+                              || metaKey.equals(MetadataStore.READONLY_FETCH_ENABLED_KEY)) {
+                        doMetaSet(adminClient, nodeIds, metaKey, metaValue);
+                    } else if(metaKey.equals(KEY_OFFLINE)) {
+                        boolean setOffline = Boolean.parseBoolean(metaValue);
+                        if(setOffline && nodeIds.size() > 1) {
+                            throw new VoldemortException("Setting more than one node to offline is not allowed.");
+                        }
+                        for(Integer nodeId: nodeIds) {
+                            adminClient.metadataMgmtOps.setRemoteOfflineState(nodeId, setOffline);
+                        }
+                    } else if(metaKey.equals(MetadataStore.REBALANCING_STEAL_INFO)) {
+                        if(!Utils.isReadableFile(metaFile)) {
+                            throw new VoldemortException("Rebalancing steal info file path incorrect");
+                        }
+                        String rebalancingStealInfoJsonString = FileUtils.readFileToString(new File(metaFile));
+                        RebalancerState state = RebalancerState.create(rebalancingStealInfoJsonString);
+                        doMetaSet(adminClient, nodeIds, metaKey, state.toJsonString());
+                    } else {
+                        throw new VoldemortException("Incorrect metadata key");
+                    }
                 }
             } else if(meta.size() == 4) {
                 // set metadata pair cluster.xml, stores.xml
@@ -952,6 +1061,13 @@ public class AdminCommandMeta extends AbstractAdminCommand {
 
                 StoreDefinitionUtils.validateSchemasAsNeeded(newStoreDefs);
 
+                printChangeStoreSummary(oldStoreDefs, newStoreDefs, System.err);
+
+                if(!AdminToolUtils.askConfirm(confirm, "set metadata")) {
+                    return;
+                }
+
+                // execute command
                 doMetaSetPair(adminClient,
                               nodeIds,
                               clusterMapper.writeCluster(cluster),
