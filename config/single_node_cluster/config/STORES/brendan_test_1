@@ -1,0 +1,26 @@
+<store>
+<name>brendan_test_1</name>
+<persistence>bdb</persistence>
+<description>This is a test store, part 1</description>
+<owners>urn:li:corpuser:bharris</owners>
+<routing-strategy>consistent-routing</routing-strategy>
+<routing>client</routing>
+<replication-factor>1</replication-factor>
+<preferred-reads>1</preferred-reads>
+<required-reads>1</required-reads>
+<preferred-writes>1</preferred-writes>
+<required-writes>1</required-writes>
+<hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>
+<key-serializer>
+<type>avro-generic-versioned</type>
+<schema-info version="0">{"type":"long"}</schema-info>
+</key-serializer>
+<value-serializer>
+<type>avro-generic-versioned</type>
+<schema-info version="0">{"type":"string"}</schema-info>
+<compression>
+<type>gzip</type>
+</compression>
+</value-serializer>
+<retention-days>90</retention-days>
+</store>
