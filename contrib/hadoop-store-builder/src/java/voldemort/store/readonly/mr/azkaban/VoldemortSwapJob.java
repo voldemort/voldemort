@@ -36,7 +36,7 @@ import voldemort.cluster.Cluster;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import azkaban.jobExecutor.AbstractJob;
-import azkaban.utils.Props;
+import voldemort.utils.Props;
 
 /*
  * Call voldemort to swap the current store for the specified store

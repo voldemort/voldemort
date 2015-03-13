@@ -31,8 +31,7 @@ import org.apache.log4j.Logger;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
-import azkaban.jobExecutor.AbstractJob;
-import azkaban.utils.Props;
+import voldemort.utils.Props;
 
 /**
  * A test job that throws an exception
@@ -47,29 +46,26 @@ import azkaban.utils.Props;
  *         <li>dest.host</li>
  *         </ul>
  */
-public abstract class AbstractVoldemortBatchCopyJob extends AbstractJob {
-
-    private final Props _props;
+public abstract class AbstractVoldemortBatchCopyJob extends AbstractHadoopJob {
 
     public AbstractVoldemortBatchCopyJob(String name, Props props) throws IOException {
-        super(name, Logger.getLogger(AbstractVoldemortBatchCopyJob.class.getName()));
-        _props = props;
+        super(name, props, Logger.getLogger(AbstractVoldemortBatchCopyJob.class.getName()));
     }
 
     public void run() throws Exception {
         JobConf conf = new JobConf();
-        HadoopUtils.copyInAllProps(_props, conf);
+        HadoopUtils.copyInAllProps(props, conf);
 
-        Cluster cluster = HadoopUtils.readCluster(_props.get("voldemort.cluster.file"), conf);
-        final String storeName = _props.get("voldemort.store.name");
-        final Path inputDir = new Path(_props.get("input.path"));
+        Cluster cluster = HadoopUtils.readCluster(props.get("voldemort.cluster.file"), conf);
+        final String storeName = props.get("voldemort.store.name");
+        final Path inputDir = new Path(props.get("input.path"));
 
         ExecutorService executors = Executors.newFixedThreadPool(cluster.getNumberOfNodes());
         final Semaphore semaphore = new Semaphore(0, false);
         final AtomicInteger countSuccess = new AtomicInteger(0);
         final Map<Integer, Boolean> succeeded = new HashMap<Integer, Boolean>();
-        final String destinationDir = _props.get("dest.path");
-        final String sourceHost = _props.getString("src.host", "localhost");
+        final String destinationDir = props.get("dest.path");
+        final String sourceHost = props.getString("src.host", "localhost");
 
         for(final Node node: cluster.getNodes()) {
 
@@ -111,7 +107,7 @@ public abstract class AbstractVoldemortBatchCopyJob extends AbstractJob {
 
         try {
             if(countSuccess.get() == cluster.getNumberOfNodes()
-               || _props.getBoolean("swap.partial.index", false)) {
+               || props.getBoolean("swap.partial.index", false)) {
                 int counter = 0;
                 // lets try to swap only the successful nodes
                 for(Node node: cluster.getNodes()) {

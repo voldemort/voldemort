@@ -24,7 +24,7 @@ import org.apache.hadoop.mapred.JobConf;
 import voldemort.serialization.json.JsonTypeSerializer;
 import voldemort.store.readonly.mr.azkaban.StoreBuilderTransformation;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
-import azkaban.utils.Props;
+import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 
 public class VoldemortStoreBuilderMapper extends AbstractHadoopStoreBuilderMapper<Object, Object> {

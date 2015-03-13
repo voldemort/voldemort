@@ -37,7 +37,7 @@ import voldemort.store.readonly.mr.VoldemortStoreBuilderMapper;
 import voldemort.store.readonly.mr.serialization.JsonSequenceFileInputFormat;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
-import azkaban.utils.Props;
+import voldemort.utils.Props;
 
 /**
  * Build a voldemort store from input data.
@@ -353,7 +353,6 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
 
     }
 
-    @Override
     public void run() throws Exception {
         JobConf configuration = this.createJobConf(VoldemortStoreBuilderMapper.class);
 

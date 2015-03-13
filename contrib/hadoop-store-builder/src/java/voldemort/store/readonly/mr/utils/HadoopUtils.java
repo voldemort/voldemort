@@ -68,7 +68,7 @@ import voldemort.utils.ByteUtils;
 import voldemort.utils.UndefinedPropertyException;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
-import azkaban.utils.Props;
+import voldemort.utils.Props;
 
 /**
  * Helper functions for Hadoop
@@ -104,8 +104,8 @@ public class HadoopUtils {
     /**
      * Add the given object to the distributed cache for this job
      * 
-     * @param obj A Serializable object to add to the JobConf
      * @param job The JobConf
+     * @param serializable A Serializable object to add to the JobConf
      */
     public static <T extends Serializable> void setSerializableInCache(JobConf job, T serializable) {
         try {
@@ -237,7 +237,7 @@ public class HadoopUtils {
      * Read the metadata from a hadoop SequenceFile
      * 
      * @param fs The filesystem to read from
-     * @param fileName The file to read from
+     * @param path The file to read from
      * @return The metadata from this file
      */
     public static Map<String, String> getMetadataFromSequenceFile(FileSystem fs, Path path) {
@@ -366,12 +366,7 @@ public class HadoopUtils {
      * @return The Configuration with all the new properties
      */
     public static void copyInAllProps(Props props, Configuration conf) {
-        for(String key: props.getKeySet())
-            conf.set(key, props.get(key));
-    }
-
-    public static void copyInLocalProps(Props props, Configuration conf) {
-        for(String key: props.localKeySet())
+        for(String key: props.keySet())
             conf.set(key, props.get(key));
     }
 
@@ -408,7 +403,7 @@ public class HadoopUtils {
             ByteArrayInputStream input = new ByteArrayInputStream(propsString.getBytes("UTF-8"));
             Properties properties = new Properties();
             properties.load(input);
-            return new Props(null, properties);
+            return new Props(properties);
         } catch(IOException e) {
             throw new RuntimeException("This is not possible!", e);
         }
@@ -701,24 +696,6 @@ public class HadoopUtils {
             props.storeFlattened(output);
         } finally {
             output.close();
-        }
-    }
-
-    public static Props readProps(String file) throws IOException {
-        Path path = new Path(file);
-        FileSystem fs = path.getFileSystem(new Configuration());
-        if(fs.exists(path)) {
-            InputStream input = fs.open(path);
-            try {
-                // wrap it up in another layer so that the user can override
-                // properties
-                Props p = new Props(null, input);
-                return new Props(p);
-            } finally {
-                input.close();
-            }
-        } else {
-            return new Props();
         }
     }
 

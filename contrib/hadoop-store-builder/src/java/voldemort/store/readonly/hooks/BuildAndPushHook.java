@@ -1,6 +1,6 @@
 package voldemort.store.readonly.hooks;
 
-import java.util.Properties;
+import voldemort.utils.Props;
 
 /**
  * This can be implemented in order to act on certain stages of the Build and Push job.
@@ -8,7 +8,7 @@ import java.util.Properties;
  * Implementations of this interface must have a no-arguments constructor.
  *
  * All hooks registered via the job's config will be instantiated by reflection, and
- * then provided the job's properties via the {@link #init(java.util.Properties)}
+ * then provided the job's properties via the {@link #init(Props)}
  * function. Afterward, the {@link #invoke(BuildAndPushStatus, String)} function will
  * be called at various stages of the job, within a try/catch (i.e.: the hooks are
  * executed on a best effort basis and are not meant to be allowed to fail the job).
@@ -33,9 +33,9 @@ public interface BuildAndPushHook {
    * If this function throws an exception, its {@link #invoke(BuildAndPushStatus, String)}
    * function will not be called during the job.
    *
-   * @param properties of the Build and Push job.
+   * @param props of the Build and Push job.
    */
-  void init(Properties properties) throws Exception;
+  void init(Props props) throws Exception;
 
   /**
    * This is called by the Build and Push job at various stages during the life-cycle of the job.

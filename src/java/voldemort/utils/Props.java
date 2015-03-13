@@ -17,13 +17,17 @@
 package voldemort.utils;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -245,6 +249,104 @@ public class Props implements Map<String, String> {
             return defaultValue;
     }
 
+    /**
+     * Returns a list of strings with the comma as the separator of the value
+     *
+     * @param key
+     * @return
+     */
+    public List<String> getStringList(String key) {
+        return getStringList(key, "\\s*,\\s*");
+    }
+
+    /**
+     * Returns a list of strings with the sep as the separator of the value
+     *
+     * @param key
+     * @param sep
+     * @return
+     */
+    public List<String> getStringList(String key, String sep) {
+        String val = get(key);
+        if (val == null || val.trim().length() == 0) {
+            return Collections.emptyList();
+        }
+
+        if (containsKey(key)) {
+            return Arrays.asList(val.split(sep));
+        } else {
+            throw new UndefinedPropertyException("Missing required property '"
+                    + key + "'");
+        }
+    }
+
+    /**
+     * Returns a list of strings with the comma as the separator of the value.
+     * If the value is null, it'll return the defaultValue.
+     *
+     * @param key
+     * @return
+     */
+    public List<String> getStringList(String key, List<String> defaultValue) {
+        if (containsKey(key)) {
+            return getStringList(key);
+        } else {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Returns a list of strings with the sep as the separator of the value. If
+     * the value is null, it'll return the defaultValue.
+     *
+     * @param key
+     * @return
+     */
+    public List<String> getStringList(String key, List<String> defaultValue,
+                                      String sep) {
+        if (containsKey(key)) {
+            return getStringList(key, sep);
+        } else {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Attempts to return the Class that corresponds to the Props value. If the
+     * class doesn't exit, an IllegalArgumentException will be thrown.
+     *
+     * @param key
+     * @return
+     */
+    public Class<?> getClass(String key) {
+        try {
+            if (containsKey(key)) {
+                return Class.forName(get(key));
+            } else {
+                throw new UndefinedPropertyException(
+                        "Missing required property '" + key + "'");
+            }
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    /**
+     * Gets the class from the Props. If it doesn't exist, it will return the
+     * defaultClass
+     *
+     * @param key
+     * @param defaultClass
+     * @return
+     */
+    public Class<?> getClass(String key, Class<?> defaultClass) {
+        if (containsKey(key)) {
+            return getClass(key);
+        } else {
+            return defaultClass;
+        }
+    }
+
     @Override
     public boolean equals(Object o) {
         return this.props.equals(o);
@@ -305,4 +407,40 @@ public class Props implements Map<String, String> {
         return getList(key, null);
     }
 
+    /**
+     * Store all properties, those local and also those in parent props
+     *
+     * @param file
+     *            The file to store to
+     * @throws IOException
+     *             If there is an error writing
+     */
+    public void storeFlattened(File file) throws IOException {
+        BufferedOutputStream out = new BufferedOutputStream(
+                new FileOutputStream(file));
+        try {
+            storeFlattened(out);
+        } finally {
+            out.close();
+        }
+    }
+
+    /**
+     * Store all properties, those local and also those in parent props
+     *
+     * @param out
+     *            The stream to write to
+     * @throws IOException
+     *             If there is an error writing
+     */
+    public void storeFlattened(OutputStream out) throws IOException {
+        Properties p = new Properties();
+        for (String key : keySet()) {
+            if (!p.containsKey(key)) {
+                p.setProperty(key, get(key));
+            }
+        }
+
+        p.store(out, null);
+    }
 }

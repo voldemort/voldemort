@@ -434,17 +434,10 @@ public class HadoopStoreBuilder {
             Counters counters = job.getCounters();
 
             if(saveKeys) {
-                if(reducerPerBucket) {
-                    logger.info("Number of collisions in the job - "
-                                + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
-                    logger.info("Maximum number of collisions for one entry - "
-                                + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
-                } else {
-                    logger.info("Number of collisions in the job - "
-                                + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
-                    logger.info("Maximum number of collisions for one entry - "
-                                + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
-                }
+                logger.info("Number of collisions in the job - "
+                            + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
+                logger.info("Maximum number of collisions for one entry - "
+                            + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
             }
 
             // Do a CheckSumOfCheckSum - Similar to HDFS
