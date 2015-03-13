@@ -42,8 +42,7 @@ import org.joda.time.format.DateTimeFormatter;
 
 import voldemort.store.readonly.mr.IdentityJsonReducer;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
-import azkaban.jobExecutor.AbstractJob;
-import azkaban.utils.Props;
+import voldemort.utils.Props;
 
 /**
  * An abstract Base class for Hadoop Jobs
@@ -51,22 +50,66 @@ import azkaban.utils.Props;
  * @author bbansal
  * 
  */
-public abstract class AbstractHadoopJob extends AbstractJob {
+public abstract class AbstractHadoopJob /*extends AbstractJob*/ {
 
     public static String COMMON_FILE_DATE_PATTERN = "yyyy-MM-dd-HH-mm";
     public static final String HADOOP_PREFIX = "hadoop-conf.";
     public static final String LATEST_SUFFIX = "#LATEST";
     public static final String CURRENT_SUFFIX = "#CURRENT";
-    private final Props _props;
+    protected final Props props;
     private RunningJob _runningJob;
 
     private final static String voldemortLibPath = "voldemort.distributedcache";
 
     private final static String hadoopLibPath = "hdfs.default.classpath.dir";
 
+    private final String _id;
+    protected final Logger _log;
+
     public AbstractHadoopJob(String name, Props props) {
-        super(name, Logger.getLogger(AbstractHadoopJob.class.getName()));
-        this._props = props;
+        this(name, props, Logger.getLogger(AbstractHadoopJob.class.getName()));
+    }
+
+    public AbstractHadoopJob(String name, Props props, Logger logger) {
+        this._id = name;
+        this._log = logger;
+        this.props = props;
+    }
+
+    public String getId() {
+        return _id;
+    }
+
+    public void debug(String message) {
+        this._log.debug(message);
+    }
+
+    public void debug(String message, Throwable t) {
+        this._log.debug(message, t);
+    }
+
+    public void info(String message) {
+        this._log.info(message);
+    }
+
+    public void info(String message, Throwable t) {
+        this._log.info(message, t);
+    }
+
+    public void warn(String message) {
+        this._log.warn(message);
+    }
+
+    public void warn(String message, Throwable t) {
+        this._log.warn(message, t);
+    }
+
+    public void error(String message) {
+        this._log.error(message);
+    }
+
+    public void error(String message, Throwable t) {
+        this._log.error(message, t);
     }
 
     public void run(JobConf conf) throws Exception {
@@ -106,12 +149,12 @@ public abstract class AbstractHadoopJob extends AbstractJob {
         conf.setMapperClass(mapperClass);
         conf.setReducerClass(reducerClass);
 
-        String hadoop_ugi = _props.getString("hadoop.job.ugi", null);
+        String hadoop_ugi = props.getString("hadoop.job.ugi", null);
         if(hadoop_ugi != null) {
             conf.set("hadoop.job.ugi", hadoop_ugi);
         }
 
-        if(_props.getBoolean("is.local", false)) {
+        if(props.getBoolean("is.local", false)) {
             conf.set("mapred.job.tracker", "local");
             conf.set("fs.default.name", "file:///");
             conf.set("mapred.local.dir", "/tmp/map-red");
@@ -127,14 +170,14 @@ public abstract class AbstractHadoopJob extends AbstractJob {
         }
 
         // set JVM options if present
-        if(_props.containsKey("mapred.child.java.opts")) {
-            conf.set("mapred.child.java.opts", _props.getString("mapred.child.java.opts"));
-            info("mapred.child.java.opts set to " + _props.getString("mapred.child.java.opts"));
+        if(props.containsKey("mapred.child.java.opts")) {
+            conf.set("mapred.child.java.opts", props.getString("mapred.child.java.opts"));
+            info("mapred.child.java.opts set to " + props.getString("mapred.child.java.opts"));
         }
 
         // set input and output paths if they are present
-        if(_props.containsKey("input.paths")) {
-            List<String> inputPaths = _props.getStringList("input.paths");
+        if(props.containsKey("input.paths")) {
+            List<String> inputPaths = props.getStringList("input.paths");
             if(inputPaths.size() == 0)
                 throw new IllegalArgumentException("Must specify at least one value for property 'input.paths'");
             for(String path: inputPaths) {
@@ -163,8 +206,8 @@ public abstract class AbstractHadoopJob extends AbstractJob {
             }
         }
 
-        if(_props.containsKey("output.path")) {
-            String location = _props.get("output.path");
+        if(props.containsKey("output.path")) {
+            String location = props.get("output.path");
             if(location.endsWith("#CURRENT")) {
                 DateTimeFormatter format = DateTimeFormat.forPattern(COMMON_FILE_DATE_PATTERN);
                 String destPath = format.print(new DateTime());
@@ -175,14 +218,14 @@ public abstract class AbstractHadoopJob extends AbstractJob {
 
             FileOutputFormat.setOutputPath(conf, new Path(location));
             // For testing purpose only remove output file if exists
-            if(_props.getBoolean("force.output.overwrite", false)) {
+            if(props.getBoolean("force.output.overwrite", false)) {
                 FileSystem fs = FileOutputFormat.getOutputPath(conf).getFileSystem(conf);
                 fs.delete(FileOutputFormat.getOutputPath(conf), true);
             }
         }
 
         // Adds External jars to hadoop classpath
-        String externalJarList = _props.getString("hadoop.external.jarFiles", null);
+        String externalJarList = props.getString("hadoop.external.jarFiles", null);
         if(externalJarList != null) {
             String[] jarFiles = externalJarList.split(",");
             for(String jarFile: jarFiles) {
@@ -192,7 +235,7 @@ public abstract class AbstractHadoopJob extends AbstractJob {
         }
 
         // Adds distributed cache files
-        String cacheFileList = _props.getString("hadoop.cache.files", null);
+        String cacheFileList = props.getString("hadoop.cache.files", null);
         if(cacheFileList != null) {
             String[] cacheFiles = cacheFileList.split(",");
             for(String cacheFile: cacheFiles) {
@@ -202,7 +245,7 @@ public abstract class AbstractHadoopJob extends AbstractJob {
         }
 
         // Adds distributed cache files
-        String archiveFileList = _props.getString("hadoop.cache.archives", null);
+        String archiveFileList = props.getString("hadoop.cache.archives", null);
         if(archiveFileList != null) {
             String[] archiveFiles = archiveFileList.split(",");
             for(String archiveFile: archiveFiles) {
@@ -215,13 +258,13 @@ public abstract class AbstractHadoopJob extends AbstractJob {
         // hdfs
         addToDistributedCache(voldemortLibPath, conf);
 
-        boolean isAddFiles = _props.getBoolean("hdfs.default.classpath.dir.enable", false);
+        boolean isAddFiles = props.getBoolean("hdfs.default.classpath.dir.enable", false);
         if(isAddFiles) {
             addToDistributedCache(hadoopLibPath, conf);
         }
 
         // May want to add this to HadoopUtils, but will await refactoring
-        for(String key: getProps().getKeySet()) {
+        for(String key: getProps().keySet()) {
             String lowerCase = key.toLowerCase();
             if(lowerCase.startsWith(HADOOP_PREFIX)) {
                 String newKey = key.substring(HADOOP_PREFIX.length());
@@ -249,7 +292,7 @@ public abstract class AbstractHadoopJob extends AbstractJob {
      * have the jars they need at run time
      */
     private void addToDistributedCache(String propertyName, JobConf conf) throws IOException {
-        String jarDir = _props.getString(propertyName, null);
+        String jarDir = props.getString(propertyName, null);
         if(jarDir != null) {
             FileSystem fs = FileSystem.get(conf);
             if(fs != null) {
@@ -275,7 +318,7 @@ public abstract class AbstractHadoopJob extends AbstractJob {
     }
 
     public Props getProps() {
-        return this._props;
+        return this.props;
     }
 
     public void cancel() throws Exception {

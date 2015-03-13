@@ -26,10 +26,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
 
+import azkaban.jobExecutor.AbstractJob;
 import org.apache.avro.Schema;
 import org.apache.commons.lang.Validate;
 import org.apache.hadoop.fs.Path;
@@ -57,8 +57,7 @@ import voldemort.store.readonly.mr.utils.JsonSchema;
 import voldemort.store.readonly.mr.utils.VoldemortUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
-import azkaban.jobExecutor.AbstractJob;
-import azkaban.utils.Props;
+import voldemort.utils.Props;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -159,12 +158,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String HEARTBEAT_HOOK_INTERVAL_MS = "heartbeat.hook.interval.ms";
     public final static String HOOKS = "hooks";
 
-    public VoldemortBuildAndPushJob(String name, Props props) {
+    public VoldemortBuildAndPushJob(String name, azkaban.utils.Props azkabanProps) {
         super(name, Logger.getLogger(name));
         this.log = getLog();
-        log.info("Job props.toString(): " + props.toString());
+        log.info("Job props.toString(): " + azkabanProps.toString());
 
-        this.props = props;
+        this.props = new Props(azkabanProps.toProperties());
         this.storeName = props.getString(PUSH_STORE_NAME).trim();
         this.clusterUrl = new ArrayList<String>();
         this.dataDirs = new ArrayList<String>();
@@ -221,12 +220,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         heartBeatHookRunnable = new HeartBeatHookRunnable(heartBeatHookIntervalTime);
         String hookNamesText = props.getString(HOOKS, null);
         if (hookNamesText != null && !hookNamesText.isEmpty()) {
-            Properties javaProps = props.toProperties();
             for (String hookName : Utils.COMMA_SEP.split(hookNamesText.trim())) {
                 try {
                     BuildAndPushHook hook = (BuildAndPushHook) ReflectUtils.callConstructor(Class.forName(hookName));
                     try {
-                        hook.init(javaProps);
+                        hook.init(props);
                         log.info("Initialized BuildAndPushHook [" + hook.getName() + "]");
                         hooks.add(hook);
                     } catch (Exception e) {
@@ -348,7 +346,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             } catch(VoldemortException e) {
                 log.error("Exception during cluster equality check", e);
                 fail("Exception during cluster equality check: " + e.toString());
-                System.exit(-1); // FIXME: seems messy to do a System.exit here... Can we just return instead? Leaving as is for now...
+                return;
             }
             // Create a hashmap to capture exception per url
             HashMap<String, Exception> exceptions = Maps.newHashMap();
@@ -419,7 +417,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                         + " => " + Joiner.on(",").join(exceptions.values());
                 log.error(errorMessage);
                 fail(errorMessage);
-                System.exit(-1); // FIXME: seems messy to do a System.exit here... Can we just return instead? Leaving as is for now...
+                return;
             }
         } catch (Exception e) {
             log.error("An exception occurred during Build and Push !!", e);
@@ -525,8 +523,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 addStore(description, owners, url, newStoreDef);
             }
             catch(RuntimeException e) {
-                log.error("Getting store definition from: " + url + " (node id " + this.nodeId + ")", e); 
-                System.exit(-1);
+                log.error("Getting store definition from: " + url + " (node id " + this.nodeId + ")", e);
+                fail("Failed to add store");
+                throw new VoldemortException("Failed to add store", e);
             }
         }
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());

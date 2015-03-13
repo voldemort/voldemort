@@ -3,12 +3,13 @@ package voldemort.store.readonly.hooks.http;
 import com.google.common.collect.Lists;
 import voldemort.store.readonly.hooks.AbstractBuildAndPushHook;
 import voldemort.store.readonly.hooks.BuildAndPushStatus;
+import voldemort.utils.Props;
 
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class HttpHook extends AbstractBuildAndPushHook {
 
@@ -27,27 +28,33 @@ public abstract class HttpHook extends AbstractBuildAndPushHook {
             BuildAndPushStatus.CANCELLED,
             BuildAndPushStatus.FAILED);
     private final List<BuildAndPushStatus> statusesToCallHookFor = getStatusListToCallHookFor();
+    private AtomicBoolean running = new AtomicBoolean(true);
 
     @Override
-    public void init(Properties properties) throws Exception {
-        this.urlToCall = getStringPropertyOrFail(properties, URL_TO_CALL);
-        int numThreads = getIntProperty(properties, EXECUTOR_THREADS, "1");
+    public void init(Props properties) throws Exception {
+        this.urlToCall = properties.getString(URL_TO_CALL);
+        int numThreads = properties.getInt(EXECUTOR_THREADS, 1);
         this.executorService = Executors.newFixedThreadPool(numThreads);
     }
 
     @Override
-    public void invoke(BuildAndPushStatus buildAndPushStatus, String details) {
-        if (statusesToCallHookFor.contains(buildAndPushStatus)) {
-            httpFutureResults.add(this.executorService.submit(new HttpHookRunnable(
-                    getName(),
-                    log,
-                    getUrlToCall(buildAndPushStatus, details),
-                    getHttpMethod(buildAndPushStatus, details),
-                    getContentType(buildAndPushStatus, details),
-                    getRequestBody(buildAndPushStatus, details))));
-        }
-        if (terminationStatuses.contains(buildAndPushStatus)) {
-            cleanUp();
+    public synchronized void invoke(BuildAndPushStatus buildAndPushStatus, String details) {
+        if (running.get() == true) {
+            if (statusesToCallHookFor.contains(buildAndPushStatus)) {
+                httpFutureResults.add(this.executorService.submit(new HttpHookRunnable(
+                        getName(),
+                        log,
+                        getUrlToCall(buildAndPushStatus, details),
+                        getHttpMethod(buildAndPushStatus, details),
+                        getContentType(buildAndPushStatus, details),
+                        getRequestBody(buildAndPushStatus, details))));
+            }
+            if (terminationStatuses.contains(buildAndPushStatus)) {
+                cleanUp();
+            }
+        } else {
+            log.error("HttpHook [" + getName() + "] was invoked after having already terminated! " +
+                    "Status: " + buildAndPushStatus + ", details: " + details);
         }
     }
 
@@ -108,14 +115,17 @@ public abstract class HttpHook extends AbstractBuildAndPushHook {
     protected abstract String getRequestBody(BuildAndPushStatus buildAndPushStatus, String details);
 
     private synchronized void cleanUp() {
-        for (Future result : httpFutureResults) {
-            try {
-                result.get();
-            } catch (Exception e) {
-                this.log.error("Exception while getting the result of the " +
-                        getName() + "'s HTTP request...", e);
+        if (running.get() == true) {
+            for (Future result : httpFutureResults) {
+                try {
+                    result.get();
+                } catch (Exception e) {
+                    this.log.error("Exception while getting the result of the " +
+                            getName() + "'s HTTP request...", e);
+                }
             }
+            this.executorService.shutdown();
+            running.set(false);
         }
-        this.executorService.shutdownNow();
     }
 }

@@ -53,6 +53,7 @@ class HttpHookRunnable implements Runnable {
                 log.debug("HttpHook [" + hookName + "] will send " + httpMethod.name() + " request to " + urlToCall + " with body: " + requestBody);
 
             if (requestBody != null) {
+                conn.setRequestProperty("Content-Length", String.valueOf(requestBody.length()));
                 out = conn.getOutputStream();
                 out.write(requestBody.getBytes());
             }
