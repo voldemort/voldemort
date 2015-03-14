@@ -37,8 +37,6 @@ public class ReplaceNodeTest {
 
     private static final String ORIGINAL_STORES_XML = "test/common/voldemort/config/stores-rw-replication.xml";
     
-    private static final String REPLACEMENT_STORES_XML = "test/common/voldemort/config/single-store.xml";
-
     private static final String STORE322_NAME = "test322";
     private static final String STORE211_NAME = "test211";
 
@@ -108,7 +106,7 @@ public class ReplaceNodeTest {
                                                                 replacementSocketStoreFactory,
                                                                 USE_NIO,
                                                                 null,
-                                                                REPLACEMENT_STORES_XML,
+                                				ORIGINAL_STORES_XML,
                                                                 serverProperties);
     }
 
@@ -151,6 +149,8 @@ public class ReplaceNodeTest {
                               DO_RESTORE );
 
         SocketStoreFactory ssf = new TestSocketStoreFactory();
+
+
         String baseDirPath = otherServers[REPLACEMENT_NODE].getVoldemortConfig().getVoldemortHome();
         otherServers[REPLACEMENT_NODE].stop();
 

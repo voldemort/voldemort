@@ -1281,13 +1281,17 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.UpdateMetadataResponse.Builder response = VAdminProto.UpdateMetadataResponse.newBuilder();
 
         try {
-            ByteArray key = ProtoUtils.decodeBytes(request.getKey());
-            String keyString = ByteUtils.getString(key.get(), "UTF-8");
+            ByteArray requestKey = ProtoUtils.decodeBytes(request.getKey());
+            String keyString = ByteUtils.getString(requestKey.get(), "UTF-8");
             if(MetadataStore.METADATA_KEYS.contains(keyString)) {
                 Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(request.getVersioned());
 
                 logger.info("Updating metadata for key '" + keyString + "'");
-                metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
+                ByteArray key = new ByteArray(ByteUtils.getBytes(keyString, "UTF-8"));
+                metadataStore.validate(key,
+                                  versionedValue,
+                                  null);
+                metadataStore.put(key,
                                   versionedValue,
                                   null);
                 logger.info("Successfully updated metadata for key '" + keyString + "'");

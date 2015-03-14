@@ -336,6 +336,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                                                    + storeName + " Node " + nodeName + " Error "
                                                    + e.getMessage());
                                 e.printStackTrace();
+                                checkResult = false;
                             }
                         }
                     } else {
