@@ -17,13 +17,13 @@
 package voldemort.store.stats;
 
 
-import org.tehuti.Metric;
-import org.tehuti.metrics.MetricConfig;
-import org.tehuti.metrics.MetricsRepository;
-import org.tehuti.metrics.Sensor;
-import org.tehuti.metrics.stats.*;
-import org.tehuti.utils.Time;
-import org.tehuti.utils.SystemTime;
+import io.tehuti.Metric;
+import io.tehuti.metrics.MetricConfig;
+import io.tehuti.metrics.MetricsRepository;
+import io.tehuti.metrics.Sensor;
+import io.tehuti.metrics.stats.*;
+import io.tehuti.utils.Time;
+import io.tehuti.utils.SystemTime;
 import org.apache.log4j.Logger;
 
 import java.util.Map;

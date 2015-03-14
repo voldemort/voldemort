@@ -409,9 +409,6 @@ dependencies {
     // LZF compression strategy for store and tests.
     compile 'com.ning:compress-lzf:0.9.1'
 
-    // TRANSITIVE_DEPENDENCY tusk jar internally uses gson.
-    compile 'com.google.code.gson:gson:2.2.4'
-
     // Used all over the place for collections
     compile 'com.google.guava:guava:14.0.1'
 
@@ -500,9 +497,6 @@ dependencies {
     // snappy is one of the supported compression strategies in voldemort
     compile 'org.iq80.snappy:snappy:0.2'
 
-    // could not locate tusk in maven central repository
-    // tusk-0.0.2.jar
-
     // Velocity is a simple yet powerful Java-based template engine that renders data
     // from plain Java objects to text, xml, email, SQL, Post Script, HTML etc
     // Velocity is used for Http Server GUI
@@ -550,6 +544,13 @@ dependencies {
 
     compile 'com.google.code.typica:typica:1.7.2'
     compile 'com.sna-projects.krati:krati:0.4.9'
+
+    // Metrics
+    compile 'io.tehuti:tehuti:0.6'
+
+    // Other libs...
+    compile 'org.apache.tomcat:catalina-ant:6.0.43'
+    compile 'org.apache.hadoop:libthrift:0.5.0.0'
 }
 
 eclipse {

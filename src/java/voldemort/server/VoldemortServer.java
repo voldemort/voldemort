@@ -45,7 +45,6 @@ import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationService;
-import voldemort.server.protocol.hadoop.RestHadoopAuth;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
 import voldemort.server.socket.SocketService;
@@ -332,14 +331,7 @@ public class VoldemortServer extends AbstractService {
             jmxService = new JmxService(this, this.metadata.getCluster(), storeRepository, services);
             services.add(jmxService);
         }
-
-        if(voldemortConfig.isRestHdfsEnabled()) {
-            services.add(new RestHadoopAuth(voldemortConfig.getReadOnlyKerberosRealm(),
-                                            voldemortConfig.getReadOnlyKerberosKdc(),
-                                            voldemortConfig.getReadOnlyKerberosUser(),
-                                            voldemortConfig.getReadOnlyKeytabPath()));
-        }
-
+        
         return ImmutableList.copyOf(services);
     }
 

@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 import static voldemort.utils.Time.NS_PER_MS;
 
 import org.junit.Test;
-import org.tehuti.utils.Time;
+import io.tehuti.utils.Time;
 
 public class StatsTest {
 
