@@ -35,6 +35,7 @@ import org.junit.Test;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
+import voldemort.client.RoutingTier;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -147,7 +148,9 @@ public class MetaOperationsTest {
         List<StoreDefinition> newStoresToUpload = new ArrayList<StoreDefinition>();
         for(StoreDefinition storeDef: stores) {
             StoreDefinitionBuilder sb = AdminToolTestUtils.storeDefToBuilder(storeDef);
-            sb.setName(sb.getName() + "_new");
+            sb.setRoutingPolicy(sb.getRoutingPolicy().equals(RoutingTier.CLIENT) ? RoutingTier.SERVER
+                                                                                : RoutingTier.CLIENT);
+            sb.setPreferredReads(sb.getPreferredReads() == null ? sb.getRequiredReads() : null);
             newStoresToUpload.add(sb.build());
         }
 
@@ -173,9 +176,16 @@ public class MetaOperationsTest {
                                                                                                                .getId())
                                                                              .getValue();
 
+        System.out.println("Uploades stores"
+                           + new StoreDefinitionsMapper().writeStoreList(newStoresToUpload));
+
+        System.out.println("Retrieved stores"
+                           + new StoreDefinitionsMapper().writeStoreList(newStoresToVerify));
+
         // check if new metadata is the same as the source
-        assertTrue(!newStoresToVerify.equals(stores));
-        assertTrue(newStoresToVerify.equals(newStoresToUpload));
+        assertTrue("Old store should not equal to new stores", !newStoresToVerify.equals(stores));
+        assertTrue("Uploaded stores and retrieved stores are different",
+                   newStoresToVerify.equals(newStoresToUpload));
 
         // check if all new metadata are the same
         storesValues.clear();

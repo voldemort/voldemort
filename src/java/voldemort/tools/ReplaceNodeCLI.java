@@ -295,17 +295,18 @@ public class ReplaceNodeCLI {
         verifyAdminPort(cluster.getNodes(), url);
         verifyAdminPort(Arrays.asList(newCluster.getNodeById(newNodeId)), newUrl);
 
+        List<StoreDefinition> newStoreDefinitions = this.newAdminClient.metadataMgmtOps.getRemoteStoreDefList()
+                                                                                       .getValue();
+
+        Set<StoreDefinition> existingStores = new HashSet<StoreDefinition>();
+        existingStores.addAll(storeDefinitions);
+
+        Set<StoreDefinition> newStores = new HashSet<StoreDefinition>();
+        newStores.addAll(newStoreDefinitions);
+
         if(skipRestore) {
             // If no restore verify that the cluster has same stores as the
             // existing ones.
-            List<StoreDefinition> newStoreDefinitions = this.newAdminClient.metadataMgmtOps.getRemoteStoreDefList()
-                                                                                           .getValue();
-
-            Set<StoreDefinition> existingStores = new HashSet<StoreDefinition>();
-            existingStores.addAll(storeDefinitions);
-
-            Set<StoreDefinition> newStores = new HashSet<StoreDefinition>();
-            newStores.addAll(newStoreDefinitions);
 
             if(existingStores.equals(newStores) == false) {
                 throw new VoldemortApplicationException("Command called with skip data restore, but store definitions do not match... aborting ");
@@ -372,6 +373,13 @@ public class ReplaceNodeCLI {
                 throw new VoldemortApplicationException("data restore not supported for clusters with read only stores. Read only store name "
                             + readOnlyStoreDefs.get(0));
             }
+
+            if(existingStores.equals(newStores) == false) {
+                if(newStores.size() != 0) {
+                    throw new VoldemortApplicationException(" Stores xml in the new cluster should either match the old cluster or should be empty ");
+                }
+            }
+
         }
     }
 
@@ -432,6 +440,10 @@ public class ReplaceNodeCLI {
     }
 
     private void modifyTopology() {
+        List<StoreDefinition> newStoreDefinitions = this.newAdminClient.metadataMgmtOps.getRemoteStoreDefList()
+                                                                                       .getValue();
+        
+
         String updatedClusterXML = updateClusterXML();
         String storesXML = new StoreDefinitionsMapper().writeStoreList(storeDefinitions);
 
@@ -441,6 +453,12 @@ public class ReplaceNodeCLI {
         newAdminClient.metadataMgmtOps.updateRemoteMetadata(newNodeIdAsList,
                                                             MetadataStore.CLUSTER_KEY,
                                                             updatedClusterXML);
+
+        if(newStoreDefinitions.size() == 0) {
+            for(StoreDefinition def: storeDefinitions) {
+                newAdminClient.storeMgmtOps.addStore(def, newNodeIdAsList);
+            }
+        }
 
         newAdminClient.metadataMgmtOps.updateRemoteMetadata(newNodeIdAsList,
                                                             MetadataStore.STORES_KEY,

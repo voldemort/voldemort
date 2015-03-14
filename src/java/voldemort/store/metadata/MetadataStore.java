@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -263,6 +264,52 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     @Override
     public String getName() {
         return METADATA_STORE_NAME;
+    }
+
+    @SuppressWarnings("unchecked")
+    public void validate(ByteArray keyBytes, Versioned<byte[]> valueBytes, byte[] transforms)
+                throws VoldemortException {
+        String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
+        Versioned<String> value = new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
+                                                                            "UTF-8"),
+                                                        valueBytes.getVersion());
+
+        Versioned<Object> valueObject = convertStringToObject(key, value);
+
+        if(key.equals(MetadataStore.STORES_KEY)) {
+            List<StoreDefinition> storeDefinitions = (List<StoreDefinition>) valueObject.getValue();
+
+            Set<String> existingStores = new HashSet<String>(this.storeNames);
+
+            Set<String> specifiedStoreNames = new HashSet<String>();
+            for(StoreDefinition storeDef: storeDefinitions) {
+                String storeName = storeDef.getName();
+                if(specifiedStoreNames.contains(storeName)) {
+                    throw new VoldemortException(" Duplicate store names in Stores.xml for storeName "
+                                                 + storeName);
+                }
+                specifiedStoreNames.add(storeName);
+            }
+
+            existingStores.removeAll(specifiedStoreNames);
+            // Theoretically, add or delete stores in set metadata should throw
+            // an error. But for operations we use it from time to time to block
+            // access to some stores by removing a store from metadata and
+            // adding it back to allow again.
+            if(existingStores.size() > 0) {
+                logger.warn(" Set metadata does not support store deletion. This will leave the store in an "
+                            + "inconsistent state. Stores (Inconsistent) missing in set metadata "
+                                             + Arrays.toString(existingStores.toArray()));
+            }
+
+            specifiedStoreNames.removeAll(this.storeNames);
+            if(specifiedStoreNames.size() > 0) {
+                logger.warn(" Set metadata does not support store addition . This will leave the store in an "
+                            + "inconsistent state. Stores (Inconsistent) added in set metadata "
+                                             + Arrays.toString(specifiedStoreNames.toArray()));
+            }
+        }
+
     }
 
     /**
@@ -1184,10 +1231,16 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
             this.metadataCache.put(storeName, new Versioned<Object>(versionedStoreDef.getValue(),
                                                                     versionedStoreDef.getVersion()));
+        }
 
+        Collections.sort(this.storeNames);
+        for(String storeName: this.storeNames) {
+            Versioned<String> versionedStoreDef = storeNameToDefMap.get(storeName);
             // Stitch together to form the complete store definition list.
             allStoreDefinitions += versionedStoreDef.getValue();
+
         }
+
         allStoreDefinitions += "</stores>";
 
         // Update cache with the composite store definition list.
