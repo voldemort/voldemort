@@ -1,3 +1,19 @@
+Release 1.9.8 on 03/17/2015
+* Fixes a bug in the vadmin restore-from-replica command.
+* Improves the vadmin meta check command.
+* Improves the build's tar target.
+* Adds better logging in the expansion code.
+* Cleans up BnP:
+  * Removes Azkaban dependency as much as possible.
+  * Standardizes on using voldemort.utils.Props as much as possible and adds more utility functions to it.
+  * Deletes VoldemortMultiStoreBuildAndPushJob which is not actively used and suffering from code rot.
+  * Adds Content-Length header support in BnP HttpHook.
+  * Adds safeguards in BnP HttpHook's concurrent code.
+  * Removes System.exit calls from BnP.
+* Cleans up dependencies:
+  * Removed tusk, RestHadoopFetcher and related classes and tests.
+  * Now fetching libthrift, catalina-ant and tehuti from Maven.
+
 Release 1.9.7 on 03/04/2015
 * Improve Voldemort BuildAndPush
 * Fix bugs in FailureDetector and AdminConnectionVerifier for slop streaming
