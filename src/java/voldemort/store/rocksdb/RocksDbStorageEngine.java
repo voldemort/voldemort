@@ -39,13 +39,18 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
     private RocksDB rocksDB;
     private final StripedLock locks;
     private static final Hex hexCodec = new Hex();
+    private final boolean enableReadLocks;
 
     // TODO Need to add stats and loggers later
 
-    public RocksDbStorageEngine(String name, RocksDB rdbInstance, int lockStripes) {
+    public RocksDbStorageEngine(String name,
+                                RocksDB rdbInstance,
+                                int lockStripes,
+                                boolean enableReadLocks) {
         super(name);
         this.rocksDB = rdbInstance;
         this.locks = new StripedLock(lockStripes);
+        this.enableReadLocks = enableReadLocks;
     }
 
     public RocksDB getRocksDB() {
@@ -77,11 +82,8 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
         throw new UnsupportedOperationException("truncate not suppported for this storage type");
     }
 
-    @Override
-    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
+    private List<Versioned<byte[]>> getValueForKey(ByteArray key, byte[] transforms)
             throws PersistenceFailureException {
-        // TODO read locks ?
-        StoreUtils.assertValidKey(key);
         long startTimeNs = -1;
 
         if(logger.isTraceEnabled())
@@ -107,6 +109,21 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
             }
         }
         return value;
+    }
+
+    @Override
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
+            throws PersistenceFailureException {
+        StoreUtils.assertValidKey(key);
+
+        if(enableReadLocks) {
+            synchronized(this.locks.lockFor(key.get())) {
+                return getValueForKey(key, transforms);
+            }
+
+        } else {
+            return getValueForKey(key, transforms);
+        }
     }
 
     @Override

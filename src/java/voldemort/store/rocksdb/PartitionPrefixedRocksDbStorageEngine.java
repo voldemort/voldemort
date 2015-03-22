@@ -24,8 +24,9 @@ public class PartitionPrefixedRocksDbStorageEngine extends RocksDbStorageEngine 
     public PartitionPrefixedRocksDbStorageEngine(String storeName,
                                                  RocksDB rdbStore,
                                                  int lockStripes,
-                                                 RoutingStrategy routingStrategy) {
-        super(storeName, rdbStore, lockStripes);
+                                                 RoutingStrategy routingStrategy,
+                                                 boolean enableReadLocks) {
+        super(storeName, rdbStore, lockStripes, enableReadLocks);
         this.routingStrategy = routingStrategy;
     }
 

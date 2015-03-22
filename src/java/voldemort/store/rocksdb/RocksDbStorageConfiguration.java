@@ -71,10 +71,14 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
                     rdbStorageEngine = new PartitionPrefixedRocksDbStorageEngine(storeName,
                                                                                  rdbStore,
                                                                                  lockStripes,
-                                                                                 strategy);
+                                                                                 strategy,
+                                                                                 voldemortconfig.isRocksdbEnableReadLocks());
                 } else {
                     rdbStore = RocksDB.open(rdbOptions, dataDir);
-                    rdbStorageEngine = new RocksDbStorageEngine(storeName, rdbStore, lockStripes);
+                    rdbStorageEngine = new RocksDbStorageEngine(storeName,
+                                                                rdbStore,
+                                                                lockStripes,
+                                                                voldemortconfig.isRocksdbEnableReadLocks());
                 }
                 stores.put(storeName, rdbStorageEngine);
             } catch(Exception e) {

@@ -13,6 +13,7 @@ import java.util.Random;
 import junit.framework.Assert;
 
 import org.apache.commons.io.FileDeleteStrategy;
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,6 +39,7 @@ public class RocksdbStorageEngineAPITest {
     Random random;
     VoldemortConfig voldemortConfig;
     private boolean prefixPartitionId;
+    private static final Logger logger = Logger.getLogger(RocksdbStorageEngineAPITest.class);
 
     public RocksdbStorageEngineAPITest(boolean prefixPartitionId) {
         this.prefixPartitionId = prefixPartitionId;
@@ -98,7 +100,7 @@ public class RocksdbStorageEngineAPITest {
 
     @Test
     public void testGetAfterPut() {
-        System.out.println("*********** testing get after put ***********");
+        logger.info("*********** testing get after put ***********");
         // generate random bytes for key
         ByteArray key = generateRandomKeys(100);
 
@@ -130,7 +132,7 @@ public class RocksdbStorageEngineAPITest {
     }
 
     public void testDelete(ByteArray key, Version versionToDelete) {
-        System.out.println("version to delete: "
+        logger.info("version to delete: "
                            + (versionToDelete == null ? "null" : versionToDelete.toString()));
         List<Versioned<byte[]>> found = null;
         // Do a get now to see if key exists
@@ -170,7 +172,7 @@ public class RocksdbStorageEngineAPITest {
 
     @Test
     public void testUnversionedDelete() {
-        System.out.println("*********** testing unversioned delete ***********");
+        logger.info("*********** testing unversioned delete ***********");
         // generate random bytes for key
         ByteArray key = generateRandomKeys(100);
 
@@ -217,7 +219,7 @@ public class RocksdbStorageEngineAPITest {
 
     @Test
     public void testVersionedDelete() {
-        System.out.println("*********** testing versioned delete ***********");
+        logger.info("*********** testing versioned delete ***********");
         ByteArray key = new ByteArray("keyOne".getBytes());
         List<Versioned<byte[]>> conflictingVersions = generatePutWithConflictionVersions(key);
         if(conflictingVersions.size() == 0) {
@@ -228,7 +230,7 @@ public class RocksdbStorageEngineAPITest {
 
     @Test
     public void testGetAll() {
-        System.out.println("*********** testing get all ***********");
+        logger.info("*********** testing get all ***********");
         Map<ByteArray, Versioned<byte[]>> expected = new java.util.HashMap<ByteArray, Versioned<byte[]>>();
 
         ByteArray key1, key2;

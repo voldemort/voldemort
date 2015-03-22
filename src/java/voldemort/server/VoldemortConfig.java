@@ -136,8 +136,9 @@ public class VoldemortConfig implements Serializable {
     private String mysqlHost;
     private int mysqlPort;
 
-    private String rdbDataDirectory;
+    private String rocksdbDataDirectory;
     private boolean rocksdbPrefixKeysWithPartitionId;
+    private boolean rocksdbEnableReadLocks;
 
     private int numReadOnlyVersions;
     private String readOnlyStorageDir;
@@ -573,9 +574,11 @@ public class VoldemortConfig implements Serializable {
                                                              10000);
 
         // RocksDB config
-        this.rdbDataDirectory = props.getString("rocksdb.data.dir", "/tmp/rdb_data_dir");
+        this.rocksdbDataDirectory = props.getString("rocksdb.data.dir", this.dataDirectory
+                                                                    + File.separator + "rocksdb");
         this.rocksdbPrefixKeysWithPartitionId = props.getBoolean("rocksdb.prefix.keys.with.partitionid",
                                                                  true);
+        this.rocksdbEnableReadLocks = props.getBoolean("rocksdb.enable.read.locks", false);
 
         validateParams();
     }
@@ -3242,7 +3245,7 @@ public class VoldemortConfig implements Serializable {
     }
 
     public String getRdbDataDirectory() {
-        return rdbDataDirectory;
+        return rocksdbDataDirectory;
     }
 
     /**
@@ -3256,7 +3259,7 @@ public class VoldemortConfig implements Serializable {
      * @param rdbDataDirectory
      */
     public void setRdbDataDirectory(String rdbDataDirectory) {
-        this.rdbDataDirectory = rdbDataDirectory;
+        this.rocksdbDataDirectory = rdbDataDirectory;
     }
 
     public boolean getRocksdbPrefixKeysWithPartitionId() {
@@ -3272,6 +3275,20 @@ public class VoldemortConfig implements Serializable {
      */
     public void setRocksdbPrefixKeysWithPartitionId(boolean rocksdbPrefixKeysWithPartitionId) {
         this.rocksdbPrefixKeysWithPartitionId = rocksdbPrefixKeysWithPartitionId;
+    }
+
+    public boolean isRocksdbEnableReadLocks() {
+        return rocksdbEnableReadLocks;
+    }
+
+    /**
+     * If set to true get API will be synchronized. By default this feature is
+     * disabled.
+     * 
+     * @param rocksdbEnableReadLocks
+     */
+    public void setRocksdbEnableReadLocks(boolean rocksdbEnableReadLocks) {
+        this.rocksdbEnableReadLocks = rocksdbEnableReadLocks;
     }
 
 }
