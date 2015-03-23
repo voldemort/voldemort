@@ -7,8 +7,6 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.protocol.admin.AdminServiceRequestHandler;
 import voldemort.server.protocol.admin.AsyncOperationService;
-import voldemort.server.protocol.pb.ProtoBuffRequestHandler;
-import voldemort.server.protocol.vold.VoldemortNativeRequestHandler;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
@@ -21,6 +19,8 @@ import voldemort.store.metadata.MetadataStore;
  * 
  */
 public class SocketRequestHandlerFactory implements RequestHandlerFactory {
+
+    private final ClientRequestHandlerFactory clientFactory;
 
     private final StorageService storage;
     private final StoreRepository repository;
@@ -37,6 +37,9 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
                                        AsyncOperationService asyncService,
                                        Rebalancer rebalancer,
                                        VoldemortServer server) {
+
+        this.clientFactory = new ClientRequestHandlerFactory(repository);
+
         this.storage = storageService;
         this.repository = repository;
         this.metadata = metadata;
@@ -46,29 +49,26 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
         this.server = server;
     }
 
+    @Override
     public RequestHandler getRequestHandler(RequestFormatType type) {
-        switch(type) {
-            case VOLDEMORT_V0:
-                return new VoldemortNativeRequestHandler(new ErrorCodeMapper(), repository, 0);
-            case VOLDEMORT_V1:
-                return new VoldemortNativeRequestHandler(new ErrorCodeMapper(), repository, 1);
-            case VOLDEMORT_V2:
-                return new VoldemortNativeRequestHandler(new ErrorCodeMapper(), repository, 2);
-            case VOLDEMORT_V3:
-                return new VoldemortNativeRequestHandler(new ErrorCodeMapper(), repository, 3);
-            case PROTOCOL_BUFFERS:
-                return new ProtoBuffRequestHandler(new ErrorCodeMapper(), repository);
-            case ADMIN_PROTOCOL_BUFFERS:
+        if(type == RequestFormatType.ADMIN_PROTOCOL_BUFFERS) {
                 return new AdminServiceRequestHandler(new ErrorCodeMapper(),
-                                                      storage,
-                                                      repository,
-                                                      metadata,
-                                                      voldemortConfig,
-                                                      asyncService,
-                                                      rebalancer,
-                                                      server);
-            default:
-                throw new VoldemortException("Unknown wire format " + type);
+                                                  storage,
+                                                  repository,
+                                                  metadata,
+                                                  voldemortConfig,
+                                                  asyncService,
+                                                  rebalancer,
+                                                  server);
         }
+
+        try {
+            return clientFactory.getRequestHandler(type);
+        } catch(VoldemortException e) {
+
+        }
+
+        throw new VoldemortException("Unknown wire format in " + this.getClass().getName()
+                                     + " Type : " + type);
     }
 }

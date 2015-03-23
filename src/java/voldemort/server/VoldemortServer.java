@@ -42,6 +42,7 @@ import voldemort.server.gossip.GossipService;
 import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
+import voldemort.server.protocol.ClientRequestHandlerFactory;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationService;
@@ -235,17 +236,12 @@ public class VoldemortServer extends AbstractService {
 
         }
         if(voldemortConfig.isSocketServerEnabled()) {
-            RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,
-                                                                                                this.storeRepository,
-                                                                                                this.metadata,
-                                                                                                this.voldemortConfig,
-                                                                                                this.asyncService,
-                                                                                                null,
-                                                                                                null);
+
+            RequestHandlerFactory clientRequestHandlerFactory = new ClientRequestHandlerFactory(this.storeRepository);
 
             if(voldemortConfig.getUseNioConnector()) {
                 logger.info("Using NIO Connector.");
-                NioSocketService nioSocketService = new NioSocketService(socketRequestHandlerFactory,
+                NioSocketService nioSocketService = new NioSocketService(clientRequestHandlerFactory,
                                                                          identityNode.getSocketPort(),
                                                                          voldemortConfig.getSocketBufferSize(),
                                                                          voldemortConfig.getNioConnectorSelectors(),
@@ -255,7 +251,7 @@ public class VoldemortServer extends AbstractService {
                 onlineServices.add(nioSocketService);
             } else {
                 logger.info("Using BIO Connector.");
-                SocketService socketService = new SocketService(socketRequestHandlerFactory,
+                SocketService socketService = new SocketService(clientRequestHandlerFactory,
                                                                 identityNode.getSocketPort(),
                                                                 voldemortConfig.getCoreThreads(),
                                                                 voldemortConfig.getMaxThreads(),
@@ -295,12 +291,12 @@ public class VoldemortServer extends AbstractService {
             }
 
             SocketRequestHandlerFactory adminRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,
-                                                                                                     this.storeRepository,
-                                                                                                     this.metadata,
-                                                                                                     this.voldemortConfig,
-                                                                                                     this.asyncService,
-                                                                                                     rebalancer,
-                                                                                                     this);
+                                                                                                   this.storeRepository,
+                                                                                                   this.metadata,
+                                                                                                   this.voldemortConfig,
+                                                                                                   this.asyncService,
+                                                                                                   rebalancer,
+                                                                                                   this);
 
             if(voldemortConfig.getUseNioConnector()) {
                 logger.info("Using NIO Connector for Admin Service.");

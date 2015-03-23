@@ -15,7 +15,7 @@ import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.SocketAndStreams;
 import voldemort.server.AbstractSocketService;
-import voldemort.server.protocol.SocketRequestHandlerFactory;
+import voldemort.server.protocol.ClientRequestHandlerFactory;
 import voldemort.socketpool.AbstractSocketPoolTest.TestStats;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
@@ -91,13 +91,7 @@ public class SimpleSocketPoolTest extends TestCase {
     public void testSocketPoolLimitSomeTimeout() throws Exception {
         // start a dummy server
         AbstractSocketService server = ServerTestUtils.getSocketService(useNio,
-                                                                        new SocketRequestHandlerFactory(null,
-                                                                                                        null,
-                                                                                                        null,
-                                                                                                        null,
-                                                                                                        null,
-                                                                                                        null,
-                                                                                                        null),
+                                                                        new ClientRequestHandlerFactory(null),
                                                                         7666,
                                                                         50,
                                                                         50,
@@ -138,13 +132,7 @@ public class SimpleSocketPoolTest extends TestCase {
     public void testClientRequestExecutorLimitSomeTimeout() throws Exception {
         // start a dummy server
         AbstractSocketService server = ServerTestUtils.getSocketService(useNio,
-                                                                        new SocketRequestHandlerFactory(null,
-                                                                                                        null,
-                                                                                                        null,
-                                                                                                        null,
-                                                                                                        null,
-                                                                                                        null,
-                                                                                                        null),
+                                                                        new ClientRequestHandlerFactory(null),
                                                                         7666,
                                                                         50,
                                                                         50,
