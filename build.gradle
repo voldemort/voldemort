@@ -551,6 +551,9 @@ dependencies {
     // Other libs...
     compile 'org.apache.tomcat:catalina-ant:6.0.43'
     compile 'org.apache.hadoop:libthrift:0.5.0.0'
+    
+    // rocksdb from maven
+    compile 'org.rocksdb:rocksdbjni:3.6.2'
 }
 
 eclipse {

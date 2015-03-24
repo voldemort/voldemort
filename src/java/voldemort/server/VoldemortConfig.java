@@ -55,6 +55,7 @@ import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.InterpolationSearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.rocksdb.RocksDbStorageConfiguration;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
@@ -134,6 +135,10 @@ public class VoldemortConfig implements Serializable {
     private String mysqlDatabaseName;
     private String mysqlHost;
     private int mysqlPort;
+
+    private String rocksdbDataDirectory;
+    private boolean rocksdbPrefixKeysWithPartitionId;
+    private boolean rocksdbEnableReadLocks;
 
     private int numReadOnlyVersions;
     private String readOnlyStorageDir;
@@ -481,7 +486,8 @@ public class VoldemortConfig implements Serializable {
                                                                     MysqlStorageConfiguration.class.getName(),
                                                                     InMemoryStorageConfiguration.class.getName(),
                                                                     CacheStorageConfiguration.class.getName(),
-                                                                    ReadOnlyStorageConfiguration.class.getName()));
+                                                                    ReadOnlyStorageConfiguration.class.getName(),
+                                                                    RocksDbStorageConfiguration.class.getName()));
 
         // start at midnight (0-23)
         this.retentionCleanupFirstStartTimeInHour = props.getInt("retention.cleanup.first.start.hour",
@@ -566,6 +572,13 @@ public class VoldemortConfig implements Serializable {
                                                          Integer.MAX_VALUE);
         this.slopPurgeJobMaxKeysScannedPerSec = props.getInt("slop.purgejob.max.keys.scanned.per.sec",
                                                              10000);
+
+        // RocksDB config
+        this.rocksdbDataDirectory = props.getString("rocksdb.data.dir", this.dataDirectory
+                                                                    + File.separator + "rocksdb");
+        this.rocksdbPrefixKeysWithPartitionId = props.getBoolean("rocksdb.prefix.keys.with.partitionid",
+                                                                 true);
+        this.rocksdbEnableReadLocks = props.getBoolean("rocksdb.enable.read.locks", false);
 
         validateParams();
     }
@@ -3229,6 +3242,53 @@ public class VoldemortConfig implements Serializable {
 
     public String getFileFetcherClass() {
         return this.fileFetcherClass;
+    }
+
+    public String getRdbDataDirectory() {
+        return rocksdbDataDirectory;
+    }
+
+    /**
+     * Where RocksDB should put its data directories
+     * 
+     * <ul>
+     * <li>Property :"rocksdb.data.dir"</li>
+     * <li>Default : "/tmp/rdb_data_dir"</li>
+     * </ul>
+     * 
+     * @param rdbDataDirectory
+     */
+    public void setRdbDataDirectory(String rdbDataDirectory) {
+        this.rocksdbDataDirectory = rdbDataDirectory;
+    }
+
+    public boolean getRocksdbPrefixKeysWithPartitionId() {
+        return rocksdbPrefixKeysWithPartitionId;
+    }
+
+    /**
+     * If true, keys will be prefixed by the partition Id on disk. This can
+     * possibly speed up rebalancing, restore operations, at the cost of 2 bytes
+     * of extra storage per key
+     * 
+     * @param rocksdbPrefixKeysWithPartitionId
+     */
+    public void setRocksdbPrefixKeysWithPartitionId(boolean rocksdbPrefixKeysWithPartitionId) {
+        this.rocksdbPrefixKeysWithPartitionId = rocksdbPrefixKeysWithPartitionId;
+    }
+
+    public boolean isRocksdbEnableReadLocks() {
+        return rocksdbEnableReadLocks;
+    }
+
+    /**
+     * If set to true get API will be synchronized. By default this feature is
+     * disabled.
+     * 
+     * @param rocksdbEnableReadLocks
+     */
+    public void setRocksdbEnableReadLocks(boolean rocksdbEnableReadLocks) {
+        this.rocksdbEnableReadLocks = rocksdbEnableReadLocks;
     }
 
 }
