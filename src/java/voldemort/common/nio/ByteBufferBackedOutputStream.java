@@ -53,6 +53,10 @@ public class ByteBufferBackedOutputStream extends OutputStream {
         this.bufferContainer = bufferContainer;
     }
 
+    public ByteBufferContainer getBufferContainer() {
+        return this.bufferContainer;
+    }
+
     public ByteBuffer getBuffer() {
         return bufferContainer.getBuffer();
     }
@@ -94,7 +98,6 @@ public class ByteBufferBackedOutputStream extends OutputStream {
     @Override
     public void close() throws IOException {
         bufferContainer.close();
-        super.close();
     }
 
     public void clear() {

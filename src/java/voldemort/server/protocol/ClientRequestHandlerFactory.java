@@ -39,4 +39,9 @@ public class ClientRequestHandlerFactory implements RequestHandlerFactory {
                                              + " Type : " + type);
         }
     }
+
+    @Override
+    public boolean shareReadWriteBuffer() {
+        return true;
+    }
 }

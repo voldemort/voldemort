@@ -27,6 +27,7 @@ import java.nio.channels.SocketChannel;
 
 import org.apache.log4j.Level;
 
+import voldemort.VoldemortApplicationException;
 import voldemort.common.nio.ByteBufferBackedInputStream;
 import voldemort.common.nio.ByteBufferBackedOutputStream;
 import voldemort.common.nio.ByteBufferContainer;
@@ -61,8 +62,14 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
                                  SocketChannel socketChannel,
                                  int socketBufferSize) {
         // Not tracking or exposing the comm buffer statistics for now
-        super(selector, socketChannel, socketBufferSize, new CommBufferSizeStats());
+        super(selector, socketChannel, socketBufferSize);
         isExpired = false;
+
+        initializeStreams(socketBufferSize, new CommBufferSizeStats());
+        if(this.inputStream == null || this.outputStream == null) {
+            throw new VoldemortApplicationException("InputStream or OuputStream is null after initialization");
+        }
+
     }
 
     public SocketChannel getSocketChannel() {

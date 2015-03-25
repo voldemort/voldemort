@@ -50,6 +50,11 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
     }
 
     @Override
+    public boolean shareReadWriteBuffer() {
+        return false;
+    }
+
+    @Override
     public RequestHandler getRequestHandler(RequestFormatType type) {
         if(type == RequestFormatType.ADMIN_PROTOCOL_BUFFERS) {
                 return new AdminServiceRequestHandler(new ErrorCodeMapper(),

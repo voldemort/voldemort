@@ -27,6 +27,7 @@ import java.nio.channels.SocketChannel;
 
 import org.apache.log4j.Level;
 
+import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.common.nio.ByteBufferBackedInputStream;
@@ -70,9 +71,14 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
                                RequestHandlerFactory requestHandlerFactory,
                                int socketBufferSize,
                                NioSelectorManagerStats nioStats) {
-        super(selector, socketChannel, socketBufferSize, nioStats.getServerCommBufferStats());
+        super(selector, socketChannel, socketBufferSize);
         this.requestHandlerFactory = requestHandlerFactory;
         this.nioStats = nioStats;
+
+        initializeStreams(socketBufferSize, nioStats.getServerCommBufferStats());
+        if(this.inputStream == null || this.outputStream == null) {
+            throw new VoldemortApplicationException("InputStream or OuputStream is null after initialization");
+        }
     }
 
     /**
@@ -85,7 +91,9 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         if(logger.isTraceEnabled())
             traceInputBufferState("About to clear read buffer");
 
-        inputStream.clear();
+        if(requestHandlerFactory.shareReadWriteBuffer() == false) {
+            inputStream.clear();
+        }
 
         if(logger.isTraceEnabled())
             traceInputBufferState("Cleared read buffer");
@@ -96,13 +104,19 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
     @Override
     protected void initializeStreams(int socketBufferSize, CommBufferSizeStats commBufferStats) {
-        ByteBufferContainer inputBufferContainer = new ByteBufferContainer(socketBufferSize,
-                                                                           resizeThreshold,
-                                                                           commBufferStats.getCommReadBufferSizeTracker());
+        ByteBufferContainer inputBufferContainer, outputBufferContainer;
+        inputBufferContainer = new ByteBufferContainer(socketBufferSize,
+                                                       resizeThreshold,
+                                                       commBufferStats.getCommReadBufferSizeTracker());
+
+        if(requestHandlerFactory.shareReadWriteBuffer()) {
+            outputBufferContainer = inputBufferContainer;
+        } else {
+            outputBufferContainer = new ByteBufferContainer(socketBufferSize,
+                                                            resizeThreshold,
+                                                            commBufferStats.getCommWriteBufferSizeTracker());
+        }
         this.inputStream = new ByteBufferBackedInputStream(inputBufferContainer);
-        ByteBufferContainer outputBufferContainer = new ByteBufferContainer(socketBufferSize,
-                                                                            resizeThreshold,
-                                                                            commBufferStats.getCommWriteBufferSizeTracker());
         this.outputStream = new ByteBufferBackedOutputStream(outputBufferContainer);
     }
 
@@ -163,13 +177,14 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
         DataInputStream dataInputStream = new DataInputStream(inputStream);
         DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
-
-        streamRequestHandler = requestHandler.handleRequest(dataInputStream, dataOutputStream);
+        streamRequestHandler = requestHandler.handleRequest(dataInputStream,
+                                                            dataOutputStream,
+                                                            outputStream.getBufferContainer());
 
         if(logger.isDebugEnabled()) {
             logger.debug("AsyncRequestHandler:read finished request from "
                          + socketChannel.socket().getRemoteSocketAddress() + " handlerRef: "
-                         + System.identityHashCode(dataInputStream) + " at time: "
+                         + System.identityHashCode(outputStream) + " at time: "
                          + System.currentTimeMillis() + " elapsed time: "
                          + (System.nanoTime() - startNs) + " ns");
         }
@@ -383,6 +398,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
         try {
             String proto = ByteUtils.getString(protoBytes, "UTF-8");
+            inputBuffer.clear();
             RequestFormatType requestFormatType = RequestFormatType.fromCode(proto);
             requestHandler = requestHandlerFactory.getRequestHandler(requestFormatType);
 

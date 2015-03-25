@@ -21,6 +21,9 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import voldemort.VoldemortException;
+import voldemort.common.nio.ByteBufferContainer;
+
 /**
  * A request handler that answers client requests in some given format
  * 
@@ -42,7 +45,13 @@ public interface RequestHandler {
      */
 
     public StreamRequestHandler handleRequest(DataInputStream inputStream,
-                                              DataOutputStream outputStream) throws IOException;
+                                              DataOutputStream outputStream)
+            throws IOException;
+
+    public StreamRequestHandler handleRequest(DataInputStream inputStream,
+                                              DataOutputStream outputStream,
+                                              ByteBufferContainer outputContainer)
+            throws IOException;
 
     /**
      * This method is used by non-blocking code to determine if the give buffer
@@ -56,6 +65,6 @@ public interface RequestHandler {
      * @return True if the buffer holds a complete request, false otherwise
      */
 
-    public boolean isCompleteRequest(ByteBuffer buffer);
+    public boolean isCompleteRequest(ByteBuffer buffer) throws VoldemortException;
 
 }

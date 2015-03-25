@@ -29,8 +29,6 @@ import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.VoldemortApplicationException;
-
 /**
  * SelectorManagerWorker manages a Selector, SocketChannel, and IO streams
  * implementation. At the point that the run method is invoked, the Selector
@@ -64,16 +62,11 @@ public abstract class SelectorManagerWorker implements Runnable {
 
     public SelectorManagerWorker(Selector selector,
                                  SocketChannel socketChannel,
-                                 int socketBufferSize,
-                                 CommBufferSizeStats commBufferStats) {
+                                 int socketBufferSize) {
         this.selector = selector;
         this.socketChannel = socketChannel;
         this.socketBufferSize = socketBufferSize;
         this.resizeThreshold = socketBufferSize * 2; // This is arbitrary...
-        initializeStreams(socketBufferSize, commBufferStats);
-        if(this.inputStream == null || this.outputStream == null) {
-            throw new VoldemortApplicationException("InputStream or OuputStream is null after initialization");
-        }
 
         this.createTimestamp = System.nanoTime();
         this.isClosed = new AtomicBoolean(false);

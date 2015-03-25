@@ -10,4 +10,6 @@ import voldemort.client.protocol.RequestFormatType;
 public interface RequestHandlerFactory {
 
     public RequestHandler getRequestHandler(RequestFormatType type);
+
+    public boolean shareReadWriteBuffer();
 }

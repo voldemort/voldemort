@@ -28,14 +28,26 @@ public class ByteBufferContainer {
     private final MutableLong sizeTracker;
     private final AtomicBoolean isClosed;
 
+    private void assignBuffer(ByteBuffer newBuffer) {
+        if(sizeTracker != null) {
+            int oldSize = 0;
+            if(this.buffer != null ){
+                oldSize = this.buffer.capacity();
+            }
+            updateSizeStats(oldSize, newBuffer.capacity());
+        }
+        this.buffer = newBuffer;
+    }
+
     public ByteBufferContainer(int sizeLowerBound, int sizeUpperBound, MutableLong sizeTracker) {
-        this.buffer = ByteBuffer.allocate(sizeLowerBound);
-        updateSizeStats(0, this.buffer.capacity());
+        this.sizeTracker = sizeTracker;
+
         this.sizeLowerBound = sizeLowerBound;
         this.sizeUpperBound = sizeUpperBound;
 
-        this.sizeTracker = sizeTracker;
         isClosed = new AtomicBoolean(false);
+
+        assignBuffer(ByteBuffer.allocate(sizeLowerBound));
     }
 
     public ByteBufferContainer(ByteBuffer byteBuffer) {
@@ -57,8 +69,19 @@ public class ByteBufferContainer {
 
     public void growBuffer(int newSize) {
         int oldSize = buffer.capacity();
-        this.buffer = ByteUtils.expand(this.buffer, newSize);
-        updateSizeStats(oldSize, this.buffer.capacity());
+        if(newSize > oldSize) {
+            assignBuffer(ByteUtils.expand(this.buffer, newSize));
+        }
+    }
+
+    public void ensureSpace(int writeLen) {
+        int need = (writeLen - this.buffer.remaining());
+
+        if(need <= 0) {
+            return;
+        }
+
+        growBuffer(buffer.capacity() + need);
     }
 
     public ByteBuffer getBuffer() {
@@ -66,19 +89,15 @@ public class ByteBufferContainer {
     }
 
     public void reset() {
-        int currentSize = this.buffer.capacity();
         if(this.buffer.capacity() > sizeUpperBound) {
-            this.buffer = ByteBuffer.allocate(sizeLowerBound);
-            updateSizeStats(currentSize, buffer.capacity());
+            assignBuffer(ByteBuffer.allocate(sizeLowerBound));
         }
         this.buffer.clear();
     }
 
     public void close() {
         if(isClosed.compareAndSet(false, true)) {
-            if(sizeTracker != null) {
-                updateSizeStats(buffer.capacity(), 0);
-            }
+            updateSizeStats(buffer.capacity(), 0);
         }
     }
 
@@ -88,5 +107,4 @@ public class ByteBufferContainer {
             sizeTracker.add(newSize);
         }
     }
-
 }

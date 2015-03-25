@@ -78,7 +78,6 @@ public class ByteBufferBackedInputStream extends InputStream {
     @Override
     public void close() throws IOException {
         bufferContainer.close();
-        super.close();
     }
 
     public void clear() {

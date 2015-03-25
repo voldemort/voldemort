@@ -41,6 +41,7 @@ import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.common.nio.ByteBufferBackedInputStream;
+import voldemort.common.nio.ByteBufferContainer;
 import voldemort.routing.StoreRoutingPlan;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -156,6 +157,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public StreamRequestHandler handleRequest(final DataInputStream inputStream,
                                               final DataOutputStream outputStream)
             throws IOException {
+        return handleRequest(inputStream, outputStream, null);
+    }
+
+    @Override
+    public StreamRequestHandler handleRequest(final DataInputStream inputStream,
+                                              final DataOutputStream outputStream,
+                                              final ByteBufferContainer container)
+            throws IOException {
+
         // Another protocol buffers bug here, temp. work around
         VoldemortAdminRequest.Builder request = VoldemortAdminRequest.newBuilder();
         int size = inputStream.readInt();
