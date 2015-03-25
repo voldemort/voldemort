@@ -55,6 +55,7 @@ public class ReadOnlyReplicationHelperCLI {
     private final static String OPT_URL = "url";
     private final static String OPT_NODE = "node";
     private final static String OPT_OUTPUT = "output";
+    private final static String OPT_LOCAL = "local";
     private static OptionParser parser;
 
     private static void setupParser() {
@@ -73,6 +74,8 @@ public class ReadOnlyReplicationHelperCLI {
               .withRequiredArg()
               .describedAs("output-file-path")
               .ofType(String.class);
+        parser.accepts(OPT_LOCAL,
+                       "Get output without actually querying data files exist on remote nodes");
     }
 
     private static void printUsage() {
@@ -118,6 +121,31 @@ public class ReadOnlyReplicationHelperCLI {
         return options;
     }
 
+    private static List<String> getROStorageFileListLocally(List<Integer> nodePartitionIds,
+                                                            RoutingStrategy routingStrategy) {
+
+        List<String> fileList = Lists.newArrayList();
+        // Go over every partition and find out all buckets ( pair of master
+        // partition id and replica type )
+        for(Node node: routingStrategy.getNodes()) {
+            for(int partitionId: node.getPartitionIds()) {
+
+                List<Integer> routingPartitionList = routingStrategy.getReplicatingPartitionList(partitionId);
+
+                // Find intersection with nodes partition ids
+                for(int replicatingPartition = 0; replicatingPartition < routingPartitionList.size(); replicatingPartition++) {
+                    if(nodePartitionIds.contains(routingPartitionList.get(replicatingPartition))) {
+                        fileList.add(Integer.toString(routingPartitionList.get(0)) + "_"
+                                     + Integer.toString(replicatingPartition) + "_" + "*");
+                            break;
+                    }
+                }
+            }
+        }
+
+        return fileList;
+    }
+
     /**
      * This method take a list of fileName of the type partitionId_Replica_Chunk
      * and returns file names that match the regular expression
@@ -142,7 +170,9 @@ public class ReadOnlyReplicationHelperCLI {
      * @return List of read-only replicaiton info in format of:
      *         store_name,src_node_id,src_file_name,dest_file_name
      */
-    public static List<String> getReadOnlyReplicationInfo(AdminClient adminClient, Integer nodeId) {
+    public static List<String> getReadOnlyReplicationInfo(AdminClient adminClient,
+                                                          Integer nodeId,
+                                                          Boolean local) {
         List<String> infoList = Lists.newArrayList();
         List<StoreDefinition> storeDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList()
                                                                      .getValue();
@@ -199,8 +229,15 @@ public class ReadOnlyReplicationHelperCLI {
                                                       .get(storeName);
 
                 // Now get all the file names from this node.
-                List<String> fileNames = adminClient.readonlyOps.getROStorageFileList(sourceNode.getId(),
-                                                                                      storeName);
+                List<String> fileNames = null;
+                if(local) {
+                    List<Integer> srcPartitionIds = Lists.newArrayList();
+                    srcPartitionIds.addAll(sourceNode.getPartitionIds());
+                    fileNames = getROStorageFileListLocally(srcPartitionIds, strategy);
+                } else {
+                    fileNames = adminClient.readonlyOps.getROStorageFileList(sourceNode.getId(),
+                                                                             storeName);
+                }
 
                 List<String> sourceFileNames = parseAndCompare(fileNames, masterPartitionId);
 
@@ -252,12 +289,13 @@ public class ReadOnlyReplicationHelperCLI {
         } else {
             outputStream = System.out;
         }
+        Boolean local = options.has(OPT_LOCAL);
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
 
         outputStream.println("src_host_name,src_node_id,src_rel_path,dest_rel_path");
 
-        List<String> infoList = getReadOnlyReplicationInfo(adminClient, nodeId);
+        List<String> infoList = getReadOnlyReplicationInfo(adminClient, nodeId, local);
         for(String info: infoList) {
             outputStream.println(info);
         }

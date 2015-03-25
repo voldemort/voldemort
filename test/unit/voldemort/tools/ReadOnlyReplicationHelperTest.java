@@ -132,9 +132,63 @@ public class ReadOnlyReplicationHelperTest {
         }
         return true;
     }
+    
+    /**
+     * Match string with wildcard pattern
+     * 
+     * @param s Input string
+     * @param p Pattern string with wildcard (* and ?)
+     * @param i Iterator of characters in s
+     * @param j Iterator of characters in p
+     * @return true if string can be matched by pattern
+     */
+    private Boolean isMatch(String s, String p, int i, int j) {
+
+        while (i < s.length() && j < p.length() && p.charAt(j) != '*') {
+            if(s.charAt(i) == p.charAt(j) || p.charAt(j) == '?') {
+                i++;
+                j++;
+            } else {
+                return false;
+            }
+        }
+        if(j == p.length()) {
+            return i == s.length();
+        }
+        if(i == s.length()) {
+            while(j < p.length() && p.charAt(j) == '*') {
+                j++;
+            }
+            return j == p.length();
+        }
+        return isMatch(s, p, i + 1, j) || isMatch(s, p, i, j + 1);
+    }
+
+    private Boolean isMatch(String s, String p) {
+        return isMatch(s, p, 0, 0);
+    }
+
+    private Boolean compareWildcardStringLists(List<String> strings, List<String> patterns) {
+        if(patterns == null) {
+            return strings == null;
+        } else if(strings == null) {
+            return true;
+        }
+        for(String string: strings) {
+            boolean match = false;
+            for(String pattern: patterns) {
+                if (isMatch(string, pattern)) {
+                    match = true;
+                    break;
+                }
+            }
+            if (!match) return false;
+        }
+        return true;
+    }
 
     @Test
-    public void testGetROStorageFileList() {
+    public void testGetROStorageFileListRemotely() {
         String storeName = "test-readonly-fetchfiles";
         // file list on node 0
         List<String> fileList0 = adminClient.readonlyOps.getROStorageFileList(0, storeName);
@@ -142,10 +196,15 @@ public class ReadOnlyReplicationHelperTest {
         List<String> fileList1 = adminClient.readonlyOps.getROStorageFileList(1, storeName);
         // info list for node 0
         List<String> infoList0 = ReadOnlyReplicationHelperCLI.getReadOnlyReplicationInfo(adminClient,
-                                                                                         0);
+                                                                                         0,
+                                                                                         false);
         // info list for node 1
         List<String> infoList1 = ReadOnlyReplicationHelperCLI.getReadOnlyReplicationInfo(adminClient,
-                                                                                         1);
+                                                                                         1,
+                                                                                         false);
+        for(String info: infoList0) {
+            System.out.println(info);
+        }
         // source list for node 0, i.e. file list on node 1
         List<String> srcList0 = getSourceFileList(infoList0, storeName, 1);
         // dest list for node 0, i.e. file list on node 0
@@ -162,4 +221,40 @@ public class ReadOnlyReplicationHelperTest {
         assertTrue(compareStringLists(srcList1, fileList0));
         assertTrue(compareStringLists(dstList1, fileList1));
     }
+
+    @Test
+    public void testGetROStorageFileListLocally() {
+        String storeName = "test-readonly-fetchfiles";
+        // file list on node 0
+        List<String> fileList0 = adminClient.readonlyOps.getROStorageFileList(0, storeName);
+        // file list on node 1
+        List<String> fileList1 = adminClient.readonlyOps.getROStorageFileList(1, storeName);
+        // info list for node 0
+        List<String> infoList0 = ReadOnlyReplicationHelperCLI.getReadOnlyReplicationInfo(adminClient,
+                                                                                         0,
+                                                                                         true);
+        // info list for node 1
+        List<String> infoList1 = ReadOnlyReplicationHelperCLI.getReadOnlyReplicationInfo(adminClient,
+                                                                                         1,
+                                                                                         true);
+        // source list for node 0, i.e. file list on node 1
+        List<String> srcList0 = getSourceFileList(infoList0, storeName, 1);
+        // dest list for node 0, i.e. file list on node 0
+        List<String> dstList0 = getDestFileList(infoList0, storeName, 1);
+        // source list for node 1, i.e. file list on node 0
+        List<String> srcList1 = getSourceFileList(infoList1, storeName, 0);
+        // dest list for node 1, i.e. file list on node 1
+        List<String> dstList1 = getDestFileList(infoList1, storeName, 0);
+        // compare
+        assertTrue(fileList0.size() > 0);
+        assertTrue(fileList1.size() > 0);
+
+        assertTrue(isMatch("0_1_0", "0_1_*"));
+
+        assertTrue(compareWildcardStringLists(fileList1, srcList0));
+        assertTrue(compareWildcardStringLists(fileList0, dstList0));
+        assertTrue(compareWildcardStringLists(fileList0, srcList1));
+        assertTrue(compareWildcardStringLists(fileList1, dstList1));
+    }
+
 }
