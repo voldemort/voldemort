@@ -16,6 +16,8 @@
 
 package voldemort.versioning;
 
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -134,6 +136,32 @@ public class VectorClock implements Version, Serializable {
             index += entrySize;
         }
         this.timestamp = ByteUtils.readLong(bytes, index);
+    }
+
+    public static VectorClock createVectorClock(DataInputStream inputStream) {
+        try {
+            final int HEADER_LENGTH = ByteUtils.SIZE_OF_SHORT + ByteUtils.SIZE_OF_BYTE;
+            byte[] header = new byte[HEADER_LENGTH];
+            inputStream.readFully(header);
+            int numEntries = ByteUtils.readShort(header, 0);
+
+            byte versionSize = header[ByteUtils.SIZE_OF_SHORT];
+
+            int entrySize = ByteUtils.SIZE_OF_SHORT + versionSize;
+            int totalEntrySize = numEntries * entrySize;
+
+            byte[] vectorClockBytes = new byte[HEADER_LENGTH + totalEntrySize
+                                               + ByteUtils.SIZE_OF_LONG];
+            System.arraycopy(header, 0, vectorClockBytes, 0, header.length);
+
+            inputStream.readFully(vectorClockBytes, HEADER_LENGTH, vectorClockBytes.length
+                                                                   - HEADER_LENGTH);
+
+            return new VectorClock(vectorClockBytes);
+        } catch(IOException e) {
+            throw new IllegalArgumentException("Can't deserialize vectorclock from stream", e);
+        }
+
     }
 
     public byte[] toBytes() {

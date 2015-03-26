@@ -41,10 +41,10 @@ public class PutRequestHandler extends ClientRequestHandler {
     public boolean parseRequest(DataInputStream inputStream) throws IOException {
         key = ClientRequestHandler.readKey(inputStream);
         int valueSize = inputStream.readInt();
-        byte[] bytes = new byte[valueSize];
-        ByteUtils.read(inputStream, bytes);
-        clock = new VectorClock(bytes);
-        value = ByteUtils.copy(bytes, clock.sizeInBytes(), bytes.length);
+        clock = VectorClock.createVectorClock(inputStream);
+        int vectorClockSize = clock.sizeInBytes();
+        value = new byte[valueSize - vectorClockSize];
+        ByteUtils.read(inputStream, value);
 
         transforms = ClientRequestHandler.readSingleTransform(inputStream, protocolVersion);
         return false;
@@ -68,9 +68,8 @@ public class PutRequestHandler extends ClientRequestHandler {
     @Override
     public String getDebugMessage() {
         return "Operation PUT " + ClientRequestHandler.getDebugMessageForKey(key) + " ValueHash"
-               + (value == null ? "null" : value.hashCode()) + " ClockSize " + " ValueSize "
-               + (value == null ? "null" : value.length) +
-               + clock.sizeInBytes();
+               + (value == null ? "null" : value.hashCode()) + " ClockSize " + clock.sizeInBytes()
+               + " ValueSize " + (value == null ? "null" : value.length);
     }
 
 }

@@ -21,6 +21,9 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static voldemort.TestUtils.getClock;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+
 import org.junit.Test;
 
 import voldemort.TestUtils;
@@ -121,6 +124,7 @@ public class VectorClockTest {
                          knownSerializedHead[index],
                          serialized[index]);
         }
+
     }
 
     /**
@@ -139,6 +143,12 @@ public class VectorClockTest {
         assertEquals("vector clock does not deserialize correctly on given byte array",
                      clock,
                      new VectorClock(knownSerialized));
+        
+        DataInputStream ds = new DataInputStream(new ByteArrayInputStream(knownSerialized));
+        VectorClock clock2 = VectorClock.createVectorClock(ds);
+        assertEquals("vector clock does not deserialize correctly on given input stream",
+                     clock,
+                     clock2);
     }
 
     @Test
