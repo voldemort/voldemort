@@ -90,15 +90,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private final boolean isAvroVersioned;
 
+    private final long minNumberOfRecords;
+
     private static final String AVRO_GENERIC_TYPE_NAME = "avro-generic";
 
-    // New serialization types for avro versioning support
-    // We cannot change existing serializer classes since
-    // this will break existing clients while looking for the version byte
-
     private static final String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
-
-    // new properties for the push job
 
     private final String hdfsFetcherPort;
     private final String hdfsFetcherProtocol;
@@ -157,6 +153,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String SAVE_KEYS = "save.keys";
     public final static String HEARTBEAT_HOOK_INTERVAL_MS = "heartbeat.hook.interval.ms";
     public final static String HOOKS = "hooks";
+    public final static String MIN_NUMBER_OF_RECORDS = "min.number.of.records";
 
     public VoldemortBuildAndPushJob(String name, azkaban.utils.Props azkabanProps) {
         super(name, Logger.getLogger(name));
@@ -209,11 +206,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         if(isAvroJob) {
             if(keyFieldName == null)
                 throw new RuntimeException("The key field must be specified in the properties for the Avro build and push job!");
-
             if(valueFieldName == null)
                 throw new RuntimeException("The value field must be specified in the properties for the Avro build and push job!");
-
         }
+
+        minNumberOfRecords = props.getLong(MIN_NUMBER_OF_RECORDS, 1);
 
         // Initializing hooks
         heartBeatHookIntervalTime = props.getInt(HEARTBEAT_HOOK_INTERVAL_MS, 60000);
@@ -413,11 +410,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 invokeHooks(BuildAndPushStatus.FINISHED);
                 cleanUp();
             } else {
-                String errorMessage = "Got exceptions while pushing to " + Joiner.on(",").join(exceptions.keySet())
-                        + " => " + Joiner.on(",").join(exceptions.values());
-                log.error(errorMessage);
-                fail(errorMessage);
-                return;
+                log.error("Got exceptions during Build and Push:");
+                for (Map.Entry<String, Exception> entry : exceptions.entrySet()) {
+                    log.error("Exception for cluster: " + entry.getKey(), entry.getValue());
+                }
+                throw new VoldemortException("Got exceptions during Build and Push");
             }
         } catch (Exception e) {
             log.error("An exception occurred during Build and Push !!", e);
@@ -681,66 +678,48 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         int replicationFactor = props.getInt(BUILD_REPLICATION_FACTOR, 2);
         int chunkSize = props.getInt(BUILD_CHUNK_SIZE, 1024 * 1024 * 1024);
         Path tempDir = new Path(props.getString(BUILD_TEMP_DIR, "/tmp/vold-build-and-push-"
-                                                                  + new Random().nextLong()));
+                + new Random().nextLong()));
         URI uri = new URI(url);
         Path outputDir = new Path(props.getString(BUILD_OUTPUT_DIR), uri.getHost());
         Path inputPath = getInputPath();
-        String keySelection = props.getString(KEY_SELECTION, null);
-        String valSelection = props.getString(VALUE_SELECTION, null);
         CheckSumType checkSumType = CheckSum.fromString(props.getString(CHECKSUM_TYPE,
                                                                         CheckSum.toString(CheckSumType.MD5)));
         boolean saveKeys = props.getBoolean(SAVE_KEYS, true);
         boolean reducerPerBucket = props.getBoolean(REDUCER_PER_BUCKET, false);
         int numChunks = props.getInt(NUM_CHUNKS, -1);
 
-        if(isAvroJob) {
-            String recSchema = getRecordSchema();
-            String keySchema = getKeySchema();
-            String valSchema = getValueSchema();
+        String recSchema = null;
+        String keySchema = null;
+        String valSchema = null;
 
-            new VoldemortStoreBuilderJob(this.getId() + "-build-store",
-                                         props,
-                                         new VoldemortStoreBuilderConf(replicationFactor,
-                                                                       chunkSize,
-                                                                       tempDir,
-                                                                       outputDir,
-                                                                       inputPath,
-                                                                       cluster,
-                                                                       storeDefs,
-                                                                       storeName,
-                                                                       keySelection,
-                                                                       valSelection,
-                                                                       null,
-                                                                       null,
-                                                                       checkSumType,
-                                                                       saveKeys,
-                                                                       reducerPerBucket,
-                                                                       numChunks,
-                                                 keyFieldName,
-                                                 valueFieldName,
-                                                                       recSchema,
-                                                                       keySchema,
-                                                                       valSchema), true).run();
-            return outputDir.toString();
+        if(isAvroJob) {
+            recSchema = getRecordSchema();
+            keySchema = getKeySchema();
+            valSchema = getValueSchema();
         }
-        new VoldemortStoreBuilderJob(this.getId() + "-build-store",
-                                     props,
-                                     new VoldemortStoreBuilderConf(replicationFactor,
-                                                                   chunkSize,
-                                                                   tempDir,
-                                                                   outputDir,
-                                                                   inputPath,
-                                                                   cluster,
-                                                                   storeDefs,
-                                                                   storeName,
-                                                                   keySelection,
-                                                                   valSelection,
-                                                                   null,
-                                                                   null,
-                                                                   checkSumType,
-                                                                   saveKeys,
-                                                                   reducerPerBucket,
-                                                                   numChunks)).run();
+        new VoldemortStoreBuilderJob(
+                this.getId() + "-build-store",
+                props,
+                new VoldemortStoreBuilderConf(
+                        replicationFactor,
+                        chunkSize,
+                        tempDir,
+                        outputDir,
+                        inputPath,
+                        cluster,
+                        storeDefs,
+                        storeName,
+                        checkSumType,
+                        saveKeys,
+                        reducerPerBucket,
+                        numChunks,
+                        keyFieldName,
+                        valueFieldName,
+                        recSchema,
+                        keySchema,
+                        valSchema,
+                        isAvroJob,
+                        minNumberOfRecords)).run();
         return outputDir.toString();
     }
 

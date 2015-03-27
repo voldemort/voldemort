@@ -48,36 +48,11 @@ import voldemort.utils.Props;
 public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
 
     private VoldemortStoreBuilderConf conf;
-    private boolean isAvro;
-
-    public VoldemortStoreBuilderJob(String name, Props props) throws Exception {
-        super(name, props);
-        this.conf = new VoldemortStoreBuilderConf(createJobConf(VoldemortStoreBuilderMapper.class),
-                                                  props);
-        this.isAvro = false;
-    }
 
     public VoldemortStoreBuilderJob(String name, Props props, VoldemortStoreBuilderConf conf)
-                                                                                             throws FileNotFoundException {
+            throws FileNotFoundException {
         super(name, props);
         this.conf = conf;
-        this.isAvro = false;
-    }
-
-    public VoldemortStoreBuilderJob(String name, Props props, boolean isAvro) throws Exception {
-        super(name, props);
-        this.conf = new VoldemortStoreBuilderConf(createJobConf(VoldemortStoreBuilderMapper.class),
-                                                  props);
-        this.isAvro = isAvro;
-    }
-
-    public VoldemortStoreBuilderJob(String name,
-                                    Props props,
-                                    VoldemortStoreBuilderConf conf,
-                                    boolean isAvro) throws FileNotFoundException {
-        super(name, props);
-        this.conf = conf;
-        this.isAvro = isAvro;
     }
 
     public static final class VoldemortStoreBuilderConf {
@@ -90,81 +65,17 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
         private Cluster cluster;
         private List<StoreDefinition> storeDefs;
         private String storeName;
-        private String keySelection;
-        private String valSelection;
-        private String keyTrans;
-        private String valTrans;
         private CheckSumType checkSumType;
         private boolean saveKeys;
         private boolean reducerPerBucket;
         private int numChunks = -1;
-
-        private String recSchema;
-        private String keySchema;
-        private String valSchema;
-
-        private String keyField;
-        private String valueField;
-
-        public VoldemortStoreBuilderConf(int replicationFactor,
-                                         int chunkSize,
-                                         Path tempDir,
-                                         Path outputDir,
-                                         Path inputPath,
-                                         Cluster cluster,
-                                         List<StoreDefinition> storeDefs,
-                                         String storeName,
-                                         String keySelection,
-                                         String valSelection,
-                                         String keyTrans,
-                                         String valTrans,
-                                         CheckSumType checkSumType,
-                                         boolean saveKeys,
-                                         boolean reducerPerBucket,
-                                         int numChunks) {
-            this.replicationFactor = replicationFactor;
-            this.chunkSize = chunkSize;
-            this.tempDir = tempDir;
-            this.outputDir = outputDir;
-            this.inputPath = inputPath;
-            this.cluster = cluster;
-            this.storeDefs = storeDefs;
-            this.storeName = storeName;
-            this.keySelection = keySelection;
-            this.valSelection = valSelection;
-            this.keyTrans = keyTrans;
-            this.valTrans = valTrans;
-            this.checkSumType = checkSumType;
-            this.saveKeys = saveKeys;
-            this.reducerPerBucket = reducerPerBucket;
-            this.numChunks = numChunks;
-        }
-
-        // requires job conf in order to get files from the filesystem
-        public VoldemortStoreBuilderConf(JobConf configuration, Props props) throws Exception {
-            this(props.getInt("replication.factor", 2),
-                 props.getInt("chunk.size", 1024 * 1024 * 1024),
-                 new Path(props.getString("temp.dir",
-                                          "/tmp/vold-build-and-push-" + new Random().nextLong())),
-                 new Path(props.getString("output.dir")),
-                 new Path(props.getString("input.path")),
-                 new ClusterMapper().readCluster(new InputStreamReader(new Path(props.getString("cluster.xml")).getFileSystem(configuration)
-                                                                                                               .open(new Path(props.getString("cluster.xml"))))),
-                 new StoreDefinitionsMapper().readStoreList(new InputStreamReader(new Path(props.getString("stores.xml")).getFileSystem(configuration)
-                                                                                                                         .open(new Path(props.getString("stores.xml"))))),
-                 props.getString("store.name"),
-                 props.getString("key.selection", null),
-                 props.getString("value.selection", null),
-                 props.getString("key.transformation.class", null),
-                 props.getString("value.transformation.class", null),
-                 CheckSum.fromString(props.getString("checksum.type",
-                                                     CheckSum.toString(CheckSumType.MD5))),
-                 props.getBoolean("save.keys", true),
-                 props.getBoolean("reducer.per.bucket", false),
-                 props.getInt("num.chunks", -1));
-        }
-
-        // new constructor to include the key val and record schema for Avro job
+        private String recSchema = null;
+        private String keySchema = null;
+        private String valSchema = null;
+        private String keyField = null;
+        private String valueField = null;
+        private boolean isAvro = false;
+        private long minNumberOfRecords;
 
         public VoldemortStoreBuilderConf(int replicationFactor,
                                          int chunkSize,
@@ -174,10 +85,6 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
                                          Cluster cluster,
                                          List<StoreDefinition> storeDefs,
                                          String storeName,
-                                         String keySelection,
-                                         String valSelection,
-                                         String keyTrans,
-                                         String valTrans,
                                          CheckSumType checkSumType,
                                          boolean saveKeys,
                                          boolean reducerPerBucket,
@@ -186,7 +93,9 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
                                          String valueField,
                                          String recSchema,
                                          String keySchema,
-                                         String valSchema) {
+                                         String valSchema,
+                                         boolean isAvro,
+                                         long minNumberOfRecords) {
             this.replicationFactor = replicationFactor;
             this.chunkSize = chunkSize;
             this.tempDir = tempDir;
@@ -195,56 +104,17 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
             this.cluster = cluster;
             this.storeDefs = storeDefs;
             this.storeName = storeName;
-            this.keySelection = keySelection;
-            this.valSelection = valSelection;
-            this.keyTrans = keyTrans;
-            this.valTrans = valTrans;
             this.checkSumType = checkSumType;
             this.saveKeys = saveKeys;
             this.reducerPerBucket = reducerPerBucket;
             this.numChunks = numChunks;
-
             this.keyField = keyField;
             this.valueField = valueField;
             this.recSchema = recSchema;
             this.keySchema = keySchema;
             this.valSchema = valSchema;
-
-        }
-
-        // requires job conf in order to get files from the filesystem
-        public VoldemortStoreBuilderConf(JobConf configuration,
-                                         Props props,
-                                         String keyField,
-                                         String valueField,
-                                         String recSchema,
-                                         String keySchema,
-                                         String valSchema) throws Exception {
-            this(props.getInt("replication.factor", 2),
-                 props.getInt("chunk.size", 1024 * 1024 * 1024),
-                 new Path(props.getString("temp.dir",
-                                          "/tmp/vold-build-and-push-" + new Random().nextLong())),
-                 new Path(props.getString("output.dir")),
-                 new Path(props.getString("input.path")),
-                 new ClusterMapper().readCluster(new InputStreamReader(new Path(props.getString("cluster.xml")).getFileSystem(configuration)
-                                                                                                               .open(new Path(props.getString("cluster.xml"))))),
-                 new StoreDefinitionsMapper().readStoreList(new InputStreamReader(new Path(props.getString("stores.xml")).getFileSystem(configuration)
-                                                                                                                         .open(new Path(props.getString("stores.xml"))))),
-                 props.getString("store.name"),
-                 props.getString("key.selection", null),
-                 props.getString("value.selection", null),
-                 props.getString("key.transformation.class", null),
-                 props.getString("value.transformation.class", null),
-                 CheckSum.fromString(props.getString("checksum.type",
-                                                     CheckSum.toString(CheckSumType.MD5))),
-                 props.getBoolean("save.keys", true),
-                 props.getBoolean("reducer.per.bucket", false),
-                 props.getInt("num.chunks", -1),
-                 keyField,
-                 valueField,
-                 recSchema,
-                 keySchema,
-                 valSchema);
+            this.isAvro = isAvro;
+            this.minNumberOfRecords = minNumberOfRecords;
         }
 
         public int getReplicationFactor() {
@@ -269,22 +139,6 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
 
         public String getStoreName() {
             return storeName;
-        }
-
-        public String getKeySelection() {
-            return keySelection;
-        }
-
-        public String getValSelection() {
-            return valSelection;
-        }
-
-        public String getKeyTrans() {
-            return keyTrans;
-        }
-
-        public String getValTrans() {
-            return valTrans;
         }
 
         public Cluster getCluster() {
@@ -315,40 +169,28 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
             return recSchema;
         }
 
-        public void setRecSchema(String recSchema) {
-            this.recSchema = recSchema;
-        }
-
         public String getKeySchema() {
             return keySchema;
-        }
-
-        public void setKeySchema(String keySchema) {
-            this.keySchema = keySchema;
         }
 
         public String getValSchema() {
             return valSchema;
         }
 
-        public void setValSchema(String valSchema) {
-            this.valSchema = valSchema;
-        }
-
         public String getValueField() {
             return valueField;
-        }
-
-        public void setValueField(String valueField) {
-            this.valueField = valueField;
         }
 
         public String getKeyField() {
             return keyField;
         }
 
-        public void setKeyField(String keyField) {
-            this.keyField = keyField;
+        public boolean isAvro() {
+            return isAvro;
+        }
+
+        public long getMinNumberOfRecords() {
+            return minNumberOfRecords;
         }
 
     }
@@ -358,7 +200,7 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
 
         // Only if its a avro job we supply some additional fields
         // for the key value schema of the avro record
-        if(isAvro) {
+        if(conf.isAvro()) {
             String recSchema = conf.getRecSchema();
             String keySchema = conf.getKeySchema();
             String valSchema = conf.getValSchema();
@@ -397,71 +239,35 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
             fs.delete(outputDir, true);
         }
 
-        HadoopStoreBuilder builder = null;
+        HadoopStoreBuilder builder;
 
-        if(isAvro) {
+        Class mapperClass;
+        Class<? extends InputFormat> inputFormatClass;
 
-            if(conf.getNumChunks() == -1) {
-                builder = new HadoopStoreBuilder(configuration,
-
-                                                 AvroStoreBuilderMapper.class,
-                                                 (Class<? extends InputFormat>) AvroInputFormat.class,
-                                                 cluster,
-                                                 storeDef,
-                                                 chunkSize,
-                                                 tempDir,
-                                                 outputDir,
-                                                 inputPath,
-                                                 checkSumType,
-                                                 saveKeys,
-                                                 reducerPerBucket);
-            } else {
-                builder = new HadoopStoreBuilder(configuration,
-                                                 AvroStoreBuilderMapper.class,
-                                                 (Class<? extends InputFormat>) AvroInputFormat.class,
-                                                 cluster,
-                                                 storeDef,
-                                                 tempDir,
-                                                 outputDir,
-                                                 inputPath,
-                                                 checkSumType,
-                                                 saveKeys,
-                                                 reducerPerBucket,
-                                                 conf.getNumChunks());
-            }
-
-            builder.buildAvro();
-            return;
-        }
-
-        if(conf.getNumChunks() == -1) {
-            builder = new HadoopStoreBuilder(configuration,
-                                             VoldemortStoreBuilderMapper.class,
-                                             JsonSequenceFileInputFormat.class,
-                                             cluster,
-                                             storeDef,
-                                             chunkSize,
-                                             tempDir,
-                                             outputDir,
-                                             inputPath,
-                                             checkSumType,
-                                             saveKeys,
-                                             reducerPerBucket);
+        if(conf.isAvro()) {
+            mapperClass = AvroStoreBuilderMapper.class;
+            inputFormatClass = AvroInputFormat.class;
         } else {
-            builder = new HadoopStoreBuilder(configuration,
-                                             VoldemortStoreBuilderMapper.class,
-                                             JsonSequenceFileInputFormat.class,
-                                             cluster,
-                                             storeDef,
-                                             tempDir,
-                                             outputDir,
-                                             inputPath,
-                                             checkSumType,
-                                             saveKeys,
-                                             reducerPerBucket,
-                                             conf.getNumChunks());
+            mapperClass = VoldemortStoreBuilderMapper.class;
+            inputFormatClass = JsonSequenceFileInputFormat.class;
         }
 
+        builder = new HadoopStoreBuilder(
+                configuration,
+                mapperClass,
+                inputFormatClass,
+                cluster,
+                storeDef,
+                tempDir,
+                outputDir,
+                inputPath,
+                checkSumType,
+                saveKeys,
+                reducerPerBucket,
+                chunkSize,
+                conf.getNumChunks(),
+                conf.isAvro(),
+                conf.getMinNumberOfRecords());
         builder.build();
     }
 
