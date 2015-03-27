@@ -147,6 +147,7 @@ public abstract class AbstractByteArrayStoreTest extends
             printBytes(found.get(0).getValue());
         }
 
+        Assert.assertEquals("clocks not equal!", versioned.getVersion(), found.get(0).getVersion());
         Assert.assertTrue("Values not equal!",
                           valuesEqual(versioned.getValue(), found.get(0).getValue()));
     }

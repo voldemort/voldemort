@@ -18,8 +18,6 @@ package voldemort.store.socket;
 
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
@@ -29,7 +27,6 @@ import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -54,11 +51,6 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
     public AbstractSocketStoreTest(RequestFormatType type, boolean useNio) {
         this.requestFormatType = type;
         this.useNio = useNio;
-    }
-
-    @Parameters
-    public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true }, { false } });
     }
 
     private int socketPort;
@@ -158,7 +150,7 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
         int[] keySizes = { 50, 100, 500, 1000, 5000, 10000 };
         int[] valueSizes = { 10000, 50000, 100000, 500000, 1000000, 2000000 };
         for(int i = 0; i < keySizes.length; i++) {
-            System.out.println("Testing with keySize = " + keySizes[i] + " and Value sizes: "
+            logger.info("Testing with keySize = " + keySizes[i] + " and Value sizes: "
                                + valueSizes[i]);
             this.testGetAllWithBigValueSizes(getStore(), keySizes[i], valueSizes[i], 3);
         }
@@ -169,7 +161,7 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
         int[] keySizes = { 50, 100, 500, 1000, 5000, 10000 };
         int[] valueSizes = { 10000, 50000, 100000, 500000, 1000000, 2000000 };
         for(int i = 0; i < keySizes.length; i++) {
-            System.out.println("Testing with keySize = " + keySizes[i] + " and Value sizes: "
+            logger.info("Testing with keySize = " + keySizes[i] + " and Value sizes: "
                                + valueSizes[i]);
             this.testGetWithBigValueSizes(getStore(), keySizes[i], valueSizes[i]);
         }
