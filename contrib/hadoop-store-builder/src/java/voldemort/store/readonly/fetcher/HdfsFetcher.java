@@ -82,6 +82,8 @@ public class HdfsFetcher implements FileFetcher {
 
     public static final String FS_DEFAULT_NAME = "fs.default.name";
 
+    private static Boolean allowFetchOfFiles = false;
+
     /* Additional constructor invoked from ReadOnlyStoreManagementServlet */
     public HdfsFetcher(VoldemortConfig config) {
         this(config, null);
@@ -433,7 +435,12 @@ public class HdfsFetcher implements FileFetcher {
                     return true;
                 }
             }
-        }
+        } else if (allowFetchOfFiles) {
+            Utils.mkdirs(dest);
+	    File copyLocation = new File(dest, source.getName());
+	    copyFileWithCheckSum(fs, source, copyLocation, stats, CheckSumType.NONE);
+	    return true;
+	}
         logger.error("Source " + source.toString() + " should be a directory");
         return false;
 
@@ -680,6 +687,9 @@ public class HdfsFetcher implements FileFetcher {
             kerberosUser = args[2];
             hadoopPath = args[3];
         }
+
+	// for testing we want to be able to download a single file
+	allowFetchOfFiles = true;
 
         long maxBytesPerSec = 1024 * 1024 * 1024;
         Path p = new Path(url);
