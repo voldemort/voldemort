@@ -676,17 +676,20 @@ public class HdfsFetcher implements FileFetcher {
     public static void main(String[] args) throws Exception {
         if(args.length < 1)
             Utils.croak("USAGE: java " + HdfsFetcher.class.getName()
-                        + " url [keytab location] [kerberos username] [hadoop-config-path]");
+                        + " url [keytab-location kerberos-username hadoop-config-path [destDir]]");
         String url = args[0];
 
         String keytabLocation = "";
         String kerberosUser = "";
         String hadoopPath = "";
-        if(args.length == 4) {
+	String destDir = null;
+        if(args.length >= 4) {
             keytabLocation = args[1];
             kerberosUser = args[2];
             hadoopPath = args[3];
         }
+        if(args.length >= 5)
+            destDir = args[4];
 
 	// for testing we want to be able to download a single file
 	allowFetchOfFiles = true;
@@ -784,9 +787,10 @@ public class HdfsFetcher implements FileFetcher {
                                               5,
                                               5000);
         long start = System.currentTimeMillis();
+	if(destDir == null)
+	    destDir = System.getProperty("java.io.tmpdir") + File.separator + start;
 
-        File location = fetcher.fetch(url, System.getProperty("java.io.tmpdir") + File.separator
-                                           + start, hadoopPath);
+        File location = fetcher.fetch(url, destDir, hadoopPath);
 
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
         NumberFormat nf = NumberFormat.getInstance();
