@@ -82,6 +82,8 @@ public class HdfsFetcher implements FileFetcher {
 
     public static final String FS_DEFAULT_NAME = "fs.default.name";
 
+    private static Boolean allowFetchOfFiles = false;
+
     /* Additional constructor invoked from ReadOnlyStoreManagementServlet */
     public HdfsFetcher(VoldemortConfig config) {
         this(config, null);
@@ -433,7 +435,12 @@ public class HdfsFetcher implements FileFetcher {
                     return true;
                 }
             }
-        }
+        } else if (allowFetchOfFiles) {
+            Utils.mkdirs(dest);
+	    File copyLocation = new File(dest, source.getName());
+	    copyFileWithCheckSum(fs, source, copyLocation, stats, CheckSumType.NONE);
+	    return true;
+	}
         logger.error("Source " + source.toString() + " should be a directory");
         return false;
 
@@ -669,17 +676,23 @@ public class HdfsFetcher implements FileFetcher {
     public static void main(String[] args) throws Exception {
         if(args.length < 1)
             Utils.croak("USAGE: java " + HdfsFetcher.class.getName()
-                        + " url [keytab location] [kerberos username] [hadoop-config-path]");
+                        + " url [keytab-location kerberos-username hadoop-config-path [destDir]]");
         String url = args[0];
 
         String keytabLocation = "";
         String kerberosUser = "";
         String hadoopPath = "";
-        if(args.length == 4) {
+	String destDir = null;
+        if(args.length >= 4) {
             keytabLocation = args[1];
             kerberosUser = args[2];
             hadoopPath = args[3];
         }
+        if(args.length >= 5)
+            destDir = args[4];
+
+	// for testing we want to be able to download a single file
+	allowFetchOfFiles = true;
 
         long maxBytesPerSec = 1024 * 1024 * 1024;
         Path p = new Path(url);
@@ -774,9 +787,10 @@ public class HdfsFetcher implements FileFetcher {
                                               5,
                                               5000);
         long start = System.currentTimeMillis();
+	if(destDir == null)
+	    destDir = System.getProperty("java.io.tmpdir") + File.separator + start;
 
-        File location = fetcher.fetch(url, System.getProperty("java.io.tmpdir") + File.separator
-                                           + start, hadoopPath);
+        File location = fetcher.fetch(url, destDir, hadoopPath);
 
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
         NumberFormat nf = NumberFormat.getInstance();
