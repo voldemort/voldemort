@@ -41,31 +41,14 @@ public abstract class ClientRequestHandler {
     public static boolean skipByteArrayShort(DataInputStream inputStream, ByteBuffer buffer)
             throws VoldemortException, IOException {
         int dataSize = inputStream.readShort();
-        return skipByteArray(buffer, dataSize);
+        return ByteUtils.skipByteArray(buffer, dataSize);
 
     }
 
     public static boolean skipByteArray(DataInputStream inputStream, ByteBuffer buffer)
             throws VoldemortException, IOException {
         int dataSize = inputStream.readInt();
-        return skipByteArray(buffer, dataSize);
-
-    }
-
-    private static boolean skipByteArray(ByteBuffer buffer, int dataSize) throws IOException {
-        if(dataSize < 0) {
-            throw new VoldemortException("Invalid Size for byte Array " + dataSize);
-        }
-        int newPosition = buffer.position() + dataSize;
-
-        if(newPosition > buffer.limit())
-            return false;
-
-        // Here we skip over the data (without reading it in) and
-        // move our position to just past it.
-        buffer.position(newPosition);
-        return true;
-
+        return ByteUtils.skipByteArray(buffer, dataSize);
     }
 
     public static ByteArray readKey(DataInputStream inputStream) throws IOException {

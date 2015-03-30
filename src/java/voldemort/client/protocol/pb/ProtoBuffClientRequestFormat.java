@@ -166,6 +166,16 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
         return vals;
     }
 
+    @Override
+    public int getExpectedPutRequestSize(String storeName,
+                                 ByteArray key,
+                                 byte[] value,
+                                 byte[] transforms,
+                                 VectorClock version,
+                                 RequestRoutingType routingType) {
+        return RequestFormat.SIZE_UNKNOWN;
+    }
+
     public void writePutRequest(DataOutputStream output,
                                 String storeName,
                                 ByteArray key,

@@ -17,13 +17,13 @@
 package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
 
 /**
  * BlockingClientRequest is used to implement blocking IO using the non-blocking
@@ -73,7 +73,7 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         delegate.parseResponse(inputStream);
     }
 
-    public boolean formatRequest(DataOutputStream outputStream) {
+    public boolean formatRequest(ByteBufferBackedOutputStream outputStream) {
         return delegate.formatRequest(outputStream);
     }
 

@@ -17,12 +17,12 @@
 package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
 
 /**
  * ClientRequest represents a <b>single</b> request/response combination to a
@@ -62,7 +62,7 @@ public interface ClientRequest<T> {
      * @param outputStream Write the request to this output stream
      */
 
-    public boolean formatRequest(DataOutputStream outputStream);
+    public boolean formatRequest(ByteBufferBackedOutputStream outputStream);
 
     /**
      * isCompleteResponse determines if the response that the

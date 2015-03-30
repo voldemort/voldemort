@@ -17,7 +17,6 @@
 package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
@@ -28,6 +27,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
 import voldemort.server.RequestRoutingType;
 import voldemort.store.StoreTimeoutException;
 import voldemort.store.UnreachableStoreException;
@@ -473,7 +473,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         }
 
         @Override
-        public boolean formatRequest(DataOutputStream outputStream) {
+        public boolean formatRequest(ByteBufferBackedOutputStream outputStream) {
             return clientRequest.formatRequest(outputStream);
         }
 

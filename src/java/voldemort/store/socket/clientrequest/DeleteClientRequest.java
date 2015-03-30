@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import voldemort.client.protocol.RequestFormat;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
 import voldemort.server.RequestRoutingType;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
@@ -48,8 +49,9 @@ public class DeleteClientRequest extends AbstractStoreClientRequest<Boolean> {
     }
 
     @Override
-    protected void formatRequestInternal(DataOutputStream outputStream) throws IOException {
-        requestFormat.writeDeleteRequest(outputStream,
+    protected void formatRequestInternal(ByteBufferBackedOutputStream outputStream)
+            throws IOException {
+        requestFormat.writeDeleteRequest(new DataOutputStream(outputStream),
                                          storeName,
                                          key,
                                          (VectorClock) version,

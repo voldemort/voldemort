@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 import voldemort.client.protocol.RequestFormat;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
 import voldemort.server.RequestRoutingType;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
@@ -47,8 +48,13 @@ public class GetClientRequest extends AbstractStoreClientRequest<List<Versioned<
     }
 
     @Override
-    protected void formatRequestInternal(DataOutputStream outputStream) throws IOException {
-        requestFormat.writeGetRequest(outputStream, storeName, key, transforms, requestRoutingType);
+    protected void formatRequestInternal(ByteBufferBackedOutputStream outputStream)
+            throws IOException {
+        requestFormat.writeGetRequest(new DataOutputStream(outputStream),
+                                      storeName,
+                                      key,
+                                      transforms,
+                                      requestRoutingType);
     }
 
     @Override

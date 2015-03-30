@@ -28,6 +28,8 @@ import java.security.NoSuchAlgorithmException;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
+import voldemort.VoldemortException;
+
 /**
  * Utility functions for munging on bytes
  * 
@@ -488,6 +490,29 @@ public class ByteUtils {
         newBuffer.put(buffer);
         newBuffer.position(position);
         return newBuffer;
+    }
+
+    /*
+     * The documentation says that the UTF will be encoded using 2 + length as
+     * lower and 2 + 3*length and upper bound.
+     */
+    public static int getUTFMaxLength(String str) {
+        return 2 + 3 * str.length();
+    }
+
+    public static boolean skipByteArray(ByteBuffer buffer, int dataSize) throws IOException {
+        if(dataSize < 0) {
+            throw new VoldemortException("Invalid Size for byte Array " + dataSize);
+        }
+        int newPosition = buffer.position() + dataSize;
+
+        if(newPosition > buffer.limit())
+            return false;
+
+        // Here we skip over the data (without reading it in) and
+        // move our position to just past it.
+        buffer.position(newPosition);
+        return true;
     }
 
 }

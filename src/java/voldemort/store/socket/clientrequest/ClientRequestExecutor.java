@@ -17,7 +17,6 @@
 package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.Socket;
@@ -132,7 +131,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
         resetStreams();
 
-        boolean wasSuccessful = clientRequest.formatRequest(new DataOutputStream(outputStream));
+        boolean wasSuccessful = clientRequest.formatRequest(outputStream);
         outputStream.getBuffer().flip();
 
         if(wasSuccessful) {
