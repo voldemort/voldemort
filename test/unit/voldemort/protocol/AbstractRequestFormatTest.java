@@ -110,9 +110,8 @@ public abstract class AbstractRequestFormatTest extends TestCase {
                                                   transforms,
                                                   RequestRoutingType.NORMAL);
 
-            testIsCompleteRequest(getRequest);
-
             ByteArrayOutputStream getResponse = handleRequest(getRequest);
+            testIsCompleteGetResponse(getResponse);
             List<Versioned<byte[]>> values = this.clientWireFormat.readGetResponse(inputStream(getResponse));
             if(isPresent) {
                 assertEquals(1, values.size());
@@ -159,9 +158,8 @@ public abstract class AbstractRequestFormatTest extends TestCase {
                                                   key,
                                                   RequestRoutingType.NORMAL);
 
-            testIsCompleteRequest(getVersionRequest);
-
             ByteArrayOutputStream getVersionResponse = handleRequest(getVersionRequest);
+            testIsCompleteGetVersionResponse(getVersionResponse);
             List<Version> values = this.clientWireFormat.readGetVersionResponse(inputStream(getVersionResponse));
             if(isPresent) {
                 assertEquals(1, values.size());
@@ -220,9 +218,9 @@ public abstract class AbstractRequestFormatTest extends TestCase {
                                                      Arrays.asList(keys),
                                                      transforms,
                                                      RequestRoutingType.NORMAL);
-            testIsCompleteRequest(getAllRequest);
 
             ByteArrayOutputStream getAllResponse = handleRequest(getAllRequest);
+            testIsCompleteGetAllResponse(getAllResponse);
             Map<ByteArray, List<Versioned<byte[]>>> found = this.clientWireFormat.readGetAllResponse(inputStream(getAllResponse));
             for(int i = 0; i < keys.length; i++) {
                 if(isFound[i]) {
@@ -274,8 +272,8 @@ public abstract class AbstractRequestFormatTest extends TestCase {
                                                   version,
                                                   RequestRoutingType.NORMAL);
 
-            testIsCompleteRequest(putRequest);
             ByteArrayOutputStream putResponse = handleRequest(putRequest);
+            testIsCompletePutResponse(putResponse);
             this.clientWireFormat.readPutResponse(inputStream(putResponse));
             TestUtils.assertContains(this.store, key, value);
         } catch(IllegalArgumentException e) {
@@ -324,8 +322,8 @@ public abstract class AbstractRequestFormatTest extends TestCase {
                                                      key,
                                                      version,
                                                      RequestRoutingType.NORMAL);
-            testIsCompleteRequest(delRequest);
             ByteArrayOutputStream delResponse = handleRequest(delRequest);
+            testIsCompleteDeleteResponse(delResponse);
             boolean wasDeleted = this.clientWireFormat.readDeleteResponse(inputStream(delResponse));
             assertEquals(isDeleted, wasDeleted);
         } finally {
@@ -334,10 +332,9 @@ public abstract class AbstractRequestFormatTest extends TestCase {
     }
 
     private ByteArrayOutputStream handleRequest(ByteArrayOutputStream input) throws Exception {
-
+        testIsCompleteRequest(input);
         ByteArrayOutputStream response = new ByteArrayOutputStream();
         this.serverWireFormat.handleRequest(inputStream(input), new DataOutputStream(response));
-
         return response;
     }
 
@@ -345,17 +342,99 @@ public abstract class AbstractRequestFormatTest extends TestCase {
         return new DataInputStream(new ByteArrayInputStream(output.toByteArray()));
     }
 
-    public void testIsCompleteRequest(ByteArrayOutputStream request) {
-        ByteBuffer buffer = ByteBuffer.wrap(request.toByteArray());
+    public void testIsCompleteGetResponse(ByteArrayOutputStream response) {
+        ByteBuffer buffer = ByteBuffer.wrap(response.toByteArray());
+        int entryPosition = buffer.position();
         int limit = buffer.limit();
         for(int i = 0; i < limit; i++) {
-            buffer.limit(i);
+            positionBuffer(buffer, entryPosition, i);
+            boolean isCompleteResponse = this.clientWireFormat.isCompleteGetResponse(buffer);
+            assertFalse(" Partial response should be inComplete", isCompleteResponse);
+        }
+        positionBuffer(buffer, entryPosition, limit);
+        boolean isCompleteResponse = this.clientWireFormat.isCompleteGetResponse(buffer);
+        assertTrue(" Full response should be complete", isCompleteResponse);
+        positionBuffer(buffer, entryPosition, limit);
+    }
+
+    public void testIsCompleteGetAllResponse(ByteArrayOutputStream response) {
+        ByteBuffer buffer = ByteBuffer.wrap(response.toByteArray());
+        int entryPosition = buffer.position();
+        int limit = buffer.limit();
+        for(int i = 0; i < limit; i++) {
+            positionBuffer(buffer, entryPosition, i);
+            boolean isCompleteResponse = this.clientWireFormat.isCompleteGetAllResponse(buffer);
+            assertFalse(" Partial response should be inComplete", isCompleteResponse);
+        }
+        positionBuffer(buffer, entryPosition, limit);
+        boolean isCompleteResponse = this.clientWireFormat.isCompleteGetAllResponse(buffer);
+        assertTrue(" Full response should be complete", isCompleteResponse);
+        positionBuffer(buffer, entryPosition, limit);
+    }
+
+    public void testIsCompletePutResponse(ByteArrayOutputStream response) {
+        ByteBuffer buffer = ByteBuffer.wrap(response.toByteArray());
+        int entryPosition = buffer.position();
+        int limit = buffer.limit();
+        for(int i = 0; i < limit; i++) {
+            positionBuffer(buffer, entryPosition, i);
+            boolean isCompleteResponse = this.clientWireFormat.isCompletePutResponse(buffer);
+            assertFalse(" Partial response should be inComplete", isCompleteResponse);
+        }
+        positionBuffer(buffer, entryPosition, limit);
+        boolean isCompleteResponse = this.clientWireFormat.isCompletePutResponse(buffer);
+        assertTrue(" Full response should be complete", isCompleteResponse);
+        positionBuffer(buffer, entryPosition, limit);
+    }
+
+    public void testIsCompleteGetVersionResponse(ByteArrayOutputStream response) {
+        ByteBuffer buffer = ByteBuffer.wrap(response.toByteArray());
+        int entryPosition = buffer.position();
+        int limit = buffer.limit();
+        for(int i = 0; i < limit; i++) {
+            positionBuffer(buffer, entryPosition, i);
+            boolean isCompleteResponse = this.clientWireFormat.isCompleteGetVersionResponse(buffer);
+            assertFalse(" Partial response should be inComplete", isCompleteResponse);
+        }
+        positionBuffer(buffer, entryPosition, limit);
+        boolean isCompleteResponse = this.clientWireFormat.isCompleteGetVersionResponse(buffer);
+        assertTrue(" Full response should be complete", isCompleteResponse);
+        positionBuffer(buffer, entryPosition, limit);
+    }
+
+    public void testIsCompleteDeleteResponse(ByteArrayOutputStream response) {
+        ByteBuffer buffer = ByteBuffer.wrap(response.toByteArray());
+        int entryPosition = buffer.position();
+        int limit = buffer.limit();
+        for(int i = 0; i < limit; i++) {
+            positionBuffer(buffer, entryPosition, i);
+            boolean isCompleteResponse = this.clientWireFormat.isCompleteDeleteResponse(buffer);
+            assertFalse(" Partial response should be inComplete", isCompleteResponse);
+        }
+        positionBuffer(buffer, entryPosition, limit);
+        boolean isCompleteResponse = this.clientWireFormat.isCompleteDeleteResponse(buffer);
+        assertTrue(" Full response should be complete", isCompleteResponse);
+        positionBuffer(buffer, entryPosition, limit);
+    }
+
+    public void testIsCompleteRequest(ByteArrayOutputStream request) {
+        ByteBuffer buffer = ByteBuffer.wrap(request.toByteArray());
+        int entryPosition = buffer.position();
+        int limit = buffer.limit();
+        for(int i = 0; i < limit; i++) {
+            positionBuffer(buffer, entryPosition, i);
             boolean isCompleteRequest = this.serverWireFormat.isCompleteRequest(buffer);
             assertFalse(" Partial requests should be inComplete", isCompleteRequest);
         }
-        buffer.limit(limit);
+        positionBuffer(buffer, entryPosition, limit);
         boolean isCompleteRequest = this.serverWireFormat.isCompleteRequest(buffer);
-        assertFalse(" Full request should be complete", isCompleteRequest);
+        assertTrue(" Full request should be complete", isCompleteRequest);
+        positionBuffer(buffer, entryPosition, limit);
+    }
+
+    private void positionBuffer(ByteBuffer buffer, int position, int limit) {
+        buffer.position(position);
+        buffer.limit(limit);
     }
 
 }

@@ -238,6 +238,10 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
     }
 
     private boolean isCompleteResponse(ByteBuffer buffer) {
+        if((buffer.limit() - buffer.position()) < 4) {
+            // Does not contain the integer ( 4 bytes)
+            return false;
+        }
         int size = buffer.getInt();
         return buffer.remaining() == size;
     }
