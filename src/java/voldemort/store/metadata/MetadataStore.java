@@ -1297,7 +1297,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         }
 
         // add metadata Store route to ALL routing strategy.
-        map.put(METADATA_STORE_NAME, new RouteToAllStrategy(getCluster().getNodes()));
+        map.put(METADATA_STORE_NAME, new RouteToAllStrategy(getCluster().getNodesShuffled()));
 
         return map;
     }

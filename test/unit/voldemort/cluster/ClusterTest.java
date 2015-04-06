@@ -44,7 +44,7 @@ import voldemort.utils.Time;
 import com.google.common.collect.ImmutableList;
 
 @RunWith(Parameterized.class)
-public class TestCluster extends TestCase {
+public class ClusterTest extends TestCase {
 
     private String clusterName = "test";
     private List<Node> nodes;
@@ -53,7 +53,7 @@ public class TestCluster extends TestCase {
     private FailureDetector failureDetector;
     private Time time;
 
-    public TestCluster(Class<FailureDetector> failureDetectorClass) {
+    public ClusterTest(Class<FailureDetector> failureDetectorClass) {
         this.failureDetectorClass = failureDetectorClass;
     }
 
@@ -61,7 +61,7 @@ public class TestCluster extends TestCase {
     @Before
     public void setUp() throws Exception {
         this.nodes = ImmutableList.of(new Node(1, "test1", 1, 1, 1, ImmutableList.of(1, 2, 3)),
-                                      new Node(2, "test1", 2, 2, 2, ImmutableList.of(3, 5, 6)),
+                                      new Node(2, "test1", 2, 2, 2, ImmutableList.of(4, 5, 6)),
                                       new Node(3, "test1", 3, 3, 3, ImmutableList.of(7, 8, 9)),
                                       new Node(4, "test1", 4, 4, 4, ImmutableList.of(10, 11, 12)));
         this.cluster = new Cluster(clusterName, nodes);
@@ -93,6 +93,15 @@ public class TestCluster extends TestCase {
     public void testBasics() {
         assertEquals(nodes.size(), cluster.getNumberOfNodes());
         assertEquals(new HashSet<Node>(nodes), new HashSet<Node>(cluster.getNodes()));
+        assertEquals("Initialied nodes should be equivalent to the shuffled nodes",
+                     new HashSet<Node>(nodes),
+                     new HashSet<Node>(cluster.getNodesShuffled()));
+        assertEquals("Nodes should be equivalent to the shuffled nodes",
+                     new HashSet<Node>(cluster.getNodes()),
+                     new HashSet<Node>(cluster.getNodesShuffled()));
+        assertSame("Subsequent invocation should return the same shuffled nodes",
+                   cluster.getNodesShuffled(),
+                   cluster.getNodesShuffled());
         assertEquals(clusterName, cluster.getName());
         assertEquals(nodes.get(0), cluster.getNodeById(1));
     }

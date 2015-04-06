@@ -38,7 +38,7 @@ public class ConfigureNodesTest extends AbstractActionTest {
 
     @Test
     public void testConfigureNodes() throws Exception {
-        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodes());
+        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodesShuffled());
         BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
         ConfigureNodes<byte[], BasicPipelineData<byte[]>> action = new ConfigureNodes<byte[], BasicPipelineData<byte[]>>(pipelineData,
                                                                                                                          Event.COMPLETED,
@@ -60,7 +60,7 @@ public class ConfigureNodesTest extends AbstractActionTest {
 
     @Test(expected = InsufficientOperationalNodesException.class)
     public void testConfigureNodesNotEnoughNodes() throws Exception {
-        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodes());
+        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodesShuffled());
         BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
         ConfigureNodes<byte[], BasicPipelineData<byte[]>> action = new ConfigureNodes<byte[], BasicPipelineData<byte[]>>(pipelineData,
                                                                                                                          Event.COMPLETED,

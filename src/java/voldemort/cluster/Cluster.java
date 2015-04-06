@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -62,6 +63,7 @@ public class Cluster implements Serializable {
     private final Node[] partitionIdToNodeArray;
     private final Map<Integer, Node> partitionIdToNode;
     private final Map<Integer, Integer> partitionIdToNodeId;
+    private final List<Node> nodesShuffled;
 
     public Cluster(String name, List<Node> nodes) {
         this(name, nodes, new ArrayList<Zone>());
@@ -127,6 +129,9 @@ public class Cluster implements Serializable {
         for(int partitionId = 0; partitionId < this.numberOfPartitionIds; partitionId++) {
             this.partitionIdToNodeArray[partitionId] = partitionIdToNodeMap.get(partitionId);
         }
+
+        nodesShuffled = new ArrayList<Node>(nodesById.values());
+        Collections.shuffle(nodesShuffled, new Random());
     }
 
     private int getNumberOfTags(List<Node> nodes) {
@@ -149,6 +154,10 @@ public class Cluster implements Serializable {
 
     public Collection<Node> getNodes() {
         return nodesById.values();
+    }
+
+    public Collection<Node> getNodesShuffled() {
+        return nodesShuffled;
     }
 
     /**

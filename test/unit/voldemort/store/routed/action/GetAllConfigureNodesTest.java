@@ -42,7 +42,7 @@ public class GetAllConfigureNodesTest extends AbstractActionTest {
 
     @Test
     public void testConfigureNodes() throws Exception {
-        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodes());
+        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodesShuffled());
         GetAllPipelineData pipelineData = new GetAllPipelineData();
         List<ByteArray> keys = new ArrayList<ByteArray>();
 
@@ -102,7 +102,7 @@ public class GetAllConfigureNodesTest extends AbstractActionTest {
                                             new UnreachableStoreException("Test for "
                                                                           + getClass().getName()));
 
-        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodes());
+        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodesShuffled());
         GetAllPipelineData pipelineData = new GetAllPipelineData();
 
         GetAllConfigureNodes action = new GetAllConfigureNodes(pipelineData,

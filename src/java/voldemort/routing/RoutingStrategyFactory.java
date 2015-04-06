@@ -19,13 +19,13 @@ public class RoutingStrategyFactory {
             return new ConsistentRoutingStrategy(cluster,
                                                  storeDef.getReplicationFactor());
         } else if(RoutingStrategyType.TO_ALL_STRATEGY.equals(storeDef.getRoutingStrategyType())) {
-            return new RouteToAllStrategy(cluster.getNodes());
+            return new RouteToAllStrategy(cluster.getNodesShuffled());
         } else if(RoutingStrategyType.ZONE_STRATEGY.equals(storeDef.getRoutingStrategyType())) {
             return new ZoneRoutingStrategy(cluster,
                                            storeDef.getZoneReplicationFactor(),
                                            storeDef.getReplicationFactor());
         } else if(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY.equals(storeDef.getRoutingStrategyType())) {
-            return new RouteToAllLocalPrefStrategy(cluster.getNodes());
+            return new RouteToAllLocalPrefStrategy(cluster.getNodesShuffled());
         } else {
             throw new VoldemortException("RoutingStrategyType:" + storeDef.getRoutingStrategyType()
                                          + " not handled by " + this.getClass());
