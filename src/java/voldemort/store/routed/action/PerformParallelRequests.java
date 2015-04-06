@@ -155,6 +155,9 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
             NonblockingStore store = nonblockingStores.get(node.getId());
 
+            logger.info(" Sending Operation " + pipeline.getOperation() + " for key " + key
+                        + " String(Value) " + ByteUtils.getString(key.get(), "UTF-8") + " to node "
+                        + node.getId());
             if (pipeline.getOperation() == Operation.GET)
                 store.submitGetRequest(key, transforms, callback, timeoutMs);
             else if (pipeline.getOperation() == Operation.GET_VERSIONS)

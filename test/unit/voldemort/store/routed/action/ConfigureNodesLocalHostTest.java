@@ -83,7 +83,7 @@ public class ConfigureNodesLocalHostTest {
         List<Node> nodes = getTestNodes();
         Cluster cluster = new Cluster("test-route-all-local-pref-cluster", nodes);
         FailureDetector failureDetector = new ThresholdFailureDetector(new FailureDetectorConfig().setCluster(cluster));
-        RoutingStrategy routingStrategy = new RouteToAllLocalPrefStrategy(cluster.getNodes());
+        RoutingStrategy routingStrategy = new RouteToAllLocalPrefStrategy(cluster.getNodesShuffled());
         BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
         ConfigureNodesLocalHost<byte[], BasicPipelineData<byte[]>> action = new ConfigureNodesLocalHost<byte[], BasicPipelineData<byte[]>>(pipelineData,
                                                                                                                                            Event.COMPLETED,
@@ -100,6 +100,7 @@ public class ConfigureNodesLocalHostTest {
             throw pipelineData.getFatalError();
 
         assertEquals(cluster.getNodes().size(), pipelineData.getNodes().size());
+        assertEquals(cluster.getNodesShuffled().size(), pipelineData.getNodes().size());
         assertEquals(pipelineData.getNodes().get(0).getHost(), currentHost);
     }
 }

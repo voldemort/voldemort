@@ -44,6 +44,8 @@ public class ConfigureNodesByZone<V, PD extends BasicPipelineData<V>> extends
 
     private final Zone clientZone;
 
+    private final int zoneRequiredReads;
+
     public ConfigureNodesByZone(PD pipelineData,
                                 Event completeEvent,
                                 FailureDetector failureDetector,
@@ -54,6 +56,12 @@ public class ConfigureNodesByZone<V, PD extends BasicPipelineData<V>> extends
         super(pipelineData, completeEvent, failureDetector, required, routingStrategy);
         this.key = key;
         this.clientZone = clientZone;
+
+        if(pipelineData.getZonesRequired() != null) {
+            zoneRequiredReads = pipelineData.getZonesRequired().intValue();
+        } else {
+            zoneRequiredReads = 0;
+        }
     }
 
     public List<Node> getNodes(ByteArray key, Operation op) {
@@ -68,7 +76,7 @@ public class ConfigureNodesByZone<V, PD extends BasicPipelineData<V>> extends
         if(logger.isDebugEnabled())
             logger.debug("Adding " + nodes.size() + " node(s) to preference list");
 
-        validateZonesRequired(this.clientZone, pipelineData.getZonesRequired());
+        validateZonesRequired(this.clientZone, zoneRequiredReads);
 
         Map<Integer, List<Node>> zoneIdToNode = convertToZoneNodeMap(nodes);
 
@@ -79,7 +87,7 @@ public class ConfigureNodesByZone<V, PD extends BasicPipelineData<V>> extends
 
             // Add a node from every zone, upto a max of
             // zoneCountReads/zoneCountWrites.
-            for(int index = 0; index < pipelineData.getZonesRequired(); index++) {
+            for(int index = 0; index < zoneRequiredReads; index++) {
                 List<Node> zoneNodes = zoneIdToNode.get(zoneProximityList.get(index));
                 if(zoneNodes != null && zoneNodes.size() > 0) {
                     nodes.add(zoneNodes.remove(0));
