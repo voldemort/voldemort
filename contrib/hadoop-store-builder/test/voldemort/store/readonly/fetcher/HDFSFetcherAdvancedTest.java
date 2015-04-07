@@ -187,7 +187,8 @@ public class HDFSFetcherAdvancedTest {
                .when(spyfs)
                .open(source);
 
-        Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5 };
+        byte[] buffer = new byte[VoldemortConfig.DEFAULT_BUFFER_SIZE];
+        Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer };
 
         CheckSum ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
                                                              "copyFileWithCheckSum",
@@ -246,7 +247,8 @@ public class HDFSFetcherAdvancedTest {
 
         Mockito.doReturn(spyinput).doReturn(input).when(spyfs).open(source);
 
-        Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5 };
+        byte[] buffer = new byte[VoldemortConfig.DEFAULT_BUFFER_SIZE];
+        Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer };
 
         CheckSum ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
                                                              "copyFileWithCheckSum",
@@ -297,7 +299,8 @@ public class HDFSFetcherAdvancedTest {
                .when(spyfs)
                .open(source);
 
-        Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5 };
+        byte[] buffer = new byte[VoldemortConfig.DEFAULT_BUFFER_SIZE];
+        Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer };
 
         CheckSum ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
                                                              "copyFileWithCheckSum",

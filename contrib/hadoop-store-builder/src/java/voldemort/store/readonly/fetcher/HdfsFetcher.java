@@ -165,6 +165,128 @@ public class HdfsFetcher implements FileFetcher {
         return fetch(sourceFileUrl, destinationFile, hadoopConfigPath);
     }
 
+    private static boolean isHftpBasedPath(String sourceFileUrl) {
+        return sourceFileUrl.length() > 4 && sourceFileUrl.substring(0, 4).equals("hftp");
+    }
+
+    private Configuration getConfiguration(String sourceFileUrl, String hadoopConfigPath) {
+        final Configuration config = new Configuration();
+        config.setInt("io.socket.receive.buffer", bufferSize);
+        config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
+                   ConfigurableSocketFactory.class.getName());
+        config.set("hadoop.security.group.mapping",
+                   "org.apache.hadoop.security.ShellBasedUnixGroupsMapping");
+
+        boolean isHftpBasedFetch = isHftpBasedPath(sourceFileUrl);
+        logger.info("URL : " + sourceFileUrl + " and hftp protocol enabled = " + isHftpBasedFetch);
+        logger.info("Hadoop path = " + hadoopConfigPath + " , keytab path = "
+                    + HdfsFetcher.keytabPath + " , kerberos principal = "
+                    + HdfsFetcher.kerberosPrincipal);
+
+        if(hadoopConfigPath.length() > 0 && !isHftpBasedFetch) {
+
+            config.addResource(new Path(hadoopConfigPath + "/core-site.xml"));
+            config.addResource(new Path(hadoopConfigPath + "/hdfs-site.xml"));
+
+            String security = config.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION);
+
+            if(security == null || !security.equals("kerberos")) {
+                logger.error("Security isn't turned on in the conf: "
+                             + CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION + " = "
+                             + config.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION));
+                logger.error("Please make sure that the Hadoop config directory path is valid.");
+                throw new VoldemortException("Error in getting Hadoop filesystem. Invalid Hadoop config directory path.");
+            } else {
+                logger.info("Security is turned on in the conf.");
+            }
+        }
+        return config;
+    }
+
+    private FileSystem getHadoopFileSystem(String sourceFileUrl, String hadoopConfigPath)
+            throws IOException {
+        final Configuration config = getConfiguration(sourceFileUrl, hadoopConfigPath);
+        final Path path = new Path(sourceFileUrl);
+        boolean isHftpBasedFetch = isHftpBasedPath(sourceFileUrl);
+        FileSystem fs = null;
+
+        if(HdfsFetcher.keytabPath.length() > 0 && !isHftpBasedFetch) {
+
+            /*
+             * We're seeing intermittent errors while trying to get the Hadoop
+             * filesystem in a privileged doAs block. This happens when we fetch
+             * the files over hdfs or webhdfs. This retry loop is inserted here
+             * as a temporary measure.
+             */
+            for(int attempt = 0; attempt < maxAttempts; attempt++) {
+                boolean isValidFilesystem = false;
+
+                if(!new File(HdfsFetcher.keytabPath).exists()) {
+                    logger.error("Invalid keytab file path. Please provide a valid keytab path");
+                    throw new VoldemortException("Error in getting Hadoop filesystem. Invalid keytab file path.");
+                }
+
+                /*
+                 * The Hadoop path for getting a Filesystem object in a
+                 * privileged doAs block is not thread safe. This might be
+                 * causing intermittent NPE exceptions. Adding a synchronized
+                 * block.
+                 */
+                synchronized(this) {
+                    /*
+                     * First login using the specified principal and keytab file
+                     */
+                    UserGroupInformation.setConfiguration(config);
+                    UserGroupInformation.loginUserFromKeytab(HdfsFetcher.kerberosPrincipal,
+                                                             HdfsFetcher.keytabPath);
+
+                    /*
+                     * If login is successful, get the filesystem object. NOTE:
+                     * Ideally we do not need a doAs block for this. Consider
+                     * removing it in the future once the Hadoop jars have the
+                     * corresponding patch (tracked in the Hadoop Apache
+                     * project: HDFS-3367)
+                     */
+                    try {
+                        logger.info("I've logged in and am now Doasing as "
+                                    + UserGroupInformation.getCurrentUser().getUserName());
+                        fs = UserGroupInformation.getCurrentUser()
+                                                 .doAs(new PrivilegedExceptionAction<FileSystem>() {
+
+                                                     @Override
+                                                     public FileSystem run() throws Exception {
+                                                         FileSystem fs = path.getFileSystem(config);
+                                                         return fs;
+                                                     }
+                                                 });
+                        isValidFilesystem = true;
+                    } catch(InterruptedException e) {
+                        logger.error(e.getMessage(), e);
+                    } catch(Exception e) {
+                        logger.error("Got an exception while getting the filesystem object: ");
+                        logger.error("Exception class : " + e.getClass());
+                        e.printStackTrace();
+                        for(StackTraceElement et: e.getStackTrace()) {
+                            logger.error(et.toString());
+                        }
+                    }
+                }
+
+                if(isValidFilesystem) {
+                    break;
+                } else if(attempt < maxAttempts - 1) {
+                    logger.error("Attempt#" + attempt
+                                 + " Could not get a valid Filesystem object. Trying again in "
+                                 + retryDelayMs + " ms");
+                    sleepForRetryDelayMs();
+                }
+            }
+        } else {
+            fs = path.getFileSystem(config);
+        }
+        return fs;
+    }
+
     public File fetch(String sourceFileUrl, String destinationFile, String hadoopConfigPath)
             throws IOException {
         if(this.globalThrottleLimit != null) {
@@ -176,119 +298,8 @@ public class HdfsFetcher implements FileFetcher {
         ObjectName jmxName = null;
         try {
 
-            final Configuration config = new Configuration();
-            FileSystem fs = null;
-            config.setInt("io.socket.receive.buffer", bufferSize);
-            config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
-                       ConfigurableSocketFactory.class.getName());
-            config.set("hadoop.security.group.mapping",
-                       "org.apache.hadoop.security.ShellBasedUnixGroupsMapping");
-
+            final FileSystem fs = getHadoopFileSystem(sourceFileUrl, hadoopConfigPath);
             final Path path = new Path(sourceFileUrl);
-
-            boolean isHftpBasedFetch = sourceFileUrl.length() > 4
-                                       && sourceFileUrl.substring(0, 4).equals("hftp");
-            logger.info("URL : " + sourceFileUrl + " and hftp protocol enabled = "
-                        + isHftpBasedFetch);
-            logger.info("Hadoop path = " + hadoopConfigPath + " , keytab path = "
-                        + HdfsFetcher.keytabPath + " , kerberos principal = "
-                        + HdfsFetcher.kerberosPrincipal);
-
-            if(hadoopConfigPath.length() > 0 && !isHftpBasedFetch) {
-
-                config.addResource(new Path(hadoopConfigPath + "/core-site.xml"));
-                config.addResource(new Path(hadoopConfigPath + "/hdfs-site.xml"));
-
-                String security = config.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION);
-
-                if(security == null || !security.equals("kerberos")) {
-                    logger.error("Security isn't turned on in the conf: "
-                                 + CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION
-                                 + " = "
-                                 + config.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION));
-                    logger.error("Please make sure that the Hadoop config directory path is valid.");
-                    throw new VoldemortException("Error in getting Hadoop filesystem. Invalid Hadoop config directory path.");
-                } else {
-                    logger.info("Security is turned on in the conf. Trying to authenticate ...");
-
-                }
-            }
-
-            if(HdfsFetcher.keytabPath.length() > 0 && !isHftpBasedFetch) {
-
-                /*
-                 * We're seeing intermittent errors while trying to get the
-                 * Hadoop filesystem in a privileged doAs block. This happens
-                 * when we fetch the files over hdfs or webhdfs. This retry loop
-                 * is inserted here as a temporary measure.
-                 */
-                for(int attempt = 0; attempt < maxAttempts; attempt++) {
-                    boolean isValidFilesystem = false;
-
-                    if(!new File(HdfsFetcher.keytabPath).exists()) {
-                        logger.error("Invalid keytab file path. Please provide a valid keytab path");
-                        throw new VoldemortException("Error in getting Hadoop filesystem. Invalid keytab file path.");
-                    }
-
-                    /*
-                     * The Hadoop path for getting a Filesystem object in a
-                     * privileged doAs block is not thread safe. This might be
-                     * causing intermittent NPE exceptions. Adding a
-                     * synchronized block.
-                     */
-                    synchronized(this) {
-                        /*
-                         * First login using the specified principal and keytab
-                         * file
-                         */
-                        UserGroupInformation.setConfiguration(config);
-                        UserGroupInformation.loginUserFromKeytab(HdfsFetcher.kerberosPrincipal,
-                                                                 HdfsFetcher.keytabPath);
-
-                        /*
-                         * If login is successful, get the filesystem object.
-                         * NOTE: Ideally we do not need a doAs block for this.
-                         * Consider removing it in the future once the Hadoop
-                         * jars have the corresponding patch (tracked in the
-                         * Hadoop Apache project: HDFS-3367)
-                         */
-                        try {
-                            logger.info("I've logged in and am now Doasing as "
-                                        + UserGroupInformation.getCurrentUser().getUserName());
-                            fs = UserGroupInformation.getCurrentUser()
-                                                     .doAs(new PrivilegedExceptionAction<FileSystem>() {
-
-                                                         @Override
-                                                         public FileSystem run() throws Exception {
-                                                             FileSystem fs = path.getFileSystem(config);
-                                                             return fs;
-                                                         }
-                                                     });
-                            isValidFilesystem = true;
-                        } catch(InterruptedException e) {
-                            logger.error(e.getMessage(), e);
-                        } catch(Exception e) {
-                            logger.error("Got an exception while getting the filesystem object: ");
-                            logger.error("Exception class : " + e.getClass());
-                            e.printStackTrace();
-                            for(StackTraceElement et: e.getStackTrace()) {
-                                logger.error(et.toString());
-                            }
-                        }
-                    }
-
-                    if(isValidFilesystem) {
-                        break;
-                    } else if(attempt < maxAttempts - 1) {
-                        logger.error("Attempt#" + attempt
-                                     + " Could not get a valid Filesystem object. Trying again in "
-                                     + retryDelayMs + " ms");
-                        sleepForRetryDelayMs();
-                    }
-                }
-            } else {
-                fs = path.getFileSystem(config);
-            }
 
             CopyStats stats = new CopyStats(sourceFileUrl, sizeOfPath(fs, path));
             jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(), stats);
@@ -340,6 +351,7 @@ public class HdfsFetcher implements FileFetcher {
             Utils.mkdirs(dest);
             FileStatus[] statuses = fs.listStatus(source);
             if(statuses != null) {
+                byte[] buffer = new byte[bufferSize];
                 // sort the files so that index files come last. Maybe
                 // this will help keep them cached until the swap
                 Arrays.sort(statuses, new IndexFileLastComparator());
@@ -362,7 +374,12 @@ public class HdfsFetcher implements FileFetcher {
                         logger.debug("Reading .metadata");
                         // Read metadata into local file
                         File copyLocation = new File(dest, status.getPath().getName());
-                        copyFileWithCheckSum(fs, status.getPath(), copyLocation, stats, null);
+                        copyFileWithCheckSum(fs,
+                                             status.getPath(),
+                                             copyLocation,
+                                             stats,
+                                             null,
+                                             buffer);
 
                         // Open the local file to initialize checksum
                         ReadOnlyStorageMetadata metadata;
@@ -403,7 +420,8 @@ public class HdfsFetcher implements FileFetcher {
                                                                      status.getPath(),
                                                                      copyLocation,
                                                                      stats,
-                                                                     checkSumType);
+                                                                     checkSumType,
+                                                                     buffer);
 
                         if(fileCheckSumGenerator != null && checkSumGenerator != null) {
                             byte[] checkSum = fileCheckSumGenerator.getCheckSum();
@@ -435,15 +453,15 @@ public class HdfsFetcher implements FileFetcher {
                     return true;
                 }
             }
-        } else if (allowFetchOfFiles) {
+        } else if(allowFetchOfFiles) {
             Utils.mkdirs(dest);
-	    File copyLocation = new File(dest, source.getName());
-	    copyFileWithCheckSum(fs, source, copyLocation, stats, CheckSumType.NONE);
-	    return true;
-	}
+            byte[] buffer = new byte[bufferSize];
+            File copyLocation = new File(dest, source.getName());
+            copyFileWithCheckSum(fs, source, copyLocation, stats, CheckSumType.NONE, buffer);
+            return true;
+        }
         logger.error("Source " + source.toString() + " should be a directory");
         return false;
-
     }
 
     /**
@@ -464,7 +482,8 @@ public class HdfsFetcher implements FileFetcher {
                                           Path source,
                                           File dest,
                                           CopyStats stats,
-                                          CheckSumType checkSumType) throws Throwable {
+                                          CheckSumType checkSumType,
+                                          byte[] buffer) throws Throwable {
         CheckSum fileCheckSumGenerator = null;
         logger.debug("Starting copy of " + source + " to " + dest);
         FSDataInputStream input = null;
@@ -487,7 +506,7 @@ public class HdfsFetcher implements FileFetcher {
                 fsOpened = true;
 
                 output = new BufferedOutputStream(new FileOutputStream(dest));
-                byte[] buffer = new byte[bufferSize];
+
                 while(true) {
                     int read = input.read(buffer);
                     if(read < 0) {
