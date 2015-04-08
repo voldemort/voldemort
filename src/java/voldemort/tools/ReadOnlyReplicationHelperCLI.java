@@ -182,12 +182,27 @@ public class ReadOnlyReplicationHelperCLI {
             String storeName = storeDef.getName();
             // Skip a store without replication, or has wrong ro storage format.
             String storageFormat = null;
-            if(storeDef.getReplicationFactor() <= 1
-               || !storeDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME)
-               || !(storageFormat = adminClient.readonlyOps.getROStorageFormat(nodeId, storeName)).equals(ReadOnlyStorageFormat.READONLY_V2.getCode())) {
-                logger.error("Unqualified store: " + storeName + ", replication factor = "
-                             + storeDef.getReplicationFactor() + ", type = " + storeDef.getType()
-                             + ", ro format = " + storageFormat);
+            if(storeDef.getReplicationFactor() <= 1) {
+                logger.error("Store " + storeName +
+			     " cannot be restored, as it has replication factor = "
+                             + storeDef.getReplicationFactor());
+                continue;
+	    }
+	    if(!storeDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME)) {
+                logger.error("Store " + storeName +
+			     " cannot be restored, as it has type = " +
+                             storeDef.getType() +
+			     " instead of " +
+			     ReadOnlyStorageConfiguration.TYPE_NAME);
+                continue;
+	    }
+	    storageFormat = adminClient.readonlyOps.getROStorageFormat(nodeId, storeName);
+	    if(!storageFormat.equals(ReadOnlyStorageFormat.READONLY_V2.getCode())) {
+                logger.error("Store " + storeName +
+			     " cannot be restored, as it has storage format = " +
+                             storageFormat +
+			     " instead of " +
+			     ReadOnlyStorageFormat.READONLY_V2.getCode());
                 continue;
             }
 
