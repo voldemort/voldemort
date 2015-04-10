@@ -1,3 +1,18 @@
+Release 1.9.9 on 04/10/2015
+* Admin tools improvements and bug fixes:
+  * vadmin.sh now deals gracefully with inconsistent metadata and other issues.
+  * ReplaceNodeCLI now deals gracefully with empty stores.xml.
+  * ReadOnlyReplicationHelperCLI can now act on the local node, regardless of server version.
+* HdfsFetcher imprpvements:
+  * Can fetch individual files to specific local dir (when used from CLI).
+  * Lower memory consumption.
+* BnP improvements:
+  * Added a min.number.of.records config (defaults to 1) to prevent pushing empty stores.
+  * Improved error handling and reporting in BnP's run function.
+* Client-related automated tests expanded and improved.
+* Metadata queries no longer always hit the same node.
+* Initial release of the RocksDB storage engine! (N.B.: still considered experimental).
+
 Release 1.9.8 on 03/17/2015
 * Fixes a bug in the vadmin restore-from-replica command.
 * Improves the vadmin meta check command.
