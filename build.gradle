@@ -254,7 +254,7 @@ tasks.withType(Test) {
 
     // Do not set the max parallelism as there are tests that uses the same port and will
     // run into bind exceptions.
-    maxHeapSize = "2g"
+    maxHeapSize = "8g"
     forkEvery = 1
 
 
@@ -267,8 +267,9 @@ tasks.withType(Test) {
     useJUnit()
 
     testLogging {
-        events "passed", "skipped", "failed"
+        events "started", "passed", "skipped", "failed"
         exceptionFormat = 'full'
+        // showStandardStreams = true
     }
 
     afterTest { test, result ->

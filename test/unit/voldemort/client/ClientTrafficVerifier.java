@@ -168,6 +168,12 @@ public class ClientTrafficVerifier implements Runnable {
         } catch(InterruptedException e) {
             e.printStackTrace();
         }
+
+        try {
+            this.factory.close();
+        } catch(Exception e) {
+
+        }
     }
 
     public boolean isStopped() {
