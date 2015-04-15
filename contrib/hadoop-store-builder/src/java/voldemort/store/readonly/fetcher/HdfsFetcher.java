@@ -19,6 +19,7 @@ package voldemort.store.readonly.fetcher;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
@@ -27,6 +28,7 @@ import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.GZIPInputStream;
 
 import javax.management.ObjectName;
 
@@ -35,7 +37,6 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -68,6 +69,15 @@ public class HdfsFetcher implements FileFetcher {
 
     private static String keytabPath = "";
     private static String kerberosPrincipal = VoldemortConfig.DEFAULT_KERBEROS_PRINCIPAL;
+    private static String GZIP_FILE_EXTENSION = ".gz";
+    public static String INDEX_FILE_EXTENSION = ".index";
+    public static String DATA_FILE_EXTENSION = ".data";
+    private static String COMPRESSED_INDEX_FILE_EXTENSION = INDEX_FILE_EXTENSION
+                                                            + GZIP_FILE_EXTENSION;
+    private static String COMPRESSED_DATA_FILE_EXTENSION = DATA_FILE_EXTENSION
+                                                           + GZIP_FILE_EXTENSION;
+
+    public static final String[] validExtensions = { INDEX_FILE_EXTENSION , COMPRESSED_INDEX_FILE_EXTENSION , DATA_FILE_EXTENSION , COMPRESSED_DATA_FILE_EXTENSION };
 
     private final Long maxBytesPerSecond, reportingIntervalBytes;
     private final int bufferSize;
@@ -415,7 +425,11 @@ public class HdfsFetcher implements FileFetcher {
                     } else if(!status.getPath().getName().startsWith(".")) {
 
                         // Read other (.data , .index files)
-                        File copyLocation = new File(dest, status.getPath().getName());
+                        String fileName = status.getPath().getName();
+                        if(fileName.endsWith(GZIP_FILE_EXTENSION)) {
+                            fileName = fileName.split(GZIP_FILE_EXTENSION)[0];
+                        }
+                        File copyLocation = new File(dest, fileName);
                         fileCheckSumGenerator = copyFileWithCheckSum(fs,
                                                                      status.getPath(),
                                                                      copyLocation,
@@ -456,7 +470,11 @@ public class HdfsFetcher implements FileFetcher {
         } else if(allowFetchOfFiles) {
             Utils.mkdirs(dest);
             byte[] buffer = new byte[bufferSize];
-            File copyLocation = new File(dest, source.getName());
+            String fileName = source.getName();
+            if(fileName.endsWith(GZIP_FILE_EXTENSION)) {
+                fileName = fileName.split(GZIP_FILE_EXTENSION)[0];
+            }
+            File copyLocation = new File(dest, fileName);
             copyFileWithCheckSum(fs, source, copyLocation, stats, CheckSumType.NONE, buffer);
             return true;
         }
@@ -486,7 +504,14 @@ public class HdfsFetcher implements FileFetcher {
                                           byte[] buffer) throws Throwable {
         CheckSum fileCheckSumGenerator = null;
         logger.debug("Starting copy of " + source + " to " + dest);
-        FSDataInputStream input = null;
+
+        // Check if its Gzip compressed
+        boolean isCompressed = false;
+        FilterInputStream input = null;
+        if(source.getName().endsWith(GZIP_FILE_EXTENSION)) {
+            isCompressed = true;
+        }
+
         OutputStream output = null;
 
         for(int attempt = 0; attempt < maxAttempts; attempt++) {
@@ -502,7 +527,13 @@ public class HdfsFetcher implements FileFetcher {
 
                 logger.info("Attempt " + attempt + " at copy of " + source + " to " + dest);
 
-                input = fs.open(source);
+                if(!isCompressed) {
+                    input = fs.open(source);
+                } else {
+                    // TODO need to play with buffer size configs later. Going
+                    // with a default input buffer size
+                    input = new GZIPInputStream(fs.open(source));
+                }
                 fsOpened = true;
 
                 output = new BufferedOutputStream(new FileOutputStream(dest));
@@ -672,12 +703,13 @@ public class HdfsFetcher implements FileFetcher {
                 return 1;
 
             // if both same, lexicographically
-            if((f1.endsWith(".index") && f2.endsWith(".index"))
-               || (f1.endsWith(".data") && f2.endsWith(".data"))) {
-                return f1.compareToIgnoreCase(f2);
+            for(String extension: validExtensions) {
+                if(f1.endsWith(extension) && f2.endsWith(extension)) {
+                    return f1.compareToIgnoreCase(f2);
+                }
             }
 
-            if(f1.endsWith(".index")) {
+            if(f1.endsWith(INDEX_FILE_EXTENSION) || f1.endsWith(COMPRESSED_INDEX_FILE_EXTENSION)) {
                 return 1;
             } else {
                 return -1;
@@ -701,7 +733,7 @@ public class HdfsFetcher implements FileFetcher {
         String keytabLocation = "";
         String kerberosUser = "";
         String hadoopPath = "";
-	String destDir = null;
+        String destDir = null;
         if(args.length >= 4) {
             keytabLocation = args[1];
             kerberosUser = args[2];

@@ -16,12 +16,15 @@
 
 package voldemort.store.readonly.disk;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
+import java.util.zip.GZIPOutputStream;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -34,17 +37,14 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.mr.HadoopStoreBuilder;
 import voldemort.utils.ByteUtils;
-import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-// The default Voldemort keyvalue writer
 // generates index and data files
 public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWritable> {
 
@@ -73,27 +73,18 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
     private FileSystem fs;
 
     private int numChunks;
-    private Cluster cluster;
     private StoreDefinition storeDef;
     private boolean saveKeys;
-    private boolean reducerPerBucket;
 
-    public Cluster getCluster() {
-        checkNotNull(cluster);
-        return cluster;
-    }
+    /*
+     * This variable is used to figure out the file extension for index and data
+     * files. When the server supports compression, this variable's value is
+     * typically ".gz" or else it holds and empty string
+     */
+    private String fileExtension = null;
 
     public boolean getSaveKeys() {
         return this.saveKeys;
-    }
-
-    public boolean getReducerPerBucket() {
-        return this.reducerPerBucket;
-    }
-
-    public StoreDefinition getStoreDef() {
-        checkNotNull(storeDef);
-        return storeDef;
     }
 
     public String getStoreName() {
@@ -110,13 +101,29 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
         return this.numChunks;
     }
 
+    public HadoopStoreWriter() {
+
+    }
+
+    /**
+     * Intended for use by test classes only.
+     * 
+     * @param job
+     */
+    protected HadoopStoreWriter(JobConf job) {
+        this.nodeId = 1;
+        this.partitionId = 1;
+        this.chunkId = 1;
+        this.replicaType = 1;
+
+        conf(job);
+    }
+
     @Override
     public void conf(JobConf job) {
 
         conf = job;
         try {
-
-            this.cluster = new ClusterMapper().readCluster(new StringReader(conf.get("cluster.xml")));
             List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(conf.get("stores.xml")));
             if(storeDefs.size() != 1)
                 throw new IllegalStateException("Expected to find only a single store, but found multiple!");
@@ -126,8 +133,6 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
             if(this.numChunks < 1)
                 throw new VoldemortException("num.chunks not specified in the job conf.");
             this.saveKeys = conf.getBoolean("save.keys", false);
-            this.reducerPerBucket = conf.getBoolean("reducer.per.bucket", false);
-            this.conf = job;
             this.position = 0;
             this.outputDir = job.get("final.output.dir");
             this.taskId = job.get("mapred.task.id");
@@ -135,34 +140,52 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
             this.checkSumDigestIndex = CheckSum.getInstance(checkSumType);
             this.checkSumDigestValue = CheckSum.getInstance(checkSumType);
 
-            this.taskIndexFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName()
-                                                                                   + "."
-                                                                                   + this.taskId
-                                                                                   + ".index");
-            this.taskValueFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName()
-                                                                                   + "."
-                                                                                   + this.taskId
-                                                                                   + ".data");
-
-            if(this.fs == null)
-                this.fs = this.taskIndexFileName.getFileSystem(job);
-
-            this.indexFileStream = fs.create(this.taskIndexFileName);
-            fs.setPermission(this.taskIndexFileName,
-                             new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
-            logger.info("Setting permission to 755 for " + this.taskIndexFileName);
-
-            this.valueFileStream = fs.create(this.taskValueFileName);
-            fs.setPermission(this.taskValueFileName,
-                             new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
-            logger.info("Setting permission to 755 for " + this.taskValueFileName);
-
-            logger.info("Opening " + this.taskIndexFileName + " and " + this.taskValueFileName
-                        + " for writing.");
+            initFileStreams(conf.getBoolean("reducer.output.compress", false),
+                            conf.get("reducer.output.compress.codec", NO_COMPRESSION_CODEC));
 
         } catch(IOException e) {
             throw new RuntimeException("Failed to open Input/OutputStream", e);
         }
+
+    }
+
+    private void initFileStreams(boolean isCompressionEnabled, String compressionCodec)
+            throws IOException {
+
+        fileExtension = (isCompressionEnabled && compressionCodec.toUpperCase(Locale.ENGLISH)
+                                                                 .equals(COMPRESSION_CODEC)) ? GZIP_FILE_EXTENSION
+                                                                                                 : "";
+        this.taskIndexFileName = new Path(FileOutputFormat.getOutputPath(conf), getStoreName()
+                                                                                + "." + this.taskId
+ + INDEX_FILE_EXTENSION
+                                                                                + fileExtension);
+        this.taskValueFileName = new Path(FileOutputFormat.getOutputPath(conf), getStoreName()
+                                                                                + "." + this.taskId
+ + DATA_FILE_EXTENSION
+                                                                                + fileExtension);
+        if(this.fs == null)
+            this.fs = this.taskIndexFileName.getFileSystem(conf);
+
+        if(isCompressionEnabled
+           && compressionCodec.toUpperCase(Locale.ENGLISH).equals(COMPRESSION_CODEC)) {
+            this.indexFileStream = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskIndexFileName))));
+            this.valueFileStream = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskValueFileName))));
+
+        } else {
+            this.indexFileStream = fs.create(this.taskIndexFileName);
+            this.valueFileStream = fs.create(this.taskValueFileName);
+
+        }
+
+        fs.setPermission(this.taskIndexFileName,
+                         new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+        logger.info("Setting permission to 755 for " + this.taskIndexFileName);
+        fs.setPermission(this.taskValueFileName,
+                         new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+        logger.info("Setting permission to 755 for " + this.taskValueFileName);
+
+        logger.info("Opening " + this.taskIndexFileName + " and " + this.taskValueFileName
+                    + " for writing.");
 
     }
 
@@ -320,8 +343,10 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
         if(this.checkSumType != CheckSumType.NONE) {
 
             if(this.checkSumDigestIndex != null && this.checkSumDigestValue != null) {
-                Path checkSumIndexFile = new Path(nodeDir, fileNamePrefix + ".index.checksum");
-                Path checkSumValueFile = new Path(nodeDir, fileNamePrefix + ".data.checksum");
+                Path checkSumIndexFile = new Path(nodeDir, fileNamePrefix + INDEX_FILE_EXTENSION
+                                                           + CHECKSUM_FILE_EXTENSION);
+                Path checkSumValueFile = new Path(nodeDir, fileNamePrefix + DATA_FILE_EXTENSION
+                                                           + CHECKSUM_FILE_EXTENSION);
 
                 if(outputFs.exists(checkSumIndexFile)) {
                     outputFs.delete(checkSumIndexFile);
@@ -348,8 +373,8 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
         }
 
         // Generate the final chunk files
-        Path indexFile = new Path(nodeDir, fileNamePrefix + ".index");
-        Path valueFile = new Path(nodeDir, fileNamePrefix + ".data");
+        Path indexFile = new Path(nodeDir, fileNamePrefix + INDEX_FILE_EXTENSION + fileExtension);
+        Path valueFile = new Path(nodeDir, fileNamePrefix + DATA_FILE_EXTENSION + fileExtension);
 
         logger.info("Moving " + this.taskIndexFileName + " to " + indexFile);
         if(outputFs.exists(indexFile)) {

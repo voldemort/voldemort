@@ -25,11 +25,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import azkaban.jobExecutor.AbstractJob;
 import org.apache.avro.Schema;
 import org.apache.commons.lang.Validate;
 import org.apache.hadoop.fs.Path;
@@ -47,6 +47,7 @@ import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.disk.KeyValueWriter;
 import voldemort.store.readonly.hooks.BuildAndPushHook;
 import voldemort.store.readonly.hooks.BuildAndPushStatus;
 import voldemort.store.readonly.mr.azkaban.VoldemortStoreBuilderJob.VoldemortStoreBuilderConf;
@@ -55,11 +56,11 @@ import voldemort.store.readonly.mr.utils.AvroUtils;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.store.readonly.mr.utils.JsonSchema;
 import voldemort.store.readonly.mr.utils.VoldemortUtils;
+import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
-import voldemort.utils.Props;
+import azkaban.jobExecutor.AbstractJob;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
@@ -101,6 +102,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private String jsonKeyField;
     private String jsonValueField;
+
+    private String reducerOutputCompressionCodec;
 
     private final Set<BuildAndPushHook> hooks = new HashSet<BuildAndPushHook>();
     private final int heartBeatHookIntervalTime;
@@ -154,6 +157,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String HEARTBEAT_HOOK_INTERVAL_MS = "heartbeat.hook.interval.ms";
     public final static String HOOKS = "hooks";
     public final static String MIN_NUMBER_OF_RECORDS = "min.number.of.records";
+    public final static String REDUCER_OUTPUT_COMPRESS_CODEC = "reducer.output.compress.codec";
+    public static final String REDUCER_OUTPUT_COMPRESS = "reducer.output.compress";
 
     public VoldemortBuildAndPushJob(String name, azkaban.utils.Props azkabanProps) {
         super(name, Logger.getLogger(name));
@@ -316,8 +321,63 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         }
         if ((!build && push) || (build && !push)) {
             log.warn("DEPRECATED : Creating one build job and separate push job is a deprecated strategy. Instead create"
-                    + "just one job with both build and push set as true and pass a list of cluster urls.");
+                     + "just one job with both build and push set as true and pass a list of cluster urls.");
         }
+    }
+
+    private String getMatchingServerSupportedCompressionCodec(int nodeId) {
+        /*
+         * Strict operational assumption made by this method:
+         * 
+         * All servers have symmetrical settings.
+         * 
+         * TODO Currently this method requests only one server in one of the
+         * clusters to check for Server supported compression codec. This could
+         * be a problem if we were to do rolling upgrade on RO servers AND still
+         * allow for Bnp jobs to progress.
+         * 
+         * Fix: The ideal solution is to check all nodes in all colos to ensure
+         * all of them support same configs for compression.
+         * 
+         * Currently this is okay since we anyway dont do rolling bounce and
+         * stop all Bnp jobs for any kind of maintenance.
+         */
+
+        AdminClient adminclient = new AdminClient(clusterUrl.get(0),
+                                                  new AdminClientConfig(),
+                                                  new ClientConfig());
+        log.info("Requesting Compression Codec expected by Server");
+        
+        List<String> supportedCodecs;
+        try{
+            supportedCodecs = adminclient.readonlyOps.getSupportedROStorageCompressionCodecs(nodeId);
+        } catch(Exception e) {
+            log.error("Exception thrown when requesting for supported compression codecs. Server might be running in a older version. Exception: "
+                     + e.getMessage());
+            // return here
+            return null;
+        }
+        
+        String codecList = "[ ";
+        for(String str: supportedCodecs) {
+            codecList += str + " ";
+        }
+        codecList += "]";
+        log.info("Server responded with compression codecs: " + codecList);
+        /*
+         * TODO for now only checking if there is a match between the server
+         * supported codec and the one that we support. Later this method can be
+         * extended to add more compression types or pick the first type
+         * returned by the server.
+         */
+
+        for(String codecStr: supportedCodecs) {
+            if(codecStr.toUpperCase(Locale.ENGLISH).equals(KeyValueWriter.COMPRESSION_CODEC)) {
+                return codecStr;
+            }
+        }
+        return null; // no matching compression codec. defaults to uncompressed
+                     // data.
     }
 
     @Override
@@ -345,6 +405,16 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 fail("Exception during cluster equality check: " + e.toString());
                 return;
             }
+
+            reducerOutputCompressionCodec = getMatchingServerSupportedCompressionCodec(nodeId);
+            if(reducerOutputCompressionCodec != null) {
+                log.info("Using compression codec: " + reducerOutputCompressionCodec);
+                props.put(REDUCER_OUTPUT_COMPRESS, "true");
+                props.put(REDUCER_OUTPUT_COMPRESS_CODEC, reducerOutputCompressionCodec);
+            } else {
+                log.info("Using no compression");
+            }
+
             // Create a hashmap to capture exception per url
             HashMap<String, Exception> exceptions = Maps.newHashMap();
             String buildOutputDir = null;

@@ -86,6 +86,7 @@ public class VoldemortConfig implements Serializable {
     private static final String DEFAULT_KERBEROS_KDC = "";
     private static final String DEFAULT_KERBEROS_REALM = "";
     private static final String DEFAULT_FILE_FETCHER_CLASS = null;
+    private static final String DEFAULT_RO_COMPRESSION_CODEC = "NO_CODEC";
 
     private int nodeId;
     private String voldemortHome;
@@ -156,6 +157,8 @@ public class VoldemortConfig implements Serializable {
     private String readOnlyKerberosKdc;
     private String readOnlykerberosRealm;
     private String fileFetcherClass;
+    private String readOnlyCompressionCodec;
+
 
     // flag to indicate if we will mlock and pin index pages in memory
     private boolean useMlock;
@@ -352,6 +355,12 @@ public class VoldemortConfig implements Serializable {
                                                      VoldemortConfig.DEFAULT_KERBEROS_REALM);
         this.fileFetcherClass = props.getString("file.fetcher.class",
                                                 VoldemortConfig.DEFAULT_FILE_FETCHER_CLASS);
+
+        // To set the Voldemort RO server compression codec to GZIP, explicitly
+        // set this
+        // property "readonly.compression.codec" to "GZIP"
+        this.readOnlyCompressionCodec = props.getString("readonly.compression.codec",
+                                                        VoldemortConfig.DEFAULT_RO_COMPRESSION_CODEC);
 
         this.setUseMlock(props.getBoolean("readonly.mlock.index", true));
 
@@ -3242,6 +3251,24 @@ public class VoldemortConfig implements Serializable {
 
     public String getFileFetcherClass() {
         return this.fileFetcherClass;
+    }
+
+    public String getReadOnlyCompressionCodec() {
+        return this.readOnlyCompressionCodec;
+    }
+
+    /**
+     * Compression codec expected by Read-Only Voldemort Server
+     * 
+     * @param readOnlyCompressionCodec
+     * 
+     *        <ul>
+     *        <li>Property :"readonly.compression.codec"</li>
+     *        <li>Default : "NO_CODEC"</li>
+     *        </ul>
+     */
+    public void setReadOnlyCompressionCodec(String readOnlyCompressionCodec) {
+        this.readOnlyCompressionCodec = readOnlyCompressionCodec;
     }
 
     public String getRdbDataDirectory() {

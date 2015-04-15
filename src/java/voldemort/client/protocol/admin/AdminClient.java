@@ -3870,6 +3870,22 @@ public class AdminClient {
             return response.getFileNameList();
         }
 
+        public List<String> getSupportedROStorageCompressionCodecs(int nodeId) {
+            VAdminProto.GetROStorageCompressionCodecListRequest.Builder getRORequest = VAdminProto.GetROStorageCompressionCodecListRequest.newBuilder();
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                              .setGetRoCompressionCodecList(getRORequest)
+                                                                                              .setType(VAdminProto.AdminRequestType.GET_RO_COMPRESSION_CODEC_LIST)
+                                                                                              .build();
+            VAdminProto.GetROStorageCompressionCodecListResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                                     adminRequest,
+                                                                                                          VAdminProto.GetROStorageCompressionCodecListResponse.newBuilder());
+            if(response.hasError()) {
+                helperOps.throwException(response.getError());
+            }
+
+            return response.getCompressionCodecsList();
+        }
+
         /**
          * Fetch read-only store files to a specified directory. This is run on
          * the stealer node side

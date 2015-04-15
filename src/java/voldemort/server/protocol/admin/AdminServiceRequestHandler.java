@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -261,6 +262,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case GET_RO_STORAGE_FILE_LIST:
                 ProtoUtils.writeMessage(outputStream,
                                         handleGetROStorageFileList(request.getGetRoStorageFileList()));
+                break;
+            case GET_RO_COMPRESSION_CODEC_LIST:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleGetROCompressionCodecList(request.getGetRoCompressionCodecList()));
                 break;
             case FETCH_PARTITION_FILES:
                 return handleFetchROPartitionFiles(request.getFetchPartitionFiles());
@@ -573,6 +578,17 @@ public class AdminServiceRequestHandler implements RequestHandler {
             logger.error("handleGetROStorageFileList failed for request(" + request.toString()
                          + ")", e);
         }
+        return response.build();
+    }
+
+    public VAdminProto.GetROStorageCompressionCodecListResponse handleGetROCompressionCodecList(VAdminProto.GetROStorageCompressionCodecListRequest request) {
+        logger.info("Received request for supported compression codecs");
+        VAdminProto.GetROStorageCompressionCodecListResponse.Builder response = VAdminProto.GetROStorageCompressionCodecListResponse.newBuilder();
+
+        ArrayList<String> supportedCodecs = new ArrayList<String>();
+        supportedCodecs.add(this.voldemortConfig.getReadOnlyCompressionCodec());
+        response.addAllCompressionCodecs(supportedCodecs);
+
         return response.build();
     }
 

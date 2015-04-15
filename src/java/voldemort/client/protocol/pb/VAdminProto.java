@@ -43,6 +43,7 @@ public final class VAdminProto {
     UPDATE_STORE_DEFINITIONS(30, 33),
     SET_OFFLINE_STATE(31, 34),
     GET_RO_STORAGE_FILE_LIST(32, 35),
+    GET_RO_COMPRESSION_CODEC_LIST(33, 36),
     ;
     
     
@@ -83,6 +84,7 @@ public final class VAdminProto {
         case 33: return UPDATE_STORE_DEFINITIONS;
         case 34: return SET_OFFLINE_STATE;
         case 35: return GET_RO_STORAGE_FILE_LIST;
+        case 36: return GET_RO_COMPRESSION_CODEC_LIST;
         default: return null;
       }
     }
@@ -113,7 +115,7 @@ public final class VAdminProto {
     }
     
     private static final AdminRequestType[] VALUES = {
-      GET_METADATA, UPDATE_METADATA, UPDATE_PARTITION_ENTRIES, FETCH_PARTITION_ENTRIES, DELETE_PARTITION_ENTRIES, INITIATE_FETCH_AND_UPDATE, ASYNC_OPERATION_STATUS, INITIATE_REBALANCE_NODE, ASYNC_OPERATION_STOP, ASYNC_OPERATION_LIST, TRUNCATE_ENTRIES, ADD_STORE, DELETE_STORE, FETCH_STORE, SWAP_STORE, ROLLBACK_STORE, GET_RO_MAX_VERSION_DIR, GET_RO_CURRENT_VERSION_DIR, FETCH_PARTITION_FILES, UPDATE_SLOP_ENTRIES, FAILED_FETCH_STORE, GET_RO_STORAGE_FORMAT, REBALANCE_STATE_CHANGE, REPAIR_JOB, DELETE_STORE_REBALANCE_STATE, NATIVE_BACKUP, RESERVE_MEMORY, PRUNE_JOB, SLOP_PURGE_JOB, UPDATE_METADATA_PAIR, UPDATE_STORE_DEFINITIONS, SET_OFFLINE_STATE, GET_RO_STORAGE_FILE_LIST, 
+      GET_METADATA, UPDATE_METADATA, UPDATE_PARTITION_ENTRIES, FETCH_PARTITION_ENTRIES, DELETE_PARTITION_ENTRIES, INITIATE_FETCH_AND_UPDATE, ASYNC_OPERATION_STATUS, INITIATE_REBALANCE_NODE, ASYNC_OPERATION_STOP, ASYNC_OPERATION_LIST, TRUNCATE_ENTRIES, ADD_STORE, DELETE_STORE, FETCH_STORE, SWAP_STORE, ROLLBACK_STORE, GET_RO_MAX_VERSION_DIR, GET_RO_CURRENT_VERSION_DIR, FETCH_PARTITION_FILES, UPDATE_SLOP_ENTRIES, FAILED_FETCH_STORE, GET_RO_STORAGE_FORMAT, REBALANCE_STATE_CHANGE, REPAIR_JOB, DELETE_STORE_REBALANCE_STATE, NATIVE_BACKUP, RESERVE_MEMORY, PRUNE_JOB, SLOP_PURGE_JOB, UPDATE_METADATA_PAIR, UPDATE_STORE_DEFINITIONS, SET_OFFLINE_STATE, GET_RO_STORAGE_FILE_LIST, GET_RO_COMPRESSION_CODEC_LIST, 
     };
     public static AdminRequestType valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
@@ -21499,6 +21501,641 @@ public final class VAdminProto {
     // @@protoc_insertion_point(class_scope:voldemort.GetROStorageFileListResponse)
   }
   
+  public static final class GetROStorageCompressionCodecListRequest extends
+      com.google.protobuf.GeneratedMessage {
+    // Use GetROStorageCompressionCodecListRequest.newBuilder() to construct.
+    private GetROStorageCompressionCodecListRequest() {
+      initFields();
+    }
+    private GetROStorageCompressionCodecListRequest(boolean noInit) {}
+    
+    private static final GetROStorageCompressionCodecListRequest defaultInstance;
+    public static GetROStorageCompressionCodecListRequest getDefaultInstance() {
+      return defaultInstance;
+    }
+    
+    public GetROStorageCompressionCodecListRequest getDefaultInstanceForType() {
+      return defaultInstance;
+    }
+    
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROStorageCompressionCodecListRequest_descriptor;
+    }
+    
+    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROStorageCompressionCodecListRequest_fieldAccessorTable;
+    }
+    
+    private void initFields() {
+    }
+    public final boolean isInitialized() {
+      return true;
+    }
+    
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      getSerializedSize();
+      getUnknownFields().writeTo(output);
+    }
+    
+    private int memoizedSerializedSize = -1;
+    public int getSerializedSize() {
+      int size = memoizedSerializedSize;
+      if (size != -1) return size;
+    
+      size = 0;
+      size += getUnknownFields().getSerializedSize();
+      memoizedSerializedSize = size;
+      return size;
+    }
+    
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      Builder builder = newBuilder();
+      if (builder.mergeDelimitedFrom(input)) {
+        return builder.buildParsed();
+      } else {
+        return null;
+      }
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      Builder builder = newBuilder();
+      if (builder.mergeDelimitedFrom(input, extensionRegistry)) {
+        return builder.buildParsed();
+      } else {
+        return null;
+      }
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    
+    public static Builder newBuilder() { return Builder.create(); }
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest prototype) {
+      return newBuilder().mergeFrom(prototype);
+    }
+    public Builder toBuilder() { return newBuilder(this); }
+    
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessage.Builder<Builder> {
+      private voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest result;
+      
+      // Construct using voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.newBuilder()
+      private Builder() {}
+      
+      private static Builder create() {
+        Builder builder = new Builder();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest();
+        return builder;
+      }
+      
+      protected voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest internalGetResult() {
+        return result;
+      }
+      
+      public Builder clear() {
+        if (result == null) {
+          throw new IllegalStateException(
+            "Cannot call clear() after build().");
+        }
+        result = new voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest();
+        return this;
+      }
+      
+      public Builder clone() {
+        return create().mergeFrom(result);
+      }
+      
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.getDescriptor();
+      }
+      
+      public voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.getDefaultInstance();
+      }
+      
+      public boolean isInitialized() {
+        return result.isInitialized();
+      }
+      public voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest build() {
+        if (result != null && !isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return buildPartial();
+      }
+      
+      private voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest buildParsed()
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        if (!isInitialized()) {
+          throw newUninitializedMessageException(
+            result).asInvalidProtocolBufferException();
+        }
+        return buildPartial();
+      }
+      
+      public voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest buildPartial() {
+        if (result == null) {
+          throw new IllegalStateException(
+            "build() has already been called on this Builder.");
+        }
+        voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest returnMe = result;
+        result = null;
+        return returnMe;
+      }
+      
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+      
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.getDefaultInstance()) return this;
+        this.mergeUnknownFields(other.getUnknownFields());
+        return this;
+      }
+      
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder(
+            this.getUnknownFields());
+        while (true) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              this.setUnknownFields(unknownFields.build());
+              return this;
+            default: {
+              if (!parseUnknownField(input, unknownFields,
+                                     extensionRegistry, tag)) {
+                this.setUnknownFields(unknownFields.build());
+                return this;
+              }
+              break;
+            }
+          }
+        }
+      }
+      
+      
+      // @@protoc_insertion_point(builder_scope:voldemort.GetROStorageCompressionCodecListRequest)
+    }
+    
+    static {
+      defaultInstance = new GetROStorageCompressionCodecListRequest(true);
+      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
+      defaultInstance.initFields();
+    }
+    
+    // @@protoc_insertion_point(class_scope:voldemort.GetROStorageCompressionCodecListRequest)
+  }
+  
+  public static final class GetROStorageCompressionCodecListResponse extends
+      com.google.protobuf.GeneratedMessage {
+    // Use GetROStorageCompressionCodecListResponse.newBuilder() to construct.
+    private GetROStorageCompressionCodecListResponse() {
+      initFields();
+    }
+    private GetROStorageCompressionCodecListResponse(boolean noInit) {}
+    
+    private static final GetROStorageCompressionCodecListResponse defaultInstance;
+    public static GetROStorageCompressionCodecListResponse getDefaultInstance() {
+      return defaultInstance;
+    }
+    
+    public GetROStorageCompressionCodecListResponse getDefaultInstanceForType() {
+      return defaultInstance;
+    }
+    
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROStorageCompressionCodecListResponse_descriptor;
+    }
+    
+    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROStorageCompressionCodecListResponse_fieldAccessorTable;
+    }
+    
+    // repeated string compression_codecs = 1;
+    public static final int COMPRESSION_CODECS_FIELD_NUMBER = 1;
+    private java.util.List<java.lang.String> compressionCodecs_ =
+      java.util.Collections.emptyList();
+    public java.util.List<java.lang.String> getCompressionCodecsList() {
+      return compressionCodecs_;
+    }
+    public int getCompressionCodecsCount() { return compressionCodecs_.size(); }
+    public java.lang.String getCompressionCodecs(int index) {
+      return compressionCodecs_.get(index);
+    }
+    
+    // optional .voldemort.Error error = 2;
+    public static final int ERROR_FIELD_NUMBER = 2;
+    private boolean hasError;
+    private voldemort.client.protocol.pb.VProto.Error error_;
+    public boolean hasError() { return hasError; }
+    public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
+    
+    private void initFields() {
+      error_ = voldemort.client.protocol.pb.VProto.Error.getDefaultInstance();
+    }
+    public final boolean isInitialized() {
+      if (hasError()) {
+        if (!getError().isInitialized()) return false;
+      }
+      return true;
+    }
+    
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      getSerializedSize();
+      for (java.lang.String element : getCompressionCodecsList()) {
+        output.writeString(1, element);
+      }
+      if (hasError()) {
+        output.writeMessage(2, getError());
+      }
+      getUnknownFields().writeTo(output);
+    }
+    
+    private int memoizedSerializedSize = -1;
+    public int getSerializedSize() {
+      int size = memoizedSerializedSize;
+      if (size != -1) return size;
+    
+      size = 0;
+      {
+        int dataSize = 0;
+        for (java.lang.String element : getCompressionCodecsList()) {
+          dataSize += com.google.protobuf.CodedOutputStream
+            .computeStringSizeNoTag(element);
+        }
+        size += dataSize;
+        size += 1 * getCompressionCodecsList().size();
+      }
+      if (hasError()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(2, getError());
+      }
+      size += getUnknownFields().getSerializedSize();
+      memoizedSerializedSize = size;
+      return size;
+    }
+    
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      Builder builder = newBuilder();
+      if (builder.mergeDelimitedFrom(input)) {
+        return builder.buildParsed();
+      } else {
+        return null;
+      }
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      Builder builder = newBuilder();
+      if (builder.mergeDelimitedFrom(input, extensionRegistry)) {
+        return builder.buildParsed();
+      } else {
+        return null;
+      }
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    
+    public static Builder newBuilder() { return Builder.create(); }
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse prototype) {
+      return newBuilder().mergeFrom(prototype);
+    }
+    public Builder toBuilder() { return newBuilder(this); }
+    
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessage.Builder<Builder> {
+      private voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse result;
+      
+      // Construct using voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse.newBuilder()
+      private Builder() {}
+      
+      private static Builder create() {
+        Builder builder = new Builder();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse();
+        return builder;
+      }
+      
+      protected voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse internalGetResult() {
+        return result;
+      }
+      
+      public Builder clear() {
+        if (result == null) {
+          throw new IllegalStateException(
+            "Cannot call clear() after build().");
+        }
+        result = new voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse();
+        return this;
+      }
+      
+      public Builder clone() {
+        return create().mergeFrom(result);
+      }
+      
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse.getDescriptor();
+      }
+      
+      public voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse.getDefaultInstance();
+      }
+      
+      public boolean isInitialized() {
+        return result.isInitialized();
+      }
+      public voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse build() {
+        if (result != null && !isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return buildPartial();
+      }
+      
+      private voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse buildParsed()
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        if (!isInitialized()) {
+          throw newUninitializedMessageException(
+            result).asInvalidProtocolBufferException();
+        }
+        return buildPartial();
+      }
+      
+      public voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse buildPartial() {
+        if (result == null) {
+          throw new IllegalStateException(
+            "build() has already been called on this Builder.");
+        }
+        if (result.compressionCodecs_ != java.util.Collections.EMPTY_LIST) {
+          result.compressionCodecs_ =
+            java.util.Collections.unmodifiableList(result.compressionCodecs_);
+        }
+        voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse returnMe = result;
+        result = null;
+        return returnMe;
+      }
+      
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+      
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse.getDefaultInstance()) return this;
+        if (!other.compressionCodecs_.isEmpty()) {
+          if (result.compressionCodecs_.isEmpty()) {
+            result.compressionCodecs_ = new java.util.ArrayList<java.lang.String>();
+          }
+          result.compressionCodecs_.addAll(other.compressionCodecs_);
+        }
+        if (other.hasError()) {
+          mergeError(other.getError());
+        }
+        this.mergeUnknownFields(other.getUnknownFields());
+        return this;
+      }
+      
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder(
+            this.getUnknownFields());
+        while (true) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              this.setUnknownFields(unknownFields.build());
+              return this;
+            default: {
+              if (!parseUnknownField(input, unknownFields,
+                                     extensionRegistry, tag)) {
+                this.setUnknownFields(unknownFields.build());
+                return this;
+              }
+              break;
+            }
+            case 10: {
+              addCompressionCodecs(input.readString());
+              break;
+            }
+            case 18: {
+              voldemort.client.protocol.pb.VProto.Error.Builder subBuilder = voldemort.client.protocol.pb.VProto.Error.newBuilder();
+              if (hasError()) {
+                subBuilder.mergeFrom(getError());
+              }
+              input.readMessage(subBuilder, extensionRegistry);
+              setError(subBuilder.buildPartial());
+              break;
+            }
+          }
+        }
+      }
+      
+      
+      // repeated string compression_codecs = 1;
+      public java.util.List<java.lang.String> getCompressionCodecsList() {
+        return java.util.Collections.unmodifiableList(result.compressionCodecs_);
+      }
+      public int getCompressionCodecsCount() {
+        return result.getCompressionCodecsCount();
+      }
+      public java.lang.String getCompressionCodecs(int index) {
+        return result.getCompressionCodecs(index);
+      }
+      public Builder setCompressionCodecs(int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  result.compressionCodecs_.set(index, value);
+        return this;
+      }
+      public Builder addCompressionCodecs(java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  if (result.compressionCodecs_.isEmpty()) {
+          result.compressionCodecs_ = new java.util.ArrayList<java.lang.String>();
+        }
+        result.compressionCodecs_.add(value);
+        return this;
+      }
+      public Builder addAllCompressionCodecs(
+          java.lang.Iterable<? extends java.lang.String> values) {
+        if (result.compressionCodecs_.isEmpty()) {
+          result.compressionCodecs_ = new java.util.ArrayList<java.lang.String>();
+        }
+        super.addAll(values, result.compressionCodecs_);
+        return this;
+      }
+      public Builder clearCompressionCodecs() {
+        result.compressionCodecs_ = java.util.Collections.emptyList();
+        return this;
+      }
+      
+      // optional .voldemort.Error error = 2;
+      public boolean hasError() {
+        return result.hasError();
+      }
+      public voldemort.client.protocol.pb.VProto.Error getError() {
+        return result.getError();
+      }
+      public Builder setError(voldemort.client.protocol.pb.VProto.Error value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        result.hasError = true;
+        result.error_ = value;
+        return this;
+      }
+      public Builder setError(voldemort.client.protocol.pb.VProto.Error.Builder builderForValue) {
+        result.hasError = true;
+        result.error_ = builderForValue.build();
+        return this;
+      }
+      public Builder mergeError(voldemort.client.protocol.pb.VProto.Error value) {
+        if (result.hasError() &&
+            result.error_ != voldemort.client.protocol.pb.VProto.Error.getDefaultInstance()) {
+          result.error_ =
+            voldemort.client.protocol.pb.VProto.Error.newBuilder(result.error_).mergeFrom(value).buildPartial();
+        } else {
+          result.error_ = value;
+        }
+        result.hasError = true;
+        return this;
+      }
+      public Builder clearError() {
+        result.hasError = false;
+        result.error_ = voldemort.client.protocol.pb.VProto.Error.getDefaultInstance();
+        return this;
+      }
+      
+      // @@protoc_insertion_point(builder_scope:voldemort.GetROStorageCompressionCodecListResponse)
+    }
+    
+    static {
+      defaultInstance = new GetROStorageCompressionCodecListResponse(true);
+      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
+      defaultInstance.initFields();
+    }
+    
+    // @@protoc_insertion_point(class_scope:voldemort.GetROStorageCompressionCodecListResponse)
+  }
+  
   public static final class FailedFetchStoreRequest extends
       com.google.protobuf.GeneratedMessage {
     // Use FailedFetchStoreRequest.newBuilder() to construct.
@@ -25587,6 +26224,13 @@ public final class VAdminProto {
     public boolean hasGetRoStorageFileList() { return hasGetRoStorageFileList; }
     public voldemort.client.protocol.pb.VAdminProto.GetROStorageFileListRequest getGetRoStorageFileList() { return getRoStorageFileList_; }
     
+    // optional .voldemort.GetROStorageCompressionCodecListRequest get_ro_compression_codec_list = 38;
+    public static final int GET_RO_COMPRESSION_CODEC_LIST_FIELD_NUMBER = 38;
+    private boolean hasGetRoCompressionCodecList;
+    private voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest getRoCompressionCodecList_;
+    public boolean hasGetRoCompressionCodecList() { return hasGetRoCompressionCodecList; }
+    public voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest getGetRoCompressionCodecList() { return getRoCompressionCodecList_; }
+    
     private void initFields() {
       type_ = voldemort.client.protocol.pb.VAdminProto.AdminRequestType.GET_METADATA;
       getMetadata_ = voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest.getDefaultInstance();
@@ -25622,6 +26266,7 @@ public final class VAdminProto {
       updateStoreDefinitions_ = voldemort.client.protocol.pb.VAdminProto.UpdateStoreDefinitions.getDefaultInstance();
       setOfflineState_ = voldemort.client.protocol.pb.VAdminProto.SetOfflineStateRequest.getDefaultInstance();
       getRoStorageFileList_ = voldemort.client.protocol.pb.VAdminProto.GetROStorageFileListRequest.getDefaultInstance();
+      getRoCompressionCodecList_ = voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.getDefaultInstance();
     }
     public final boolean isInitialized() {
       if (!hasType) return false;
@@ -25814,6 +26459,9 @@ public final class VAdminProto {
       if (hasGetRoStorageFileList()) {
         output.writeMessage(37, getGetRoStorageFileList());
       }
+      if (hasGetRoCompressionCodecList()) {
+        output.writeMessage(38, getGetRoCompressionCodecList());
+      }
       getUnknownFields().writeTo(output);
     }
     
@@ -25958,6 +26606,10 @@ public final class VAdminProto {
       if (hasGetRoStorageFileList()) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(37, getGetRoStorageFileList());
+      }
+      if (hasGetRoCompressionCodecList()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(38, getGetRoCompressionCodecList());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -26218,6 +26870,9 @@ public final class VAdminProto {
         }
         if (other.hasGetRoStorageFileList()) {
           mergeGetRoStorageFileList(other.getGetRoStorageFileList());
+        }
+        if (other.hasGetRoCompressionCodecList()) {
+          mergeGetRoCompressionCodecList(other.getGetRoCompressionCodecList());
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -26549,6 +27204,15 @@ public final class VAdminProto {
               }
               input.readMessage(subBuilder, extensionRegistry);
               setGetRoStorageFileList(subBuilder.buildPartial());
+              break;
+            }
+            case 306: {
+              voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.newBuilder();
+              if (hasGetRoCompressionCodecList()) {
+                subBuilder.mergeFrom(getGetRoCompressionCodecList());
+              }
+              input.readMessage(subBuilder, extensionRegistry);
+              setGetRoCompressionCodecList(subBuilder.buildPartial());
               break;
             }
           }
@@ -27798,6 +28462,43 @@ public final class VAdminProto {
         return this;
       }
       
+      // optional .voldemort.GetROStorageCompressionCodecListRequest get_ro_compression_codec_list = 38;
+      public boolean hasGetRoCompressionCodecList() {
+        return result.hasGetRoCompressionCodecList();
+      }
+      public voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest getGetRoCompressionCodecList() {
+        return result.getGetRoCompressionCodecList();
+      }
+      public Builder setGetRoCompressionCodecList(voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        result.hasGetRoCompressionCodecList = true;
+        result.getRoCompressionCodecList_ = value;
+        return this;
+      }
+      public Builder setGetRoCompressionCodecList(voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.Builder builderForValue) {
+        result.hasGetRoCompressionCodecList = true;
+        result.getRoCompressionCodecList_ = builderForValue.build();
+        return this;
+      }
+      public Builder mergeGetRoCompressionCodecList(voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest value) {
+        if (result.hasGetRoCompressionCodecList() &&
+            result.getRoCompressionCodecList_ != voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.getDefaultInstance()) {
+          result.getRoCompressionCodecList_ =
+            voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.newBuilder(result.getRoCompressionCodecList_).mergeFrom(value).buildPartial();
+        } else {
+          result.getRoCompressionCodecList_ = value;
+        }
+        result.hasGetRoCompressionCodecList = true;
+        return this;
+      }
+      public Builder clearGetRoCompressionCodecList() {
+        result.hasGetRoCompressionCodecList = false;
+        result.getRoCompressionCodecList_ = voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.getDefaultInstance();
+        return this;
+      }
+      
       // @@protoc_insertion_point(builder_scope:voldemort.VoldemortAdminRequest)
     }
     
@@ -28106,6 +28807,16 @@ public final class VAdminProto {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_voldemort_GetROStorageFileListResponse_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
+    internal_static_voldemort_GetROStorageCompressionCodecListRequest_descriptor;
+  private static
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_voldemort_GetROStorageCompressionCodecListRequest_fieldAccessorTable;
+  private static com.google.protobuf.Descriptors.Descriptor
+    internal_static_voldemort_GetROStorageCompressionCodecListResponse_descriptor;
+  private static
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_voldemort_GetROStorageCompressionCodecListResponse_fieldAccessorTable;
+  private static com.google.protobuf.Descriptors.Descriptor
     internal_static_voldemort_FailedFetchStoreRequest_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -28303,106 +29014,113 @@ public final class VAdminProto {
       "t.Error\"1\n\033GetROStorageFileListRequest\022\022" +
       "\n\nstore_name\030\001 \002(\t\"R\n\034GetROStorageFileLi" +
       "stResponse\022\021\n\tfile_name\030\001 \003(\t\022\037\n\005error\030\002" +
-      " \001(\0132\020.voldemort.Error\"@\n\027FailedFetchSto",
-      "reRequest\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_d" +
-      "ir\030\002 \002(\t\";\n\030FailedFetchStoreResponse\022\037\n\005" +
-      "error\030\001 \001(\0132\020.voldemort.Error\"\356\001\n\033Rebala" +
-      "nceStateChangeRequest\022<\n\023rebalance_task_" +
-      "list\030\001 \003(\0132\037.voldemort.RebalanceTaskInfo" +
-      "Map\022\026\n\016cluster_string\030\002 \002(\t\022\025\n\rstores_st" +
-      "ring\030\003 \002(\t\022\017\n\007swap_ro\030\004 \002(\010\022\037\n\027change_cl" +
-      "uster_metadata\030\005 \002(\010\022\036\n\026change_rebalance" +
-      "_state\030\006 \002(\010\022\020\n\010rollback\030\007 \002(\010\"?\n\034Rebala" +
-      "nceStateChangeResponse\022\037\n\005error\030\001 \001(\0132\020.",
-      "voldemort.Error\"G\n DeleteStoreRebalanceS" +
-      "tateRequest\022\022\n\nstore_name\030\001 \002(\t\022\017\n\007node_" +
-      "id\030\002 \002(\005\"D\n!DeleteStoreRebalanceStateRes" +
-      "ponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"." +
-      "\n\026SetOfflineStateRequest\022\024\n\014offline_mode" +
-      "\030\001 \002(\010\":\n\027SetOfflineStateResponse\022\037\n\005err" +
-      "or\030\001 \001(\0132\020.voldemort.Error\"h\n\023NativeBack" +
-      "upRequest\022\022\n\nstore_name\030\001 \002(\t\022\022\n\nbackup_" +
-      "dir\030\002 \002(\t\022\024\n\014verify_files\030\003 \002(\010\022\023\n\013incre" +
-      "mental\030\004 \002(\010\">\n\024ReserveMemoryRequest\022\022\n\n",
-      "store_name\030\001 \002(\t\022\022\n\nsize_in_mb\030\002 \002(\003\"8\n\025" +
-      "ReserveMemoryResponse\022\037\n\005error\030\001 \001(\0132\020.v" +
-      "oldemort.Error\"\216\021\n\025VoldemortAdminRequest" +
-      "\022)\n\004type\030\001 \002(\0162\033.voldemort.AdminRequestT" +
-      "ype\0223\n\014get_metadata\030\002 \001(\0132\035.voldemort.Ge" +
-      "tMetadataRequest\0229\n\017update_metadata\030\003 \001(" +
-      "\0132 .voldemort.UpdateMetadataRequest\022J\n\030u" +
-      "pdate_partition_entries\030\004 \001(\0132(.voldemor" +
-      "t.UpdatePartitionEntriesRequest\022H\n\027fetch" +
-      "_partition_entries\030\005 \001(\0132\'.voldemort.Fet",
-      "chPartitionEntriesRequest\022J\n\030delete_part" +
-      "ition_entries\030\006 \001(\0132(.voldemort.DeletePa" +
-      "rtitionEntriesRequest\022K\n\031initiate_fetch_" +
-      "and_update\030\007 \001(\0132(.voldemort.InitiateFet" +
-      "chAndUpdateRequest\022F\n\026async_operation_st" +
-      "atus\030\010 \001(\0132&.voldemort.AsyncOperationSta" +
-      "tusRequest\022H\n\027initiate_rebalance_node\030\t " +
-      "\001(\0132\'.voldemort.InitiateRebalanceNodeReq" +
-      "uest\022B\n\024async_operation_stop\030\n \001(\0132$.vol" +
-      "demort.AsyncOperationStopRequest\022B\n\024asyn",
-      "c_operation_list\030\013 \001(\0132$.voldemort.Async" +
-      "OperationListRequest\022;\n\020truncate_entries" +
-      "\030\014 \001(\0132!.voldemort.TruncateEntriesReques" +
-      "t\022-\n\tadd_store\030\r \001(\0132\032.voldemort.AddStor" +
-      "eRequest\0223\n\014delete_store\030\016 \001(\0132\035.voldemo" +
-      "rt.DeleteStoreRequest\0221\n\013fetch_store\030\017 \001" +
-      "(\0132\034.voldemort.FetchStoreRequest\022/\n\nswap" +
-      "_store\030\020 \001(\0132\033.voldemort.SwapStoreReques" +
-      "t\0227\n\016rollback_store\030\021 \001(\0132\037.voldemort.Ro" +
-      "llbackStoreRequest\022D\n\026get_ro_max_version",
-      "_dir\030\022 \001(\0132$.voldemort.GetROMaxVersionDi" +
-      "rRequest\022L\n\032get_ro_current_version_dir\030\023" +
-      " \001(\0132(.voldemort.GetROCurrentVersionDirR" +
-      "equest\022D\n\025fetch_partition_files\030\024 \001(\0132%." +
-      "voldemort.FetchPartitionFilesRequest\022@\n\023" +
-      "update_slop_entries\030\026 \001(\0132#.voldemort.Up" +
-      "dateSlopEntriesRequest\022>\n\022failed_fetch_s" +
-      "tore\030\030 \001(\0132\".voldemort.FailedFetchStoreR" +
-      "equest\022C\n\025get_ro_storage_format\030\031 \001(\0132$." +
-      "voldemort.GetROStorageFormatRequest\022F\n\026r",
-      "ebalance_state_change\030\032 \001(\0132&.voldemort." +
-      "RebalanceStateChangeRequest\022/\n\nrepair_jo" +
-      "b\030\033 \001(\0132\033.voldemort.RepairJobRequest\022Q\n\034" +
-      "delete_store_rebalance_state\030\035 \001(\0132+.vol" +
-      "demort.DeleteStoreRebalanceStateRequest\022" +
-      "5\n\rnative_backup\030\036 \001(\0132\036.voldemort.Nativ" +
-      "eBackupRequest\0227\n\016reserve_memory\030\037 \001(\0132\037" +
-      ".voldemort.ReserveMemoryRequest\022-\n\tprune" +
-      "_job\030  \001(\0132\032.voldemort.PruneJobRequest\0226" +
-      "\n\016slop_purge_job\030! \001(\0132\036.voldemort.SlopP",
-      "urgeJobRequest\022B\n\024update_metadata_pair\030\"" +
-      " \001(\0132$.voldemort.UpdateMetadataPairReque" +
-      "st\022C\n\030update_store_definitions\030# \001(\0132!.v" +
-      "oldemort.UpdateStoreDefinitions\022<\n\021set_o" +
-      "ffline_state\030$ \001(\0132!.voldemort.SetOfflin" +
-      "eStateRequest\022H\n\030get_ro_storage_file_lis" +
-      "t\030% \001(\0132&.voldemort.GetROStorageFileList" +
-      "Request*\262\006\n\020AdminRequestType\022\020\n\014GET_META" +
-      "DATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022\034\n\030UPDATE_PA" +
-      "RTITION_ENTRIES\020\002\022\033\n\027FETCH_PARTITION_ENT",
-      "RIES\020\003\022\034\n\030DELETE_PARTITION_ENTRIES\020\004\022\035\n\031" +
-      "INITIATE_FETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPE" +
-      "RATION_STATUS\020\006\022\033\n\027INITIATE_REBALANCE_NO" +
-      "DE\020\007\022\030\n\024ASYNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_" +
-      "OPERATION_LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r" +
-      "\n\tADD_STORE\020\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH" +
-      "_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016ROLLBACK_STO" +
-      "RE\020\017\022\032\n\026GET_RO_MAX_VERSION_DIR\020\020\022\036\n\032GET_" +
-      "RO_CURRENT_VERSION_DIR\020\021\022\031\n\025FETCH_PARTIT" +
-      "ION_FILES\020\022\022\027\n\023UPDATE_SLOP_ENTRIES\020\024\022\026\n\022",
-      "FAILED_FETCH_STORE\020\026\022\031\n\025GET_RO_STORAGE_F" +
-      "ORMAT\020\027\022\032\n\026REBALANCE_STATE_CHANGE\020\030\022\016\n\nR" +
-      "EPAIR_JOB\020\031\022 \n\034DELETE_STORE_REBALANCE_ST" +
-      "ATE\020\033\022\021\n\rNATIVE_BACKUP\020\034\022\022\n\016RESERVE_MEMO" +
-      "RY\020\035\022\r\n\tPRUNE_JOB\020\036\022\022\n\016SLOP_PURGE_JOB\020\037\022" +
-      "\030\n\024UPDATE_METADATA_PAIR\020 \022\034\n\030UPDATE_STOR" +
-      "E_DEFINITIONS\020!\022\025\n\021SET_OFFLINE_STATE\020\"\022\034" +
-      "\n\030GET_RO_STORAGE_FILE_LIST\020#B-\n\034voldemor" +
-      "t.client.protocol.pbB\013VAdminProtoH\001"
+      " \001(\0132\020.voldemort.Error\")\n\'GetROStorageCo",
+      "mpressionCodecListRequest\"g\n(GetROStorag" +
+      "eCompressionCodecListResponse\022\032\n\022compres" +
+      "sion_codecs\030\001 \003(\t\022\037\n\005error\030\002 \001(\0132\020.volde" +
+      "mort.Error\"@\n\027FailedFetchStoreRequest\022\022\n" +
+      "\nstore_name\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\";\n\030" +
+      "FailedFetchStoreResponse\022\037\n\005error\030\001 \001(\0132" +
+      "\020.voldemort.Error\"\356\001\n\033RebalanceStateChan" +
+      "geRequest\022<\n\023rebalance_task_list\030\001 \003(\0132\037" +
+      ".voldemort.RebalanceTaskInfoMap\022\026\n\016clust" +
+      "er_string\030\002 \002(\t\022\025\n\rstores_string\030\003 \002(\t\022\017",
+      "\n\007swap_ro\030\004 \002(\010\022\037\n\027change_cluster_metada" +
+      "ta\030\005 \002(\010\022\036\n\026change_rebalance_state\030\006 \002(\010" +
+      "\022\020\n\010rollback\030\007 \002(\010\"?\n\034RebalanceStateChan" +
+      "geResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Er" +
+      "ror\"G\n DeleteStoreRebalanceStateRequest\022" +
+      "\022\n\nstore_name\030\001 \002(\t\022\017\n\007node_id\030\002 \002(\005\"D\n!" +
+      "DeleteStoreRebalanceStateResponse\022\037\n\005err" +
+      "or\030\001 \001(\0132\020.voldemort.Error\".\n\026SetOffline" +
+      "StateRequest\022\024\n\014offline_mode\030\001 \002(\010\":\n\027Se" +
+      "tOfflineStateResponse\022\037\n\005error\030\001 \001(\0132\020.v",
+      "oldemort.Error\"h\n\023NativeBackupRequest\022\022\n" +
+      "\nstore_name\030\001 \002(\t\022\022\n\nbackup_dir\030\002 \002(\t\022\024\n" +
+      "\014verify_files\030\003 \002(\010\022\023\n\013incremental\030\004 \002(\010" +
+      "\">\n\024ReserveMemoryRequest\022\022\n\nstore_name\030\001" +
+      " \002(\t\022\022\n\nsize_in_mb\030\002 \002(\003\"8\n\025ReserveMemor" +
+      "yResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Err" +
+      "or\"\351\021\n\025VoldemortAdminRequest\022)\n\004type\030\001 \002" +
+      "(\0162\033.voldemort.AdminRequestType\0223\n\014get_m" +
+      "etadata\030\002 \001(\0132\035.voldemort.GetMetadataReq" +
+      "uest\0229\n\017update_metadata\030\003 \001(\0132 .voldemor",
+      "t.UpdateMetadataRequest\022J\n\030update_partit" +
+      "ion_entries\030\004 \001(\0132(.voldemort.UpdatePart" +
+      "itionEntriesRequest\022H\n\027fetch_partition_e" +
+      "ntries\030\005 \001(\0132\'.voldemort.FetchPartitionE" +
+      "ntriesRequest\022J\n\030delete_partition_entrie" +
+      "s\030\006 \001(\0132(.voldemort.DeletePartitionEntri" +
+      "esRequest\022K\n\031initiate_fetch_and_update\030\007" +
+      " \001(\0132(.voldemort.InitiateFetchAndUpdateR" +
+      "equest\022F\n\026async_operation_status\030\010 \001(\0132&" +
+      ".voldemort.AsyncOperationStatusRequest\022H",
+      "\n\027initiate_rebalance_node\030\t \001(\0132\'.voldem" +
+      "ort.InitiateRebalanceNodeRequest\022B\n\024asyn" +
+      "c_operation_stop\030\n \001(\0132$.voldemort.Async" +
+      "OperationStopRequest\022B\n\024async_operation_" +
+      "list\030\013 \001(\0132$.voldemort.AsyncOperationLis" +
+      "tRequest\022;\n\020truncate_entries\030\014 \001(\0132!.vol" +
+      "demort.TruncateEntriesRequest\022-\n\tadd_sto" +
+      "re\030\r \001(\0132\032.voldemort.AddStoreRequest\0223\n\014" +
+      "delete_store\030\016 \001(\0132\035.voldemort.DeleteSto" +
+      "reRequest\0221\n\013fetch_store\030\017 \001(\0132\034.voldemo",
+      "rt.FetchStoreRequest\022/\n\nswap_store\030\020 \001(\013" +
+      "2\033.voldemort.SwapStoreRequest\0227\n\016rollbac" +
+      "k_store\030\021 \001(\0132\037.voldemort.RollbackStoreR" +
+      "equest\022D\n\026get_ro_max_version_dir\030\022 \001(\0132$" +
+      ".voldemort.GetROMaxVersionDirRequest\022L\n\032" +
+      "get_ro_current_version_dir\030\023 \001(\0132(.volde" +
+      "mort.GetROCurrentVersionDirRequest\022D\n\025fe" +
+      "tch_partition_files\030\024 \001(\0132%.voldemort.Fe" +
+      "tchPartitionFilesRequest\022@\n\023update_slop_" +
+      "entries\030\026 \001(\0132#.voldemort.UpdateSlopEntr",
+      "iesRequest\022>\n\022failed_fetch_store\030\030 \001(\0132\"" +
+      ".voldemort.FailedFetchStoreRequest\022C\n\025ge" +
+      "t_ro_storage_format\030\031 \001(\0132$.voldemort.Ge" +
+      "tROStorageFormatRequest\022F\n\026rebalance_sta" +
+      "te_change\030\032 \001(\0132&.voldemort.RebalanceSta" +
+      "teChangeRequest\022/\n\nrepair_job\030\033 \001(\0132\033.vo" +
+      "ldemort.RepairJobRequest\022Q\n\034delete_store" +
+      "_rebalance_state\030\035 \001(\0132+.voldemort.Delet" +
+      "eStoreRebalanceStateRequest\0225\n\rnative_ba" +
+      "ckup\030\036 \001(\0132\036.voldemort.NativeBackupReque",
+      "st\0227\n\016reserve_memory\030\037 \001(\0132\037.voldemort.R" +
+      "eserveMemoryRequest\022-\n\tprune_job\030  \001(\0132\032" +
+      ".voldemort.PruneJobRequest\0226\n\016slop_purge" +
+      "_job\030! \001(\0132\036.voldemort.SlopPurgeJobReque" +
+      "st\022B\n\024update_metadata_pair\030\" \001(\0132$.volde" +
+      "mort.UpdateMetadataPairRequest\022C\n\030update" +
+      "_store_definitions\030# \001(\0132!.voldemort.Upd" +
+      "ateStoreDefinitions\022<\n\021set_offline_state" +
+      "\030$ \001(\0132!.voldemort.SetOfflineStateReques" +
+      "t\022H\n\030get_ro_storage_file_list\030% \001(\0132&.vo",
+      "ldemort.GetROStorageFileListRequest\022Y\n\035g" +
+      "et_ro_compression_codec_list\030& \001(\01322.vol" +
+      "demort.GetROStorageCompressionCodecListR" +
+      "equest*\325\006\n\020AdminRequestType\022\020\n\014GET_METAD" +
+      "ATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022\034\n\030UPDATE_PAR" +
+      "TITION_ENTRIES\020\002\022\033\n\027FETCH_PARTITION_ENTR" +
+      "IES\020\003\022\034\n\030DELETE_PARTITION_ENTRIES\020\004\022\035\n\031I" +
+      "NITIATE_FETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPER" +
+      "ATION_STATUS\020\006\022\033\n\027INITIATE_REBALANCE_NOD" +
+      "E\020\007\022\030\n\024ASYNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_O",
+      "PERATION_LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r\n" +
+      "\tADD_STORE\020\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH_" +
+      "STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016ROLLBACK_STOR" +
+      "E\020\017\022\032\n\026GET_RO_MAX_VERSION_DIR\020\020\022\036\n\032GET_R" +
+      "O_CURRENT_VERSION_DIR\020\021\022\031\n\025FETCH_PARTITI" +
+      "ON_FILES\020\022\022\027\n\023UPDATE_SLOP_ENTRIES\020\024\022\026\n\022F" +
+      "AILED_FETCH_STORE\020\026\022\031\n\025GET_RO_STORAGE_FO" +
+      "RMAT\020\027\022\032\n\026REBALANCE_STATE_CHANGE\020\030\022\016\n\nRE" +
+      "PAIR_JOB\020\031\022 \n\034DELETE_STORE_REBALANCE_STA" +
+      "TE\020\033\022\021\n\rNATIVE_BACKUP\020\034\022\022\n\016RESERVE_MEMOR",
+      "Y\020\035\022\r\n\tPRUNE_JOB\020\036\022\022\n\016SLOP_PURGE_JOB\020\037\022\030" +
+      "\n\024UPDATE_METADATA_PAIR\020 \022\034\n\030UPDATE_STORE" +
+      "_DEFINITIONS\020!\022\025\n\021SET_OFFLINE_STATE\020\"\022\034\n" +
+      "\030GET_RO_STORAGE_FILE_LIST\020#\022!\n\035GET_RO_CO" +
+      "MPRESSION_CODEC_LIST\020$B-\n\034voldemort.clie" +
+      "nt.protocol.pbB\013VAdminProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -28881,8 +29599,24 @@ public final class VAdminProto {
               new java.lang.String[] { "FileName", "Error", },
               voldemort.client.protocol.pb.VAdminProto.GetROStorageFileListResponse.class,
               voldemort.client.protocol.pb.VAdminProto.GetROStorageFileListResponse.Builder.class);
-          internal_static_voldemort_FailedFetchStoreRequest_descriptor =
+          internal_static_voldemort_GetROStorageCompressionCodecListRequest_descriptor =
             getDescriptor().getMessageTypes().get(59);
+          internal_static_voldemort_GetROStorageCompressionCodecListRequest_fieldAccessorTable = new
+            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+              internal_static_voldemort_GetROStorageCompressionCodecListRequest_descriptor,
+              new java.lang.String[] { },
+              voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.class,
+              voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListRequest.Builder.class);
+          internal_static_voldemort_GetROStorageCompressionCodecListResponse_descriptor =
+            getDescriptor().getMessageTypes().get(60);
+          internal_static_voldemort_GetROStorageCompressionCodecListResponse_fieldAccessorTable = new
+            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+              internal_static_voldemort_GetROStorageCompressionCodecListResponse_descriptor,
+              new java.lang.String[] { "CompressionCodecs", "Error", },
+              voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse.class,
+              voldemort.client.protocol.pb.VAdminProto.GetROStorageCompressionCodecListResponse.Builder.class);
+          internal_static_voldemort_FailedFetchStoreRequest_descriptor =
+            getDescriptor().getMessageTypes().get(61);
           internal_static_voldemort_FailedFetchStoreRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_FailedFetchStoreRequest_descriptor,
@@ -28890,7 +29624,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.FailedFetchStoreRequest.class,
               voldemort.client.protocol.pb.VAdminProto.FailedFetchStoreRequest.Builder.class);
           internal_static_voldemort_FailedFetchStoreResponse_descriptor =
-            getDescriptor().getMessageTypes().get(60);
+            getDescriptor().getMessageTypes().get(62);
           internal_static_voldemort_FailedFetchStoreResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_FailedFetchStoreResponse_descriptor,
@@ -28898,7 +29632,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.FailedFetchStoreResponse.class,
               voldemort.client.protocol.pb.VAdminProto.FailedFetchStoreResponse.Builder.class);
           internal_static_voldemort_RebalanceStateChangeRequest_descriptor =
-            getDescriptor().getMessageTypes().get(61);
+            getDescriptor().getMessageTypes().get(63);
           internal_static_voldemort_RebalanceStateChangeRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_RebalanceStateChangeRequest_descriptor,
@@ -28906,7 +29640,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.RebalanceStateChangeRequest.class,
               voldemort.client.protocol.pb.VAdminProto.RebalanceStateChangeRequest.Builder.class);
           internal_static_voldemort_RebalanceStateChangeResponse_descriptor =
-            getDescriptor().getMessageTypes().get(62);
+            getDescriptor().getMessageTypes().get(64);
           internal_static_voldemort_RebalanceStateChangeResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_RebalanceStateChangeResponse_descriptor,
@@ -28914,7 +29648,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.RebalanceStateChangeResponse.class,
               voldemort.client.protocol.pb.VAdminProto.RebalanceStateChangeResponse.Builder.class);
           internal_static_voldemort_DeleteStoreRebalanceStateRequest_descriptor =
-            getDescriptor().getMessageTypes().get(63);
+            getDescriptor().getMessageTypes().get(65);
           internal_static_voldemort_DeleteStoreRebalanceStateRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_DeleteStoreRebalanceStateRequest_descriptor,
@@ -28922,7 +29656,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.DeleteStoreRebalanceStateRequest.class,
               voldemort.client.protocol.pb.VAdminProto.DeleteStoreRebalanceStateRequest.Builder.class);
           internal_static_voldemort_DeleteStoreRebalanceStateResponse_descriptor =
-            getDescriptor().getMessageTypes().get(64);
+            getDescriptor().getMessageTypes().get(66);
           internal_static_voldemort_DeleteStoreRebalanceStateResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_DeleteStoreRebalanceStateResponse_descriptor,
@@ -28930,7 +29664,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.DeleteStoreRebalanceStateResponse.class,
               voldemort.client.protocol.pb.VAdminProto.DeleteStoreRebalanceStateResponse.Builder.class);
           internal_static_voldemort_SetOfflineStateRequest_descriptor =
-            getDescriptor().getMessageTypes().get(65);
+            getDescriptor().getMessageTypes().get(67);
           internal_static_voldemort_SetOfflineStateRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_SetOfflineStateRequest_descriptor,
@@ -28938,7 +29672,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.SetOfflineStateRequest.class,
               voldemort.client.protocol.pb.VAdminProto.SetOfflineStateRequest.Builder.class);
           internal_static_voldemort_SetOfflineStateResponse_descriptor =
-            getDescriptor().getMessageTypes().get(66);
+            getDescriptor().getMessageTypes().get(68);
           internal_static_voldemort_SetOfflineStateResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_SetOfflineStateResponse_descriptor,
@@ -28946,7 +29680,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.SetOfflineStateResponse.class,
               voldemort.client.protocol.pb.VAdminProto.SetOfflineStateResponse.Builder.class);
           internal_static_voldemort_NativeBackupRequest_descriptor =
-            getDescriptor().getMessageTypes().get(67);
+            getDescriptor().getMessageTypes().get(69);
           internal_static_voldemort_NativeBackupRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_NativeBackupRequest_descriptor,
@@ -28954,7 +29688,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.NativeBackupRequest.class,
               voldemort.client.protocol.pb.VAdminProto.NativeBackupRequest.Builder.class);
           internal_static_voldemort_ReserveMemoryRequest_descriptor =
-            getDescriptor().getMessageTypes().get(68);
+            getDescriptor().getMessageTypes().get(70);
           internal_static_voldemort_ReserveMemoryRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_ReserveMemoryRequest_descriptor,
@@ -28962,7 +29696,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.ReserveMemoryRequest.class,
               voldemort.client.protocol.pb.VAdminProto.ReserveMemoryRequest.Builder.class);
           internal_static_voldemort_ReserveMemoryResponse_descriptor =
-            getDescriptor().getMessageTypes().get(69);
+            getDescriptor().getMessageTypes().get(71);
           internal_static_voldemort_ReserveMemoryResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_ReserveMemoryResponse_descriptor,
@@ -28970,11 +29704,11 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.ReserveMemoryResponse.class,
               voldemort.client.protocol.pb.VAdminProto.ReserveMemoryResponse.Builder.class);
           internal_static_voldemort_VoldemortAdminRequest_descriptor =
-            getDescriptor().getMessageTypes().get(70);
+            getDescriptor().getMessageTypes().get(72);
           internal_static_voldemort_VoldemortAdminRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_VoldemortAdminRequest_descriptor,
-              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "InitiateFetchAndUpdate", "AsyncOperationStatus", "InitiateRebalanceNode", "AsyncOperationStop", "AsyncOperationList", "TruncateEntries", "AddStore", "DeleteStore", "FetchStore", "SwapStore", "RollbackStore", "GetRoMaxVersionDir", "GetRoCurrentVersionDir", "FetchPartitionFiles", "UpdateSlopEntries", "FailedFetchStore", "GetRoStorageFormat", "RebalanceStateChange", "RepairJob", "DeleteStoreRebalanceState", "NativeBackup", "ReserveMemory", "PruneJob", "SlopPurgeJob", "UpdateMetadataPair", "UpdateStoreDefinitions", "SetOfflineState", "GetRoStorageFileList", },
+              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "InitiateFetchAndUpdate", "AsyncOperationStatus", "InitiateRebalanceNode", "AsyncOperationStop", "AsyncOperationList", "TruncateEntries", "AddStore", "DeleteStore", "FetchStore", "SwapStore", "RollbackStore", "GetRoMaxVersionDir", "GetRoCurrentVersionDir", "FetchPartitionFiles", "UpdateSlopEntries", "FailedFetchStore", "GetRoStorageFormat", "RebalanceStateChange", "RepairJob", "DeleteStoreRebalanceState", "NativeBackup", "ReserveMemory", "PruneJob", "SlopPurgeJob", "UpdateMetadataPair", "UpdateStoreDefinitions", "SetOfflineState", "GetRoStorageFileList", "GetRoCompressionCodecList", },
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.class,
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.Builder.class);
           return null;

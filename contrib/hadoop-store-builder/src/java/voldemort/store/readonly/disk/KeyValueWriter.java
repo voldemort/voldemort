@@ -25,6 +25,17 @@ import org.apache.hadoop.mapred.Reporter;
 // Interface used by reducers to layout the datqa on disk
 public interface KeyValueWriter<K, V> {
 
+    /*
+     * TODO When supporting more than one compression codec, need to make the
+     * compression related enums parameterized , so it looks cleaner.
+     */
+    public static final String COMPRESSION_CODEC = "GZIP";
+    public static final String NO_COMPRESSION_CODEC = "NO_CODEC";
+    public static final String INDEX_FILE_EXTENSION = ".index";
+    public static final String DATA_FILE_EXTENSION = ".data";
+    public static final String CHECKSUM_FILE_EXTENSION = ".checksum";
+    public static final String GZIP_FILE_EXTENSION = ".gz";
+
     public static enum CollisionCounter {
 
         NUM_COLLISIONS,

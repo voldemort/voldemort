@@ -272,6 +272,14 @@ public abstract class AbstractHadoopJob /*extends AbstractJob*/ {
             }
         }
 
+        // Add properties specific to reducer output compression
+        conf.setBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS,
+                        props.getBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, false));
+        if(props.containsKey(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS_CODEC)) {
+            conf.set(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS_CODEC,
+                     props.get(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS_CODEC));
+        }
+
         HadoopUtils.setPropsInJob(conf, getProps());
 
         // http://hadoop.apache.org/docs/r1.1.1/mapred_tutorial.html#Job+Credentials
