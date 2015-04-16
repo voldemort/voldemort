@@ -1,3 +1,12 @@
+Release 1.9.10 on 04/15/2015
+* Share Read/Write buffers for Client
+* Share Read/Write buffers for Server on Client Operations
+* Separate Client and Admin Request Handlers
+* Remove extra allocations on Server side while parsing the request
+* Pre-allocate Put request buffer before writing the request
+* Remove one extra byte array allocation on Put, when parsing
+    Vector clocks from the Value
+
 Release 1.9.9 on 04/10/2015
 * Admin tools improvements and bug fixes:
   * vadmin.sh now deals gracefully with inconsistent metadata and other issues.
