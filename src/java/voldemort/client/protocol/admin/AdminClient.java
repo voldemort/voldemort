@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 import java.net.SocketException;
 import java.nio.channels.Channels;
@@ -4010,6 +4011,89 @@ public class AdminClient {
         public Versioned<String> getQuota(String storeName, String quotaType) {
             return quotaSysStoreClient.getSysStore(QuotaUtils.makeQuotaKey(storeName,
                                                                            QuotaType.valueOf(quotaType)));
+        }
+
+        public void setQuotaForNode(String storeName, QuotaType quotaType, Integer nodeId, Integer quota) {
+            try {
+                String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
+                ByteArray keyArray = new ByteArray(quotaKey.getBytes("UTF8"));
+                VectorClock clock = VectorClockUtils.makeClockWithCurrentTime(currentCluster.getNodeIds());
+                NodeValue<ByteArray, byte[]> nodeKeyValue = new NodeValue<ByteArray, byte[]>(nodeId,
+                                                                                             keyArray,
+                                                                                             new Versioned<byte[]>(ByteUtils.getBytes(quota.toString(),
+                                                                                                                                      "UTF8"),
+                                                                                                                   clock));
+                storeOps.putNodeKeyValue(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
+                                         nodeKeyValue);
+            } catch(UnsupportedEncodingException e) {
+                throw new VoldemortException(e);
+            }
+        }
+
+        public Versioned<String> getQuotaForNode(String storeName,
+                                                 QuotaType quotaType,
+                                                 Integer nodeId) {
+            try {
+                String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
+                
+                ByteArray keyArray = new ByteArray(quotaKey.getBytes("UTF8"));
+                List<Versioned<byte[]>> valueObj = storeOps.getNodeKey(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
+                                                                       nodeId,
+                                                                       keyArray);
+    
+                if(valueObj.size() == 0) {
+                    return null;
+                }
+    
+                String quotaValue = new String(valueObj.get(0).getValue(), "UTF8");
+                Version version = valueObj.get(0).getVersion();
+                return new Versioned<String>(quotaValue, version);
+            } catch(UnsupportedEncodingException e) {
+                throw new VoldemortException(e);
+            }
+        }
+
+        /**
+         * Reset quota based on number of nodes
+         * 
+         * @param storeName
+         * @param quotaType
+         */
+        public void rebalanceQuota(String storeName, QuotaType quotaType) {
+            Integer totalQuota = null;
+            Set<Integer> nodeIds = currentCluster.getNodeIds();
+            for(Integer nodeId: nodeIds) {
+                Versioned<String> quotaValue = getQuotaForNode(storeName, quotaType, nodeId);
+                if(quotaValue != null) {
+                    Integer quota = Integer.parseInt(quotaValue.getValue());
+                    if(totalQuota == null) {
+                        totalQuota = 0;
+                    }
+                    totalQuota += quota;
+                }
+            }
+            if(totalQuota == null) {
+                logger.info("No quota set for " + quotaType.toString() + " of store " + storeName
+                            + " ");
+            } else {
+                Integer averageQuota = totalQuota / nodeIds.size();
+                logger.info("Resetting quota: Store: " + storeName + ", Quota: "
+                            + quotaType.toString() + ", Total: " + totalQuota.toString()
+                            + ", Average: " + averageQuota.toString());
+                setQuota(storeName, quotaType.toString(), averageQuota.toString());
+            }
+        }
+        
+
+        /**
+         * Reset quota based on number of nodes
+         * 
+         * @param storeName
+         */
+        public void rebalanceQuota(String storeName) {
+            for(QuotaType quotaType: QuotaType.values()) {
+                rebalanceQuota(storeName, quotaType);
+            }
         }
 
         /**

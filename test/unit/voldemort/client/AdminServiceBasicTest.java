@@ -78,6 +78,7 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.quota.QuotaType;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
@@ -2509,4 +2510,41 @@ public class AdminServiceBasicTest {
 
     }
 
+    @Test
+    public void testGetSetQuotaForNode() {
+        AdminClient client = getAdminClient();
+        String storeName = storeDefs.get(0).getName();
+        QuotaType quotaType = QuotaType.GET_THROUGHPUT;
+        Integer nodeId = 0;
+        Integer quota = 1000;
+        client.quotaMgmtOps.setQuotaForNode(storeName, quotaType, nodeId, quota);
+        Integer getQuota = Integer.parseInt(client.quotaMgmtOps.getQuotaForNode(storeName,
+                                                                                quotaType,
+                                                                                nodeId).getValue());
+        assertEquals(quota, getQuota);
+        quota = 0;
+        client.quotaMgmtOps.setQuotaForNode(storeName, quotaType, nodeId, quota);
+        getQuota = Integer.parseInt(client.quotaMgmtOps.getQuotaForNode(storeName,
+                                                                                quotaType,
+                                                                                nodeId).getValue());
+        assertEquals(quota, getQuota);
+    }
+
+    @Test
+    public void testRebalanceQuota() {
+        AdminClient client = getAdminClient();
+        String storeName = storeDefs.get(0).getName();
+        QuotaType quotaType = QuotaType.GET_THROUGHPUT;
+        Integer quota = 1000, targetQuota = quota / 2;
+        client.quotaMgmtOps.setQuotaForNode(storeName, quotaType, 0, quota);
+        client.quotaMgmtOps.rebalanceQuota(storeName, quotaType);
+        Integer getQuota0 = Integer.parseInt(client.quotaMgmtOps.getQuotaForNode(storeName,
+                                                                                 quotaType,
+                                                                                 0).getValue());
+        Integer getQuota1 = Integer.parseInt(client.quotaMgmtOps.getQuotaForNode(storeName,
+                                                                                 quotaType,
+                                                                                 1).getValue());
+        assertEquals(targetQuota, getQuota0);
+        assertEquals(targetQuota, getQuota1);
+    }
 }
