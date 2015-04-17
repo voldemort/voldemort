@@ -1072,8 +1072,7 @@ public class AdminClient {
          * @param key Metadata key to set
          * @param value Metadata value to set
          */
-        public void updateRemoteMetadata(Collection<Integer> nodeIds,
- String key, String value) {
+        public void updateRemoteMetadata(Collection<Integer> nodeIds, String key, String value) {
             VectorClock updatedVersion = null;
             for(Integer nodeId: nodeIds) {
                 if(updatedVersion == null) {

@@ -773,6 +773,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             stream.println("    " + MetadataStore.SLOP_STREAMING_ENABLED_KEY);
             stream.println("    " + MetadataStore.PARTITION_STREAMING_ENABLED_KEY);
             stream.println("    " + MetadataStore.READONLY_FETCH_ENABLED_KEY);
+            stream.println("    " + MetadataStore.QUOTA_ENFORCEMENT_ENABLED_KEY);
             stream.println("    " + MetadataStore.REBALANCING_SOURCE_CLUSTER_XML);
             stream.println("    " + MetadataStore.REBALANCING_STEAL_INFO);
             stream.println("    " + KEY_OFFLINE);
@@ -1000,7 +1001,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                         doMetaSet(adminClient, nodeIds, metaKey, mapper.writeCluster(newCluster));
                     } else if(metaKey.equals(MetadataStore.SLOP_STREAMING_ENABLED_KEY)
                               || metaKey.equals(MetadataStore.PARTITION_STREAMING_ENABLED_KEY)
-                              || metaKey.equals(MetadataStore.READONLY_FETCH_ENABLED_KEY)) {
+                              || metaKey.equals(MetadataStore.READONLY_FETCH_ENABLED_KEY)
+                              || metaKey.equals(MetadataStore.QUOTA_ENFORCEMENT_ENABLED_KEY)) {
                         doMetaSet(adminClient, nodeIds, metaKey, metaValue);
                     } else if(metaKey.equals(KEY_OFFLINE)) {
                         boolean setOffline = Boolean.parseBoolean(metaValue);

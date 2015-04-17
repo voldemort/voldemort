@@ -90,6 +90,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     public static final String SLOP_STREAMING_ENABLED_KEY = "slop.streaming.enabled";
     public static final String PARTITION_STREAMING_ENABLED_KEY = "partition.streaming.enabled";
     public static final String READONLY_FETCH_ENABLED_KEY = "readonly.fetch.enabled";
+    public static final String QUOTA_ENFORCEMENT_ENABLED_KEY = "quota.enforcement.enabled";
     public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
     public static final String REBALANCING_SOURCE_CLUSTER_XML = "rebalancing.source.cluster.xml";
     public static final String REBALANCING_SOURCE_STORES_XML = "rebalancing.source.stores.xml";
@@ -103,6 +104,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
                                                                     SLOP_STREAMING_ENABLED_KEY,
                                                                     PARTITION_STREAMING_ENABLED_KEY,
                                                                     READONLY_FETCH_ENABLED_KEY,
+                                                                    QUOTA_ENFORCEMENT_ENABLED_KEY,
                                                                     REBALANCING_STEAL_INFO,
                                                                     REBALANCING_SOURCE_CLUSTER_XML,
                                                                     REBALANCING_SOURCE_STORES_XML);
@@ -736,6 +738,27 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
     }
 
+    public boolean getQuotaEnforcingEnabledLocked() {
+        // acquire read lock
+        readLock.lock();
+        try {
+            return Boolean.parseBoolean(metadataCache.get(QUOTA_ENFORCEMENT_ENABLED_KEY)
+                                                     .getValue()
+                                                     .toString());
+        } finally {
+            readLock.unlock();
+
+        }
+    }
+
+    public boolean getQuotaEnforcingEnabledUnlocked() {
+
+        return Boolean.parseBoolean(metadataCache.get(QUOTA_ENFORCEMENT_ENABLED_KEY)
+                                                 .getValue()
+                                                 .toString());
+
+    }
+
     public RebalancerState getRebalancerState() {
         // acquire read lock
         readLock.lock();
@@ -1156,6 +1179,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         initCache(SLOP_STREAMING_ENABLED_KEY, true);
         initCache(PARTITION_STREAMING_ENABLED_KEY, true);
         initCache(READONLY_FETCH_ENABLED_KEY, true);
+        initCache(QUOTA_ENFORCEMENT_ENABLED_KEY, true);
         initCache(REBALANCING_STEAL_INFO, new RebalancerState(new ArrayList<RebalanceTaskInfo>()));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
         initCache(REBALANCING_SOURCE_CLUSTER_XML, null);
@@ -1326,7 +1350,8 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         } else if(SERVER_STATE_KEY.equals(key) || NODE_ID_KEY.equals(key)
                   || SLOP_STREAMING_ENABLED_KEY.equals(key)
                   || PARTITION_STREAMING_ENABLED_KEY.equals(key)
-                  || READONLY_FETCH_ENABLED_KEY.equals(key)) {
+                  || READONLY_FETCH_ENABLED_KEY.equals(key)
+                  || QUOTA_ENFORCEMENT_ENABLED_KEY.equals(key)) {
             valueStr = value.getValue().toString();
         } else if(REBALANCING_SOURCE_CLUSTER_XML.equals(key)) {
             if(value.getValue() != null) {
@@ -1373,7 +1398,8 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
             valueObject = Integer.parseInt(value.getValue());
         } else if(SLOP_STREAMING_ENABLED_KEY.equals(key)
                   || PARTITION_STREAMING_ENABLED_KEY.equals(key)
-                  || READONLY_FETCH_ENABLED_KEY.equals(key)) {
+                  || READONLY_FETCH_ENABLED_KEY.equals(key)
+                  || QUOTA_ENFORCEMENT_ENABLED_KEY.equals(key)) {
             valueObject = Boolean.parseBoolean(value.getValue());
         } else if(REBALANCING_STEAL_INFO.equals(key)) {
             String valueString = value.getValue();

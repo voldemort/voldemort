@@ -16,20 +16,22 @@
 
 package voldemort.store.quota;
 
+import java.util.List;
+import java.util.Map;
+
 import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.configuration.FileBackedCachingStorageEngine;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import java.util.List;
-import java.util.Map;
 
 public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[]> {
 
@@ -38,6 +40,7 @@ public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[
     private final StoreStats stats;
     private final QuotaLimitStats quotaStats;
     private final FileBackedCachingStorageEngine quotaStore;
+    private final MetadataStore metadataStore;
 
     private final String getQuotaKey;
     private final String putQuotaKey;
@@ -45,10 +48,12 @@ public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[
 	public QuotaLimitingStore(Store<ByteArray, byte[], byte[]> innerStore,
                               StoreStats stats,
                               QuotaLimitStats quotaStats,
-                              FileBackedCachingStorageEngine quotaStore) {
+                              FileBackedCachingStorageEngine quotaStore,
+                              MetadataStore metadataStore) {
         super(innerStore);
         this.stats = stats;
         this.quotaStore = quotaStore;
+        this.metadataStore = metadataStore;
 
         this.getQuotaKey = QuotaUtils.makeQuotaKey(innerStore.getName(), QuotaType.GET_THROUGHPUT);
         this.putQuotaKey = QuotaUtils.makeQuotaKey(innerStore.getName(), QuotaType.PUT_THROUGHPUT);
@@ -83,6 +88,9 @@ public class QuotaLimitingStore extends DelegatingStore<ByteArray, byte[], byte[
     private void checkRateLimit(String quotaKey, Tracked trackedOp) {
         String quotaValue = null;
         try {
+            if(!metadataStore.getQuotaEnforcingEnabledUnlocked()) {
+                return;
+            }
             quotaValue = quotaStore.cacheGet(quotaKey);
             // Store may not have any quotas
             if(quotaValue == null) {

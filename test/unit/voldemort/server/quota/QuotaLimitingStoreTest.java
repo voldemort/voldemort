@@ -6,6 +6,7 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -24,6 +25,7 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.configuration.FileBackedCachingStorageEngine;
 import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.quota.QuotaLimitStats;
 import voldemort.store.quota.QuotaLimitingStore;
@@ -144,6 +146,18 @@ public class QuotaLimitingStoreTest {
         adminClient.quotaMgmtOps.unsetQuota("test", QuotaType.PUT_THROUGHPUT.toString());
     }
 
+    private void enableQuotaEnforcing() {
+        adminClient.metadataMgmtOps.updateRemoteMetadata(Arrays.asList(0),
+                                                         MetadataStore.QUOTA_ENFORCEMENT_ENABLED_KEY,
+                                                         Boolean.toString(true));
+    }
+
+    private void disableQuotaEnforcing() {
+        adminClient.metadataMgmtOps.updateRemoteMetadata(Arrays.asList(0),
+                                                         MetadataStore.QUOTA_ENFORCEMENT_ENABLED_KEY,
+                                                         Boolean.toString(false));
+    }
+
     @Test
     public void testRateLimiting() {
         // limit gets to 2, puts to 2 to force ratelimits to exceed (with very
@@ -158,6 +172,12 @@ public class QuotaLimitingStoreTest {
 
         // Throttle back again
         setQuota(2);
+        ensureThrottled();
+
+        // test quota enforcing metakey
+        disableQuotaEnforcing();
+        ensureNotThrottled();
+        enableQuotaEnforcing();
         ensureThrottled();
 
         // Unset limits and make sure not throttled
@@ -181,7 +201,8 @@ public class QuotaLimitingStoreTest {
         QuotaLimitingStore quotaLimitingStore = new QuotaLimitingStore(statTrackingStore,
                                                                        statTrackingStore.getStats(),
                                                                        quotaStats,
-                                                                       quotaStore);
+                                                                       quotaStore,
+                                                                       server.getMetadataStore());
 
         int targetRate = 50;
         // provide a quota of 100 gets/sec
