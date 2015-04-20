@@ -613,8 +613,10 @@ public class ClusterForkLiftTool implements Runnable {
         parser.accepts("mode",
                        "Determines if a thorough global resolution needs to be done, by comparing all replicas. [Default: "
                                + ForkLiftTaskMode.primary_resolution.toString()
-                               + " Fetch from primary alone ]");
-
+                               + " Fetch from primary alone ]")
+              .withOptionalArg()
+              .describedAs("mode")
+              .ofType(String.class);
         parser.accepts(OVERWRITE_OPTION, OVERWRITE_WARNING_MESSAGE)
               .withOptionalArg()
               .describedAs("overwriteExistingValue")
@@ -623,6 +625,7 @@ public class ClusterForkLiftTool implements Runnable {
 
         return parser;
     }
+
 
     /**
      * @param args
@@ -674,13 +677,12 @@ public class ClusterForkLiftTool implements Runnable {
             progressOps = (Integer) options.valueOf("progress-period-ops");
         }
 
-        ForkLiftTaskMode mode;
-        mode = ForkLiftTaskMode.primary_resolution;
+        ForkLiftTaskMode mode = ForkLiftTaskMode.primary_resolution;
+
         if(options.has("mode")) {
-            mode = Utils.getEnumFromString(ForkLiftTaskMode.class, (String) options.valueOf("mode"));
+            mode = ForkLiftTaskMode.valueOf((String) options.valueOf("mode"));
             if(mode == null)
                 mode = ForkLiftTaskMode.primary_resolution;
-
         }
 
         Boolean overwrite = false;
