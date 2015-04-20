@@ -149,12 +149,12 @@ public class StoreSwapperTest {
 
         try {
             // Use the admin store swapper
-            StoreSwapper swapper = new AdminStoreSwapper(cluster,
-                                                         executor,
-                                                         adminClient,
-                                                         1000000,
-                                                         true,
-                                                         true);
+            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
+                    executor,
+                    adminClient,
+                    1000000,
+                    true,
+                    true);
             testFetchSwap(swapper);
         } finally {
             executor.shutdown();
@@ -167,72 +167,17 @@ public class StoreSwapperTest {
 
         try {
             // Use the admin store swapper
-            StoreSwapper swapper = new AdminStoreSwapper(cluster,
-                                                         executor,
-                                                         adminClient,
-                                                         1000000,
-                                                         true,
-                                                         true);
+            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
+                    executor,
+                    adminClient,
+                    1000000,
+                    true,
+                    true);
             adminClient.metadataMgmtOps.setRemoteOfflineState(0, true);
             testFetchSwap(swapper);
             fail("RO Fetcher should fail on offline state.");
         } catch(Exception e) {} finally {
             executor.shutdown();
-        }
-    }
-
-    @Test
-    public void testHttpStoreSwapper() throws Exception {
-        ExecutorService executor = Executors.newCachedThreadPool();
-        DefaultHttpClient client = null;
-        try {
-            // Use the http store swapper
-            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
-
-            connectionManager.setMaxTotal(10);
-            connectionManager.setDefaultMaxPerRoute(10);
-
-            client = new DefaultHttpClient(connectionManager);
-
-            StoreSwapper swapper = new HttpStoreSwapper(cluster,
-                                                        executor,
-                                                        client,
-                                                        "read-only/mgmt",
-                                                        true,
-                                                        true);
-            testFetchSwap(swapper);
-        } finally {
-            executor.shutdown();
-            VoldemortIOUtils.closeQuietly(client);
-        }
-    }
-
-    @Test
-    public void testHttpStoreSwapperForOffline() throws Exception {
-        ExecutorService executor = Executors.newCachedThreadPool();
-        DefaultHttpClient client = null;
-        try {
-            // Use the http store swapper
-            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
-
-            connectionManager.setMaxTotal(10);
-            connectionManager.setDefaultMaxPerRoute(10);
-
-            client = new DefaultHttpClient(connectionManager);
-
-            StoreSwapper swapper = new HttpStoreSwapper(cluster,
-                                                        executor,
-                                                        client,
-                                                        "read-only/mgmt",
-                                                        true,
-                                                        true);
-
-            adminClient.metadataMgmtOps.setRemoteOfflineState(0, true);
-            testFetchSwap(swapper);
-            fail("RO Fetcher should fail on offline state.");
-        } catch(Exception e) {} finally {
-            executor.shutdown();
-            VoldemortIOUtils.closeQuietly(client);
         }
     }
 
@@ -242,7 +187,7 @@ public class StoreSwapperTest {
 
         try {
             // Use the admin store swapper
-            StoreSwapper swapper = new AdminStoreSwapper(cluster,
+            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
                                                          executor,
                                                          adminClient,
                                                          1000000,
@@ -254,32 +199,6 @@ public class StoreSwapperTest {
         }
     }
 
-    @Test
-    public void testHttpStoreSwapperWithoutRollback() throws Exception {
-        ExecutorService executor = Executors.newCachedThreadPool();
-        DefaultHttpClient client = null;
-        try {
-            // Use the http store swapper
-
-            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
-
-            connectionManager.setMaxTotal(10);
-            connectionManager.setDefaultMaxPerRoute(10);
-
-            client = new DefaultHttpClient(connectionManager);
-            StoreSwapper swapper = new HttpStoreSwapper(cluster,
-                                                        executor,
-                                                        client,
-                                                        "read-only/mgmt",
-                                                        false,
-                                                        false);
-            testFetchSwapWithoutRollback(swapper);
-        } finally {
-            executor.shutdown();
-            VoldemortIOUtils.closeQuietly(client);
-        }
-    }
-
     public File createTempROFolder() {
         File tempFolder = TestUtils.createTempDir();
         for(int i = 0; i < NUM_NODES; i++) {
@@ -288,7 +207,7 @@ public class StoreSwapperTest {
         return tempFolder;
     }
 
-    public void testFetchSwapWithoutRollback(StoreSwapper swapper) throws Exception {
+    public void testFetchSwapWithoutRollback(AdminStoreSwapper swapper) throws Exception {
 
         // 1) Fetch for all nodes are successful
         File temporaryDir = createTempROFolder();
@@ -340,7 +259,7 @@ public class StoreSwapperTest {
 
     }
 
-    public void testFetchSwap(StoreSwapper swapper) throws Exception {
+    public void testFetchSwap(AdminStoreSwapper swapper) throws Exception {
 
         // 1) Fetch for all nodes are successful
         File temporaryDir = createTempROFolder();
