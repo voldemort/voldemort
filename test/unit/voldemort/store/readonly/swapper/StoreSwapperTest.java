@@ -153,6 +153,7 @@ public class StoreSwapperTest {
                     executor,
                     adminClient,
                     1000000,
+                    false,
                     true,
                     true);
             testFetchSwap(swapper);
@@ -171,6 +172,7 @@ public class StoreSwapperTest {
                     executor,
                     adminClient,
                     1000000,
+                    false,
                     true,
                     true);
             adminClient.metadataMgmtOps.setRemoteOfflineState(0, true);
@@ -188,11 +190,12 @@ public class StoreSwapperTest {
         try {
             // Use the admin store swapper
             AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
-                                                         executor,
-                                                         adminClient,
-                                                         1000000,
-                                                         false,
-                                                         false);
+                    executor,
+                    adminClient,
+                    1000000,
+                    false,
+                    false,
+                    false);
             testFetchSwapWithoutRollback(swapper);
         } finally {
             executor.shutdown();
@@ -317,19 +320,19 @@ public class StoreSwapperTest {
 
         // Create "currentVersion + 2" for all other nodes
         // i.e. N0 [ latest -> v3 ], N<others> [ latest -> v2 ]
-        TreeMap<Integer, String> toSwap = Maps.newTreeMap();
+        TreeMap<Integer, AdminStoreSwapper.Response> toSwap = Maps.newTreeMap();
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
             if(nodeId != 1) {
-                File newVersion = new File(baseDirs[nodeId], "version-"
+                File versionPlusTwo = new File(baseDirs[nodeId], "version-"
                                                              + Long.toString(currentVersion + 2));
-                Utils.mkdirs(newVersion);
-                toSwap.put(nodeId, newVersion.getAbsolutePath());
+                Utils.mkdirs(versionPlusTwo);
+                toSwap.put(nodeId, new AdminStoreSwapper.Response(versionPlusTwo.getAbsolutePath()));
             }
         }
-        toSwap.put(1,
-                   new File(baseDirs[1], "version-" + Long.toString(currentVersion + 3)).getAbsolutePath());
+        File versionPlusThree = new File(baseDirs[1], "version-" + Long.toString(currentVersion + 3));
+        toSwap.put(1, new AdminStoreSwapper.Response(versionPlusThree.getAbsolutePath()));
 
-        swapper.invokeSwap(STORE_NAME, Lists.newArrayList(toSwap.values()));
+        swapper.invokeSwap(STORE_NAME, toSwap);
 
         // Try to fetch in v2, which should fail on all
         try {

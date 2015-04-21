@@ -198,12 +198,14 @@ public class VoldemortSwapJob extends AbstractJob {
 
         // do the swap
         info("Initiating swap of " + storeName + " with dataDir:" + dataDir);
-        AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
-                                                          executor,
-                                                          client,
-                                                          httpTimeoutMs,
-                                                          swapConf.getRollback(),
-                                                          swapConf.getRollback());
+        AdminStoreSwapper swapper = new AdminStoreSwapper(
+                cluster,
+                executor,
+                client,
+                httpTimeoutMs,
+                false,
+                swapConf.getRollback(),
+                swapConf.getRollback());
         swapper.swapStoreData(storeName, dataDir, pushVersion);
         info("Swap complete.");
         executor.shutdownNow();

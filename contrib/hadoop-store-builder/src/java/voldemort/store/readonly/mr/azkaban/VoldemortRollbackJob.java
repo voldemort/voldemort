@@ -80,13 +80,14 @@ public class VoldemortRollbackJob extends AbstractJob {
                                               new AdminClientConfig(),
                                               new ClientConfig());
                 Cluster cluster = adminClient.getAdminClientCluster();
-                AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
-                                                                  service,
-                                                                  adminClient,
-                                                                  1000 * props.getInt("timeout.seconds",
-                                                                                      24 * 60 * 60),
-                                                                  true,
-                                                                  true);
+                AdminStoreSwapper swapper = new AdminStoreSwapper(
+                        cluster,
+                        service,
+                        adminClient,
+                        1000 * props.getInt("timeout.seconds", 24 * 60 * 60),
+                        false,
+                        true,
+                        true);
 
                 // Get the current version for all stores on all nodes
                 Map<Integer, Map<String, Long>> previousVersions = Maps.newHashMap();
