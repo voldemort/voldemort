@@ -6,11 +6,10 @@ import voldemort.client.protocol.admin.AdminClient;
 import java.util.Map;
 
 /**
-*
+* Class for dealing with fetch failures during Build And Push.
 */
-abstract class FailedFetchStrategy {
+public abstract class FailedFetchStrategy {
     protected final Logger logger = Logger.getLogger(this.getClass().getName());
-
     protected final AdminClient adminClient;
 
     public FailedFetchStrategy(AdminClient adminClient) {

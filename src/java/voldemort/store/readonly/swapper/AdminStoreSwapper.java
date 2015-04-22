@@ -2,6 +2,7 @@ package voldemort.store.readonly.swapper;
 
 import java.io.File;
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -41,46 +42,52 @@ public class AdminStoreSwapper {
     private AdminClient adminClient;
     private long timeoutMs;
     private boolean rollbackFailedSwap = false;
-    private final List<FailedFetchStrategy> failedFetchStrategyList = Lists.newArrayList();
+    private final List<FailedFetchStrategy> failedFetchStrategyList;
 
     protected final Cluster cluster;
     protected final ExecutorService executor;
 
-    private AdminStoreSwapper(Cluster cluster, ExecutorService executor) {
-        this.cluster = cluster;
-        this.executor = executor;
-    }
-
     /**
-     * 
+     *
      * @param cluster The cluster metadata
      * @param executor Executor to use for running parallel fetch / swaps
      * @param adminClient The admin client to use for querying
      * @param timeoutMs Time out in ms
-     * @param disableFailedOnlyNodeDuringFailedFetch Boolean to indicate we want
-     *        to attempt to disable the store on nodes that fail to fetch in order
-     *        to move forward with the swap even when some fetches fail.
-     * @param deleteFailedFetch Boolean to indicate we want to delete data on
-     *        successful nodes after a fetch fails somewhere. If both this and
-     *        disableFailedOnly are set, then deleting failed fetch is only tried
-     *        if disabling the failed nodes is considered impossible.
      * @param rollbackFailedSwap Boolean to indicate we want to rollback the
-     *        data on successful nodes after a swap fails somewhere.
+     * @param failedFetchStrategyList list of {@link FailedFetchStrategy} to execute in case of failure
      */
     public AdminStoreSwapper(Cluster cluster,
                              ExecutorService executor,
                              AdminClient adminClient,
                              long timeoutMs,
-                             boolean disableFailedOnlyNodeDuringFailedFetch,
-                             boolean deleteFailedFetch,
-                             boolean rollbackFailedSwap) {
-        this(cluster, executor);
+                             boolean rollbackFailedSwap,
+                             List<FailedFetchStrategy> failedFetchStrategyList) {
+        this.cluster = cluster;
+        this.executor = executor;
         this.adminClient = adminClient;
         this.timeoutMs = timeoutMs;
         this.rollbackFailedSwap = rollbackFailedSwap;
-        if (disableFailedOnlyNodeDuringFailedFetch) {
-            failedFetchStrategyList.add(new DisableFailedOnlyFailedFetchStrategy(adminClient));
-        }
+        this.failedFetchStrategyList = failedFetchStrategyList;
+    }
+
+
+    /**
+     *
+     * @param cluster The cluster metadata
+     * @param executor Executor to use for running parallel fetch / swaps
+     * @param adminClient The admin client to use for querying
+     * @param timeoutMs Time out in ms
+     * @param deleteFailedFetch Boolean to indicate we want to delete data on
+*        successful nodes after a fetch fails somewhere.
+     * @param rollbackFailedSwap Boolean to indicate we want to rollback the
+     */
+    public AdminStoreSwapper(Cluster cluster,
+                             ExecutorService executor,
+                             AdminClient adminClient,
+                             long timeoutMs,
+                             boolean deleteFailedFetch,
+                             boolean rollbackFailedSwap) {
+        this(cluster, executor, adminClient, timeoutMs, rollbackFailedSwap, new ArrayList<FailedFetchStrategy>());
         if (deleteFailedFetch) {
             failedFetchStrategyList.add(new DeleteAllFailedFetchStrategy(adminClient));
         }
@@ -97,9 +104,7 @@ public class AdminStoreSwapper {
                              ExecutorService executor,
                              AdminClient adminClient,
                              long timeoutMs) {
-        this(cluster, executor);
-        this.adminClient = adminClient;
-        this.timeoutMs = timeoutMs;
+        this(cluster, executor, adminClient, timeoutMs, false, new ArrayList<FailedFetchStrategy>());
     }
 
     public void swapStoreData(String storeName, String basePath, long pushVersion) {

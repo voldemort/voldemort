@@ -85,7 +85,6 @@ public class VoldemortRollbackJob extends AbstractJob {
                         service,
                         adminClient,
                         1000 * props.getInt("timeout.seconds", 24 * 60 * 60),
-                        false,
                         true,
                         true);
 

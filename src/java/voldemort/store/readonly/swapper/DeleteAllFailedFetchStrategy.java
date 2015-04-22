@@ -7,7 +7,7 @@ import java.util.Map;
 /**
 *
 */
-class DeleteAllFailedFetchStrategy extends FailedFetchStrategy {
+public class DeleteAllFailedFetchStrategy extends FailedFetchStrategy {
     public DeleteAllFailedFetchStrategy(AdminClient adminClient) {
         super(adminClient);
     }

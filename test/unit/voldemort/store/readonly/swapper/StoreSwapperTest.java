@@ -29,8 +29,6 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,7 +50,6 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.Utils;
-import voldemort.utils.VoldemortIOUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
@@ -153,7 +150,6 @@ public class StoreSwapperTest {
                     executor,
                     adminClient,
                     1000000,
-                    false,
                     true,
                     true);
             testFetchSwap(swapper);
@@ -172,7 +168,6 @@ public class StoreSwapperTest {
                     executor,
                     adminClient,
                     1000000,
-                    false,
                     true,
                     true);
             adminClient.metadataMgmtOps.setRemoteOfflineState(0, true);
@@ -193,7 +188,6 @@ public class StoreSwapperTest {
                     executor,
                     adminClient,
                     1000000,
-                    false,
                     false,
                     false);
             testFetchSwapWithoutRollback(swapper);
