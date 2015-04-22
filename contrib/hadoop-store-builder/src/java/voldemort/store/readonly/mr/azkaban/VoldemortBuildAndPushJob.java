@@ -42,6 +42,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.store.StoreDefinition;
@@ -56,6 +57,7 @@ import voldemort.store.readonly.mr.utils.AvroUtils;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.store.readonly.mr.utils.JsonSchema;
 import voldemort.store.readonly.mr.utils.VoldemortUtils;
+import voldemort.store.readonly.swapper.RecoverableFailedFetchException;
 import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
@@ -68,46 +70,32 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private final Logger log;
 
+    // CONFIG VALUES (and other internal state)
+
     private final Props props;
-
     private Cluster cluster;
-
     private List<StoreDefinition> storeDefs;
-
     private final String storeName;
-
-    private final List<String> clusterUrl;
-
+    private final List<String> clusterURLs;
     private final int nodeId;
-
     private final List<String> dataDirs;
-
-    // Reads from properties to check if this takes Avro input
     private final boolean isAvroJob;
-
     private final String keyFieldName;
-
     private final String valueFieldName;
-
     private final boolean isAvroVersioned;
-
     private final long minNumberOfRecords;
-
-    private static final String AVRO_GENERIC_TYPE_NAME = "avro-generic";
-
-    private static final String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
-
     private final String hdfsFetcherPort;
     private final String hdfsFetcherProtocol;
-
     private String jsonKeyField;
     private String jsonValueField;
-
     private String reducerOutputCompressionCodec;
-
     private final Set<BuildAndPushHook> hooks = new HashSet<BuildAndPushHook>();
     private final int heartBeatHookIntervalTime;
     private final HeartBeatHookRunnable heartBeatHookRunnable;
+    private final boolean disableStoreOnFailedNode;
+    private final List<String> whitelistedClustersForDisableStore;
+
+    // CONFIG NAME CONSTANTS
 
     // build.required
     public final static String BUILD_INPUT_PATH = "build.input.path";
@@ -139,6 +127,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String PUSH_ROLLBACK = "push.rollback";
     public final static String PUSH_FORCE_SCHEMA_KEY = "push.force.schema.key";
     public final static String PUSH_FORCE_SCHEMA_VALUE = "push.force.schema.value";
+    public final static String DISABLE_STORE_ON_FAILED_NODE = "push.disable.store.on.failed.node";
+    public final static String CLUSTER_WHITELIST_FOR_DISABLE_STORE_ON_FAILED_NODE = "push.cluster.whitelist.for.disable.store.on.failed.node";
     // others.optional
     public final static String KEY_SELECTION = "key.selection";
     public final static String VALUE_SELECTION = "value.selection";
@@ -167,15 +157,15 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         this.props = new Props(azkabanProps.toProperties());
         this.storeName = props.getString(PUSH_STORE_NAME).trim();
-        this.clusterUrl = new ArrayList<String>();
+        this.clusterURLs = new ArrayList<String>();
         this.dataDirs = new ArrayList<String>();
 
         String clusterUrlText = props.getString(PUSH_CLUSTER);
         for(String url: Utils.COMMA_SEP.split(clusterUrlText.trim()))
             if(url.trim().length() > 0)
-                this.clusterUrl.add(url);
+                this.clusterURLs.add(url);
 
-        if(clusterUrl.size() <= 0)
+        if(clusterURLs.size() <= 0)
             throw new RuntimeException("Number of urls should be atleast 1");
 
         // Support multiple output dirs if the user mentions only PUSH, no
@@ -216,6 +206,16 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         }
 
         minNumberOfRecords = props.getLong(MIN_NUMBER_OF_RECORDS, 1);
+
+        whitelistedClustersForDisableStore = props.getList(CLUSTER_WHITELIST_FOR_DISABLE_STORE_ON_FAILED_NODE, new ArrayList<String>());
+        disableStoreOnFailedNode = props.getBoolean(DISABLE_STORE_ON_FAILED_NODE, false);
+        if (disableStoreOnFailedNode) {
+            for (String clusterUrl: clusterURLs) {
+                if (!whitelistedClustersForDisableStore.contains(clusterUrl)) {
+                    log.warn("One of the clusters to push to");
+                }
+            }
+        }
 
         // Initializing hooks
         heartBeatHookIntervalTime = props.getInt(HEARTBEAT_HOOK_INTERVAL_MS, 60000);
@@ -313,7 +313,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             // Should have only one data directory (which acts like the parent directory to all urls)
             throw new RuntimeException(" Should have only one data directory ( which acts like root "
                                        + " directory ) since they are auto-generated during build phase ");
-        } else if (!build && push && dataDirs.size() != clusterUrl.size()) {
+        } else if (!build && push && dataDirs.size() != clusterURLs.size()) {
             // Since we are only pushing number of data directories should be equal to number of cluster urls
             throw new RuntimeException(" Since we are only pushing, number of data directories"
                                        + " ( comma separated ) should be equal to number of cluster"
@@ -343,7 +343,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
          * stop all Bnp jobs for any kind of maintenance.
          */
 
-        AdminClient adminclient = new AdminClient(clusterUrl.get(0),
+        AdminClient adminclient = new AdminClient(clusterURLs.get(0),
                                                   new AdminClientConfig(),
                                                   new ClientConfig());
         log.info("Requesting Compression Codec expected by Server");
@@ -399,7 +399,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             checkForPreconditions(build, push);
 
             try {
-                allClustersEqual(clusterUrl);
+                allClustersEqual(clusterURLs);
             } catch(VoldemortException e) {
                 log.error("Exception during cluster equality check", e);
                 fail("Exception during cluster equality check: " + e.toString());
@@ -418,8 +418,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             // Create a hashmap to capture exception per url
             HashMap<String, Exception> exceptions = Maps.newHashMap();
             String buildOutputDir = null;
-            for (int index = 0; index < clusterUrl.size(); index++) {
-                String url = clusterUrl.get(index);
+            for (int index = 0; index < clusterURLs.size(); index++) {
+                String url = clusterURLs.get(index);
                 if (isAvroJob) {
                     // Verify the schema if the store exists or else add the new store
                     verifyOrAddStoreAvro(url, isAvroVersioned);
@@ -445,7 +445,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     if (log.isDebugEnabled()) {
                         log.debug("Informing about push start ...");
                     }
-                    log.info("Pushing to cluster url " + clusterUrl.get(index));
+                    log.info("Pushing to cluster url " + clusterURLs.get(index));
                     // If we are not building and just pushing then we want to get the built
                     // from the dataDirs, or else we will just the one that we built earlier
                     try {
@@ -459,6 +459,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                         }
                         invokeHooks(BuildAndPushStatus.PUSHING, url);
                         runPushStore(props, url, buildOutputDir);
+                        invokeHooks(BuildAndPushStatus.SWAPPED, url);
+                    } catch (RecoverableFailedFetchException e) {
+                        log.warn("There was a problem with some of the fetches, but a swap was still able to go through!", e);
+                        invokeHooks(BuildAndPushStatus.SWAPPED_WITH_FAILURES, url);
                     } catch(Exception e) {
                         log.error("Exception during push for url " + url, e);
                         exceptions.put(url, e);
@@ -803,16 +807,27 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         }
         int maxBackoffDelayMs = 1000 * props.getInt(PUSH_BACKOFF_DELAY_SECONDS, 60);
         boolean rollback = props.getBoolean(PUSH_ROLLBACK, true);
+        boolean disableStoreOnFailedNodeForThisCluster =
+                disableStoreOnFailedNode && whitelistedClustersForDisableStore.contains(url);
 
-        new VoldemortSwapJob(this.getId() + "-push-store",
-                             props,
-                             new VoldemortSwapConf(cluster,
-                                                   dataDir,
-                                                   storeName,
-                                                   httpTimeoutMs,
-                                                   pushVersion,
-                                                   maxBackoffDelayMs,
-                                                   rollback)).run();
+        if (disableStoreOnFailedNodeForThisCluster) {
+            log.info("Beginning push with disableStoreOnFailedNode enabled for cluster: " + url);
+        } else if (disableStoreOnFailedNode && !disableStoreOnFailedNodeForThisCluster) {
+            log.warn("Beginning push with disableStoreOnFailedNode DISABLED because the cluster is not whitelisted: " + url);
+        }
+
+        new VoldemortSwapJob(
+                this.getId() + "-push-store",
+                props,
+                new VoldemortSwapConf(
+                        cluster,
+                        dataDir,
+                        storeName,
+                        httpTimeoutMs,
+                        pushVersion,
+                        maxBackoffDelayMs,
+                        rollback,
+                        disableStoreOnFailedNodeForThisCluster)).run();
     }
 
     /**
@@ -867,9 +882,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         String owners = props.getString(PUSH_STORE_OWNERS, "");
         String serializerName;
         if (isVersioned)
-            serializerName = AVRO_GENERIC_VERSIONED_TYPE_NAME;
+            serializerName = DefaultSerializerFactory.AVRO_GENERIC_VERSIONED_TYPE_NAME;
         else
-            serializerName = AVRO_GENERIC_TYPE_NAME;
+            serializerName = DefaultSerializerFactory.AVRO_GENERIC_TYPE_NAME;
 
         boolean hasCompression = false;
         if(props.containsKey(BUILD_COMPRESS_VALUE)) {

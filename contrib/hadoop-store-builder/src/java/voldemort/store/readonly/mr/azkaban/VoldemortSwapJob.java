@@ -74,6 +74,7 @@ public class VoldemortSwapJob extends AbstractJob {
         private long pushVersion;
         private int maxBackoffDelayMs = 60 * 1000;
         private boolean rollback = false;
+        private boolean disableStoreOnFailedNode = false;
 
         public VoldemortSwapConf(Props props) throws IOException {
             this(HadoopUtils.readCluster(props.getString("cluster.xml"), new Configuration()),
@@ -94,7 +95,8 @@ public class VoldemortSwapJob extends AbstractJob {
                                  int httpTimeoutMs,
                                  long pushVersion,
                                  int maxBackoffDelayMs,
-                                 boolean rollback) {
+                                 boolean rollback,
+                                 boolean disableStoreOnFailedNode) {
             this.cluster = cluster;
             this.dataDir = dataDir;
             this.storeName = storeName;
@@ -102,6 +104,7 @@ public class VoldemortSwapJob extends AbstractJob {
             this.pushVersion = pushVersion;
             this.maxBackoffDelayMs = maxBackoffDelayMs;
             this.rollback = rollback;
+            this.disableStoreOnFailedNode = disableStoreOnFailedNode;
         }
 
         public VoldemortSwapConf(Cluster cluster,
@@ -143,6 +146,10 @@ public class VoldemortSwapJob extends AbstractJob {
         public boolean getRollback() {
             return rollback;
         }
+
+        public boolean getDisableStoreOnFailedNode() {
+            return disableStoreOnFailedNode;
+        }
     }
 
     public void run() throws Exception {
@@ -182,7 +189,6 @@ public class VoldemortSwapJob extends AbstractJob {
                                              new ClientConfig());
 
         if(pushVersion == -1L) {
-
             // Need to retrieve max version
             ArrayList<String> stores = new ArrayList<String>();
             stores.add(storeName);
@@ -203,7 +209,7 @@ public class VoldemortSwapJob extends AbstractJob {
                 executor,
                 client,
                 httpTimeoutMs,
-                false,
+                swapConf.getDisableStoreOnFailedNode(),
                 swapConf.getRollback(),
                 swapConf.getRollback());
         swapper.swapStoreData(storeName, dataDir, pushVersion);
