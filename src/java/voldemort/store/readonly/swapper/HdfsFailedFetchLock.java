@@ -10,13 +10,15 @@ import java.util.Set;
 public class HdfsFailedFetchLock extends FailedFetchLock {
     public final static String PUSH_HA_LOCK_HDFS_TIMEOUT = "push.ha.lock.hdfs.timeout";
     public final static String PUSH_HA_LOCK_HDFS_RETRIES = "push.ha.lock.hdfs.retries";
+    public final static String PUSH_HA_LOCK_HDFS_PATH = "push.ha.lock.hdfs.path";
 
     // Default value: 10000 ms * 360 retries = 1 hour
     private final Integer timeOut = props.getInt(PUSH_HA_LOCK_HDFS_TIMEOUT, 10000);
     private final Integer retries = props.getInt(PUSH_HA_LOCK_HDFS_RETRIES, 360);
+    private final String path = props.getString(PUSH_HA_LOCK_HDFS_PATH);
 
-    public HdfsFailedFetchLock(Props props) {
-        super(props);
+    public HdfsFailedFetchLock(Props props, String clusterId, String processId) {
+        super(props, clusterId, processId);
     }
 
     @Override

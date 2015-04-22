@@ -159,6 +159,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String REDUCER_OUTPUT_COMPRESS_CODEC = "reducer.output.compress.codec";
     public static final String REDUCER_OUTPUT_COMPRESS = "reducer.output.compress";
 
+    // provided
+    public final static String AZKABAN_LINK_EXECUTION_URL = "azkaban.link.execution.url";
+
     public VoldemortBuildAndPushJob(String name, azkaban.utils.Props azkabanProps) {
         super(name, Logger.getLogger(name));
         this.log = getLog();
@@ -821,7 +824,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             int maxNodeFailure = props.getInt(PUSH_HA_MAX_NODE_FAILURE, 1);
             Class<? extends FailedFetchLock> failedFetchLockClass = (Class<? extends FailedFetchLock>)
                     props.getClass(PUSH_HA_LOCK_IMPLEMENTATION, HdfsFailedFetchLock.class);
-            FailedFetchLock failedFetchLock = ReflectUtils.callConstructor(failedFetchLockClass, new Object[]{props});
+            String processId = props.getString(AZKABAN_LINK_EXECUTION_URL);
+            Object[] failedFetchLockParameters = new Object[]{props, url, processId};
+            FailedFetchLock failedFetchLock = ReflectUtils.callConstructor(failedFetchLockClass, failedFetchLockParameters);
             failedFetchStrategyList.add(
                     new DisableStoreOnFailedNodeFailedFetchStrategy(
                             adminClientPerCluster.get(url), failedFetchLock, maxNodeFailure));

@@ -9,8 +9,11 @@ import java.util.Set;
  */
 public abstract class FailedFetchLock {
     protected final Props props;
-    public FailedFetchLock(Props props) {
+    protected final String clusterId, processId;
+    public FailedFetchLock(Props props, String clusterId, String processId) {
         this.props = props;
+        this.clusterId = clusterId;
+        this.processId = processId;
     }
     public abstract void acquireLock() throws Exception;
     public abstract void releaseLock();
