@@ -304,14 +304,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // If only one clusterUrl return immediately
         if (clusterUrls.size() == 1)
             return;
-        AdminClient adminClientLhs = new AdminClient(clusterUrls.get(0),
-                                                     new AdminClientConfig(),
-                                                     new ClientConfig());
+        AdminClient adminClientLhs = adminClientPerCluster.get(clusterUrls.get(0));
         Cluster clusterLhs = adminClientLhs.getAdminClientCluster();
         for (int index = 1; index < clusterUrls.size(); index++) {
-            AdminClient adminClientRhs = new AdminClient(clusterUrls.get(index),
-                                                         new AdminClientConfig(),
-                                                         new ClientConfig());
+            AdminClient adminClientRhs = adminClientPerCluster.get(clusterUrls.get(index));
             Cluster clusterRhs = adminClientRhs.getAdminClientCluster();
             if (!areTwoClustersEqual(clusterLhs, clusterRhs))
                 throw new VoldemortException("Cluster " + clusterLhs.getName()
