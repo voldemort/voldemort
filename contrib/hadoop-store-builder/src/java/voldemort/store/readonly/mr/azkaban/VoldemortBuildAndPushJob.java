@@ -356,14 +356,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
          * stop all Bnp jobs for any kind of maintenance.
          */
 
-        AdminClient adminclient = new AdminClient(clusterURLs.get(0),
-                                                  new AdminClientConfig(),
-                                                  new ClientConfig());
         log.info("Requesting Compression Codec expected by Server");
         
         List<String> supportedCodecs;
         try{
-            supportedCodecs = adminclient.readonlyOps.getSupportedROStorageCompressionCodecs(nodeId);
+            supportedCodecs = adminClientPerCluster.get(clusterURLs.get(0))
+                    .readonlyOps.getSupportedROStorageCompressionCodecs(nodeId);
         } catch(Exception e) {
             log.error("Exception thrown when requesting for supported compression codecs. Server might be running in a older version. Exception: "
                      + e.getMessage());
