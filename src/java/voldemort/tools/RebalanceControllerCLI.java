@@ -18,21 +18,17 @@ package voldemort.tools;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.rebalance.QuotaResetter;
 import voldemort.client.rebalance.RebalanceController;
 import voldemort.client.rebalance.RebalancePlan;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
-import voldemort.store.metadata.MetadataStore;
-import voldemort.tools.admin.AdminToolUtils;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
@@ -40,7 +36,7 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /*
  * Executes the actual rebalance operation againt a server.
@@ -199,39 +195,26 @@ public class RebalanceControllerCLI {
                                                         outputDir);
 
         boolean resetQuota = options.has("reset-quota");
-        Map<Integer, Boolean> mapNodeToQuotaEnforcingEnabled = Maps.newHashMap();
-        AdminClient adminClient = AdminToolUtils.getAdminClient(bootstrapURL);
-        final Set<Integer> nodeIds = rebalancePlan.getFinalCluster().getNodeIds();
+        Set<String> storeNames = Sets.newHashSet();
+        for(StoreDefinition storeDef: finalStoreDefs) {
+            storeNames.add(storeDef.getName());
+        }
+        QuotaResetter quotaResetter = new QuotaResetter(bootstrapURL,
+                                                        storeNames,
+                                                        rebalancePlan.getFinalCluster()
+                                                                     .getNodeIds());
 
         // before reblance, remember and disable quota enforcement settings
         if(resetQuota) {
-            for(Integer nodeId: nodeIds) {
-                boolean quotaEnforcement = Boolean.parseBoolean(adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
-                                                                                                            MetadataStore.QUOTA_ENFORCEMENT_ENABLED_KEY)
-                                                                                         .getValue());
-                mapNodeToQuotaEnforcingEnabled.put(nodeId, quotaEnforcement);
-            }
-            adminClient.metadataMgmtOps.updateRemoteMetadata(nodeIds,
-                                                             MetadataStore.QUOTA_ENFORCEMENT_ENABLED_KEY,
-                                                             Boolean.toString(false));
+            quotaResetter.rememberAndDisableQuota();
         }
 
         // Plan & execute rebalancing.
         rebalanceController.rebalance(rebalancePlan);
 
         // after rebalance, reset quota values and recover quota enforcement
-        // settings
         if(resetQuota) {
-            for(Integer nodeId: nodeIds) {
-                boolean quotaEnforcement = mapNodeToQuotaEnforcingEnabled.get(nodeId);
-                adminClient.metadataMgmtOps.updateRemoteMetadata(Arrays.asList(nodeId),
-                                                                 MetadataStore.QUOTA_ENFORCEMENT_ENABLED_KEY,
-                                                                 Boolean.toString(quotaEnforcement));
-            }
-            for(StoreDefinition storeDef: finalStoreDefs) {
-                String storeName = storeDef.getName();
-                adminClient.quotaMgmtOps.rebalanceQuota(storeName);
-            }
+            quotaResetter.resetQuotaAndRecoverEnforcement();
         }
 
     }
