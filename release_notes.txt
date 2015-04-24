@@ -1,3 +1,9 @@
+Release 1.9.11 on 04/23/2015
+- BuildAndPush job produces compressed files as dictated by Server
+- Voldemort RO Server supports on the fly decompression when compression is
+  enabled
+- Admin request to query Server on supported compression codec
+ 
 Release 1.9.10 on 04/15/2015
 * Share Read/Write buffers for Client
 * Share Read/Write buffers for Server on Client Operations
