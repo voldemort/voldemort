@@ -84,8 +84,8 @@ public class RebalanceControllerCLI {
               .withRequiredArg()
               .ofType(String.class)
               .describedAs("path");
-        parser.accepts("reset-quota",
-                       "Reset the quota value for all stores on all nodes after rebalance");
+        parser.accepts("no-reset-quota",
+                       "Do NOT reset the quota value for all stores on all nodes after rebalance");
     }
 
     private static void printUsage() {
@@ -103,7 +103,7 @@ public class RebalanceControllerCLI {
         help.append("    --output-dir [ Output directory in which plan is stored ]\n");
         help.append("    --batch <batch> [ Number of primary partitions to move in each rebalancing batch. ]\n");
         help.append("    --output-dir <outputDir> [ Directory in which cluster metadata is dumped for each batch of the plan. ]\n");
-        help.append("    --reset-quota [ Reset the quota value for all stores on all nodes after rebalance ]");
+        help.append("    --no-reset-quota [ Do NOT reset the quota value for all stores on all nodes after rebalance ]");
        
 
         try {
@@ -194,7 +194,7 @@ public class RebalanceControllerCLI {
                                                         batchSize,
                                                         outputDir);
 
-        boolean resetQuota = options.has("reset-quota");
+        boolean resetQuota = !options.has("no-reset-quota");
         Set<String> storeNames = Sets.newHashSet();
         for(StoreDefinition storeDef: finalStoreDefs) {
             storeNames.add(storeDef.getName());
