@@ -2511,7 +2511,7 @@ public class AdminServiceBasicTest {
     }
 
     @Test
-    public void testGetSetQuotaForNode() {
+    public void testGetSetQuotaForNode() throws InterruptedException {
         AdminClient client = getAdminClient();
         String storeName = storeDefs.get(0).getName();
         QuotaType quotaType = QuotaType.GET_THROUGHPUT;
@@ -2523,6 +2523,10 @@ public class AdminServiceBasicTest {
                                                                                 nodeId).getValue());
         assertEquals(quota, getQuota);
         quota = 0;
+        // Sometimes the former set and the newer set are execute in same
+        // millisecond which causes the later set to fail with
+        // ObsoleteVersionException. Add 5ms sleep.
+        Thread.sleep(5);
         client.quotaMgmtOps.setQuotaForNode(storeName, quotaType, nodeId, quota);
         getQuota = Integer.parseInt(client.quotaMgmtOps.getQuotaForNode(storeName,
                                                                                 quotaType,
@@ -2531,13 +2535,19 @@ public class AdminServiceBasicTest {
     }
 
     @Test
-    public void testRebalanceQuota() {
+    public void testRebalanceQuota() throws InterruptedException {
         AdminClient client = getAdminClient();
         String storeName = storeDefs.get(0).getName();
         QuotaType quotaType = QuotaType.GET_THROUGHPUT;
         Integer quota = 1000, targetQuota = quota / 2;
         client.quotaMgmtOps.setQuotaForNode(storeName, quotaType, 0, quota);
         client.quotaMgmtOps.rebalanceQuota(storeName, quotaType);
+        // rebalanceQuota use put. Put completes as soon as the required nodes
+        // are completed and rest of them are done in async. There is a race
+        // condition here if you poll too soon you will see inconsistent result,
+        // as some of the puts are still in async. Sleep here to avoid those
+        // conditions.
+        Thread.sleep(100);
         Integer getQuota0 = Integer.parseInt(client.quotaMgmtOps.getQuotaForNode(storeName,
                                                                                  quotaType,
                                                                                  0).getValue());
