@@ -1,576 +1,70 @@
 <?xml version="1.0"?>
 
-<project name="voldemort" basedir="." default="all">
-  <property file="gradle.properties" />
+<project name="voldemort" basedir="." default="bail-out">
 
-  <property name="name" value="voldemort" />
-  <property name="display.name" value="Voldemort" />
-  <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao, Chinmay Soman, Vinoth Chandar, Zhongjie Wu" />
-  <property environment="env" />
-  <!-- Files needed for building scala files with ant -->
-  <property name="scala-compiler.jar" value="${public.lib.dir}/scala-compiler-${scalac.version}.jar"/>
-  <property name="scala-library.jar" value="${public.lib.dir}/scala-library-${scalac.version}.jar"/>
-  <property name="scala-reflect.jar" value="${public.lib.dir}/scala-reflect-${scalac.version}.jar"/>
-
-  <path id="main-classpath">
-    <fileset dir="${public.lib.dir}">
-      <include name="*.jar" />
-    </fileset>
-    <fileset dir="${private.lib.dir}">
-      <include name="*.jar" />
-    </fileset>
-    <pathelement path="${classes.dir}" />
-  </path>
-
-  <!-- set the scala classpath -->
-  <path id="scala.classpath">
-    <pathelement location="${scala-compiler.jar}"/>
-    <pathelement location="${scala-library.jar}"/>
-    <pathelement location="${scala-reflect.jar}"/>
-  	<path refid="main-classpath" />
-  	<pathelement path="${classes.dir}" />
-  </path>
-
-  <taskdef resource="scala/tools/ant/antlib.xml">
-  <classpath refid="scala.classpath"/>
-  </taskdef>
-
-  <!-- set the build number based on environment variable, otherwise blank -->
-  <property environment="env" description="System environment variables (including those set by Hudson)"/>
-  <condition property="curr.release.snapshot" value="${curr.release}-snapshot-${env.BUILD_NUMBER}" else="${curr.release}">
-       <and>
-          <isset property="env.BUILD_NUMBER" />
-          <not>
-              <equals arg1="" arg2="${env.BUILD_NUMBER}" trim="yes"/>
-          </not>
-       </and>
-  </condition>
-
-  <path id="contrib-classpath">
-    <pathelement path="${resources.dir}" />
-    <fileset dir="${dist.dir}">
-      <include name="${name}-${curr.release}.jar" />
-    </fileset>
-    <fileset dir="${public.lib.dir}">
-      <include name="*.jar" />
-    </fileset>
-    <path refid="test-classpath" />
-  </path>
-
-  <path id="test-classpath">
-    <pathelement path="${resources.dir}" />
-    <pathelement path="${env.VOLD_TEST_JARS}" />
-    <path refid="main-classpath" />
-    <pathelement path="${testclasses.dir}" />
-  </path>
-
-  <path id="contrib-test-classpath">
-    <path refid="main-classpath" />
-    <path refid="contrib-classpath" />
-    <fileset dir="${dist.dir}">
-      <include name="${name}-contrib-${curr.release}.jar" />
-    </fileset>
-    <pathelement path="${testclasses.dir}" />
-  </path>
-
-  <macrodef name="replace-dir">
-    <attribute name="dir" />
-    <sequential>
-      <delete dir="@{dir}" />
-      <mkdir dir="@{dir}" />
-    </sequential>
-  </macrodef>
-
-  <target name="all" depends="clean, jar, test, contrib-jar, srcjar" description="Build all artifacts." />
-
-  <target name="clean" description="Delete generated files.">
-    <delete dir="${dist.dir}" />
-    <delete dir="lib" />
-    <replace-dir dir="${javadoc.dir}" />
+  <target name="bail-out">
+    <echo message="Ant is not supported anymore. Please use Gradle instead:" />
+    <echo message="./gradlew tasks" />
   </target>
 
-  <target name="build" description="Compile main source tree java files">
-    <replace-dir dir="${classes.dir}" />
-    <!-- copy non-java files to classes dir to load from classpath -->
-    <copy todir="${classes.dir}">
-      <fileset dir="${java.dir}">
-        <exclude name="**/*.java" />
-        <exclude name="**/*.html" />
-        <exclude name="**/*.scala" />
-        <exclude name="**/log4j.properties" />
-      </fileset>
-    </copy>
-    <replace-dir dir="META-INF" />
-  	<echo message="creating manifest"/>
-    <manifest file="META-INF/MANIFEST.MF">
-      <attribute name="Voldemort-Implementation-Version" value="${curr.release}" />
-      <attribute name="Implementation-Title" value="Voldemort" />
-      <attribute name="Implementation-Version" value="${curr.release}" />
-      <attribute name="Implementation-Vendor" value="LinkedIn" />
-    </manifest>
-    <!-- place to put log4j.properties -->
-    <replace-dir dir="${resources.dir}"/>
-    <copy file="${java.dir}/log4j.properties" todir="${resources.dir}"/>
-    <!-- regular java files compiled with javac task -->
-    <javac destdir="${classes.dir}" target="${javac.version}" source="${javac.version}" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
-      <src path="${java.dir}" />
-      <classpath refid="main-classpath" />
-    </javac>
-    <!-- compile scala files with the scalac task -->
-    <scalac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="scala.classpath">
-    <include name="**/*.scala"/>
-    </scalac>
-    <copy todir="lib">
-      <fileset dir="${private.lib.dir}" />
-      <fileset dir="${public.lib.dir}" />
-    </copy>
-  </target>
+  <target name="all" depends="bail-out" />
 
-  <target name="buildtest" description="Compile test classes">
-    <replace-dir dir="${testclasses.dir}" />
-    <copy todir="${testclasses.dir}">
-      <fileset dir="${commontestsrc.dir}">
-        <exclude name="**/*.java" />
-        <exclude name="**/*.html" />
-      </fileset>
-    </copy>
-    <copy todir="${testclasses.dir}">
-      <fileset dir="${unittestsrc.dir}">
-        <exclude name="**/*.java" />
-        <exclude name="**/*.html" />
-      </fileset>
-    </copy>
-    <javac destdir="${testclasses.dir}" target="${javac.version}" source="${javac.version}" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
-      <src path="${unittestsrc.dir}" />
-      <src path="${inttestsrc.dir}" />
-      <src path="${commontestsrc.dir}" />
-      <src path="${longtestsrc.dir}" />
-      <classpath refid="main-classpath" />
-    </javac>
-  </target>
+  <target name="clean" depends="bail-out" />
 
-  <target name="test" depends="build, buildtest" description="Build test jar file">
-    <jar destfile="${dist.dir}/${name}-test-${curr.release}.jar">
-      <fileset dir="${testclasses.dir}" />
-    </jar>
-  </target>
+  <target name="build" depends="bail-out" />
 
-  <!--
-    Use protoc version 2.3.0 to recompile by hand:
-      https://code.google.com/p/protobuf/downloads/detail?name=protobuf-2.3.0.tar.gz&can=2&q=
+  <target name="buildtest" depends="bail-out" />
 
-    Below, '<DASH/>' means '-'. This was done to nest double-dashes within xml comment.
+  <target name="test" depends="bail-out" />
 
-  <target name="protobuff" description="Generate source files from .proto files">
-    <pathconvert property="proto.sources" pathsep=" ">
-      <path id="proto-files">
-	<fileset dir="${protobuff.dir}" />
-      </path>
-    </pathconvert>
+  <target name="jar" depends="bail-out" />
 
-    <property name="proto.path" location="${protobuff.dir}"/>
-    <property name="javaout.path" location="${java.dir}"/>
-    <property name="pythonout.path" location="${python.proto.dir}"/>
-    <exec executable="protoc" failonerror="true">
-      <arg value="<DASH/><DASH/>proto_path=${proto.path}"/>
-      <arg value=""<DASH/><DASH/>java_out=${javaout.path}"/>
-      <arg value=""<DASH/><DASH/>python_out=${pythonout.path}"/>
-      <arg line="${proto.sources}"/>
-    </exec>
-  </target>
-  -->
+  <target name="srcjar" depends="bail-out" />
 
-  <target name="jar" depends="build" description="Build server jar file">
-    <jar destfile="${dist.dir}/${name}-${curr.release}.jar"  manifest="META-INF/MANIFEST.MF">
-      <fileset dir="${classes.dir}">
-        <include name="**/*.*" />
-      </fileset>
-      <!-- include xsds -->
-      <fileset dir="${java.dir}">
-        <include name="**/*.xsd" />
-      </fileset>
+  <target name="alljar" depends="bail-out" />
 
-    	<fileset dir=".">
-    	 		<include name="META-INF/MANIFEST.MF" />
-      </fileset>
-    </jar>
-  </target>
+  <target name="war" depends="bail-out" />
 
-  <target name="srcjar" description="Build source jar file">
-    <mkdir dir="${dist.dir}" />
-    <jar destfile="${dist.dir}/${name}-${curr.release}-src.jar">
-      <fileset dir="${java.dir}">
-        <include name="**/*.java" />
-      </fileset>
-    </jar>
-  </target>
+  <target name="contrib-build" depends="bail-out" />
 
-  <target name="alljar" depends="build, contrib-build" description="Build a jar file that includes all contrib code.">
-    <jar destfile="${dist.dir}/${name}-${curr.release}-all.jar">
-      <fileset dir="${classes.dir}">
-        <include name="**/*.*" />
-      </fileset>
-      <fileset dir="${contrib.classes.dir}">
-        <include name="**/*.*" />
-      </fileset>
-      <!-- include xsds -->
-      <fileset dir="${java.dir}">
-        <include name="**/*.xsd" />
-      </fileset>
-    </jar>
-  </target>
+  <target name="contrib-jar" depends="bail-out" />
 
-  <target name="war" depends="build" description="Build server war file">
-    <war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">
-      <classes dir="${classes.dir}"/>
-      <lib dir="${public.lib.dir}">
-        <exclude name="${public.lib.dir}/servlet-api*.jar"/>
-        <exclude name="${public.lib.dir}/src/**"/>
-      </lib>
-      <lib dir="${private.lib.dir}">
-        <exclude name="${private.lib.dir}/servlet-api*.jar"/>
-        <exclude name="${private.lib.dir}/src/**"/>
-      </lib>
-    </war>
-  </target>
+  <target name="contrib-srcjar" depends="bail-out" />
 
-  <target name="contrib-build" depends="build, buildtest" description="Compile contrib packages (java and test) ">
-    <replace-dir dir="${contrib.classes.dir}" />
-    <javac destdir="${contrib.classes.dir}" target="${javac.version}" source="${javac.version}" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
-      <src path="${contrib.root.dir}" />
-      <classpath refid="main-classpath" />
-      <classpath refid="contrib-classpath" />
-    </javac>
-    <copy todir="${contrib.classes.dir}">
-      <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
-    </copy>
-  </target>
+  <target name="contrib-junit" depends="bail-out" />
 
-  <target name="contrib-jar" depends="contrib-build" description="Build contrib jar file">
-    <jar destfile="${dist.dir}/${name}-contrib-${curr.release}.jar">
-      <fileset dir="${contrib.classes.dir}">
-        <include name="**/*.*" />
-      </fileset>
-    </jar>
-  </target>
+  <target name="ec2testing-junit" depends="bail-out" />
 
-  <target name="contrib-srcjar" description="Build contrib source jar file">
-    <mkdir dir="${dist.dir}" />
-    <jar destfile="${dist.dir}/${name}-contrib-${curr.release}-src.jar">
-      <fileset dir="${contrib.root.dir}/**/java">
-        <include name="**/*.java" />
-      </fileset>
-    </jar>
-  </target>
+  <target name="ec2testing-gossip" depends="bail-out" />
 
-  <target name="contrib-junit" depends="contrib-jar" description="Run contrib junit tests except EC2 and Krati tests.">
-    <replace-dir dir="${contribtestreport.dir}" />
-    <replace-dir dir="${contribtesthtml.dir}" />
-    <junit printsummary="yes" maxmemory="2048m" showoutput="true" failureProperty="test.failure">
-      <classpath refid="contrib-test-classpath" />
-      <formatter type="xml" />
-      <batchtest fork="yes" todir="${contribtestreport.dir}">
-        <fileset dir="${contrib.classes.dir}">
-          <include name="**/*Test.class" />
-          <exclude name="**/*PerformanceTest.class" />
-          <exclude name="**/*RemoteTest.class" />
-          <exclude name="**/Ec2*Test.class" />
-          <exclude name="**/Krati*Test.class" />
-          <exclude name="**/HadoopStoreBuilder*Test.class" />
-        </fileset>
-      </batchtest>
-    </junit>
-    <junitreport todir="${contribtesthtml.dir}">
-      <fileset dir="${contribtestreport.dir}">
-        <include name="TEST-*.xml" />
-      </fileset>
-      <report todir="${contribtesthtml.dir}" format="frames" />
-    </junitreport>
-  </target>
+  <target name="ec2testing-rebalancing" depends="bail-out" />
 
-  <target name="ec2testing-junit" depends="all" description="Run EC2 testing contrib junit tests.">
-    <copy todir="${testclasses.dir}">
-      <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
-    </copy>
-    <replace-dir dir="${contribtestreport.dir}" />
-    <replace-dir dir="${contribtesthtml.dir}" />
-    <junit printsummary="yes" maxmemory="2048m" showoutput="true" failureProperty="test.failure">
-      <syspropertyset>
-        <propertyref prefix="ec2" />
-      </syspropertyset>
-      <classpath refid="contrib-test-classpath" />
-      <formatter type="xml" />
-      <batchtest fork="yes" todir="${contribtestreport.dir}">
-        <fileset dir="${contrib.classes.dir}">
-          <include name="**/Ec2SmokeTest.class" />
-        </fileset>
-      </batchtest>
-    </junit>
-    <junitreport todir="${contribtesthtml.dir}">
-      <fileset dir="${contribtestreport.dir}">
-        <include name="TEST-*.xml" />
-      </fileset>
-      <report todir="${contribtesthtml.dir}" format="frames" />
-    </junitreport>
-  </target>
+  <target name="snapshot" depends="bail-out" />
 
-  <target name="ec2testing-gossip" depends="contrib-jar" description="Run gossip tests on EC2.">
-    <copy todir="${testclasses.dir}">
-      <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
-    </copy>
-    <replace-dir dir="${contribtestreport.dir}" />
-    <replace-dir dir="${contribtesthtml.dir}" />
-    <junit printsummary="yes" maxmemory="2048m" showoutput="true" failureProperty="test.failure">
-      <syspropertyset>
-        <propertyref prefix="ec2" />
-        <propertyref  prefix="log4j" />
-        <propertyref  prefix="gossip" />
-      </syspropertyset>
-      <classpath refid="contrib-test-classpath" />
-      <formatter type="xml" />
-      <batchtest fork="yes" todir="${contribtestreport.dir}">
-        <fileset dir="${contrib.classes.dir}">
-          <include name="**/Ec2GossipTest.class" />
-        </fileset>
-      </batchtest>
-    </junit>
-    <junitreport todir="${contribtesthtml.dir}">
-      <fileset dir="${contribtestreport.dir}">
-        <include name="TEST-*.xml" />
-      </fileset>
-      <report todir="${contribtesthtml.dir}" format="frames" />
-    </junitreport>
-  </target>
+  <target name="release" depends="bail-out" />
 
-  <target name="ec2testing-rebalancing" depends="contrib-jar" description="Run rebalancing tests on EC2.">
-    <copy todir="${testclasses.dir}">
-      <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
-    </copy>
-    <replace-dir dir="${contribtestreport.dir}" />
-    <replace-dir dir="${contribtesthtml.dir}" />
-    <junit printsummary="yes" maxmemory="2048m" showoutput="true" failureProperty="test.failure">
-      <syspropertyset>
-        <propertyref prefix="ec2" />
-        <propertyref  prefix="log4j" />
-        <propertyref  prefix="rebalancing" />
-      </syspropertyset>
-      <classpath refid="contrib-test-classpath" />
-      <formatter type="xml" />
-      <batchtest fork="yes" todir="${contribtestreport.dir}">
-        <fileset dir="${contrib.classes.dir}">
-          <include name="**/Ec2RebalancingTest.class" />
-        </fileset>
-      </batchtest>
-    </junit>
-    <junitreport todir="${contribtesthtml.dir}">
-      <fileset dir="${contribtestreport.dir}">
-        <include name="TEST-*.xml" />
-      </fileset>
-      <report todir="${contribtesthtml.dir}" format="frames" />
-    </junitreport>
-  </target>
+  <target name="hadoop-benchmark-jar" depends="bail-out" />
 
-  <macrodef name="create-release-artifacts">
-    <attribute name="version" />
-    <sequential>
-    <antcall target="all"/>
-    <zip destfile="${dist.dir}/${name}-@{version}.zip">
-      <zipfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
-      <zipfileset dir="." prefix="voldemort-@{version}" includes="**">
-        <exclude name="${dist.dir}/*classes/"/>
-        <exclude name="bin/*"/>
-        <exclude name="build/*"/>
-        <exclude name=".git*/**"/>
-        <exclude name=".gradle*/**"/>
-      </zipfileset>
-    </zip>
-    <tar destfile="${dist.dir}/${name}-@{version}.tar.gz" compression="gzip" longfile="gnu">
-      <tarfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
-      <tarfileset dir="." prefix="voldemort-@{version}" includes="**">
-        <exclude name="${dist.dir}/*classes/"/>
-        <exclude name="${dist.dir}/*.zip"/>
-        <exclude name="bin/*"/>
-        <exclude name="build/*"/>
-        <exclude name=".git*/**"/>
-        <exclude name=".gradle*/**"/>
-      </tarfileset>
-    </tar>
-    </sequential>
-  </macrodef>
+  <target name="junit" depends="bail-out" />
 
-  <target name="snapshot"  description="Create a release-snapshot zip file with everything pre-built.">
-    <create-release-artifacts version="${curr.release.snapshot}" />
-  </target>
+  <target name="junit-long" depends="bail-out" />
 
-  <target name="release" description="Create a release zip file with everything pre-built.">
-    <create-release-artifacts version="${curr.release}" />
-  </target>
+  <target name="junit-rebalance" depends="bail-out" />
 
-  <target name="hadoop-benchmark-jar" depends="build, contrib-build"
-    description="Build a jar file that includes all contrib code plus the necessary jars for running the hadoop benchmark.">
-    <jar destfile="${dist.dir}/hadoop-benchmark.jar">
-      <fileset dir="${classes.dir}">
-        <include name="**/*.*" />
-      </fileset>
-      <fileset dir="${contrib.classes.dir}">
-        <include name="**/*.*" />
-      </fileset>
-      <!-- include xsds -->
-      <fileset dir="${java.dir}">
-        <include name="**/*.xsd" />
-      </fileset>
-      <fileset dir="">
-        <include name="lib/jdom*.jar"/>
-        <include name="lib/google-collect*.jar"/>
-        <include name="lib/commons-lang*.jar"/>
-      </fileset>
-    </jar>
-  </target>
+  <target name="junit-long-rebalance" depends="bail-out" />
 
-  <target name="junit" depends="build, buildtest" description="Run junit tests.">
-    <replace-dir dir="${testreport.dir}" />
-    <replace-dir dir="${testhtml.dir}" />
-    <junit printsummary="yes" showoutput="true" maxmemory="2048m" timeout="1200000">
-      <classpath refid="test-classpath" />
-      <formatter type="xml" />
-      <batchtest fork="yes" todir="${testreport.dir}">
-        <fileset dir="${unittestsrc.dir}">
-          <include name="**/*Test.java" />
-          <exclude name="**/Abstract*.java" />
-        </fileset>
-      </batchtest>
-    </junit>
-    <junitreport todir="${testhtml.dir}">
-      <fileset dir="${testreport.dir}">
-        <include name="TEST-*.xml" />
-      </fileset>
-      <report todir="${testhtml.dir}" format="frames" />
-    </junitreport>
-  </target>
+  <target name="junit-test" depends="bail-out" />
 
-  <target name="junit-long" depends="build, buildtest, junit" description="Run long junit tests that uses larger data sets than normal junit tests.">
-    <replace-dir dir="${longtestreport.dir}" />
-    <replace-dir dir="${longtesthtml.dir}" />
-    <junit printsummary="yes" showoutput="true" maxmemory="2048m" fork="yes" timeout="5400000">
-      <classpath refid="test-classpath" />
-      <formatter type="xml" />
-      <batchtest todir="${longtestreport.dir}">
-        <fileset dir="${longtestsrc.dir}">
-          <include name="**/*Test.java" />
-        </fileset>
-      </batchtest>
-    </junit>
-    <junitreport todir="${longtesthtml.dir}">
-      <fileset dir="${longtestreport.dir}">
-        <include name="TEST-*.xml" />
-      </fileset>
-      <report todir="${longtesthtml.dir}" format="frames" />
-    </junitreport>
-  </target>
+  <target name="junit-all" depends="bail-out" />
 
-  <target name="junit-rebalance" depends="build, buildtest" description="Run junit tests only for rebalance.">
-    <replace-dir dir="${testreport.dir}" />
-    <replace-dir dir="${testhtml.dir}" />
-    <junit printsummary="yes" showoutput="true" maxmemory="2048m" timeout="1200000">
-      <classpath refid="test-classpath" />
-      <formatter type="xml" />
-      <batchtest fork="yes" todir="${testreport.dir}">
-        <fileset dir="${unittestsrc.dir}">
-          <include name="**/*Rebalance*Test.java" />
-          <exclude name="**/Abstract*.java" />
-        </fileset>
-      </batchtest>
-    </junit>
-    <junitreport todir="${testhtml.dir}">
-      <fileset dir="${testreport.dir}">
-        <include name="TEST-*.xml" />
-      </fileset>
-      <report todir="${testhtml.dir}" format="frames" />
-    </junitreport>
-  </target>
+  <target name="docs" depends="bail-out" />
 
-  <target name="junit-long-rebalance" depends="build, buildtest, junit-rebalance" description="Run long junit rebalance tests that uses larger data sets than normal junit tests.">
-    <replace-dir dir="${longtestreport.dir}" />
-    <replace-dir dir="${longtesthtml.dir}" />
-    <junit printsummary="yes" showoutput="true" maxmemory="2048m" fork="yes" timeout="5400000">
-      <classpath refid="test-classpath" />
-      <formatter type="xml" />
-      <batchtest todir="${longtestreport.dir}">
-        <fileset dir="${longtestsrc.dir}">
-          <include name="**/*Rebalance*Test.java" />
-        </fileset>
-      </batchtest>
-    </junit>
-    <junitreport todir="${longtesthtml.dir}">
-      <fileset dir="${longtestreport.dir}">
-        <include name="TEST-*.xml" />
-      </fileset>
-      <report todir="${longtesthtml.dir}" format="frames" />
-    </junitreport>
-  </target>
+  <target name="redeploy" depends="bail-out" />
 
-  <target name="junit-test" description="Run single junit test for class ClassName with -Dtest.name=[ClassName]  (Note: Use the class name, not the file name with the .java extension)">
-    <replace-dir dir="${singletestreport.dir}" />
-    <replace-dir dir="${singletesthtml.dir}" />
-    <junit printsummary="on" showoutput="true" maxmemory="4096m">
-      <classpath refid="contrib-test-classpath" />
-      <classpath path="${log4j.properties.dir}" />
-      <formatter type="plain" />
-      <formatter type="xml" />
-      <test name="${test.name}"  todir="${singletestreport.dir}"/>
-    </junit>
-    <junitreport todir="${singletesthtml.dir}">
-      <fileset dir="${singletestreport.dir}">
-        <include name="TEST-*.xml" />
-      </fileset>
-      <report todir="${singletesthtml.dir}" format="frames" />
-    </junitreport>
-  </target>
+  <target name="list" depends="bail-out" />
 
-  <target name="junit-all" depends="junit-long, contrib-junit" description="Run All junit tests including contrib.">
-  </target>
+  <target name="deploy" depends="bail-out" />
 
-  <macrodef name="make-javadocs">
-    <attribute name="dir" />
-    <attribute name="packagenames" />
-    <attribute name="javadir" />
-    <sequential>
-      <replace-dir dir="@{dir}" />
-      <javadoc sourcepath="@{javadir}" destdir="@{dir}" windowtitle="${display.name}" source="${javac.version}" author="true" version="true" use="true" packagenames="@{packagenames}">
-        <doctitle>${display.name}</doctitle>
-        <bottom>${author}</bottom>
-        <classpath refid="main-classpath" />
-      </javadoc>
-    </sequential>
-  </macrodef>
-
-  <target name="docs" description="Create complete Javadoc documentation">
-    <make-javadocs dir="${javadoc.dir}/all" packagenames="*" javadir="${java.dir}"/>
-    <make-javadocs dir="${javadoc.dir}/client" packagenames="voldemort.versioning.*, voldemort.client.*,voldemort.serialization.*" javadir="${java.dir}"/>
-  </target>
-
-  <target name="redeploy" depends="war, deploy">
-  </target>
-
-  <taskdef file="tomcat-tasks.properties">
-    <classpath>
-      <path location="${private.lib.dir}/catalina-ant.jar" />
-    </classpath>
-  </taskdef>
-
-  <target name="list" description="List Tomcat applications">
-    <list url="${tomcat.manager.url}" username="${tomcat.manager.username}" password="${tomcat.manager.password}" />
-  </target>
-
-  <target name="deploy" description="Deploy application" depends="war">
-    <deploy url="${tomcat.manager.url}" username="${tomcat.manager.username}" password="${tomcat.manager.password}" path="${tomcat.context}" update="true" war="file:${dist.dir}/${name}.war" />
-  </target>
-
-  <target name="undeploy" description="Undeploy application">
-    <undeploy url="${tomcat.manager.url}"
-                 username="${tomcat.manager.username}"
-                 password="${tomcat.manager.password}"
-                 path="${tomcat.context}"/>
-  </target>
+  <target name="undeploy" depends="bail-out" />
 
 </project>
