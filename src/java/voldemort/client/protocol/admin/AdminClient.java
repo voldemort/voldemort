@@ -16,6 +16,7 @@
 
 package voldemort.client.protocol.admin;
 
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -135,7 +136,7 @@ import com.google.protobuf.Message;
  * </ul>
  * 
  */
-public class AdminClient {
+public class AdminClient implements Closeable {
 
     private static final Logger logger = Logger.getLogger(AdminClient.class);
     private static final ClusterMapper clusterMapper = new ClusterMapper();
@@ -279,6 +280,11 @@ public class AdminClient {
                        int zoneID) {
         this(bootstrapURL, adminClientConfig, clientConfig);
         helperOps.initSystemStoreClient(bootstrapURL, zoneID);
+    }
+
+    @Override
+    public String toString() {
+        return "AdminClient with mainBootstrapUrl: " + this.mainBootstrapUrl;
     }
 
     /**

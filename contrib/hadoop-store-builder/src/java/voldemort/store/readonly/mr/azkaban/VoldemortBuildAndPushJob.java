@@ -16,6 +16,7 @@
 
 package voldemort.store.readonly.mr.azkaban;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.text.DateFormat;
@@ -101,6 +102,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final HeartBeatHookRunnable heartBeatHookRunnable;
     private final boolean pushHighAvailability;
     private final List<String> pushHighAvailabilityClusterWhiteList;
+    private final List<Closeable> closeables = Lists.newArrayList();
 
     // CONFIG NAME CONSTANTS
 
@@ -177,8 +179,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         for(String url: Utils.COMMA_SEP.split(clusterUrlText.trim())) {
             if(url.trim().length() > 0) {
                 this.clusterURLs.add(url);
-                this.adminClientPerCluster.put(url,
-                        new AdminClient(url, new AdminClientConfig(), new ClientConfig()));
+                AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
+                this.adminClientPerCluster.put(url, adminClient);
+                this.closeables.add(adminClient);
             }
         }
 
@@ -529,8 +532,13 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private void cleanUp() {
         heartBeatHookRunnable.stop();
-        for (AdminClient adminClient: adminClientPerCluster.values()) {
-            adminClient.close();
+        for (Closeable closeable: this.closeables) {
+            try {
+                log.info("Closing " + closeable.toString());
+                closeable.close();
+            } catch (Exception e) {
+                log.error("Got an error while trying to close " + closeable.toString(), e);
+            }
         }
     }
 
@@ -617,16 +625,15 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // builder assumes that you are using JsonTypeSerializer. This allows you to tweak your 
         // value/key store xml  as you see fit, but still uses the json sequence file meta data
         // to  build the store.
-        storeDefs = ImmutableList.of(VoldemortUtils.getStoreDef(VoldemortUtils.getStoreDefXml(storeName,
-                                                                                              replicationFactor,
-                                                                                              requiredReads,
-                                                                                              requiredWrites,
-                                                                                              props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS)
-                                                                                                                                        : null,
-                                                                                              props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES)
-                                                                                                                                         : null,
-                                                                                              keySchema,
-                                                                                              valSchema)));
+        storeDefs = ImmutableList.of(VoldemortUtils.getStoreDef(VoldemortUtils.getStoreDefXml(
+                storeName,
+                replicationFactor,
+                requiredReads,
+                requiredWrites,
+                props.containsKey(BUILD_PREFERRED_READS) ? props.getInt(BUILD_PREFERRED_READS) : null,
+                props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES) : null,
+                keySchema,
+                valSchema)));
         cluster = adminClientPerCluster.get(url).getAdminClientCluster();
     }
     
@@ -822,12 +829,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             int maxNodeFailure = props.getInt(PUSH_HA_MAX_NODE_FAILURE, 1);
             Class<? extends FailedFetchLock> failedFetchLockClass = (Class<? extends FailedFetchLock>)
                     props.getClass(PUSH_HA_LOCK_IMPLEMENTATION, HdfsFailedFetchLock.class);
-            String processId = props.getString(AZKABAN_LINK_EXECUTION_URL);
-            Object[] failedFetchLockParameters = new Object[]{props, url, processId};
+            Object[] failedFetchLockParameters = new Object[]{props, url};
             FailedFetchLock failedFetchLock = ReflectUtils.callConstructor(failedFetchLockClass, failedFetchLockParameters);
             failedFetchStrategyList.add(
                     new DisableStoreOnFailedNodeFailedFetchStrategy(
                             adminClientPerCluster.get(url), failedFetchLock, maxNodeFailure));
+            closeables.add(failedFetchLock);
             log.info("Beginning push with pushHighAvailability enabled for cluster: " + url);
         } else if (pushHighAvailability && !disableStoreOnFailedNodeForThisCluster) {
             log.warn("Beginning push with pushHighAvailability DISABLED because the cluster is not whitelisted: " + url);

@@ -63,7 +63,7 @@ public class DisableStoreOnFailedNodeFailedFetchStrategy extends FailedFetchStra
                 for (Integer nodeId: nodesFailedInThisRun) {
                     logger.warn("Will disable store '" + storeName + "' on node " + nodeId);
                     String details = "TBD";
-                    distributedLock.addDisabledNode(nodeId, details);
+                    distributedLock.addDisabledNode(nodeId, details, storeName, pushVersion);
                     adminClient.readonlyOps.disableStore(nodeId, storeName);
                 }
 
