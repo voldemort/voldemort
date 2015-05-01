@@ -1,3 +1,10 @@
+Release 1.9.12 on 05/01/2015
+- quota reset on rebalance
+- Fully disabled ant build
+- fix rebalance unit test intermittent failures
+- Changing buffer size of GZIP streams 
+- Additional test cases
+
 Release 1.9.11 on 04/23/2015
 - BuildAndPush job produces compressed files as dictated by Server
 - Voldemort RO Server supports on the fly decompression when compression is
