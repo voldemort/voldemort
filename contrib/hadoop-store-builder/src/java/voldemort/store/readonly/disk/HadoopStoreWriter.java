@@ -168,8 +168,10 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
 
         if(isCompressionEnabled
            && compressionCodec.toUpperCase(Locale.ENGLISH).equals(COMPRESSION_CODEC)) {
-            this.indexFileStream = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskIndexFileName))));
-            this.valueFileStream = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskValueFileName))));
+            this.indexFileStream = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskIndexFileName),
+                                                                                                      DEFAULT_BUFFER_SIZE)));
+            this.valueFileStream = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskValueFileName),
+                                                                                                      DEFAULT_BUFFER_SIZE)));
 
         } else {
             this.indexFileStream = fs.create(this.taskIndexFileName);

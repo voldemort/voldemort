@@ -36,6 +36,8 @@ public interface KeyValueWriter<K, V> {
     public static final String CHECKSUM_FILE_EXTENSION = ".checksum";
     public static final String GZIP_FILE_EXTENSION = ".gz";
 
+    public static final int DEFAULT_BUFFER_SIZE = 65536;
+
     public static enum CollisionCounter {
 
         NUM_COLLISIONS,
