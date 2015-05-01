@@ -50,6 +50,7 @@ import org.mockito.Mockito;
 import org.mortbay.jetty.EofException;
 
 import voldemort.TestUtils;
+import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
@@ -193,6 +194,9 @@ public class HDFSFetcherAdvancedTest {
 
 
     private void setUp() throws Exception {
+        // First clean up any dirty state.
+        cleanUp();
+
         testSourceDir = createTempDir();
         testDestDir = testSourceDir;
         indexFileName = "0_0.index";
@@ -219,15 +223,17 @@ public class HDFSFetcherAdvancedTest {
 
         fetcher = new HdfsFetcher();
         fs = source.getFileSystem(new Configuration());
-
+        File destination = new File(testDestDir.getAbsolutePath() + "1");
         if(isCompressed) {
             stats = new CopyStats(testCompressedSourceDir.getAbsolutePath(), sizeOfPath(fs, source));
+            copyLocation = new File(destination, indexFileName + ".gz");
         } else {
             stats = new CopyStats(testSourceDir.getAbsolutePath(), sizeOfPath(fs, source));
+            copyLocation = new File(destination, indexFileName);
         }
-        File destination = new File(testDestDir.getAbsolutePath() + "1");
+
         Utils.mkdirs(destination);
-        copyLocation = new File(destination, indexFileName);
+
         buffer = new byte[VoldemortConfig.DEFAULT_BUFFER_SIZE];
     }
 
@@ -288,6 +294,7 @@ public class HDFSFetcherAdvancedTest {
      */
     @Test
     public void testCheckSumMetadata() throws Exception {
+        cleanUp();
         testSourceDir = createTempDir();
         File testUncompressedSourceDir = null;
 
@@ -376,6 +383,8 @@ public class HDFSFetcherAdvancedTest {
     /*
      * Tests that HdfsFetcher can correctly fetch a file when there is an
      * IOException, specifically an EofException during the fetch
+     * 
+     * For a compressed input, exception is acceptable.
      */
     @Test
     public void testIOExceptionIntermittent() throws Exception {
@@ -390,7 +399,6 @@ public class HDFSFetcherAdvancedTest {
                                                              "copyFileWithCheckSum",
                                                              params);
         assertEquals(Arrays.equals(ckSum.getCheckSum(), checksumCalculated), true);
-        cleanUp();
     }
 
     /*
@@ -407,22 +415,27 @@ public class HDFSFetcherAdvancedTest {
         FileSystem spyfs = Mockito.spy(fs);
         FSDataInputStream spyinput = Mockito.spy(input);
 
-        // Skip this test in case the files are compressed.
-        if(isCompressed) {
-            cleanUp();
-            return;
-        }
         Mockito.doAnswer(Mockito.CALLS_REAL_METHODS)
                .doThrow(new EofException())
                .when(spyinput)
                .read();
         Mockito.doReturn(spyinput).doReturn(input).when(spyfs).open(source);
         Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer };
-        CheckSum ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
+
+        CheckSum ckSum = null;
+        try {
+            ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
                                                              "copyFileWithCheckSum",
                                                              params);
+        } catch(Exception ex) {
+            if(isCompressed) {
+                // This is expected
+                return;
+            } else {
+                Assert.fail("Unexpected exption thrown : " + ex.getMessage());
+            }
+        }
         assertEquals(Arrays.equals(ckSum.getCheckSum(), checksumCalculated), true);
-        cleanUp();
     }
 
     /*
@@ -445,7 +458,77 @@ public class HDFSFetcherAdvancedTest {
                                                              "copyFileWithCheckSum",
                                                              params);
         assertEquals(Arrays.equals(ckSum.getCheckSum(), checksumCalculated), true);
+    }
+
+    /*
+     * Tests that corrupted compressed stream triggers exception when servers
+     * starts to decompress.
+     * 
+     * 1. We produce random bytes in index and data files
+     * 
+     * 2. We rename them to end with ".gz" to simulate corrupted compressed
+     * streams
+     * 
+     * 3. We run the fetcher. Fetcher would see the ".gz" extension and starts
+     * decompressing and does not find right GZIP headers . Thus produces
+     * exception.
+     */
+    @Test
+    public void testCorruptedCompressedFile() throws Exception {
+        if(!isCompressed) {
+            return;
+        }
+
+        testSourceDir = createTempDir();
+        File testUncompressedSourceDir = null;
+
+        // generate index , data and , metadata files
+        File indexFile = new File(testSourceDir, "0_0.index");
+        FileUtils.writeByteArrayToFile(indexFile, TestUtils.randomBytes(100));
+        File dataFile = new File(testSourceDir, "0_0.data");
+        FileUtils.writeByteArrayToFile(dataFile, TestUtils.randomBytes(400));
+        HdfsFetcher fetcher = new HdfsFetcher();
+        File metadataFile = new File(testSourceDir, ".metadata");
+        ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+        metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V2.getCode());
+        metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE, CheckSum.toString(CheckSumType.MD5));
+        // Correct metadata checksum - MD5
+        metadata.add(ReadOnlyStorageMetadata.CHECKSUM,
+                     new String(Hex.encodeHex(CheckSumTests.calculateCheckSum(testSourceDir.listFiles(),
+                                                                              CheckSumType.MD5))));
+        FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
+
+        // Rename index and data files to end with .gz. we are generating fake
+        // compressed files here.
+
+        if(!indexFile.renameTo(new File(testSourceDir, indexFile.getName() + ".gz"))
+           || !dataFile.renameTo(new File(testSourceDir, dataFile.getName() + ".gz"))) {
+            Assert.fail("cannot rename files as desired");
+        }
+        testDestDir = new File(testSourceDir.getAbsolutePath() + "1");
+        if(testDestDir.exists()) {
+
+            deleteDir(testDestDir);
+        }
+
+        File fetchedFile;
+        try {
+            fetchedFile = fetcher.fetch(testSourceDir.getAbsolutePath(),
+                                         testDestDir.getAbsolutePath());
+        } catch(VoldemortException ex) {
+            // this is expected, since we did not send valid compressed file
+            cleanUp();
+            return;
+        } catch(Exception ex) {
+            // Any other exceptionis not acceptable. Fail the test case
+            cleanUp();
+            Assert.fail("Unexpected Exception thrown!");
+        }
         cleanUp();
+        // If the code reaches here, this means something is seriously bad
+        Assert.fail("Unexpected behavior!");
+
+
     }
 
 }

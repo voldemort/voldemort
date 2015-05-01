@@ -184,8 +184,10 @@ public class HadoopStoreWriterPerBucket implements KeyValueWriter<BytesWritable,
             if(this.fs == null)
                 this.fs = this.taskIndexFileName[chunkId].getFileSystem(conf);
             if(isValidCompressionEnabled) {
-                this.indexFileStream[chunkId] = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskIndexFileName[chunkId]))));
-                this.valueFileStream[chunkId] = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskValueFileName[chunkId]))));
+                this.indexFileStream[chunkId] = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskIndexFileName[chunkId]),
+                                                                                                                   DEFAULT_BUFFER_SIZE)));
+                this.valueFileStream[chunkId] = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskValueFileName[chunkId]),
+                                                                                                                   DEFAULT_BUFFER_SIZE)));
 
             } else {
                 this.indexFileStream[chunkId] = fs.create(this.taskIndexFileName[chunkId]);

@@ -530,9 +530,11 @@ public class HdfsFetcher implements FileFetcher {
                 if(!isCompressed) {
                     input = fs.open(source);
                 } else {
-                    // TODO need to play with buffer size configs later. Going
-                    // with a default input buffer size
-                    input = new GZIPInputStream(fs.open(source));
+                    // We are already bounded by the "hdfs.fetcher.buffer.size"
+                    // specified in the Voldemort config, the default value of
+                    // which is 64K. Using the same as the buffer size for
+                    // GZIPInputStream as well.
+                    input = new GZIPInputStream(fs.open(source), this.bufferSize);
                 }
                 fsOpened = true;
 
