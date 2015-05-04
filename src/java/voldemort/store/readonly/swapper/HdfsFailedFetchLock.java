@@ -115,7 +115,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
                 success = this.fileSystem.mkdirs(new Path(afterLockDir));
 
                 if (!success) {
-                    logger.warn(logMessage(INIT_DIRS, UNKNOWN_REASONS, attempts));
+                    logger.warn(logFailureMessage(INIT_DIRS, UNKNOWN_REASONS, attempts));
                 }
             }  catch (IOException e) {
                 handleIOException(e, INIT_DIRS, attempts);
@@ -133,7 +133,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
         return "Exec" + execId + "-Time" + System.currentTimeMillis() + "-" + flowId + "-" + jobId;
     }
 
-    private String logMessage(String action, String cause, int attempt) {
+    private String logFailureMessage(String action, String cause, int attempt) {
         return "Failed to " + action + " because " + cause + ". Attempt # " +
                 attempt + "/" + maxAttempts + ", will wait " +
                 waitBetweenRetries + " ms until next retry.";
@@ -156,7 +156,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
             throw new VoldemortException("Got an IOException we cannot recover from while trying to " +
                     action + ". Attempt # " + attempt + "/" + maxAttempts + ". Will not try again.", e);
         } else {
-            logger.error(logMessage(action, IO_EXCEPTION, attempt), e);
+            logger.error(logFailureMessage(action, IO_EXCEPTION, attempt), e);
         }
     }
 
@@ -164,43 +164,44 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
     public synchronized void acquireLock() throws Exception {
         if (lockAcquired) {
             logger.info("HdfsFailedFetchLock.acquireLock() called while it is already acquired!");
-        } else {
-            int attempts = 1;
-            while (!this.lockAcquired && attempts <= maxAttempts) {
-                FSDataOutputStream outputStream = null;
-                try {
-                    // We prepare a temporaryLockFile with the content we want in a path without locking.
-                    Path temporaryLockFile = new Path(beforeLockDir, getUniqueFileName());
-                    outputStream = this.fileSystem.create(temporaryLockFile, false);
-                    props.storeFlattened(outputStream);
-                    outputStream.flush();
-                    outputStream.close();
+            return;
+        }
 
-                    // We attempt to rename to the globally contended lock path
-                    this.lockAcquired = this.fileSystem.rename(temporaryLockFile, this.lockFile);
+        int attempts = 1;
+        while (!this.lockAcquired && attempts <= maxAttempts) {
+            FSDataOutputStream outputStream = null;
+            try {
+                // We prepare a temporaryLockFile with the content we want in a path without locking.
+                Path temporaryLockFile = new Path(beforeLockDir, getUniqueFileName());
+                outputStream = this.fileSystem.create(temporaryLockFile, false);
+                props.storeFlattened(outputStream);
+                outputStream.flush();
+                outputStream.close();
 
-                    if (!this.lockAcquired) {
-                        logger.warn(logMessage(ACQUIRE_LOCK, ALREADY_EXISTS, attempts));
-                        this.fileSystem.delete(temporaryLockFile, false);
-                    }
-                }  catch (IOException e) {
-                    handleIOException(e, ACQUIRE_LOCK, attempts);
-                } finally {
-                    if (outputStream != null) {
-                        // Just being paranoid...
-                        outputStream.close();
-                    }
-                }
+                // We attempt to rename to the globally contended lock path
+                this.lockAcquired = this.fileSystem.rename(temporaryLockFile, this.lockFile);
 
                 if (!this.lockAcquired) {
-                    wait(waitBetweenRetries);
-                    attempts++;
+                    logger.warn(logFailureMessage(ACQUIRE_LOCK, ALREADY_EXISTS, attempts));
+                    this.fileSystem.delete(temporaryLockFile, false);
+                }
+            }  catch (IOException e) {
+                handleIOException(e, ACQUIRE_LOCK, attempts);
+            } finally {
+                if (outputStream != null) {
+                    // Just being paranoid...
+                    outputStream.close();
                 }
             }
 
             if (!this.lockAcquired) {
-                throw new VoldemortException(exceptionMessage(ACQUIRE_LOCK));
+                wait(waitBetweenRetries);
+                attempts++;
             }
+        }
+
+        if (!this.lockAcquired) {
+            throw new VoldemortException(exceptionMessage(ACQUIRE_LOCK));
         }
     }
 
@@ -208,34 +209,35 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
     public synchronized void releaseLock() throws Exception {
         if (!lockAcquired) {
             logger.info("HdfsFailedFetchLock.releaseLock() called while it is already released!");
-        } else {
-            int attempts = 1;
-            while (this.lockAcquired && attempts <= maxAttempts) {
-                try {
-                    // We prepare a releasedLockFile in a path without locking. This is to keep the lock
-                    // file's content for traceability purposes, so we can know which locks have been
-                    // acquired in the past...
-                    Path releasedLockFile = new Path(afterLockDir, getUniqueFileName());
+            return;
+        }
 
-                    // We attempt to rename the globally contended lock path to the the released path.
-                    this.lockAcquired = !(this.fileSystem.rename(this.lockFile, releasedLockFile));
+        int attempts = 1;
+        while (this.lockAcquired && attempts <= maxAttempts) {
+            try {
+                // We prepare a releasedLockFile in a path without locking. This is to keep the lock
+                // file's content for traceability purposes, so we can know which locks have been
+                // acquired in the past...
+                Path releasedLockFile = new Path(afterLockDir, getUniqueFileName());
 
-                    if (this.lockAcquired) {
-                        logger.warn(logMessage(RELEASE_LOCK, UNKNOWN_REASONS, attempts));
-                    }
-                }  catch (IOException e) {
-                    handleIOException(e, RELEASE_LOCK, attempts);
-                }
+                // We attempt to rename the globally contended lock path to the the released path.
+                this.lockAcquired = !(this.fileSystem.rename(this.lockFile, releasedLockFile));
 
                 if (this.lockAcquired) {
-                    wait(waitBetweenRetries);
-                    attempts++;
+                    logger.warn(logFailureMessage(RELEASE_LOCK, UNKNOWN_REASONS, attempts));
                 }
+            }  catch (IOException e) {
+                handleIOException(e, RELEASE_LOCK, attempts);
             }
 
             if (this.lockAcquired) {
-                throw new VoldemortException(exceptionMessage(RELEASE_LOCK));
+                wait(waitBetweenRetries);
+                attempts++;
             }
+        }
+
+        if (this.lockAcquired) {
+            throw new VoldemortException(exceptionMessage(RELEASE_LOCK));
         }
     }
 
@@ -277,34 +279,34 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
                                 long storeVersion) throws Exception {
         if (!lockAcquired) {
             throw new VoldemortException("HdfsFailedFetchLock.addDisabledNode() called while the lock is not acquired!");
-        } else {
-            int attempts = 1;
-            boolean success = false;
-            while (!success && attempts <= maxAttempts) {
-                FSDataOutputStream outputStream = null;
-                try {
-                    String nodeIdDir = NODE_ID_DIR_PREFIX + nodeId;
-                    String failedJobDir = clusterDir + "/" + nodeIdDir + "/" + storeName + "/" + storeVersion;
-                    Path failedJobFile = new Path(failedJobDir, getUniqueFileName());
+        }
 
-                    FileUtil.copy(this.fileSystem, this.lockFile, this.fileSystem, failedJobFile, false, true, new Configuration());
+        int attempts = 1;
+        boolean success = false;
+        while (!success && attempts <= maxAttempts) {
+            FSDataOutputStream outputStream = null;
+            try {
+                String nodeIdDir = NODE_ID_DIR_PREFIX + nodeId;
+                String failedJobDir = clusterDir + "/" + nodeIdDir + "/" + storeName + "/" + storeVersion;
+                Path failedJobFile = new Path(failedJobDir, getUniqueFileName());
 
-                    success = true;
-                }  catch (IOException e) {
-                    handleIOException(e, ADD_DISABLED_NODE, attempts);
-                    wait(waitBetweenRetries);
-                    attempts++;
-                } finally {
-                    if (outputStream != null) {
-                        // Just being paranoid...
-                        outputStream.close();
-                    }
+                FileUtil.copy(this.fileSystem, this.lockFile, this.fileSystem, failedJobFile, false, true, new Configuration());
+
+                success = true;
+            }  catch (IOException e) {
+                handleIOException(e, ADD_DISABLED_NODE, attempts);
+                wait(waitBetweenRetries);
+                attempts++;
+            } finally {
+                if (outputStream != null) {
+                    // Just being paranoid...
+                    outputStream.close();
                 }
             }
+        }
 
-            if (!success) {
-                throw new VoldemortException(exceptionMessage(ADD_DISABLED_NODE));
-            }
+        if (!success) {
+            throw new VoldemortException(exceptionMessage(ADD_DISABLED_NODE));
         }
     }
 
