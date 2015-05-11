@@ -16,6 +16,7 @@
 
 package voldemort.client;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -29,7 +30,7 @@ import voldemort.store.system.SystemStoreConstants;
 
 public class SystemStoreRepository {
 
-    private ConcurrentHashMap<String, SystemStoreClient> sysStoreMap;
+    private Map<String, SystemStoreClient> sysStoreMap;
     private final SystemStoreClientFactory systemStoreFactory;
 
     public SystemStoreRepository(ClientConfig clientConfig) {

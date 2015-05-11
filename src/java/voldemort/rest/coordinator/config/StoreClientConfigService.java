@@ -14,7 +14,7 @@ import voldemort.common.service.ServiceType;
 public abstract class StoreClientConfigService {
 
     protected CoordinatorConfig coordinatorConfig = null;
-    protected final ConcurrentHashMap<String, StoreClientConfigServiceListener> storeClientConfigListeners;
+    protected final Map<String, StoreClientConfigServiceListener> storeClientConfigListeners;
 
     // Keys for passing messages back to the admin client
     public static final String SUCCESS_MESSAGE_PARAM_KEY = "success_message";

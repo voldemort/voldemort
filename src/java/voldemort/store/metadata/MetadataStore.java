@@ -147,7 +147,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     public final Lock readLock = lock.readLock();
     public final Lock writeLock = lock.writeLock();
 
-    private final ConcurrentHashMap<String, List<MetadataStoreListener>> storeNameTolisteners;
+    private final Map<String, List<MetadataStoreListener>> storeNameTolisteners;
 
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 

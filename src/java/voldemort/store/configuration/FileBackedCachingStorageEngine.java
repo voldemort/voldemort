@@ -69,7 +69,7 @@ public class FileBackedCachingStorageEngine extends
 
     private final String inputPath;
     private final String inputDirectory;
-    private ConcurrentHashMap<String, String> metadataMap;
+    private Map<String, String> metadataMap;
     private VectorClock cachedVersion = null;
 
     public FileBackedCachingStorageEngine(String name, String inputDirectory) {

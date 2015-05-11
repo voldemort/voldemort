@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -71,7 +70,7 @@ public class StreamingSlopPusherJob extends SlopPusherJob implements Runnable {
 
     private final static Versioned<Slop> END = Versioned.value(null);
 
-    private ConcurrentMap<Integer, SynchronousQueue<Versioned<Slop>>> slopQueues;
+    private Map<Integer, SynchronousQueue<Versioned<Slop>>> slopQueues;
     private ExecutorService consumerExecutor;
     private final EventThrottler readThrottler;
     private AdminClient adminClient;
@@ -79,8 +78,8 @@ public class StreamingSlopPusherJob extends SlopPusherJob implements Runnable {
 
     private final List<Future> consumerResults;
     private final Map<Integer, Set<Integer>> zoneMapping;
-    private ConcurrentHashMap<Integer, Long> attemptedByNode;
-    private ConcurrentHashMap<Integer, Long> succeededByNode;
+    private Map<Integer, Long> attemptedByNode;
+    private Map<Integer, Long> succeededByNode;
     private final StreamingStats streamStats;
 
     public StreamingSlopPusherJob(StoreRepository storeRepo,

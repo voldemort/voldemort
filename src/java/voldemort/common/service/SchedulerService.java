@@ -18,6 +18,7 @@ package voldemort.common.service;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -79,8 +80,8 @@ public class SchedulerService extends AbstractService {
     private final ScheduledThreadPoolExecutor scheduler;
     private final Time time;
 
-    private final ConcurrentHashMap<String, ScheduledFuture> scheduledJobResults;
-    private final ConcurrentHashMap<String, ScheduledRunnable> allJobs;
+    private final Map<String, ScheduledFuture> scheduledJobResults;
+    private final Map<String, ScheduledRunnable> allJobs;
 
     public SchedulerService(int schedulerThreads, Time time) {
         this(schedulerThreads, time, true);
