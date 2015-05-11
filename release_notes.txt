@@ -1,3 +1,8 @@
+Release 1.9.13 on 05/01/2015
+  * Non blocking connect and Non blocking Protocol negotiation.
+  * Suppress logging ObsoleteVersionExceptions in request handler.
+  * Java minimum version is bumped to Java 6.
+
 Release 1.9.12 on 05/01/2015
 - quota reset on rebalance
 - Fully disabled ant build
