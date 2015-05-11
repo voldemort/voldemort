@@ -396,7 +396,7 @@ public class HDFSFetcherAdvancedTest {
                .open(source);
         Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer };
         CheckSum ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
-                                                             "copyFileWithCheckSum",
+                                                             "copyFileWithCheckSumTest",
                                                              params);
         assertEquals(Arrays.equals(ckSum.getCheckSum(), checksumCalculated), true);
     }
@@ -424,8 +424,7 @@ public class HDFSFetcherAdvancedTest {
 
         CheckSum ckSum = null;
         try {
-            ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
-                                                             "copyFileWithCheckSum",
+            ckSum = (CheckSum) this.invokePrivateMethod(fetcher, "copyFileWithCheckSumTest",
                                                              params);
         } catch(Exception ex) {
             if(isCompressed) {
@@ -455,7 +454,7 @@ public class HDFSFetcherAdvancedTest {
                .open(source);
         Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer };
         CheckSum ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
-                                                             "copyFileWithCheckSum",
+                                                             "copyFileWithCheckSumTest",
                                                              params);
         assertEquals(Arrays.equals(ckSum.getCheckSum(), checksumCalculated), true);
     }

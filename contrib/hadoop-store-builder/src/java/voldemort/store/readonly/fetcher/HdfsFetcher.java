@@ -25,15 +25,13 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.security.PrivilegedExceptionAction;
 import java.text.NumberFormat;
-import java.util.Arrays;
-import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 
 import javax.management.ObjectName;
 
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
@@ -49,10 +47,8 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AdminServiceRequestHandler;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.readonly.FileFetcher;
-import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
-import voldemort.utils.ByteUtils;
 import voldemort.utils.DynamicEventThrottler;
 import voldemort.utils.DynamicThrottleLimit;
 import voldemort.utils.EventThrottler;
@@ -69,9 +65,10 @@ public class HdfsFetcher implements FileFetcher {
 
     private static String keytabPath = "";
     private static String kerberosPrincipal = VoldemortConfig.DEFAULT_KERBEROS_PRINCIPAL;
-    private static String GZIP_FILE_EXTENSION = ".gz";
-    public static String INDEX_FILE_EXTENSION = ".index";
-    public static String DATA_FILE_EXTENSION = ".data";
+    public static final String GZIP_FILE_EXTENSION = ".gz";
+    public static final String INDEX_FILE_EXTENSION = ".index";
+    public static final String DATA_FILE_EXTENSION = ".data";
+    public static final String METADATA_FILE_EXTENSION = ".metadata";
     private static String COMPRESSED_INDEX_FILE_EXTENSION = INDEX_FILE_EXTENSION
                                                             + GZIP_FILE_EXTENSION;
     private static String COMPRESSED_DATA_FILE_EXTENSION = DATA_FILE_EXTENSION
@@ -359,127 +356,61 @@ public class HdfsFetcher implements FileFetcher {
     private boolean fetch(FileSystem fs, Path source, File dest, CopyStats stats) throws Throwable {
         if(!fs.isFile(source)) {
             Utils.mkdirs(dest);
-            FileStatus[] statuses = fs.listStatus(source);
-            if(statuses != null) {
-                byte[] buffer = new byte[bufferSize];
-                // sort the files so that index files come last. Maybe
-                // this will help keep them cached until the swap
-                Arrays.sort(statuses, new IndexFileLastComparator());
-                byte[] origCheckSum = null;
-                CheckSumType checkSumType = CheckSumType.NONE;
+            HdfsDirectory directory = new HdfsDirectory(fs, source);
+            byte[] buffer = new byte[bufferSize];
+            HdfsFile metadataFile = directory.getMetadataFile();
 
-                // Do a checksum of checksum - Similar to HDFS
-                CheckSum checkSumGenerator = null;
-                CheckSum fileCheckSumGenerator = null;
+            if(metadataFile != null) {
+                File copyLocation = new File(dest, metadataFile.getPath().getName());
+                copyFileWithCheckSum(fs, metadataFile, copyLocation, stats, null, buffer);
+                directory.initializeMetadata(copyLocation);
+            }
 
-                for(FileStatus status: statuses) {
-
-                    // Kept for backwards compatibility
-                    if(status.getPath().getName().contains("checkSum.txt")) {
-
-                        // Ignore old checksum files
-
-                    } else if(status.getPath().getName().contains(".metadata")) {
-
-                        logger.debug("Reading .metadata");
-                        // Read metadata into local file
-                        File copyLocation = new File(dest, status.getPath().getName());
-                        copyFileWithCheckSum(fs,
-                                             status.getPath(),
-                                             copyLocation,
-                                             stats,
-                                             null,
-                                             buffer);
-
-                        // Open the local file to initialize checksum
-                        ReadOnlyStorageMetadata metadata;
-                        try {
-                            metadata = new ReadOnlyStorageMetadata(copyLocation);
-                        } catch(IOException e) {
-                            logger.error("Error reading metadata file ", e);
-                            throw new VoldemortException(e);
-                        }
-
-                        // Read checksum
-                        String checkSumTypeString = (String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE);
-                        String checkSumString = (String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM);
-
-                        if(checkSumTypeString != null && checkSumString != null) {
-
-                            try {
-                                origCheckSum = Hex.decodeHex(checkSumString.toCharArray());
-                            } catch(DecoderException e) {
-                                logger.error("Exception reading checksum file. Ignoring checksum ",
-                                             e);
-                                continue;
-                            }
-
-                            logger.debug("Checksum from .metadata "
-                                         + new String(Hex.encodeHex(origCheckSum)));
-
-                            // Define the Global checksum generator
-                            checkSumType = CheckSum.fromString(checkSumTypeString);
-                            checkSumGenerator = CheckSum.getInstance(checkSumType);
-                        }
-
-                    } else if(!status.getPath().getName().startsWith(".")) {
-
-                        // Read other (.data , .index files)
-                        String fileName = status.getPath().getName();
-                        if(fileName.endsWith(GZIP_FILE_EXTENSION)) {
-                            fileName = fileName.split(GZIP_FILE_EXTENSION)[0];
-                        }
-                        File copyLocation = new File(dest, fileName);
-                        fileCheckSumGenerator = copyFileWithCheckSum(fs,
-                                                                     status.getPath(),
-                                                                     copyLocation,
-                                                                     stats,
-                                                                     checkSumType,
-                                                                     buffer);
-
-                        if(fileCheckSumGenerator != null && checkSumGenerator != null) {
-                            byte[] checkSum = fileCheckSumGenerator.getCheckSum();
-                            if(logger.isDebugEnabled()) {
-                                logger.debug("Checksum for " + status.getPath() + " - "
-                                             + new String(Hex.encodeHex(checkSum)));
-                            }
-                            checkSumGenerator.update(checkSum);
-                        }
-                    }
-
-                }
-
-                logger.info("Completed reading all files from " + source.toString() + " to "
-                            + dest.getAbsolutePath());
-                // Check checksum
-                if(checkSumType != CheckSumType.NONE) {
-                    byte[] newCheckSum = checkSumGenerator.getCheckSum();
-                    boolean checkSumComparison = (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
-
-                    logger.info("Checksum generated from streaming - "
-                                + new String(Hex.encodeHex(newCheckSum)));
-                    logger.info("Checksum on file - " + new String(Hex.encodeHex(origCheckSum)));
-                    logger.info("Check-sum verification - " + checkSumComparison);
-
-                    return checkSumComparison;
-                } else {
-                    logger.info("No check-sum verification required");
-                    return true;
+            Map<HdfsFile, byte[]> fileCheckSumMap = new HashMap<HdfsFile, byte[]>(directory.getFiles()
+                                                                                           .size());
+            CheckSumType checkSumType = directory.getCheckSumType();
+            for(HdfsFile file: directory.getFiles()) {
+                String fileName = file.getDiskFileName();
+                File copyLocation = new File(dest, fileName);
+                CheckSum fileCheckSumGenerator = copyFileWithCheckSum(fs,
+                                                                      file,
+                                                                      copyLocation,
+                                                                      stats,
+                                                                      checkSumType,
+                                                                      buffer);
+                if(fileCheckSumGenerator != null) {
+                    fileCheckSumMap.put(file, fileCheckSumGenerator.getCheckSum());
                 }
             }
+
+            return directory.validateCheckSum(fileCheckSumMap);
+
         } else if(allowFetchOfFiles) {
             Utils.mkdirs(dest);
             byte[] buffer = new byte[bufferSize];
-            String fileName = source.getName();
-            if(fileName.endsWith(GZIP_FILE_EXTENSION)) {
-                fileName = fileName.split(GZIP_FILE_EXTENSION)[0];
-            }
+            HdfsFile file = new HdfsFile(fs.getFileStatus(source));
+            String fileName = file.getDiskFileName();
             File copyLocation = new File(dest, fileName);
-            copyFileWithCheckSum(fs, source, copyLocation, stats, CheckSumType.NONE, buffer);
+            copyFileWithCheckSum(fs, file, copyLocation, stats, CheckSumType.NONE, buffer);
             return true;
         }
         logger.error("Source " + source.toString() + " should be a directory");
         return false;
+    }
+
+    // Used by tests
+    private CheckSum copyFileWithCheckSumTest(FileSystem fs,
+                                          Path source,
+                                          File dest,
+                                          CopyStats stats,
+                                          CheckSumType checkSumType,
+                                          byte[] buffer) throws Throwable {
+        return copyFileWithCheckSum(fs,
+                                    new HdfsFile(fs.getFileStatus(source)),
+                                    dest,
+                                    stats,
+                                    checkSumType,
+                                    buffer);
     }
 
     /**
@@ -497,7 +428,7 @@ public class HdfsFetcher implements FileFetcher {
      * @throws IOException
      */
     private CheckSum copyFileWithCheckSum(FileSystem fs,
-                                          Path source,
+                                          HdfsFile source,
                                           File dest,
                                           CopyStats stats,
                                           CheckSumType checkSumType,
@@ -506,11 +437,8 @@ public class HdfsFetcher implements FileFetcher {
         logger.debug("Starting copy of " + source + " to " + dest);
 
         // Check if its Gzip compressed
-        boolean isCompressed = false;
+        boolean isCompressed = source.isCompressed();
         FilterInputStream input = null;
-        if(source.getName().endsWith(GZIP_FILE_EXTENSION)) {
-            isCompressed = true;
-        }
 
         OutputStream output = null;
 
@@ -528,13 +456,13 @@ public class HdfsFetcher implements FileFetcher {
                 logger.info("Attempt " + attempt + " at copy of " + source + " to " + dest);
 
                 if(!isCompressed) {
-                    input = fs.open(source);
+                    input = fs.open(source.getPath());
                 } else {
                     // We are already bounded by the "hdfs.fetcher.buffer.size"
                     // specified in the Voldemort config, the default value of
                     // which is 64K. Using the same as the buffer size for
                     // GZIPInputStream as well.
-                    input = new GZIPInputStream(fs.open(source), this.bufferSize);
+                    input = new GZIPInputStream(fs.open(source.getPath()), this.bufferSize);
                 }
                 fsOpened = true;
 
@@ -679,43 +607,6 @@ public class HdfsFetcher implements FileFetcher {
         @JmxGetter(name = "filename", description = "The file path being copied.")
         public String getFilename() {
             return this.fileName;
-        }
-    }
-
-    /**
-     * A comparator that sorts index files last. This is a heuristic for
-     * retaining the index file in page cache until the swap occurs
-     * 
-     */
-    public static class IndexFileLastComparator implements Comparator<FileStatus> {
-
-        public int compare(FileStatus fs1, FileStatus fs2) {
-            // directories before files
-            if(fs1.isDir())
-                return fs2.isDir() ? 0 : -1;
-            if(fs2.isDir())
-                return fs1.isDir() ? 0 : 1;
-
-            String f1 = fs1.getPath().getName(), f2 = fs2.getPath().getName();
-
-            // All metadata files given priority
-            if(f1.endsWith("metadata"))
-                return -1;
-            if(f2.endsWith("metadata"))
-                return 1;
-
-            // if both same, lexicographically
-            for(String extension: validExtensions) {
-                if(f1.endsWith(extension) && f2.endsWith(extension)) {
-                    return f1.compareToIgnoreCase(f2);
-                }
-            }
-
-            if(f1.endsWith(INDEX_FILE_EXTENSION) || f1.endsWith(COMPRESSED_INDEX_FILE_EXTENSION)) {
-                return 1;
-            } else {
-                return -1;
-            }
         }
     }
 
