@@ -19,6 +19,7 @@ import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
+import voldemort.versioning.ObsoleteVersionException;
 
 /**
  * Server-side request handler for voldemort native client protocol
@@ -105,8 +106,12 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             requestHandler.parseRequest(inputStream);
             requestHandler.processRequest();
         } catch ( VoldemortException e) {
+            // Put generates lot of ObsoleteVersionExceptions, suppress them
+            // they are harmless and indicates normal mode of operation.
+            if(!(e instanceof ObsoleteVersionException)) {
+                logger.error("Store" + storeName + ". Error: " + e.getMessage());
+            }
             clearBuffer(outputContainer);
-            logger.error(e.getMessage());
             writeException(outputStream, e);
             return null;
         }
