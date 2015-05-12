@@ -2511,27 +2511,41 @@ public class AdminServiceBasicTest {
     }
 
     @Test
-    public void testGetSetQuotaForNode() throws InterruptedException {
+    public void testQuotaOpsForNode() throws InterruptedException {
         AdminClient client = getAdminClient();
         String storeName = storeDefs.get(0).getName();
         QuotaType quotaType = QuotaType.GET_THROUGHPUT;
         Integer nodeId = 0;
         Integer quota = 1000;
+
+        // test set quota
         client.quotaMgmtOps.setQuotaForNode(storeName, quotaType, nodeId, quota);
         Integer getQuota = Integer.parseInt(client.quotaMgmtOps.getQuotaForNode(storeName,
                                                                                 quotaType,
                                                                                 nodeId).getValue());
         assertEquals(quota, getQuota);
-        quota = 0;
         // Sometimes the former set and the newer set are execute in same
         // millisecond which causes the later set to fail with
         // ObsoleteVersionException. Add 5ms sleep.
         Thread.sleep(5);
+
+        // test reset quota
+        quota = 10;
         client.quotaMgmtOps.setQuotaForNode(storeName, quotaType, nodeId, quota);
         getQuota = Integer.parseInt(client.quotaMgmtOps.getQuotaForNode(storeName,
-                                                                                quotaType,
-                                                                                nodeId).getValue());
+                                                                        quotaType,
+                                                                        nodeId).getValue());
         assertEquals(quota, getQuota);
+        Thread.sleep(5);
+
+        // test delete quota
+        assertTrue(client.quotaMgmtOps.deleteQuotaForNode(storeName, quotaType, nodeId));
+        Versioned<String> quotaVal = client.quotaMgmtOps.getQuotaForNode(storeName,
+                                                                         quotaType,
+                                                                         nodeId);
+        assertEquals(null, quotaVal);
+        Thread.sleep(5);
+
     }
 
     @Test

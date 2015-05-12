@@ -2562,7 +2562,26 @@ public class AdminClient {
             return socketStore.get(key, null);
         }
 
-        // As needed, add 'getall', 'delete', and so on interfaces...
+        /**
+         * Delete a given key
+         * 
+         * @param storeName
+         * @param nodeId
+         * @param key
+         * @return true if all versioned values get deleted
+         */
+        public boolean deleteNodeKeyValue(String storeName, int nodeId, ByteArray key) {
+            SocketStore socketStore = adminStoreClient.getSocketStore(nodeId, storeName);
+            List<Versioned<byte[]>> values = getNodeKey(storeName, nodeId, key);
+            boolean result = true;
+            for(Versioned<byte[]> value: values) {
+                Version version = value.getVersion();
+                result = result && socketStore.delete(key, version);
+            }
+            return result;
+        }
+
+        // As needed, add 'getall', and so on interfaces...
     }
 
     /**
@@ -4039,8 +4058,22 @@ public class AdminClient {
                                                                                              new Versioned<byte[]>(ByteUtils.getBytes(quota.toString(),
                                                                                                                                       "UTF8"),
                                                                                                                    clock));
+                storeOps.deleteNodeKeyValue(storeName, nodeId, keyArray);
                 storeOps.putNodeKeyValue(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
                                          nodeKeyValue);
+            } catch(UnsupportedEncodingException e) {
+                throw new VoldemortException(e);
+            }
+        }
+        
+        public boolean deleteQuotaForNode(String storeName, QuotaType quotaType, Integer nodeId) {
+            try {
+                String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
+
+                ByteArray keyArray = new ByteArray(quotaKey.getBytes("UTF8"));
+                return storeOps.deleteNodeKeyValue(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
+                                                   nodeId,
+                                                   keyArray);
             } catch(UnsupportedEncodingException e) {
                 throw new VoldemortException(e);
             }
