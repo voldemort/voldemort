@@ -84,6 +84,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             SubCommandMetaClearRebalance.executeCommand(args);
         } else if(subCmd.equals("get")) {
             SubCommandMetaGet.executeCommand(args);
+        } else if(subCmd.equals("get-ro")) {
+            SubCommandMetaGetRO.executeCommand(args);
         } else if(subCmd.equals("set")) {
             SubCommandMetaSet.executeCommand(args);
         } else if(subCmd.equals("sync-version")) {
@@ -105,6 +107,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         stream.println("check             Check if metadata is consistent across all nodes.");
         stream.println("clear-rebalance   Remove metadata related to rebalancing.");
         stream.println("get               Get metadata from nodes.");
+        stream.println("get-ro            Get read-only metadata from nodes and stores.");
         stream.println("set               Set metadata on nodes.");
         stream.println("sync-version      Synchronize metadata versions across all nodes.");
         stream.println("check-version     Verify metadata versions on all the cluster nodes.");
@@ -127,6 +130,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             SubCommandMetaClearRebalance.printHelp(stream);
         } else if(subCmd.equals("get")) {
             SubCommandMetaGet.printHelp(stream);
+        } else if(subCmd.equals("get-ro")) {
+            SubCommandMetaGetRO.printHelp(stream);
         } else if(subCmd.equals("set")) {
             SubCommandMetaSet.printHelp(stream);
         } else if(subCmd.equals("sync-version")) {
@@ -711,6 +716,182 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                         System.out.println();
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * meta get-ro command
+     */
+    public static class SubCommandMetaGetRO extends AbstractAdminCommand {
+
+        public static final String OPT_HEAD_META_GET_RO = "meta-get-ro";
+
+        public static final String KEY_MAX_VERSION = "max-version";
+        public static final String KEY_CURRENT_VERSION = "current-version";
+        public static final String KEY_STORAGE_FORMAT = "storage-format";
+
+        /**
+         * Initializes parser
+         * 
+         * @return OptionParser object with all available options
+         */
+        protected static OptionParser getParser() {
+            OptionParser parser = new OptionParser();
+            // help options
+            AdminParserUtils.acceptsHelp(parser);
+            // required options
+            parser.accepts(OPT_HEAD_META_GET_RO, "read-only metadata keys to fetch")
+                  .withOptionalArg()
+                  .describedAs("ro-meta-key-list")
+                  .withValuesSeparatedBy(',')
+                  .ofType(String.class);
+            AdminParserUtils.acceptsUrl(parser);
+            AdminParserUtils.acceptsStoreMultiple(parser);
+            // optional options
+            AdminParserUtils.acceptsNodeMultiple(parser); // either --node or
+                                                          // --all-nodes
+            AdminParserUtils.acceptsAllNodes(parser); // either --node or
+                                                      // --all-nodes
+            return parser;
+        }
+
+        /**
+         * Prints help menu for command.
+         * 
+         * @param stream PrintStream object for output
+         * @throws IOException
+         */
+        public static void printHelp(PrintStream stream) throws IOException {
+            stream.println();
+            stream.println("NAME");
+            stream.println("  meta get-ro - Get read-only metadata from nodes and stores");
+            stream.println();
+            stream.println("SYNOPSIS");
+            stream.println("  meta get-ro (<ro-meta-key-list> | all) -s <store-name-list> -u <url>");
+            stream.println("              [-n <node-id-list> | --all-nodes]");
+            stream.println();
+            stream.println("COMMENTS");
+            stream.println("  Valid read-only meta keys are:");
+            stream.println("    " + KEY_MAX_VERSION);
+            stream.println("    " + KEY_CURRENT_VERSION);
+            stream.println("    " + KEY_STORAGE_FORMAT);
+            stream.println();
+            getParser().printHelpOn(stream);
+            stream.println();
+        }
+
+        /**
+         * Parses command-line and gets read-only metadata.
+         * 
+         * @param args Command-line input
+         * @param printHelp Tells whether to print help only or execute command
+         *        actually
+         * @throws IOException
+         */
+        @SuppressWarnings("unchecked")
+        public static void executeCommand(String[] args) throws IOException {
+
+            OptionParser parser = getParser();
+
+            // declare parameters
+            List<String> metaKeys = null;
+            String url = null;
+            List<Integer> nodeIds = null;
+            Boolean allNodes = true;
+            List<String> storeNames = null;
+
+            // parse command-line input
+            args = AdminToolUtils.copyArrayAddFirst(args, "--" + OPT_HEAD_META_GET_RO);
+            OptionSet options = parser.parse(args);
+            if(options.has(AdminParserUtils.OPT_HELP)) {
+                printHelp(System.out);
+                return;
+            }
+
+            // check required options and/or conflicting options
+            AdminParserUtils.checkRequired(options, OPT_HEAD_META_GET_RO);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_URL);
+            AdminParserUtils.checkOptional(options,
+                                           AdminParserUtils.OPT_NODE,
+                                           AdminParserUtils.OPT_ALL_NODES);
+            AdminParserUtils.checkRequired(options, AdminParserUtils.OPT_STORE);
+
+            // load parameters
+            metaKeys = (List<String>) options.valuesOf(OPT_HEAD_META_GET_RO);
+            url = (String) options.valueOf(AdminParserUtils.OPT_URL);
+            if(options.has(AdminParserUtils.OPT_NODE)) {
+                nodeIds = (List<Integer>) options.valuesOf(AdminParserUtils.OPT_NODE);
+                allNodes = false;
+            }
+            storeNames = (List<String>) options.valuesOf(AdminParserUtils.OPT_STORE);
+
+            // execute command
+            AdminClient adminClient = AdminToolUtils.getAdminClient(url);
+
+            if(allNodes) {
+                nodeIds = AdminToolUtils.getAllNodeIds(adminClient);
+            }
+
+            if(metaKeys.size() == 1 && metaKeys.get(0).equals(METAKEY_ALL)) {
+                metaKeys = Lists.newArrayList();
+                metaKeys.add(KEY_MAX_VERSION);
+                metaKeys.add(KEY_CURRENT_VERSION);
+                metaKeys.add(KEY_STORAGE_FORMAT);
+            }
+
+            doMetaGetRO(adminClient, nodeIds, storeNames, metaKeys);
+        }
+
+        /**
+         * Gets read-only metadata.
+         * 
+         * @param adminClient An instance of AdminClient points to given cluster
+         * @param nodeIds Node ids to fetch read-only metadata from
+         * @param storeNames Stores names to fetch read-only metadata from
+         * @param metaKeys List of read-only metadata to fetch
+         * @throws IOException
+         */
+        public static void doMetaGetRO(AdminClient adminClient,
+                                       Collection<Integer> nodeIds,
+                                       List<String> storeNames,
+                                       List<String> metaKeys) throws IOException {
+            for(String key: metaKeys) {
+                System.out.println("Metadata: " + key);
+                if(!key.equals(KEY_MAX_VERSION) && !key.equals(KEY_CURRENT_VERSION)
+                   && !key.equals(KEY_STORAGE_FORMAT)) {
+                    System.out.println("  Invalid read-only metadata key: " + key);
+                } else {
+                    for(Integer nodeId: nodeIds) {
+                        String hostName = adminClient.getAdminClientCluster()
+                                                     .getNodeById(nodeId)
+                                                     .getHost();
+                        System.out.println("  Node: " + hostName + ":" + nodeId);
+                        if(key.equals(KEY_MAX_VERSION)) {
+                            Map<String, Long> mapStoreToROVersion = adminClient.readonlyOps.getROMaxVersion(nodeId,
+                                                                                                            storeNames);
+                            for(String storeName: mapStoreToROVersion.keySet()) {
+                                System.out.println("    " + storeName + ":"
+                                                   + mapStoreToROVersion.get(storeName));
+                            }
+                        } else if(key.equals(KEY_CURRENT_VERSION)) {
+                            Map<String, Long> mapStoreToROVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                                                            storeNames);
+                            for(String storeName: mapStoreToROVersion.keySet()) {
+                                System.out.println("    " + storeName + ":"
+                                                   + mapStoreToROVersion.get(storeName));
+                            }
+                        } else if(key.equals(KEY_STORAGE_FORMAT)) {
+                            Map<String, String> mapStoreToROFormat = adminClient.readonlyOps.getROStorageFormat(nodeId,
+                                                                                                                storeNames);
+                            for(String storeName: mapStoreToROFormat.keySet()) {
+                                System.out.println("    " + storeName + ":"
+                                                   + mapStoreToROFormat.get(storeName));
+                            }
+                        }
+                    }
+                }
+                System.out.println();
             }
         }
     }
