@@ -25,6 +25,7 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreOperationFailureException;
 import voldemort.tools.admin.AdminParserUtils;
 import voldemort.tools.admin.AdminToolUtils;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -473,8 +474,15 @@ public class AdminCommandStore extends AbstractAdminCommand {
                                          List<Integer> nodeIds,
                                          List<String> storeNames) {
             for(String storeName: storeNames) {
-                System.out.println("Deleting " + storeName);
-                adminClient.storeMgmtOps.deleteStore(storeName, nodeIds);
+                for(Integer nodeId: nodeIds) {
+                    System.out.println("Deleting " + storeName + " on node " + nodeId);
+                    try {
+                        adminClient.storeMgmtOps.deleteStore(storeName, nodeId);
+                    } catch(StoreOperationFailureException e) {
+                        System.out.println("Store deletion failed on node " + nodeId);
+                        e.printStackTrace();
+                    }
+                }
             }
         }
     }
