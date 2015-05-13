@@ -16,6 +16,7 @@
 package voldemort.scheduled;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 
 import java.io.File;
@@ -38,7 +39,6 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.AdminSlopStreamingVerifier;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
-import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.ServerStoreConnectionVerifier;
 import voldemort.cluster.failuredetector.ThresholdFailureDetector;
@@ -488,41 +488,29 @@ public class StreamingSlopPusherTest {
 
         populateSlops(0, slopStoreNode0, entrySet);
 
-        FailureDetector failureDetector = new ThresholdFailureDetector(new FailureDetectorConfig().setCluster(cluster)
-                                                                                         .setConnectionVerifier(new AdminSlopStreamingVerifier(cluster)));
-
         // replace node 1 and update metadata on all nodes
         replaceOneNode(1);
+        Cluster oldCluster = cluster;
 
         // test if node 1 is down
         stopServersWithoutRemovingVoldemortHome(1);
         // slop should fail here
         new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                    getVoldemortServer(0).getMetadataStore(),
-                                   failureDetector,
+                                   new ThresholdFailureDetector(new FailureDetectorConfig().setCluster(oldCluster)
+                                                                                           .setConnectionVerifier(new AdminSlopStreamingVerifier(oldCluster))),
                                    configs[0],
                                    new ScanPermitWrapper(1)).run();
         Thread.sleep(2000);
-        Assert.assertFalse(verifySlopPushResult(entrySet, slopStoreNode0, 1));
+        assertFalse(verifySlopPushResult(entrySet, slopStoreNode0, 1));
 
         // test if node 1 is up
         startServers(1);
         // slop push should fail
         new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                    getVoldemortServer(0).getMetadataStore(),
-                                   failureDetector,
-                                   configs[0],
-                                   new ScanPermitWrapper(1)).run();
-        Thread.sleep(2000);
-        Assert.assertFalse(verifySlopPushResult(entrySet, slopStoreNode0, 1));
-
-        // test if cached cluster object is refreshed
-        failureDetector.getConfig().setCluster(cluster);
-        // slop push should succeed
-        new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
-                                   getVoldemortServer(0).getMetadataStore(),
-                                   new ThresholdFailureDetector(new FailureDetectorConfig().setCluster(cluster)
-                                                                                           .setConnectionVerifier(new AdminSlopStreamingVerifier(cluster))),
+                                   new ThresholdFailureDetector(new FailureDetectorConfig().setCluster(oldCluster)
+                                                                                           .setConnectionVerifier(new AdminSlopStreamingVerifier(oldCluster))),
                                    configs[0],
                                    new ScanPermitWrapper(1)).run();
         Thread.sleep(2000);
