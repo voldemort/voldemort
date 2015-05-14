@@ -42,7 +42,6 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AdminServiceRequestHandler;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
@@ -74,7 +73,8 @@ public class HdfsFetcher implements FileFetcher {
     private static String COMPRESSED_DATA_FILE_EXTENSION = DATA_FILE_EXTENSION
                                                            + GZIP_FILE_EXTENSION;
 
-    public static final String[] validExtensions = { INDEX_FILE_EXTENSION , COMPRESSED_INDEX_FILE_EXTENSION , DATA_FILE_EXTENSION , COMPRESSED_DATA_FILE_EXTENSION };
+    public static final String[] validExtensions = { INDEX_FILE_EXTENSION,
+            COMPRESSED_INDEX_FILE_EXTENSION, DATA_FILE_EXTENSION, COMPRESSED_DATA_FILE_EXTENSION };
 
     private final Long maxBytesPerSecond, reportingIntervalBytes;
     private final int bufferSize;
@@ -86,6 +86,8 @@ public class HdfsFetcher implements FileFetcher {
     private int maxAttempts = 0;
     private DynamicThrottleLimit globalThrottleLimit = null;
     private VoldemortConfig voldemortConfig = null;
+    private final boolean enableStatsFile;
+    private final int maxVersionsStatsFile;
 
     public static final String FS_DEFAULT_NAME = "fs.default.name";
 
@@ -109,7 +111,9 @@ public class HdfsFetcher implements FileFetcher {
              config.getReadOnlyKeytabPath(),
              config.getReadOnlyKerberosUser(),
              config.getReadOnlyFetchRetryCount(),
-             config.getReadOnlyFetchRetryDelayMs());
+             config.getReadOnlyFetchRetryDelayMs(),
+             config.isReadOnlyStatsFileEnabled(),
+             config.getReadOnlyMaxVersionsStatsFile());
         this.voldemortConfig = config;
 
         if(dynThrottleLimit == null) {
@@ -131,7 +135,17 @@ public class HdfsFetcher implements FileFetcher {
 
     // Test-only constructor
     public HdfsFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
-        this(null, maxBytesPerSecond, reportingIntervalBytes, bufferSize, 0, "", "", 3, 1000);
+        this(null,
+             maxBytesPerSecond,
+             reportingIntervalBytes,
+             bufferSize,
+             0,
+             "",
+             "",
+             3,
+             1000,
+             true,
+             50);
     }
 
     public HdfsFetcher(DynamicThrottleLimit dynThrottleLimit,
@@ -142,7 +156,9 @@ public class HdfsFetcher implements FileFetcher {
                        String keytabLocation,
                        String kerberosUser,
                        int retryCount,
-                       long retryDelayMs) {
+                       long retryDelayMs,
+                       boolean enableStatsFile,
+                       int maxVersionsStatsFile) {
         if(maxBytesPerSecond != null) {
             this.maxBytesPerSecond = maxBytesPerSecond;
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
@@ -160,6 +176,8 @@ public class HdfsFetcher implements FileFetcher {
         this.minBytesPerSecond = minBytesPerSecond;
         this.maxAttempts = retryCount + 1;
         this.retryDelayMs = retryDelayMs;
+        this.enableStatsFile = enableStatsFile;
+        this.maxVersionsStatsFile = maxVersionsStatsFile;
         HdfsFetcher.kerberosPrincipal = kerberosUser;
         HdfsFetcher.keytabPath = keytabLocation;
     }
@@ -303,19 +321,29 @@ public class HdfsFetcher implements FileFetcher {
         }
 
         ObjectName jmxName = null;
+        HdfsCopyStats stats = null;
         try {
 
             final FileSystem fs = getHadoopFileSystem(sourceFileUrl, hadoopConfigPath);
             final Path path = new Path(sourceFileUrl);
-
-            CopyStats stats = new CopyStats(sourceFileUrl, sizeOfPath(fs, path));
-            jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(), stats);
             File destination = new File(destinationFile);
 
             if(destination.exists()) {
                 throw new VoldemortException("Version directory " + destination.getAbsolutePath()
                                              + " already exists");
             }
+
+            boolean isFile = fs.isFile(path);
+
+            stats = new HdfsCopyStats(sourceFileUrl,
+                                      destination,
+                                      enableStatsFile,
+                                      maxVersionsStatsFile,
+                                      isFile,
+                                      sizeOfPath(fs, path));
+            jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(), stats);
+
+
 
             logger.info("Starting fetch for : " + sourceFileUrl);
             boolean result = fetch(fs, path, destination, stats);
@@ -330,16 +358,23 @@ public class HdfsFetcher implements FileFetcher {
                 return null;
             }
         } catch(Throwable te) {
-            te.printStackTrace();
             logger.error("Error thrown while trying to get data from Hadoop filesystem", te);
+            if(stats != null) {
+                stats.reportError("File fetcher failed for destination " + destinationFile, te);
+            }
             throw new VoldemortException("Error thrown while trying to get data from Hadoop filesystem : "
                                          + te);
+
         } finally {
             if(this.globalThrottleLimit != null) {
                 this.globalThrottleLimit.decrementNumJobs();
             }
             if(jmxName != null)
                 JmxUtils.unregisterMbean(jmxName);
+
+            if(stats != null) {
+                stats.complete();
+            }
         }
     }
 
@@ -353,7 +388,8 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
-    private boolean fetch(FileSystem fs, Path source, File dest, CopyStats stats) throws Throwable {
+    private boolean fetch(FileSystem fs, Path source, File dest, HdfsCopyStats stats)
+            throws Throwable {
         if(!fs.isFile(source)) {
             Utils.mkdirs(dest);
             HdfsDirectory directory = new HdfsDirectory(fs, source);
@@ -400,11 +436,11 @@ public class HdfsFetcher implements FileFetcher {
 
     // Used by tests
     private CheckSum copyFileWithCheckSumTest(FileSystem fs,
-                                          Path source,
-                                          File dest,
-                                          CopyStats stats,
-                                          CheckSumType checkSumType,
-                                          byte[] buffer) throws Throwable {
+                                              Path source,
+                                              File dest,
+                                              HdfsCopyStats stats,
+                                              CheckSumType checkSumType,
+                                              byte[] buffer) throws Throwable {
         return copyFileWithCheckSum(fs,
                                     new HdfsFile(fs.getFileStatus(source)),
                                     dest,
@@ -430,7 +466,7 @@ public class HdfsFetcher implements FileFetcher {
     private CheckSum copyFileWithCheckSum(FileSystem fs,
                                           HdfsFile source,
                                           File dest,
-                                          CopyStats stats,
+                                          HdfsCopyStats stats,
                                           CheckSumType checkSumType,
                                           byte[] buffer) throws Throwable {
         CheckSum fileCheckSumGenerator = null;
@@ -441,6 +477,7 @@ public class HdfsFetcher implements FileFetcher {
         FilterInputStream input = null;
 
         OutputStream output = null;
+        long startTimeMS = System.currentTimeMillis();
 
         for(int attempt = 0; attempt < maxAttempts; attempt++) {
             boolean success = true;
@@ -507,6 +544,12 @@ public class HdfsFetcher implements FileFetcher {
                         stats.reset();
                     }
                 }
+                stats.reportFileDownloaded(dest,
+                                           startTimeMS,
+                                           source.getSize(),
+                                           System.currentTimeMillis() - startTimeMS,
+                                           attempt,
+                                           totalBytesRead);
                 logger.info("Completed copy of " + source + " to " + dest);
 
             } catch(Throwable te) {
@@ -520,12 +563,12 @@ public class HdfsFetcher implements FileFetcher {
                 if(te.getCause() != null) {
                     logger.error("Cause of error ", te.getCause());
                 }
-                te.printStackTrace();
 
                 if(attempt < maxAttempts - 1) {
                     logger.info("Will retry copying after " + retryDelayMs + " ms");
                     sleepForRetryDelayMs();
                 } else {
+                    stats.reportFileError(dest, maxAttempts, startTimeMS, te);
                     logger.info("Fetcher giving up copy after " + maxAttempts + " attempts");
                     throw te;
                 }
@@ -555,61 +598,6 @@ public class HdfsFetcher implements FileFetcher {
         return size;
     }
 
-    public static class CopyStats {
-
-        private final String fileName;
-        private volatile long bytesSinceLastReport;
-        private volatile long totalBytesCopied;
-        private volatile long lastReportNs;
-        private volatile long totalBytes;
-
-        public CopyStats(String fileName, long totalBytes) {
-            this.fileName = fileName;
-            this.totalBytesCopied = 0L;
-            this.bytesSinceLastReport = 0L;
-            this.totalBytes = totalBytes;
-            this.lastReportNs = System.nanoTime();
-        }
-
-        public void recordBytes(long bytes) {
-            this.totalBytesCopied += bytes;
-            this.bytesSinceLastReport += bytes;
-        }
-
-        public void reset() {
-            this.bytesSinceLastReport = 0;
-            this.lastReportNs = System.nanoTime();
-        }
-
-        public long getBytesSinceLastReport() {
-            return bytesSinceLastReport;
-        }
-
-        public double getPercentCopied() {
-            if(totalBytes == 0) {
-                return 0.0;
-            } else {
-                return (double) (totalBytesCopied * 100) / (double) totalBytes;
-            }
-        }
-
-        @JmxGetter(name = "totalBytesCopied", description = "The total number of bytes copied so far in this transfer.")
-        public long getTotalBytesCopied() {
-            return totalBytesCopied;
-        }
-
-        @JmxGetter(name = "bytesPerSecond", description = "The rate of the transfer in bytes/second.")
-        public double getBytesPerSecond() {
-            double ellapsedSecs = (System.nanoTime() - lastReportNs) / (double) Time.NS_PER_SECOND;
-            return bytesSinceLastReport / ellapsedSecs;
-        }
-
-        @JmxGetter(name = "filename", description = "The file path being copied.")
-        public String getFilename() {
-            return this.fileName;
-        }
-    }
-
     public void setAsyncOperationStatus(AsyncOperationStatus status) {
         this.status = status;
     }
@@ -635,8 +623,8 @@ public class HdfsFetcher implements FileFetcher {
         if(args.length >= 5)
             destDir = args[4];
 
-	// for testing we want to be able to download a single file
-	allowFetchOfFiles = true;
+        // for testing we want to be able to download a single file
+        allowFetchOfFiles = true;
 
         long maxBytesPerSec = 1024 * 1024 * 1024;
         Path p = new Path(url);
@@ -729,10 +717,12 @@ public class HdfsFetcher implements FileFetcher {
                                               keytabLocation,
                                               kerberosUser,
                                               5,
-                                              5000);
+                                              5000,
+                                              true,
+                                              50);
         long start = System.currentTimeMillis();
-	if(destDir == null)
-	    destDir = System.getProperty("java.io.tmpdir") + File.separator + start;
+        if(destDir == null)
+            destDir = System.getProperty("java.io.tmpdir") + File.separator + start;
 
         File location = fetcher.fetch(url, destDir, hadoopPath);
 

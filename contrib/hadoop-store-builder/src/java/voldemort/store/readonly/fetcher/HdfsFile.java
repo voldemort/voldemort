@@ -40,6 +40,12 @@ public class HdfsFile implements Comparable<HdfsFile> {
         return type;
     }
 
+    public long getSize() {
+        if(fs.isDir())
+            return -1;
+        return fs.getLen();
+    }
+
     @Override
     public boolean equals(Object other) {
         if(this == other) {

@@ -57,7 +57,6 @@ import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.checksum.CheckSumTests;
-import voldemort.store.readonly.fetcher.HdfsFetcher.CopyStats;
 import voldemort.store.readonly.utils.ReadOnlyTestUtils;
 import voldemort.utils.Utils;
 
@@ -69,24 +68,26 @@ import voldemort.utils.Utils;
 public class HDFSFetcherAdvancedTest {
 
     public static final Random UNSEEDED_RANDOM = new Random();
-    private boolean isCompressed = false;
+    private final boolean isCompressed;
+    private final boolean enableStatsFile;
     private File testSourceDir, testCompressedSourceDir, testDestDir, copyLocation;
     private Path source;
     byte[] checksumCalculated;
     private HdfsFetcher fetcher;
     private FileSystem fs;
-    private CopyStats stats;
+    private HdfsCopyStats stats;
     String indexFileName;
     FSDataInputStream input;
     byte[] buffer;
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { false }, { true } });
+        return Arrays.asList(new Object[][] { { false, true }, { true, false } });
     }
 
-    public HDFSFetcherAdvancedTest(boolean isCompressed) {
+    public HDFSFetcherAdvancedTest(boolean isCompressed, boolean enableStatsFile) {
         this.isCompressed = isCompressed;
+        this.enableStatsFile = enableStatsFile;
     }
 
     public static File createTempDir() {
@@ -225,10 +226,20 @@ public class HDFSFetcherAdvancedTest {
         fs = source.getFileSystem(new Configuration());
         File destination = new File(testDestDir.getAbsolutePath() + "1");
         if(isCompressed) {
-            stats = new CopyStats(testCompressedSourceDir.getAbsolutePath(), sizeOfPath(fs, source));
+            stats = new HdfsCopyStats(testCompressedSourceDir.getAbsolutePath(),
+                                      destination,
+                                      enableStatsFile,
+                                      5,
+                                      false,
+                                      sizeOfPath(fs, source));
             copyLocation = new File(destination, indexFileName + ".gz");
         } else {
-            stats = new CopyStats(testSourceDir.getAbsolutePath(), sizeOfPath(fs, source));
+            stats = new HdfsCopyStats(testSourceDir.getAbsolutePath(),
+                                      destination,
+                                      enableStatsFile,
+                                      5,
+                                      false,
+                                      sizeOfPath(fs, source));
             copyLocation = new File(destination, indexFileName);
         }
 

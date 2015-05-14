@@ -158,7 +158,8 @@ public class VoldemortConfig implements Serializable {
     private String readOnlykerberosRealm;
     private String fileFetcherClass;
     private String readOnlyCompressionCodec;
-
+    private boolean readOnlyStatsFileEnabled;
+    private int readOnlyMaxVersionsStatsFile;
 
     // flag to indicate if we will mlock and pin index pages in memory
     private boolean useMlock;
@@ -355,6 +356,8 @@ public class VoldemortConfig implements Serializable {
                                                      VoldemortConfig.DEFAULT_KERBEROS_REALM);
         this.fileFetcherClass = props.getString("file.fetcher.class",
                                                 VoldemortConfig.DEFAULT_FILE_FETCHER_CLASS);
+        this.readOnlyStatsFileEnabled = props.getBoolean("readonly.stats.file.enabled", true);
+        this.readOnlyMaxVersionsStatsFile = props.getInt("readonly.stats.file.max.versions", 1000);
 
         // To set the Voldemort RO server compression codec to GZIP, explicitly
         // set this
@@ -3251,6 +3254,22 @@ public class VoldemortConfig implements Serializable {
 
     public String getFileFetcherClass() {
         return this.fileFetcherClass;
+    }
+
+    public boolean isReadOnlyStatsFileEnabled() {
+        return readOnlyStatsFileEnabled;
+    }
+
+    public void setReadOnlyStatsFileEnabled(boolean readOnlyStatsFileEnabled) {
+        this.readOnlyStatsFileEnabled = readOnlyStatsFileEnabled;
+    }
+
+    public int getReadOnlyMaxVersionsStatsFile() {
+        return readOnlyMaxVersionsStatsFile;
+    }
+
+    public void setReadOnlyMaxVersionsStatsFile(int readOnlyMaxVersionsStatsFile) {
+        this.readOnlyMaxVersionsStatsFile = readOnlyMaxVersionsStatsFile;
     }
 
     public String getReadOnlyCompressionCodec() {
