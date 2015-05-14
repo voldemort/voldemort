@@ -112,13 +112,6 @@
       <artifactId>jdom</artifactId>
       <version>1.1</version>
     </dependency>
-    <!-- required is BDB je 5.0.88, central has 5.0.73
-    -->
-    <dependency>
-      <groupId>com.sleepycat</groupId>
-      <artifactId>je</artifactId>
-      <version>5.0.73</version>
-    </dependency>
     <dependency>
       <groupId>org.mortbay.jetty</groupId>
       <artifactId>jetty</artifactId>
@@ -340,7 +333,29 @@
       <artifactId>rocksdbjni</artifactId>
       <version>3.6.2</version>
     </dependency>
+    <!-- required is BDB je 5.0.88, central has 5.0.73
+    <dependency>
+      <groupId>com.sleepycat</groupId>
+      <artifactId>je</artifactId>
+      <version>5.0.73</version>
+    </dependency>
+    -->
+    <dependency>
+      <groupId>com.sleepycat</groupId>
+      <artifactId>je</artifactId>
+      <version>5.0.104</version>
+    </dependency>
   </dependencies>
+
+  <repositories>
+    <repository>
+      <id>oracleReleases</id>
+      <name>Oracle Released Java Packages</name>
+      <url>http://download.oracle.com/maven</url>
+      <layout>default</layout>
+    </repository>
+  </repositories>
+
   <developers>
     <developer>
       <id>voldemort</id>
