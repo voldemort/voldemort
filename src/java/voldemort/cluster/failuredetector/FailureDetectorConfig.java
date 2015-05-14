@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import voldemort.client.ClientConfig;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
 import voldemort.utils.SystemTime;
@@ -61,6 +62,8 @@ public class FailureDetectorConfig {
 
     public static final long DEFAULT_REQUEST_LENGTH_THRESHOLD = 5000;
 
+    public static final int DEFAULT_MAX_TOLERABLE_FATAL_FAILURES = 10;
+
     protected String implementationClassName = DEFAULT_IMPLEMENTATION_CLASS_NAME;
 
     protected long bannagePeriod = DEFAULT_BANNAGE_PERIOD;
@@ -79,9 +82,19 @@ public class FailureDetectorConfig {
 
     protected Collection<Node> nodes;
 
-    protected StoreVerifier storeVerifier;
+    protected ConnectionVerifier connectionVerifier;
 
     protected Time time = SystemTime.INSTANCE;
+
+    protected int maximumTolerableFatalFailures = DEFAULT_MAX_TOLERABLE_FATAL_FAILURES;
+
+    // TODO: athirupa, this is messy. Cluster definition changes because of
+    // adding/removing zones or nodes. Having a direct reference the object will
+    // be stale it should have a reference to the interface which can return
+    // cluster, the reference should be authority for the cluster on both server
+    // (MetadataStore) and client (AbstractStoreClientFactory) . But it involved
+    // changing too much code and touching many files, saving it for later.
+    private Cluster cluster = null;
 
     /**
      * Constructs a new FailureDetectorConfig using all the defaults. This is
@@ -90,7 +103,7 @@ public class FailureDetectorConfig {
      * <p/>
      * 
      * <b>Note</b>: the {@link #setNodes(Collection)} and
-     * {@link #setStoreVerifier(StoreVerifier)} methods must be called to ensure
+     * {@link #setConnectionVerifier(ConnectionVerifier)} methods must be called to ensure
      * <i>complete</i> configuration.
      */
 
@@ -105,7 +118,7 @@ public class FailureDetectorConfig {
      * <p/>
      * 
      * <b>Note</b>: the {@link #setNodes(Collection)} and
-     * {@link #setStoreVerifier(StoreVerifier)} methods must be called to ensure
+     * {@link #setConnectionVerifier(ConnectionVerifier)} methods must be called to ensure
      * <i>complete</i> configuration.
      * 
      * @param config {@link VoldemortConfig} instance
@@ -120,6 +133,7 @@ public class FailureDetectorConfig {
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
         setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
         setRequestLengthThreshold(config.getFailureDetectorRequestLengthThreshold());
+        setMaximumTolerableFatalFailures(DEFAULT_MAX_TOLERABLE_FATAL_FAILURES);
     }
 
     /**
@@ -129,7 +143,7 @@ public class FailureDetectorConfig {
      * <p/>
      * 
      * <b>Note</b>: the {@link #setNodes(Collection)} and
-     * {@link #setStoreVerifier(StoreVerifier)} methods must be called to ensure
+     * {@link #setConnectionVerifier(ConnectionVerifier)} methods must be called to ensure
      * <i>complete</i> configuration.
      * 
      * @param config {@link ClientConfig} instance
@@ -144,6 +158,7 @@ public class FailureDetectorConfig {
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
         setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
         setRequestLengthThreshold(config.getFailureDetectorRequestLengthThreshold());
+        setMaximumTolerableFatalFailures(config.getMaximumTolerableFatalFailures());
     }
 
     /**
@@ -538,14 +553,49 @@ public class FailureDetectorConfig {
     }
 
     /**
+     * Returns a reference to the cluster object
+     * 
+     * @return Cluster object which determines the source of truth for the
+     *         topology
+     */
+    // Look at the comments on cluster variable to see why this is problematic
+    public Cluster getCluster() {
+        return this.cluster;
+    }
+
+    /**
+     * Assigns a cluster which determines the source of truth for the topology
+     * 
+     * @param cluster The Cluster object retrieved during bootstrap; must be
+     *        non-null
+     */
+
+    // Look at the comments on cluster variable to see why this is problematic
+    public FailureDetectorConfig setCluster(Cluster cluster) {
+        Utils.notNull(cluster);
+        this.cluster = cluster;
+        /*
+         * FIXME: this is the hacky way to refresh the admin connection
+         * verifier, but it'll just work. The clean way to do so is to have a
+         * centralized metadata management, and all references of cluster object
+         * point to that.
+         */
+        if(this.connectionVerifier instanceof AdminConnectionVerifier) {
+            ((AdminConnectionVerifier) connectionVerifier).setCluster(cluster);
+        }
+        return this;
+    }
+
+    /**
      * Returns a list of nodes in the cluster represented by this failure
      * detector configuration.
      * 
      * @return Collection of Node instances, usually determined from the Cluster
      */
 
+    @Deprecated
     public synchronized Collection<Node> getNodes() {
-        return ImmutableSet.copyOf(nodes);
+        return ImmutableSet.copyOf(this.cluster.getNodes());
     }
 
     /**
@@ -556,6 +606,7 @@ public class FailureDetectorConfig {
      *        Cluster; must be non-null
      */
 
+    @Deprecated
     public synchronized FailureDetectorConfig setNodes(Collection<Node> nodes) {
         Utils.notNull(nodes);
         this.nodes = new HashSet<Node>(nodes);
@@ -572,12 +623,12 @@ public class FailureDetectorConfig {
         nodes.remove(node);
     }
 
-    public StoreVerifier getStoreVerifier() {
-        return storeVerifier;
+    public ConnectionVerifier getConnectionVerifier() {
+        return connectionVerifier;
     }
 
-    public FailureDetectorConfig setStoreVerifier(StoreVerifier storeVerifier) {
-        this.storeVerifier = Utils.notNull(storeVerifier);
+    public FailureDetectorConfig setConnectionVerifier(ConnectionVerifier verifier) {
+        this.connectionVerifier = Utils.notNull(verifier);
         return this;
     }
 
@@ -588,6 +639,30 @@ public class FailureDetectorConfig {
     public FailureDetectorConfig setTime(Time time) {
         this.time = Utils.notNull(time);
         return this;
+    }
+
+    /**
+     * Sets the maximum number of Fatal failures (connectivity failures)
+     * acceptable before the node is marked as unavailable (in case of
+     * ThresholdFailureDetector).
+     * 
+     * @param maximumTolerableFatalFailures #fatal failures acceptable before
+     *        node is marked as unavailable
+     */
+    public FailureDetectorConfig setMaximumTolerableFatalFailures(int maximumTolerableFatalFailures) {
+        if(maximumTolerableFatalFailures <= 0) {
+            throw new IllegalArgumentException(" Catastrophic error limit should be greater than zero. Current value "
+                                               + maximumTolerableFatalFailures);
+        }
+        this.maximumTolerableFatalFailures = maximumTolerableFatalFailures;
+        return this;
+    }
+
+    /**
+     * @return #fatal failures acceptable before node is marked as unavailable
+     */
+    public int getMaximumTolerableFatalFailures() {
+        return maximumTolerableFatalFailures;
     }
 
 }

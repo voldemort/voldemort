@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.versioning.ObsoleteVersionException;
@@ -34,11 +36,37 @@ import voldemort.versioning.Versioned;
  */
 public class LazyStoreClient<K, V> implements StoreClient<K, V> {
 
+    private final Logger logger = Logger.getLogger(LazyStoreClient.class);
     private final Callable<StoreClient<K, V>> storeClientThunk;
     private StoreClient<K, V> storeClient;
 
     public LazyStoreClient(Callable<StoreClient<K, V>> storeClientThunk) {
+        this(storeClientThunk, false);
+    }
+
+    /**
+     * A Hybrid store client which tries to do immediate bootstrap. In case of
+     * an exception, we fallback to the lazy way of doing initialization.
+     * 
+     * @param storeClientThunk The callback invoked for doing the actual
+     *        bootstrap
+     * @param instantInit A boolean flag when set indicates that we should try
+     *        to immediately bootstrap
+     */
+    public LazyStoreClient(Callable<StoreClient<K, V>> storeClientThunk, boolean wrapsRESTClient) {
         this.storeClientThunk = storeClientThunk;
+
+        try {
+            storeClient = initStoreClient();
+        } catch(Exception e) {
+            storeClient = null;
+            logger.info(e.getMessage());
+            if(wrapsRESTClient) {
+                logger.info("D2 client might not have been completely initialized. Trying on the next call ...");
+            } else {
+                logger.info("Could not bootstrap right away. Trying on the next call ... ");
+            }
+        }
     }
 
     public synchronized StoreClient<K, V> getStoreClient() {

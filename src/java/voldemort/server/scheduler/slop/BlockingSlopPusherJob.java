@@ -18,7 +18,7 @@ package voldemort.server.scheduler.slop;
 
 import java.util.Date;
 import java.util.Map;
-import java.util.concurrent.Semaphore;
+import java.util.Set;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -28,19 +28,20 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
-import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.slop.Slop.Operation;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Time;
-import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -53,26 +54,18 @@ import com.google.common.collect.Maps;
  * 
  * 
  */
-public class BlockingSlopPusherJob implements Runnable {
+public class BlockingSlopPusherJob extends SlopPusherJob implements Runnable {
 
     private static final Logger logger = Logger.getLogger(BlockingSlopPusherJob.class.getName());
     public final static String TYPE_NAME = "blocking";
-
-    private final StoreRepository storeRepo;
-    private final MetadataStore metadataStore;
-    private final FailureDetector failureDetector;
     private final long maxWriteBytesPerSec;
-    private final Semaphore repairPermits;
 
     public BlockingSlopPusherJob(StoreRepository storeRepo,
                                  MetadataStore metadataStore,
                                  FailureDetector failureDetector,
                                  VoldemortConfig voldemortConfig,
-                                 Semaphore repairPermits) {
-        this.storeRepo = storeRepo;
-        this.metadataStore = metadataStore;
-        this.repairPermits = Utils.notNull(repairPermits);
-        this.failureDetector = failureDetector;
+                                 ScanPermitWrapper repairPermits) {
+        super(storeRepo, metadataStore, failureDetector, voldemortConfig, repairPermits);
         this.maxWriteBytesPerSec = voldemortConfig.getSlopMaxWriteBytesPerSec();
     }
 
@@ -83,7 +76,7 @@ public class BlockingSlopPusherJob implements Runnable {
     public void run() {
 
         // don't try to run slop pusher job when rebalancing
-        if(metadataStore.getServerState()
+        if(metadataStore.getServerStateUnlocked()
                         .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
             logger.error("Cannot run slop pusher job since Voldemort server is rebalancing");
             return;
@@ -92,6 +85,9 @@ public class BlockingSlopPusherJob implements Runnable {
         logger.info("Started blocking slop pusher job at " + new Date());
 
         Cluster cluster = metadataStore.getCluster();
+        failureDetector.getConfig().setCluster(cluster);
+        Set<String> storeNames = StoreDefinitionUtils.getStoreNamesSet(metadataStore.getStoreDefList());
+
         ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
 
         Map<Integer, Long> attemptedByNode = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
@@ -127,11 +123,21 @@ public class BlockingSlopPusherJob implements Runnable {
                     Versioned<Slop> versioned = keyAndVal.getSecond();
                     Slop slop = versioned.getValue();
                     int nodeId = slop.getNodeId();
+
+                    // check for dead slops
+                    if(isSlopDead(cluster, storeNames, versioned.getValue())) {
+                        handleDeadSlop(slopStorageEngine, keyAndVal);
+                        // No matter we deleted it or not, we need to move onto
+                        // the next slop.
+                        continue;
+                    }
+
                     Node node = cluster.getNodeById(nodeId);
 
                     attemptedPushes++;
-                    if(attemptedPushes % 10000 == 0)
+                    if(attemptedPushes % 10000 == 0) {
                         logger.info("Attempted pushing " + attemptedPushes + " slops");
+                    }
                     Long attempted = attemptedByNode.get(nodeId);
                     attemptedByNode.put(nodeId, attempted + 1L);
 
@@ -212,14 +218,14 @@ public class BlockingSlopPusherJob implements Runnable {
             } catch(Exception e) {
                 logger.error("Failed to close iterator.", e);
             }
-            this.repairPermits.release();
+            this.repairPermits.release(this.getClass().getCanonicalName());
         }
     }
 
     private void acquireRepairPermit() {
         logger.info("Acquiring lock to perform blocking slop pusher job ");
         try {
-            this.repairPermits.acquire();
+            this.repairPermits.acquire(null, this.getClass().getCanonicalName());
             logger.info("Acquired lock to perform blocking slop pusher job ");
         } catch(InterruptedException e) {
             throw new IllegalStateException("Blocking slop pusher job interrupted while waiting for permit.",
@@ -231,4 +237,8 @@ public class BlockingSlopPusherJob implements Runnable {
         return (System.nanoTime() - startNs) / Time.NS_PER_MS;
     }
 
+    @Override
+    public Logger getLogger() {
+        return logger;
+    }
 }

@@ -9,8 +9,13 @@ import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
+
 import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
+import voldemort.store.readonly.checksum.CheckSum;
+import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 
 import com.google.common.collect.Maps;
 
@@ -65,6 +70,23 @@ public class ReadOnlyStorageMetadata {
 
     public Object get(String key) {
         return properties.get(key);
+    }
+
+    public CheckSumType getCheckSumType() {
+        String checkSumType = (String) get(CHECKSUM_TYPE);
+        if(checkSumType == null) {
+            return CheckSumType.NONE;
+        }
+        return CheckSum.fromString(checkSumType);
+    }
+
+    public byte[] getCheckSum() throws DecoderException {
+        String checkSumString = (String) get(ReadOnlyStorageMetadata.CHECKSUM);
+        if(checkSumString == null) {
+            return null;
+        }
+
+        return Hex.decodeHex(checkSumString.toCharArray());
     }
 
     public Object get(String key, Object defaultValue) {

@@ -1,0 +1,618 @@
+import java.util.jar.JarEntry;
+
+apply plugin: 'java'
+apply plugin: 'scala'
+apply plugin: 'idea'
+apply plugin: 'eclipse'
+apply plugin: 'war'
+
+def String getProjectProperty(String propertyName) {
+    String propertyValue = "null"
+    if (hasProperty(propertyName)) {
+        propertyValue = this.properties[propertyName]
+    }
+    else {
+        throw GradleScriptException("PropertyName " + propertyName + " is not defined in properties file")
+    }
+    return propertyValue
+}
+def projectName = "voldemort"
+
+def sourceDir = getProjectProperty('src.dir')
+def distDir = getProjectProperty('dist.dir')
+def classesDir = getProjectProperty('classes.dir')
+def javaDir = getProjectProperty('java.dir')
+def privateLibDir = getProjectProperty('private.lib.dir')
+def resourcesDir = getProjectProperty('resources.dir')
+def javaDocDir = getProjectProperty('javadoc.dir')
+
+def voldTestClassesDir = getProjectProperty('testclasses.dir')
+
+def commonTestSrcDir = getProjectProperty('commontestsrc.dir')
+def unitTestSrcDir = getProjectProperty('unittestsrc.dir')
+def intTestSrcDir = getProjectProperty('inttestsrc.dir')
+def longTestSrcDir = getProjectProperty('longtestsrc.dir')
+
+def contribClassesDir = getProjectProperty('contrib.classes.dir')
+def contribRootDir = getProjectProperty('contrib.root.dir')
+
+def voldVersion = getProjectProperty('curr.release')
+def javacVersion = getProjectProperty('javac.version')
+def scalaVersion = getProjectProperty('scalac.version')
+
+//This is the javaCompile variable version. Directly defining 'def version' will override this and cause nightmare
+version = voldVersion
+
+def archiveDirectoryName = projectName + '-' + version
+def archiveDirectoryPath = distDir + "/" + archiveDirectoryName
+
+def deleteDirectoryContents(directory) {
+    project.file(directory).deleteDir()
+    project.file(directory).mkdirs()
+}
+
+println 'java source target compatibility version ' + javacVersion
+sourceCompatibility = javacVersion
+targetCompatibility = javacVersion
+compileJava.options.debug = true
+
+
+// Using zinc scala compiler fails intermittently because of missing dependencies
+// Scala is not main stream so incremeental compilation is not worth the problem
+// it is causing.
+// tasks.withType(ScalaCompile) { scalaCompileOptions.useAnt = false }
+
+repositories {
+    mavenCentral()
+    flatDir { dirs privateLibDir }
+    flatDir { dirs contribRootDir }
+}
+
+
+sourceSets {
+    main {
+        java { srcDirs = [javaDir]}
+        scala {
+            srcDirs = [sourceDir]
+            include '**/*.scala'
+        }
+        resources {
+            srcDirs = [javaDir]
+            include '**/*.xsd'
+        }
+        output.classesDir = classesDir
+        output.resourcesDir = resourcesDir
+    }
+    test {
+        java {
+            srcDirs = [
+                commonTestSrcDir ,
+                unitTestSrcDir,
+                intTestSrcDir ,
+                longTestSrcDir
+            ]
+        }
+        output.classesDir = voldTestClassesDir
+    }
+    contrib {
+        java { srcDirs = [contribRootDir]}
+        compileClasspath += sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
+        output.classesDir = contribClassesDir
+    }
+}
+
+compileJava.doLast {
+    project.copy {
+        from (javaDir) { exclude '**/*.java','**/*.html','**/*.scala', '**/log4j.properties' }
+        into classesDir
+    }
+
+    project.copy {
+        // Theoretically this block can be replaced by including the log4j.properties in main resources.
+        // But that causes the log4j.properties to be present in the voldJar . Not sure what is the
+        // implication of this change, so avoiding it for now.
+        from (javaDir) { include 'log4j.properties' }
+        into resourcesDir
+    }
+}
+
+compileTestJava.doLast {
+    project.copy {
+        from (commonTestSrcDir) { exclude '**/*.java','**/*.html' }
+        from (unitTestSrcDir) { exclude '**/*.java','**/*.html' }
+        into voldTestClassesDir
+    }
+}
+
+compileContribJava.doLast {
+    project.copy {
+        from (contribRootDir + '/ec2-testing/resources')
+        into contribClassesDir
+    }
+}
+
+task testJar(type: Jar) {
+    baseName = projectName + "-test"
+    from sourceSets.test.output
+    destinationDir = project.file(distDir)
+}
+
+task voldJar(type:Jar) {
+    baseName = projectName
+    manifest {
+        attributes 'Voldemort-Implementation-Version' : version,
+        'Implementation-Title': 'Voldemort',
+        'Implementation-Version': version,
+        'Implementation-Vendor' :'LinkedIn'
+    }
+    from sourceSets.main.output
+    destinationDir = project.file(distDir)
+}
+
+task contribJar(type:Jar) {
+    dependsOn voldJar, testJar, sourceSets.contrib.output
+    baseName = projectName + "-contrib"
+    from sourceSets.contrib.output
+    destinationDir = project.file(distDir)
+}
+
+task srcJar(type: Jar, dependsOn: classes) {
+    classifier = 'src'
+    from sourceSets.main.java.srcDirs
+    destinationDir = project.file(distDir)
+}
+
+artifacts {
+    archives voldJar
+    archives testJar
+    archives contribJar
+    archives srcJar
+}
+
+clean {
+    delete(distDir)
+    delete('lib')
+    doLast { deleteDirectoryContents(javaDocDir) }
+}
+
+task copySources (type: Copy) {
+    from ('.') { include 'bin/*.sh', 'bin/*.bat' , 'bin/*.py' }
+    from ('.') { include  distDir + '/*.jar'}
+    from ('.') { exclude distDir + '/**' ,'bin/**' , 'build/**', '.git/**' , '.gradle/**', 'config/**/data/**' }
+    into archiveDirectoryPath
+}
+
+task zip (type: Zip) {
+    dependsOn copySources
+    baseName = projectName
+
+    from(distDir) {
+        include archiveDirectoryName + '/bin/**'
+        fileMode = 0755
+    }
+    from(distDir) {
+        include archiveDirectoryName + '/**'
+        exclude archiveDirectoryName + '/bin/**'
+    }
+
+    destinationDir = project.file(distDir)
+}
+
+task tar (type: Tar) {
+    dependsOn copySources
+    compression = Compression.GZIP
+    baseName = projectName
+    extension = "tar.gz"
+
+    from(distDir) {
+        include archiveDirectoryName + '/bin/**'
+        fileMode = 0755
+    }
+    from(distDir) {
+        include archiveDirectoryName + '/**'
+        exclude archiveDirectoryName + '/bin/**'
+    }
+
+    destinationDir = project.file(distDir)
+}
+
+/*
+Currently we have 3 library directories
+private-lib - > jars that are not available in maven central
+public-lib -> jars available in maven central, but left there for ant build
+lib -> single directory for command line tools to pick it up.
+
+I want to get rid of public-lib when we get rid of the ant support. 
+Private-lib in theory should eventually disappear as well when the prviate-libs 
+are available in maven central or moved to a version available in maven central.
+*/
+task copyDeps(type: Copy) {
+    from  {configurations.compile  }
+    into "lib"
+}
+
+war {
+    dependsOn copyDeps
+    from sourceSets.main.output
+    webXml = project.file('web.xml')
+    destinationDir = project.file(distDir)
+}
+
+assemble.dependsOn copyDeps
+
+jar.dependsOn contribJar,srcJar, copyDeps
+compileContribJava.dependsOn voldJar
+copySources.dependsOn jar
+
+tasks.withType(Test) {
+    // ant restarts jvm for each tests, If not restarted the test runs into outOfMemory even
+    // if you set the JVM to 8gb. On inspecting most of the space is consumed by int[] of
+    // Histogram in the NioSelectorManager. I believe this could be explained by
+    // creating lots of client factory which creates lot of NIO threads. Did not proceed
+    // further as I will be maintaining compatbility with ant. Also if you dont fork for each
+    // tests JMX bean related tests will fail.
+
+    // Do not set the max parallelism as there are tests that uses the same port and will
+    // run into bind exceptions.
+    maxHeapSize = "8g"
+    forkEvery = 1
+
+
+    // If ignoreFailures is not set, then merged reports will not be generated
+    // Gradle aborts further tasks on test failure. so if you run junitAll
+    // which runs 3 tests, reports task will never be run on failure cases.
+    ignoreFailures = true
+    //ignoreFailures = gradle.startParameter.continueOnFailure
+
+    useJUnit()
+
+    testLogging {
+        events "started", "passed", "skipped", "failed"
+        exceptionFormat = 'full'
+        // showStandardStreams = true
+    }
+
+    afterTest { test, result ->
+        logger.lifecycle("testFinished: $test, result: $result.resultType")
+    }
+
+    doFirst {
+        def classesSize = candidateClassFiles.files.size()
+        logger.lifecycle("{} starts executing {} test classes {}",
+                path, classesSize, classesSize > 0? "(" + candidateClassFiles.files*.name[0] + ", ...)" : "")
+    }
+
+    //all standard error messages from tests will get routed to 'DEBUG' level messages.
+    //logging.captureStandardError(LogLevel.DEBUG)
+    //all standard output messages from tests will get routed to 'DEBUG' level messages.
+    //logging.captureStandardOutput(LogLevel.DEBUG)
+
+    //Set reasonable defaults for reports location
+    reports.html.destination = file("$project.buildDir/reports/$name")
+    reports.junitXml.destination = file("$project.buildDir/$name-results")
+
+    //Set reasonable defaults classpath and classes dir. They can be reconfigured in an individual task.
+    it.testClassesDir = sourceSets.test.output.classesDir
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+task resetConfig() {
+    doLast {
+        def DirsToDelete = [".temp", ".version", "data"]
+        def deleteRecursively
+
+        deleteRecursively = { file ->
+            file.eachFile() {f ->
+                if(f.directory) {
+                    if( DirsToDelete.contains(f.getName()) )
+                    {
+                        println "deleting ${f.getAbsolutePath()}"
+                        delete f
+                    }
+                    else
+                    {
+                        deleteRecursively(f)
+                    }
+                }
+            }
+        }
+
+        deleteRecursively (new File("config"))
+    }
+}
+
+task junit(dependsOn: test)
+
+Collection<String> testClassesFrom(String dir, String include = '**/*Test.*') {
+    //take all *Test.java files found in given dir, make the path relative and replace .java with .class
+    fileTree(dir: dir, includes: [include]).collect { it.absolutePath.replace("\\", "/").replaceAll(file(dir).absolutePath.replace("\\", "/") + "/", "").replaceAll(".java\$", ".class")}
+}
+
+test {
+    description = "Runs acceptance tests"
+    include testClassesFrom(unitTestSrcDir)
+}
+
+task junitLong(type: Test) {
+    description = "Runs long junit tests"
+    include testClassesFrom(longTestSrcDir)
+}
+
+task junitInt(type: Test) {
+    description = "Runs integration tests"
+    include testClassesFrom(intTestSrcDir)
+}
+
+
+task junitRebalance(type: Test) {
+    include testClassesFrom(unitTestSrcDir, '**/*Rebalance*Test.java')
+}
+
+task junitRebalanceLong(type: Test) {
+    include testClassesFrom(longTestSrcDir, '**/*Rebalance*Test.java')
+}
+
+task contribJunit(type: Test) {
+    description = "Run contrib junit tests except EC2 and Krati tests."
+    it.testClassesDir = file(contribClassesDir)
+
+    exclude '**/*PerformanceTest.class'
+    exclude '**/*RemoteTest.class'
+    exclude '**/Ec2*Test.class'
+    exclude '**/Krati*Test.class'
+    exclude '**/HadoopStoreBuilder*Test.class'
+
+    classpath += sourceSets.contrib.runtimeClasspath + sourceSets.contrib.output
+}
+
+task junitAll(type: TestReport) {
+    reportOn test, junitLong, contribJunit
+    destinationDir = file("$project.buildDir/reports/$name")
+}
+
+task aggregatedJunit(type: TestReport) {
+    destinationDir = file("$project.buildDir/reports/$name")
+}
+
+tasks.withType(Test) {
+    finalizedBy aggregatedJunit
+    doLast { aggregatedJunit.reportOn it.binResultsDir }
+}
+
+task wrapper(type: Wrapper) { gradleVersion = '2.0' }
+
+
+dependencies {
+    // Avro serialization format
+    compile 'org.apache.avro:avro:1.4.0'
+
+    // INTERNAL_LIBS azkaban version not found
+    // azkaban-common-0.05.jar
+
+    // INTERNAL_LIBS Used for tomcat deployment, not sure if anyone uses it
+    // catalina-ant.jar , version not found in maven central
+
+    // coders decoders containing the Base64,binary encoding
+    compile 'commons-codec:commons-codec:1.4'
+
+    // TRANSITIVE_DEPENDENCY Contrib jar depends on commons-configuration-1.6.jar
+    // commons-configuration instead depends on commons-collection
+    //compile 'commons-collections:commons-collections:3.2.1'
+
+    // Used by MySql storage engine classes
+    // The jar supports database connection pooling
+    compile 'commons-dbcp:commons-dbcp:1.2.2'
+
+    // commons io is used at many places
+    // IOUtils, FileUtils and ByteArrayOutputStream
+    compile 'commons-io:commons-io:1.4'
+
+    // LZF compression strategy for store and tests.
+    compile 'com.ning:compress-lzf:0.9.1'
+
+    // Used all over the place for collections
+    compile 'com.google.guava:guava:14.0.1'
+
+    // used for readonly store hdfs fetcher.
+    compile 'org.apache.hadoop:hadoop-auth:2.0.5-alpha'
+
+    // used at lots of places. Seems like there is some overlap between httpclient and core, but not clear
+    compile 'org.apache.httpcomponents:httpclient:4.1.2'
+
+    // contains both http server and client functionalities. Used for HttpResponse but could be used at more places.
+    compile 'org.apache.httpcomponents:httpcore:4.1.2'
+
+    // JSON mapping library from Java Objects to JSON
+    compile 'org.codehaus.jackson:jackson-mapper-asl:1.9.13'
+
+    // JSON processing library
+    compile 'org.codehaus.jackson:jackson-core-asl:1.9.13'
+
+    // Used for reading XML files and Document.
+    compile 'jdom:jdom:1.1'
+
+    // je- BDB je 5.0.88 is not available in maven central repository.
+    // Could be possibly found in oracle maven repository, but not sure
+    /*
+     groupId>com.sleepycat</groupId>
+     <artifactId>je</artifactId>
+     <version>3.3.75</version>
+     groupId>com.sleepycat</groupId>
+     <artifactId>je</artifactId>
+     <version>3.3.75</version>
+     */
+
+    // Jetty is used for HttpService and tests. Jetty Util is used for QueuedThreadPool class.
+    compile 'org.mortbay.jetty:jetty-util:6.1.18'
+    compile 'org.mortbay.jetty:jetty:6.1.18'
+
+    // A line processing library for command line. No compile time dependency
+    // Used by Voldemort shell
+    compile 'jline:jline:0.9.94'
+
+    // jna is library for invoking native functions
+    // used in the readonly store
+    compile 'net.java.dev.jna:jna:3.2.7'
+
+    // joda time is replacement for Java Date and Time
+    // used in readonly store code.
+    compile 'joda-time:joda-time:1.6'
+
+    // Used for argument command line parsing
+    compile 'net.sf.jopt-simple:jopt-simple:4.6'
+
+    // INTERNAL_LIBS thrift is one of the supported serialization format.
+    // libthrift 0.5 version is not found in the maven central repository.
+    // The closest version available is 0.6.1
+    // libthrift-0.5.0.jar
+
+    // log4j - logger used in almost all files
+    compile 'log4j:log4j:1.2.15'
+
+    // used in readonly store and Co-ordinator
+    compile 'javax.mail:mail:1.4.1'
+
+    // Used in co-ordinator and rest services
+    compile 'io.netty:netty:3.5.8.Final'
+
+    // TRANSITIVE_DEPENDENCY Paranamer is a library that allows the parameter names of non-private methods and constructors to be accessed at runtime
+    // Avro has a dependency on paranamer
+    // compile 'com.thoughtworks.paranamer:paranamer:2.1'
+
+    // protobuf is a supported protocol format between voldemort client and server
+    compile 'com.google.protobuf:protobuf-java:2.3.0'
+
+    // Command line shell is also supported in scala
+    compile 'org.scala-lang:scala-compiler:2.10.4'
+    compile 'org.scala-lang:scala-library:2.10.4'
+    compile 'org.scala-lang:scala-reflect:2.10.4'
+
+    // Servlet
+    compile 'javax.servlet:servlet-api:2.5'
+
+    // slf4j is another logging abstraction framework.
+    // It is used by the apache.avro, apache.hadoop and r2 clients
+    compile 'org.slf4j:slf4j-api:1.5.6'
+    compile 'org.slf4j:slf4j-log4j12:1.5.6'
+
+    // snappy is one of the supported compression strategies in voldemort
+    compile 'org.iq80.snappy:snappy:0.2'
+
+    // Velocity is a simple yet powerful Java-based template engine that renders data
+    // from plain Java objects to text, xml, email, SQL, Post Script, HTML etc
+    // Velocity is used for Http Server GUI
+    compile 'org.apache.velocity:velocity:1.6.2'
+
+    // TRANSITIVE_DEPENDENCY Apache XML Parser
+    // used by jdom
+    // compile 'xerces:xercesImpl:2.9.1'
+
+    compile fileTree(dir: privateLibDir, includes: ['**/*.jar'])
+
+    // cern library containing high performance Maps for int and double
+    // Currently only used in the tests
+    testCompile 'colt:colt:1.2.0'
+
+    // Used in ec2 testing , is a wrapper over any logging framework
+    testCompile 'commons-logging:commons-logging:1.1.1'
+
+    // Used in resource pool perf testing class
+    testCompile 'commons-pool:commons-pool:1.5.2'
+
+    testRuntime 'mysql:mysql-connector-java:5.1.31'
+
+    // Used for unit tests and other automated testing
+    testCompile 'junit:junit:4.6'
+
+    // Mockito is written by our beloved friend Szczepan Faber :)
+    // Mocking framework used in some tests
+    testCompile 'org.mockito:mockito-all:1.8.5'
+
+    contribCompile sourceSets.main.output
+    contribCompile sourceSets.test.output
+
+    // declaring contribCompile dependencies as compile dependencies
+    // otherwise while copying dependencies to lib directory
+    // conflict resolution is not done properly across sourceSets
+    // and we end up with 2 versions of few jars like ( log4j, servlet etc. )
+    compile 'commons-configuration:commons-configuration:1.6'
+    compile 'org.apache.hadoop:hadoop-core:1.0.4'
+
+    compile 'com.linkedin.pegasus:r2:1.8.3'
+    compile 'com.linkedin.pegasus:data:1.8.3'
+    compile 'com.linkedin.pegasus:pegasus-common:1.8.3'
+    compile 'com.linkedin.azkaban:azkaban:2.5.0'
+
+    compile 'com.google.code.typica:typica:1.7.2'
+    compile 'com.sna-projects.krati:krati:0.4.9'
+
+    // Metrics
+    compile 'io.tehuti:tehuti:0.6'
+
+    // Other libs...
+    compile 'org.apache.tomcat:catalina-ant:6.0.43'
+    compile 'org.apache.hadoop:libthrift:0.5.0.0'
+    
+    // rocksdb from maven
+    compile 'org.rocksdb:rocksdbjni:3.6.2'
+}
+
+eclipse {
+    project {
+        buildCommand  'org.eclipse.jdt.core.javabuilder'
+    }
+    jdt {
+        // Currently the javac Version of jar is set to 1.5
+        // But @Override works differently between both, so overriding here
+        sourceCompatibility = targetCompatibility = 1.6
+    }
+    classpath {
+        defaultOutputDir = project.file('classes')
+        file {
+            // SourceSets creates multiple src/java in .classpath with varying includes
+            // But eclipse 4.3 is complaining about duplicate classpaths
+            // If contrib root is included instead of the seperate projects, eclipse
+            // expects the package to be different. ( contrib.restclient.test.voldemort.client
+            // versus voldemort.client ). So removing all the src entries and adding the previous
+            // src entries which used to work.
+            whenMerged { classpath ->
+                classpath.entries.removeAll { entry ->
+                    (entry.kind == 'src' )
+                }
+            }
+            withXml {
+                def node = it.asNode()
+                [
+                    "src/java",
+                    "contrib/ec2-testing/resources",
+                    "contrib/ec2-testing/src/java",
+                    "contrib/ec2-testing/test",
+                    "contrib/hadoop-store-builder/test",
+                    "contrib/hadoop-store-builder/src/java",
+                    "test/unit",
+                    "test/integration",
+                    "test/common",
+                    "test/long",
+                    "example/java",
+                    "contrib/krati/src/java",
+                    "contrib/krati/test",
+                    "contrib/collections/src/java",
+                    "contrib/collections/test",
+                    "contrib/restclient/src/java",
+                    "contrib/restclient/test"
+                ]
+                .each{
+                    node.appendNode('classpathentry', [kind: 'src', path: "$it"])
+                }
+            }
+        }
+    }
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
+}
+

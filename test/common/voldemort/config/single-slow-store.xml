@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<stores>
+  <store>
+    <name>slow-store-test</name>
+    <persistence>slow</persistence>
+    <description>Test slow store</description>
+    <routing-strategy>consistent-routing</routing-strategy>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <required-reads>1</required-reads>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>string</type>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+    </value-serializer>
+  </store>
+</stores>

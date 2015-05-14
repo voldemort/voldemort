@@ -15,6 +15,7 @@ import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VProto.GetRequest;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.protocol.pb.VProto.VoldemortRequest;
+import voldemort.common.nio.ByteBufferContainer;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
@@ -39,8 +40,19 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         super(errorMapper, storeRepository);
     }
 
-    public StreamRequestHandler handleRequest(DataInputStream inputStream,
-                                              DataOutputStream outputStream) throws IOException {
+    @Override
+    public StreamRequestHandler handleRequest(final DataInputStream inputStream,
+                                              final DataOutputStream outputStream)
+            throws IOException {
+        return handleRequest(inputStream, outputStream, null);
+    }
+
+    @Override
+    public StreamRequestHandler handleRequest(final DataInputStream inputStream,
+                                              final DataOutputStream outputStream,
+                                              final ByteBufferContainer outputContainer)
+            throws IOException {
+
         VoldemortRequest.Builder request = ProtoUtils.readToBuilder(inputStream,
                                                                     VoldemortRequest.newBuilder());
         boolean shouldRoute = request.getShouldRoute();
@@ -75,6 +87,10 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
                 default:
                     throw new VoldemortException("Unknown operation " + request.getType());
             }
+        }
+        if(outputContainer != null) {
+            outputContainer.getBuffer().clear();
+            outputContainer.ensureSpace(response.getSerializedSize());
         }
         ProtoUtils.writeMessage(outputStream, response);
         return null;

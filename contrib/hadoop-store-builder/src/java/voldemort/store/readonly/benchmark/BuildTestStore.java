@@ -29,6 +29,7 @@ import org.apache.hadoop.util.ToolRunner;
 
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.mr.AbstractHadoopStoreBuilderMapper;
 import voldemort.store.readonly.mr.HadoopStoreBuilder;
 import voldemort.utils.ByteUtils;
@@ -68,15 +69,22 @@ public class BuildTestStore extends Configured implements Tool {
 
         Configuration config = this.getConf();
         config.set("mapred.job.name", "test-store-builder");
-        HadoopStoreBuilder builder = new HadoopStoreBuilder(config,
-                                                            BuildTestStoreMapper.class,
-                                                            SequenceFileInputFormat.class,
-                                                            cluster,
-                                                            def,
-                                                            (long) (1.5 * 1024 * 1024 * 1024),
-                                                            new Path(tempDir),
-                                                            new Path(outputDir),
-                                                            new Path(inputDir));
+        HadoopStoreBuilder builder = new HadoopStoreBuilder(
+                config,
+                BuildTestStoreMapper.class,
+                SequenceFileInputFormat.class,
+                cluster,
+                def,
+                new Path(tempDir),
+                new Path(outputDir),
+                new Path(inputDir),
+                CheckSum.CheckSumType.NONE,
+                false,
+                false,
+                (long) (1.5 * 1024 * 1024 * 1024),
+                -1,
+                false,
+                null);
         builder.build();
         return 0;
     }

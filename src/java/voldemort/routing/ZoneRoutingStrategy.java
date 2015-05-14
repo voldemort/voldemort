@@ -17,10 +17,10 @@
 package voldemort.routing;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.utils.FnvHashFunction;
 import voldemort.utils.HashFunction;
@@ -34,17 +34,17 @@ public class ZoneRoutingStrategy extends ConsistentRoutingStrategy {
 
     private HashMap<Integer, Integer> zoneReplicationFactor;
 
-    public ZoneRoutingStrategy(Collection<Node> nodes,
+    public ZoneRoutingStrategy(Cluster cluster,
                                HashMap<Integer, Integer> zoneReplicationFactor,
                                int numReplicas) {
-        this(new FnvHashFunction(), nodes, zoneReplicationFactor, numReplicas);
+        this(new FnvHashFunction(), cluster, zoneReplicationFactor, numReplicas);
     }
 
     public ZoneRoutingStrategy(HashFunction hash,
-                               Collection<Node> nodes,
+                               Cluster cluster,
                                HashMap<Integer, Integer> zoneReplicationFactor,
                                int numReplicas) {
-        super(hash, nodes, numReplicas);
+        super(hash, cluster, numReplicas);
         this.zoneReplicationFactor = zoneReplicationFactor;
     }
 

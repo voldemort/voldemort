@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2010 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,11 +16,19 @@
 
 package voldemort.client;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.util.Arrays;
 import java.util.Map;
 
 import org.junit.Before;
 import org.junit.Test;
+
 import voldemort.serialization.Serializer;
 import voldemort.serialization.StringSerializer;
 import voldemort.utils.SystemTime;
@@ -29,8 +37,6 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-import static org.junit.Assert.*;
-
 public class DefaultStoreClientTest {
 
     protected int nodeId;
@@ -38,7 +44,7 @@ public class DefaultStoreClientTest {
     protected StoreClient<String, String> client;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         this.nodeId = 0;
         this.time = SystemTime.INSTANCE;
         Serializer<String> serializer = new StringSerializer();
@@ -86,8 +92,9 @@ public class DefaultStoreClientTest {
 
     @Test
     public void testGetUnversionedWithDefault() {
-        assertEquals("GET of non-existant key should return default.", "v", client.getValue("k",
-                                                                                            "v"));
+        assertEquals("GET of non-existant key should return default.",
+                     "v",
+                     client.getValue("k", "v"));
         assertEquals("null should be an acceptable default", null, client.getValue("k", null));
         client.put("k", "v");
         assertEquals("default should not be returned if value is present.",
@@ -146,11 +153,11 @@ public class DefaultStoreClientTest {
 
     @Test
     public void testDeleteVersion() {
-        assertFalse("Delete of non-existant key should be false.", client.delete("k",
-                                                                                 new VectorClock()));
+        assertFalse("Delete of non-existant key should be false.",
+                    client.delete("k", new VectorClock()));
         client.put("k", new Versioned<String>("v"));
-        assertFalse("Delete of a lesser version should be false.", client.delete("k",
-                                                                                 new VectorClock()));
+        assertFalse("Delete of a lesser version should be false.",
+                    client.delete("k", new VectorClock()));
         assertNotNull("After failed delete, value should still be there.", client.get("k"));
         assertTrue("Delete of k, with the current version should succeed.",
                    client.delete("k", new VectorClock().incremented(nodeId, time.getMilliseconds())));

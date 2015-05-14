@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc., 2009-2010 LinkedIn, Inc.
+ * Copyright 2009 Mustard Grain, Inc., 2009-2012 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -45,7 +45,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     // Maintain the list of nodes and their status by IDs (in order to handle
     // host swaps)
-    protected final Map<Integer, CompositeNodeStatus> idNodeStatusMap;
+    protected final Map<Integer, NodeStatus> idNodeStatusMap;
 
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
@@ -55,13 +55,11 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
         this.failureDetectorConfig = failureDetectorConfig;
         listeners = new ConcurrentHashMap<FailureDetectorListener, Object>();
-        idNodeStatusMap = new ConcurrentHashMap<Integer, CompositeNodeStatus>();
+        idNodeStatusMap = new ConcurrentHashMap<Integer, NodeStatus>();
 
-        for(Node node: failureDetectorConfig.getNodes()) {
+        for(Node node: failureDetectorConfig.getCluster().getNodes()) {
             idNodeStatusMap.put(node.getId(),
-                                new CompositeNodeStatus(node,
-                                                        createNodeStatus(failureDetectorConfig.getTime()
-                                                                                              .getMilliseconds())));
+                                createNodeStatus(failureDetectorConfig.getTime().getMilliseconds()));
         }
     }
 
@@ -95,9 +93,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public String getAvailableNodes() {
         List<String> list = new ArrayList<String>();
 
-        for(Node node: getConfig().getNodes())
+        for(Node node: getConfig().getCluster().getNodes()) {
             if(isAvailable(node))
                 list.add(String.valueOf(node.getId()));
+        }
 
         return StringUtils.join(list, ",");
     }
@@ -106,9 +105,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public String getUnavailableNodes() {
         List<String> list = new ArrayList<String>();
 
-        for(Node node: getConfig().getNodes())
+        for(Node node: getConfig().getCluster().getNodes()) {
             if(!isAvailable(node))
                 list.add(String.valueOf(node.getId()));
+        }
 
         return StringUtils.join(list, ",");
     }
@@ -117,16 +117,17 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public int getAvailableNodeCount() {
         int available = 0;
 
-        for(Node node: getConfig().getNodes())
+        for(Node node: getConfig().getCluster().getNodes()) {
             if(isAvailable(node))
                 available++;
+        }
 
         return available;
     }
 
     @JmxGetter(name = "nodeCount", description = "The number of total nodes")
     public int getNodeCount() {
-        return getConfig().getNodes().size();
+        return getConfig().getCluster().getNodes().size();
     }
 
     public void waitForAvailability(Node node) throws InterruptedException {
@@ -168,6 +169,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
                 logger.info("Node " + node.getId() + " now available");
 
             synchronized(nodeStatus) {
+                nodeStatus.resetNumConsecutiveCatastrophicErrors();
+                if(logger.isTraceEnabled()) {
+                    logger.trace("Resetting # consecutive connect errors for node : " + node);
+                }
                 nodeStatus.notifyAll();
             }
 
@@ -185,11 +190,11 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     protected void setUnavailable(Node node, UnreachableStoreException e) {
         NodeStatus nodeStatus = getNodeStatus(node);
 
-        if(logger.isEnabledFor(Level.WARN)) {
+        if(logger.isDebugEnabled()) {
             if(e != null)
-                logger.warn("Node " + node.getId() + " set as unavailable", e);
+                logger.debug("Node " + node.getId() + " set as unavailable", e);
             else
-                logger.warn("Node " + node.getId() + " set as unavailable");
+                logger.debug("Node " + node.getId() + " set as unavailable");
         }
 
         // We need to distinguish the case where we're newly unavailable and the
@@ -200,8 +205,18 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         // If we were previously available, we've just switched state from
         // available to unavailable, so notify any listeners.
         if(previouslyAvailable) {
-            if(logger.isInfoEnabled())
-                logger.info("Node " + node.getId() + " now unavailable");
+            if(logger.isEnabledFor(Level.WARN)) {
+                long elapsedMs = System.currentTimeMillis() - nodeStatus.getStartMillis();
+                logger.warn("Node " + node.getId() + " now unavailable . Node metrics. "
+                            + " Catastrophic errors "
+                            + nodeStatus.getNumConsecutiveCatastrophicErrors() + " Successes "
+                            + nodeStatus.getSuccess() + " Failure " + nodeStatus.getFailure()
+                            + " Total " + nodeStatus.getTotal() + " Threshold success percentage "
+                            + failureDetectorConfig.getThreshold() + " Threshold Minimum errors "
+                            + failureDetectorConfig.getThresholdCountMinimum()
+                            + " Threshold Interval " + failureDetectorConfig.getThresholdInterval()
+                            + " Interval elapsed ms " + elapsedMs);
+            }
 
             for(FailureDetectorListener fdl: listeners.keySet()) {
                 try {
@@ -216,27 +231,19 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     protected NodeStatus getNodeStatus(Node node) {
         NodeStatus nodeStatus = null;
-        CompositeNodeStatus currentNodeStatus = idNodeStatusMap.get(node.getId());
+        NodeStatus currentNodeStatus = idNodeStatusMap.get(node.getId());
 
-        if(currentNodeStatus == null || !currentNodeStatus.getNode().isEqualState(node)) {
-            if(logger.isEnabledFor(Level.WARN))
+        if(currentNodeStatus == null) {
+            if(logger.isEnabledFor(Level.WARN)) {
                 logger.warn("creating new node status for node " + node.getId()
                             + " for failure detector");
-
-            // If the host is being replaced, remove old tracking information
-            if(currentNodeStatus != null) {
-                idNodeStatusMap.remove(currentNodeStatus);
-                failureDetectorConfig.removeNode(currentNodeStatus.getNode());
             }
 
             nodeStatus = createNodeStatus(failureDetectorConfig.getTime().getMilliseconds());
-            idNodeStatusMap.put(node.getId(), new CompositeNodeStatus(node, nodeStatus));
-
-            if(!failureDetectorConfig.getNodes().contains(node)) {
-                failureDetectorConfig.addNode(node);
-            }
-        } else
-            nodeStatus = currentNodeStatus.getStatus();
+            idNodeStatusMap.put(node.getId(), nodeStatus);
+        } else {
+            nodeStatus = currentNodeStatus;
+        }
 
         return nodeStatus;
     }

@@ -24,6 +24,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageEngine;
 import voldemort.store.bdb.BdbRuntimeConfig;
 import voldemort.store.bdb.BdbStorageEngine;
+import voldemort.store.bdb.PartitionPrefixedBdbStorageEngine;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
@@ -33,9 +34,9 @@ import voldemort.versioning.Versioned;
 
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
+import com.sleepycat.je.Durability;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
-import com.sleepycat.je.LockMode;
 
 public class CatBdbStore {
 
@@ -51,19 +52,26 @@ public class CatBdbStore {
         VoldemortConfig config = new VoldemortConfig(new Props(new File(serverProperties)));
 
         EnvironmentConfig environmentConfig = new EnvironmentConfig();
-        environmentConfig.setTxnNoSync(true);
+        environmentConfig.setDurability(Durability.COMMIT_NO_SYNC);
         environmentConfig.setAllowCreate(true);
         environmentConfig.setTransactional(config.isBdbWriteTransactionsEnabled());
         Environment environment = new Environment(new File(bdbDir), environmentConfig);
         DatabaseConfig databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setTransactional(config.isBdbWriteTransactionsEnabled());
-        databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
+        databaseConfig.setSortedDuplicates(false);
         Database database = environment.openDatabase(null, storeName, databaseConfig);
-        StorageEngine<ByteArray, byte[], byte[]> store = new BdbStorageEngine(storeName,
-                                                                              environment,
-                                                                              database,
-                                                                              new BdbRuntimeConfig());
+
+        StorageEngine<ByteArray, byte[], byte[]> store = null;
+        if(config.getBdbPrefixKeysWithPartitionId()) {
+            store = new PartitionPrefixedBdbStorageEngine(storeName,
+                                                          environment,
+                                                          database,
+                                                          new BdbRuntimeConfig(),
+                                                          TestUtils.makeSingleNodeRoutingStrategy());
+        } else {
+            store = new BdbStorageEngine(storeName, environment, database, new BdbRuntimeConfig());
+        }
         StorageEngine<String, String, String> stringStore = SerializingStorageEngine.wrap(store,
                                                                                           new StringSerializer(),
                                                                                           new StringSerializer(),

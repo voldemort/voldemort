@@ -68,6 +68,8 @@ public class JmxUtils {
     private static final Object LOCK = new Object();
     private static final Logger logger = Logger.getLogger(JmxUtils.class);
 
+    public static final String MBEAN_NAME_SEPARATOR = "-";
+
     /**
      * Create a model mbean from an object using the description given in the
      * Jmx annotation if present. Only operations are supported so far, no
@@ -134,8 +136,7 @@ public class JmxUtils {
                                                                            description,
                                                                            extractParameterInfo(m),
                                                                            m.getReturnType()
-                                                                            .getName(),
-                                                                           impact);
+                                                                            .getName(), impact);
                 info.getDescriptor().setField("visibility", Integer.toString(visibility));
                 infos.add(info);
             }
@@ -348,6 +349,16 @@ public class JmxUtils {
         } catch(Exception e) {
             logger.error("Error unregistering mbean", e);
         }
+    }
+
+    /**
+     * Return the string representation of jmxId
+     * 
+     * @param jmxId
+     * @return string representation of jmx id
+     */
+    public static String getJmxId(int jmxId) {
+        return jmxId == 0 ? "" : Integer.toString(jmxId);
     }
 
 }

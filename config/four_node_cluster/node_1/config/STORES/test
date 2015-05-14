@@ -1,0 +1,20 @@
+
+<store>
+  <name>test</name>
+  <persistence>bdb</persistence>
+  <description>Test store</description>
+  <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+  <routing-strategy>consistent-routing</routing-strategy>
+  <routing>client</routing>
+  <replication-factor>2</replication-factor>
+  <required-reads>1</required-reads>
+  <required-writes>1</required-writes>
+  <key-serializer>
+    <type>string</type>
+  </key-serializer>
+  <value-serializer>
+    <type>string</type>
+  </value-serializer>
+  <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>
+</store>
+

@@ -17,13 +17,14 @@
 package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
+import voldemort.store.UnreachableStoreException;
 
 /**
  * BlockingClientRequest is used to implement blocking IO using the non-blocking
@@ -57,11 +58,11 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         return delegate.isComplete() && latch.getCount() == 0;
     }
 
-    public void await() throws InterruptedException {
-        latch.await(timeoutMs, TimeUnit.MILLISECONDS);
+    public boolean await() throws InterruptedException {
+        return latch.await(timeoutMs, TimeUnit.MILLISECONDS);
     }
 
-    public T getResult() throws VoldemortException, IOException {
+    public T getResult() throws VoldemortException, UnreachableStoreException {
         return delegate.getResult();
     }
 
@@ -73,7 +74,7 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         delegate.parseResponse(inputStream);
     }
 
-    public boolean formatRequest(DataOutputStream outputStream) {
+    public boolean formatRequest(ByteBufferBackedOutputStream outputStream) {
         return delegate.formatRequest(outputStream);
     }
 
@@ -83,6 +84,10 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
 
     public boolean isTimedOut() {
         return delegate.isTimedOut();
+    }
+
+    public void reportException(IOException e) {
+        delegate.reportException(e);
     }
 
 }

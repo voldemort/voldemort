@@ -1,3 +1,8 @@
+// Please use protoc version 2.3.0 to recompile:
+//   https://code.google.com/p/protobuf/downloads/detail?name=protobuf-2.3.0.tar.gz&can=2&q=
+// Use commmand like the below to recompile:
+// $ protoc -I=src/proto --java_out=src/java src/proto/voldemort-admin.proto
+
 package voldemort;
 
 option java_package = "voldemort.client.protocol.pb";
@@ -20,6 +25,22 @@ message UpdateMetadataRequest {
   required Versioned versioned = 2;
 }
 
+message UpdateStoreDefinitions {
+  required bytes key = 1;
+  required Versioned versioned = 2;
+}
+
+message UpdateMetadataPairRequest {
+  required bytes cluster_key = 1;
+  required Versioned cluster_value = 2;
+  required bytes stores_key = 3;
+  required Versioned stores_value = 4;
+}
+
+message UpdateMetadataPairResponse {
+  optional Error error = 1;
+}
+
 message UpdateMetadataResponse {
   optional Error error = 1;
 }
@@ -38,6 +59,7 @@ message UpdatePartitionEntriesRequest {
   required string store = 1;
   required PartitionEntry partition_entry = 2;
   optional VoldemortFilter filter = 3;
+  optional bool overwriteIfLatestTs = 4;
 }
 
 message UpdatePartitionEntriesResponse {
@@ -62,17 +84,19 @@ message UpdateSlopEntriesResponse {
   optional Error error = 1;
 }
 message FetchPartitionFilesRequest {
-  required string store = 1;
-  repeated PartitionTuple replica_to_partition = 2;
+   required string store_name = 1;
+   repeated int32 partition_ids = 2;
 }
 
 message FetchPartitionEntriesRequest {
-  repeated PartitionTuple replica_to_partition = 1;
+  repeated int32 partition_ids = 1;
   required string store = 2;
   optional VoldemortFilter filter = 3;
   optional bool fetch_values = 4;
-  optional int64 skip_records = 5;
+  optional int64 OBSOLETE__DO_NOT_USE__skip_records = 5;
   optional string initial_cluster = 6;
+  optional bool fetch_orphaned = 7;
+  optional int64 records_per_partition = 8;
 }
 
 message FetchPartitionEntriesResponse {
@@ -83,7 +107,7 @@ message FetchPartitionEntriesResponse {
 
 message DeletePartitionEntriesRequest {
   required string store = 1;
-  repeated PartitionTuple replica_to_partition = 2;
+  repeated int32 partition_ids = 2;
   optional VoldemortFilter filter = 3; 
   optional string initial_cluster = 4;
 }
@@ -97,13 +121,21 @@ message InitiateFetchAndUpdateRequest {
   required int32 node_id = 1;
   required string store = 2;
   optional VoldemortFilter filter = 3;
-  repeated PartitionTuple replica_to_partition = 4;
+  repeated int32 partition_ids = 4;
   optional string initial_cluster = 5;
-  optional bool optimize = 6;
+  optional bool OBSOLETE__DO_NOT_USE__optimize = 6;
 }
 
 message AsyncOperationStatusRequest {
   required int32 request_id = 1;
+}
+
+message AsyncOperationStatusResponse {
+  optional int32 request_id = 1;
+  optional string description = 2;
+  optional string status = 3;
+  optional bool complete = 4;
+  optional Error error = 5;
 }
 
 message AsyncOperationStopRequest {
@@ -123,6 +155,39 @@ message AsyncOperationListResponse {
   optional Error error = 2;
 }
 
+message ListScheduledJobsRequest {
+}
+
+message ListScheduledJobsResponse {
+  repeated string job_ids = 1;
+  optional Error error = 2;
+}
+
+message GetScheduledJobStatusRequest {
+  required string job_id = 1;
+}
+
+message GetScheduledJobStatusResponse {
+  required bool enabled = 1;
+  optional Error error = 2;
+}
+
+message StopScheduledJobRequest {
+  required string job_id = 1;
+}
+
+message StopScheduledJobResponse {
+  optional Error error = 1;
+}
+
+message EnableScheduledJobRequest {
+  required string job_id = 1;
+}
+
+message EnableScheduledJobResponse {
+  optional Error error = 1;
+}
+
 message PartitionTuple {
   required int32 replica_type = 1;
   repeated int32 partitions = 2;
@@ -136,26 +201,30 @@ message PerStorePartitionTuple {
 message RebalancePartitionInfoMap {
   required int32 stealer_id = 1;
   required int32 donor_id = 2;
-  required int32 attempt = 3;
+  optional int32 OBSOLETE__DO_NOT_USE__attempt = 3;
   repeated PerStorePartitionTuple replica_to_add_partition = 4;
   repeated PerStorePartitionTuple replica_to_delete_partition = 5;
   required string initial_cluster = 6;
 }
 
+message StoreToPartitionsIds {
+  required string store_name = 1;
+  repeated int32 partition_ids = 2;
+}
+
+message RebalanceTaskInfoMap {
+  required int32 stealer_id = 1;
+  required int32 donor_id = 2;
+  repeated StoreToPartitionsIds per_store_partition_ids = 3;
+  required string initial_cluster = 4;
+}
+
 message InitiateRebalanceNodeRequest {
-  required RebalancePartitionInfoMap rebalance_partition_info = 1;
+  required RebalanceTaskInfoMap rebalance_task_info = 1;
 }
 
 message InitiateRebalanceNodeOnDonorRequest {
   repeated RebalancePartitionInfoMap rebalance_partition_info = 1;
-}
-
-message AsyncOperationStatusResponse {
-  optional int32 request_id = 1;
-  optional string description = 2;
-  optional string status = 3;
-  optional bool complete = 4;
-  optional Error error = 5;
 }
 
 message TruncateEntriesRequest {
@@ -215,6 +284,25 @@ message RepairJobResponse {
   optional Error error = 1;
 }
 
+message PruneJobRequest {
+  optional string store_name = 1;
+}
+
+message PruneJobResponse {
+  optional Error error = 1;
+}
+
+message SlopPurgeJobRequest {
+  repeated int32 filter_node_ids = 1;
+  optional int32 filter_zone_id = 2;
+  repeated string filter_store_names = 3;
+}
+
+message SlopPurgeJobResponse {
+  optional Error error = 1;
+}
+
+
 message ROStoreVersionDirMap {
  required string store_name = 1;
  required string store_dir = 2;
@@ -247,6 +335,23 @@ message GetROStorageFormatResponse {
   optional Error error = 2;
 }
 
+message GetROStorageFileListRequest {
+  required string store_name = 1;
+}
+
+message GetROStorageFileListResponse {
+  repeated string file_name = 1;
+  optional Error error = 2;
+}
+
+message GetROStorageCompressionCodecListRequest {
+}
+
+message GetROStorageCompressionCodecListResponse {
+  repeated string compression_codecs = 1;
+  optional Error error = 2;
+}
+
 message FailedFetchStoreRequest {
   required string store_name = 1;
   required string store_dir = 2;
@@ -257,12 +362,13 @@ message FailedFetchStoreResponse {
 }
 
 message RebalanceStateChangeRequest {
-  repeated RebalancePartitionInfoMap rebalance_partition_info_list = 1;
+  repeated RebalanceTaskInfoMap rebalance_task_list = 1;
   required string cluster_string = 2;
-  required bool swap_ro = 3;
-  required bool change_cluster_metadata = 4;
-  required bool change_rebalance_state = 5;
-  required bool rollback = 6;
+  required string stores_string = 3;
+  required bool swap_ro = 4;
+  required bool change_cluster_metadata = 5;
+  required bool change_rebalance_state = 6;
+  required bool rollback = 7;
 }
 
 message RebalanceStateChangeResponse {
@@ -278,11 +384,28 @@ message DeleteStoreRebalanceStateResponse {
   optional Error error = 1;
 }
 
+message SetOfflineStateRequest {
+  required bool offline_mode = 1;
+}
+
+message SetOfflineStateResponse {
+  optional Error error = 1;
+}
+
 message NativeBackupRequest {
   required string store_name = 1;
   required string backup_dir = 2;
   required bool   verify_files = 3;
   required bool   incremental = 4;
+}
+
+message ReserveMemoryRequest {
+  required string store_name = 1;
+  required int64  size_in_mb = 2;
+}
+
+message ReserveMemoryResponse {
+  optional Error error = 1;
 }
 
 enum AdminRequestType {
@@ -310,9 +433,21 @@ enum AdminRequestType {
   GET_RO_STORAGE_FORMAT = 23;
   REBALANCE_STATE_CHANGE = 24;
   REPAIR_JOB = 25;
-  INITIATE_REBALANCE_NODE_ON_DONOR = 26;
+  // INITIATE_REBALANCE_NODE_ON_DONOR = 26;
   DELETE_STORE_REBALANCE_STATE = 27;
   NATIVE_BACKUP = 28;
+  RESERVE_MEMORY = 29;
+  PRUNE_JOB = 30;
+  SLOP_PURGE_JOB = 31;
+  UPDATE_METADATA_PAIR = 32;
+  UPDATE_STORE_DEFINITIONS = 33;
+  SET_OFFLINE_STATE = 34;
+  GET_RO_STORAGE_FILE_LIST = 35;
+  GET_RO_COMPRESSION_CODEC_LIST = 36;
+  LIST_SCHEDULED_JOBS = 37;
+  GET_SCHEDULED_JOB_STATUS = 38;
+  STOP_SCHEDULED_JOB = 39;
+  ENABLE_SCHEDULED_JOB = 40;
 }
 
 message VoldemortAdminRequest {
@@ -341,7 +476,19 @@ message VoldemortAdminRequest {
   optional GetROStorageFormatRequest get_ro_storage_format = 25;
   optional RebalanceStateChangeRequest rebalance_state_change = 26;
   optional RepairJobRequest repair_job = 27;  
-  optional InitiateRebalanceNodeOnDonorRequest initiate_rebalance_node_on_donor = 28;
+  // optional InitiateRebalanceNodeOnDonorRequest initiate_rebalance_node_on_donor = 28;
   optional DeleteStoreRebalanceStateRequest delete_store_rebalance_state = 29;
   optional NativeBackupRequest native_backup = 30;
+  optional ReserveMemoryRequest reserve_memory = 31;
+  optional PruneJobRequest prune_job = 32;
+  optional SlopPurgeJobRequest slop_purge_job = 33;
+  optional UpdateMetadataPairRequest update_metadata_pair = 34;
+  optional UpdateStoreDefinitions update_store_definitions = 35;
+  optional SetOfflineStateRequest set_offline_state = 36;
+  optional GetROStorageFileListRequest get_ro_storage_file_list = 37;
+  optional GetROStorageCompressionCodecListRequest get_ro_compression_codec_list = 38;
+  optional ListScheduledJobsRequest list_scheduled_jobs = 39;
+  optional GetScheduledJobStatusRequest get_scheduled_job_status = 40;
+  optional StopScheduledJobRequest stop_scheduled_job = 41;
+  optional EnableScheduledJobRequest enable_scheduled_job = 42;
 }

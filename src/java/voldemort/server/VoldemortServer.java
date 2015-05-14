@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -33,27 +33,34 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.common.service.AbstractService;
+import voldemort.common.service.SchedulerService;
+import voldemort.common.service.ServiceType;
+import voldemort.common.service.VoldemortService;
+import voldemort.rest.server.RestService;
 import voldemort.server.gossip.GossipService;
 import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
+import voldemort.server.protocol.ClientRequestHandlerFactory;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
-import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.RebalanceUtils;
+import voldemort.utils.JNAUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 /**
  * This is the main server, it bootstraps all the services.
@@ -70,39 +77,66 @@ public class VoldemortServer extends AbstractService {
     private final static int ASYNC_REQUEST_CACHE_SIZE = 64;
 
     private final Node identityNode;
-    private final List<VoldemortService> services;
+    private final List<VoldemortService> basicServices;
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
     private final MetadataStore metadata;
+    private List<VoldemortService> onlineServices;
     private AsyncOperationService asyncService;
+    private StorageService storageService;
+    private JmxService jmxService;
 
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
-        this.storeRepository = new StoreRepository();
+        this.storeRepository = new StoreRepository(config.isJmxEnabled());
         this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
                                                         voldemortConfig.getNodeId());
         this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
         this.checkHostName();
-        this.services = createServices();
+        this.validateRestServiceConfiguration();
+        this.basicServices = createBasicServices();
+        createOnlineServices();
     }
 
+    /**
+     * Constructor is used exclusively by tests. I.e., this is not a code path
+     * that is exercised in production.
+     * 
+     * @param config
+     * @param cluster
+     */
     public VoldemortServer(VoldemortConfig config, Cluster cluster) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
+
         this.checkHostName();
-        this.storeRepository = new StoreRepository();
+        this.validateRestServiceConfiguration();
+        this.storeRepository = new StoreRepository(config.isJmxEnabled());
         // update cluster details in metaDataStore
         ConfigurationStorageEngine metadataInnerEngine = new ConfigurationStorageEngine("metadata-config-store",
                                                                                         voldemortConfig.getMetadataDirectory());
-        // transforms are not required here
+        
+        List<Versioned<String>> clusterXmlValue = metadataInnerEngine.get(MetadataStore.CLUSTER_KEY,
+                                                                          null);
+
+        VectorClock version = null;
+        if(clusterXmlValue.size() <= 0) {
+            version = new VectorClock();
+        } else {
+            version = (VectorClock) clusterXmlValue.get(0).getVersion();
+        }
+        version.incrementVersion(voldemortConfig.getNodeId(), System.currentTimeMillis());
+
         metadataInnerEngine.put(MetadataStore.CLUSTER_KEY,
-                                new Versioned<String>(new ClusterMapper().writeCluster(cluster)),
+                                new Versioned<String>(new ClusterMapper().writeCluster(cluster),
+                                                      version),
                                 null);
         this.metadata = new MetadataStore(metadataInnerEngine, voldemortConfig.getNodeId());
 
-        this.services = createServices();
+        this.basicServices = createBasicServices();
+        createOnlineServices();
     }
 
     public AsyncOperationService getAsyncRunner() {
@@ -111,8 +145,25 @@ public class VoldemortServer extends AbstractService {
 
     /**
      * Compare the configured hostname with all the ip addresses and hostnames
-     * for the server node, and log a warning if there is a mismatch
+     * for the server node, and log a warning if there is a mismatch.
+     * 
      */
+    // TODO: VoldemortServer should throw exception if cluster xml, node id, and
+    // server's state are not all mutually consistent.
+    //
+    // "I attempted to do this in the past. In practice its hard since the
+    // hostname strings returned may not exactly match what's in cluster.xml
+    // (ela4-app0000.prod vs ela4-app0000.prod.linkedin.com). And for folks
+    // running with multiple interfaces and stuff in the open source world, not
+    // sure how it would fan out..
+    //
+    // I am in favour of doing this though.. May be implement a server config,
+    // "strict.hostname.check.on.startup" which is false by default and true for
+    // our environments and our SRE makes sure there is an exact match?" --
+    // VChandar
+    //
+    // "Strict host name doesn't work? We can always trim the rest before the comparison."
+    // -- LGao
     private void checkHostName() {
         try {
             HashSet<String> ipAddrList = new HashSet<String>();
@@ -142,57 +193,90 @@ public class VoldemortServer extends AbstractService {
         }
     }
 
-    private List<VoldemortService> createServices() {
+    /**
+     * To start Rest Service two parameters need to be set: 1) set
+     * "enable.rest=true" in server.properties 2) set "<rest-port>" in
+     * cluster.xml. If rest Service is enabled without setting <rest-port>, the
+     * system exits with an error log.
+     */
+    private void validateRestServiceConfiguration() {
+        boolean isRestEnabled = voldemortConfig.isRestServiceEnabled();
+        boolean isRestPortDefined = (identityNode.getRestPort() != -1) ? true : false;
+        if(isRestEnabled != isRestPortDefined) {
+            if(isRestEnabled) {
+                logger.error("Rest Service is enabled without defining \"rest-port\" in cluster.xml");
+                System.exit(-1);
+            } else {
+                logger.warn("\"rest-port\" is defined in cluster.xml but Rest service is not enabled.");
+            }
+        }
+    }
+
+    public void createOnlineServices() {
+        onlineServices = Lists.newArrayList();
+        if(voldemortConfig.isHttpServerEnabled()) {
+            /*
+             * TODO REST-Server 1. Need to decide on replacing HttpService
+             */
+            HttpService httpService = new HttpService(this,
+                                                      storageService,
+                                                      storeRepository,
+                                                      RequestFormatType.VOLDEMORT_V1,
+                                                      voldemortConfig.getMaxThreads(),
+                                                      identityNode.getHttpPort());
+            onlineServices.add(httpService);
+        }
+        if(voldemortConfig.isRestServiceEnabled()) {
+            RestService restService = new RestService(voldemortConfig,
+                                                      identityNode.getRestPort(),
+                                                      storeRepository,
+                                                      identityNode.getZoneId(),
+                                                      metadata.getStoreDefList());
+            onlineServices.add(restService);
+
+        }
+        if(voldemortConfig.isSocketServerEnabled()) {
+
+            RequestHandlerFactory clientRequestHandlerFactory = new ClientRequestHandlerFactory(this.storeRepository);
+
+            if(voldemortConfig.getUseNioConnector()) {
+                logger.info("Using NIO Connector.");
+                NioSocketService nioSocketService = new NioSocketService(clientRequestHandlerFactory,
+                                                                         identityNode.getSocketPort(),
+                                                                         voldemortConfig.getSocketBufferSize(),
+                                                                         voldemortConfig.getNioConnectorSelectors(),
+                                                                         "nio-socket-server",
+                                                                         voldemortConfig.isJmxEnabled(),
+                                                                         voldemortConfig.getNioAcceptorBacklog());
+                onlineServices.add(nioSocketService);
+            } else {
+                logger.info("Using BIO Connector.");
+                SocketService socketService = new SocketService(clientRequestHandlerFactory,
+                                                                identityNode.getSocketPort(),
+                                                                voldemortConfig.getCoreThreads(),
+                                                                voldemortConfig.getMaxThreads(),
+                                                                voldemortConfig.getSocketBufferSize(),
+                                                                "socket-server",
+                                                                voldemortConfig.isJmxEnabled());
+                onlineServices.add(socketService);
+            }
+        }
+    }
+
+    private List<VoldemortService> createBasicServices() {
 
         /* Services are given in the order they must be started */
         List<VoldemortService> services = new ArrayList<VoldemortService>();
         SchedulerService scheduler = new SchedulerService(voldemortConfig.getSchedulerThreads(),
-                                                          SystemTime.INSTANCE);
-        StorageService storageService = new StorageService(storeRepository,
-                                                           metadata,
-                                                           scheduler,
-                                                           voldemortConfig);
-
+                                                          SystemTime.INSTANCE,
+                                                          voldemortConfig.canInterruptService());
+        storageService = new StorageService(storeRepository, metadata, scheduler, voldemortConfig);
         asyncService = new AsyncOperationService(scheduler, ASYNC_REQUEST_CACHE_SIZE);
+        jmxService = null;
 
         services.add(storageService);
         services.add(scheduler);
         services.add(asyncService);
-
-        if(voldemortConfig.isHttpServerEnabled())
-            services.add(new HttpService(this,
-                                         storageService,
-                                         storeRepository,
-                                         RequestFormatType.VOLDEMORT_V1,
-                                         voldemortConfig.getMaxThreads(),
-                                         identityNode.getHttpPort()));
-        if(voldemortConfig.isSocketServerEnabled()) {
-            RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,
-                                                                                                this.storeRepository,
-                                                                                                this.metadata,
-                                                                                                this.voldemortConfig,
-                                                                                                this.asyncService,
-                                                                                                null);
-
-            if(voldemortConfig.getUseNioConnector()) {
-                logger.info("Using NIO Connector.");
-                services.add(new NioSocketService(socketRequestHandlerFactory,
-                                                  identityNode.getSocketPort(),
-                                                  voldemortConfig.getSocketBufferSize(),
-                                                  voldemortConfig.getNioConnectorSelectors(),
-                                                  "nio-socket-server",
-                                                  voldemortConfig.isJmxEnabled()));
-            } else {
-                logger.info("Using BIO Connector.");
-                services.add(new SocketService(socketRequestHandlerFactory,
-                                               identityNode.getSocketPort(),
-                                               voldemortConfig.getCoreThreads(),
-                                               voldemortConfig.getMaxThreads(),
-                                               voldemortConfig.getSocketBufferSize(),
-                                               "socket-server",
-                                               voldemortConfig.isJmxEnabled()));
-            }
-        }
 
         if(voldemortConfig.isAdminServerEnabled()) {
             Rebalancer rebalancer = null;
@@ -211,7 +295,9 @@ public class VoldemortServer extends AbstractService {
                                                                                                      this.metadata,
                                                                                                      this.voldemortConfig,
                                                                                                      this.asyncService,
-                                                                                                     rebalancer);
+                                                                                                     scheduler,
+                                                                                                     rebalancer,
+                                                                                                     this);
 
             if(voldemortConfig.getUseNioConnector()) {
                 logger.info("Using NIO Connector for Admin Service.");
@@ -220,7 +306,8 @@ public class VoldemortServer extends AbstractService {
                                                   voldemortConfig.getAdminSocketBufferSize(),
                                                   voldemortConfig.getNioAdminConnectorSelectors(),
                                                   "admin-server",
-                                                  voldemortConfig.isJmxEnabled()));
+                                                  voldemortConfig.isJmxEnabled(),
+                                                  voldemortConfig.getNioAcceptorBacklog()));
             } else {
                 logger.info("Using BIO Connector for Admin Service.");
                 services.add(new SocketService(adminRequestHandlerFactory,
@@ -237,18 +324,49 @@ public class VoldemortServer extends AbstractService {
             services.add(new GossipService(this.metadata, scheduler, voldemortConfig));
         }
 
-        if(voldemortConfig.isJmxEnabled())
-            services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
-
+        if(voldemortConfig.isJmxEnabled()) {
+            jmxService = new JmxService(this, this.metadata.getCluster(), storeRepository, services);
+            services.add(jmxService);
+        }
+        
         return ImmutableList.copyOf(services);
+    }
+
+    public void startOnlineServices() {
+        if(jmxService != null) {
+            jmxService.registerServices(onlineServices);
+        }
+        for(VoldemortService service: onlineServices) {
+            service.start();
+        }
+    }
+
+    public List<VoldemortException> stopOnlineServices() {
+        List<VoldemortException> exceptions = Lists.newArrayList();
+        for(VoldemortService service: Utils.reversed(onlineServices)) {
+            try {
+                service.stop();
+            } catch(VoldemortException e) {
+                exceptions.add(e);
+                logger.error(e);
+            }
+        }
+        if(jmxService != null) {
+            jmxService.unregisterServices(onlineServices);
+        }
+        return exceptions;
     }
 
     @Override
     protected void startInner() throws VoldemortException {
-        logger.info("Starting " + services.size() + " services.");
+        // lock down jvm heap
+        JNAUtils.tryMlockall();
+        logger.info("Starting " + basicServices.size() + " services.");
         long start = System.currentTimeMillis();
-        for(VoldemortService service: services)
+        for(VoldemortService service: basicServices) {
             service.start();
+        }
+        startOnlineServices();
         long end = System.currentTimeMillis();
         logger.info("Startup completed in " + (end - start) + " ms.");
     }
@@ -265,7 +383,8 @@ public class VoldemortServer extends AbstractService {
 
         logger.info("Stopping services:" + getIdentityNode().getId());
         /* Stop in reverse order */
-        for(VoldemortService service: Utils.reversed(services)) {
+        exceptions.addAll(stopOnlineServices());
+        for(VoldemortService service: Utils.reversed(basicServices)) {
             try {
                 service.stop();
             } catch(VoldemortException e) {
@@ -277,6 +396,8 @@ public class VoldemortServer extends AbstractService {
 
         if(exceptions.size() > 0)
             throw exceptions.get(0);
+        // release lock of jvm heap
+        JNAUtils.tryMunlockall();
     }
 
     public static void main(String[] args) throws Exception {
@@ -316,11 +437,11 @@ public class VoldemortServer extends AbstractService {
     }
 
     public List<VoldemortService> getServices() {
-        return services;
+        return basicServices;
     }
 
     public VoldemortService getService(ServiceType type) {
-        for(VoldemortService service: services)
+        for(VoldemortService service: basicServices)
             if(service.getType().equals(type))
                 return service;
         throw new IllegalStateException(type.getDisplayName() + " has not been initialized.");
@@ -341,13 +462,15 @@ public class VoldemortServer extends AbstractService {
     @JmxOperation(description = "force restore data from replication")
     public void restoreDataFromReplication(int numberOfParallelTransfers) {
 
-        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       metadata.getCluster(),
-                                                                       numberOfParallelTransfers * 2);
+        AdminClient adminClient = AdminClient.createTempAdminClient(voldemortConfig,
+                                                                    metadata.getCluster(),
+                                                                    numberOfParallelTransfers * 2);
         try {
-            adminClient.restoreDataFromReplications(metadata.getNodeId(), numberOfParallelTransfers);
+            adminClient.restoreOps.restoreDataFromReplications(metadata.getNodeId(),
+                                                               numberOfParallelTransfers);
         } finally {
-            adminClient.stop();
+            adminClient.close();
         }
     }
+
 }

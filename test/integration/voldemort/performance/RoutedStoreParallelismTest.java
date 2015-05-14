@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 LinkedIn, Inc
+ * Copyright 2010-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -28,9 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.cluster.failuredetector.MutableStoreVerifier;
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Cluster;
@@ -39,14 +37,15 @@ import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
+import voldemort.cluster.failuredetector.MutableStoreConnectionVerifier;
 import voldemort.server.StoreRepository;
-import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.SleepyStore;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.routed.RoutedStore;
+import voldemort.store.routed.RoutedStoreConfig;
 import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -101,7 +100,9 @@ public class RoutedStoreParallelismTest {
               .ofType(Integer.class);
         parser.accepts("num-clients",
                        "The number of threads to make requests concurrently  Default = "
-                               + DEFAULT_NUM_CLIENTS).withRequiredArg().ofType(Integer.class);
+                               + DEFAULT_NUM_CLIENTS)
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts("routed-store-type",
                        "Type of routed store, either \"" + THREAD_POOL_ROUTED_STORE + "\" or \""
                                + PIPELINE_ROUTED_STORE + "\"  Default = "
@@ -123,9 +124,6 @@ public class RoutedStoreParallelismTest {
         int numSlowNodes = CmdUtils.valueOf(options, "num-slow-nodes", DEFAULT_NUM_SLOW_NODES);
         int delay = CmdUtils.valueOf(options, "delay", DEFAULT_DELAY);
         int numClients = CmdUtils.valueOf(options, "num-clients", DEFAULT_NUM_CLIENTS);
-        String routedStoreType = CmdUtils.valueOf(options,
-                                                  "routed-store-type",
-                                                  DEFAULT_ROUTED_STORE_TYPE);
 
         System.err.println("num-keys : " + numKeys);
         System.err.println("max-connections : " + maxConnectionsPerNode);
@@ -134,20 +132,10 @@ public class RoutedStoreParallelismTest {
         System.err.println("num-slow-nodes : " + numSlowNodes);
         System.err.println("delay : " + delay);
         System.err.println("num-clients : " + numClients);
-        System.err.println("routed-store-type : " + routedStoreType);
 
         ClientConfig clientConfig = new ClientConfig().setMaxConnectionsPerNode(maxConnectionsPerNode)
                                                       .setMaxThreads(maxThreads);
 
-        Map<Integer, VoldemortServer> serverMap = new HashMap<Integer, VoldemortServer>();
-
-        int[][] partitionMap = new int[numNodes][1];
-
-        for(int i = 0; i < numNodes; i++) {
-            partitionMap[i][0] = i;
-        }
-
-        Cluster cluster = ServerTestUtils.getLocalCluster(numNodes, partitionMap);
         String storeDefinitionFile = "test/common/voldemort/config/single-store.xml";
         StoreDefinition storeDefinition = new StoreDefinitionsMapper().readStoreList(new File(storeDefinitionFile))
                                                                       .get(0);
@@ -159,31 +147,31 @@ public class RoutedStoreParallelismTest {
                                                                               clientConfig.getSocketBufferSize(),
                                                                               clientConfig.getSocketKeepAlive());
 
+        VoldemortServer[] servers = new VoldemortServer[numNodes];
+        int[][] partitionMap = new int[numNodes][1];
+        for(int i = 0; i < numNodes; i++) {
+            partitionMap[i][0] = i;
+        }
+        Cluster cluster = ServerTestUtils.startVoldemortCluster(numNodes,
+                                                                servers,
+                                                                partitionMap,
+                                                                socketStoreFactory,
+                                                                true,
+                                                                null,
+                                                                storeDefinitionFile,
+                                                                new Properties());
+
+        Map<Integer, VoldemortServer> serverMap = new HashMap<Integer, VoldemortServer>();
         for(int i = 0; i < cluster.getNumberOfNodes(); i++) {
-            VoldemortConfig config = ServerTestUtils.createServerConfig(true,
-                                                                        i,
-                                                                        TestUtils.createTempDir()
-                                                                                 .getAbsolutePath(),
-                                                                        null,
-                                                                        storeDefinitionFile,
-                                                                        new Properties());
-
-            VoldemortServer server = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                          config,
-                                                                          cluster);
-            serverMap.put(i, server);
-
+            serverMap.put(i, servers[i]);
             Store<ByteArray, byte[], byte[]> store = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test-sleepy");
-
             if(i < numSlowNodes)
                 store = new SleepyStore<ByteArray, byte[], byte[]>(delay, store);
-
-            StoreRepository storeRepository = server.getStoreRepository();
+            StoreRepository storeRepository = servers[i].getStoreRepository();
             storeRepository.addLocalStore(store);
         }
 
         Map<Integer, Store<ByteArray, byte[], byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
-
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[], byte[]> socketStore = ServerTestUtils.getSocketStore(socketStoreFactory,
                                                                                           "test-sleepy",
@@ -193,21 +181,19 @@ public class RoutedStoreParallelismTest {
         }
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(BannagePeriodFailureDetector.class.getName())
-                                                                                 .setNodes(cluster.getNodes())
-                                                                                 .setStoreVerifier(MutableStoreVerifier.create(stores));
+                                                                                 .setCluster(cluster)
+                                                                                 .setConnectionVerifier(MutableStoreConnectionVerifier.create(stores));
         FailureDetector failureDetector = FailureDetectorUtils.create(failureDetectorConfig, false);
 
         ExecutorService routedStoreThreadPool = Executors.newFixedThreadPool(clientConfig.getMaxThreads());
-        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreType.trim()
-                                                                                      .equalsIgnoreCase(PIPELINE_ROUTED_STORE),
-                                                                       routedStoreThreadPool,
-                                                                       clientConfig.getRoutingTimeout(TimeUnit.MILLISECONDS));
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreThreadPool);
+        RoutedStoreConfig routedStoreConfig = new RoutedStoreConfig(clientConfig);
 
         final RoutedStore routedStore = routedStoreFactory.create(cluster,
                                                                   storeDefinition,
                                                                   stores,
-                                                                  true,
-                                                                  failureDetector);
+                                                                  failureDetector,
+                                                                  routedStoreConfig);
 
         ExecutorService runner = Executors.newFixedThreadPool(numClients);
         long start = System.nanoTime();
@@ -223,7 +209,7 @@ public class RoutedStoreParallelismTest {
                             try {
                                 routedStore.get(key, null);
                             } catch(VoldemortException e) {
-                                // 
+                                //
                             }
                         }
                     }

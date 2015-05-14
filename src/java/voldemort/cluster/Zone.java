@@ -1,24 +1,27 @@
 package voldemort.cluster;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 
-public class Zone implements Serializable {
+public class Zone implements Serializable, Comparable<Zone> {
 
     private static final long serialVersionUID = 1;
     public static final int DEFAULT_ZONE_ID = 0;
+    public static final int UNSET_ZONE_ID = -1;
 
     private int zoneId;
-    private LinkedList<Integer> proximityList;
+    private List<Integer> proximityList;
 
-    public Zone(int zoneId, LinkedList<Integer> proximityList) {
+    public Zone(int zoneId, List<Integer> proximityList) {
         this.zoneId = zoneId;
-        this.proximityList = proximityList;
+        this.proximityList = new ArrayList<Integer>(proximityList);
     }
 
     public Zone() {
-        this.zoneId = 0;
+        this.zoneId = DEFAULT_ZONE_ID;
         this.proximityList = new LinkedList<Integer>();
     }
 
@@ -58,6 +61,11 @@ public class Zone implements Serializable {
     }
 
     @Override
+    public int compareTo(Zone other) {
+        return Integer.valueOf(this.zoneId).compareTo(other.getId());
+    }
+
+    @Override
     public int hashCode() {
         return getId() ^ getProximityList().size();
     }
@@ -66,7 +74,7 @@ public class Zone implements Serializable {
         return this.zoneId;
     }
 
-    public LinkedList<Integer> getProximityList() {
+    public List<Integer> getProximityList() {
         return proximityList;
     }
 }

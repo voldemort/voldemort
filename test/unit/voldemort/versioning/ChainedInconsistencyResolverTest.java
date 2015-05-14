@@ -1,18 +1,32 @@
+/*
+ * Copyright 2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.versioning;
 
+import static org.junit.Assert.assertEquals;
+
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import junit.framework.TestCase;
-
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
-import voldemort.VoldemortTestConstants;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
@@ -30,50 +44,33 @@ import voldemort.utils.ByteArray;
  * Test to ensure that the TimeBasedInconsistencyResolver returns a max Vector
  * clock with the max timestamp.
  */
-public class ChainedInconsistencyResolverTest extends TestCase {
+public class ChainedInconsistencyResolverTest {
 
     private static final String KEY = "XYZ";
     private Versioned<String> v1, v2;
     private Versioned<String> conflict1, conflict2, conflict3, conflict4, conflict5, conflict6;
 
-    private Node node;
-    private Cluster cluster;
     private StoreClient<String, String> defaultStoreClient;
     private Store<ByteArray, byte[], byte[]> socketStore;
-    private List<VoldemortServer> servers;
     private final SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                         10000,
                                                                                         100000,
                                                                                         32 * 1024);
-    private final boolean useNio = false;
     private static final String STORES_XML = "test/common/voldemort/config/single-store.xml";
 
-    @Override
+    @Before
     public void setUp() throws IOException {
-        VoldemortTestConstants.getSingleStoreDefinitionsXml();
-        this.cluster = ServerTestUtils.getLocalCluster(2);
-        this.node = cluster.getNodes().iterator().next();
-        String bootstrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
-        StoreClientFactory storeClientFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
-        servers = new ArrayList<VoldemortServer>();
-        servers.add(ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                         ServerTestUtils.createServerConfig(useNio,
-                                                                                            0,
-                                                                                            TestUtils.createTempDir()
-                                                                                                     .getAbsolutePath(),
-                                                                                            null,
-                                                                                            STORES_XML,
-                                                                                            new Properties()),
-                                                         cluster));
-        servers.add(ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                         ServerTestUtils.createServerConfig(useNio,
-                                                                                            1,
-                                                                                            TestUtils.createTempDir()
-                                                                                                     .getAbsolutePath(),
-                                                                                            null,
-                                                                                            STORES_XML,
-                                                                                            new Properties()),
-                                                         cluster));
+        boolean useNio = false;
+        int numServers = 2;
+        VoldemortServer[] servers = new VoldemortServer[numServers];
+        Cluster cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                                servers,
+                                                                null,
+                                                                socketStoreFactory,
+                                                                useNio,
+                                                                null,
+                                                                STORES_XML,
+                                                                new Properties());
 
         // Initialize versioned puts for basic test
         v1 = getVersioned(0, 1, 1, 1, 1, 1);
@@ -87,6 +84,10 @@ public class ChainedInconsistencyResolverTest extends TestCase {
         conflict5 = getVersioned(0, 0, 0, 0, 0, 1, 1, 1, 1, 1);
         conflict6 = getVersioned(0, 0, 0, 0, 0, 0, 1, 1, 1, 1);
 
+        Node node = cluster.getNodes().iterator().next();
+        String bootstrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
+        StoreClientFactory storeClientFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
+
         defaultStoreClient = storeClientFactory.getStoreClient("test");
         socketStore = ServerTestUtils.getSocketStore(socketStoreFactory,
                                                      "test",
@@ -94,7 +95,6 @@ public class ChainedInconsistencyResolverTest extends TestCase {
                                                      RequestFormatType.VOLDEMORT_V1);
     }
 
-    @Override
     @After
     public void tearDown() throws Exception {
         socketStore.close();

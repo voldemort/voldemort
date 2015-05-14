@@ -17,10 +17,10 @@
 package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 
 import voldemort.VoldemortException;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
 import voldemort.store.StoreTimeoutException;
 import voldemort.store.UnreachableStoreException;
 
@@ -43,11 +43,13 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
 
     private volatile boolean isTimedOut = false;
 
-    protected abstract void formatRequestInternal(DataOutputStream outputStream) throws IOException;
+    protected abstract void formatRequestInternal(ByteBufferBackedOutputStream outputStream)
+            throws IOException;
 
     protected abstract T parseResponseInternal(DataInputStream inputStream) throws IOException;
 
-    public boolean formatRequest(DataOutputStream outputStream) {
+    @Override
+    public boolean formatRequest(ByteBufferBackedOutputStream outputStream) {
         try {
             formatRequestInternal(outputStream);
         } catch(IOException e) {
@@ -61,6 +63,12 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
         return true;
     }
 
+    @Override
+    public void reportException(IOException e) {
+        error = e;
+    }
+
+    @Override
     public void parseResponse(DataInputStream inputStream) {
         try {
             result = parseResponseInternal(inputStream);
@@ -73,7 +81,16 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
         }
     }
 
-    public T getResult() throws VoldemortException, IOException {
+    @Override
+    public T getResult() throws UnreachableStoreException {
+
+        if(error != null) {
+            if(error instanceof IOException)
+                throw new UnreachableStoreException("Error while executing client operation", error);
+            else if(error instanceof VoldemortException)
+                throw (VoldemortException) error;
+        }
+
         if(isTimedOut)
             throw new StoreTimeoutException("Request timed out");
 
@@ -83,26 +100,25 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
         if(!isParsed)
             throw new UnreachableStoreException("Client response not read/parsed, cannot determine result");
 
-        if(error instanceof IOException)
-            throw (IOException) error;
-        else if(error instanceof VoldemortException)
-            throw (VoldemortException) error;
-
         return result;
     }
 
+    @Override
     public final void complete() {
         isComplete = true;
     }
 
+    @Override
     public boolean isComplete() {
         return isComplete;
     }
 
+    @Override
     public final void timeOut() {
         isTimedOut = true;
     }
 
+    @Override
     public boolean isTimedOut() {
         return isTimedOut;
     }

@@ -21,7 +21,6 @@ import static voldemort.TestUtils.bytesEqual;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.Semaphore;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
@@ -32,12 +31,13 @@ import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.FailingStore;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
-import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.slop.Slop.Operation;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
@@ -46,7 +46,7 @@ import com.google.common.collect.Lists;
 
 public class BlockingSlopPusherTest extends TestCase {
 
-    private final static String STORE_NAME = "test";
+    private final static String STORE_NAME = "test0";
 
     private BlockingSlopPusherJob pusher;
     private StoreRepository repo;
@@ -70,7 +70,7 @@ public class BlockingSlopPusherTest extends TestCase {
                                            metadataStore,
                                            new NoopFailureDetector(),
                                            new VoldemortConfig(props),
-                                           new Semaphore(1));
+                                           new ScanPermitWrapper(1));
     }
 
     private Cluster makeCluster(int numNodes) {

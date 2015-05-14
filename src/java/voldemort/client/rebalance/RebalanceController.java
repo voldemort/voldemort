@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,35 +16,38 @@
 
 package voldemort.client.rebalance;
 
-import java.io.File;
-import java.io.StringReader;
 import java.text.DecimalFormat;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.task.DonorBasedRebalanceTask;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.rebalance.task.RebalanceTask;
 import voldemort.client.rebalance.task.StealerBasedRebalanceTask;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
-import voldemort.utils.Time;
+import voldemort.utils.StoreDefinitionUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
-import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.TreeMultimap;
 
+/**
+ * Executes a RebalancePlan.
+ * 
+ */
 public class RebalanceController {
 
     private static final Logger logger = Logger.getLogger(RebalanceController.class);
@@ -52,345 +55,284 @@ public class RebalanceController {
     private static final DecimalFormat decimalFormatter = new DecimalFormat("#.##");
 
     private final AdminClient adminClient;
-    private final RebalanceClientConfig rebalanceConfig;
+    private final Cluster currentCluster;
+    private final List<StoreDefinition> currentStoreDefs;
+    public final static int MAX_PARALLEL_REBALANCING = Integer.MAX_VALUE;
+    public final static long PROXY_PAUSE_IN_SECONDS = TimeUnit.MINUTES.toSeconds(5);
 
-    public RebalanceController(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
-        this.adminClient = new AdminClient(bootstrapUrl, rebalanceConfig);
-        this.rebalanceConfig = rebalanceConfig;
-    }
+    private final int maxParallelRebalancing;
+    private final long proxyPauseSec;
 
-    public RebalanceController(Cluster cluster, RebalanceClientConfig config) {
-        this.adminClient = new AdminClient(cluster, config);
-        this.rebalanceConfig = config;
+    public RebalanceController(String bootstrapUrl,
+                               int maxParallelRebalancing,
+                               long proxyPauseSec) {
+        this.adminClient = new AdminClient(bootstrapUrl,
+                                           new AdminClientConfig(),
+                                           new ClientConfig());
+        Pair<Cluster, List<StoreDefinition>> pair = getCurrentClusterState();
+        this.currentCluster = pair.getFirst();
+        this.currentStoreDefs = pair.getSecond();
+
+        this.maxParallelRebalancing = maxParallelRebalancing;
+        this.proxyPauseSec = proxyPauseSec;
     }
 
     /**
-     * Grabs the latest cluster definition
-     * {@link #rebalance(voldemort.cluster.Cluster, voldemort.cluster.Cluster)}
+     * Probe the existing cluster to retrieve the current cluster xml and stores
+     * xml.
      * 
-     * @param targetCluster Target cluster metadata
+     * @return Pair of Cluster and List<StoreDefinition> from current cluster.
      */
-    public void rebalance(final Cluster targetCluster) {
+    private Pair<Cluster, List<StoreDefinition>> getCurrentClusterState() {
 
         // Retrieve the latest cluster metadata from the existing nodes
-        Versioned<Cluster> currentVersionedCluster = RebalanceUtils.getLatestCluster(RebalanceUtils.getNodeIds(Lists.newArrayList(adminClient.getAdminClientCluster()
-                                                                                                                                             .getNodes())),
-                                                                                     adminClient);
-        Cluster currentCluster = currentVersionedCluster.getValue();
-
-        // Start the rebalance with the current cluster + target cluster
-        rebalance(currentCluster, targetCluster);
+        Versioned<Cluster> currentVersionedCluster = adminClient.rebalanceOps.getLatestCluster(Utils.nodeListToNodeIdList(Lists.newArrayList(adminClient.getAdminClientCluster()
+                                                                                                                                                        .getNodes())));
+        Cluster cluster = currentVersionedCluster.getValue();
+        List<StoreDefinition> storeDefs = adminClient.rebalanceOps.getCurrentStoreDefinitions(cluster);
+        return new Pair<Cluster, List<StoreDefinition>>(cluster, storeDefs);
     }
 
     /**
-     * Grabs the store definition and calls
-     * {@link #rebalance(voldemort.cluster.Cluster, voldemort.cluster.Cluster, java.util.List)}
+     * Construct a plan for the specified final cluster/stores & batchSize given
+     * the current cluster/stores & configuration of the RebalanceController.
      * 
-     * @param currentCluster Current cluster metadata
-     * @param targetCluster Target cluster metadata
+     * @param finalCluster
+     * @param finalStoreDefs Needed for zone expansion/shrinking.
+     * @param batchSize
+     * @return RebalancePlan comprised of one or more batches.
      */
-    public void rebalance(Cluster currentCluster, final Cluster targetCluster) {
+    public RebalancePlan getPlan(Cluster finalCluster,
+                                 List<StoreDefinition> finalStoreDefs,
+                                 int batchSize) {
+        RebalanceUtils.validateClusterStores(finalCluster, finalStoreDefs);
+        // If an interim cluster is needed, then currentCluster should be an
+        // interim cluster! I.e., it should include new nodes/zones without any
+        // partitions assigned to them.
+        RebalanceUtils.validateInterimFinalCluster(currentCluster, finalCluster);
 
-        // Make admin client point to this updated current cluster
-        adminClient.setAdminClientCluster(targetCluster);
-
-        // Retrieve list of stores + check for that all are consistent
-        List<StoreDefinition> storeDefs = RebalanceUtils.getStoreDefinition(targetCluster,
-                                                                            adminClient);
-
-        rebalance(currentCluster, targetCluster, storeDefs);
+        String outputDir = null;
+        return new RebalancePlan(currentCluster,
+                                 currentStoreDefs,
+                                 finalCluster,
+                                 finalStoreDefs,
+                                 batchSize,
+                                 outputDir);
     }
 
     /**
-     * Does basic verification of the metadata + server state. Finally starts
-     * the rebalancing.
+     * Construct a plan for the specified final cluster & batchSize given the
+     * current cluster/stores & configuration of the RebalanceController.
      * 
-     * @param currentCluster The cluster currently used on each node
-     * @param targetCluster The desired cluster after rebalance
-     * @param storeDefs Stores to rebalance
+     * @param finalCluster
+     * @param batchSize
+     * @return RebalancePlan comprised of one or more batches.
      */
-    public void rebalance(Cluster currentCluster,
-                          final Cluster targetCluster,
-                          List<StoreDefinition> storeDefs) {
-
-        logger.info("Current cluster : " + currentCluster);
-        logger.info("Final target cluster : " + targetCluster);
-        logger.info("Show plan : " + rebalanceConfig.isShowPlanEnabled());
-        logger.info("Delete post rebalancing : "
-                    + rebalanceConfig.isDeleteAfterRebalancingEnabled());
-        logger.info("Stealer based rebalancing : " + rebalanceConfig.isStealerBasedRebalancing());
-        logger.info("Primary partition batch size : "
-                    + rebalanceConfig.getPrimaryPartitionBatchSize());
-
-        // Filter the store definitions to a set rebalancing can support
-        storeDefs = RebalanceUtils.validateRebalanceStore(storeDefs);
-
-        // Add all new nodes to a 'new current cluster'
-        Cluster newCurrentCluster = RebalanceUtils.getClusterWithNewNodes(currentCluster,
-                                                                          targetCluster);
-
-        // Make admin client point to this updated current cluster
-        adminClient.setAdminClientCluster(newCurrentCluster);
-
-        // Do some verification
-        if(!rebalanceConfig.isShowPlanEnabled()) {
-
-            // Now validate that all the nodes ( new + old ) are in normal state
-            RebalanceUtils.validateClusterState(newCurrentCluster, adminClient);
-
-            // Verify all old RO stores exist at version 2
-            RebalanceUtils.validateReadOnlyStores(newCurrentCluster, storeDefs, adminClient);
-
-            // Propagate the updated cluster metadata to everyone
-            logger.info("Propagating new cluster " + newCurrentCluster + " to all nodes");
-            RebalanceUtils.propagateCluster(adminClient, newCurrentCluster);
-
-        }
-
-        rebalancePerClusterTransition(newCurrentCluster, targetCluster, storeDefs);
+    public RebalancePlan getPlan(Cluster finalCluster, int batchSize) {
+        return getPlan(finalCluster, currentStoreDefs, batchSize);
     }
 
     /**
-     * Rebalance on a step-by-step transitions from cluster.xml to
-     * target-cluster.xml
+     * Validate the plan, validate the cluster, and then kick off rebalance.
      * 
-     * <br>
-     * 
-     * Each transition represents the migration of one primary partition (
-     * {@link #rebalancePerPartitionTransition(int, OrderedClusterTransition)} )
-     * along with all its side effect ( i.e. migration of replicas + deletions
-     * ).
-     * 
-     * 
-     * @param currentCluster The normalized cluster. This cluster contains new
-     *        nodes with empty partitions as well
-     * @param targetCluster The desired cluster after rebalance
-     * @param storeDefs Stores to rebalance
+     * @param rebalancePlan
      */
-    private void rebalancePerClusterTransition(Cluster currentCluster,
-                                               final Cluster targetCluster,
-                                               final List<StoreDefinition> storeDefs) {
-        // Mapping of stealer node to list of primary partitions being moved
-        final TreeMultimap<Integer, Integer> stealerToStolenPrimaryPartitions = TreeMultimap.create();
+    public void rebalance(final RebalancePlan rebalancePlan) {
+        validateRebalancePlanState(rebalancePlan);
+        validateClusterForRebalance(rebalancePlan);
+        executePlan(rebalancePlan);
+    }
 
-        // Creates the same mapping as above for dry run
-        final TreeMultimap<Integer, Integer> stealerToStolenPrimaryPartitionsClone = TreeMultimap.create();
+    /**
+     * Validates all aspects of the plan (i.e., all config files)
+     * 
+     * @param rebalancePlan
+     */
+    private void validateRebalancePlanState(RebalancePlan rebalancePlan) {
+        logger.info("Validating rebalance plan state.");
 
-        // Various counts for progress bar
-        int numTasks = 0;
-        int numCrossZoneMoves = 0;
-        int numPrimaryPartitionMoves = 0;
+        Cluster currentCluster = rebalancePlan.getCurrentCluster();
+        List<StoreDefinition> currentStores = rebalancePlan.getCurrentStores();
+        Cluster finalCluster = rebalancePlan.getFinalCluster();
+        List<StoreDefinition> finalStores = rebalancePlan.getFinalStores();
 
-        // Used for creating clones
-        ClusterMapper mapper = new ClusterMapper();
+        RebalanceUtils.validateClusterStores(currentCluster, currentStores);
+        RebalanceUtils.validateClusterStores(finalCluster, finalStores);
+        RebalanceUtils.validateCurrentFinalCluster(currentCluster, finalCluster);
+        RebalanceUtils.validateRebalanceStore(currentStores);
+        RebalanceUtils.validateRebalanceStore(finalStores);
+    }
 
-        // Start first dry run to compute the stolen partitions
-        for(Node stealerNode: targetCluster.getNodes()) {
-            List<Integer> stolenPrimaryPartitions = RebalanceUtils.getStolenPrimaryPartitions(currentCluster,
-                                                                                              targetCluster,
-                                                                                              stealerNode.getId());
+    /**
+     * Validates deployed cluster:
+     * <ul>
+     * <li>sets local admin client to finalCluster
+     * <li>checks that all servers are currently in normal state
+     * <li>confirms read-only stores can be rebalanced.
+     * </ul>
+     * 
+     * @param rebalancePlan
+     */
+    private void validateClusterForRebalance(RebalancePlan rebalancePlan) {
+        logger.info("Validating state of deployed cluster to confirm its ready for rebalance.");
+        Cluster finalCluster = rebalancePlan.getFinalCluster();
+        List<StoreDefinition> finalStoreDefs = rebalancePlan.getFinalStores();
 
-            if(stolenPrimaryPartitions.size() > 0) {
-                numPrimaryPartitionMoves += stolenPrimaryPartitions.size();
-                stealerToStolenPrimaryPartitions.putAll(stealerNode.getId(),
-                                                        stolenPrimaryPartitions);
-                stealerToStolenPrimaryPartitionsClone.putAll(stealerNode.getId(),
-                                                             stolenPrimaryPartitions);
-            }
-        }
+        // Reset the cluster that the admin client points at
+        adminClient.setAdminClientCluster(finalCluster);
+        // Validate that all the nodes ( new + old ) are in normal state
+        adminClient.rebalanceOps.checkEachServerInNormalState(finalCluster);
+        // Verify all old RO stores exist at version 2
+        adminClient.rebalanceOps.validateReadOnlyStores(finalCluster,
+                                                        finalStoreDefs);
+    }
 
-        // Create a clone for second dry run
-        Cluster currentClusterClone = mapper.readCluster(new StringReader(mapper.writeCluster(currentCluster)));
+    /**
+     * Executes the rebalance plan. Does so batch-by-batch. Between each batch,
+     * status is dumped to logger.info.
+     * 
+     * @param rebalancePlan
+     */
+    private void executePlan(RebalancePlan rebalancePlan) {
+        logger.info("Starting to execute rebalance Plan!");
 
-        // Start second dry run to pre-compute other total statistics
-        while(!stealerToStolenPrimaryPartitionsClone.isEmpty()) {
+        int batchCount = 0;
+        int partitionStoreCount = 0;
+        long totalTimeMs = 0;
 
-            // Generate a snapshot of current initial state
-            Cluster startCluster = mapper.readCluster(new StringReader(mapper.writeCluster(currentClusterClone)));
+        List<RebalanceBatchPlan> entirePlan = rebalancePlan.getPlan();
+        int numBatches = entirePlan.size();
+        int numPartitionStores = rebalancePlan.getPartitionStoresMoved();
 
-            // Generate batches of partitions and move then over
-            int batchCompleted = 0;
-            List<Entry<Integer, Integer>> partitionsMoved = Lists.newArrayList();
-            for(Entry<Integer, Integer> stealerToPartition: stealerToStolenPrimaryPartitionsClone.entries()) {
-                partitionsMoved.add(stealerToPartition);
-                currentClusterClone = RebalanceUtils.createUpdatedCluster(currentClusterClone,
-                                                                          stealerToPartition.getKey(),
-                                                                          Lists.newArrayList(stealerToPartition.getValue()));
-                batchCompleted++;
-
-                if(batchCompleted == rebalanceConfig.getPrimaryPartitionBatchSize())
-                    break;
-            }
-
-            // Remove the partitions moved
-            for(Iterator<Entry<Integer, Integer>> partitionMoved = partitionsMoved.iterator(); partitionMoved.hasNext();) {
-                Entry<Integer, Integer> entry = partitionMoved.next();
-                stealerToStolenPrimaryPartitionsClone.remove(entry.getKey(), entry.getValue());
-            }
-
-            // Generate a plan to compute the tasks
-            final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(startCluster,
-                                                                                       currentClusterClone,
-                                                                                       storeDefs,
-                                                                                       rebalanceConfig.isDeleteAfterRebalancingEnabled(),
-                                                                                       rebalanceConfig.isStealerBasedRebalancing());
-
-            numCrossZoneMoves += RebalanceUtils.getCrossZoneMoves(currentClusterClone,
-                                                                  rebalanceClusterPlan);
-            numTasks += RebalanceUtils.getTotalMoves(rebalanceClusterPlan);
-
-        }
-
-        logger.info("Total number of primary partition moves : " + numPrimaryPartitionMoves);
-        logger.info("Total number of cross zone moves : " + numCrossZoneMoves);
-        logger.info("Total number of tasks : " + numTasks);
-
-        int tasksCompleted = 0;
-        int primaryPartitionId = 0;
-        double totalTimeMs = 0.0;
-
-        // Starting the real run
-        while(!stealerToStolenPrimaryPartitions.isEmpty()) {
-
-            Cluster transitionCluster = mapper.readCluster(new StringReader(mapper.writeCluster(currentCluster)));
-
-            // Generate batches of partitions and move then over
-            int primaryPartitionBatchSize = 0;
-            List<Entry<Integer, Integer>> partitionsMoved = Lists.newArrayList();
-            for(Entry<Integer, Integer> stealerToPartition: stealerToStolenPrimaryPartitions.entries()) {
-                partitionsMoved.add(stealerToPartition);
-                transitionCluster = RebalanceUtils.createUpdatedCluster(transitionCluster,
-                                                                        stealerToPartition.getKey(),
-                                                                        Lists.newArrayList(stealerToPartition.getValue()));
-                primaryPartitionBatchSize++;
-
-                if(primaryPartitionBatchSize == rebalanceConfig.getPrimaryPartitionBatchSize())
-                    break;
-            }
-
-            // Remove the partitions moved + Prepare message to print
-            StringBuffer buffer = new StringBuffer();
-            buffer.append("Partitions being moved : ");
-            for(Iterator<Entry<Integer, Integer>> partitionMoved = partitionsMoved.iterator(); partitionMoved.hasNext();) {
-                Entry<Integer, Integer> entry = partitionMoved.next();
-                buffer.append("[ partition " + entry.getValue() + " to stealer node "
-                              + entry.getKey() + " ], ");
-                stealerToStolenPrimaryPartitions.remove(entry.getKey(), entry.getValue());
-            }
-            final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
-                                                                                       transitionCluster,
-                                                                                       storeDefs,
-                                                                                       rebalanceConfig.isDeleteAfterRebalancingEnabled(),
-                                                                                       rebalanceConfig.isStealerBasedRebalancing());
-
-            final OrderedClusterTransition orderedClusterTransition = new OrderedClusterTransition(currentCluster,
-                                                                                                   transitionCluster,
-                                                                                                   storeDefs,
-                                                                                                   rebalanceClusterPlan);
-
-            // Print message about what is being moved
-            logger.info("----------------");
-            RebalanceUtils.printLog(orderedClusterTransition.getId(), logger, buffer.toString());
-
-            // Print the transition plan
-            RebalanceUtils.printLog(orderedClusterTransition.getId(),
-                                    logger,
-                                    orderedClusterTransition.toString());
-
-            // Output the transition plan to the output directory
-            if(rebalanceConfig.hasOutputDirectory())
-                RebalanceUtils.dumpCluster(currentCluster,
-                                           transitionCluster,
-                                           new File(rebalanceConfig.getOutputDirectory()));
+        for(RebalanceBatchPlan batchPlan: entirePlan) {
+            logger.info("========  REBALANCING BATCH " + (batchCount + 1)
+                        + "  ========");
+            RebalanceUtils.printBatchLog(batchCount,
+                                         logger,
+                                         batchPlan.toString());
 
             long startTimeMs = System.currentTimeMillis();
-            rebalancePerPartitionTransition(orderedClusterTransition);
+            // ACTUALLY DO A BATCH OF REBALANCING!
+            executeBatch(batchCount, batchPlan);
             totalTimeMs += (System.currentTimeMillis() - startTimeMs);
 
-            // Update the current cluster
-            currentCluster = transitionCluster;
-
             // Bump up the statistics
-            tasksCompleted += RebalanceUtils.getTotalMoves(rebalanceClusterPlan);
-            primaryPartitionId += primaryPartitionBatchSize;
-
-            // Calculate the estimated end time
-            double estimatedTimeMs = (totalTimeMs / tasksCompleted) * (numTasks - tasksCompleted);
-
-            RebalanceUtils.printLog(orderedClusterTransition.getId(),
-                                    logger,
-                                    "Completed tasks - "
-                                            + tasksCompleted
-                                            + ". Percent done - "
-                                            + decimalFormatter.format(tasksCompleted * 100.0
-                                                                      / numTasks));
-
-            RebalanceUtils.printLog(orderedClusterTransition.getId(),
-                                    logger,
-                                    "Primary partitions left to move - "
-                                            + (numPrimaryPartitionMoves - primaryPartitionId));
-
-            RebalanceUtils.printLog(orderedClusterTransition.getId(),
-                                    logger,
-                                    "Estimated time left for completion - " + estimatedTimeMs
-                                            + " ms ( " + estimatedTimeMs / Time.MS_PER_HOUR
-                                            + " hours )");
-
+            batchCount++;
+            partitionStoreCount += batchPlan.getPartitionStoreMoves();
+            batchStatusLog(batchCount,
+                           numBatches,
+                           partitionStoreCount,
+                           numPartitionStores,
+                           totalTimeMs);
         }
-
     }
 
     /**
-     * Rebalance per partition transition - This does the actual rebalancing
-     * work required for a single primary partition move.
+     * Pretty print a progress update after each batch complete.
      * 
-     * <br>
-     * 
-     * Each operation is split into individual tasks depending on read-only or
-     * read-write migration. Read-only store migration is done first to avoid
-     * the overhead of redirecting stores
-     * 
-     * @param orderedClusterTransition The ordered cluster transition we are
-     *        going to run
+     * @param batchCount current batch
+     * @param numBatches total number of batches
+     * @param partitionStoreCount partition stores migrated
+     * @param numPartitionStores total number of partition stores to migrate
+     * @param totalTimeMs total time, in milliseconds, of execution thus far.
      */
-    private void rebalancePerPartitionTransition(final OrderedClusterTransition orderedClusterTransition) {
-        try {
-            final List<RebalancePartitionsInfo> rebalancePartitionsInfoList = orderedClusterTransition.getOrderedRebalancePartitionsInfoList();
+    private void batchStatusLog(int batchCount,
+                                int numBatches,
+                                int partitionStoreCount,
+                                int numPartitionStores,
+                                long totalTimeMs) {
+        // Calculate the estimated end time and pretty print stats
+        double rate = 1;
+        long estimatedTimeMs = 0;
+        if(numPartitionStores > 0) {
+            rate = partitionStoreCount / numPartitionStores;
+            estimatedTimeMs = (long) (totalTimeMs / rate) - totalTimeMs;
+        }
 
-            if(rebalancePartitionsInfoList.isEmpty()) {
-                RebalanceUtils.printLog(orderedClusterTransition.getId(),
-                                        logger,
-                                        "Skipping rebalance task id "
-                                                + orderedClusterTransition.getId()
-                                                + " since it is empty");
+        StringBuilder sb = new StringBuilder();
+        sb.append("Batch Complete!")
+          .append(Utils.NEWLINE)
+          .append("\tbatches moved: ")
+          .append(batchCount)
+          .append(" out of ")
+          .append(numBatches)
+          .append(Utils.NEWLINE)
+          .append("\tPartition stores moved: ")
+          .append(partitionStoreCount)
+          .append(" out of ")
+          .append(numPartitionStores)
+          .append(Utils.NEWLINE)
+          .append("\tPercent done: ")
+          .append(decimalFormatter.format(rate * 100.0))
+          .append(Utils.NEWLINE)
+          .append("\tEstimated time left: ")
+          .append(estimatedTimeMs)
+          .append(" ms (")
+          .append(TimeUnit.MILLISECONDS.toHours(estimatedTimeMs))
+          .append(" hours)");
+        RebalanceUtils.printBatchLog(batchCount, logger, sb.toString());
+    }
+
+    /**
+     * Executes a batch plan.
+     * 
+     * @param batchId Used as the ID of the batch plan. This allows related
+     *        tasks on client- & server-side to pretty print messages in a
+     *        manner that debugging can track specific batch plans across the
+     *        cluster.
+     * @param batchPlan The batch plan...
+     */
+    private void executeBatch(int batchId, final RebalanceBatchPlan batchPlan) {
+        final Cluster batchCurrentCluster = batchPlan.getCurrentCluster();
+        final List<StoreDefinition> batchCurrentStoreDefs = batchPlan.getCurrentStoreDefs();
+        final Cluster batchFinalCluster = batchPlan.getFinalCluster();
+        final List<StoreDefinition> batchFinalStoreDefs = batchPlan.getFinalStoreDefs();
+
+        try {
+            final List<RebalanceTaskInfo> rebalanceTaskInfoList = batchPlan.getBatchPlan();
+
+            if(rebalanceTaskInfoList.isEmpty()) {
+                RebalanceUtils.printBatchLog(batchId, logger, "Skipping batch "
+                                                              + batchId + " since it is empty.");
+                // Even though there is no rebalancing work to do, cluster
+                // metadata must be updated so that the server is aware of the
+                // new cluster xml.
+                adminClient.rebalanceOps.rebalanceStateChange(batchCurrentCluster,
+                                                              batchFinalCluster,
+                                                              batchCurrentStoreDefs,
+                                                              batchFinalStoreDefs,
+                                                              rebalanceTaskInfoList,
+                                                              false,
+                                                              true,
+                                                              false,
+                                                              false,
+                                                              true);
                 return;
             }
 
-            RebalanceUtils.printLog(orderedClusterTransition.getId(),
-                                    logger,
-                                    "Starting rebalance task id "
-                                            + orderedClusterTransition.getId());
-
-            // Flatten the node plans to partition plans
-            List<RebalancePartitionsInfo> rebalancePartitionPlanList = rebalancePartitionsInfoList;
+            RebalanceUtils.printBatchLog(batchId, logger, "Starting batch "
+                                                          + batchId + ".");
 
             // Split the store definitions
-            List<StoreDefinition> readOnlyStoreDefs = RebalanceUtils.filterStores(orderedClusterTransition.getStoreDefs(),
-                                                                                  true);
-            List<StoreDefinition> readWriteStoreDefs = RebalanceUtils.filterStores(orderedClusterTransition.getStoreDefs(),
-                                                                                   false);
-            boolean hasReadOnlyStores = readOnlyStoreDefs != null && readOnlyStoreDefs.size() > 0;
+            List<StoreDefinition> readOnlyStoreDefs = StoreDefinitionUtils.filterStores(batchFinalStoreDefs,
+                                                                                        true);
+            List<StoreDefinition> readWriteStoreDefs = StoreDefinitionUtils.filterStores(batchFinalStoreDefs,
+                                                                                         false);
+            boolean hasReadOnlyStores = readOnlyStoreDefs != null
+                                        && readOnlyStoreDefs.size() > 0;
             boolean hasReadWriteStores = readWriteStoreDefs != null
                                          && readWriteStoreDefs.size() > 0;
 
             // STEP 1 - Cluster state change
             boolean finishedReadOnlyPhase = false;
-            List<RebalancePartitionsInfo> filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionPlanList,
-                                                                                                                            readOnlyStoreDefs);
+            List<RebalanceTaskInfo> filteredRebalancePartitionPlanList = RebalanceUtils.filterTaskPlanWithStores(rebalanceTaskInfoList,
+                                                                                                                 readOnlyStoreDefs);
 
-            rebalanceStateChange(orderedClusterTransition.getId(),
-                                 orderedClusterTransition.getCurrentCluster(),
-                                 orderedClusterTransition.getTargetCluster(),
+            rebalanceStateChange(batchId,
+                                 batchCurrentCluster,
+                                 batchCurrentStoreDefs,
+                                 batchFinalCluster,
+                                 batchFinalStoreDefs,
                                  filteredRebalancePartitionPlanList,
                                  hasReadOnlyStores,
                                  hasReadWriteStores,
@@ -398,22 +340,27 @@ public class RebalanceController {
 
             // STEP 2 - Move RO data
             if(hasReadOnlyStores) {
-                rebalancePerTaskTransition(orderedClusterTransition.getId(),
-                                           orderedClusterTransition.getCurrentCluster(),
-                                           filteredRebalancePartitionPlanList,
-                                           hasReadOnlyStores,
-                                           hasReadWriteStores,
-                                           finishedReadOnlyPhase);
+                RebalanceBatchPlanProgressBar progressBar = batchPlan.getProgressBar(batchId);
+                executeSubBatch(batchId,
+                                progressBar,
+                                batchCurrentCluster,
+                                batchCurrentStoreDefs,
+                                filteredRebalancePartitionPlanList,
+                                hasReadOnlyStores,
+                                hasReadWriteStores,
+                                finishedReadOnlyPhase);
             }
 
             // STEP 3 - Cluster change state
             finishedReadOnlyPhase = true;
-            filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionPlanList,
-                                                                                              readWriteStoreDefs);
+            filteredRebalancePartitionPlanList = RebalanceUtils.filterTaskPlanWithStores(rebalanceTaskInfoList,
+                                                                                         readWriteStoreDefs);
 
-            rebalanceStateChange(orderedClusterTransition.getId(),
-                                 orderedClusterTransition.getCurrentCluster(),
-                                 orderedClusterTransition.getTargetCluster(),
+            rebalanceStateChange(batchId,
+                                 batchCurrentCluster,
+                                 batchCurrentStoreDefs,
+                                 batchFinalCluster,
+                                 batchFinalStoreDefs,
                                  filteredRebalancePartitionPlanList,
                                  hasReadOnlyStores,
                                  hasReadWriteStores,
@@ -421,30 +368,45 @@ public class RebalanceController {
 
             // STEP 4 - Move RW data
             if(hasReadWriteStores) {
-                rebalancePerTaskTransition(orderedClusterTransition.getId(),
-                                           orderedClusterTransition.getCurrentCluster(),
-                                           filteredRebalancePartitionPlanList,
-                                           hasReadOnlyStores,
-                                           hasReadWriteStores,
-                                           finishedReadOnlyPhase);
+                proxyPause();
+                RebalanceBatchPlanProgressBar progressBar = batchPlan.getProgressBar(batchId);
+                executeSubBatch(batchId,
+                                progressBar,
+                                batchCurrentCluster,
+                                batchCurrentStoreDefs,
+                                filteredRebalancePartitionPlanList,
+                                hasReadOnlyStores,
+                                hasReadWriteStores,
+                                finishedReadOnlyPhase);
             }
 
-            RebalanceUtils.printLog(orderedClusterTransition.getId(),
-                                    logger,
-                                    "Successfully terminated rebalance task id "
-                                            + orderedClusterTransition.getId());
+            RebalanceUtils.printBatchLog(batchId,
+                                         logger,
+                                         "Successfully terminated batch "
+                                                 + batchId + ".");
 
         } catch(Exception e) {
-            RebalanceUtils.printErrorLog(orderedClusterTransition.getId(),
-                                         logger,
-                                         "Error in rebalance task id "
-                                                 + orderedClusterTransition.getId() + " - "
-                                                 + e.getMessage(),
+            RebalanceUtils.printErrorLog(batchId, logger, "Error in batch "
+                                                          + batchId + " - " + e.getMessage(), e);
+            throw new VoldemortException("Rebalance failed on batch " + batchId,
                                          e);
-            throw new VoldemortException("Rebalance failed on rebalance task id "
-                                         + orderedClusterTransition.getId(), e);
         }
+    }
 
+    /**
+     * Pause between cluster change in metadata and starting server rebalancing
+     * work.
+     */
+    private void proxyPause() {
+        logger.info("Pausing after cluster state has changed to allow proxy bridges to be established. "
+                    + "Will start rebalancing work on servers in "
+                    + proxyPauseSec
+                    + " seconds.");
+        try {
+            Thread.sleep(TimeUnit.SECONDS.toMillis(proxyPauseSec));
+        } catch(InterruptedException e) {
+            logger.warn("Sleep interrupted in proxy pause.");
+        }
     }
 
     /**
@@ -466,87 +428,101 @@ public class RebalanceController {
      * 
      * Truth table, FTW!
      * 
-     * @param taskId Rebalancing task id
-     * @param currentCluster Current cluster
-     * @param transitionCluster Transition cluster to propagate
-     * @param rebalancePartitionPlanList List of partition plan list
+     * @param batchId Rebalancing batch id
+     * @param batchCurrentCluster Current cluster
+     * @param batchFinalCluster Transition cluster to propagate
+     * @param rebalanceTaskPlanList List of partition plan list
      * @param hasReadOnlyStores Boolean indicating if read-only stores exist
      * @param hasReadWriteStores Boolean indicating if read-write stores exist
      * @param finishedReadOnlyStores Boolean indicating if we have finished RO
      *        store migration
      */
-    private void rebalanceStateChange(final int taskId,
-                                      Cluster currentCluster,
-                                      Cluster transitionCluster,
-                                      List<RebalancePartitionsInfo> rebalancePartitionPlanList,
-                                      boolean hasReadOnlyStores,
-                                      boolean hasReadWriteStores,
-                                      boolean finishedReadOnlyStores) {
+    private void
+            rebalanceStateChange(final int batchId,
+                                 Cluster batchCurrentCluster,
+                                 List<StoreDefinition> batchCurrentStoreDefs,
+                                 Cluster batchFinalCluster,
+                                 List<StoreDefinition> batchFinalStoreDefs,
+                                 List<RebalanceTaskInfo> rebalanceTaskPlanList,
+                                 boolean hasReadOnlyStores,
+                                 boolean hasReadWriteStores,
+                                 boolean finishedReadOnlyStores) {
         try {
             if(!hasReadOnlyStores && !hasReadWriteStores) {
                 // Case 6 / 7 - no stores, exception
                 throw new VoldemortException("Cannot get this state since it means there are no stores");
-            } else if(!hasReadOnlyStores && hasReadWriteStores && !finishedReadOnlyStores) {
+            } else if(!hasReadOnlyStores && hasReadWriteStores
+                      && !finishedReadOnlyStores) {
                 // Case 5 - ignore
-                RebalanceUtils.printLog(taskId,
-                                        logger,
-                                        "Ignoring state change since there are no read-only stores");
-            } else if(!hasReadOnlyStores && hasReadWriteStores && finishedReadOnlyStores) {
+                RebalanceUtils.printBatchLog(batchId,
+                                             logger,
+                                             "Ignoring state change since there are no read-only stores");
+            } else if(!hasReadOnlyStores && hasReadWriteStores
+                      && finishedReadOnlyStores) {
                 // Case 4 - cluster change + rebalance state change
-                RebalanceUtils.printLog(taskId,
-                                        logger,
-                                        "Cluster metadata change + rebalance state change");
-                if(!rebalanceConfig.isShowPlanEnabled())
-                    adminClient.rebalanceStateChange(currentCluster,
-                                                     transitionCluster,
-                                                     rebalancePartitionPlanList,
-                                                     false,
-                                                     true,
-                                                     true,
-                                                     true,
-                                                     true);
+                RebalanceUtils.printBatchLog(batchId,
+                                             logger,
+                                             "Cluster metadata change + rebalance state change");
+                adminClient.rebalanceOps.rebalanceStateChange(batchCurrentCluster,
+                                                              batchFinalCluster,
+                                                              batchCurrentStoreDefs,
+                                                              batchFinalStoreDefs,
+                                                              rebalanceTaskPlanList,
+                                                              false,
+                                                              true,
+                                                              true,
+                                                              true,
+                                                              true);
             } else if(hasReadOnlyStores && !finishedReadOnlyStores) {
                 // Case 1 / 3 - rebalance state change
-                RebalanceUtils.printLog(taskId, logger, "Rebalance state change");
-                if(!rebalanceConfig.isShowPlanEnabled())
-                    adminClient.rebalanceStateChange(currentCluster,
-                                                     transitionCluster,
-                                                     rebalancePartitionPlanList,
-                                                     false,
-                                                     false,
-                                                     true,
-                                                     true,
-                                                     true);
-            } else if(hasReadOnlyStores && !hasReadWriteStores && finishedReadOnlyStores) {
+                RebalanceUtils.printBatchLog(batchId,
+                                             logger,
+                                             "Rebalance state change");
+                adminClient.rebalanceOps.rebalanceStateChange(batchCurrentCluster,
+                                                              batchFinalCluster,
+                                                              batchCurrentStoreDefs,
+                                                              batchFinalStoreDefs,
+                                                              rebalanceTaskPlanList,
+                                                              false,
+                                                              false,
+                                                              true,
+                                                              true,
+                                                              true);
+            } else if(hasReadOnlyStores && !hasReadWriteStores
+                      && finishedReadOnlyStores) {
                 // Case 2 - swap + cluster change
-                RebalanceUtils.printLog(taskId, logger, "Swap + Cluster metadata change");
-                if(!rebalanceConfig.isShowPlanEnabled())
-                    adminClient.rebalanceStateChange(currentCluster,
-                                                     transitionCluster,
-                                                     rebalancePartitionPlanList,
-                                                     true,
-                                                     true,
-                                                     false,
-                                                     true,
-                                                     true);
+                RebalanceUtils.printBatchLog(batchId,
+                                             logger,
+                                             "Swap + Cluster metadata change");
+                adminClient.rebalanceOps.rebalanceStateChange(batchCurrentCluster,
+                                                              batchFinalCluster,
+                                                              batchCurrentStoreDefs,
+                                                              batchFinalStoreDefs,
+                                                              rebalanceTaskPlanList,
+                                                              true,
+                                                              true,
+                                                              false,
+                                                              true,
+                                                              true);
             } else {
                 // Case 0 - swap + cluster change + rebalance state change
-                RebalanceUtils.printLog(taskId,
-                                        logger,
-                                        "Swap + Cluster metadata change + rebalance state change");
-                if(!rebalanceConfig.isShowPlanEnabled())
-                    adminClient.rebalanceStateChange(currentCluster,
-                                                     transitionCluster,
-                                                     rebalancePartitionPlanList,
-                                                     true,
-                                                     true,
-                                                     true,
-                                                     true,
-                                                     true);
+                RebalanceUtils.printBatchLog(batchId,
+                                             logger,
+                                             "Swap + Cluster metadata change + rebalance state change");
+                adminClient.rebalanceOps.rebalanceStateChange(batchCurrentCluster,
+                                                              batchFinalCluster,
+                                                              batchCurrentStoreDefs,
+                                                              batchFinalStoreDefs,
+                                                              rebalanceTaskPlanList,
+                                                              true,
+                                                              true,
+                                                              true,
+                                                              true,
+                                                              true);
             }
 
         } catch(VoldemortRebalancingException e) {
-            RebalanceUtils.printErrorLog(taskId,
+            RebalanceUtils.printErrorLog(batchId,
                                          logger,
                                          "Failure while changing rebalancing state",
                                          e);
@@ -554,6 +530,11 @@ public class RebalanceController {
         }
     }
 
+    // TODO: (refactor) Break this state-machine like method into multiple "sub"
+    // methods. AFAIK, this method either does the RO stores or the RW stores in
+    // a batch. I.e., there are at most 2 sub-batches for any given batch. And,
+    // in practice, there is one sub-batch that is either RO or RW.
+    // TODO: Fix the javadoc comment to be more easily understood.
     /**
      * The smallest granularity of rebalancing where-in we move partitions for a
      * sub-set of stores. Finally at the end of the movement, the node is
@@ -575,59 +556,56 @@ public class RebalanceController {
      * | 7 | f | f | f | won't be triggered |
      * </pre>
      * 
-     * @param taskId Rebalance task id
-     * @param currentCluster Cluster to rollback to if we have a problem
-     * @param rebalancePartitionPlanList The list of rebalance partition plans
+     * @param batchId Rebalance batch id
+     * @param batchRollbackCluster Cluster to rollback to if we have a problem
+     * @param rebalanceTaskPlanList The list of rebalance partition plans
      * @param hasReadOnlyStores Are we rebalancing any read-only stores?
      * @param hasReadWriteStores Are we rebalancing any read-write stores?
      * @param finishedReadOnlyStores Have we finished rebalancing of read-only
      *        stores?
      */
-    private void rebalancePerTaskTransition(final int taskId,
-                                            final Cluster currentCluster,
-                                            final List<RebalancePartitionsInfo> rebalancePartitionPlanList,
-                                            boolean hasReadOnlyStores,
-                                            boolean hasReadWriteStores,
-                                            boolean finishedReadOnlyStores) {
-        RebalanceUtils.printLog(taskId, logger, "Submitting rebalance tasks ");
-
-        // If only show plan, done!
-        if(rebalanceConfig.isShowPlanEnabled()) {
-            return;
-        }
+    private void
+            executeSubBatch(final int batchId,
+                            RebalanceBatchPlanProgressBar progressBar,
+                            final Cluster batchRollbackCluster,
+                            final List<StoreDefinition> batchRollbackStoreDefs,
+                            final List<RebalanceTaskInfo> rebalanceTaskPlanList,
+                            boolean hasReadOnlyStores,
+                            boolean hasReadWriteStores,
+                            boolean finishedReadOnlyStores) {
+        RebalanceUtils.printBatchLog(batchId,
+                                     logger,
+                                     "Submitting rebalance tasks ");
 
         // Get an ExecutorService in place used for submitting our tasks
-        ExecutorService service = RebalanceUtils.createExecutors(rebalanceConfig.getMaxParallelRebalancing());
+        ExecutorService service = RebalanceUtils.createExecutors(maxParallelRebalancing);
 
         // Sub-list of the above list
         final List<RebalanceTask> failedTasks = Lists.newArrayList();
         final List<RebalanceTask> incompleteTasks = Lists.newArrayList();
 
         // Semaphores for donor nodes - To avoid multiple disk sweeps
-        Semaphore[] donorPermits = new Semaphore[currentCluster.getNumberOfNodes()];
-        for(Node node: currentCluster.getNodes()) {
-            donorPermits[node.getId()] = new Semaphore(1);
+        Map<Integer, Semaphore> donorPermits = new HashMap<Integer, Semaphore>();
+        for(Node node: batchRollbackCluster.getNodes()) {
+            donorPermits.put(node.getId(), new Semaphore(1));
         }
 
         try {
             // List of tasks which will run asynchronously
-            List<RebalanceTask> allTasks = executeTasks(taskId,
+            List<RebalanceTask> allTasks = executeTasks(batchId,
+                                                        progressBar,
                                                         service,
-                                                        rebalancePartitionPlanList,
+                                                        rebalanceTaskPlanList,
                                                         donorPermits);
+            RebalanceUtils.printBatchLog(batchId,
+                                         logger,
+                                         "All rebalance tasks submitted");
 
-            // All tasks submitted.
-            RebalanceUtils.printLog(taskId,
-                                    logger,
-                                    "All rebalance tasks were submitted ( shutting down in "
-                                            + rebalanceConfig.getRebalancingClientTimeoutSeconds()
-                                            + " sec )");
-
-            // Wait and shutdown after timeout
-            RebalanceUtils.executorShutDown(service,
-                                            rebalanceConfig.getRebalancingClientTimeoutSeconds());
-
-            RebalanceUtils.printLog(taskId, logger, "Finished waiting for executors");
+            // Wait and shutdown after (infinite) timeout
+            RebalanceUtils.executorShutDown(service, Long.MAX_VALUE);
+            RebalanceUtils.printBatchLog(batchId,
+                                         logger,
+                                         "Finished waiting for executors");
 
             // Collects all failures + incomplete tasks from the rebalance
             // tasks.
@@ -660,75 +638,74 @@ public class RebalanceController {
 
         } catch(VoldemortRebalancingException e) {
 
-            logger.error("Failure while migrating partitions for rebalance task " + taskId);
+            logger.error("Failure while migrating partitions for rebalance task "
+                         + batchId);
 
-            if(hasReadOnlyStores && hasReadWriteStores && finishedReadOnlyStores) {
+            if(hasReadOnlyStores && hasReadWriteStores
+               && finishedReadOnlyStores) {
                 // Case 0
-                adminClient.rebalanceStateChange(null,
-                                                 currentCluster,
-                                                 null,
-                                                 true,
-                                                 true,
-                                                 false,
-                                                 false,
-                                                 false);
+                adminClient.rebalanceOps.rebalanceStateChange(null,
+                                                              batchRollbackCluster,
+                                                              null,
+                                                              batchRollbackStoreDefs,
+                                                              null,
+                                                              true,
+                                                              true,
+                                                              false,
+                                                              false,
+                                                              false);
             } else if(hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 4
-                adminClient.rebalanceStateChange(null,
-                                                 currentCluster,
-                                                 null,
-                                                 false,
-                                                 true,
-                                                 false,
-                                                 false,
-                                                 false);
+                adminClient.rebalanceOps.rebalanceStateChange(null,
+                                                              batchRollbackCluster,
+                                                              null,
+                                                              batchRollbackStoreDefs,
+                                                              null,
+                                                              false,
+                                                              true,
+                                                              false,
+                                                              false,
+                                                              false);
             }
 
             throw e;
 
         } finally {
             if(!service.isShutdown()) {
-                RebalanceUtils.printErrorLog(taskId,
+                RebalanceUtils.printErrorLog(batchId,
                                              logger,
                                              "Could not shutdown service cleanly for rebalance task "
-                                                     + taskId,
+                                                     + batchId,
                                              null);
                 service.shutdownNow();
             }
         }
     }
 
-    private List<RebalanceTask> executeTasks(final int taskId,
-                                             final ExecutorService service,
-                                             List<RebalancePartitionsInfo> rebalancePartitionPlanList,
-                                             Semaphore[] donorPermits) {
+    private List<RebalanceTask>
+            executeTasks(final int batchId,
+                         RebalanceBatchPlanProgressBar progressBar,
+                         final ExecutorService service,
+                         List<RebalanceTaskInfo> rebalanceTaskPlanList,
+                         Map<Integer,Semaphore> donorPermits) {
         List<RebalanceTask> taskList = Lists.newArrayList();
-        if(rebalanceConfig.isStealerBasedRebalancing()) {
-            for(RebalancePartitionsInfo partitionsInfo: rebalancePartitionPlanList) {
-                StealerBasedRebalanceTask rebalanceTask = new StealerBasedRebalanceTask(taskId,
-                                                                                        partitionsInfo,
-                                                                                        rebalanceConfig,
-                                                                                        donorPermits[partitionsInfo.getDonorId()],
-                                                                                        adminClient);
-                taskList.add(rebalanceTask);
-                service.execute(rebalanceTask);
-            }
-        } else {
-            // Group by donor nodes
-            HashMap<Integer, List<RebalancePartitionsInfo>> donorNodeBasedPartitionsInfo = RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
-                                                                                                                                    false);
-            for(Entry<Integer, List<RebalancePartitionsInfo>> entries: donorNodeBasedPartitionsInfo.entrySet()) {
-                DonorBasedRebalanceTask rebalanceTask = new DonorBasedRebalanceTask(taskId,
-                                                                                    entries.getValue(),
-                                                                                    rebalanceConfig,
-                                                                                    donorPermits[entries.getValue()
-                                                                                                        .get(0)
-                                                                                                        .getDonorId()],
-                                                                                    adminClient);
-                taskList.add(rebalanceTask);
-                service.execute(rebalanceTask);
-            }
+        int taskId = 0;
+        RebalanceScheduler scheduler = new RebalanceScheduler(service, maxParallelRebalancing);
+        List<StealerBasedRebalanceTask> sbTaskList = Lists.newArrayList();
+        for(RebalanceTaskInfo taskInfo: rebalanceTaskPlanList) {
+            StealerBasedRebalanceTask rebalanceTask = new StealerBasedRebalanceTask(batchId,
+                                                                                    taskId,
+                                                                                    taskInfo,
+                                                                                    donorPermits.get(taskInfo.getDonorId()),
+                                                                                    adminClient,
+                                                                                    progressBar,
+                                                                                    scheduler);
+            taskList.add(rebalanceTask);
+            sbTaskList.add(rebalanceTask);
+            // service.execute(rebalanceTask);
+            taskId++;
         }
+        scheduler.run(sbTaskList);
         return taskList;
     }
 
@@ -736,8 +713,16 @@ public class RebalanceController {
         return adminClient;
     }
 
+    public Cluster getCurrentCluster() {
+        return currentCluster;
+    }
+
+    public List<StoreDefinition> getCurrentStoreDefs() {
+        return currentStoreDefs;
+    }
+
     public void stop() {
-        adminClient.stop();
+        adminClient.close();
     }
 
 }

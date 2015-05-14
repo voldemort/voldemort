@@ -16,7 +16,10 @@
 
 package voldemort.store.serialized;
 
+import java.util.List;
+
 import voldemort.serialization.Serializer;
+import voldemort.server.storage.KeyLockHandle;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
@@ -53,14 +56,27 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
         return new SerializingStorageEngine<K1, V1, T1>(s, k, v, t);
     }
 
+    @Override
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         return new EntriesIterator(storageEngine.entries());
     }
 
+    @Override
     public ClosableIterator<K> keys() {
         return new KeysIterator(storageEngine.keys());
     }
 
+    @Override
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition) {
+        return new EntriesIterator(storageEngine.entries(partition));
+    }
+
+    @Override
+    public ClosableIterator<K> keys(int partition) {
+        return new KeysIterator(storageEngine.keys(partition));
+    }
+
+    @Override
     public void truncate() {
         storageEngine.truncate();
     }
@@ -73,10 +89,12 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
             this.iterator = iterator;
         }
 
+        @Override
         public boolean hasNext() {
             return iterator.hasNext();
         }
 
+        @Override
         public K next() {
             ByteArray key = iterator.next();
             if(key == null)
@@ -84,10 +102,12 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
             return getKeySerializer().toObject(key.get());
         }
 
+        @Override
         public void remove() {
             iterator.remove();
         }
 
+        @Override
         public void close() {
             iterator.close();
         }
@@ -101,10 +121,12 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
             this.iterator = iterator;
         }
 
+        @Override
         public boolean hasNext() {
             return iterator.hasNext();
         }
 
+        @Override
         public Pair<K, Versioned<V>> next() {
             Pair<ByteArray, Versioned<byte[]>> keyAndVal = iterator.next();
             if(keyAndVal == null) {
@@ -118,16 +140,58 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
 
         }
 
+        @Override
         public void remove() {
             iterator.remove();
         }
 
+        @Override
         public void close() {
             iterator.close();
         }
     }
 
+    @Override
     public boolean isPartitionAware() {
         return storageEngine.isPartitionAware();
+    }
+
+    @Override
+    public boolean isPartitionScanSupported() {
+        return storageEngine.isPartitionScanSupported();
+    }
+
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public List<Versioned<V>> multiVersionPut(K key, List<Versioned<V>> values) {
+        throw new UnsupportedOperationException("multiVersionPut is not supported for "
+                                                + this.getClass().getName());
+    }
+
+    @Override
+    public KeyLockHandle<V> getAndLock(K key) {
+        throw new UnsupportedOperationException("getAndLock is not supported for "
+                                                + this.getClass().getName());
+    }
+
+    @Override
+    public void putAndUnlock(K key, KeyLockHandle<V> handle) {
+        throw new UnsupportedOperationException("putAndUnlock is not supported for "
+                                                + this.getClass().getName());
+    }
+
+    @Override
+    public void releaseLock(KeyLockHandle<V> handle) {
+        throw new UnsupportedOperationException("releaseLock is not supported for "
+                                                + this.getClass().getName());
     }
 }

@@ -3,6 +3,7 @@ package voldemort.store.views;
 import java.util.List;
 
 import voldemort.VoldemortException;
+import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.server.StoreRepository;
@@ -34,7 +35,9 @@ public class ViewStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
+        String name = storeDef.getName();
         StoreDefinition def = StoreUtils.getStoreDef(storeDefs, name);
         String targetName = def.getViewTargetStoreName();
         StoreDefinition targetDef = StoreUtils.getStoreDef(storeDefs, targetName);
@@ -86,4 +89,12 @@ public class ViewStorageConfiguration implements StorageConfiguration {
         return (View<?, ?, ?, ?>) ReflectUtils.callConstructor(viewClass, new Object[] {});
     }
 
+    public void update(StoreDefinition storeDef) {
+        throw new UnsupportedViewOperationException("Storage config updates not permitted for "
+                                                    + this.getClass().getCanonicalName());
+    }
+
+    // Nothing to do here: we're not tracking the created storage engine.
+    @Override
+    public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {}
 }

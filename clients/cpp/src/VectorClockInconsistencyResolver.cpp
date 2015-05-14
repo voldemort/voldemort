@@ -40,14 +40,14 @@ resolveConflicts(std::list<VersionedValue>* items) const {
 
     std::list<VersionedValue> newitems;
     for (it = items->begin(); it != items->end(); ++it) {
-        VectorClock* vc1 = 
-            dynamic_cast<VectorClock*>(it->getVersion());
+        const VectorClock* vc1 = 
+            dynamic_cast<const VectorClock*>(it->getVersion());
         bool found = false;
         it2 = newitems.begin();
         while (it2 != newitems.end()) {
             bool advance = true;
-            VectorClock* vc2 = 
-                dynamic_cast<VectorClock*>(it2->getVersion());
+            const VectorClock* vc2 = 
+                dynamic_cast<const VectorClock*>(it2->getVersion());
 
             Version::Occurred o = vc1->compare(vc2);
 

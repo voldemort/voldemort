@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -24,6 +24,11 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
+
+import voldemort.VoldemortException;
 
 /**
  * Utility functions for munging on bytes
@@ -53,6 +58,9 @@ public class ByteUtils {
     public static final int MASK_00111111 = Integer.parseInt("00111111", 2);
     public static final int MASK_00011111 = Integer.parseInt("00011111", 2);
 
+    public static final int BYTES_PER_MB = 1048576;
+    public static final long BYTES_PER_GB = 1073741824;
+
     public static MessageDigest getDigest(String algorithm) {
         try {
             return MessageDigest.getInstance(algorithm);
@@ -68,17 +76,11 @@ public class ByteUtils {
      * @return The string
      */
     public static String toHexString(byte[] bytes) {
-        StringBuilder buffer = new StringBuilder();
+        return Hex.encodeHexString(bytes);
+    }
 
-        for(byte b: bytes) {
-            String hex = Integer.toHexString(b & 0xff);
-            hex = hex.substring(0, Math.min(hex.length(), 2));
-            if(hex.length() == 1) {
-                buffer.append("0");
-            }
-            buffer.append(hex);
-        }
-        return buffer.toString();
+    public static byte[] fromHexString(String hexString) throws DecoderException {
+        return Hex.decodeHex(hexString.toCharArray());
     }
 
     /**
@@ -156,6 +158,17 @@ public class ByteUtils {
     }
 
     /**
+     * Read an unsigned short from the byte array starting at the given offset
+     * 
+     * @param bytes The byte array to read from
+     * @param offset The offset to start reading at
+     * @return The short read
+     */
+    public static int readUnsignedShort(byte[] bytes, int offset) {
+        return (((bytes[offset] & 0xff) << 8) | (bytes[offset + 1] & 0xff));
+    }
+
+    /**
      * Read an int from the byte array starting at the given offset
      * 
      * @param bytes The byte array to read from
@@ -222,6 +235,18 @@ public class ByteUtils {
      * @param offset The offset to begin writing at
      */
     public static void writeShort(byte[] bytes, short value, int offset) {
+        bytes[offset] = (byte) (0xFF & (value >> 8));
+        bytes[offset + 1] = (byte) (0xFF & value);
+    }
+
+    /**
+     * Write an unsigned short to the byte array starting at the given offset
+     * 
+     * @param bytes The byte array
+     * @param value The short to write
+     * @param offset The offset to begin writing at
+     */
+    public static void writeUnsignedShort(byte[] bytes, int value, int offset) {
         bytes[offset] = (byte) (0xFF & (value >> 8));
         bytes[offset + 1] = (byte) (0xFF & value);
     }
@@ -465,6 +490,29 @@ public class ByteUtils {
         newBuffer.put(buffer);
         newBuffer.position(position);
         return newBuffer;
+    }
+
+    /*
+     * The documentation says that the UTF will be encoded using 2 + length as
+     * lower and 2 + 3*length and upper bound.
+     */
+    public static int getUTFMaxLength(String str) {
+        return 2 + 3 * str.length();
+    }
+
+    public static boolean skipByteArray(ByteBuffer buffer, int dataSize) throws IOException {
+        if(dataSize < 0) {
+            throw new VoldemortException("Invalid Size for byte Array " + dataSize);
+        }
+        int newPosition = buffer.position() + dataSize;
+
+        if(newPosition > buffer.limit())
+            return false;
+
+        // Here we skip over the data (without reading it in) and
+        // move our position to just past it.
+        buffer.position(newPosition);
+        return true;
     }
 
 }

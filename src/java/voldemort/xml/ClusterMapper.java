@@ -21,7 +21,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 import javax.xml.XMLConstants;
@@ -65,6 +64,9 @@ public class ClusterMapper {
     private static final String HTTP_PORT_ELMT = "http-port";
     private static final String SOCKET_PORT_ELMT = "socket-port";
     private static final String ADMIN_PORT_ELMT = "admin-port";
+    private static final String REST_PORT_ELMT = "rest-port";
+
+    public static final Integer MAX_PARTITIONID = 65535;
 
     private final Schema schema;
 
@@ -127,15 +129,23 @@ public class ClusterMapper {
 
     private Zone readZone(Element zone) {
         int zoneId = Integer.parseInt(zone.getChildText(ZONE_ID_ELMT));
-        String proximityListTest = zone.getChildText(ZONE_PROXIMITY_LIST_ELMT).trim();
-        LinkedList<Integer> proximityList = new LinkedList<Integer>();
-        for(String node: Utils.COMMA_SEP.split(proximityListTest))
-            if(node.trim().length() > 0)
-                proximityList.add(Integer.parseInt(node.trim()));
+        String proximitListStr = zone.getChildText(ZONE_PROXIMITY_LIST_ELMT).trim();
+        List<Integer> proximityList = new ArrayList<Integer>();
+        for(String node: Utils.COMMA_SEP.split(proximitListStr))
+            if(node.trim().length() > 0) {
+                int proximityZoneId = Integer.parseInt(node.trim());
+                if(proximityZoneId == zoneId)
+                    continue;
+                // Not using a set here, as the ordering of the zone ids are
+                // important.
+                if(proximityList.contains(proximityZoneId) == false) {
+                    proximityList.add(proximityZoneId);
+                }
+            }
         return new Zone(zoneId, proximityList);
     }
 
-    public Node readServer(Element server) {
+    public Node readServer(Element server) throws SAXException {
         int id = Integer.parseInt(server.getChildText(SERVER_ID_ELMT));
         String host = server.getChildText(HOST_ELMT);
         int httpPort = Integer.parseInt(server.getChildText(HTTP_PORT_ELMT));
@@ -144,15 +154,27 @@ public class ClusterMapper {
         // read admin-port default to -1 if not available
         int adminPort = (null != server.getChildText(ADMIN_PORT_ELMT)) ? Integer.parseInt(server.getChildText(ADMIN_PORT_ELMT))
                                                                       : -1;
+        // read rest-port . Default to -1 if not available
+        int restPort = (null != server.getChildText(REST_PORT_ELMT)) ? Integer.parseInt(server.getChildText(REST_PORT_ELMT))
+                                                                    : -1;
         int zoneId = (null != server.getChildText(ZONE_ID_ELMT)) ? Integer.parseInt(server.getChildText(ZONE_ID_ELMT))
                                                                 : Zone.DEFAULT_ZONE_ID;
         String partitionsText = server.getChildText(SERVER_PARTITIONS_ELMT).trim();
         List<Integer> partitions = new ArrayList<Integer>();
         for(String aPartition: Utils.COMMA_SEP.split(partitionsText))
-            if(aPartition.trim().length() > 0)
-                partitions.add(Integer.parseInt(aPartition.trim()));
+            if(aPartition.trim().length() > 0) {
+                Integer partition = Integer.parseInt(aPartition.trim());
+                if(partition > MAX_PARTITIONID) {
+                    throw new SAXException("Partition id cannot be greater than " + MAX_PARTITIONID);
+                }
+                partitions.add(partition);
+            }
 
-        return new Node(id, host, httpPort, socketPort, adminPort, zoneId, partitions);
+        if(restPort == -1) {
+            return new Node(id, host, httpPort, socketPort, adminPort, zoneId, partitions);
+        } else {
+            return new Node(id, host, httpPort, socketPort, adminPort, zoneId, partitions, restPort);
+        }
     }
 
     public String writeCluster(Cluster cluster) {

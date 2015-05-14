@@ -16,14 +16,21 @@
 
 package voldemort.versioning;
 
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeMap;
 
 import voldemort.annotations.concurrency.NotThreadsafe;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Utils;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * A vector of the number of writes mastered by each node. The vector is stored
@@ -40,8 +47,8 @@ public class VectorClock implements Version, Serializable {
 
     private static final int MAX_NUMBER_OF_VERSIONS = Short.MAX_VALUE;
 
-    /* A sorted list of live versions ordered from least to greatest */
-    private final List<ClockEntry> versions;
+    /* A map of versions keyed by nodeId */
+    private final TreeMap<Short, Long> versionMap;
 
     /*
      * The time of the last update on the server on which the update was
@@ -53,21 +60,40 @@ public class VectorClock implements Version, Serializable {
      * Construct an empty VectorClock
      */
     public VectorClock() {
-        this(new ArrayList<ClockEntry>(0), System.currentTimeMillis());
+        this(System.currentTimeMillis());
+    }
+
+    public TreeMap<Short, Long> getVersionMap() {
+        return versionMap;
     }
 
     public VectorClock(long timestamp) {
-        this(new ArrayList<ClockEntry>(0), timestamp);
+        this.versionMap = new TreeMap<Short, Long>();
+        this.timestamp = timestamp;
     }
 
     /**
-     * Create a VectorClock with the given version and timestamp
+     * This function is not safe because it may break the pre-condition that
+     * clock entries should be sorted by nodeId
      * 
-     * @param versions The version to prepopulate
-     * @param timestamp The timestamp to prepopulate
      */
+    @Deprecated
     public VectorClock(List<ClockEntry> versions, long timestamp) {
-        this.versions = versions;
+        this.versionMap = new TreeMap<Short, Long>();
+        this.timestamp = timestamp;
+        for(ClockEntry clockEntry: versions) {
+            this.versionMap.put(clockEntry.getNodeId(), clockEntry.getVersion());
+        }
+    }
+
+    /**
+     * Only used for cloning
+     * 
+     * @param versionMap
+     * @param timestamp
+     */
+    private VectorClock(TreeMap<Short, Long> versionMap, long timestamp) {
+        this.versionMap = Utils.notNull(versionMap);
         this.timestamp = timestamp;
     }
 
@@ -101,42 +127,73 @@ public class VectorClock implements Version, Serializable {
             throw new IllegalArgumentException("Too few bytes: expected at least " + minimumBytes
                                                + " but found only " + bytes.length + ".");
 
-        this.versions = new ArrayList<ClockEntry>(numEntries);
+        this.versionMap = new TreeMap<Short, Long>();
         int index = 3 + offset;
         for(int i = 0; i < numEntries; i++) {
             short nodeId = ByteUtils.readShort(bytes, index);
             long version = ByteUtils.readBytes(bytes, index + ByteUtils.SIZE_OF_SHORT, versionSize);
-            this.versions.add(new ClockEntry(nodeId, version));
+            this.versionMap.put(nodeId, version);
             index += entrySize;
         }
         this.timestamp = ByteUtils.readLong(bytes, index);
     }
 
+    public static VectorClock createVectorClock(DataInputStream inputStream) {
+        try {
+            final int HEADER_LENGTH = ByteUtils.SIZE_OF_SHORT + ByteUtils.SIZE_OF_BYTE;
+            byte[] header = new byte[HEADER_LENGTH];
+            inputStream.readFully(header);
+            int numEntries = ByteUtils.readShort(header, 0);
+
+            byte versionSize = header[ByteUtils.SIZE_OF_SHORT];
+
+            int entrySize = ByteUtils.SIZE_OF_SHORT + versionSize;
+            int totalEntrySize = numEntries * entrySize;
+
+            byte[] vectorClockBytes = new byte[HEADER_LENGTH + totalEntrySize
+                                               + ByteUtils.SIZE_OF_LONG];
+            System.arraycopy(header, 0, vectorClockBytes, 0, header.length);
+
+            inputStream.readFully(vectorClockBytes, HEADER_LENGTH, vectorClockBytes.length
+                                                                   - HEADER_LENGTH);
+
+            return new VectorClock(vectorClockBytes);
+        } catch(IOException e) {
+            throw new IllegalArgumentException("Can't deserialize vectorclock from stream", e);
+        }
+
+    }
+
     public byte[] toBytes() {
         byte[] serialized = new byte[sizeInBytes()];
+        toBytes(serialized, 0);
+        return serialized;
+    }
+
+    public int toBytes(byte[] buf, int offset) {
         // write the number of versions
-        ByteUtils.writeShort(serialized, (short) versions.size(), 0);
+        ByteUtils.writeShort(buf, (short) versionMap.size(), offset);
+        offset += ByteUtils.SIZE_OF_SHORT;
         // write the size of each version in bytes
         byte versionSize = ByteUtils.numberOfBytesRequired(getMaxVersion());
-        serialized[2] = versionSize;
+        buf[offset] = versionSize;
+        offset++;
 
         int clockEntrySize = ByteUtils.SIZE_OF_SHORT + versionSize;
-        int start = 3;
-        for(ClockEntry v: versions) {
-            ByteUtils.writeShort(serialized, v.getNodeId(), start);
-            ByteUtils.writeBytes(serialized,
-                                 v.getVersion(),
-                                 start + ByteUtils.SIZE_OF_SHORT,
-                                 versionSize);
-            start += clockEntrySize;
+        SortedSet<Short> nodeIds = versionMap.navigableKeySet();
+        for(Short nodeId: nodeIds) {
+            Long version = versionMap.get(nodeId);
+            ByteUtils.writeShort(buf, nodeId, offset);
+            ByteUtils.writeBytes(buf, version, offset + ByteUtils.SIZE_OF_SHORT, versionSize);
+            offset += clockEntrySize;
         }
-        ByteUtils.writeLong(serialized, this.timestamp, start);
-        return serialized;
+        ByteUtils.writeLong(buf, this.timestamp, offset);
+        return sizeInBytes();
     }
 
     public int sizeInBytes() {
         byte versionSize = ByteUtils.numberOfBytesRequired(getMaxVersion());
-        return ByteUtils.SIZE_OF_SHORT + 1 + this.versions.size()
+        return ByteUtils.SIZE_OF_SHORT + 1 + this.versionMap.size()
                * (ByteUtils.SIZE_OF_SHORT + versionSize) + ByteUtils.SIZE_OF_LONG;
     }
 
@@ -152,28 +209,16 @@ public class VectorClock implements Version, Serializable {
 
         this.timestamp = time;
 
-        // stop on the index greater or equal to the node
-        boolean found = false;
-        int index = 0;
-        for(; index < versions.size(); index++) {
-            if(versions.get(index).getNodeId() == node) {
-                found = true;
-                break;
-            } else if(versions.get(index).getNodeId() > node) {
-                found = false;
-                break;
-            }
+        Long version = versionMap.get((short) node);
+        if(version == null) {
+            version = 1L;
+        } else {
+            version = version + 1L;
         }
 
-        if(found) {
-            versions.set(index, versions.get(index).incremented());
-        } else if(index < versions.size() - 1) {
-            versions.add(index, new ClockEntry((short) node, 1));
-        } else {
-            // we don't already have a version for this, so add it
-            if(versions.size() > MAX_NUMBER_OF_VERSIONS)
-                throw new IllegalStateException("Vector clock is full!");
-            versions.add(index, new ClockEntry((short) node, 1));
+        versionMap.put((short) node, version);
+        if(versionMap.size() >= MAX_NUMBER_OF_VERSIONS) {
+            throw new IllegalStateException("Vector clock is full!");
         }
 
     }
@@ -193,7 +238,7 @@ public class VectorClock implements Version, Serializable {
 
     @Override
     public VectorClock clone() {
-        return new VectorClock(Lists.newArrayList(versions), this.timestamp);
+        return new VectorClock(Maps.newTreeMap(versionMap), this.timestamp);
     }
 
     @Override
@@ -205,142 +250,90 @@ public class VectorClock implements Version, Serializable {
         if(!object.getClass().equals(VectorClock.class))
             return false;
         VectorClock clock = (VectorClock) object;
-        return versions.equals(clock.versions);
+        return versionMap.equals(clock.versionMap);
     }
 
     @Override
     public int hashCode() {
-        return versions.hashCode();
+        return versionMap.hashCode();
     }
 
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
         builder.append("version(");
-        if(this.versions.size() > 0) {
-            for(int i = 0; i < this.versions.size() - 1; i++) {
-                builder.append(this.versions.get(i));
+        int versionsLeft = versionMap.size();
+        for(Map.Entry<Short, Long> entry: versionMap.entrySet()) {
+            versionsLeft--;
+            Short node = entry.getKey();
+            Long version = entry.getValue();
+            builder.append(node + ":" + version);
+            if(versionsLeft > 0) {
                 builder.append(", ");
             }
-            builder.append(this.versions.get(this.versions.size() - 1));
         }
         builder.append(")");
+        builder.append(" ts:" + timestamp);
         return builder.toString();
     }
 
     public long getMaxVersion() {
         long max = -1;
-        for(ClockEntry entry: versions)
-            max = Math.max(entry.getVersion(), max);
+        for(Long version: versionMap.values())
+            max = Math.max(version, max);
         return max;
     }
 
     public VectorClock merge(VectorClock clock) {
         VectorClock newClock = new VectorClock();
-        int i = 0;
-        int j = 0;
-        while(i < this.versions.size() && j < clock.versions.size()) {
-            ClockEntry v1 = this.versions.get(i);
-            ClockEntry v2 = clock.versions.get(j);
-            if(v1.getNodeId() == v2.getNodeId()) {
-                newClock.versions.add(new ClockEntry(v1.getNodeId(), Math.max(v1.getVersion(),
-                                                                              v2.getVersion())));
-                i++;
-                j++;
-            } else if(v1.getNodeId() < v2.getNodeId()) {
-                newClock.versions.add(v1.clone());
-                i++;
+        for(Map.Entry<Short, Long> entry: this.versionMap.entrySet()) {
+            newClock.versionMap.put(entry.getKey(), entry.getValue());
+        }
+        for(Map.Entry<Short, Long> entry: clock.versionMap.entrySet()) {
+            Long version = newClock.versionMap.get(entry.getKey());
+            if(version == null) {
+                newClock.versionMap.put(entry.getKey(), entry.getValue());
             } else {
-                newClock.versions.add(v2.clone());
-                j++;
+                newClock.versionMap.put(entry.getKey(), Math.max(version, entry.getValue()));
             }
         }
-
-        // Okay now there may be leftovers on one or the other list remaining
-        for(int k = i; k < this.versions.size(); k++)
-            newClock.versions.add(this.versions.get(k).clone());
-        for(int k = j; k < clock.versions.size(); k++)
-            newClock.versions.add(clock.versions.get(k).clone());
 
         return newClock;
     }
 
+    @Override
     public Occurred compare(Version v) {
         if(!(v instanceof VectorClock))
             throw new IllegalArgumentException("Cannot compare Versions of different types.");
 
-        return compare(this, (VectorClock) v);
-    }
-
-    /**
-     * Is this Reflexive, AntiSymetic, and Transitive? Compare two VectorClocks,
-     * the outcomes will be one of the following: -- Clock 1 is BEFORE clock 2
-     * if there exists an i such that c1(i) <= c(2) and there does not exist a j
-     * such that c1(j) > c2(j). -- Clock 1 is CONCURRENT to clock 2 if there
-     * exists an i, j such that c1(i) < c2(i) and c1(j) > c2(j) -- Clock 1 is
-     * AFTER clock 2 otherwise
-     * 
-     * @param v1 The first VectorClock
-     * @param v2 The second VectorClock
-     */
-    public static Occurred compare(VectorClock v1, VectorClock v2) {
-        if(v1 == null || v2 == null)
-            throw new IllegalArgumentException("Can't compare null vector clocks!");
-        // We do two checks: v1 <= v2 and v2 <= v1 if both are true then
-        boolean v1Bigger = false;
-        boolean v2Bigger = false;
-        int p1 = 0;
-        int p2 = 0;
-
-        while(p1 < v1.versions.size() && p2 < v2.versions.size()) {
-            ClockEntry ver1 = v1.versions.get(p1);
-            ClockEntry ver2 = v2.versions.get(p2);
-            if(ver1.getNodeId() == ver2.getNodeId()) {
-                if(ver1.getVersion() > ver2.getVersion())
-                    v1Bigger = true;
-                else if(ver2.getVersion() > ver1.getVersion())
-                    v2Bigger = true;
-                p1++;
-                p2++;
-            } else if(ver1.getNodeId() > ver2.getNodeId()) {
-                // since ver1 is bigger that means it is missing a version that
-                // ver2 has
-                v2Bigger = true;
-                p2++;
-            } else {
-                // this means ver2 is bigger which means it is missing a version
-                // ver1 has
-                v1Bigger = true;
-                p1++;
-            }
-        }
-
-        /* Okay, now check for left overs */
-        if(p1 < v1.versions.size())
-            v1Bigger = true;
-        else if(p2 < v2.versions.size())
-            v2Bigger = true;
-
-        /* This is the case where they are equal, return BEFORE arbitrarily */
-        if(!v1Bigger && !v2Bigger)
-            return Occurred.BEFORE;
-        /* This is the case where v1 is a successor clock to v2 */
-        else if(v1Bigger && !v2Bigger)
-            return Occurred.AFTER;
-        /* This is the case where v2 is a successor clock to v1 */
-        else if(!v1Bigger && v2Bigger)
-            return Occurred.BEFORE;
-        /* This is the case where both clocks are parallel to one another */
-        else
-            return Occurred.CONCURRENTLY;
+        return VectorClockUtils.compare(this, (VectorClock) v);
     }
 
     public long getTimestamp() {
         return this.timestamp;
     }
 
+    @Deprecated
     public List<ClockEntry> getEntries() {
-        return this.versions;
+        List<ClockEntry> clocks = new ArrayList<ClockEntry>(versionMap.size());
+        for(Map.Entry<Short, Long> entry: versionMap.entrySet()) {
+            clocks.add(new ClockEntry(entry.getKey(), entry.getValue()));
+        }
+        return Collections.unmodifiableList(clocks);
     }
 
+    /**
+     * Function to copy values from another VectorClock. This is used for
+     * in-place updates during a Voldemort put operation.
+     * 
+     * @param vc The VectorClock object from which the inner values are to be
+     *        copied.
+     */
+    public void copyFromVectorClock(VectorClock vc) {
+        this.versionMap.clear();
+        this.timestamp = vc.getTimestamp();
+        for(ClockEntry clockEntry: vc.getEntries()) {
+            this.versionMap.put(clockEntry.getNodeId(), clockEntry.getVersion());
+        }
+    }
 }

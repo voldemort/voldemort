@@ -8,43 +8,37 @@ import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-public class FailingReadsStore<K, V, T> implements Store<K, V, T> {
+public class FailingReadsStore<K, V, T> extends AbstractStore<K, V, T> {
 
-    private final String name;
     private final InMemoryStorageEngine<K, V, T> engine;
 
     public FailingReadsStore(String name) {
-        this.name = name;
+        super(name);
         this.engine = new InMemoryStorageEngine<K, V, T>(name);
     }
 
-    public void close() throws VoldemortException {}
-
+    @Override
     public boolean delete(K key, Version version) throws VoldemortException {
         return engine.delete(key, version);
     }
 
+    @Override
     public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
         throw new VoldemortException("Operation failed");
     }
 
+    @Override
     public java.util.List<Version> getVersions(K key) {
         throw new VoldemortException("Operation failed");
     }
 
+    @Override
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
             throws VoldemortException {
         throw new VoldemortException("Operation failed");
     }
 
-    public Object getCapability(StoreCapabilityType capability) {
-        throw new NoSuchCapabilityException(capability, getName());
-    }
-
-    public String getName() {
-        return name;
-    }
-
+    @Override
     public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
         engine.put(key, value, transforms);
     }

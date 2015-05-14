@@ -148,7 +148,8 @@ public class Slop {
     @Override
     public String toString() {
         return "Slop(storeName = " + storeName + ", operation = " + operation + ", key = " + key
-               + ", value = " + Arrays.toString(value) + ", nodeId = " + nodeId + ", arrived = " + arrived + ")";
+               + ", value = " + ByteUtils.toHexString(value) + ", nodeId = " + nodeId
+               + ", arrived = " + arrived + ")";
     }
 
 }

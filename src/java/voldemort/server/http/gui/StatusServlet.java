@@ -15,11 +15,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import voldemort.VoldemortException;
+import voldemort.common.service.ServiceType;
 import voldemort.server.AbstractSocketService;
-import voldemort.server.ServiceType;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
 import voldemort.store.Store;
+import voldemort.store.quota.QuotaLimitingStore;
 import voldemort.store.stats.RequestCounter;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.Tracked;
@@ -152,57 +153,40 @@ public class StatusServlet extends HttpServlet {
         int i = 0;
         for(Store<ByteArray, byte[], byte[]> store: server.getStoreRepository().getAllLocalStores()) {
 
+            if(i++ > 0) {
+                sb.append(",");
+            }
+            sb.append("\n    \"");
+            sb.append(store.getName());
+            sb.append("\" : {\n");
+
             if(store instanceof StatTrackingStore) {
-
                 StatTrackingStore statStore = (StatTrackingStore) store;
-
                 Map<Tracked, RequestCounter> stats = statStore.getStats().getCounters();
-
-                if(i++ > 0) {
-                    sb.append(",");
-                }
-
-                sb.append("\n    \"");
-                sb.append(statStore.getName());
-                sb.append("\" : {\n");
-
-                int j = 0;
-
                 for(Tracked t: Tracked.values()) {
-
                     if(t == Tracked.EXCEPTION) {
                         continue;
                     }
-
-                    if(j++ > 0) {
-                        sb.append(",\n");
-                    }
-
-                    sb.append("        \"");
-                    sb.append(t.toString());
-                    sb.append("\": { ");
-
-                    sb.append("\"total\": ");
-                    sb.append(stats.get(t).getTotalCount());
-                    sb.append(", ");
-
-                    sb.append("\"operations\": ");
-                    sb.append(stats.get(t).getCount());
-                    sb.append(", ");
-
-                    sb.append("\"throughput\": ");
-                    sb.append(stats.get(t).getDisplayThroughput());
-                    sb.append(", ");
-
-                    sb.append("\"avg_time_ms\": ");
-                    sb.append(stats.get(t).getDisplayAverageTimeInMs());
-                    sb.append(" }");
+                    sb.append(fillCommonStats(stats, t));
                 }
-
                 sb.append(",\n        \"num_exceptions\": ");
                 sb.append(statStore.getStats().getCount(Tracked.EXCEPTION));
                 sb.append("\n");
+                sb.append("    }");
+            }
 
+            if (store instanceof QuotaLimitingStore) {
+                QuotaLimitingStore quotaStore = (QuotaLimitingStore) store;
+                Map<Tracked, RequestCounter> stats  = quotaStore.getStats().getCounters();
+                for(Tracked t: Tracked.values()) {
+                    if(t == Tracked.EXCEPTION) {
+                        continue;
+                    }
+                    sb.append(fillCommonStats(stats, t));
+                }
+                sb.append(",\n        \"num_exceptions\": ");
+                sb.append(quotaStore.getStats().getCount(Tracked.EXCEPTION));
+                sb.append("\n");
                 sb.append("    }");
             }
         }
@@ -219,4 +203,35 @@ public class StatusServlet extends HttpServlet {
             throw new VoldemortException(e);
         }
     }
+
+    private String fillCommonStats(Map<Tracked, RequestCounter> stats, Tracked t) {
+        StringBuilder sb = new StringBuilder();
+        int j = 0;
+
+        if(j++ > 0) {
+            sb.append(",\n");
+        }
+
+        sb.append("        \"");
+        sb.append(t.toString());
+        sb.append("\": { ");
+
+        sb.append("\"total\": ");
+        sb.append(stats.get(t).getTotalCount());
+        sb.append(", ");
+
+        sb.append("\"operations\": ");
+        sb.append(stats.get(t).getCount());
+        sb.append(", ");
+
+        sb.append("\"throughput\": ");
+        sb.append(stats.get(t).getDisplayThroughput());
+        sb.append(", ");
+
+        sb.append("\"avg_time_ms\": ");
+        sb.append(stats.get(t).getDisplayAverageTimeInMs());
+        sb.append(" }");
+
+        return sb.toString();
+	}
 }

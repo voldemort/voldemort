@@ -18,6 +18,7 @@ package voldemort.xml;
 
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -46,6 +47,23 @@ public class ClusterMapperTest extends TestCase {
         assertTrue("Tag not found.", tags.contains(0));
         assertTrue("Tag not found.", tags.contains(1));
 
+    }
+
+    public void testZoneProximityList() {
+        ClusterMapper mapper = new ClusterMapper();
+        Cluster cluster = mapper.readCluster(new StringReader(VoldemortTestConstants.getInvalidFourNodeClusterWithZonesXml()));
+
+        Zone expectedZone0 = new Zone(0, new ArrayList<Integer>(Arrays.asList(1, 2)));
+        Zone expectedZone1 = new Zone(1, new ArrayList<Integer>(Arrays.asList(0, 2)));
+        Zone expectedZone2 = new Zone(2, new ArrayList<Integer>(Arrays.asList(1, 0)));
+        assertEquals(cluster.getNumberOfNodes(), 4);
+        Zone zone0 = cluster.getZoneById(0);
+        Zone zone1 = cluster.getZoneById(1);
+        Zone zone2 = cluster.getZoneById(2);
+
+        assertEquals("zone0", expectedZone0, zone0);
+        assertEquals("zone1", expectedZone1, zone1);
+        assertEquals("zone2", expectedZone2, zone2);
     }
 
     public void testOtherClusters() {

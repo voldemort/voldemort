@@ -16,6 +16,7 @@
 
 package voldemort.store;
 
+import voldemort.routing.RoutingStrategy;
 import voldemort.utils.ByteArray;
 
 /**
@@ -36,10 +37,12 @@ public interface StorageConfiguration {
     /**
      * Get an initialized storage implementation
      * 
-     * @param name The name of the storage
+     * @param storeDef store definition
+     * @param strategy routing strategy used for the store
      * @return The storage engine
      */
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name);
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy);
 
     /**
      * Get the type of stores returned by this configuration
@@ -47,7 +50,21 @@ public interface StorageConfiguration {
     public String getType();
 
     /**
+     * Update the storage configuration at runtime
+     * 
+     * @param storeDef new store definition object
+     */
+    public void update(StoreDefinition storeDef);
+
+    /**
      * Close the storage configuration
      */
     public void close();
+
+    /**
+     * Remove the storage engine from the underlying storage configuration
+     * 
+     * @param engine Specifies the storage engine to be removed
+     */
+    public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine);
 }

@@ -16,19 +16,17 @@
 
 package voldemort.client;
 
-import java.io.File;
-import java.io.IOException;
 import java.io.StringReader;
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.UnknownHostException;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
@@ -37,6 +35,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.common.service.SchedulerService;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.SerializationException;
@@ -53,15 +52,20 @@ import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.routed.RoutedStoreConfig;
 import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.slop.Slop;
 import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.stats.StoreClientFactoryStats;
+import voldemort.store.stats.StoreClientFactoryStatsJmx;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
+import voldemort.utils.Pair;
+import voldemort.utils.SystemTime;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.TimeBasedInconsistencyResolver;
@@ -83,6 +87,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private static AtomicInteger jmxIdCounter = new AtomicInteger(0);
 
     public static final int DEFAULT_ROUTING_TIMEOUT_MS = 5000;
+    public static final int MAX_METADATA_REFRESH_ATTEMPTS = 3;
 
     protected static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
@@ -97,16 +102,28 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final boolean isJmxEnabled;
     private final RequestFormatType requestFormatType;
     private final int jmxId;
+    protected final String identifierString;
     protected volatile FailureDetector failureDetector;
     private final int maxBootstrapRetries;
-    private final StoreStats stats;
+    private final StoreStats aggregateStats;
+    private final StoreClientFactoryStats storeClientFactoryStats;
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
-    private final int clientZoneId;
     private final String clientContextName;
-    private final AtomicInteger sequencer;
+    private final AtomicInteger clientSequencer;
+    private final RoutedStoreConfig routedStoreConfig;
+    private final Callable<Object> storeRebootstrapCallback;
+
+    private final ConcurrentMap<Pair<String, Object>, DefaultStoreClient<?, ?>> storeClientCache;
+    private final AtomicBoolean isZenStoreResourcesInited;
+    private volatile SystemStoreRepository sysRepository;
+    private volatile SchedulerService scheduler;
+
+    private Cluster cluster;
+    private List<StoreDefinition> storeDefs;
 
     public AbstractStoreClientFactory(ClientConfig config) {
+        String str;
         this.config = config;
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
                                                config.getThreadIdleTime(TimeUnit.MILLISECONDS),
@@ -115,78 +132,193 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.bootstrapUrls = validateUrls(config.getBootstrapUrls());
         this.isJmxEnabled = config.isJmxEnabled();
         this.requestFormatType = config.getRequestFormatType();
-        this.jmxId = jmxIdCounter.getAndIncrement();
+        this.jmxId = getNextJmxId();
+        str = config.getIdentifierString();
+        if(str == null) {
+            str = JmxUtils.getJmxId(jmxId);
+        }
+        // Update the identifier string, so that system thread names get the suffix
+        config.setIdentifierString(str);
+
+        if(str.equals("")) {
+            this.identifierString = str;
+        } else {
+            this.identifierString = "-" + str;
+        }
+
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
-        this.stats = new StoreStats();
-        this.clientZoneId = config.getClientZoneId();
-        this.clientContextName = (null == config.getClientContextName() ? ""
-                                                                       : config.getClientContextName());
-        this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
-                                                         threadPool,
-                                                         config.getRoutingTimeout(TimeUnit.MILLISECONDS));
-        this.sequencer = new AtomicInteger(0);
+        this.aggregateStats = new StoreStats("aggregate.abstract-store-client-factory");
+        this.storeClientFactoryStats = new StoreClientFactoryStats();
+        this.clientContextName = config.getClientContextName();
+        this.routedStoreConfig = new RoutedStoreConfig(config);
+        this.routedStoreConfig.setIdentifierString(this.identifierString);
+
+        this.routedStoreFactory = new RoutedStoreFactory();
+        this.routedStoreFactory.setThreadPool(this.threadPool);
+
+        this.clientSequencer = new AtomicInteger(0);
+
+        this.storeRebootstrapCallback = new Callable<Object>() {
+
+            @Override
+            public Object call() throws Exception {
+                storeClientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.REBOOTSTRAP_EVENT);
+                return null;
+            }
+        };
+        this.storeClientCache = new ConcurrentHashMap<Pair<String, Object>, DefaultStoreClient<?, ?>>();
 
         if(this.isJmxEnabled) {
             JmxUtils.registerMbean(threadPool,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
                                                              JmxUtils.getClassName(threadPool.getClass())
-                                                                     + "."
-                                                                     + clientContextName
-                                                                     + jmxId()));
-            JmxUtils.registerMbean(new StoreStatsJmx(stats),
+                                                                     + identifierString));
+            JmxUtils.registerMbean(new StoreStatsJmx(aggregateStats),
                                    JmxUtils.createObjectName("voldemort.store.stats.aggregate",
-                                                             clientContextName + ".aggregate-perf"
-                                                                     + jmxId()));
+                                                             "aggregate-perf" + identifierString));
+
+            JmxUtils.registerMbean(new StoreClientFactoryStatsJmx(storeClientFactoryStats),
+                                   JmxUtils.createObjectName("voldemort.store.client.factory.stats",
+                                                             "bootstrap-stats" + identifierString));
         }
+        this.isZenStoreResourcesInited = new AtomicBoolean(false);
+        this.scheduler = null;
+        this.sysRepository = null;
     }
 
+    public int getNextJmxId() {
+        return jmxIdCounter.getAndIncrement();
+    }
+
+    public int getCurrentJmxId() {
+        return jmxIdCounter.get();
+    }
+
+    @Override
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return getStoreClient(storeName, null);
     }
 
+    @Override
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
-        return new DefaultStoreClient<K, V>(storeName,
-                                            resolver,
-                                            this,
-                                            3,
-                                            clientContextName,
-                                            sequencer.getAndIncrement());
+
+        DefaultStoreClient<K, V> client = null;
+
+        // If configured to cache store clients, check if we have a StoreClient
+        // created already
+        Pair<String, Object> cacheKey = Pair.create(storeName, (Object) resolver);
+        if(this.config.getCacheStoreClients() && storeClientCache.containsKey(cacheKey)) {
+            return (DefaultStoreClient<K, V>) storeClientCache.get(cacheKey);
+        }
+
+        // Else, we move on and create a store client object accordingly
+        if(this.config.isDefaultClientEnabled()) {
+            client = new DefaultStoreClient<K, V>(storeName,
+                                                  resolver,
+                                                  this,
+                                                  MAX_METADATA_REFRESH_ATTEMPTS);
+        } else if(this.bootstrapUrls.length > 0
+                  && this.bootstrapUrls[0].getScheme().equals(HttpStoreClientFactory.URL_SCHEME)) {
+            client = new DefaultStoreClient<K, V>(storeName,
+                                                  resolver,
+                                                  this,
+                                                  MAX_METADATA_REFRESH_ATTEMPTS);
+        } else {
+
+            // Lazily intialize the resources needed for ZenStore clients.
+            if(!isZenStoreResourcesInited.get()) {
+                initZenStoreResourcesIfNeeded();
+            }
+
+            client = new ZenStoreClient<K, V>(storeName,
+                                              resolver,
+                                              this,
+                                              MAX_METADATA_REFRESH_ATTEMPTS,
+                                              clientContextName,
+                                              clientSequencer.getAndIncrement(),
+                                              config,
+                                              scheduler,
+                                              sysRepository);
+        }
+
+        // if configured to cache store clients, populate the cache
+        if(config.getCacheStoreClients()) {
+            // Note: We could potentially create the store client more than once
+            // from multiple threads. But, they will all eventually pick up the
+            // first created store client and let go off the instances they
+            // created
+            StoreClient<K, V> oldValue = (StoreClient<K, V>) storeClientCache.putIfAbsent(cacheKey,
+                                                                                          client);
+            if(oldValue != null) {
+                // Losing thread(s) also pick up the winning value
+                client = (DefaultStoreClient<K, V>) storeClientCache.get(cacheKey);
+            }
+        }
+        client.setBeforeRebootstrapCallback(this.storeRebootstrapCallback);
+
+        return client;
+    }
+
+    @Override
+    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
+                                                InconsistencyResolver<Versioned<V>> resolver) {
+        return getRawStore(storeName, resolver, null, null, null);
     }
 
     @SuppressWarnings("unchecked")
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver,
-                                                UUID clientId) {
+                                                String customStoresXml,
+                                                String clusterXmlString,
+                                                FailureDetector fd) {
 
-        logger.info("Client zone-id [" + clientZoneId
-                    + "] Attempting to obtain metadata for store [" + storeName + "] ");
+        logger.info("Client zone-id [" + this.routedStoreConfig.getClientZoneId()
+                    + "] Attempting to get raw store [" + storeName + "] ");
+
         if(logger.isDebugEnabled()) {
             for(URI uri: bootstrapUrls) {
                 logger.debug("Client Bootstrap url [" + uri + "]");
             }
         }
         // Get cluster and store metadata
-        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
-        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
-        String storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
+        String clusterXml = clusterXmlString;
+        if(clusterXml == null) {
+            logger.debug("Fetching cluster.xml ...");
+            clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
+        }
+
+        this.cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
+        String storesXml = customStoresXml;
+        if(storesXml == null) {
+            logger.debug("Fetching store definition...");
+            /*
+             * We see errors when running the client against a old server on
+             * using storeName instead of MetadataStore.STORES_KEY.
+             * 
+             * TODO We should revert this change once all our servers are
+             * upgraded.
+             */
+            storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
+        }
 
         if(logger.isDebugEnabled()) {
             logger.debug("Obtained cluster metadata xml" + clusterXml);
             logger.debug("Obtained stores  metadata xml" + storesXml);
         }
 
-        List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml),
-                                                                    false);
+        storeDefs = storeMapper.readStoreList(new StringReader(storesXml), false);
         StoreDefinition storeDef = null;
         for(StoreDefinition d: storeDefs)
             if(d.getName().equals(storeName))
                 storeDef = d;
-        if(storeDef == null)
+        if(storeDef == null) {
+            logger.error("Bootstrap - unknown store: " + storeName);
             throw new BootstrapFailureException("Unknown store '" + storeName + "'.");
+        }
 
         if(logger.isDebugEnabled()) {
-            logger.debug(cluster.toString(true));
+            logger.debug(this.cluster.toString(true));
             logger.debug(storeDef.toString());
         }
         boolean repairReads = !storeDef.isView();
@@ -200,7 +332,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         if(storeDef.hasHintedHandoffStrategyType())
             slopStores = Maps.newHashMap();
 
-        for(Node node: cluster.getNodes()) {
+        for(Node node: this.cluster.getNodes()) {
             Store<ByteArray, byte[], byte[]> store = getStore(storeDef.getName(),
                                                               node.getHost(),
                                                               getPort(node),
@@ -225,66 +357,80 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             }
         }
 
-        Store<ByteArray, byte[], byte[]> store = routedStoreFactory.create(cluster,
+        /*
+         * Check if we need to retrieve a reference to the failure detector. For
+         * system stores - the FD reference would be passed in.
+         */
+        FailureDetector failureDetectorRef = fd;
+        if(failureDetectorRef == null) {
+            failureDetectorRef = getFailureDetector();
+        } else {
+            logger.debug("Using existing failure detector.");
+        }
+        this.routedStoreConfig.setRepairReads(repairReads);
+
+        Store<ByteArray, byte[], byte[]> store = routedStoreFactory.create(this.cluster,
                                                                            storeDef,
                                                                            clientMapping,
                                                                            nonblockingStores,
                                                                            slopStores,
                                                                            nonblockingSlopStores,
-                                                                           repairReads,
-                                                                           clientZoneId,
-                                                                           getFailureDetector(),
-                                                                           isJmxEnabled);
+                                                                           failureDetectorRef,
+                                                                           this.routedStoreConfig);
+
         store = new LoggingStore(store);
 
         if(isJmxEnabled) {
-            StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
+            StatTrackingStore statStore = new StatTrackingStore(store, this.aggregateStats);
             store = statStore;
             JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                             clientContextName
-                                                                     + "."
-                                                                     + store.getName()
-                                                                     + jmxId()
-                                                                     + (null == clientId ? ""
-                                                                                        : "."
-                                                                                          + clientId.toString())));
+                                                             store.getName() + identifierString));
         }
 
-        if(storeDef.getKeySerializer().hasCompression()
-           || storeDef.getValueSerializer().hasCompression()) {
-            store = new CompressingStore(store,
-                                         getCompressionStrategy(storeDef.getKeySerializer()),
-                                         getCompressionStrategy(storeDef.getValueSerializer()));
+        if(this.config.isEnableCompressionLayer()) {
+            if(storeDef.getKeySerializer().hasCompression()
+               || storeDef.getValueSerializer().hasCompression()) {
+                store = new CompressingStore(store,
+                                             getCompressionStrategy(storeDef.getKeySerializer()),
+                                             getCompressionStrategy(storeDef.getValueSerializer()));
+            }
         }
 
-        Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
-        Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
+        /*
+         * Initialize the finalstore object only once the store object itself is
+         * wrapped by a StatrackingStore seems like the finalstore object is
+         * redundant?
+         */
+        Store<K, V, T> finalStore = (Store<K, V, T>) store;
 
-        if(storeDef.isView() && (storeDef.getTransformsSerializer() == null))
-            throw new SerializationException("Transforms serializer must be specified with a view ");
+        if(this.config.isEnableSerializationLayer()) {
+            Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
+            Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
 
-        Serializer<T> transformsSerializer = (Serializer<T>) serializerFactory.getSerializer(storeDef.getTransformsSerializer() != null ? storeDef.getTransformsSerializer()
-                                                                                                                                       : new SerializerDefinition("identity"));
+            if(storeDef.isView() && (storeDef.getTransformsSerializer() == null))
+                throw new SerializationException("Transforms serializer must be specified with a view ");
 
-        Store<K, V, T> serializedStore = SerializingStore.wrap(store,
-                                                               keySerializer,
-                                                               valueSerializer,
-                                                               transformsSerializer);
+            Serializer<T> transformsSerializer = (Serializer<T>) serializerFactory.getSerializer(storeDef.getTransformsSerializer() != null ? storeDef.getTransformsSerializer()
+                                                                                                                                           : new SerializerDefinition("identity"));
+
+            finalStore = SerializingStore.wrap(store,
+                                               keySerializer,
+                                               valueSerializer,
+                                               transformsSerializer);
+        }
 
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
-        InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver()
-                                                                                : resolver;
-        serializedStore = new InconsistencyResolvingStore<K, V, T>(serializedStore,
-                                                                   new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
-                                                                                                     secondaryResolver));
-        return serializedStore;
-    }
+        if(this.config.isEnableInconsistencyResolvingLayer()) {
+            InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver()
+                                                                                    : resolver;
+            finalStore = new InconsistencyResolvingStore<K, V, T>(finalStore,
+                                                                  new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
+                                                                                                    secondaryResolver));
+        }
 
-    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver) {
-        return getRawStore(storeName, resolver, null);
+        return finalStore;
     }
 
     protected ClientConfig getConfig() {
@@ -292,24 +438,84 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     }
 
     protected abstract FailureDetector initFailureDetector(final ClientConfig config,
-                                                           final Collection<Node> nodes);
+                                                           Cluster cluster);
 
     public FailureDetector getFailureDetector() {
-        // first check: avoids locking as the field is volatile
-        FailureDetector result = failureDetector;
-        if(result == null) {
+        if(this.cluster == null) {
+            logger.info("Cluster is null ! Getting cluster.xml again for setting up FailureDetector.");
             String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
                                                              bootstrapUrls);
-            Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
+            this.cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
+        }
+
+        // first check: avoids locking as the field is volatile
+        FailureDetector result = failureDetector;
+
+        if(result == null) {
             synchronized(this) {
                 // second check: avoids double initialization
                 result = failureDetector;
-                if(result == null)
-                    failureDetector = result = initFailureDetector(config, cluster.getNodes());
+                if(result == null) {
+                    logger.debug("Creating a new FailureDetector.");
+                    failureDetector = result = initFailureDetector(config, this.cluster);
+                    if(isJmxEnabled) {
+                        JmxUtils.registerMbean(failureDetector,
+                                               JmxUtils.createObjectName(JmxUtils.getPackageName(failureDetector.getClass()),
+                                                                         JmxUtils.getClassName(failureDetector.getClass())
+                                                                                 + identifierString));
+                    }
+                }
+            }
+        } else {
+
+            /*
+             * The existing failure detector might have an old state
+             */
+            logger.debug("Failure detector already exists. Updating the state and flushing cached verifier stores.");
+            synchronized(this) {
+                failureDetector.getConfig().setCluster(this.cluster);
+                failureDetector.getConfig().getConnectionVerifier().flushCachedStores();
             }
         }
 
         return result;
+    }
+
+    private synchronized void initZenStoreResourcesIfNeeded() {
+        // Check once again, since multiple threads can call this method
+        // concurrently.
+        if(!isZenStoreResourcesInited.get()) {
+            // since the method is synchronized, only one winning thread will
+            // make it here.
+            this.sysRepository = new SystemStoreRepository(config);
+            // Start up the scheduler
+            this.scheduler = new SchedulerService(config.getAsyncJobThreadPoolSize(),
+                                                  SystemTime.INSTANCE,
+                                                  true);
+            this.scheduler.start();
+            isZenStoreResourcesInited.set(true);
+        }
+    }
+
+    private void releaseZenStoreResources() {
+
+        // shut down the scheduler
+        try {
+            if(this.scheduler != null) {
+                this.scheduler.stop();
+            }
+        } catch(Exception e) {
+            logger.error("Error stopping scheduler service", e);
+        }
+
+        // Also free up resources consumed by the system repository
+        try {
+            if(this.sysRepository != null) {
+                this.sysRepository.close();
+            }
+        } catch(Exception e) {
+            logger.error("Error shutting down system store factory", e);
+        }
     }
 
     private CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
@@ -322,9 +528,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             try {
                 return bootstrapMetadata(key, urls);
             } catch(BootstrapFailureException e) {
+                // We have a bootstrap failure, record the event.
+                storeClientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.FAILED_BOOTSTRAP_EVENT);
+                logger.warn("Failed to bootstrap store");
                 if(nTries < this.maxBootstrapRetries) {
                     int backOffTime = 5 * nTries;
-                    logger.warn("Failed to bootstrap will try again after " + backOffTime
+                    logger.warn("Will try to bootstrap will try again after " + backOffTime
                                 + " seconds.");
                     try {
                         Thread.sleep(backOffTime * 1000);
@@ -332,10 +541,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                         throw new RuntimeException(e1);
                     }
                 }
+            } finally {
+                // We have a bootstrap event, record it.
+                storeClientFactoryStats.incrementCount(StoreClientFactoryStats.Tracked.BOOTSTRAP_EVENT);
             }
         }
 
-        throw new BootstrapFailureException("No available boostrap servers found!");
+        throw new BootstrapFailureException("No available bootstrap servers found!");
     }
 
     public String bootstrapMetadataWithRetries(String key) {
@@ -425,50 +637,35 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             this.threadPool.shutdownNow();
         }
 
-        if(failureDetector != null)
+        if(failureDetector != null) {
             failureDetector.destroy();
+
+            if(isJmxEnabled) {
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(failureDetector.getClass()),
+                                                                   JmxUtils.getClassName(failureDetector.getClass())
+                                                                           + identifierString));
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
+                                                                   JmxUtils.getClassName(threadPool.getClass())
+                                                                           + identifierString));
+
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName("voldemort.store.stats.aggregate",
+                                                                   "aggregate-perf"
+                                                                           + identifierString));
+            }
+        }
+
+        releaseZenStoreResources();
     }
 
-    /* Give a unique id to avoid jmx clashes */
-    private String jmxId() {
-        return jmxId == 0 ? "" : "." + Integer.toString(jmxId);
+    protected String getClientContext() {
+        return clientContextName;
     }
 
-    /**
-     * Generate a unique client ID based on: 0. clientContext, if specified; 1.
-     * storeName 2. run path 3. client sequence
-     * 
-     * @param storeName the name of the store the client is created for
-     * @param contextName the name of the client context
-     * @param clientSequence the client sequence number
-     * @return unique client ID
-     */
-    public static UUID generateClientId(String storeName, String contextName, int clientSequence) {
-        String newLine = System.getProperty("line.separator");
-        StringBuilder context = new StringBuilder(contextName == null ? "" : contextName);
-        context.append(0 == clientSequence ? "" : ("." + clientSequence));
-        context.append(".").append(storeName);
+    public Cluster getCluster() {
+        return cluster;
+    }
 
-        try {
-            InetAddress host = InetAddress.getLocalHost();
-            context.append("@").append(host.getHostName()).append(":");
-        } catch(UnknownHostException e) {
-            logger.info("Unable to obtain client hostname.");
-            logger.info(e.getMessage());
-        }
-
-        try {
-            String currentPath = new File(".").getCanonicalPath();
-            context.append(currentPath).append(newLine);
-        } catch(IOException e) {
-            logger.info("Unable to obtain client run path.");
-            logger.info(e.getMessage());
-        }
-
-        if(logger.isDebugEnabled()) {
-            logger.debug(context.toString());
-        }
-
-        return UUID.nameUUIDFromBytes(context.toString().getBytes());
+    public List<StoreDefinition> getStoreDefs() {
+        return storeDefs;
     }
 }

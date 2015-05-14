@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef CONNECTIONPOOL_H
-#define CONNECTIONPOOL_H
+#ifndef VOLDEMORT_CONNECTIONPOOL_H
+#define VOLDEMORT_CONNECTIONPOOL_H
 
 #include <stdlib.h>
 #include <string>
@@ -132,4 +132,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* CONNECTIONPOOL_H */
+#endif/*VOLDEMORT_CONNECTIONPOOL_H*/

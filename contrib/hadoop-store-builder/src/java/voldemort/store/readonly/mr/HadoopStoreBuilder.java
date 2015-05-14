@@ -17,10 +17,15 @@
 package voldemort.store.readonly.mr;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 
+import org.apache.avro.Schema;
+import org.apache.avro.mapred.AvroJob;
+import org.apache.avro.mapred.AvroOutputFormat;
+import org.apache.avro.mapred.Pair;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -29,6 +34,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.Counters;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -36,8 +42,10 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.OutputFormat;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.SequenceFileOutputFormat;
+import org.apache.hadoop.mapred.Task;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -48,6 +56,7 @@ import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.disk.KeyValueWriter;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -62,11 +71,12 @@ public class HadoopStoreBuilder {
     public static final long MIN_CHUNK_SIZE = 1L;
     public static final long MAX_CHUNK_SIZE = (long) (1.9 * 1024 * 1024 * 1024);
     public static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
+    public static final short HADOOP_FILE_PERMISSION = 493;
 
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilder.class);
 
     private final Configuration config;
-    private final Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass;
+    private final Class mapperClass;
     @SuppressWarnings("unchecked")
     private final Class<? extends InputFormat> inputFormatClass;
     private final Cluster cluster;
@@ -79,193 +89,35 @@ public class HadoopStoreBuilder {
     private boolean saveKeys = false;
     private boolean reducerPerBucket = false;
     private int numChunks = -1;
-
-    /**
-     * Kept for backwards compatibility. We do not use replicationFactor any
-     * more since it is derived from the store definition
-     * 
-     * @param conf A base configuration to start with
-     * @param mapperClass The class to use as the mapper
-     * @param inputFormatClass The input format to use for reading values
-     * @param cluster The voldemort cluster for which the stores are being built
-     * @param storeDef The store definition of the store
-     * @param replicationFactor NOT USED
-     * @param chunkSizeBytes The size of the chunks used by the read-only store
-     * @param tempDir The temporary directory to use in hadoop for intermediate
-     *        reducer output
-     * @param outputDir The directory in which to place the built stores
-     * @param inputPath The path from which to read input data
-     */
-    @SuppressWarnings("unchecked")
-    @Deprecated
-    public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
-                              Class<? extends InputFormat> inputFormatClass,
-                              Cluster cluster,
-                              StoreDefinition storeDef,
-                              int replicationFactor,
-                              long chunkSizeBytes,
-                              Path tempDir,
-                              Path outputDir,
-                              Path inputPath) {
-        this(conf,
-             mapperClass,
-             inputFormatClass,
-             cluster,
-             storeDef,
-             chunkSizeBytes,
-             tempDir,
-             outputDir,
-             inputPath);
-    }
+    private boolean isAvro;
+    private Long minNumberOfRecords;
 
     /**
      * Create the store builder
-     * 
+     *
      * @param conf A base configuration to start with
      * @param mapperClass The class to use as the mapper
      * @param inputFormatClass The input format to use for reading values
      * @param cluster The voldemort cluster for which the stores are being built
      * @param storeDef The store definition of the store
-     * @param chunkSizeBytes The size of the chunks used by the read-only store
      * @param tempDir The temporary directory to use in hadoop for intermediate
-     *        reducer output
-     * @param outputDir The directory in which to place the built stores
-     * @param inputPath The path from which to read input data
-     */
-    @SuppressWarnings("unchecked")
-    public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
-                              Class<? extends InputFormat> inputFormatClass,
-                              Cluster cluster,
-                              StoreDefinition storeDef,
-                              long chunkSizeBytes,
-                              Path tempDir,
-                              Path outputDir,
-                              Path inputPath) {
-        super();
-        this.config = conf;
-        this.mapperClass = Utils.notNull(mapperClass);
-        this.inputFormatClass = Utils.notNull(inputFormatClass);
-        this.inputPath = inputPath;
-        this.cluster = Utils.notNull(cluster);
-        this.storeDef = Utils.notNull(storeDef);
-        this.chunkSizeBytes = chunkSizeBytes;
-        this.tempDir = tempDir;
-        this.outputDir = Utils.notNull(outputDir);
-        if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE)
-            throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
-                                         + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
-    }
-
-    /**
-     * Create the store builder
-     * 
-     * @param conf A base configuration to start with
-     * @param mapperClass The class to use as the mapper
-     * @param inputFormatClass The input format to use for reading values
-     * @param cluster The voldemort cluster for which the stores are being built
-     * @param storeDef The store definition of the store
-     * @param chunkSizeBytes The size of the chunks used by the read-only store
-     * @param tempDir The temporary directory to use in hadoop for intermediate
-     *        reducer output
-     * @param outputDir The directory in which to place the built stores
-     * @param inputPath The path from which to read input data
-     * @param checkSumType The checksum algorithm to use
-     */
-    @SuppressWarnings("unchecked")
-    public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
-                              Class<? extends InputFormat> inputFormatClass,
-                              Cluster cluster,
-                              StoreDefinition storeDef,
-                              long chunkSizeBytes,
-                              Path tempDir,
-                              Path outputDir,
-                              Path inputPath,
-                              CheckSumType checkSumType) {
-        this(conf,
-             mapperClass,
-             inputFormatClass,
-             cluster,
-             storeDef,
-             chunkSizeBytes,
-             tempDir,
-             outputDir,
-             inputPath);
-        this.checkSumType = checkSumType;
-
-    }
-
-    /**
-     * Create the store builder
-     * 
-     * @param conf A base configuration to start with
-     * @param mapperClass The class to use as the mapper
-     * @param inputFormatClass The input format to use for reading values
-     * @param cluster The voldemort cluster for which the stores are being built
-     * @param storeDef The store definition of the store
-     * @param chunkSizeBytes The size of the chunks used by the read-only store
-     * @param tempDir The temporary directory to use in hadoop for intermediate
-     *        reducer output
+*        reducer output
      * @param outputDir The directory in which to place the built stores
      * @param inputPath The path from which to read input data
      * @param checkSumType The checksum algorithm to use
      * @param saveKeys Boolean to signify if we want to save the key as well
      * @param reducerPerBucket Boolean to signify whether we want to have a
-     *        single reducer for a bucket ( thereby resulting in all chunk files
-     *        for a bucket being generated in a single reducer )
-     */
-    @SuppressWarnings("unchecked")
-    public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
-                              Class<? extends InputFormat> inputFormatClass,
-                              Cluster cluster,
-                              StoreDefinition storeDef,
-                              long chunkSizeBytes,
-                              Path tempDir,
-                              Path outputDir,
-                              Path inputPath,
-                              CheckSumType checkSumType,
-                              boolean saveKeys,
-                              boolean reducerPerBucket) {
-        this(conf,
-             mapperClass,
-             inputFormatClass,
-             cluster,
-             storeDef,
-             chunkSizeBytes,
-             tempDir,
-             outputDir,
-             inputPath,
-             checkSumType);
-        this.saveKeys = saveKeys;
-        this.reducerPerBucket = reducerPerBucket;
-    }
-
-    /**
-     * Create the store builder
-     * 
-     * @param conf A base configuration to start with
-     * @param mapperClass The class to use as the mapper
-     * @param inputFormatClass The input format to use for reading values
-     * @param cluster The voldemort cluster for which the stores are being built
-     * @param storeDef The store definition of the store
-     * @param tempDir The temporary directory to use in hadoop for intermediate
-     *        reducer output
-     * @param outputDir The directory in which to place the built stores
-     * @param inputPath The path from which to read input data
-     * @param checkSumType The checksum algorithm to use
-     * @param saveKeys Boolean to signify if we want to save the key as well
-     * @param reducerPerBucket Boolean to signify whether we want to have a
-     *        single reducer for a bucket ( thereby resulting in all chunk files
-     *        for a bucket being generated in a single reducer )
+*        single reducer for a bucket ( thereby resulting in all chunk files
+*        for a bucket being generated in a single reducer )
+     * @param chunkSizeBytes Size of each chunks (ignored if numChunks is > 0)
      * @param numChunks Number of chunks per bucket ( partition or partition
-     *        replica )
+*        replica )
+     * @param isAvro whether the data format is avro
+     * @param minNumberOfRecords
+     *
      */
-    @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -275,24 +127,37 @@ public class HadoopStoreBuilder {
                               CheckSumType checkSumType,
                               boolean saveKeys,
                               boolean reducerPerBucket,
-                              int numChunks) {
-        super();
+                              long chunkSizeBytes,
+                              int numChunks,
+                              boolean isAvro,
+                              Long minNumberOfRecords) {
         this.config = conf;
         this.mapperClass = Utils.notNull(mapperClass);
         this.inputFormatClass = Utils.notNull(inputFormatClass);
         this.inputPath = inputPath;
         this.cluster = Utils.notNull(cluster);
         this.storeDef = Utils.notNull(storeDef);
-        this.chunkSizeBytes = -1;
         this.tempDir = tempDir;
         this.outputDir = Utils.notNull(outputDir);
         this.checkSumType = checkSumType;
         this.saveKeys = saveKeys;
         this.reducerPerBucket = reducerPerBucket;
+        this.chunkSizeBytes = chunkSizeBytes;
         this.numChunks = numChunks;
-        if(numChunks <= 0)
-            throw new VoldemortException("Number of chunks should be greater than zero");
+        this.isAvro = isAvro;
+        this.minNumberOfRecords = minNumberOfRecords == null ? 1 : minNumberOfRecords;
+
+        if(numChunks <= 0) {
+            logger.info("HadoopStoreBuilder constructed with numChunks <= 0, thus relying chunk size.");
+            if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE) {
+                throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
+                        + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
+            }
+        } else {
+            logger.info("HadoopStoreBuilder constructed with numChunks > 0, thus ignoring chunk size.");
+        }
     }
+
 
     /**
      * Run the job
@@ -306,14 +171,16 @@ public class HadoopStoreBuilder {
                      new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
             conf.setBoolean("save.keys", saveKeys);
             conf.setBoolean("reducer.per.bucket", reducerPerBucket);
-            conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
-            conf.setMapperClass(mapperClass);
-            conf.setMapOutputKeyClass(BytesWritable.class);
-            conf.setMapOutputValueClass(BytesWritable.class);
-            if(reducerPerBucket) {
-                conf.setReducerClass(HadoopStoreBuilderReducerPerBucket.class);
-            } else {
-                conf.setReducerClass(HadoopStoreBuilderReducer.class);
+            if(!isAvro) {
+                conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
+                conf.setMapperClass(mapperClass);
+                conf.setMapOutputKeyClass(BytesWritable.class);
+                conf.setMapOutputValueClass(BytesWritable.class);
+                if(reducerPerBucket) {
+                    conf.setReducerClass(HadoopStoreBuilderReducerPerBucket.class);
+                } else {
+                    conf.setReducerClass(HadoopStoreBuilderReducer.class);
+                }
             }
             conf.setInputFormat(inputFormatClass);
             conf.setOutputFormat(SequenceFileOutputFormat.class);
@@ -324,6 +191,7 @@ public class HadoopStoreBuilder {
             FileInputFormat.setInputPaths(conf, inputPath);
             conf.set("final.output.dir", outputDir.toString());
             conf.set("checksum.type", CheckSum.toString(checkSumType));
+            conf.set("dfs.umaskmode", "002");
             FileOutputFormat.setOutputPath(conf, tempDir);
 
             FileSystem outputFs = outputDir.getFileSystem(conf);
@@ -380,6 +248,35 @@ public class HadoopStoreBuilder {
             conf.setInt("num.chunks", numChunks);
             conf.setNumReduceTasks(numReducers);
 
+            if(isAvro) {
+                conf.setPartitionerClass(AvroStoreBuilderPartitioner.class);
+                // conf.setMapperClass(mapperClass);
+                conf.setMapOutputKeyClass(ByteBuffer.class);
+                conf.setMapOutputValueClass(ByteBuffer.class);
+
+                conf.setInputFormat(inputFormatClass);
+
+                conf.setOutputFormat((Class<? extends OutputFormat>) AvroOutputFormat.class);
+                conf.setOutputKeyClass(ByteBuffer.class);
+                conf.setOutputValueClass(ByteBuffer.class);
+
+                // AvroJob confs for the avro mapper
+                AvroJob.setInputSchema(conf, Schema.parse(config.get("avro.rec.schema")));
+
+                AvroJob.setOutputSchema(conf,
+                                        Pair.getPairSchema(Schema.create(Schema.Type.BYTES),
+                                                           Schema.create(Schema.Type.BYTES)));
+
+                AvroJob.setMapperClass(conf, mapperClass);
+
+                if(reducerPerBucket) {
+                    conf.setReducerClass(AvroStoreBuilderReducerPerBucket.class);
+                } else {
+                    conf.setReducerClass(AvroStoreBuilderReducer.class);
+                }
+
+            }
+
             logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
                         + ", save keys: " + saveKeys + ", reducerPerBucket: " + reducerPerBucket);
             logger.info("Building store...");
@@ -388,18 +285,18 @@ public class HadoopStoreBuilder {
             // Once the job has completed log the counter
             Counters counters = job.getCounters();
 
+            long numberOfRecords = counters.getCounter(Task.Counter.REDUCE_INPUT_GROUPS);
+
+            if (numberOfRecords < minNumberOfRecords) {
+                throw new VoldemortException("The number of records in the data set (" + numberOfRecords +
+                        ") is lower than the minimum required (" + minNumberOfRecords + "). Aborting.");
+            }
+
             if(saveKeys) {
-                if(reducerPerBucket) {
-                    logger.info("Number of collisions in the job - "
-                                + counters.getCounter(HadoopStoreBuilderReducerPerBucket.CollisionCounter.NUM_COLLISIONS));
-                    logger.info("Maximum number of collisions for one entry - "
-                                + counters.getCounter(HadoopStoreBuilderReducerPerBucket.CollisionCounter.MAX_COLLISIONS));
-                } else {
-                    logger.info("Number of collisions in the job - "
-                                + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.NUM_COLLISIONS));
-                    logger.info("Maximum number of collisions for one entry - "
-                                + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.MAX_COLLISIONS));
-                }
+                logger.info("Number of collisions in the job - "
+                            + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
+                logger.info("Maximum number of collisions for one entry - "
+                            + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
             }
 
             // Do a CheckSumOfCheckSum - Similar to HDFS
@@ -428,6 +325,8 @@ public class HadoopStoreBuilder {
                     logger.info("No data generated for node " + node.getId()
                                 + ". Generating empty folder");
                     outputFs.mkdirs(nodePath); // Create empty folder
+                    outputFs.setPermission(nodePath, new FsPermission(HADOOP_FILE_PERMISSION));
+                    logger.info("Setting permission to 755 for " + nodePath);
                 }
 
                 if(checkSumType != CheckSumType.NONE) {
@@ -449,15 +348,36 @@ public class HadoopStoreBuilder {
 
                         for(FileStatus file: storeFiles) {
                             try {
-                                input = outputFs.open(file.getPath());
+                                // HDFS NameNodes can sometimes GC for extended periods of time,
+                                // hence the exponential back-off strategy below.
+                                // TODO: Refactor all BnP/Voldemort retry code into a pluggable/configurable mechanism
+
+                                int totalAttempts = 4;
+                                int attemptsRemaining = totalAttempts;
+                                while (attemptsRemaining > 0) {
+                                    try {
+                                        attemptsRemaining--;
+                                        input = outputFs.open(file.getPath());
+                                    } catch (Exception e) {
+                                        if (attemptsRemaining < 1) {
+                                            throw e;
+                                        }
+
+                                        // Exponential back-off sleep times: 5s, 25s, 45s.
+                                        int sleepTime = ((totalAttempts - attemptsRemaining) ^ 2) * 5;
+                                        logger.error("Error getting checksum file from HDFS. Retries left: " +
+                                                attemptsRemaining + ". Back-off until next retry: " + sleepTime + " seconds.", e);
+
+                                        Thread.sleep(sleepTime * 1000);
+                                    }
+                                }
                                 byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
                                 input.read(fileCheckSum);
                                 logger.debug("Checksum for file " + file.toString() + " - "
-                                             + new String(Hex.encodeHex(fileCheckSum)));
+                                        + new String(Hex.encodeHex(fileCheckSum)));
                                 checkSumGenerator.update(fileCheckSum);
                             } catch(Exception e) {
-                                logger.error("Error while reading checksum file " + e.getMessage(),
-                                             e);
+                                logger.error("Error getting checksum file from HDFS", e);
                             } finally {
                                 if(input != null)
                                     input.close();
@@ -476,7 +396,10 @@ public class HadoopStoreBuilder {
                 }
 
                 // Write metadata
-                FSDataOutputStream metadataStream = outputFs.create(new Path(nodePath, ".metadata"));
+                Path metadataPath = new Path(nodePath, ".metadata");
+                FSDataOutputStream metadataStream = outputFs.create(metadataPath);
+                outputFs.setPermission(metadataPath, new FsPermission(HADOOP_FILE_PERMISSION));
+                logger.info("Setting permission to 755 for " + metadataPath);
                 metadataStream.write(metadata.toJsonString().getBytes());
                 metadataStream.flush();
                 metadataStream.close();

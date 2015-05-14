@@ -18,6 +18,7 @@ package voldemort.store;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,6 +32,7 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -143,6 +145,18 @@ public class StoreUtils {
                                            + " not present at " + currentNode);
     }
 
+    /**
+     * Check if the the nodeId is present in the cluster managed by the metadata store
+     * or throw an exception.
+     *
+     * @param nodeId The nodeId to check existence of
+     */
+    public static void assertValidNode(MetadataStore metadataStore, Integer nodeId) {
+        if(!metadataStore.getCluster().hasNodeWithId(nodeId)) {
+            throw new InvalidMetadataException("NodeId " + nodeId + " is not or no longer in this cluster");
+        }
+    }
+
     public static <V> List<Version> getVersions(List<Versioned<V>> versioneds) {
         List<Version> versions = Lists.newArrayListWithCapacity(versioneds.size());
         for(Versioned<?> versioned: versioneds)
@@ -198,5 +212,30 @@ public class StoreUtils {
             if(def.getName().equals(name))
                 return def;
         return null;
+    }
+
+    /**
+     * Get the list of store names from a list of store definitions
+     * 
+     * @param list
+     * @param ignoreViews
+     * @return list of store names
+     */
+    public static List<String> getStoreNames(List<StoreDefinition> list, boolean ignoreViews) {
+        List<String> storeNameSet = new ArrayList<String>();
+        for(StoreDefinition def: list)
+            if(!def.isView() || !ignoreViews)
+                storeNameSet.add(def.getName());
+        return storeNameSet;
+    }
+
+    public static HashMap<String, StoreDefinition> getStoreDefsAsMap(List<StoreDefinition> storeDefs) {
+        if(storeDefs == null)
+            return null;
+
+        HashMap<String, StoreDefinition> storeDefMap = new HashMap<String, StoreDefinition>();
+        for(StoreDefinition def: storeDefs)
+            storeDefMap.put(def.getName(), def);
+        return storeDefMap;
     }
 }

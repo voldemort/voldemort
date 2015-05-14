@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,12 +16,13 @@
 
 package voldemort.server.socket;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-
-import junit.framework.TestCase;
 
 import org.junit.After;
 import org.junit.Before;
@@ -38,6 +39,7 @@ import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.store.stats.ClientSocketStats;
 
 /**
  * Tests for the socket pooling
@@ -45,7 +47,7 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
  * 
  */
 @RunWith(Parameterized.class)
-public class ClientRequestExecutorPoolTest extends TestCase {
+public class ClientRequestExecutorPoolTest {
 
     private int port;
     private int maxConnectionsPerNode = 3;
@@ -64,11 +66,17 @@ public class ClientRequestExecutorPoolTest extends TestCase {
         return Arrays.asList(new Object[][] { { true }, { false } });
     }
 
-    @Override
     @Before
     public void setUp() {
         this.port = ServerTestUtils.findFreePort();
-        this.pool = new ClientRequestExecutorPool(maxConnectionsPerNode, 1000, 1000, 32 * 1024);
+        this.pool = new ClientRequestExecutorPool(2,
+                                                  maxConnectionsPerNode,
+                                                  1000,
+                                                  1000,
+                                                  32 * 1024,
+                                                  false,
+                                                  true,
+                                                  new String());
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
         RequestHandlerFactory handlerFactory = ServerTestUtils.getSocketRequestHandlerFactory(new StoreRepository());
         this.server = ServerTestUtils.getSocketService(useNio,
@@ -81,7 +89,6 @@ public class ClientRequestExecutorPoolTest extends TestCase {
         this.server.start();
     }
 
-    @Override
     @After
     public void tearDown() {
         this.pool.close();
@@ -112,20 +119,22 @@ public class ClientRequestExecutorPoolTest extends TestCase {
         for(int i = 0; i < maxConnectionsPerNode; i++)
             list.add(pool.checkout(dest1));
 
-        assertEquals(list.size(), pool.getNumberSocketsCreated());
-        assertEquals(list.size(), pool.getNumberOfActiveConnections());
+        assertEquals(list.size(),
+                     pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
+        assertEquals(list.size(), pool.getStats().getConnectionsActive(null));
 
         pool.close(dest1);
 
-        assertEquals(list.size(), pool.getNumberOfActiveConnections());
-        assertEquals(0, pool.getNumberSocketsDestroyed());
+        assertEquals(list.size(), pool.getStats().getConnectionsActive(null));
+        assertEquals(0,
+                     pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_DESTROYED_EVENT));
 
         for(ClientRequestExecutor sas: list)
             pool.checkin(dest1, sas);
 
-        assertEquals(0, pool.getNumberOfActiveConnections());
-        assertEquals(list.size(), pool.getNumberSocketsDestroyed());
-        assertEquals(0, pool.getNumberOfCheckedInConnections());
+        assertEquals(0, pool.getStats().getConnectionsActive(null));
+        assertEquals(list.size(),
+                     pool.getStats().getCount(ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT));
     }
 
     @Test

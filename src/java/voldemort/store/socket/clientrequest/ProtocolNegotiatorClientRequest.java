@@ -17,12 +17,12 @@
 package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
 import voldemort.utils.ByteUtils;
 
 public class ProtocolNegotiatorClientRequest extends AbstractClientRequest<String> {
@@ -38,7 +38,8 @@ public class ProtocolNegotiatorClientRequest extends AbstractClientRequest<Strin
     }
 
     @Override
-    protected void formatRequestInternal(DataOutputStream outputStream) throws IOException {
+    protected void formatRequestInternal(ByteBufferBackedOutputStream outputStream)
+            throws IOException {
         outputStream.write(ByteUtils.getBytes(requestFormatType.getCode(), "UTF-8"));
     }
 

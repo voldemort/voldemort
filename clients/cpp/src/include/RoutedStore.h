@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef ROUTEDSTORE_H
-#define ROUTEDSTORE_H
+#ifndef VOLDEMORT_ROUTEDSTORE_H
+#define VOLDEMORT_ROUTEDSTORE_H
 
 #include <voldemort/Store.h>
 #include <voldemort/ClientConfig.h>
@@ -58,12 +58,12 @@ public:
     virtual ~RoutedStore();
 
     // Store interface 
-    virtual std::list<VersionedValue>* get(const std::string& key);
+    virtual std::list<VersionedValue>* get(const std::string& key) const;
     virtual void put(const std::string& key,
                      const VersionedValue& value);
     virtual bool deleteKey(const std::string& key,
                            const Version& version);
-    virtual const std::string* getName();
+    virtual const std::string* getName() const;
     virtual void close();
 
 private:
@@ -76,4 +76,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* ROUTEDSTORE_H */
+#endif/*VOLDEMORT_ROUTEDSTORE_H*/

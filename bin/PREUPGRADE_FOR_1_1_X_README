@@ -1,0 +1,119 @@
+This directory contains utility to convert BDB JE data between different versions of Voldemort. 
+
+Need for Conversion
+-------------------
+Voldemort has been using "sorted duplicates" feature of BDB JE to handle
+conflicting writes to the same key. At the very minimum, the conversion gets 
+rid of BDB sorted duplicates support and handles duplicates in the Voldemort 
+storage layer itself. The decision was made after months of closely working 
+with Oracle JE team, to understand the factors affecting performance. 
+
+Data Formats
+------------
+This section describes the data formats themselves. 
+
+1) Base Format (Base)
+--------------------- 
+This is the format used by Voldemort up until 1.1.x, relying on BDB JE for 
+duplicate handling
+
+Disadvantages:
+-- The manner in which BDB JE handles duplicates is not suitable for an 
+   application with small percent of 2-3 duplicates i.e Voldemort.
+-- Data bloat issue that prevented us from migrating to any higher 4.x version
+   to be able to control cache eviction
+-- Incompatible with how duplicates are handled in JE5.
+-- May incur additional locking costs for the "duplicates" subtree
+
+2) New duplicate format (NewDup)
+-------------------------------- 
+This format is supported from release 1.1.x, where Voldemort storage layer 
+handles duplicates and BDB JE version is bumped up to JE 4.1.17 
+
+Advantages:
+-- Ability to move data off disk. This is very GC friendly, relying on OS page 
+   cache for the data and using the JVM heap only for index. This is achieved 
+   by setting "bdb.cache.evictln" server parameter to "true"
+-- Ability to evict data brought into the cache during scans, minimize impact
+   on online traffic (Restore, Rebalance, Retention). This is achieved by
+   setting "bdb.minimize.scan.impact" to "true"
+-- Thinner storage layer. eg: BdbStorageEngine.put() does not incur the cost 
+   of an additional delete()
+-- General speed up due to elimination of duplicates
+
+This format is the minimum requirement to be able to upgrade to 1.1.x & higher
+
+3) Partition Scan format (PidScan)
+----------------------------------
+This is a super set of 'NewDup' format, supported 1.1.x upwards. In addition to
+eliminating duplicates and upgrading to JE 4.1.17, it adds a 2 byte prefix  
+representing the partition id to each key. 
+
+Advantages:
+-- Speed up Restore and Rebalancing linearly to the number of partitions
+   actually fetched. (which means much shorter degraded mode performance)
+
+This is an optional format. You can turn it off, by setting
+bdb.prefix.keys.with.partitionid=false, if you don't like for some reason
+
+Note : We have not seen the extra 2 bytes cause any overhead to online 
+performance 
+
+IMPORTANT: IT IS REQUIRED TO CONVERT TO EITHER 'NewDup' or 'PidScan' TO RUN 
+VOLDEMORT WITH BDB, STARTING RELEASE 1.1.x
+
+4) BDB 5 Support
+------------------------------------
+From versions 1.6.0+, Voldemort has moved to BDB JE 5, offering superior
+compaction and generally faster online operations. 
+
+If you are upgrading from a version prior to 1.1.x to 1.6.0+, then you 
+also need to include a step to preupgrade from BDB 4 to BDB 5 before
+running the conversion utility below. (See BDB JE documentation for details)
+
+Running the Conversion Utility
+------------------------------
+The tool provides the ability to convert one database from a source environment
+to a destination environment. You need to run the tool for each of the databases
+or voldemort store you have. You can bring one Voldemort server at a time and
+perform the conversion and bring it up on the appropriate release  
+
+Note: For users running with "bdb.one.env.per.store=false", it means you will 
+have to run the tool with the same --src --dest options for each database
+contained.
+
+In addition to BDB environment locations, the tool needs the cluster.xml to generate
+the partition prefix.
+
+$./voldemort-convert-bdb.sh --src   <Required: Path to source bdb environment>
+                      --dest  <Required: Path to place converted new environment> 
+                      --store <Required: BDB database (voldemort store) name> 
+                      --cluster-xml <Required: Path to cluster.xml>
+                      --from-format  <Required: Format to convert FROM, one of the 3 
+                                      strings 'Base','NewDup','PidScan'>
+                      --to-format    <Required: Format to convert TO, one of the 3 
+                                      strings 'Base','NewDup','PidScan'>
+                      --je-log-size <Optional: Size in MB for the new JE log files, 
+                                    Default:60>
+                      --btree-nodemax <Optional: Btree fan out, Default: 512>
+                      
+We recommend you run the following to move to release 1.1.x & up.
+
+$./voldemort-convert-bdb.sh --src   /path/to/src/env
+                      --dest  /path/to/dest/env 
+                      --store teststore 
+                      --cluster-xml /path/to/cluster/xml
+                      --from-format  Base
+                      --to-format    PidScan
+                      
+
+
+
+
+
+
+
+
+
+
+

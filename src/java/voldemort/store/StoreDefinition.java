@@ -23,6 +23,7 @@ import java.util.List;
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
@@ -50,6 +51,7 @@ public class StoreDefinition implements Serializable {
     private final int requiredReads;
     private final Integer retentionPeriodDays;
     private final Integer retentionScanThrottleRate;
+    private final Integer retentionFrequencyDays;
     private final String routingStrategyType;
     private final String viewOf;
     private final HashMap<Integer, Integer> zoneReplicationFactor;
@@ -60,6 +62,7 @@ public class StoreDefinition implements Serializable {
     private final HintedHandoffStrategyType hintedHandoffStrategyType;
     private final Integer hintPrefListSize;
     private final List<String> owners;
+    private final long memoryFootprintMB;
 
     public StoreDefinition(String name,
                            String type,
@@ -81,24 +84,28 @@ public class StoreDefinition implements Serializable {
                            Integer zoneCountWrites,
                            Integer retentionDays,
                            Integer retentionThrottleRate,
+                           Integer retentionFrequencyDays,
                            String factory,
                            HintedHandoffStrategyType hintedHandoffStrategyType,
                            Integer hintPrefListSize,
-                           List<String> owners) {
+                           List<String> owners,
+                           long memoryFootprintMB) {
         this.name = Utils.notNull(name);
-        this.type = Utils.notNull(type);
+        this.type = type;
         this.description = description;
         this.replicationFactor = replicationFactor;
         this.preferredReads = preferredReads;
         this.requiredReads = requiredReads;
         this.preferredWrites = preferredWrites;
         this.requiredWrites = requiredWrites;
-        this.routingPolicy = Utils.notNull(routingPolicy);
-        this.keySerializer = Utils.notNull(keySerializer);
-        this.valueSerializer = Utils.notNull(valueSerializer);
+        this.routingPolicy = routingPolicy;
+        this.keySerializer = keySerializer;
+        this.valueSerializer = valueSerializer;
         this.transformsSerializer = transformsSerializer;
         this.retentionPeriodDays = retentionDays;
         this.retentionScanThrottleRate = retentionThrottleRate;
+        this.retentionFrequencyDays = retentionFrequencyDays;
+        this.memoryFootprintMB = memoryFootprintMB;
         this.routingStrategyType = routingStrategyType;
         this.viewOf = viewOfStore;
         this.valueTransformation = valTrans;
@@ -109,43 +116,54 @@ public class StoreDefinition implements Serializable {
         this.hintedHandoffStrategyType = hintedHandoffStrategyType;
         this.hintPrefListSize = hintPrefListSize;
         this.owners = owners;
-        checkParameterLegality();
     }
 
-    private void checkParameterLegality() {
+    private void throwIllegalException(String errorMessage) {
+        throw new IllegalArgumentException(" Store '" + this.name + "'. Error: " + errorMessage);
+    }
+
+    protected void checkParameterLegality() {
+
+        // null checks
+        Utils.notNull(this.type);
+        Utils.notNull(routingPolicy);
+        Utils.notNull(keySerializer);
+        Utils.notNull(valueSerializer);
+
         if(requiredReads < 1)
-            throw new IllegalArgumentException("Cannot have a requiredReads number less than 1.");
+            throwIllegalException("Cannot have a requiredReads number less than 1.");
         else if(requiredReads > replicationFactor)
-            throw new IllegalArgumentException("Cannot have more requiredReads then there are replicas.");
+            throwIllegalException("Cannot have more requiredReads then there are replicas.");
 
         if(requiredWrites < 1)
-            throw new IllegalArgumentException("Cannot have a requiredWrites number less than 1.");
+            throwIllegalException("Cannot have a requiredWrites number less than 1.");
         else if(requiredWrites > replicationFactor)
-            throw new IllegalArgumentException("Cannot have more requiredWrites then there are replicas.");
+            throwIllegalException("Cannot have more requiredWrites then there are replicas.");
 
         if(preferredWrites != null) {
             if(preferredWrites < requiredWrites)
-                throw new IllegalArgumentException("preferredWrites must be greater or equal to requiredWrites.");
+                throwIllegalException("preferredWrites must be greater or equal to requiredWrites.");
             if(preferredWrites > replicationFactor)
-                throw new IllegalArgumentException("Cannot have more preferredWrites then there are replicas.");
+                throwIllegalException("Cannot have more preferredWrites then there are replicas.");
         }
         if(preferredReads != null) {
             if(preferredReads < requiredReads)
-                throw new IllegalArgumentException("preferredReads must be greater or equal to requiredReads.");
+                throwIllegalException("preferredReads must be greater or equal to requiredReads.");
             if(preferredReads > replicationFactor)
-                throw new IllegalArgumentException("Cannot have more preferredReads then there are replicas.");
+                throwIllegalException("Cannot have more preferredReads then there are replicas.");
         }
 
         if(retentionPeriodDays != null && retentionPeriodDays < 0)
-            throw new IllegalArgumentException("Retention days must be non-negative.");
+            throwIllegalException("Retention days must be non-negative.");
 
-        if(zoneReplicationFactor != null && zoneReplicationFactor.size() != 0) {
+        if(!SystemStoreConstants.isSystemStore(name) && zoneReplicationFactor != null
+           && zoneReplicationFactor.size() != 0) {
 
             if(zoneCountReads == null || zoneCountReads < 0)
-                throw new IllegalArgumentException("Zone Counts reads must be non-negative / non-null");
+                throwIllegalException("Zone Counts reads must be non-negative / non-null");
 
             if(zoneCountWrites == null || zoneCountWrites < 0)
-                throw new IllegalArgumentException("Zone Counts writes must be non-negative");
+                throwIllegalException("Zone Counts writes must be non-negative");
 
             int sumZoneReplicationFactor = 0;
             int replicatingZones = 0;
@@ -158,33 +176,32 @@ public class StoreDefinition implements Serializable {
             }
 
             if(replicatingZones <= 0) {
-                throw new IllegalArgumentException("Cannot have no zones to replicate to. "
-                                                   + "Should have some positive zoneReplicationFactor");
+                throwIllegalException("Cannot have no zones to replicate to. "
+                                      + "Should have some positive zoneReplicationFactor");
             }
 
             // Check if sum of individual zones is equal to total replication
             // factor
             if(sumZoneReplicationFactor != replicationFactor) {
-                throw new IllegalArgumentException("Sum total of zones ("
-                                                   + sumZoneReplicationFactor
-                                                   + ") does not match the total replication factor ("
-                                                   + replicationFactor + ")");
+                throwIllegalException("Sum total of zones (" + sumZoneReplicationFactor
+                                      + ") does not match the total replication factor ("
+                                      + replicationFactor + ")");
             }
 
             // Check if number of zone-count-reads and zone-count-writes are
             // less than zones replicating to
             if(zoneCountReads >= replicatingZones) {
-                throw new IllegalArgumentException("Number of zones to block for while reading ("
-                                                   + zoneCountReads
-                                                   + ") should be less then replicating zones ("
-                                                   + replicatingZones + ")");
+                throwIllegalException("Number of zones to block for while reading ("
+                                      + zoneCountReads
+                                      + ") should be less then replicating zones ("
+                                      + replicatingZones + ")");
             }
 
             if(zoneCountWrites >= replicatingZones) {
-                throw new IllegalArgumentException("Number of zones to block for while writing ("
-                                                   + zoneCountWrites
-                                                   + ") should be less then replicating zones ("
-                                                   + replicatingZones + ")");
+                throwIllegalException("Number of zones to block for while writing ("
+                                      + zoneCountWrites
+                                      + ") should be less then replicating zones ("
+                                      + replicatingZones + ")");
             }
         }
     }
@@ -258,7 +275,7 @@ public class StoreDefinition implements Serializable {
     }
 
     public boolean hasRetentionPeriod() {
-        return this.retentionPeriodDays != null;
+        return this.retentionPeriodDays != null && this.retentionPeriodDays > 0;
     }
 
     public Integer getRetentionDays() {
@@ -271,6 +288,14 @@ public class StoreDefinition implements Serializable {
 
     public Integer getRetentionScanThrottleRate() {
         return this.retentionScanThrottleRate;
+    }
+
+    public boolean hasRetentionFrequencyDays() {
+        return this.retentionFrequencyDays != null;
+    }
+
+    public Integer getRetentionFrequencyDays() {
+        return this.retentionFrequencyDays;
     }
 
     public boolean isView() {
@@ -329,6 +354,14 @@ public class StoreDefinition implements Serializable {
         return this.owners;
     }
 
+    public long getMemoryFootprintMB() {
+        return this.memoryFootprintMB;
+    }
+
+    public boolean hasMemoryFootprint() {
+        return memoryFootprintMB != 0;
+    }
+
     @Override
     public boolean equals(Object o) {
         if(this == o)
@@ -371,7 +404,8 @@ public class StoreDefinition implements Serializable {
                                 def.getSerializerFactory() != null ? def.getSerializerFactory()
                                                                   : null)
                && Objects.equal(getHintedHandoffStrategyType(), def.getHintedHandoffStrategyType())
-               && Objects.equal(getHintPrefListSize(), def.getHintPrefListSize());
+               && Objects.equal(getHintPrefListSize(), def.getHintPrefListSize())
+               && Objects.equal(getMemoryFootprintMB(), def.getMemoryFootprintMB());
     }
 
     @Override
@@ -402,7 +436,8 @@ public class StoreDefinition implements Serializable {
                                 hasHintedHandoffStrategyType() ? getHintedHandoffStrategyType()
                                                               : null,
                                 hasHintPreflistSize() ? getHintPrefListSize() : null,
-                                getOwners());
+                                getOwners(),
+                                getMemoryFootprintMB());
     }
 
     @Override
@@ -422,6 +457,6 @@ public class StoreDefinition implements Serializable {
                + getZoneCountWrites() + ", serializer factory = " + getSerializerFactory() + ")"
                + ", hinted-handoff-strategy = " + getHintedHandoffStrategyType()
                + ", hint-preflist-size = " + getHintPrefListSize() + ", owners = " + getOwners()
-               + ")";
+               + ", memory-footprint(MB)" + getMemoryFootprintMB() + ")";
     }
 }

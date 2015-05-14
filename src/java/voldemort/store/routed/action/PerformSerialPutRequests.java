@@ -27,8 +27,10 @@ import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.Store;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.PipelineRoutedStore;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -74,11 +76,20 @@ public class PerformSerialPutRequests extends
         int currentNode = 0;
         List<Node> nodes = pipelineData.getNodes();
 
+        long startMasterMs = -1;
+        long startMasterNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startMasterMs = System.currentTimeMillis();
+            startMasterNs = System.nanoTime();
+        }
+
         if(logger.isDebugEnabled())
             logger.debug("Performing serial put requests to determine master");
 
+        Node node = null;
         for(; currentNode < nodes.size(); currentNode++) {
-            Node node = nodes.get(currentNode);
+            node = nodes.get(currentNode);
             pipelineData.incrementNodeIndex();
 
             VectorClock versionedClock = (VectorClock) versioned.getVersion();
@@ -86,8 +97,8 @@ public class PerformSerialPutRequests extends
                                                                           versionedClock.incremented(node.getId(),
                                                                                                      time.getMilliseconds()));
 
-            if(logger.isTraceEnabled())
-                logger.trace("Attempt #" + (currentNode + 1) + " to perform put (node "
+            if(logger.isDebugEnabled())
+                logger.debug("Attempt #" + (currentNode + 1) + " to perform put (node "
                              + node.getId() + ")");
 
             long start = System.nanoTime();
@@ -98,19 +109,34 @@ public class PerformSerialPutRequests extends
                 pipelineData.incrementSuccesses();
                 failureDetector.recordSuccess(node, requestTime);
 
-                if(logger.isTraceEnabled())
-                    logger.trace("Put on node " + node.getId() + " succeeded, using as master");
+                if(logger.isDebugEnabled())
+                    logger.debug("Put on node " + node.getId() + " succeeded, using as master");
 
                 pipelineData.setMaster(node);
                 pipelineData.setVersionedCopy(versionedCopy);
                 pipelineData.getZoneResponses().add(node.getZoneId());
+                currentNode++;
                 break;
             } catch(Exception e) {
                 long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
 
+                if(logger.isDebugEnabled())
+                    logger.debug("Master PUT at node " + currentNode + "(" + node.getHost() + ")"
+                                 + " failed (" + e.getMessage() + ") in "
+                                 + (System.nanoTime() - start) + " ns" + " (keyRef: "
+                                 + System.identityHashCode(key) + ")");
+
+                if(PipelineRoutedStore.isSlopableFailure(e)) {
+                    pipelineData.getSynchronizer().tryDelegateSlop(node);
+                }
                 if(handleResponseError(e, node, requestTime, pipeline, failureDetector))
                     return;
             }
+        }
+
+        if(logger.isTraceEnabled()) {
+            logger.trace("PUT {key:" + key + "} currentNode=" + currentNode + " nodes.size()="
+                         + nodes.size());
         }
 
         if(pipelineData.getSuccesses() < 1) {
@@ -121,8 +147,6 @@ public class PerformSerialPutRequests extends
             pipeline.abort();
             return;
         }
-
-        currentNode++;
 
         // There aren't any more requests to make...
         if(currentNode == nodes.size()) {
@@ -157,10 +181,26 @@ public class PerformSerialPutRequests extends
                     }
 
                 } else {
+                    if(logger.isDebugEnabled())
+                        logger.debug("Finished master PUT for key "
+                                     + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                                     + System.identityHashCode(key) + "); started at "
+                                     + startMasterMs + " took "
+                                     + (System.nanoTime() - startMasterNs) + " ns on node "
+                                     + (node == null ? "NULL" : node.getId()) + "("
+                                     + (node == null ? "NULL" : node.getHost()) + "); now complete");
+
                     pipeline.addEvent(completeEvent);
                 }
             }
         } else {
+            if(logger.isDebugEnabled())
+                logger.debug("Finished master PUT for key " + ByteUtils.toHexString(key.get())
+                             + " (keyRef: " + System.identityHashCode(key) + "); started at "
+                             + startMasterMs + " took " + (System.nanoTime() - startMasterNs)
+                             + " ns on node " + (node == null ? "NULL" : node.getId()) + "("
+                             + (node == null ? "NULL" : node.getHost()) + ")");
+
             pipeline.addEvent(masterDeterminedEvent);
         }
     }

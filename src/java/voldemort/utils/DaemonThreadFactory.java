@@ -20,7 +20,7 @@ public class DaemonThreadFactory implements ThreadFactory {
     }
 
     public Thread newThread(Runnable r) {
-        Thread t = new Thread(r, namePrefix + threadNumber.getAndIncrement());
+        Thread t = new Thread(r, namePrefix + "-t" + threadNumber.getAndIncrement());
         t.setDaemon(true);
         return t;
     }

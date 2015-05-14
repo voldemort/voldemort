@@ -17,12 +17,11 @@
 package voldemort.store.routed.action;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 import voldemort.VoldemortException;
+import voldemort.client.ZoneAffinity;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -48,6 +47,8 @@ public class GetAllConfigureNodes
 
     private final Map<ByteArray, byte[]> transforms;
 
+    private final ZoneAffinity zoneAffinity;
+
     public GetAllConfigureNodes(GetAllPipelineData pipelineData,
                                 Event completeEvent,
                                 FailureDetector failureDetector,
@@ -56,12 +57,14 @@ public class GetAllConfigureNodes
                                 RoutingStrategy routingStrategy,
                                 Iterable<ByteArray> keys,
                                 Map<ByteArray, byte[]> transforms,
-                                Zone clientZone) {
+                                Zone clientZone,
+                                ZoneAffinity zoneAffinity) {
         super(pipelineData, completeEvent, failureDetector, required, routingStrategy);
         this.preferred = preferred;
         this.keys = keys;
         this.transforms = transforms;
         this.clientZone = clientZone;
+        this.zoneAffinity = zoneAffinity;
     }
 
     public void execute(Pipeline pipeline) {
@@ -70,9 +73,10 @@ public class GetAllConfigureNodes
 
         for(ByteArray key: keys) {
             List<Node> nodes = null;
+            List<Node> originalNodes = null;
 
             try {
-                nodes = getNodes(key);
+                originalNodes = getNodes(key);
             } catch(VoldemortException e) {
                 pipelineData.setFatalError(e);
                 pipeline.addEvent(Event.ERROR);
@@ -82,32 +86,26 @@ public class GetAllConfigureNodes
             List<Node> preferredNodes = Lists.newArrayListWithCapacity(preferred);
             List<Node> extraNodes = Lists.newArrayListWithCapacity(3);
 
+            if(zoneAffinity != null && zoneAffinity.isGetAllOpZoneAffinityEnabled()) {
+                nodes = new ArrayList<Node>();
+                for(Node node: originalNodes) {
+                    if(node.getZoneId() == clientZone.getId()) {
+                        nodes.add(node);
+                    }
+                }
+            } else {
+                nodes = originalNodes;
+            }
+
             if(pipelineData.getZonesRequired() != null) {
 
-                if(pipelineData.getZonesRequired() > this.clientZone.getProximityList().size()) {
-                    throw new VoldemortException("Number of zones required should be less than the total number of zones");
-                }
-
-                if(pipelineData.getZonesRequired() > required) {
-                    throw new VoldemortException("Number of zones required should be less than the required number of "
-                                                 + pipeline.getOperation().getSimpleName() + "s");
-                }
+                validateZonesRequired(this.clientZone, pipelineData.getZonesRequired());
 
                 // Create zone id to node mapping
-                Map<Integer, List<Node>> zoneIdToNode = new HashMap<Integer, List<Node>>();
-                for(Node node: nodes) {
-                    List<Node> nodesList = null;
-                    if(zoneIdToNode.containsKey(node.getZoneId())) {
-                        nodesList = zoneIdToNode.get(node.getZoneId());
-                    } else {
-                        nodesList = new ArrayList<Node>();
-                        zoneIdToNode.put(node.getZoneId(), nodesList);
-                    }
-                    nodesList.add(node);
-                }
+                Map<Integer, List<Node>> zoneIdToNode = convertToZoneNodeMap(nodes);
 
                 nodes = new ArrayList<Node>();
-                LinkedList<Integer> proximityList = this.clientZone.getProximityList();
+                List<Integer> proximityList = this.clientZone.getProximityList();
                 // Add a node from every zone
                 for(int index = 0; index < pipelineData.getZonesRequired(); index++) {
                     List<Node> zoneNodes = zoneIdToNode.get(proximityList.get(index));
@@ -117,7 +115,11 @@ public class GetAllConfigureNodes
                 }
 
                 // Add the rest
-                nodes.addAll(zoneIdToNode.get(this.clientZone.getId()));
+                List<Node> zoneIDNodeList = zoneIdToNode.get(this.clientZone.getId());
+                if(zoneIDNodeList != null) {
+                    nodes.addAll(zoneIDNodeList);
+                }
+
                 for(int index = 0; index < proximityList.size(); index++) {
                     List<Node> zoneNodes = zoneIdToNode.get(proximityList.get(index));
                     if(zoneNodes != null)

@@ -16,6 +16,10 @@
 
 package voldemort.client;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -106,6 +110,29 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
         List<StoreClientFactory> factories = new ArrayList<StoreClientFactory>();
         factories.add(getFactory(getValidBootstrapUrl()));
         factories.add(getFactory(getValidBootstrapUrl()));
+    }
+
+    @Test
+    public void testStoreClientCaching() throws Exception {
+        // the objects will be equal only its not a lazy client
+        StoreClientFactory factory = getFactory(getValidBootstrapUrl());
+        StoreClient<Object, Object> testClient1 = factory.getStoreClient("test");
+        StoreClient<Object, Object> testClient2 = factory.getStoreClient("test");
+
+        StoreClient<Object, Object> bestClient1 = factory.getStoreClient("best");
+        StoreClient<Object, Object> bestClient2 = factory.getStoreClient("best");
+
+        if(useLazy) {
+            // if lazy is enabled, we need to compare the inner Store Client.
+            testClient1 = ((LazyStoreClient<Object, Object>) testClient1).getStoreClient();
+            testClient2 = ((LazyStoreClient<Object, Object>) testClient2).getStoreClient();
+            bestClient1 = ((LazyStoreClient<Object, Object>) bestClient1).getStoreClient();
+            bestClient2 = ((LazyStoreClient<Object, Object>) bestClient2).getStoreClient();
+        }
+
+        assertTrue("Client for store test should be reused", testClient1 == testClient2);
+        assertTrue("Client for store best should be reused", bestClient1 == bestClient2);
+        assertTrue("Clients cannot be the same for different stores", testClient1 != bestClient1);
     }
 
     @Test

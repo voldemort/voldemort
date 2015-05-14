@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef DEFAULTSTORECLIENT_H
-#define DEFAULTSTORECLIENT_H
+#ifndef VOLDEMORT_DEFAULTSTORECLIENT_H
+#define VOLDEMORT_DEFAULTSTORECLIENT_H
 
 #include <stdlib.h>
 #include <string>
@@ -84,4 +84,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* DEFAULTSTORECLIENT_H */
+#endif/*VOLDEMORT_DEFAULTSTORECLIENT_H*/

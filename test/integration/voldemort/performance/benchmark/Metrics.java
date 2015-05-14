@@ -18,6 +18,7 @@ package voldemort.performance.benchmark;
 
 import java.io.PrintStream;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import voldemort.utils.Props;
@@ -27,7 +28,7 @@ public class Metrics {
     private static Metrics singleton = null;
     private static Props metricProps = null;
 
-    private ConcurrentHashMap<String, Measurement> data;
+    private Map<String, Measurement> data;
     private boolean summaryOnly = false;
 
     public static void setProperties(Props props) {

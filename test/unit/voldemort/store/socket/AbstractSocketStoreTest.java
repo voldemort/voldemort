@@ -16,10 +16,10 @@
 
 package voldemort.store.socket;
 
+import static org.junit.Assert.assertArrayEquals;
+
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
@@ -29,7 +29,6 @@ import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -54,11 +53,6 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
     public AbstractSocketStoreTest(RequestFormatType type, boolean useNio) {
         this.requestFormatType = type;
         this.useNio = useNio;
-    }
-
-    @Parameters
-    public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true }, { false } });
     }
 
     private int socketPort;
@@ -110,7 +104,11 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
             rand.nextBytes(biggie);
             Versioned<byte[]> versioned = new Versioned<byte[]>(biggie);
             store.put(key, versioned, null);
-            assertNotNull(store.get(key, null));
+            Versioned<byte[]> result = store.get(key, null).get(0);
+            assertArrayEquals("Get returned different value after put",
+                              result.getValue(),
+                              versioned.getValue());
+
             assertTrue(store.delete(key, versioned.getVersion()));
         }
     }
@@ -150,6 +148,28 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
             assertTrue(!s.isClosed());
             s.close();
             logger.info("Client closed" + i);
+        }
+    }
+
+    @Test
+    public void testGetAllWithBigValueSizes() throws Exception {
+        int[] keySizes = { 50, 100, 500, 1000, 5000, 10000 };
+        int[] valueSizes = { 10000, 50000, 100000, 500000, 1000000, 2000000 };
+        for(int i = 0; i < keySizes.length; i++) {
+            logger.info("Testing with keySize = " + keySizes[i] + " and Value sizes: "
+                               + valueSizes[i]);
+            this.testGetAllWithBigValueSizes(getStore(), keySizes[i], valueSizes[i], 3);
+        }
+    }
+
+    @Test
+    public void testGetWithBigValueSizes() throws Exception {
+        int[] keySizes = { 50, 100, 500, 1000, 5000, 10000 };
+        int[] valueSizes = { 10000, 50000, 100000, 500000, 1000000, 2000000 };
+        for(int i = 0; i < keySizes.length; i++) {
+            logger.info("Testing with keySize = " + keySizes[i] + " and Value sizes: "
+                               + valueSizes[i]);
+            this.testGetWithBigValueSizes(getStore(), keySizes[i], valueSizes[i]);
         }
     }
 

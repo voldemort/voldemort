@@ -36,9 +36,11 @@ import org.apache.commons.lang.mutable.MutableInt;
 
 import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
+import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.common.VoldemortOpCode;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -62,10 +64,12 @@ import com.google.common.collect.Maps;
  * 
  * 
  */
+@Deprecated
 public class ThreadPoolRoutedStore extends RoutedStore {
 
     private final static StoreOp<Versioned<byte[]>> VERSIONED_OP = new StoreOp<Versioned<byte[]>>() {
 
+        @Override
         public List<Versioned<byte[]>> execute(Store<ByteArray, byte[], byte[]> store,
                                                ByteArray key,
                                                byte[] transforms) {
@@ -75,6 +79,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
 
     private final static StoreOp<Version> VERSION_OP = new StoreOp<Version>() {
 
+        @Override
         public List<Version> execute(Store<ByteArray, byte[], byte[]> store,
                                      ByteArray key,
                                      byte[] transforms) {
@@ -93,7 +98,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
      * @param storeDef The store definition
      * @param numberOfThreads The number of threads in the threadpool
      * @param repairReads Do we want to do read repairs?
-     * @param timeoutMs The timeout in ms
+     * @param timeoutConfig The timeout configuration
      * @param failureDetector The failure detector implementation
      */
     public ThreadPoolRoutedStore(String name,
@@ -102,7 +107,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                                  StoreDefinition storeDef,
                                  int numberOfThreads,
                                  boolean repairReads,
-                                 long timeoutMs,
+                                 TimeoutConfig timeoutConfig,
                                  FailureDetector failureDetector) {
         this(name,
              innerStores,
@@ -110,7 +115,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
              storeDef,
              repairReads,
              Executors.newFixedThreadPool(numberOfThreads),
-             timeoutMs,
+             timeoutConfig,
              failureDetector,
              SystemTime.INSTANCE);
     }
@@ -124,7 +129,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
      * @param storeDef The store definition
      * @param repairReads Do we want to do read repairs?
      * @param threadPool The threadpool to use
-     * @param timeoutMs The timeout in ms
+     * @param timeoutConfig The timeout configuration
      * @param failureDetector The failure detector implementation
      * @param time Time instance
      */
@@ -134,13 +139,21 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                                  StoreDefinition storeDef,
                                  boolean repairReads,
                                  ExecutorService threadPool,
-                                 long timeoutMs,
+                                 TimeoutConfig timeoutConfig,
                                  FailureDetector failureDetector,
                                  Time time) {
-        super(name, innerStores, cluster, storeDef, repairReads, timeoutMs, failureDetector, time);
+        super(name,
+              innerStores,
+              cluster,
+              storeDef,
+              repairReads,
+              timeoutConfig,
+              failureDetector,
+              time);
         this.executor = threadPool;
     }
 
+    @Override
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         final List<Node> nodes = availableNodes(routingStrategy.routeRequest(key.get()));
@@ -169,6 +182,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         for(final Node node: nodes) {
             this.executor.execute(new Runnable() {
 
+                @Override
                 public void run() {
                     long startNs = System.nanoTime();
                     try {
@@ -184,7 +198,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                     } catch(Exception e) {
                         failures.add(e);
                         logger.warn("Error in DELETE on node " + node.getId() + "("
-                                    + node.getHost() + ")", e);
+                                            + node.getHost() + ")",
+                                    e);
                     } finally {
                         // signal that the operation is complete
                         semaphore.release();
@@ -199,6 +214,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         } else {
             for(int i = 0; i < numNodes; i++) {
                 try {
+                    long timeoutMs = timeoutConfig.getOperationTimeout(VoldemortOpCode.DELETE_OP_CODE);
                     boolean acquired = semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
                     if(!acquired)
                         logger.warn("Delete operation timed out waiting for operation " + i
@@ -227,6 +243,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             return deletedSomething.get();
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -292,6 +309,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             keyToSuccessCount.put(key, new MutableInt(0));
 
         List<Future<GetAllResult>> futures;
+        long timeoutMs = timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE);
         try {
             // TODO What to do about timeouts? They should be longer as getAll
             // is likely to
@@ -377,7 +395,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                             throw e;
                         } catch(Exception e) {
                             logger.warn("Error in GET_ALL on node " + node.getId() + "("
-                                        + node.getHost() + ")", e);
+                                                + node.getHost() + ")",
+                                        e);
                             failures.add(e);
                         }
                     }
@@ -401,9 +420,11 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         return result;
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, final byte[] transforms) {
         Function<List<GetResult<Versioned<byte[]>>>, Void> readRepairFunction = new Function<List<GetResult<Versioned<byte[]>>>, Void>() {
 
+            @Override
             public Void apply(List<GetResult<Versioned<byte[]>>> nodeResults) {
                 List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayListWithExpectedSize(nodeResults.size());
                 for(GetResult<Versioned<byte[]>> getResult: nodeResults)
@@ -453,6 +474,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         }
 
         List<Future<GetResult<R>>> futures;
+        long timeoutMs = (fetcher == VERSION_OP) ? timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE)
+                                                : timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_OP_CODE);
         try {
             futures = executor.invokeAll(callables, timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
@@ -498,8 +521,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                                                key,
                                                fetcher.execute(innerStores.get(node.getId()),
                                                                key,
-                                                               transforms),
-                                               null));
+                                                               transforms), null));
                 ++successes;
                 recordSuccess(node, startNs);
             } catch(UnreachableStoreException e) {
@@ -567,6 +589,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
 
         this.executor.execute(new Runnable() {
 
+            @Override
             public void run() {
                 for(NodeValue<ByteArray, byte[]> v: toReadRepair) {
                     try {
@@ -617,6 +640,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         return builder.toString();
     }
 
+    @Override
     public void put(final ByteArray key, final Versioned<byte[]> versioned, final byte[] transforms)
             throws VoldemortException {
         long startNs = System.nanoTime();
@@ -683,6 +707,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             final Node node = nodes.get(currentNode);
             this.executor.execute(new Runnable() {
 
+                @Override
                 public void run() {
                     long startNsLocal = System.nanoTime();
                     try {
@@ -760,7 +785,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         for(int i = startingIndex; i < blockCount; i++) {
             try {
                 long ellapsedNs = System.nanoTime() - startNs;
-                long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
+                long remainingNs = (timeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE) * Time.NS_PER_MS)
+                                   - ellapsedNs;
                 boolean acquiredPermit = semaphore.tryAcquire(Math.max(remainingNs, 0),
                                                               TimeUnit.NANOSECONDS);
                 if(!acquiredPermit) {
@@ -791,6 +817,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         return available;
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         return get(key, null, VERSION_OP, null);
     }
@@ -817,6 +844,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             this.fetcher = fetcher;
         }
 
+        @Override
         public GetResult<R> call() throws Exception {
             List<R> fetched = Collections.emptyList();
             Throwable exception = null;
@@ -870,6 +898,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             this.transforms = transforms;
         }
 
+        @Override
         public GetAllResult call() {
             Map<ByteArray, List<Versioned<byte[]>>> retrieved = Collections.emptyMap();
             Throwable exception = null;

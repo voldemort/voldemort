@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<stores>
+  <store>
+    <name>test211</name>
+    <persistence>bdb</persistence>
+    <routing>client</routing>
+    <routing-strategy>zone-routing</routing-strategy>
+    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>
+    <replication-factor>6</replication-factor>
+    <zone-replication-factor>
+      <replication-factor zone-id="0">2</replication-factor>
+      <replication-factor zone-id="1">2</replication-factor>
+      <replication-factor zone-id="2">2</replication-factor>
+    </zone-replication-factor>
+    <required-reads>1</required-reads>
+    <required-writes>1</required-writes>
+    <zone-count-reads>0</zone-count-reads>
+    <zone-count-writes>0</zone-count-writes>
+    <key-serializer>
+      <type>string</type>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+    </value-serializer>
+  </store>
+  <store>
+    <name>test322</name>
+    <persistence>bdb</persistence>
+    <routing>client</routing>
+    <routing-strategy>zone-routing</routing-strategy>
+    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>
+    <replication-factor>9</replication-factor>
+    <zone-replication-factor>
+        <replication-factor zone-id="0">3</replication-factor>
+        <replication-factor zone-id="1">3</replication-factor>
+        <replication-factor zone-id="2">3</replication-factor>
+    </zone-replication-factor>
+    <required-reads>2</required-reads>
+    <required-writes>2</required-writes>
+    <zone-count-reads>0</zone-count-reads>
+    <zone-count-writes>0</zone-count-writes>
+    <key-serializer>
+        <type>string</type>
+    </key-serializer>
+    <value-serializer>
+        <type>string</type>
+    </value-serializer>
+  </store>
+</stores>

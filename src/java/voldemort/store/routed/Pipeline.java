@@ -56,7 +56,8 @@ public class Pipeline {
         RESPONSES_RECEIVED,
         ERROR,
         MASTER_DETERMINED,
-        ABORTED,
+        ABORTED, // TODO: Aborted is a zombie state. No way to reach this state.
+                 // Please clean me up.
         HANDOFF_FINISHED;
 
     }
@@ -128,10 +129,7 @@ public class Pipeline {
      */
 
     public void abort() {
-        if(isHintedHandoffEnabled())
-            addEvent(Event.ABORTED);
-        else
-            addEvent(Event.ERROR);
+        addEvent(Event.ERROR);
     }
 
     /**

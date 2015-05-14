@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<stores>
+  <store>
+    <name>cstore</name>
+    <persistence>bdb</persistence>
+    <routing>client</routing>
+    <routing-strategy>consistent-routing</routing-strategy>
+    <replication-factor>3</replication-factor>
+    <preferred-reads>3</preferred-reads>
+    <required-reads>3</required-reads>
+    <preferred-writes>3</preferred-writes>
+    <required-writes>2</required-writes>
+    <zone-count-reads>1</zone-count-reads>
+    <zone-count-writes>1</zone-count-writes>
+    <key-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </value-serializer>
+  </store>
+  <store>
+    <name>zstore</name>
+    <persistence>bdb</persistence>
+    <routing>client</routing>
+    <routing-strategy>zone-routing</routing-strategy>
+    <replication-factor>3</replication-factor>
+    <zone-replication-factor>
+    <replication-factor zone-id="0">1</replication-factor>
+        <replication-factor zone-id="1">1</replication-factor>
+        <replication-factor zone-id="2">1</replication-factor>
+    </zone-replication-factor>
+    <preferred-reads>3</preferred-reads>
+    <required-reads>3</required-reads>
+    <preferred-writes>3</preferred-writes>
+    <required-writes>2</required-writes>
+    <zone-count-reads>1</zone-count-reads>
+    <zone-count-writes>1</zone-count-writes>
+    <key-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </value-serializer>
+  </store>
+</stores>

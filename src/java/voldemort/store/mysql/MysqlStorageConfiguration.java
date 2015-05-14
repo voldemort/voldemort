@@ -21,9 +21,11 @@ import java.sql.SQLException;
 import org.apache.commons.dbcp.BasicDataSource;
 
 import voldemort.VoldemortException;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 
 public class MysqlStorageConfiguration implements StorageConfiguration {
@@ -42,8 +44,9 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         this.dataSource = ds;
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
-        return new MysqlStorageEngine(name, dataSource);
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
+        return new MysqlStorageEngine(storeDef.getName(), dataSource);
     }
 
     public String getType() {
@@ -58,4 +61,12 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         }
     }
 
+    public void update(StoreDefinition storeDef) {
+        throw new VoldemortException("Storage config updates not permitted for "
+                                     + this.getClass().getCanonicalName());
+    }
+
+    // Nothing to do here: we're not tracking the created storage engine.
+    @Override
+    public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {}
 }

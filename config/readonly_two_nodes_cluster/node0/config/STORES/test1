@@ -1,0 +1,15 @@
+<store>
+  <name>test1</name>
+  <persistence>read-only</persistence>
+  <routing-strategy>consistent-routing</routing-strategy>
+  <routing>client</routing>
+  <replication-factor>2</replication-factor>
+  <required-reads>1</required-reads>
+  <required-writes>1</required-writes>
+  <key-serializer>
+    <type>string</type>
+  </key-serializer>
+  <value-serializer>
+    <type>string</type>
+  </value-serializer>
+</store>

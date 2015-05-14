@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,44 +17,109 @@
 package voldemort.store.socket.clientrequest;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.TimeoutException;
+
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxGetter;
-import voldemort.annotations.jmx.JmxManaged;
-import voldemort.annotations.jmx.JmxSetter;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.RequestRoutingType;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.stats.ClientSocketStats;
+import voldemort.store.stats.ClientSocketStatsJmx;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
-import voldemort.utils.pool.KeyedResourcePool;
+import voldemort.utils.pool.AsyncResourceRequest;
+import voldemort.utils.pool.QueuedKeyedResourcePool;
 import voldemort.utils.pool.ResourcePoolConfig;
 
 /**
  * A pool of {@link ClientRequestExecutor} keyed off the
- * {@link SocketDestination}. This is a wrapper around {@link KeyedResourcePool}
- * that translates exceptions as well as providing some JMX access.
+ * {@link SocketDestination}. This is a wrapper around
+ * {@link QueuedKeyedResourcePool} that translates exceptions, provides some JMX
+ * access, and handles asynchronous requests for SocketDestinations.
  * 
  * <p/>
  * 
  * Upon successful construction of this object, a new Thread is started. It is
  * terminated upon calling {@link #close()}.
  */
-
-@JmxManaged(description = "Voldemort socket pool.")
 public class ClientRequestExecutorPool implements SocketStoreFactory {
 
-    private final AtomicInteger monitoringInterval = new AtomicInteger(10000);
-    private final AtomicInteger checkouts;
-    private final AtomicLong waitNs;
-    private final AtomicLong avgWaitNs;
-    private final KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
+    public static final Integer DEFAULT_SELECTORS = 2;
+    public static final Boolean DEFAULT_SOCKET_KEEP_ALIVE = false;
+    public static final Boolean DEFAULT_JMX_ENABLED = false;
+    public static final String DEFAULT_IDENTIFIER_STRING = "";
+
+    private final QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> queuedPool;
     private final ClientRequestExecutorFactory factory;
+    private final ClientSocketStats stats;
+    private final boolean jmxEnabled;
+    private final String identifierString;
+
+    private final Logger logger = Logger.getLogger(ClientRequestExecutorPool.class);
+
+    public ClientRequestExecutorPool(int selectors,
+                                     int maxConnectionsPerNode,
+                                     int connectionTimeoutMs,
+                                     int soTimeoutMs,
+                                     int socketBufferSize,
+                                     boolean socketKeepAlive,
+                                     boolean jmxEnabled,
+                                     String identifierString) {
+        ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
+                                                            .setMaxPoolSize(maxConnectionsPerNode)
+                                                            .setMaxInvalidAttempts(maxConnectionsPerNode)
+                                                            .setTimeout(connectionTimeoutMs,
+                                                                        TimeUnit.MILLISECONDS);
+        this.jmxEnabled = jmxEnabled;
+        this.identifierString = identifierString;
+        if(this.jmxEnabled) {
+            stats = new ClientSocketStats(identifierString);
+            JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                             "aggregated" + identifierString));
+        } else {
+            stats = null;
+        }
+        this.factory = new ClientRequestExecutorFactory(selectors,
+                                                        connectionTimeoutMs,
+                                                        soTimeoutMs,
+                                                        socketBufferSize,
+                                                        socketKeepAlive,
+                                                        stats,
+                                                        this.identifierString,
+                                                        this);
+        this.queuedPool = new QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor>(factory,
+                                                                                                config);
+        if(stats != null) {
+            this.stats.setPool(queuedPool);
+        }
+    }
+
+    public ClientRequestExecutorPool(int selectors,
+                                     int maxConnectionsPerNode,
+                                     int connectionTimeoutMs,
+                                     int soTimeoutMs,
+                                     int socketBufferSize,
+                                     boolean socketKeepAlive,
+                                     String identifierString) {
+        // JMX bean is disabled by default
+        this(selectors,
+             maxConnectionsPerNode,
+             connectionTimeoutMs,
+             soTimeoutMs,
+             socketBufferSize,
+             socketKeepAlive,
+             DEFAULT_JMX_ENABLED,
+             identifierString);
+    }
 
     public ClientRequestExecutorPool(int selectors,
                                      int maxConnectionsPerNode,
@@ -62,20 +127,15 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                      int soTimeoutMs,
                                      int socketBufferSize,
                                      boolean socketKeepAlive) {
-        ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
-                                                            .setMaxPoolSize(maxConnectionsPerNode)
-                                                            .setMaxInvalidAttempts(maxConnectionsPerNode)
-                                                            .setTimeout(connectionTimeoutMs,
-                                                                        TimeUnit.MILLISECONDS);
-        this.factory = new ClientRequestExecutorFactory(selectors,
-                                                        connectionTimeoutMs,
-                                                        soTimeoutMs,
-                                                        socketBufferSize,
-                                                        socketKeepAlive);
-        this.pool = new KeyedResourcePool<SocketDestination, ClientRequestExecutor>(factory, config);
-        this.checkouts = new AtomicInteger(0);
-        this.waitNs = new AtomicLong(0);
-        this.avgWaitNs = new AtomicLong(0);
+        // JMX bean is disabled by default
+        this(selectors,
+             maxConnectionsPerNode,
+             connectionTimeoutMs,
+             soTimeoutMs,
+             socketBufferSize,
+             socketKeepAlive,
+             DEFAULT_JMX_ENABLED,
+             DEFAULT_IDENTIFIER_STRING);
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,
@@ -83,13 +143,32 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                      int soTimeoutMs,
                                      int socketBufferSize) {
         // maintain backward compatibility of API
-        this(2, maxConnectionsPerNode, connectionTimeoutMs, soTimeoutMs, socketBufferSize, false);
+        this(DEFAULT_SELECTORS,
+             maxConnectionsPerNode,
+             connectionTimeoutMs,
+             soTimeoutMs,
+             socketBufferSize,
+             DEFAULT_SOCKET_KEEP_ALIVE,
+             DEFAULT_JMX_ENABLED,
+             DEFAULT_IDENTIFIER_STRING);
     }
 
     public ClientRequestExecutorFactory getFactory() {
         return factory;
     }
 
+    /***
+     * Create a new socket store to talk to a given server for a specific store
+     * 
+     * Note: IGNORE_CHECKS will only be honored for Protobuf request format
+     * 
+     * @param storeName
+     * @param hostName
+     * @param port
+     * @param requestFormatType protocol to use
+     * @param requestRoutingType routed/ignore checks/normal
+     */
+    @Override
     public SocketStore create(String storeName,
                               String hostName,
                               int port,
@@ -102,7 +181,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                factory.getTimeout(),
                                dest,
                                this,
-                               requestRoutingType);
+                               requestRoutingType,
+                               stats);
     }
 
     /**
@@ -113,31 +193,34 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      */
 
     public ClientRequestExecutor checkout(SocketDestination destination) {
-        try {
-            // time checkout
-            long start = System.nanoTime();
-            ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
-            updateStats(System.nanoTime() - start);
+        // timing instrumentation (stats only)
+        long startTimeNs = 0;
+        if(stats != null) {
+            startTimeNs = System.nanoTime();
+        }
 
-            return clientRequestExecutor;
+        ClientRequestExecutor clientRequestExecutor;
+        try {
+            clientRequestExecutor = queuedPool.checkout(destination);
         } catch(Exception e) {
+            // If this exception caught here is from the nonBlockingPut call
+            // within KeyedResourcePool.attemptGrow(), then there is the chance
+            // a ClientRequestExector resource will be leaked. Cannot safely
+            // deal with this here since clientRequestExecutor is not assigned
+            // in this catch. Even if it was, clientRequestExecutore.close()
+            // checks in the SocketDestination resource and so is not safe to
+            // call.
             throw new UnreachableStoreException("Failure while checking out socket for "
                                                 + destination + ": ", e);
+        } finally {
+            if(stats != null) {
+                stats.recordCheckoutTimeUs(destination, (System.nanoTime() - startTimeNs)
+                                                        / Time.NS_PER_US);
+                stats.recordCheckoutQueueLength(destination,
+                                                queuedPool.getBlockingGetsCount(destination));
+            }
         }
-    }
-
-    private void updateStats(long checkoutTimeNs) {
-        long wait = waitNs.getAndAdd(checkoutTimeNs);
-        int count = checkouts.getAndIncrement();
-
-        // reset reporting inverval if we have used up the current interval
-        int interval = this.monitoringInterval.get();
-        if(count % interval == interval - 1) {
-            // harmless race condition:
-            waitNs.set(0);
-            checkouts.set(0);
-            avgWaitNs.set(wait / count);
-        }
+        return clientRequestExecutor;
     }
 
     /**
@@ -148,56 +231,167 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      */
     public void checkin(SocketDestination destination, ClientRequestExecutor clientRequestExecutor) {
         try {
-            pool.checkin(destination, clientRequestExecutor);
+            queuedPool.checkin(destination, clientRequestExecutor);
         } catch(Exception e) {
             throw new VoldemortException("Failure while checking in socket for " + destination
                                          + ": ", e);
         }
     }
 
+    /**
+     * Reset the pool of resources for a specific destination. Idle resources
+     * will be destroyed. Checked out resources that are subsequently checked in
+     * will be destroyed. Newly created resources can be checked in to
+     * reestablish resources for the specific destination.
+     */
+    @Override
     public void close(SocketDestination destination) {
         factory.setLastClosedTimestamp(destination);
-        pool.close(destination);
+        queuedPool.reset(destination);
     }
 
     /**
-     * Close the socket pool
+     * Permanently close the ClientRequestExecutor pool. Resources subsequently
+     * checked in will be destroyed.
      */
+    @Override
     public void close() {
+        // unregister MBeans
+        if(stats != null) {
+            try {
+                if(this.jmxEnabled)
+                    JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                                       "aggregated"
+                                                                               + this.identifierString));
+            } catch(Exception e) {}
+            stats.close();
+        }
         factory.close();
-        pool.close();
+        queuedPool.close();
     }
 
-    @JmxGetter(name = "socketsCreated", description = "The total number of sockets created by this pool.")
-    public int getNumberSocketsCreated() {
-        return this.factory.getNumberCreated();
+    public ClientSocketStats getStats() {
+        return stats;
     }
 
-    @JmxGetter(name = "socketsDestroyed", description = "The total number of sockets destroyed by this pool.")
-    public int getNumberSocketsDestroyed() {
-        return this.factory.getNumberDestroyed();
+    public <T> void submitAsync(SocketDestination destination,
+                                ClientRequest<T> delegate,
+                                NonblockingStoreCallback callback,
+                                long timeoutMs,
+                                String operationName) {
+
+        AsyncSocketDestinationRequest<T> asyncSocketDestinationRequest = new AsyncSocketDestinationRequest<T>(destination,
+                                                                                                              delegate,
+                                                                                                              callback,
+                                                                                                              timeoutMs,
+                                                                                                              operationName);
+        queuedPool.registerResourceRequest(destination, asyncSocketDestinationRequest);
+        return;
     }
 
-    @JmxGetter(name = "numberOfConnections", description = "The number of active connections.")
-    public int getNumberOfActiveConnections() {
-        return this.pool.getTotalResourceCount();
-    }
+    /**
+     * Wrap up an asynchronous request and actually issue it once a
+     * SocketDestination is checked out.
+     */
+    private class AsyncSocketDestinationRequest<T> implements
+            AsyncResourceRequest<ClientRequestExecutor> {
 
-    @JmxGetter(name = "numberOfIdleConnections", description = "The number of idle connections.")
-    public int getNumberOfCheckedInConnections() {
-        return this.pool.getCheckedInResourceCount();
-    }
+        private final SocketDestination destination;
+        public final ClientRequest<T> delegate;
+        public final NonblockingStoreCallback callback;
+        public final long timeoutMs;
+        public final String operationName;
 
-    @JmxGetter(name = "avgWaitTimeMs", description = "The avg. ms of wait time to acquire a connection.")
-    public double getAvgWaitTimeMs() {
-        return this.avgWaitNs.doubleValue() / Time.NS_PER_MS;
-    }
+        private final long startTimeNs;
 
-    @JmxSetter(name = "monitoringInterval", description = "The number of checkouts over which performance statistics are calculated.")
-    public void setMonitoringInterval(int count) {
-        if(count <= 0)
-            throw new IllegalArgumentException("Monitoring interval must be a positive number.");
-        this.monitoringInterval.set(count);
-    }
+        public AsyncSocketDestinationRequest(SocketDestination destination,
+                                             ClientRequest<T> delegate,
+                                             NonblockingStoreCallback callback,
+                                             long timeoutMs,
+                                             String operationName) {
+            this.destination = destination;
+            this.delegate = delegate;
+            this.callback = callback;
+            this.timeoutMs = timeoutMs;
+            this.operationName = operationName;
 
+            this.startTimeNs = System.nanoTime();
+        }
+
+        protected void updateStats() {
+            if(stats != null) {
+                stats.recordResourceRequestTimeUs(destination, (System.nanoTime() - startTimeNs)
+                                                               / Time.NS_PER_US);
+                stats.recordResourceRequestQueueLength(destination,
+                                                       queuedPool.getRegisteredResourceRequestCount(destination));
+            }
+        }
+
+        @Override
+        public void useResource(ClientRequestExecutor clientRequestExecutor) {
+            updateStats();
+            if(logger.isDebugEnabled()) {
+                logger.debug("Async request start; type: "
+                             + operationName
+                             + " requestRef: "
+                             + System.identityHashCode(delegate)
+                             + " time: "
+                             // Output time (ms) includes queueing delay (i.e.,
+                             // time between when registerResourceRequest is
+                             // called and time when useResource is invoked).
+                             + (this.startTimeNs / Time.NS_PER_MS)
+                             + " server: "
+                             + clientRequestExecutor.getSocketChannel()
+                                                    .socket()
+                                                    .getRemoteSocketAddress() + " local socket: "
+                             + clientRequestExecutor.getSocketChannel().socket().getLocalAddress()
+                             + ":"
+                             + clientRequestExecutor.getSocketChannel().socket().getLocalPort());
+            }
+
+            NonblockingStoreCallbackClientRequest<T> clientRequest = new NonblockingStoreCallbackClientRequest<T>(queuedPool,
+                                                                                                                  destination,
+                                                                                                                  delegate,
+                                                                                                                  clientRequestExecutor,
+                                                                                                                  callback,
+                                                                                                                  stats);
+            clientRequestExecutor.addClientRequest(clientRequest, timeoutMs, System.nanoTime()
+                                                                             - startTimeNs);
+        }
+
+        @Override
+        public void handleTimeout() {
+            // Do *not* invoke updateStats since handleException does so.
+            long durationNs = System.nanoTime() - startTimeNs;
+            handleException(new TimeoutException("Could not acquire resource in " + timeoutMs
+                                                 + " ms. (Took " + durationNs + " ns.)"));
+        }
+
+        @Override
+        public void handleException(Exception e) {
+            updateStats();
+            if(!(e instanceof UnreachableStoreException))
+                e = new UnreachableStoreException("Failure in " + operationName + ": "
+                                                  + e.getMessage(), e);
+            try {
+                // Because PerformParallel(Put||Delete|GetAll)Requests define
+                // 'callback' via an anonymous class, callback can be null if
+                // the client factory closes down and some other thread invokes
+                // this code. Hence, protect against NullPointerExceptions
+                // during
+                // shutdown if async resource requests are queued up.
+                if(callback != null) {
+                    callback.requestComplete(e, 0);
+                }
+            } catch(Exception ex) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn(ex, ex);
+            }
+        }
+
+        @Override
+        public long getDeadlineNs() {
+            return startTimeNs + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+        }
+    }
 }

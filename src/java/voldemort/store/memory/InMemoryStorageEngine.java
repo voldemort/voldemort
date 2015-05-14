@@ -24,11 +24,11 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.NotThreadsafe;
-import voldemort.store.NoSuchCapabilityException;
-import voldemort.store.StorageEngine;
-import voldemort.store.StoreCapabilityType;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -41,26 +41,25 @@ import voldemort.versioning.Versioned;
 /**
  * A simple non-persistent, in-memory store. Useful for unit testing.
  * 
+ * TODO Rewrite this class using striped locks for more granular locking.
  * 
  */
-public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
+public class InMemoryStorageEngine<K, V, T> extends AbstractStorageEngine<K, V, T> {
 
-    private final ConcurrentMap<K, List<Versioned<V>>> map;
-    private final String name;
+    private static final Logger logger = Logger.getLogger(InMemoryStorageEngine.class);
+    protected final ConcurrentMap<K, List<Versioned<V>>> map;
 
     public InMemoryStorageEngine(String name) {
-        this.name = Utils.notNull(name);
+        super(name);
         this.map = new ConcurrentHashMap<K, List<Versioned<V>>>();
     }
 
     public InMemoryStorageEngine(String name, ConcurrentMap<K, List<Versioned<V>>> map) {
-        this.name = Utils.notNull(name);
+        super(name);
         this.map = Utils.notNull(map);
     }
 
-    public void close() {}
-
-    public void deleteAll() {
+    public synchronized void deleteAll() {
         this.map.clear();
     }
 
@@ -68,116 +67,126 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         return delete(key, null);
     }
 
-    public boolean delete(K key, Version version) {
+    @Override
+    public synchronized boolean delete(K key, Version version) {
         StoreUtils.assertValidKey(key);
-
-        if(version == null)
-            return map.remove(key) != null;
 
         List<Versioned<V>> values = map.get(key);
         if(values == null) {
             return false;
         }
-        synchronized(values) {
-            boolean deletedSomething = false;
-            Iterator<Versioned<V>> iterator = values.iterator();
-            while(iterator.hasNext()) {
-                Versioned<V> item = iterator.next();
-                if(item.getVersion().compare(version) == Occurred.BEFORE) {
-                    iterator.remove();
-                    deletedSomething = true;
-                }
-            }
-            if(values.size() == 0) {
-                // If this remove fails, then another delete operation got
-                // there before this one
-                if(!map.remove(key, values))
-                    return false;
-            }
 
-            return deletedSomething;
+        if(version == null) {
+            map.remove(key);
+            return true;
         }
+
+        boolean deletedSomething = false;
+        Iterator<Versioned<V>> iterator = values.iterator();
+        while(iterator.hasNext()) {
+            Versioned<V> item = iterator.next();
+            if(item.getVersion().compare(version) == Occurred.BEFORE) {
+                iterator.remove();
+                deletedSomething = true;
+            }
+        }
+        if(values.size() == 0) {
+            // if there are no more versions left, also remove the key from the
+            // map
+            map.remove(key);
+        }
+
+        return deletedSomething;
     }
 
+    @Override
     public List<Version> getVersions(K key) {
         return StoreUtils.getVersions(get(key, null));
     }
 
-    public List<Versioned<V>> get(K key, T transform) throws VoldemortException {
+    @Override
+    public synchronized List<Versioned<V>> get(K key, T transform) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         List<Versioned<V>> results = map.get(key);
         if(results == null) {
             return new ArrayList<Versioned<V>>(0);
-        }
-        synchronized(results) {
+        } else {
             return new ArrayList<Versioned<V>>(results);
         }
     }
 
+    @Override
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         return StoreUtils.getAll(this, keys, transforms);
     }
 
-    public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
+    @Override
+    public synchronized void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-
-        Version version = value.getVersion();
-        boolean success = false;
-        while(!success) {
-            List<Versioned<V>> items = map.get(key);
-            // If we have no value, optimistically try to add one
-            if(items == null) {
-                items = new ArrayList<Versioned<V>>();
-                items.add(new Versioned<V>(value.getValue(), version));
-                success = map.putIfAbsent(key, items) == null;
-            } else {
-                synchronized(items) {
-                    // if this check fails, items has been removed from the map
-                    // by delete, so we try again.
-                    if(map.get(key) != items)
-                        continue;
-
-                    // Check for existing versions - remember which items to
-                    // remove in case of success
-                    List<Versioned<V>> itemsToRemove = new ArrayList<Versioned<V>>(items.size());
-                    for(Versioned<V> versioned: items) {
-                        Occurred occurred = value.getVersion().compare(versioned.getVersion());
-                        if(occurred == Occurred.BEFORE) {
-                            throw new ObsoleteVersionException("Obsolete version for key '" + key
-                                                               + "': " + value.getVersion());
-                        } else if(occurred == Occurred.AFTER) {
-                            itemsToRemove.add(versioned);
-                        }
-                    }
-                    items.removeAll(itemsToRemove);
-                    items.add(value);
-                }
-                success = true;
+        List<Versioned<V>> items = map.get(key);
+        // If we have no value, add the current value
+        if(items == null) {
+            items = new ArrayList<Versioned<V>>();
+        }
+        // Check for existing versions - remember which items to
+        // remove in case of success
+        List<Versioned<V>> itemsToRemove = new ArrayList<Versioned<V>>(items.size());
+        for(Versioned<V> versioned: items) {
+            Occurred occurred = value.getVersion().compare(versioned.getVersion());
+            if(occurred == Occurred.BEFORE) {
+                throw new ObsoleteVersionException("Obsolete version for key '" + key + "': "
+                                                   + value.getVersion());
+            } else if(occurred == Occurred.AFTER) {
+                itemsToRemove.add(versioned);
             }
         }
+        items.removeAll(itemsToRemove);
+        items.add(value);
+        map.put(key, items);
     }
 
-    public Object getCapability(StoreCapabilityType capability) {
-        throw new NoSuchCapabilityException(capability, getName());
+    @Override
+    public synchronized List<Versioned<V>> multiVersionPut(K key, final List<Versioned<V>> values) {
+        // TODO the day this class implements getAndLock and putAndUnlock, this
+        // method can be removed
+        StoreUtils.assertValidKey(key);
+        List<Versioned<V>> obsoleteVals = null;
+        List<Versioned<V>> valuesInStorage = null;
+        valuesInStorage = map.get(key);
+        if(valuesInStorage == null) {
+            valuesInStorage = new ArrayList<Versioned<V>>(values.size());
+        }
+        obsoleteVals = resolveAndConstructVersionsToPersist(valuesInStorage, values);
+        map.put(key, valuesInStorage);
+        return obsoleteVals;
     }
 
+    @Override
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
-        return new InMemoryIterator<K, V>(map);
+        return new InMemoryIterator<K, V, T>(map, this);
     }
 
+    @Override
     public ClosableIterator<K> keys() {
         // TODO Implement more efficient version.
         return StoreUtils.keys(entries());
     }
 
-    public void truncate() {
-        map.clear();
+    @Override
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
     }
 
-    public String getName() {
-        return name;
+    @Override
+    public ClosableIterator<K> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
+    @Override
+    public synchronized void truncate() {
+        map.clear();
     }
 
     @Override
@@ -203,17 +212,26 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         return builder.toString();
     }
 
+    /**
+     * This class relies on the concurrent hash map's iterator to return a
+     * weakly consistent view of the data in the map.
+     */
     @NotThreadsafe
-    private static class InMemoryIterator<K, V> implements ClosableIterator<Pair<K, Versioned<V>>> {
+    private static class InMemoryIterator<K, V, T> implements
+            ClosableIterator<Pair<K, Versioned<V>>> {
 
         private final Iterator<Entry<K, List<Versioned<V>>>> iterator;
         private K currentKey;
         private Iterator<Versioned<V>> currentValues;
+        private InMemoryStorageEngine<K, V, T> inMemoryStorageEngine;
 
-        public InMemoryIterator(ConcurrentMap<K, List<Versioned<V>>> map) {
+        public InMemoryIterator(ConcurrentMap<K, List<Versioned<V>>> map,
+                                InMemoryStorageEngine<K, V, T> inMemoryStorageEngine) {
             this.iterator = map.entrySet().iterator();
+            this.inMemoryStorageEngine = inMemoryStorageEngine;
         }
 
+        @Override
         public boolean hasNext() {
             return hasNextInCurrentValues() || iterator.hasNext();
         }
@@ -227,6 +245,7 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
             return Pair.create(currentKey, item);
         }
 
+        @Override
         public Pair<K, Versioned<V>> next() {
             if(hasNextInCurrentValues()) {
                 return nextInCurrentValues();
@@ -237,7 +256,7 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
                     Entry<K, List<Versioned<V>>> entry = iterator.next();
 
                     List<Versioned<V>> list = entry.getValue();
-                    synchronized(list) {
+                    synchronized(this.inMemoryStorageEngine) {
                         // okay we may have gotten an empty list, if so try
                         // again
                         if(list.size() == 0)
@@ -253,17 +272,14 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
             }
         }
 
+        @Override
         public void remove() {
             throw new UnsupportedOperationException("No removal y'all.");
         }
 
+        @Override
         public void close() {
-        // nothing to do here
+            // nothing to do here
         }
-
-    }
-
-    public boolean isPartitionAware() {
-        return false;
     }
 }

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.client;
 
 import java.util.Iterator;
@@ -16,8 +31,8 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Utils;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
@@ -47,7 +62,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(getStoreDef(),
                                                                                       getCluster());
         for(Pair<ByteArray, Versioned<byte[]>> pair: createEntries()) {
-            if(RebalanceUtils.getNodeIds(strategy.routeRequest(pair.getFirst().get())).contains(0)) {
+            if(Utils.nodeListToNodeIdList(strategy.routeRequest(pair.getFirst().get())).contains(0)) {
                 store.put(pair.getFirst(), pair.getSecond(), null);
                 if(!filter.accept(pair.getFirst(), pair.getSecond())) {
                     shouldFilterCount++;
@@ -56,12 +71,12 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         }
 
         // make fetch stream call with filter
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchEntries(0,
-                                                                                                   testStoreName,
-                                                                                                   getCluster().getNodeById(0)
-                                                                                                               .getPartitionIds(),
-                                                                                                   filter,
-                                                                                                   false);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().bulkFetchOps.fetchEntries(0,
+                                                                                                                testStoreName,
+                                                                                                                getCluster().getNodeById(0)
+                                                                                                                            .getPartitionIds(),
+                                                                                                                filter,
+                                                                                                                false);
 
         // assert none of the filtered entries are returned.
         while(entryIterator.hasNext()) {
@@ -84,16 +99,19 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(getStoreDef(),
                                                                                       getCluster());
         for(Pair<ByteArray, Versioned<byte[]>> pair: entrySet) {
-            if(RebalanceUtils.getNodeIds(strategy.routeRequest(pair.getFirst().get())).contains(0))
+            if(Utils.nodeListToNodeIdList(strategy.routeRequest(pair.getFirst().get())).contains(0))
                 store.put(pair.getFirst(), pair.getSecond(), null);
         }
 
         // make delete stream call with filter
-        getAdminClient().deletePartitions(0, testStoreName, Lists.newArrayList(0, 1), filter);
+        getAdminClient().storeMntOps.deletePartitions(0,
+                                                      testStoreName,
+                                                      Lists.newArrayList(0, 1),
+                                                      filter);
 
         // assert none of the filtered entries are returned.
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
-            if(RebalanceUtils.getNodeIds(strategy.routeRequest(entry.getFirst().get())).contains(0)) {
+            if(Utils.nodeListToNodeIdList(strategy.routeRequest(entry.getFirst().get())).contains(0)) {
                 if(filter.accept(entry.getFirst(), entry.getSecond())) {
                     assertEquals("All entries should be deleted except the filtered ones.",
                                  0,
@@ -116,7 +134,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
 
         // make update stream call with filter
-        getAdminClient().updateEntries(0, testStoreName, entrySet.iterator(), filter);
+        getAdminClient().streamingOps.updateEntries(0, testStoreName, entrySet.iterator(), filter);
 
         // assert none of the filtered entries are updated.
         // user store should be present

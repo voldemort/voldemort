@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,18 +17,21 @@
 package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
 import org.apache.log4j.Level;
 
-import voldemort.utils.SelectorManagerWorker;
+import voldemort.VoldemortApplicationException;
+import voldemort.common.nio.ByteBufferBackedInputStream;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
+import voldemort.common.nio.ByteBufferContainer;
+import voldemort.common.nio.CommBufferSizeStats;
+import voldemort.common.nio.SelectorManagerWorker;
 import voldemort.utils.Time;
 
 /**
@@ -50,13 +53,23 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     private ClientRequest<?> clientRequest;
 
     private long expiration;
+    private long startTime;
+    private long timeoutMs;
     private boolean isExpired;
+    protected ByteBufferContainer bufferContainer;
 
     public ClientRequestExecutor(Selector selector,
                                  SocketChannel socketChannel,
                                  int socketBufferSize) {
+        // Not tracking or exposing the comm buffer statistics for now
         super(selector, socketChannel, socketBufferSize);
         isExpired = false;
+
+        initializeStreams(socketBufferSize, new CommBufferSizeStats());
+        if(this.inputStream == null || this.outputStream == null) {
+            throw new VoldemortApplicationException("InputStream or OuputStream is null after initialization");
+        }
+
     }
 
     public SocketChannel getSocketChannel() {
@@ -71,56 +84,64 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         return !s.isClosed() && s.isBound() && s.isConnected();
     }
 
-    public synchronized boolean checkTimeout(SelectionKey selectionKey) {
+    public synchronized boolean checkTimeout() {
         if(expiration <= 0)
             return true;
 
-        if(System.nanoTime() <= expiration)
+        long nowNs = System.nanoTime();
+        if(nowNs <= expiration)
             return true;
 
-        if(logger.isEnabledFor(Level.WARN))
-            logger.warn("Client request associated with " + socketChannel.socket() + " timed out");
-
+        if(logger.isEnabledFor(Level.WARN)) {
+            long allowedTime = expiration - startTime;
+            long elapsedTime = nowNs - startTime;
+            logger.warn("Client request associated with " + socketChannel.socket()
+                        + " timed out. Start time(ns) " + startTime + " allowed time(ns) "
+                        + allowedTime + " elapsed time(ns) " + elapsedTime);
+        }
         isExpired = true;
         close();
 
         return false;
     }
 
-    public synchronized void addClientRequest(ClientRequest<?> clientRequest) {
-        addClientRequest(clientRequest, -1);
+    private void computeExpirationTime(long timeoutMs, long elapsedNs) {
+        this.timeoutMs = timeoutMs;
+        startTime = System.nanoTime();
+
+        if(elapsedNs > (Time.NS_PER_MS * timeoutMs)) {
+            this.expiration = startTime;
+        } else {
+            this.expiration = startTime + (Time.NS_PER_MS * timeoutMs) - elapsedNs;
+        }
+
+        if(this.expiration < startTime) {
+            String errorMessage = String.format("Invalid timeout specified. startTime (%d) ns expiration (%d) ns timeout (%d) ms elapsed (%d) ns",
+                                                startTime,
+                                                expiration,
+                                                timeoutMs,
+                                                elapsedNs);
+            throw new IllegalArgumentException(errorMessage);
+        }
+
     }
 
-    public synchronized void addClientRequest(ClientRequest<?> clientRequest, long timeoutMs) {
+    public void setConnectRequest(ClientRequest<?> clientRequest, long timeoutMs) {
+        this.clientRequest = clientRequest;
+        computeExpirationTime(timeoutMs, 0);
+    }
+
+    public synchronized void addClientRequest(ClientRequest<?> clientRequest,
+                                              long timeoutMs,
+                                              long elapsedNs) {
         if(logger.isTraceEnabled())
             logger.trace("Associating client with " + socketChannel.socket());
 
         this.clientRequest = clientRequest;
-
-        if(timeoutMs == -1) {
-            this.expiration = -1;
-        } else {
-            this.expiration = System.nanoTime() + (Time.NS_PER_MS * timeoutMs);
-
-            if(this.expiration < System.nanoTime())
-                throw new IllegalArgumentException("timeout " + timeoutMs + " not valid");
-        }
-
+        computeExpirationTime(timeoutMs, elapsedNs);
         outputStream.getBuffer().clear();
 
-        boolean wasSuccessful = clientRequest.formatRequest(new DataOutputStream(outputStream));
-
-        if(logger.isTraceEnabled())
-            traceInputBufferState("About to clear read buffer");
-
-        if(inputStream.getBuffer().capacity() >= resizeThreshold)
-            inputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
-        else
-            inputStream.getBuffer().clear();
-
-        if(logger.isTraceEnabled())
-            traceInputBufferState("Cleared read buffer");
-
+        boolean wasSuccessful = clientRequest.formatRequest(outputStream);
         outputStream.getBuffer().flip();
 
         if(wasSuccessful) {
@@ -148,6 +169,20 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     }
 
     @Override
+    protected void initializeStreams(int socketBufferSize, CommBufferSizeStats commBufferStats) {
+
+        bufferContainer = new ByteBufferContainer(socketBufferSize,
+                                                  resizeThreshold,
+                                                  commBufferStats.getCommReadBufferSizeTracker());
+        this.inputStream = new ByteBufferBackedInputStream(bufferContainer);
+        this.outputStream = new ByteBufferBackedOutputStream(bufferContainer);
+    }
+
+    private void resetStreams() {
+        bufferContainer.reset();
+    }
+
+    @Override
     public void close() {
         // Due to certain code paths, close may be called in a recursive
         // fashion. Rather than trying to handle all of the cases, simply keep
@@ -162,7 +197,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     @Override
     protected void read(SelectionKey selectionKey) throws IOException {
-        if(!checkTimeout(selectionKey))
+        if(!checkTimeout())
             return;
 
         int count = 0;
@@ -184,34 +219,78 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         // the position to 0 in preparation for reading in the RequestHandler.
         inputStream.getBuffer().flip();
 
-        if(!clientRequest.isCompleteResponse(inputStream.getBuffer())) {
-            // Ouch - we're missing some data for a full request, so handle that
-            // and return.
-            handleIncompleteRequest(position);
+        // uses a local variable to point to request to prevent racing condition
+        // when atomicNullOutClientRequest() is called by another thread
+        ClientRequest<?> request = clientRequest;
+
+        if(request != null) {
+
+            if(!request.isCompleteResponse(inputStream.getBuffer())) {
+                // Ouch - we're missing some data for a full request, so handle
+                // that and return.
+                handleIncompleteRequest(position);
+                return;
+            }
+
+            // At this point we have the full request (and it's not streaming),
+            // so rewind the buffer for reading and execute the request.
+            inputStream.getBuffer().rewind();
+
+            if(logger.isTraceEnabled())
+                logger.trace("Starting read for " + socketChannel.socket());
+
+            request.parseResponse(new DataInputStream(inputStream));
+
+            // At this point we've completed a full stand-alone request. So
+            // clear our input buffer and prepare for outputting back to the
+            // client.
+            if(logger.isTraceEnabled())
+                logger.trace("Finished read for " + socketChannel.socket());
+
+            resetStreams();
+            selectionKey.interestOps(0);
+        }
+        ClientRequest<?> originalRequest = completeClientRequest();
+
+        if(originalRequest == null && logger.isEnabledFor(Level.WARN))
+            logger.warn("No client associated with " + socketChannel.socket());
+    }
+
+    @Override
+    protected void reportException(IOException e) {
+        clientRequest.reportException(e);
+    }
+
+    @Override
+    protected void connect(SelectionKey selectionKey) throws IOException {
+        if(!checkTimeout())
+            return;
+
+        if(socketChannel.finishConnect() == false) {
             return;
         }
 
-        // At this point we have the full request (and it's not streaming), so
-        // rewind the buffer for reading and execute the request.
-        inputStream.getBuffer().rewind();
+        if(logger.isDebugEnabled()) {
+            // check buffer sizes you often don't get out what you put in!
+            if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize) {
+                logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
+                             + " bytes but actual size is "
+                             + socketChannel.socket().getReceiveBufferSize() + " bytes.");
+            }
 
-        if(logger.isTraceEnabled())
-            logger.trace("Starting read for " + socketChannel.socket());
+            if(socketChannel.socket().getSendBufferSize() != this.socketBufferSize) {
+                logger.debug("Requested socket send buffer size was " + this.socketBufferSize
+                             + " bytes but actual size is "
+                             + socketChannel.socket().getSendBufferSize() + " bytes.");
+            }
+        }
 
-        clientRequest.parseResponse(new DataInputStream(inputStream));
-
-        // At this point we've completed a full stand-alone request. So clear
-        // our input buffer and prepare for outputting back to the client.
-        if(logger.isTraceEnabled())
-            logger.trace("Finished read for " + socketChannel.socket());
-
-        selectionKey.interestOps(0);
-        completeClientRequest();
+        addClientRequest(clientRequest, timeoutMs, 0);
     }
 
     @Override
     protected void write(SelectionKey selectionKey) throws IOException {
-        if(!checkTimeout(selectionKey))
+        if(!checkTimeout())
             return;
 
         if(outputStream.getBuffer().hasRemaining()) {
@@ -233,12 +312,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(outputStream.getBuffer().hasRemaining())
             return;
 
-        // If we don't have anything else to write, that means we're done with
-        // the request! So clear the buffers (resizing if necessary).
-        if(outputStream.getBuffer().capacity() >= resizeThreshold)
-            outputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
-        else
-            outputStream.getBuffer().clear();
+        resetStreams();
 
         // If we're not streaming writes, signal the Selector that we're
         // ready to read the next request.
@@ -253,19 +327,25 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
      * check in the instance again which causes problems for the pool
      * maintenance.
      */
-
-    private synchronized void completeClientRequest() {
-        if(clientRequest == null) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("No client associated with " + socketChannel.socket());
-
-            return;
-        }
-
-        // Sorry about this - please see the method comments...
+    private synchronized ClientRequest<?> atomicNullOutClientRequest() {
         ClientRequest<?> local = clientRequest;
         clientRequest = null;
         expiration = 0;
+
+        return local;
+    }
+
+    /**
+     * Null out current clientRequest before calling complete. timeOut and
+     * complete must *not* be within a synchronized block since both eventually
+     * check in the client request executor. Such a check in can trigger
+     * additional synchronized methods deeper in the stack.
+     */
+    private ClientRequest<?> completeClientRequest() {
+        ClientRequest<?> local = atomicNullOutClientRequest();
+        if(local == null) {
+            return null;
+        }
 
         if(isExpired)
             local.timeOut();
@@ -274,6 +354,8 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
         if(logger.isTraceEnabled())
             logger.trace("Marked client associated with " + socketChannel.socket() + " as complete");
+
+        return local;
     }
 
 }

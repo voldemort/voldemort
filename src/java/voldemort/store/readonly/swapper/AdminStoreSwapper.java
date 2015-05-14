@@ -77,7 +77,7 @@ public class AdminStoreSwapper extends StoreSwapper {
             try {
                 logger.info("Attempting rollback for node " + node.getId() + " storeName = "
                             + storeName);
-                adminClient.rollbackStore(node.getId(), storeName, pushVersion);
+                adminClient.readonlyOps.rollbackStore(node.getId(), storeName, pushVersion);
                 logger.info("Rollback succeeded for node " + node.getId());
             } catch(Exception e) {
                 exception = e;
@@ -103,11 +103,11 @@ public class AdminStoreSwapper extends StoreSwapper {
                 public String call() throws Exception {
                     String storeDir = basePath + "/node-" + node.getId();
                     logger.info("Invoking fetch for node " + node.getId() + " for " + storeDir);
-                    String response = adminClient.fetchStore(node.getId(),
-                                                             storeName,
-                                                             storeDir,
-                                                             pushVersion,
-                                                             timeoutMs);
+                    String response = adminClient.readonlyOps.fetchStore(node.getId(),
+                                                                         storeName,
+                                                                         storeDir,
+                                                                         pushVersion,
+                                                                         timeoutMs);
                     if(response == null)
                         throw new VoldemortException("Fetch request on node " + node.getId() + " ("
                                                      + node.getHost() + ") failed");
@@ -139,9 +139,9 @@ public class AdminStoreSwapper extends StoreSwapper {
                     try {
                         logger.info("Deleting fetched data from node " + successfulNodeId);
 
-                        adminClient.failedFetchStore(successfulNodeId,
-                                                     storeName,
-                                                     results.get(successfulNodeId));
+                        adminClient.readonlyOps.failedFetchStore(successfulNodeId,
+                                                                 storeName,
+                                                                 results.get(successfulNodeId));
                     } catch(Exception e) {
                         logger.error("Exception thrown during delete operation on node "
                                      + successfulNodeId + " : ", e);
@@ -172,7 +172,7 @@ public class AdminStoreSwapper extends StoreSwapper {
             try {
                 String dir = fetchFiles.get(nodeId);
                 logger.info("Attempting swap for node " + nodeId + " dir = " + dir);
-                previousDirs.put(nodeId, adminClient.swapStore(nodeId, storeName, dir));
+                previousDirs.put(nodeId, adminClient.readonlyOps.swapStore(nodeId, storeName, dir));
                 logger.info("Swap succeeded for node " + nodeId);
             } catch(Exception e) {
                 exceptions.put(nodeId, e);
@@ -186,9 +186,9 @@ public class AdminStoreSwapper extends StoreSwapper {
                 for(int successfulNodeId: previousDirs.keySet()) {
                     try {
                         logger.info("Rolling back data on successful node " + successfulNodeId);
-                        adminClient.rollbackStore(successfulNodeId,
-                                                  storeName,
-                                                  ReadOnlyUtils.getVersionId(new File(previousDirs.get(successfulNodeId))));
+                        adminClient.readonlyOps.rollbackStore(successfulNodeId,
+                                                              storeName,
+                                                              ReadOnlyUtils.getVersionId(new File(previousDirs.get(successfulNodeId))));
                         logger.info("Rollback succeeded for node " + successfulNodeId);
                     } catch(Exception e) {
                         logger.error("Exception thrown during rollback ( after swap ) operation on node "

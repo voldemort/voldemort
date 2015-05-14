@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -18,12 +18,11 @@ package voldemort.server.gossip;
 
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.server.AbstractService;
-import voldemort.server.ServiceType;
+import voldemort.common.service.AbstractService;
+import voldemort.common.service.SchedulerService;
+import voldemort.common.service.ServiceType;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.RebalanceUtils;
 
 /**
  * This service runs a metadata Gossip protocol. See
@@ -41,7 +40,7 @@ public class GossipService extends AbstractService {
                          VoldemortConfig voldemortConfig) {
         super(ServiceType.GOSSIP);
         schedulerService = service;
-        adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+        adminClient = AdminClient.createTempAdminClient(voldemortConfig,
                                                            metadataStore.getCluster(),
                                                            4);
         gossiper = new Gossiper(metadataStore, adminClient, voldemortConfig.getGossipInterval());
@@ -56,6 +55,6 @@ public class GossipService extends AbstractService {
     @Override
     protected void stopInner() {
         gossiper.stop();
-        adminClient.stop();
+        adminClient.close();
     }
 }

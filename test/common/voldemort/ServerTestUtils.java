@@ -1,12 +1,12 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
- * 
+ * Copyright 2008-2013 LinkedIn, Inc
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.BindException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,15 +29,18 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.http.client.HttpClient;
+import org.apache.log4j.Logger;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
@@ -57,6 +61,7 @@ import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
+import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -67,10 +72,13 @@ import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ClosableIterator;
 import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -78,13 +86,16 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 /**
  * Helper functions for testing with real server implementations
- * 
- * 
+ *
+ *
  */
 public class ServerTestUtils {
+
+    private static final Logger logger = Logger.getLogger(ServerTestUtils.class.getName());
 
     public static StoreRepository getStores(String storeName, String clusterXml, String storesXml) {
         StoreRepository repository = new StoreRepository();
@@ -129,6 +140,8 @@ public class ServerTestUtils {
                                                                    new StoreDefinitionsMapper().readStoreList(new StringReader(storesXml))),
                                                null,
                                                null,
+                                               null,
+                                               null,
                                                null);
     }
 
@@ -146,7 +159,8 @@ public class ServerTestUtils {
                                                  bufferSize,
                                                  coreConnections,
                                                  "client-request-service",
-                                                 false);
+                                                 false,
+                                                 -1);
         } else {
             socketService = new SocketService(requestHandlerFactory,
                                               port,
@@ -187,8 +201,18 @@ public class ServerTestUtils {
                                                                   int port,
                                                                   RequestFormatType type,
                                                                   boolean isRouted) {
+        return getSocketStore(storeFactory, storeName, host, port, type, isRouted, false);
+    }
+
+    public static Store<ByteArray, byte[], byte[]> getSocketStore(SocketStoreFactory storeFactory,
+                                                                  String storeName,
+                                                                  String host,
+                                                                  int port,
+                                                                  RequestFormatType type,
+                                                                  boolean isRouted,
+                                                                  boolean ignoreChecks) {
         RequestRoutingType requestRoutingType = RequestRoutingType.getRequestRoutingType(isRouted,
-                                                                                         false);
+                                                                                         ignoreChecks);
         return storeFactory.create(storeName, host, port, type, requestRoutingType);
     }
 
@@ -223,7 +247,11 @@ public class ServerTestUtils {
     }
 
     /**
-     * Return a free port as chosen by new ServerSocket(0)
+     * Return a free port as chosen by new ServerSocket(0).
+     *
+     * There is no guarantee that the port returned will be free when the caller
+     * attempts to bind to the port. This is a time-of-check-to-time-of-use
+     * (TOCTOU) issue that cannot be avoided.
      */
     public static int findFreePort() {
         return findFreePorts(1)[0];
@@ -231,8 +259,13 @@ public class ServerTestUtils {
 
     /**
      * Return an array of free ports as chosen by new ServerSocket(0)
+     *
+     * There is no guarantee that the ports returned will be free when the
+     * caller attempts to bind to some returned port. This is a
+     * time-of-check-to-time-of-use (TOCTOU) issue that cannot be avoided.
      */
     public static int[] findFreePorts(int n) {
+        logger.info("findFreePorts cannot guarantee that ports identified as free will still be free when used. This is effectively a TOCTOU issue. Expect intermittent BindException when \"free\" ports are used.");
         int[] ports = new int[n];
         ServerSocket[] sockets = new ServerSocket[n];
         try {
@@ -287,9 +320,70 @@ public class ServerTestUtils {
     }
 
     /**
+     * Generates new cluster object from a given cluster, with one node replaced
+     * 
+     * @param cluster Cluster object as template
+     * @param nodeId Id of node to be replaced (only port id replaced)
+     * @return
+     */
+    public static Cluster getLocalClusterWithOneNodeReplaced(Cluster cluster, int nodeId) {
+        List<Node> nodes = Lists.newArrayList();
+        if(!cluster.hasNodeWithId(nodeId)) {
+            throw new VoldemortException("Node " + nodeId + " doesn't exist in cluster object!");
+        }
+        for(Node node: cluster.getNodes()) {
+            if(node.getId() != nodeId) {
+                nodes.add(node);
+            } else {
+                int[] freePorts = findFreePorts(3);
+                nodes.add(new Node(nodeId,
+                                      "localhost",
+                                      freePorts[0],
+                                      freePorts[1],
+                                      freePorts[2],
+                                      node.getPartitionIds()));
+            }
+        }
+        return new Cluster(cluster.getName(), nodes);
+    }
+
+    public static Cluster getLocalNonContiguousNodesCluster(int[] nodeIds, int[][] partitionMap) {
+        return getLocalNonContiguousNodesCluster(nodeIds,
+                                                 findFreePorts(3 * nodeIds.length),
+                                                 partitionMap);
+    }
+
+    public static Cluster getLocalNonContiguousNodesCluster(int[] nodeIds,
+                                                            int[] ports,
+                                                            int[][] partitionMap) {
+        if(3 * nodeIds.length != ports.length)
+            throw new IllegalArgumentException(3 * nodeIds.length + " ports required but only "
+                                               + ports.length + " given.");
+        List<Node> nodes = new ArrayList<Node>();
+        for(int i = 0; i < nodeIds.length; i++) {
+            List<Integer> partitions = ImmutableList.of(i);
+            if(null != partitionMap) {
+                partitions = new ArrayList<Integer>(partitionMap[i].length);
+                for(int p: partitionMap[i]) {
+                    partitions.add(p);
+                }
+            }
+
+            nodes.add(new Node(nodeIds[i],
+                               "localhost",
+                               ports[3 * i],
+                               ports[3 * i + 1],
+                               ports[3 * i + 2],
+                               partitions));
+        }
+
+        return new Cluster("test-cluster", nodes);
+    }
+
+    /**
      * Update a cluster by replacing the specified server with a new host, i.e.
      * new ports since they are all localhost
-     * 
+     *
      * @param original The original cluster to be updated
      * @param serverIds The ids of the server to be replaced with new hosts
      * @return updated cluster
@@ -329,8 +423,31 @@ public class ServerTestUtils {
     /**
      * Returns a list of zones with their proximity list being in increasing
      * order
-     * 
+     *
      * @param numberOfZones The number of zones to return
+     * @return List of zones
+     */
+    public static List<Zone> getZonesFromZoneIds(int[] zoneIds) {
+        List<Zone> zones = Lists.newArrayList();
+        Set<Integer> zoneIdsSet = new HashSet<Integer>();
+        for(int i: zoneIds) {
+            zoneIdsSet.add(i);
+        }
+        Set<Integer> removeSet = new HashSet<Integer>();
+        for(int i = 0; i < zoneIds.length; i++) {
+            removeSet.add(zoneIds[i]);
+            zones.add(new Zone(zoneIds[i], Lists.newLinkedList(Sets.symmetricDifference(zoneIdsSet,
+                                                                                        removeSet))));
+            removeSet.clear();
+        }
+        return zones;
+    }
+
+    /**
+     * Given zone ids, this method returns a list of zones with their proximity
+     * list
+     *
+     * @param list of zone ids
      * @return List of zones
      */
     public static List<Zone> getZones(int numberOfZones) {
@@ -339,9 +456,9 @@ public class ServerTestUtils {
             LinkedList<Integer> proximityList = Lists.newLinkedList();
             int zoneId = i + 1;
             for(int j = 0; j < numberOfZones; j++) {
-                if(zoneId % numberOfZones == i)
-                    break;
-                proximityList.add(zoneId % numberOfZones);
+                if(zoneId % numberOfZones != i) {
+                    proximityList.add(zoneId % numberOfZones);
+                }
                 zoneId++;
             }
             zones.add(new Zone(i, proximityList));
@@ -353,7 +470,7 @@ public class ServerTestUtils {
      * Returns a cluster with <b>numberOfNodes</b> nodes in <b>numberOfZones</b>
      * zones. It is important that <b>numberOfNodes</b> be divisible by
      * <b>numberOfZones</b>
-     * 
+     *
      * @param numberOfNodes Number of nodes in the cluster
      * @param partitionsPerNode Number of partitions in one node
      * @param numberOfZones Number of zones
@@ -394,20 +511,239 @@ public class ServerTestUtils {
 
         // Generate zones
         if(numberOfZones > 1) {
-            List<Zone> zones = Lists.newArrayList();
-            for(int i = 0; i < numberOfZones; i++) {
-                LinkedList<Integer> proximityList = Lists.newLinkedList();
-                int zoneId = i + 1;
-                for(int j = 0; j < numberOfZones; j++) {
-                    proximityList.add(zoneId % numberOfZones);
-                    zoneId++;
-                }
-                zones.add(new Zone(i, proximityList));
-            }
+            List<Zone> zones = getZones(numberOfZones);
             return new Cluster("cluster", nodes, zones);
         } else {
             return new Cluster("cluster", nodes);
         }
+    }
+
+    public static Cluster getLocalZonedCluster(int numberOfNodes,
+                                               int numberOfZones,
+                                               int[] nodeToZoneMapping,
+                                               int[][] partitionMapping) {
+        return getLocalZonedCluster(numberOfNodes,
+                                    numberOfZones,
+                                    nodeToZoneMapping,
+                                    partitionMapping,
+                                    findFreePorts(3 * numberOfNodes));
+    }
+
+    /**
+     * Returns a cluster with <b>numberOfNodes</b> nodes in <b>numberOfZones</b>
+     * zones. It is important that <b>numberOfNodes</b> be divisible by
+     * <b>numberOfZones</b>
+     *
+     * @param numberOfNodes Number of nodes in the cluster
+     * @param partitionsPerNode Number of partitions in one node
+     * @param numberOfZones Number of zones
+     * @return Cluster
+     */
+    public static Cluster getLocalZonedCluster(int numberOfNodes,
+                                               int numberOfZones,
+                                               int[] nodeToZoneMapping,
+                                               int[][] partitionMapping,
+                                               int[] ports) {
+
+        List<Node> nodes = new ArrayList<Node>();
+        for(int i = 0; i < numberOfNodes; i++) {
+
+            List<Integer> partitions = new ArrayList<Integer>(partitionMapping[i].length);
+            for(int p: partitionMapping[i]) {
+                partitions.add(p);
+            }
+
+            nodes.add(new Node(i,
+                               "localhost",
+                               ports[3 * i],
+                               ports[3 * i + 1],
+                               ports[3 * i + 2],
+                               nodeToZoneMapping[i],
+                               partitions));
+        }
+
+        // Generate zones
+        List<Zone> zones = getZones(numberOfZones);
+        return new Cluster("cluster", nodes, zones);
+    }
+
+    /**
+     * Returns a cluster with <b>numberOfZones</b> zones. The array
+     * <b>nodesPerZone<b> indicates how many nodes are in each of the zones. The
+     * a nodes in <b>numberOfZones</b> zones. It is important that
+     * <b>numberOfNodes</b> be divisible by <b>numberOfZones</b>
+     *
+     * Does
+     *
+     * @param numberOfZones The number of zones in the cluster.
+     * @param nodeIdsPerZone An array of size <b>numberOfZones<b> in which each
+     *        internal array is a node ID.
+     * @param partitionMap An array of size total number of nodes (derived from
+     *        <b>nodesPerZone<b> that indicates the specific partitions on each
+     *        node.
+     * @return
+     */
+    // TODO: Method should eventually accept a list of ZoneIds so that
+    // non-contig zone Ids can be tested.
+    /*-
+    public static Cluster getLocalZonedCluster(int numberOfZones,
+                                               int[][] nodeIdsPerZone,
+                                               int[][] partitionMap) {
+
+
+        if(numberOfZones < 1) {
+            throw new VoldemortException("The number of zones must be positive (" + numberOfZones
+                                         + ")");
+        }
+        if(nodeIdsPerZone.length != numberOfZones) {
+            throw new VoldemortException("Mismatch between numberOfZones (" + numberOfZones
+                                         + ") and size of nodesPerZone array ("
+                                         + nodeIdsPerZone.length + ").");
+        }
+
+        int numNodes = 0;
+        for(int nodeIdsInZone[]: nodeIdsPerZone) {
+            numNodes += nodeIdsInZone.length;
+        }
+        if(partitionMap.length != numNodes) {
+            throw new VoldemortException("Mismatch between numNodes (" + numNodes
+                                         + ") and size of partitionMap array (" + partitionMap
+                                         + ").");
+        }
+
+        // Generate nodes
+        List<Node> nodes = new ArrayList<Node>();
+        int partitionMapOffset = 0;
+        for(int zoneId = 0; zoneId < numberOfZones; zoneId++) {
+            for(int nodeId: nodeIdsPerZone[zoneId]) {
+                List<Integer> partitions = new ArrayList<Integer>(partitionMap[nodeId].length);
+                for(int p: partitionMap[partitionMapOffset]) {
+                    partitions.add(p);
+                }
+                nodes.add(new Node(nodeId,
+                                   "node-" + nodeId,
+                                   64000,
+                                   64001,
+                                   64002,
+                                   zoneId,
+                                   partitions));
+                partitionMapOffset++;
+            }
+        }
+
+        List<Zone> zones = Lists.newArrayList();
+        for(int i = 0; i < numberOfZones; i++) {
+            LinkedList<Integer> proximityList = Lists.newLinkedList();
+            int zoneId = i + 1;
+            for(int j = 0; j < numberOfZones; j++) {
+                proximityList.add(zoneId % numberOfZones);
+                zoneId++;
+            }
+            zones.add(new Zone(i, proximityList));
+        }
+        return new Cluster("cluster", nodes, zones);
+    }
+     */
+
+    public static Cluster getLocalZonedCluster(int numberOfZones,
+                                               int[][] nodeIdsPerZone,
+                                               int[][] partitionMap,
+                                               int[] ports) {
+
+        if(numberOfZones < 1) {
+            throw new VoldemortException("The number of zones must be positive (" + numberOfZones
+                                         + ")");
+        }
+        if(nodeIdsPerZone.length != numberOfZones) {
+            throw new VoldemortException("Mismatch between numberOfZones (" + numberOfZones
+                                         + ") and size of nodesPerZone array ("
+                                         + nodeIdsPerZone.length + ").");
+        }
+
+        int numNodes = 0;
+        for(int nodeIdsInZone[]: nodeIdsPerZone) {
+            numNodes += nodeIdsInZone.length;
+        }
+        if(partitionMap.length != numNodes) {
+            throw new VoldemortException("Mismatch between numNodes (" + numNodes
+                                         + ") and size of partitionMap array (" + partitionMap
+                                         + ").");
+        }
+
+        // Generate nodes
+        List<Node> nodes = new ArrayList<Node>();
+        int offset = 0;
+        for(int zoneId = 0; zoneId < numberOfZones; zoneId++) {
+            for(int nodeId: nodeIdsPerZone[zoneId]) {
+                List<Integer> partitions = new ArrayList<Integer>(partitionMap[nodeId].length);
+                for(int p: partitionMap[offset]) {
+                    partitions.add(p);
+                }
+                nodes.add(new Node(nodeId,
+                                   "localhost",
+                                   ports[nodeId * 3],
+                                   ports[nodeId * 3 + 1],
+                                   ports[nodeId * 3 + 2],
+                                   zoneId,
+                                   partitions));
+                offset++;
+            }
+        }
+
+        List<Zone> zones = getZones(numberOfZones);
+        return new Cluster("cluster", nodes, zones);
+    }
+
+    public static Cluster getLocalNonContiguousZonedCluster(int[] zoneIds,
+                                                            int[][] nodeIdsPerZone,
+                                                            int[][] partitionMap,
+                                                            int[] ports) {
+
+        int numberOfZones = zoneIds.length;
+        if(numberOfZones < 1) {
+            throw new VoldemortException("The number of zones must be positive (" + numberOfZones
+                                         + ")");
+        }
+        if(nodeIdsPerZone.length != numberOfZones) {
+            throw new VoldemortException("Mismatch between numberOfZones (" + numberOfZones
+                                         + ") and size of nodesPerZone array ("
+                                         + nodeIdsPerZone.length + ").");
+        }
+
+        int numNodes = 0;
+        for(int nodeIdsInZone[]: nodeIdsPerZone) {
+            numNodes += nodeIdsInZone.length;
+        }
+        if(partitionMap.length != numNodes) {
+            throw new VoldemortException("Mismatch between numNodes (" + numNodes
+                                         + ") and size of partitionMap array (" + partitionMap
+                                         + ").");
+        }
+
+        // Generate nodes
+        List<Node> nodes = new ArrayList<Node>();
+        int partitionOffset = 0;
+        int zoneOffset = 0;
+        for(int zoneId: zoneIds) {
+            for(int nodeId: nodeIdsPerZone[zoneOffset]) {
+                List<Integer> partitions = new ArrayList<Integer>(partitionMap[partitionOffset].length);
+                for(int p: partitionMap[partitionOffset]) {
+                    partitions.add(p);
+                }
+                nodes.add(new Node(nodeId,
+                                   "localhost",
+                                   ports[nodeId * 3],
+                                   ports[nodeId * 3 + 1],
+                                   ports[nodeId * 3 + 2],
+                                   zoneId,
+                                   partitions));
+                partitionOffset++;
+            }
+            zoneOffset++;
+        }
+
+        List<Zone> zones = getZonesFromZoneIds(zoneIds);
+        return new Cluster("cluster", nodes, zones);
     }
 
     public static Node getLocalNode(int nodeId, List<Integer> partitions) {
@@ -425,6 +761,20 @@ public class ServerTestUtils {
                        null);
 
         return new MetadataStore(innerStore, 0);
+    }
+
+    public static MetadataStore createMetadataStore(Cluster cluster,
+                                                    List<StoreDefinition> storeDefs,
+                                                    int nodeId) {
+        Store<String, String, String> innerStore = new InMemoryStorageEngine<String, String, String>("inner-store");
+        innerStore.put(MetadataStore.CLUSTER_KEY,
+                       new Versioned<String>(new ClusterMapper().writeCluster(cluster)),
+                       null);
+        innerStore.put(MetadataStore.STORES_KEY,
+                       new Versioned<String>(new StoreDefinitionsMapper().writeStoreList(storeDefs)),
+                       null);
+
+        return new MetadataStore(innerStore, nodeId);
     }
 
     public static List<StoreDefinition> getStoreDefs(int numStores) {
@@ -517,6 +867,14 @@ public class ServerTestUtils {
     public static List<Versioned<Slop>> createRandomSlops(int nodeId,
                                                           int numKeys,
                                                           String... storeNames) {
+        return createRandomSlops(nodeId, numKeys, true, storeNames);
+
+    }
+
+    public static List<Versioned<Slop>> createRandomSlops(int nodeId,
+                                                          int numKeys,
+                                                          boolean generateTwice,
+                                                          String... storeNames) {
         List<Versioned<Slop>> slops = new ArrayList<Versioned<Slop>>();
 
         for(int cnt = 0; cnt < numKeys; cnt++) {
@@ -541,9 +899,11 @@ public class ServerTestUtils {
                                                                  nodeId,
                                                                  new Date()));
             slops.add(versioned);
-            // Adding twice so as check if ObsoleteVersionExceptions are
-            // swallowed correctly
-            slops.add(versioned);
+            if(generateTwice) {
+                // Adding twice so as check if ObsoleteVersionExceptions are
+                // swallowed correctly
+                slops.add(versioned);
+            }
         }
 
         return slops;
@@ -600,8 +960,6 @@ public class ServerTestUtils {
         props.put("node.id", nodeId);
         props.put("voldemort.home", baseDir + "/node-" + nodeId);
         props.put("bdb.cache.size", 1 * 1024 * 1024);
-        props.put("bdb.write.transactions", "true");
-        props.put("bdb.flush.transactions", "true");
         props.put("jmx.enable", "false");
         props.put("enable.mysql.engine", "true");
         props.loadProperties(properties);
@@ -639,42 +997,108 @@ public class ServerTestUtils {
     public static AdminClient getAdminClient(Cluster cluster) {
 
         AdminClientConfig config = new AdminClientConfig();
-        return new AdminClient(cluster, config);
+        return new AdminClient(cluster, config, new ClientConfig());
     }
 
     public static AdminClient getAdminClient(String bootstrapURL) {
         AdminClientConfig config = new AdminClientConfig();
-        return new AdminClient(bootstrapURL, config);
+        return new AdminClient(bootstrapURL, config, new ClientConfig());
     }
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {
-        return new SocketRequestHandlerFactory(null, repository, null, null, null, null);
+        return new SocketRequestHandlerFactory(null, repository, null, null, null, null, null, null);
     }
 
     public static void stopVoldemortServer(VoldemortServer server) throws IOException {
+        ServerTestUtils.stopVoldemortServer(server, true);
+    }
+
+    public static void stopVoldemortServer(VoldemortServer server, boolean removeVoldemortHome)
+            throws IOException {
         try {
             server.stop();
         } finally {
-            FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
+            if(removeVoldemortHome) {
+                FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
+            }
         }
     }
 
+    private static void trySleep(long milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        } catch(InterruptedException e) {}
+    }
+
+
+    /**
+     * Starts a Voldemort server for testing purposes.
+     *
+     * Unless the ports passed in via cluster are guaranteed to be available,
+     * this method is susceptible to BindExceptions in VoldemortServer.start().
+     * (And, there is no good way of guaranteeing that ports will be available,
+     * so...)
+     *
+     * The method {@link ServerTestUtils#startVoldemortCluster} should be used
+     * in preference to this method.}
+     *
+     * @param socketStoreFactory
+     * @param config
+     * @param cluster
+     * @return
+     */
     public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
                                                        VoldemortConfig config,
-                                                       Cluster cluster) {
-        VoldemortServer server = new VoldemortServer(config, cluster);
-        server.start();
+                                                       Cluster cluster) throws BindException {
 
-        ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
-        // wait till server start or throw exception
-        return server;
+        // TODO: Some tests that use this method fail intermittently with the
+        // following output:
+        //
+        // A successor version version() to this version() exists for key
+        // cluster.xml
+        // voldemort.versioning.ObsoleteVersionException: A successor version
+        // version() to this version() exists for key cluster.xml"
+        //
+        // Need to trace through the constructor VoldemortServer(VoldemortConfig
+        // config, Cluster cluster) to understand how this error is possible,
+        // and why it only happens intermittently.
+        final int MAX_ATTEMPTS = 3;
+        VoldemortException lastVE = null;
+        for(int i = 0; i < MAX_ATTEMPTS; i++) {
+            try {
+                VoldemortServer server = null;
+                if(cluster != null) {
+                    server = new VoldemortServer(config, cluster);
+                } else {
+                    server = new VoldemortServer(config);
+                }
+                server.start();
+                ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
+                // wait till server starts or throw exception
+                return server;
+            } catch(VoldemortException ve) {
+                if(ve.getCause() instanceof BindException) {
+                    ve.printStackTrace();
+                    trySleep(100);
+                    lastVE = ve;
+                } else {
+                    throw ve;
+                }
+            }
+        }
+        throw new BindException(lastVE.getMessage());
+    }
+
+    public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
+                                                       VoldemortConfig config) throws BindException {
+        return startVoldemortServer(socketStoreFactory, config, null);
     }
 
     public static void waitForServerStart(SocketStoreFactory socketStoreFactory, Node node) {
         boolean success = false;
         int retries = 10;
         Store<ByteArray, ?, ?> store = null;
-        while(retries-- > 0) {
+        while(retries-- > 0 && !success) {
             store = ServerTestUtils.getSocketStore(socketStoreFactory,
                                                    MetadataStore.METADATA_STORE_NAME,
                                                    node.getSocketPort());
@@ -698,4 +1122,307 @@ public class ServerTestUtils {
         if(!success)
             throw new RuntimeException("Failed to connect with server:" + node);
     }
+
+    /***
+     *
+     *
+     * NOTE: This relies on the current behavior of the AsyncOperationService to
+     * remove an operation if an explicit isComplete() is invoked. If/When that
+     * is changed, this method will always block upto timeoutMs & return
+     *
+     * @param server
+     * @param asyncOperationPattern substring to match with the operation
+     *        description
+     * @param timeoutMs
+     * @return
+     */
+    public static boolean waitForAsyncOperationOnServer(VoldemortServer server,
+                                                        String asyncOperationPattern,
+                                                        long timeoutMs) {
+        long endTimeMs = System.currentTimeMillis() + timeoutMs;
+        AsyncOperationService service = server.getAsyncRunner();
+        List<Integer> matchingOperationIds = null;
+        // wait till the atleast one matching operation shows up
+        while(System.currentTimeMillis() < endTimeMs) {
+            matchingOperationIds = service.getMatchingAsyncOperationList(asyncOperationPattern,
+                                                                         true);
+            if(matchingOperationIds.size() > 0) {
+                break;
+            }
+        }
+        // now wait for those operations to complete
+        while(System.currentTimeMillis() < endTimeMs) {
+            List<Integer> completedOps = new ArrayList<Integer>(matchingOperationIds.size());
+            for(Integer op: matchingOperationIds) {
+                if(service.isComplete(op)) {
+                    completedOps.add(op);
+                }
+            }
+            matchingOperationIds.removeAll(completedOps);
+            if(matchingOperationIds.size() == 0) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    protected static Cluster internalStartVoldemortCluster(int numServers,
+                                                           VoldemortServer[] voldemortServers,
+                                                           int[][] partitionMap,
+                                                           SocketStoreFactory socketStoreFactory,
+                                                           boolean useNio,
+                                                           String clusterFile,
+                                                           String storeFile,
+                                                           Properties properties,
+                                                           Cluster customCluster)
+            throws IOException {
+        Cluster cluster = null;
+        if(customCluster != null) {
+            cluster = customCluster;
+        } else {
+            cluster = ServerTestUtils.getLocalCluster(numServers, partitionMap);
+        }
+
+        int count = 0;
+        for(int nodeId: cluster.getNodeIds()) {
+
+            voldemortServers[count] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                           ServerTestUtils.createServerConfig(useNio,
+                                                                                                              nodeId,
+                                                                                                              TestUtils.createTempDir()
+                                                                                                                       .getAbsolutePath(),
+                                                                                                              clusterFile,
+                                                                                                              storeFile,
+                                                                                                              properties),
+                                                                           cluster);
+            count++;
+        }
+        return cluster;
+    }
+
+    /**
+     * This method wraps up all of the work that is done in many different tests
+     * to set up some number of Voldemort servers in a cluster. This method
+     * masks an intermittent TOCTOU problem with the ports identified by
+     * {@link #findFreePorts(int)} not actually being free when a server needs
+     * to bind to them. If this method returns, it will return a non-null
+     * cluster. This method is not guaranteed to return, but will likely
+     * eventually do so...
+     *
+     * @param numServers
+     * @param voldemortServers
+     * @param partitionMap
+     * @param socketStoreFactory
+     * @param useNio
+     * @param clusterFile
+     * @param storeFile
+     * @param properties
+     * @return Cluster object that was used to successfully start all of the
+     *         servers.
+     * @throws IOException
+     */
+    // TODO: numServers is likely not needed. If this method is refactored in
+    // the future, then try and drop the numServers argument.
+    public static Cluster startVoldemortCluster(int numServers,
+                                                VoldemortServer[] voldemortServers,
+                                                int[][] partitionMap,
+                                                SocketStoreFactory socketStoreFactory,
+                                                boolean useNio,
+                                                String clusterFile,
+                                                String storeFile,
+                                                Properties properties) throws IOException {
+        return startVoldemortCluster(numServers,
+                                     voldemortServers,
+                                     partitionMap,
+                                     socketStoreFactory,
+                                     useNio,
+                                     clusterFile,
+                                     storeFile,
+                                     properties,
+                                     null);
+    }
+
+    /**
+     * This method wraps up all of the work that is done in many different tests
+     * to set up some number of Voldemort servers in a cluster. This method
+     * masks an intermittent TOCTOU problem with the ports identified by
+     * {@link #findFreePorts(int)} not actually being free when a server needs
+     * to bind to them. If this method returns, it will return a non-null
+     * cluster. This method is not guaranteed to return, but will likely
+     * eventually do so...
+     *
+     * @param numServers
+     * @param voldemortServers
+     * @param partitionMap
+     * @param socketStoreFactory
+     * @param useNio
+     * @param clusterFile
+     * @param storeFile
+     * @param properties
+     * @param customCluster Use this specified cluster object
+     * @return Cluster object that was used to successfully start all of the
+     *         servers.
+     * @throws IOException
+     */
+    // TODO: numServers is likely not needed. If this method is refactored in
+    // the future, then try and drop the numServers argument.
+    // So, is the socketStoreFactory argument.. It should be entirely hidden
+    // within the helper method
+    private static Cluster startVoldemortCluster(int numServers,
+                                                 VoldemortServer[] voldemortServers,
+                                                 int[][] partitionMap,
+                                                 SocketStoreFactory socketStoreFactory,
+                                                 boolean useNio,
+                                                 String clusterFile,
+                                                 String storeFile,
+                                                 Properties properties,
+                                                 Cluster customCluster) throws IOException {
+        boolean started = false;
+        Cluster cluster = null;
+
+        while(!started) {
+            try {
+                cluster = internalStartVoldemortCluster(numServers,
+                                                        voldemortServers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        clusterFile,
+                                                        storeFile,
+                                                        properties,
+                                                        customCluster);
+                started = true;
+            } catch(BindException be) {
+                logger.debug("Caught BindException when starting cluster. Will retry.");
+            }
+        }
+
+        return cluster;
+    }
+
+    public static Cluster startVoldemortCluster(VoldemortServer[] voldemortServers,
+                                                int[][] partitionMap,
+                                                String clusterFile,
+                                                String storeFile,
+                                                Properties properties,
+                                                Cluster customCluster) throws IOException {
+        boolean started = false;
+        Cluster cluster = null;
+
+        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                              10000,
+                                                                              100000,
+                                                                              32 * 1024);
+
+        try {
+            while(!started) {
+                try {
+                    cluster = internalStartVoldemortCluster(voldemortServers.length,
+                                                            voldemortServers,
+                                                            partitionMap,
+                                                            socketStoreFactory,
+                                                            true,
+                                                            clusterFile,
+                                                            storeFile,
+                                                            properties,
+                                                            customCluster);
+                    started = true;
+                } catch(BindException be) {
+                    logger.debug("Caught BindException when starting cluster. Will retry.");
+                }
+            }
+        } finally {
+            socketStoreFactory.close();
+        }
+
+        return cluster;
+    }
+
+    public static Cluster startVoldemortCluster(VoldemortServer[] servers,
+                                                int[][] partitionMap,
+                                                Properties serverProperties,
+                                                String storesXmlFile) throws IOException {
+
+        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                              10000,
+                                                                              100000,
+                                                                              32 * 1024);
+        Cluster cluster = null;
+        try {
+            cluster = ServerTestUtils.startVoldemortCluster(servers.length,
+                                                            servers,
+                                                            partitionMap,
+                                                            socketStoreFactory,
+                                                            true,
+                                                            null,
+                                                            storesXmlFile,
+                                                            serverProperties);
+        } finally {
+            socketStoreFactory.close();
+        }
+
+        return cluster;
+    }
+
+    public static VoldemortServer startStandAloneVoldemortServer(Properties serverProperties,
+                                                                 String storesXmlFile)
+            throws IOException {
+
+        VoldemortServer[] servers = new VoldemortServer[1];
+        int partitionMap[][] = { { 0, 1, 2, 3 } };
+
+        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                              10000,
+                                                                              100000,
+                                                                              32 * 1024);
+        try {
+            Cluster cluster = ServerTestUtils.startVoldemortCluster(1,
+                                                                    servers,
+                                                                    partitionMap,
+                                                                    socketStoreFactory,
+                                                                    true,
+                                                                    null,
+                                                                    storesXmlFile,
+                                                                    serverProperties);
+        } finally {
+            socketStoreFactory.close();
+        }
+
+        return servers[0];
+    }
+
+    public static void waitForSlopDrain(Map<Integer, VoldemortServer> vservers,
+                                        Long slopDrainTimoutMs) throws InterruptedException {
+
+        long timeStart = System.currentTimeMillis();
+        boolean allSlopsEmpty = false;
+        while(System.currentTimeMillis() < timeStart + slopDrainTimoutMs) {
+            allSlopsEmpty = true;
+            for(Integer nodeId: vservers.keySet()) {
+                VoldemortServer vs = vservers.get(nodeId);
+                SlopStorageEngine sse = vs.getStoreRepository().getSlopStore();
+                ClosableIterator<ByteArray> keys = sse.keys();
+                long count = 0;
+                while(keys.hasNext()) {
+                    keys.next();
+                    count++;
+                }
+                keys.close();
+                if(count > 0) {
+                    allSlopsEmpty = false;
+                    logger.info(String.format("Slop engine for node %d is not yet empty with %d slops\n",
+                                              nodeId,
+                                              count));
+                }
+            }
+            if(allSlopsEmpty) {
+                break;
+            }
+            Thread.sleep(1000);
+        }
+        if(!allSlopsEmpty) {
+            throw new RuntimeException("Timeout while waiting for all slops to drain");
+        }
+    }
+
 }

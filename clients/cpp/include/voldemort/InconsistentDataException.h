@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef INCONSISTENTDATAEXCEPTION_H
-#define INCONSISTENTDATAEXCEPTION_H
+#ifndef VOLDEMORT_INCONSISTENTDATAEXCEPTION_H
+#define VOLDEMORT_INCONSISTENTDATAEXCEPTION_H
 
 #include <voldemort/VoldemortException.h>
 
@@ -45,5 +45,4 @@ public:
 
 } // namespace Voldemort
 
-#endif // INCONSISTENTDATAEXCEPTION_H
-
+#endif/*VOLDEMORT_INCONSISTENTDATAEXCEPTION_H*/

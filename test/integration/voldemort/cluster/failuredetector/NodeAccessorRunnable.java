@@ -67,7 +67,7 @@ public class NodeAccessorRunnable implements Runnable {
                 if(failureDetector.isAvailable(node)) {
                     long startNs = System.nanoTime();
                     try {
-                        failureDetectorConfig.getStoreVerifier().verifyStore(node);
+                        failureDetectorConfig.getConnectionVerifier().verifyConnection(node);
                         failureDetector.recordSuccess(node,
                                                       ((System.nanoTime() - startNs) / Time.NS_PER_MS));
 

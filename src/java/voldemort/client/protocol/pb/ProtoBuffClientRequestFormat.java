@@ -166,6 +166,16 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
         return vals;
     }
 
+    @Override
+    public int getExpectedPutRequestSize(String storeName,
+                                 ByteArray key,
+                                 byte[] value,
+                                 byte[] transforms,
+                                 VectorClock version,
+                                 RequestRoutingType routingType) {
+        return RequestFormat.SIZE_UNKNOWN;
+    }
+
     public void writePutRequest(DataOutputStream output,
                                 String storeName,
                                 ByteArray key,
@@ -238,6 +248,10 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
     }
 
     private boolean isCompleteResponse(ByteBuffer buffer) {
+        if((buffer.limit() - buffer.position()) < 4) {
+            // Does not contain the integer ( 4 bytes)
+            return false;
+        }
         int size = buffer.getInt();
         return buffer.remaining() == size;
     }

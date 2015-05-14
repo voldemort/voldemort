@@ -41,7 +41,8 @@ public class CacheStorageEngineTest extends InMemoryStorageEngineTest {
 
     @Override
     public StorageEngine<ByteArray, byte[], byte[]> getStorageEngine() {
-        return new CacheStorageConfiguration().getStore("test");
+        return new CacheStorageConfiguration().getStore(TestUtils.makeStoreDefinition("test"),
+                                                        TestUtils.makeSingleNodeRoutingStrategy());
     }
 
     public void testNoPressureBehavior() {

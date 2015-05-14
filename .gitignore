@@ -1,9 +1,9 @@
 classes
 dist
-*~
 *.iml
 *.ipr
 *.iws
+*~
 *#
 .#*
 test-output
@@ -13,3 +13,16 @@ server.state
 .version
 .temp
 .idea
+data/
+META-INF/MANIFEST.MF
+gc.log
+voldsys$_*
+.project
+.settings
+.pydevproject
+.gradle
+build
+lib
+.project
+.classpath
+*.class

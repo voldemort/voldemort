@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -46,6 +46,7 @@ public class Node implements Serializable, Comparable<Node> {
     private final int adminPort;
     private final int zoneId;
     private final List<Integer> partitions;
+    private int restPort = -1;
 
     public Node(int id,
                 String host,
@@ -78,6 +79,30 @@ public class Node implements Serializable, Comparable<Node> {
         }
 
         this.adminPort = adminPort;
+    }
+
+    /**
+     * Adding a new Constructor for Rest Service.
+     * 
+     * @param id
+     * @param host
+     * @param httpPort
+     * @param socketPort
+     * @param adminPort
+     * @param zoneId
+     * @param partitions
+     * @param restPort
+     */
+    public Node(int id,
+                String host,
+                int httpPort,
+                int socketPort,
+                int adminPort,
+                int zoneId,
+                List<Integer> partitions,
+                int restPort) {
+        this(id, host, httpPort, socketPort, adminPort, zoneId, partitions);
+        this.restPort = restPort;
     }
 
     public String getHost() {
@@ -134,6 +159,12 @@ public class Node implements Serializable, Comparable<Node> {
                + " partitionList:" + partitions;
     }
 
+    public String getStateString() {
+        return "Node " + getHost() + " Id:" + getId() + " in zone " + getZoneId()
+               + " with admin port " + getAdminPort() + ", socket port " + getSocketPort()
+               + ", and http port " + getHttpPort();
+    }
+
     @Override
     public boolean equals(Object o) {
         if(this == o)
@@ -150,6 +181,7 @@ public class Node implements Serializable, Comparable<Node> {
         return getId();
     }
 
+    @Override
     public int compareTo(Node other) {
         return Integer.valueOf(this.id).compareTo(other.getId());
     }
@@ -158,5 +190,9 @@ public class Node implements Serializable, Comparable<Node> {
         return id == other.getId() && host.equalsIgnoreCase(other.getHost())
                && httpPort == other.getHttpPort() && socketPort == other.getSocketPort()
                && adminPort == other.getAdminPort() && zoneId == other.getZoneId();
+    }
+
+    public int getRestPort() {
+        return restPort;
     }
 }

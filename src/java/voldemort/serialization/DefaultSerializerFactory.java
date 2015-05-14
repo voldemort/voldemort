@@ -25,6 +25,7 @@ import org.apache.thrift.TBase;
 import voldemort.serialization.avro.AvroGenericSerializer;
 import voldemort.serialization.avro.AvroReflectiveSerializer;
 import voldemort.serialization.avro.AvroSpecificSerializer;
+import voldemort.serialization.avro.versioned.AvroVersionedGenericSerializer;
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.serialization.json.JsonTypeSerializer;
 import voldemort.serialization.protobuf.ProtoBufSerializer;
@@ -40,15 +41,20 @@ import com.google.protobuf.Message;
  */
 public class DefaultSerializerFactory implements SerializerFactory {
 
-    private static final String JAVA_SERIALIZER_TYPE_NAME = "java-serialization";
-    private static final String STRING_SERIALIZER_TYPE_NAME = "string";
-    private static final String IDENTITY_SERIALIZER_TYPE_NAME = "identity";
-    private static final String JSON_SERIALIZER_TYPE_NAME = "json";
-    private static final String PROTO_BUF_TYPE_NAME = "protobuf";
-    private static final String THRIFT_TYPE_NAME = "thrift";
-    private static final String AVRO_GENERIC_TYPE_NAME = "avro-generic";
-    private static final String AVRO_SPECIFIC_TYPE_NAME = "avro-specific";
-    private static final String AVRO_REFLECTIVE_TYPE_NAME = "avro-reflective";
+    public static final String JAVA_SERIALIZER_TYPE_NAME = "java-serialization";
+    public static final String STRING_SERIALIZER_TYPE_NAME = "string";
+    public static final String IDENTITY_SERIALIZER_TYPE_NAME = "identity";
+    public static final String JSON_SERIALIZER_TYPE_NAME = "json";
+    public static final String PROTO_BUF_TYPE_NAME = "protobuf";
+    public static final String THRIFT_TYPE_NAME = "thrift";
+    public static final String AVRO_GENERIC_TYPE_NAME = "avro-generic";
+    public static final String AVRO_SPECIFIC_TYPE_NAME = "avro-specific";
+    public static final String AVRO_REFLECTIVE_TYPE_NAME = "avro-reflective";
+
+    // New serialization types for avro versioning support
+    // We cannot change existing serializer classes since
+    // this will break existing clients while looking for the version byte
+    public static final String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
 
     public Serializer<?> getSerializer(SerializerDefinition serializerDef) {
         String name = serializerDef.getName();
@@ -72,13 +78,24 @@ public class DefaultSerializerFactory implements SerializerFactory {
         } else if(name.equals(PROTO_BUF_TYPE_NAME)) {
             return new ProtoBufSerializer<Message>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(THRIFT_TYPE_NAME)) {
-            return new ThriftSerializer<TBase<?,?>>(serializerDef.getCurrentSchemaInfo());
+            return new ThriftSerializer<TBase<?, ?>>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_GENERIC_TYPE_NAME)) {
             return new AvroGenericSerializer(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_SPECIFIC_TYPE_NAME)) {
             return new AvroSpecificSerializer<SpecificRecord>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_REFLECTIVE_TYPE_NAME)) {
             return new AvroReflectiveSerializer<Object>(serializerDef.getCurrentSchemaInfo());
+        } else if(name.equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+            if(serializerDef.hasVersion()) {
+                Map<Integer, String> versions = new HashMap<Integer, String>();
+                for(Map.Entry<Integer, String> entry: serializerDef.getAllSchemaInfoVersions()
+                                                                   .entrySet())
+                    versions.put(entry.getKey(), entry.getValue());
+                return new AvroVersionedGenericSerializer(versions);
+            } else {
+                return new AvroVersionedGenericSerializer(serializerDef.getCurrentSchemaInfo());
+            }
+
         } else {
             throw new IllegalArgumentException("No known serializer type: "
                                                + serializerDef.getName());

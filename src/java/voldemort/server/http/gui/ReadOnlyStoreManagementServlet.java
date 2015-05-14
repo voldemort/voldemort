@@ -30,7 +30,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.server.ServiceType;
+import voldemort.common.service.ServiceType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
@@ -196,8 +196,11 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         String storeName = getRequired(req, "store");
 
         if(metadataStore != null
-           && !metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
-            throw new ServletException("Voldemort server not in normal state");
+           && !metadataStore.getServerStateUnlocked()
+                            .equals(MetadataStore.VoldemortState.NORMAL_SERVER)
+           && !metadataStore.getServerStateUnlocked()
+                            .equals(MetadataStore.VoldemortState.OFFLINE_SERVER)) {
+            throw new ServletException("Voldemort server is neither in normal state nor in offline state");
         }
 
         ReadOnlyStorageEngine store = this.getStore(storeName);

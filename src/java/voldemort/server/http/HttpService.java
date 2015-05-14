@@ -28,8 +28,8 @@ import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.server.AbstractService;
-import voldemort.server.ServiceType;
+import voldemort.common.service.AbstractService;
+import voldemort.common.service.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.gui.AdminServlet;
@@ -75,15 +75,18 @@ public class HttpService extends AbstractService {
                                                               server.getMetadataStore(),
                                                               server.getVoldemortConfig(),
                                                               server.getAsyncRunner(),
+                                                              null,
+                                                              null,
                                                               null).getRequestHandler(requestType);
     }
 
     @Override
     public void startInner() {
         try {
-            Connector connector = new SelectChannelConnector();
+            SelectChannelConnector connector = new SelectChannelConnector();
             connector.setLowResourceMaxIdleTime(3000);
             connector.setPort(this.port);
+            connector.setReuseAddress(true);
             QueuedThreadPool threadPool = new QueuedThreadPool();
             threadPool.setName("VoldemortHttp");
             threadPool.setMaxThreads(this.numberOfThreads);
@@ -109,15 +112,20 @@ public class HttpService extends AbstractService {
             this.httpServer.start();
             logger.info("HTTP service started on port " + this.port);
         } catch(Exception e) {
-            throw new VoldemortException(e);
+            String errorMessage = " Error starting service on port " + this.port;
+            throw new VoldemortException(errorMessage, e);
         }
     }
 
     @Override
     public void stopInner() {
         try {
-            if(httpServer != null)
+            if(httpServer != null) {
                 httpServer.stop();
+                for(Connector c: httpServer.getConnectors()) {
+                    c.close();
+                }
+            }
             if(context != null)
                 context.destroy();
         } catch(Exception e) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -22,14 +22,20 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
 import voldemort.VoldemortException;
+import voldemort.cluster.Node;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;
@@ -109,13 +115,33 @@ public class Utils {
         if(files != null) {
             for(File f: files) {
                 if(f.isDirectory()) {
-                    rm(Arrays.asList(f.listFiles()));
+                    File[] contents = null;
+                    // Sometimes f.listFiles returns null and fails the test
+                    // Making it retry couple of times and ignoring the failure
+                    for(int i = 0; contents == null && i < 2; i++) {
+                        contents = f.listFiles();
+                    }
+
+                    if(contents != null) {
+                        rm(Arrays.asList(contents));
+                    }
                     f.delete();
                 } else {
                     f.delete();
                 }
             }
         }
+    }
+
+    /**
+     * Sort a collection to a List
+     * 
+     * @param collection to be converted to a sorted list
+     */
+    public static <T extends Comparable<? super T>> List<T> asSortedList(Collection<T> c) {
+        List<T> list = new ArrayList<T>(c);
+        Collections.sort(list);
+        return list;
     }
 
     /**
@@ -276,6 +302,72 @@ public class Utils {
                                                + " is greater than the maximum value of " + max);
         else
             return value;
+    }
+
+    /**
+     * Computes the percentage, taking care of division by 0
+     */
+    public static double safeGetPercentage(long rawNum, long total) {
+        return total == 0 ? 0.0d : rawNum / (float) total;
+    }
+
+    /**
+     * Computes the percentage, taking care of division by 0.
+     * 
+     * @return number between 0-100+
+     */
+    public static int safeGetPercentage(float rawNum, float total) {
+        return total == 0f ? 0 : Math.round(rawNum * 100f / total);
+    }
+
+    /**
+     * Computes sum of a {@link java.lang.Long} list
+     * 
+     * @param list
+     * @return sum of the list
+     */
+    public static long sumLongList(List<Long> list) {
+        long sum = 0;
+        for(Long val: list) {
+            sum += val;
+        }
+        return sum;
+    }
+
+    /**
+     * Compute the average of a {@link java.lang.Long} list
+     * 
+     * @param list
+     * @return
+     */
+    public static long avgLongList(List<Long> list) {
+        long sum = sumLongList(list);
+        return list.size() == 0 ? 0L : sum / list.size();
+    }
+
+    /**
+     * Compute the sum of a {@link java.lang.Double} list
+     * 
+     * @param list
+     * @return
+     */
+    public static double sumDoubleList(List<Double> list) {
+        double sum = 0.0;
+        for(Double val: list) {
+            sum += val;
+        }
+        return sum;
+    }
+
+    /**
+     * Compute the average of a {@link java.lang.Double} list
+     * 
+     * @param list
+     * @return
+     */
+    public static double avgDoubleList(List<Double> list) {
+        double sum = sumDoubleList(list);
+        return list.size() == 0 ? 0.0 : sum / list.size();
     }
 
     /**
@@ -516,6 +608,19 @@ public class Utils {
         }
     }
 
+    public static String paddedString(String str, int totalWidth) {
+        int padLength = totalWidth - str.length();
+        if(padLength <= 0) {
+            return str;
+        }
+        StringBuilder paddedStr = new StringBuilder();
+        for(int i = 0; i < padLength; i++) {
+            paddedStr.append(' ');
+        }
+        paddedStr.append(str);
+        return paddedStr.toString();
+    }
+
     @SuppressWarnings("unchecked")
     public static <T1, T2> T1 uncheckedCast(T2 t2) {
         return (T1) t2;
@@ -540,6 +645,198 @@ public class Utils {
         } catch(IOException e) {
             return false;
         }
+    }
+
+    /**
+     * Given a start time, computes the next time when the wallclock will reach
+     * a certain hour of the day, on a certain day of the week Eg: From today,
+     * when is the next Saturday, 12PM ?
+     * 
+     * @param startTime start time
+     * @param targetDay day of the week to choose
+     * @param targetHour hour of the day to choose
+     * @return calendar object representing the target time
+     */
+    public static GregorianCalendar getCalendarForNextRun(GregorianCalendar startTime,
+                                                          int targetDay,
+                                                          int targetHour) {
+        long startTimeMs = startTime.getTimeInMillis();
+        GregorianCalendar cal = new GregorianCalendar();
+        cal.setTimeInMillis(startTimeMs);
+
+        // adjust time to targetHour on startDay
+        cal.set(Calendar.HOUR_OF_DAY, targetHour);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+
+        // check if we are past the targetHour for the current day
+        if(cal.get(Calendar.DAY_OF_WEEK) != targetDay || cal.getTimeInMillis() < startTimeMs) {
+            do {
+                cal.add(Calendar.DAY_OF_YEAR, 1);
+            } while(cal.get(Calendar.DAY_OF_WEEK) != targetDay);
+        }
+        return cal;
+    }
+
+    /**
+     * Returns the day of week, 'nDays' from today
+     * 
+     * @return Calendar constant representing the day of the week
+     */
+    public static int getDayOfTheWeekFromNow(int nDays) {
+        GregorianCalendar cal = new GregorianCalendar();
+        cal.add(Calendar.DAY_OF_YEAR, nDays);
+        return cal.get(Calendar.DAY_OF_WEEK);
+    }
+
+    /**
+     * A common method for all enums since they can't have another base class
+     * 
+     * @param <T> Enum type
+     * @param c enum type. All enums must be all caps.
+     * @param string case insensitive
+     * @return corresponding enum, or null
+     */
+    public static <T extends Enum<T>> T getEnumFromString(Class<T> c, String string) {
+        if(c != null && string != null) {
+            try {
+                return Enum.valueOf(c, string.trim().toUpperCase());
+            } catch(IllegalArgumentException ex) {}
+        }
+        return null;
+    }
+
+    /**
+     * Specifically, this utility is to address the fact that System.nanoTime()
+     * can sometimes go backwards, due to the fact that it relies on the
+     * performance counters
+     * 
+     * @param startNs
+     * @param endNs
+     * @return 0 if endNs < startNs, delta otherwise
+     */
+    public static long elapsedTimeNs(long startNs, long endNs) {
+        if(endNs < startNs) {
+            return 0L;
+        } else {
+            return endNs - startNs;
+        }
+    }
+
+    /**
+     * This method breaks the inputList into distinct lists that are no longer
+     * than maxContiguous in length. It does so by removing elements from the
+     * inputList. This method removes the minimum necessary items to achieve the
+     * goal. This method chooses items to remove that minimize the length of the
+     * maximum remaining run. E.g. given an inputList of 20 elements and
+     * maxContiguous=8, this method will return the 2 elements that break the
+     * inputList into 3 runs of 6 items. (As opposed to 2 elements that break
+     * the inputList into two runs of eight items and one run of two items.)
+     * 
+     * @param inputList The list to be broken into separate runs.
+     * @param maxContiguous The upper limit on sub-list size
+     * @return A list of Integers to be removed from inputList to achieve the
+     *         maxContiguous goal.
+     */
+    public static List<Integer> removeItemsToSplitListEvenly(final List<Integer> inputList,
+                                                             int maxContiguous) {
+        List<Integer> itemsToRemove = new ArrayList<Integer>();
+        int contiguousCount = inputList.size();
+        if(contiguousCount > maxContiguous) {
+            // Determine how many items must be removed to ensure no contig run
+            // longer than maxContiguous
+            int numToRemove = contiguousCount / (maxContiguous + 1);
+            // Breaking in numToRemove places results in numToRemove+1 runs.
+            int numRuns = numToRemove + 1;
+            // Num items left to break into numRuns
+            int numItemsLeft = contiguousCount - numToRemove;
+            // Determine minimum length of each run after items are removed.
+            int floorOfEachRun = numItemsLeft / numRuns;
+            // Determine how many runs need one extra element to evenly
+            // distribute numItemsLeft among all numRuns
+            int numOfRunsWithExtra = numItemsLeft - (floorOfEachRun * numRuns);
+
+            int offset = 0;
+            for(int i = 0; i < numToRemove; ++i) {
+                offset += floorOfEachRun;
+                if(i < numOfRunsWithExtra)
+                    offset++;
+                itemsToRemove.add(inputList.get(offset));
+                offset++;
+            }
+        }
+        return itemsToRemove;
+    }
+
+    /**
+     * This method returns a list that "evenly" (within one) distributes some
+     * number of elements (peanut butter) over some number of buckets (bread
+     * slices).
+     * 
+     * @param listLength The number of buckets over which to evenly distribute
+     *        the elements.
+     * @param numElements The number of elements to distribute.
+     * @return A list of size breadSlices, each integer entry of which indicates
+     *         the number of elements.
+     */
+    public static List<Integer> distributeEvenlyIntoList(int listLength, int numElements) {
+        if(listLength < 1) {
+            throw new IllegalArgumentException("Argument listLength must be greater than 0 : "
+                                               + listLength);
+        }
+        if(numElements < 0) {
+            throw new IllegalArgumentException("Argument numElements must be zero or more : "
+                                               + numElements);
+        }
+        int floorElements = numElements / listLength;
+        int itemsWithMoreElements = numElements - (listLength * floorElements);
+
+        ArrayList<Integer> evenList = new ArrayList<Integer>(listLength);
+        for(int i = 0; i < itemsWithMoreElements; i++) {
+            evenList.add(i, floorElements + 1);
+        }
+        for(int i = itemsWithMoreElements; i < listLength; i++) {
+            evenList.add(i, floorElements);
+        }
+        return evenList;
+    }
+
+    /**
+     * This method returns a map that "evenly" (within one) distributes some
+     * number of elements (peanut butter) over some number of buckets (bread
+     * slices).
+     * 
+     * @param mapKeys The keys of the map over which which to evenly distribute
+     *        the elements.
+     * @param numElements The number of elements to distribute.
+     * @return A Map with keys specified by breadSlices each integer entry of
+     *         which indicates the number of elements
+     */
+    public static Map<Integer, Integer> distributeEvenlyIntoMap(Set<Integer> mapKeys,
+                                                                int numElements) {
+        Map<Integer, Integer> evenMap = new HashMap<Integer, Integer>();
+        List<Integer> evenList = distributeEvenlyIntoList(mapKeys.size(), numElements);
+        int offset = 0;
+        for(Integer key: mapKeys) {
+            evenMap.put(key, evenList.get(offset));
+            offset++;
+        }
+        return evenMap;
+    }
+
+    /**
+     * Given a list of nodes, retrieves the list of node ids
+     * 
+     * @param nodes The list of nodes
+     * @return Returns a list of node ids
+     */
+    public static List<Integer> nodeListToNodeIdList(List<Node> nodes) {
+        List<Integer> nodeIds = new ArrayList<Integer>(nodes.size());
+        for(Node node: nodes) {
+            nodeIds.add(node.getId());
+        }
+        return nodeIds;
     }
 
 }

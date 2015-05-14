@@ -8,6 +8,7 @@ import java.util.Map;
 import voldemort.VoldemortException;
 import voldemort.annotations.Experimental;
 import voldemort.serialization.Serializer;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
@@ -29,9 +30,8 @@ import com.google.common.collect.AbstractIterator;
  * 
  */
 @Experimental
-public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
+public class ViewStorageEngine extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
-    private final String name;
     private final Store<Object, Object, Object> serializingStore;
     private final StorageEngine<ByteArray, byte[], byte[]> target;
     private final Serializer<Object> valSerializer;
@@ -50,7 +50,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
                              Serializer<?> targetValSerializer,
                              CompressionStrategy valueCompressionStrategy,
                              View<?, ?, ?, ?> valueTrans) {
-        this.name = name;
+        super(name);
         this.target = Utils.notNull(target);
         this.serializingStore = new SerializingStore(target,
                                                      targetKeySerializer,
@@ -103,10 +103,12 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         return new Versioned<byte[]>(inflatedData, versioned.getVersion());
     }
 
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         return target.delete(key, version);
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         List<Versioned<byte[]>> values = target.get(key, null);
 
@@ -126,20 +128,19 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         return results;
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         return StoreUtils.getAll(this, keys, transforms);
     }
 
-    public String getName() {
-        return name;
-    }
-
+    @Override
     public List<Version> getVersions(ByteArray key) {
         return target.getVersions(key);
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
         if(valueCompressionStrategy != null)
@@ -153,14 +154,27 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         target.put(key, result, null);
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         return new ViewIterator(target.entries());
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys() {
         return StoreUtils.keys(entries());
     }
 
+    @Override
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        return new ViewIterator(target.entries(partition));
+    }
+
+    @Override
+    public ClosableIterator<ByteArray> keys(int partition) {
+        return StoreUtils.keys(entries(partition));
+    }
+
+    @Override
     public void truncate() {
         ViewIterator iterator = new ViewIterator(target.entries());
         while(iterator.hasNext()) {
@@ -169,6 +183,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         }
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         if(capability == StoreCapabilityType.VIEW_TARGET)
             return this.target;
@@ -176,7 +191,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
             return null;
     }
 
-    public void close() throws VoldemortException {}
+    // public void close() throws VoldemortException {}
 
     private byte[] valueFromViewSchema(ByteArray key, byte[] value, byte[] transforms) {
         return this.targetValSerializer.toBytes(this.view.viewToStore(this.serializingStore,
@@ -203,6 +218,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
             this.inner = inner;
         }
 
+        @Override
         public void close() {
             this.inner.close();
         }
@@ -212,13 +228,19 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
             Pair<ByteArray, Versioned<byte[]>> p = inner.next();
             Versioned<byte[]> newVal = Versioned.value(valueToViewSchema(p.getFirst(),
                                                                          p.getSecond().getValue(),
-                                                                         null), p.getSecond()
-                                                                                 .getVersion());
+                                                                         null),
+                                                       p.getSecond().getVersion());
             return Pair.create(p.getFirst(), newVal);
         }
     }
 
+    @Override
     public boolean isPartitionAware() {
         return target.isPartitionAware();
+    }
+
+    @Override
+    public boolean isPartitionScanSupported() {
+        return target.isPartitionScanSupported();
     }
 }

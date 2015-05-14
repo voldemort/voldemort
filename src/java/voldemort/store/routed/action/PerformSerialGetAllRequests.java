@@ -33,6 +33,7 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Response;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
@@ -52,19 +53,23 @@ public class PerformSerialGetAllRequests
 
     private final int required;
 
+    private final boolean allowPartial;
+
     public PerformSerialGetAllRequests(GetAllPipelineData pipelineData,
                                        Event completeEvent,
                                        Iterable<ByteArray> keys,
                                        FailureDetector failureDetector,
                                        Map<Integer, Store<ByteArray, byte[], byte[]>> stores,
                                        int preferred,
-                                       int required) {
+                                       int required,
+                                       boolean allowPartial) {
         super(pipelineData, completeEvent);
         this.keys = keys;
         this.failureDetector = failureDetector;
         this.stores = stores;
         this.preferred = preferred;
         this.required = required;
+        this.allowPartial = allowPartial;
     }
 
     public void execute(Pipeline pipeline) {
@@ -74,8 +79,14 @@ public class PerformSerialGetAllRequests
             boolean zoneRequirement = false;
             MutableInt successCount = pipelineData.getSuccessCount(key);
 
+            if(logger.isDebugEnabled())
+                logger.debug("GETALL for key " + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                             + System.identityHashCode(key) + ") successes: "
+                             + successCount.intValue() + " preferred: " + preferred + " required: "
+                             + required);
+
             if(successCount.intValue() >= preferred) {
-                if(pipelineData.getZonesRequired() != null) {
+                if(pipelineData.getZonesRequired() != null && pipelineData.getZonesRequired() > 0) {
 
                     if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
                         int zonesSatisfied = pipelineData.getKeyToZoneResponse().get(key).size();
@@ -110,10 +121,12 @@ public class PerformSerialGetAllRequests
                     else
                         values = store.get(key, transforms.get(key));
 
-                    if(result.get(key) == null)
-                        result.put(key, Lists.newArrayList(values));
-                    else
-                        result.get(key).addAll(values);
+                    if(values.size() != 0) {
+                        if(result.get(key) == null)
+                            result.put(key, Lists.newArrayList(values));
+                        else
+                            result.get(key).addAll(values);
+                    }
 
                     Map<ByteArray, List<Versioned<byte[]>>> map = new HashMap<ByteArray, List<Versioned<byte[]>>>();
                     map.put(key, values);
@@ -127,11 +140,19 @@ public class PerformSerialGetAllRequests
                     pipelineData.getResponses().add(response);
                     failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
 
+                    if(logger.isDebugEnabled())
+                        logger.debug("GET for key " + ByteUtils.toHexString(key.get())
+                                     + " (keyRef: " + System.identityHashCode(key)
+                                     + ") successes: " + successCount.intValue() + " preferred: "
+                                     + preferred + " required: " + required
+                                     + " new GET success on node " + node.getId());
+
                     HashSet<Integer> zoneResponses = null;
                     if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
                         zoneResponses = pipelineData.getKeyToZoneResponse().get(key);
                     } else {
                         zoneResponses = new HashSet<Integer>();
+                        pipelineData.getKeyToZoneResponse().put(key, zoneResponses);
                     }
                     zoneResponses.add(response.getNode().getZoneId());
 
@@ -156,17 +177,27 @@ public class PerformSerialGetAllRequests
             MutableInt successCount = pipelineData.getSuccessCount(key);
 
             if(successCount.intValue() < required) {
-                pipelineData.setFatalError(new InsufficientOperationalNodesException(required
-                                                                                             + " "
-                                                                                             + pipeline.getOperation()
-                                                                                                       .getSimpleName()
-                                                                                             + "s required, but "
-                                                                                             + successCount.intValue()
-                                                                                             + " succeeded. Failing nodes : "
-                                                                                             + pipelineData.getFailedNodes(),
-                                                                                     pipelineData.getFailures()));
-                pipeline.addEvent(Event.ERROR);
-                return;
+                // if we allow partial results, then just remove keys that did
+                // not meet 'required' guarantee; else raise error
+                if(allowPartial) {
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Excluding Key " + ByteUtils.toHexString(key.get())
+                                     + " from partial get_all result");
+                    }
+                    result.remove(key);
+                } else {
+                    pipelineData.setFatalError(new InsufficientOperationalNodesException(required
+                                                                                                 + " "
+                                                                                                 + pipeline.getOperation()
+                                                                                                           .getSimpleName()
+                                                                                                 + "s required, but "
+                                                                                                 + successCount.intValue()
+                                                                                                 + " succeeded. Failing nodes : "
+                                                                                                 + pipelineData.getFailedNodes(),
+                                                                                         pipelineData.getFailures()));
+                    pipeline.addEvent(Event.ERROR);
+                    return;
+                }
             }
         }
 

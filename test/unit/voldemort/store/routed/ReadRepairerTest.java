@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -21,9 +21,9 @@ import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.TestUtils.getClock;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+import static voldemort.cluster.failuredetector.MutableStoreConnectionVerifier.create;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,6 +46,7 @@ import voldemort.MockTime;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
+import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -76,14 +77,11 @@ public class ReadRepairerTest {
 
     private Time time = new MockTime();
     private final Class<FailureDetector> failureDetectorClass;
-    private final boolean isPipelineRoutedStoreEnabled;
     private FailureDetector failureDetector;
     private ExecutorService routedStoreThreadPool;
 
-    public ReadRepairerTest(Class<FailureDetector> failureDetectorClass,
-                            boolean isPipelineRoutedStoreEnabled) {
+    public ReadRepairerTest(Class<FailureDetector> failureDetectorClass) {
         this.failureDetectorClass = failureDetectorClass;
-        this.isPipelineRoutedStoreEnabled = isPipelineRoutedStoreEnabled;
     }
 
     @After
@@ -97,8 +95,7 @@ public class ReadRepairerTest {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { BannagePeriodFailureDetector.class, true },
-                { BannagePeriodFailureDetector.class, false } });
+        return Arrays.asList(new Object[][] { { BannagePeriodFailureDetector.class } });
     }
 
     @Test
@@ -147,23 +144,22 @@ public class ReadRepairerTest {
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
                                                                                  .setBannagePeriod(1000)
-                                                                                 .setNodes(cluster.getNodes())
-                                                                                 .setStoreVerifier(create(subStores))
+                                                                                 .setCluster(cluster)
+                                                                                 .setConnectionVerifier(create(subStores))
                                                                                  .setTime(time);
 
         failureDetector = create(failureDetectorConfig, false);
 
         routedStoreThreadPool = Executors.newFixedThreadPool(1);
 
-        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
-                                                                       routedStoreThreadPool,
-                                                                       1000L);
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreThreadPool);
 
         RoutedStore store = routedStoreFactory.create(cluster,
                                                       storeDef,
                                                       subStores,
-                                                      true,
-                                                      failureDetector);
+                                                      failureDetector,
+                                                      new RoutedStoreConfig().setTimeoutConfig(new TimeoutConfig(1000L,
+                                                                                                                 false)));
 
         recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
         store.put(key, new Versioned<byte[]>(value), null);
@@ -187,6 +183,7 @@ public class ReadRepairerTest {
     /**
      * See Issue 92: ReadRepairer.getRepairs should not return duplicates.
      */
+    @Test
     public void testNoDuplicates() throws Exception {
         List<NodeValue<String, Integer>> values = asList(getValue(1, 1, new int[] { 1, 2 }),
                                                          getValue(2, 1, new int[] { 1, 2 }),
@@ -196,12 +193,14 @@ public class ReadRepairerTest {
         assertEquals(getValue(3, 1, new int[] { 1, 2 }), repairs.get(0));
     }
 
+    @Test
     public void testSingleSuccessor() throws Exception {
         assertVariationsEqual(singletonList(getValue(1, 1, new int[] { 1, 1 })),
-                              asList(getValue(1, 1, new int[] { 1 }), getValue(2, 1, new int[] { 1,
-                                      1 })));
+                              asList(getValue(1, 1, new int[] { 1 }),
+                                     getValue(2, 1, new int[] { 1, 1 })));
     }
 
+    @Test
     public void testAllConcurrent() throws Exception {
         assertVariationsEqual(asList(getValue(1, 1, new int[] { 2 }),
                                      getValue(1, 1, new int[] { 3 }),
@@ -214,6 +213,7 @@ public class ReadRepairerTest {
                                      getValue(3, 1, new int[] { 3 })));
     }
 
+    @Test
     public void testTwoAncestorsToOneSuccessor() throws Exception {
         int[] expected = new int[] { 1, 1, 2, 2 };
         assertVariationsEqual(asList(getValue(2, 1, expected), getValue(3, 1, expected)),
@@ -222,6 +222,7 @@ public class ReadRepairerTest {
                                      getValue(3, 1, new int[] { 2 })));
     }
 
+    @Test
     public void testOneAcestorToTwoSuccessors() throws Exception {
         int[] expected = new int[] { 1, 1, 2, 2 };
         assertVariationsEqual(asList(getValue(2, 1, expected), getValue(3, 1, expected)),
@@ -230,6 +231,7 @@ public class ReadRepairerTest {
                                      getValue(3, 1, new int[] { 2 })));
     }
 
+    @Test
     public void testEqualObsoleteVersions() throws Exception {
         int[] expected = new int[] { 1, 1 };
         assertVariationsEqual(asList(getValue(1, 1, expected),
@@ -241,6 +243,7 @@ public class ReadRepairerTest {
                                      getValue(4, 1, expected)));
     }
 
+    @Test
     public void testDiamondPattern() throws Exception {
         int[] expected = new int[] { 1, 1, 2, 2 };
         assertVariationsEqual(asList(getValue(1, 1, expected),
@@ -252,15 +255,18 @@ public class ReadRepairerTest {
                                      getValue(4, 1, expected)));
     }
 
+    @Test
     public void testConcurrentToOneDoesNotImplyConcurrentToAll() throws Exception {
         assertVariationsEqual(asList(getValue(1, 1, new int[] { 1, 3, 3 }),
                                      getValue(1, 1, new int[] { 1, 2 }),
                                      getValue(2, 1, new int[] { 1, 3, 3 }),
                                      getValue(3, 1, new int[] { 1, 2 })),
-                              asList(getValue(1, 1, new int[] { 3, 3 }), getValue(2, 1, new int[] {
-                                      1, 2 }), getValue(3, 1, new int[] { 1, 3, 3 })));
+                              asList(getValue(1, 1, new int[] { 3, 3 }),
+                                     getValue(2, 1, new int[] { 1, 2 }),
+                                     getValue(3, 1, new int[] { 1, 3, 3 })));
     }
 
+    @Test
     public void testLotsOfVersions() throws Exception {
         assertVariationsEqual(asList(getValue(1, 1, new int[] { 1, 2, 2, 3 }),
                                      getValue(1, 1, new int[] { 1, 2, 3, 3 }),
@@ -278,6 +284,16 @@ public class ReadRepairerTest {
                                      getValue(4, 1, new int[] { 1, 2, 2, 3 }),
                                      getValue(5, 1, new int[] { 1, 2, 3, 3 }),
                                      getValue(6, 1, new int[] { 3, 3 })));
+    }
+
+    @Test
+    public void testConcurrentVersionsDoNotResultInRepairs() throws Exception {
+        List<NodeValue<String, Integer>> emptyExpectedList = new ArrayList<NodeValue<String, Integer>>();
+        assertVariationsEqual(emptyExpectedList,
+                              asList(getValue(1, 1, new int[] { 1, 1, 2, 2, 2, 2, 3, 3 }),
+                                     getValue(1, 1, new int[] { 1, 1, 1, 1, 2, 2, 3, 3 }),
+                                     getValue(2, 1, new int[] { 1, 1, 2, 2, 2, 2, 3, 3 }),
+                                     getValue(2, 1, new int[] { 1, 1, 1, 1, 2, 2, 3, 3 })));
     }
 
     /**
@@ -320,6 +336,14 @@ public class ReadRepairerTest {
         assertEquals("There should be no repairs.", 0, repairs.size());
     }
 
+    /**
+     * Testing helper method to construct node-values out of thin air.
+     * 
+     * @param nodeId The node ID
+     * @param value The value (an integer)
+     * @param version The version (vector of integers passed to getClock())
+     * @return
+     */
     private NodeValue<String, Integer> getValue(int nodeId, int value, int[] version) {
         return new NodeValue<String, Integer>(nodeId,
                                               Integer.toString(value),

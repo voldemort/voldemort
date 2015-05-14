@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef OBSOLETEVERSIONEXCEPTION_H
-#define OBSOLETEVERSIONEXCEPTION_H
+#ifndef VOLDEMORT_OBSOLETEVERSIONEXCEPTION_H
+#define VOLDEMORT_OBSOLETEVERSIONEXCEPTION_H
 
 #include <voldemort/VoldemortException.h>
 
@@ -47,5 +47,4 @@ public:
 
 } // namespace Voldemort
 
-#endif // OBSOLETEVERSIONEXCEPTION_H
-
+#endif/*VOLDEMORT_OBSOLETEVERSIONEXCEPTION_H*/

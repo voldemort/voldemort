@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -26,6 +26,7 @@ import java.util.TreeMap;
 
 import org.apache.log4j.Logger;
 
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.FnvHashFunction;
@@ -55,16 +56,24 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
 
     private static final Logger logger = Logger.getLogger(ConsistentRoutingStrategy.class);
 
-    public ConsistentRoutingStrategy(Collection<Node> nodes, int numReplicas) {
-        this(new FnvHashFunction(), nodes, numReplicas);
+    public ConsistentRoutingStrategy(Cluster cluster, int numReplicas) {
+        this(new FnvHashFunction(), cluster, numReplicas);
     }
 
+    @Override
     public int getNumReplicas() {
         return this.numReplicas;
     }
 
     public Node[] getPartitionToNode() {
         return partitionToNode;
+    }
+
+    public ConsistentRoutingStrategy(HashFunction hash, Cluster cluster, int numReplicas) {
+        this.numReplicas = numReplicas;
+        this.hash = hash;
+
+        this.partitionToNode = cluster.getPartitionIdToNodeArray();
     }
 
     public ConsistentRoutingStrategy(HashFunction hash, Collection<Node> nodes, int numReplicas) {
@@ -102,6 +111,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         return Integer.MAX_VALUE;
     }
 
+    @Override
     public List<Node> routeRequest(byte[] key) {
         List<Integer> partitionList = getPartitionList(key);
 
@@ -113,16 +123,17 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
             preferenceList.add(partitionToNode[partition]);
         }
         if(logger.isDebugEnabled()) {
-            StringBuilder nodeList = new StringBuilder();
+            List<Integer> nodeIdList = new ArrayList<Integer>();
             for(int partition: partitionList) {
-                nodeList.append(partitionToNode[partition].getId() + ",");
+                nodeIdList.add(partitionToNode[partition].getId());
             }
-            logger.debug("Key " + ByteUtils.toHexString(key) + " mapped to Nodes [" + nodeList
-                         + "] Partitions [" + partitionList + "]");
+            logger.debug("Key " + ByteUtils.toHexString(key) + " mapped to Nodes " + nodeIdList
+                         + " Partitions " + partitionList);
         }
         return preferenceList;
     }
 
+    @Override
     public List<Integer> getReplicatingPartitionList(int index) {
         List<Node> preferenceList = new ArrayList<Node>(numReplicas);
         List<Integer> replicationPartitionsList = new ArrayList<Integer>(numReplicas);
@@ -150,6 +161,18 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         return replicationPartitionsList;
     }
 
+    /**
+     * Obtain the master partition for a given key
+     * 
+     * @param key
+     * @return master partition id
+     */
+    @Override
+    public Integer getMasterPartition(byte[] key) {
+        return abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
+    }
+
+    @Override
     public Set<Node> getNodes() {
         Set<Node> s = Sets.newHashSetWithExpectedSize(partitionToNode.length);
         for(Node n: this.partitionToNode)
@@ -169,10 +192,11 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         return tags;
     }
 
+    @Override
     public List<Integer> getPartitionList(byte[] key) {
         // hash the key and perform a modulo on the total number of partitions,
         // to get the master partition
-        int index = abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
+        int index = getMasterPartition(key);
         if(logger.isDebugEnabled()) {
             logger.debug("Key " + ByteUtils.toHexString(key) + " primary partition " + index);
         }
@@ -181,6 +205,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         return getReplicatingPartitionList(index);
     }
 
+    @Override
     public String getType() {
         return RoutingStrategyType.CONSISTENT_STRATEGY;
     }

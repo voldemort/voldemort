@@ -38,7 +38,8 @@ addResolver(shared_ptr<InconsistencyResolver>& resolver) {
     chain.push_back(resolver);
 }
 
-std::list<VersionedValue>* InconsistencyResolvingStore::get(const std::string& key) {
+std::list<VersionedValue>*
+InconsistencyResolvingStore::get(const std::string& key) const {
     std::list<VersionedValue>* resultList = substore->get(key);
     if (resultList != NULL && resultList->size() > 1) {
         try {
@@ -65,7 +66,7 @@ bool InconsistencyResolvingStore:: deleteKey(const std::string& key,
     return substore->deleteKey(key, version);
 }
 
-const std::string* InconsistencyResolvingStore::getName() {
+const std::string* InconsistencyResolvingStore::getName() const {
     return substore->getName();
 }
 

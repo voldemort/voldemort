@@ -1,15 +1,63 @@
 # Voldemort is a distributed key-value storage system #
 
-* Data is automatically replicated over multiple servers.
+## Overview ##
+
+* Data is automatically replicated over multiple servers across multiple datacenters.
 * Data is automatically partitioned so each server contains only a subset of the total data
 * Server failure is handled transparently
 * Pluggable serialization is supported to allow rich keys and values including lists and tuples with named fields, as well as to integrate with common serialization frameworks like Protocol Buffers, Thrift, and Java Serialization
 * Data items are versioned to maximize data integrity in failure scenarios without compromising availability of the system
 * Each node is independent of other nodes with no central point of failure or coordination
-* Good single node performance: you can expect 10-20k operations per second depending on the machines, the network, the disk system, and the data replication factor
+* Pluggable storage engines, to cater to different workloads
+* SSD Optimized Read Write storage engine, with support for multi-tenancy
+* Built in mechanism to fetch & serve batch computed data from Hadoop 
 * Support for pluggable data placement strategies to support things like distribution across data centers that are geographical far apart.
 
-It is used at LinkedIn for certain high-scalability storage problems where simple functional partitioning is not sufficient. It is still a new system which has rough edges, bad error messages, and probably plenty of uncaught bugs. Let us know if you find one of these, so we can fix it.
+It is used at LinkedIn by numerous critical services powering a large portion of the site. .
+
+## QuickStart ##
+
+*You can refer to http://www.project-voldemort.com for more info*
+
+### Download Code ###
+
+```bash
+cd ~/workspace
+git clone https://github.com/voldemort/voldemort.git
+cd voldemort
+./gradlew clean jar
+```
+
+### Start Server ###
+
+```
+# in one terminal
+bin/voldemort-server.sh config/single_node_cluster
+```
+
+### Use Client Shell ###
+
+Client shell gives you fast access to the store. We already have a test store defined in the "single_node_cluster", whose key and value are both String.
+
+```bash
+# in another terminal
+cd ~/workspace/voldemort
+bin/voldemort-shell.sh test tcp://localhost:6666/
+```
+
+Now you have the the voldemort shell running. You can try these commands in the shell
+
+```
+put "k1" "v1"
+put "k2" "v2"
+get "k1"
+getall "k1" "k2"
+delete "k1"
+get "k1"
+```
+
+You can find more commands by running```help```
+
 
 ## Comparison to relational databases ##
 
@@ -25,4 +73,8 @@ Voldemort is not a relational database, it does not attempt to satisfy arbitrary
 
 The source code is available under the Apache 2.0 license. We are actively looking for contributors so if you have ideas, code, bug reports, or fixes you would like to contribute please do so.
 
-For help please see the [discussion group](http://groups.google.com/group/project-voldemort), or the IRC channel chat.us.freenode.net #voldemort. Bugs and feature requests can be filed on [Google Code](http://code.google.com/p/project-voldemort/issues/list).
+For help please see the [discussion group](http://groups.google.com/group/project-voldemort), or the IRC channel chat.us.freenode.net #voldemort. Bugs and feature requests can be filed on [Github](https://github.com/voldemort/voldemort/issues).
+
+## Special Thanks ##
+
+We would like to thank [JetBrains](http://www.jetbrains.com) for supporting Voldemort Project by offering open-source license of their [IntelliJ IDE](http://www.jetbrains.com/idea/) to us.

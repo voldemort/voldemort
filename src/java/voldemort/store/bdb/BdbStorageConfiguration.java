@@ -17,30 +17,43 @@
 package voldemort.store.bdb;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import javax.management.ObjectName;
+
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageInitializationException;
+import voldemort.store.StoreDefinition;
+import voldemort.store.bdb.stats.AggregatedBdbEnvironmentStats;
+import voldemort.store.bdb.stats.BdbEnvironmentStats;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 
+import com.google.common.collect.Maps;
+import com.sleepycat.je.CacheMode;
+import com.sleepycat.je.CheckpointConfig;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.Durability;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
-import com.sleepycat.je.EnvironmentStats;
-import com.sleepycat.je.PreloadConfig;
+import com.sleepycat.je.EnvironmentMutableConfig;
 import com.sleepycat.je.StatsConfig;
-
-import com.google.common.collect.Maps;
 
 /**
  * The configuration that is shared between berkeley db instances. This includes
@@ -55,7 +68,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     private static final String SHARED_ENV_KEY = "shared";
 
     private static Logger logger = Logger.getLogger(BdbStorageConfiguration.class);
-
     private final Object lock = new Object();
     private final Map<String, Environment> environments = Maps.newHashMap();
     private final EnvironmentConfig environmentConfig;
@@ -63,20 +75,20 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     private final String bdbMasterDir;
     private final boolean useOneEnvPerStore;
     private final VoldemortConfig voldemortConfig;
+    private long reservedCacheSize = 0;
+    private Set<Environment> unreservedStores;
+    private AggregatedBdbEnvironmentStats aggBdbStats;
 
     public BdbStorageConfiguration(VoldemortConfig config) {
         this.voldemortConfig = config;
         environmentConfig = new EnvironmentConfig();
         environmentConfig.setTransactional(true);
-        environmentConfig.setCacheSize(config.getBdbCacheSize());
         if(config.isBdbWriteTransactionsEnabled() && config.isBdbFlushTransactionsEnabled()) {
-            environmentConfig.setTxnNoSync(false);
-            environmentConfig.setTxnWriteNoSync(false);
+            environmentConfig.setDurability(Durability.COMMIT_SYNC);
         } else if(config.isBdbWriteTransactionsEnabled() && !config.isBdbFlushTransactionsEnabled()) {
-            environmentConfig.setTxnNoSync(false);
-            environmentConfig.setTxnWriteNoSync(true);
+            environmentConfig.setDurability(Durability.COMMIT_WRITE_NO_SYNC);
         } else {
-            environmentConfig.setTxnNoSync(true);
+            environmentConfig.setDurability(Durability.COMMIT_NO_SYNC);
         }
         environmentConfig.setAllowCreate(true);
         environmentConfig.setConfigParam(EnvironmentConfig.LOG_FILE_MAX,
@@ -105,29 +117,91 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Integer.toString(config.getBdbLogFaultReadSize()));
         environmentConfig.setConfigParam(EnvironmentConfig.LOG_ITERATOR_READ_SIZE,
                                          Integer.toString(config.getBdbLogIteratorReadSize()));
-
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_LAZY_MIGRATION,
+                                         Boolean.toString(config.getBdbCleanerLazyMigration()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_BYTES_INTERVAL,
+                                         Long.toString(config.getBdbCleanerBytesInterval()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_FETCH_OBSOLETE_SIZE,
+                                         Boolean.toString(config.getBdbCleanerFetchObsoleteSize()));
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
+        environmentConfig.setConfigParam(EnvironmentConfig.TREE_MAX_DELTA,
+                                         Integer.toString(config.getBdbMaxDelta()));
+        environmentConfig.setConfigParam(EnvironmentConfig.TREE_BIN_DELTA,
+                                         Integer.toString(config.getBdbBinDelta()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_ADJUST_UTILIZATION,
+                                         Boolean.toString(config.getBdbCleanerAdjustUtilization()));
+        environmentConfig.setConfigParam(EnvironmentConfig.ENV_RECOVERY_FORCE_CHECKPOINT,
+                                         Boolean.toString(config.getBdbRecoveryForceCheckpoint()));
+        if(config.getBdbCacheModeEvictLN()) {
+            environmentConfig.setCacheMode(CacheMode.EVICT_LN);
+        }
+        if(config.isBdbLevelBasedEviction()) {
+            environmentConfig.setConfigParam(EnvironmentConfig.EVICTOR_LRU_ONLY,
+                                             Boolean.toString(false));
+        }
+
+        // Now apply the raw property string overrides
+        if(config.getBdbRawPropertyString() != null) {
+            try {
+                String[] props = config.getBdbRawPropertyString().split(",");
+                if(props.length > 0) {
+                    for(int i = 0; i < props.length; i++) {
+                        String[] propSplit = props[i].split("=");
+                        if(propSplit.length == 2) {
+                            logger.info("Overriding property " + propSplit[0] + " to "
+                                        + propSplit[1] + " from the raw property string");
+                            environmentConfig.setConfigParam(propSplit[0], propSplit[1]);
+                        }
+                    }
+                }
+            } catch(Exception e) {
+                logger.warn("Error when applying raw BDB property string... Ignoring and moving on..",
+                            e);
+            }
+        }
+
         databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
-        databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
+        databaseConfig.setSortedDuplicates(false);
         databaseConfig.setNodeMaxEntries(config.getBdbBtreeFanout());
         databaseConfig.setTransactional(true);
         bdbMasterDir = config.getBdbDataDirectory();
         useOneEnvPerStore = config.isBdbOneEnvPerStore();
-        if(useOneEnvPerStore)
-            environmentConfig.setSharedCache(true);
+        unreservedStores = new HashSet<Environment>();
+
+        aggBdbStats = new AggregatedBdbEnvironmentStats();
+        if(config.isJmxEnabled()) {
+            JmxUtils.registerMbean("aggregated-bdb", aggBdbStats);
+        }
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String storeName) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
         synchronized(lock) {
             try {
-                Environment environment = getEnvironment(storeName);
+                String storeName = storeDef.getName();
+                Environment environment = getEnvironment(storeDef);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
                 BdbRuntimeConfig runtimeConfig = new BdbRuntimeConfig(voldemortConfig);
-                BdbStorageEngine engine = new BdbStorageEngine(storeName,
-                                                               environment,
-                                                               db,
-                                                               runtimeConfig);
+                BdbStorageEngine engine = null;
+                if(voldemortConfig.getBdbPrefixKeysWithPartitionId()) {
+                    engine = new PartitionPrefixedBdbStorageEngine(storeName,
+                                                                   environment,
+                                                                   db,
+                                                                   runtimeConfig,
+                                                                   strategy);
+                } else {
+                    engine = new BdbStorageEngine(storeName, environment, db, runtimeConfig);
+                }
+                if(voldemortConfig.isJmxEnabled()) {
+                    // register the environment stats mbean
+                    JmxUtils.registerMbean(storeName, engine.getBdbEnvironmentStats());
+                    // when using a shared environment, there is no meaning to
+                    // aggregated stats
+                    if(useOneEnvPerStore) {
+                        aggBdbStats.trackEnvironment(engine.getBdbEnvironmentStats());
+                    }
+                }
                 return engine;
             } catch(DatabaseException d) {
                 throw new StorageInitializationException(d);
@@ -135,10 +209,95 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         }
     }
 
-    private Environment getEnvironment(String storeName) throws DatabaseException {
+    /**
+     * Clean up the environment object for the given storage engine
+     */
+    @Override
+    public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
+        String storeName = engine.getName();
+        BdbStorageEngine bdbEngine = (BdbStorageEngine) engine;
+
         synchronized(lock) {
+
+            // Only cleanup the environment if it is per store. We cannot
+            // cleanup a shared 'Environment' object
             if(useOneEnvPerStore) {
 
+                Environment environment = this.environments.get(storeName);
+                if(environment == null) {
+                    // Nothing to clean up.
+                    return;
+                }
+
+                // Remove from the set of unreserved stores if needed.
+                if(this.unreservedStores.remove(environment)) {
+                    logger.info("Removed environment for store name: " + storeName
+                                + " from unreserved stores");
+                } else {
+                    logger.info("No environment found in unreserved stores for store name: "
+                                + storeName);
+                }
+
+                // Try to delete the BDB directory associated
+                File bdbDir = environment.getHome();
+                if(bdbDir.exists() && bdbDir.isDirectory()) {
+                    String bdbDirPath = bdbDir.getPath();
+                    try {
+                        FileUtils.deleteDirectory(bdbDir);
+                        logger.info("Successfully deleted BDB directory : " + bdbDirPath
+                                    + " for store name: " + storeName);
+                    } catch(IOException e) {
+                        logger.error("Unable to delete BDB directory: " + bdbDirPath
+                                     + " for store name: " + storeName);
+                    }
+                }
+
+                // Remove the reference to BdbEnvironmentStats, which holds a
+                // reference to the Environment
+                BdbEnvironmentStats bdbEnvStats = bdbEngine.getBdbEnvironmentStats();
+                this.aggBdbStats.unTrackEnvironment(bdbEnvStats);
+
+                // Unregister the JMX bean for Environment
+                if(voldemortConfig.isJmxEnabled()) {
+                    ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(bdbEnvStats.getClass()),
+                                                                storeName);
+                    // Un-register the environment stats mbean
+                    JmxUtils.unregisterMbean(name);
+                }
+
+                // Cleanup the environment
+                environment.close();
+                this.environments.remove(storeName);
+                logger.info("Successfully closed the environment for store name : " + storeName);
+
+            }
+        }
+    }
+
+    /**
+     * When a reservation is made, we need to shrink the shared cache
+     * accordingly to guarantee memory foot print of the new store. NOTE: This
+     * is not an instantaeneous operation. Changes will take effect only when
+     * traffic is thrown and eviction happens.( Won't happen until Network ports
+     * are opened anyway which is rightfully done after storage service).When
+     * changing this dynamically, we might want to block until the shared cache
+     * shrinks enough
+     * 
+     */
+    private void adjustCacheSizes() {
+        long newSharedCacheSize = voldemortConfig.getBdbCacheSize() - this.reservedCacheSize;
+        logger.info("Setting the shared cache size to " + newSharedCacheSize);
+        for(Environment environment: unreservedStores) {
+            EnvironmentMutableConfig mConfig = environment.getMutableConfig();
+            mConfig.setCacheSize(newSharedCacheSize);
+            environment.setMutableConfig(mConfig);
+        }
+    }
+
+    public Environment getEnvironment(StoreDefinition storeDef) throws DatabaseException {
+        String storeName = storeDef.getName();
+        synchronized(lock) {
+            if(useOneEnvPerStore) {
                 // if we have already created this environment return a
                 // reference
                 if(environments.containsKey(storeName))
@@ -148,10 +307,41 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 File bdbDir = new File(bdbMasterDir, storeName);
                 createBdbDirIfNecessary(bdbDir);
 
+                // configure the BDB cache
+                if(storeDef.hasMemoryFootprint()) {
+                    // make room for the reservation, by adjusting other stores
+                    long reservedBytes = storeDef.getMemoryFootprintMB() * ByteUtils.BYTES_PER_MB;
+                    long newReservedCacheSize = this.reservedCacheSize + reservedBytes;
+
+                    // check that we leave a 'minimum' shared cache
+                    if((voldemortConfig.getBdbCacheSize() - newReservedCacheSize) < voldemortConfig.getBdbMinimumSharedCache()) {
+                        throw new StorageInitializationException("Reservation of "
+                                                                 + storeDef.getMemoryFootprintMB()
+                                                                 + " MB for store "
+                                                                 + storeName
+                                                                 + " violates minimum shared cache size of "
+                                                                 + voldemortConfig.getBdbMinimumSharedCache());
+                    }
+
+                    this.reservedCacheSize = newReservedCacheSize;
+                    adjustCacheSizes();
+                    environmentConfig.setSharedCache(false);
+                    environmentConfig.setCacheSize(reservedBytes);
+                } else {
+                    environmentConfig.setSharedCache(true);
+                    environmentConfig.setCacheSize(voldemortConfig.getBdbCacheSize()
+                                                   - this.reservedCacheSize);
+                }
+
                 Environment environment = new Environment(bdbDir, environmentConfig);
                 logger.info("Creating environment for " + storeName + ": ");
                 logEnvironmentConfig(environment.getConfig());
                 environments.put(storeName, environment);
+
+                // save this up so we can adjust later if needed
+                if(!storeDef.hasMemoryFootprint())
+                    this.unreservedStores.add(environment);
+
                 return environment;
             } else {
                 if(!environments.isEmpty())
@@ -186,18 +376,24 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                     + config.getConfigParam(EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION));
         logger.info("    BDB " + EnvironmentConfig.LOG_FILE_MAX + " = "
                     + config.getConfigParam(EnvironmentConfig.LOG_FILE_MAX));
+        logger.info("    BDB " + config.toString().replace('\n', ','));
     }
 
     public String getType() {
         return TYPE_NAME;
     }
 
-    public EnvironmentStats getStats(String storeName, boolean fast) {
-        StatsConfig config = new StatsConfig();
-        config.setFast(fast);
+    public String getStats(String storeName, boolean fast) {
         try {
-            Environment env = getEnvironment(storeName);
-            return env.getStats(config);
+            if(environments.containsKey(storeName)) {
+                StatsConfig config = new StatsConfig();
+                config.setFast(fast);
+                Environment env = environments.get(storeName);
+                return env.getStats(config).toString();
+            } else {
+                // return empty string if environment not created yet
+                return "";
+            }
         } catch(DatabaseException e) {
             throw new VoldemortException(e);
         }
@@ -210,7 +406,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
 
     @JmxOperation(description = "A variety of stats about one BDB environment.")
     public String getEnvStatsAsString(String storeName, boolean fast) throws Exception {
-        String envStats = getStats(storeName, fast).toString();
+        String envStats = getStats(storeName, fast);
         logger.debug("Bdb Environment stats:\n" + envStats);
         return envStats;
     }
@@ -218,12 +414,30 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     /**
      * Forceful cleanup the logs
      */
-    @JmxOperation(description = "Forceful start the cleaner threads")
+    @JmxOperation(description = "Forcefully invoke the log cleaning")
     public void cleanLogs() {
         synchronized(lock) {
             try {
                 for(Environment environment: environments.values()) {
                     environment.cleanLog();
+                }
+            } catch(DatabaseException e) {
+                throw new VoldemortException(e);
+            }
+        }
+    }
+
+    /**
+     * Forceful checkpointing
+     */
+    @JmxOperation(description = "Forcefully checkpoint all the environments")
+    public void checkPointAllEnvironments() {
+        synchronized(lock) {
+            try {
+                for(Environment environment: environments.values()) {
+                    CheckpointConfig checkPointConfig = new CheckpointConfig();
+                    checkPointConfig.setForce(true);
+                    environment.checkpoint(checkPointConfig);
                 }
             } catch(DatabaseException e) {
                 throw new VoldemortException(e);
@@ -242,6 +456,55 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 throw new VoldemortException(e);
             }
         }
+    }
+
+    /**
+     * Detect what has changed in the store definition and rewire BDB
+     * environments accordingly.
+     * 
+     * @param storeDef updated store definition
+     */
+    public void update(StoreDefinition storeDef) {
+        if(!useOneEnvPerStore)
+            throw new VoldemortException("Memory foot print can be set only when using different environments per store");
+
+        String storeName = storeDef.getName();
+        Environment environment = environments.get(storeName);
+        // change reservation amount of reserved store
+        if(!unreservedStores.contains(environment) && storeDef.hasMemoryFootprint()) {
+            EnvironmentMutableConfig mConfig = environment.getMutableConfig();
+            long currentCacheSize = mConfig.getCacheSize();
+            long newCacheSize = storeDef.getMemoryFootprintMB() * ByteUtils.BYTES_PER_MB;
+            if(currentCacheSize != newCacheSize) {
+                long newReservedCacheSize = this.reservedCacheSize - currentCacheSize
+                                            + newCacheSize;
+
+                // check that we leave a 'minimum' shared cache
+                if((voldemortConfig.getBdbCacheSize() - newReservedCacheSize) < voldemortConfig.getBdbMinimumSharedCache()) {
+                    throw new StorageInitializationException("Reservation of "
+                                                             + storeDef.getMemoryFootprintMB()
+                                                             + " MB for store "
+                                                             + storeName
+                                                             + " violates minimum shared cache size of "
+                                                             + voldemortConfig.getBdbMinimumSharedCache());
+                }
+
+                this.reservedCacheSize = newReservedCacheSize;
+                adjustCacheSizes();
+                mConfig.setCacheSize(newCacheSize);
+                environment.setMutableConfig(mConfig);
+                logger.info("Setting private cache for store " + storeDef.getName() + " to "
+                            + newCacheSize);
+            }
+        } else {
+            // we cannot support changing a reserved store to unreserved or vice
+            // versa since the sharedCache param is not mutable
+            throw new VoldemortException("Cannot switch between shared and private cache dynamically");
+        }
+    }
+
+    public long getReservedCacheSize() {
+        return this.reservedCacheSize;
     }
 
 }

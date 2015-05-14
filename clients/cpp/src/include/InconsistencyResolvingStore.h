@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef INCONSISTENCYRESOLVINGSTORE_H
-#define INCONSISTENCYRESOLVINGSTORE_H
+#ifndef VOLDEMORT_INCONSISTENCYRESOLVINGSTORE_H
+#define VOLDEMORT_INCONSISTENCYRESOLVINGSTORE_H
 
 #include <voldemort/Store.h>
 #include <voldemort/InconsistencyResolver.h>
@@ -56,12 +56,12 @@ public:
     void addResolver(shared_ptr<InconsistencyResolver>& resolver);
 
     // Store interface 
-    virtual std::list<VersionedValue>* get(const std::string& key);
+    virtual std::list<VersionedValue>* get(const std::string& key) const;
     virtual void put(const std::string& key,
                      const VersionedValue& value);
     virtual bool deleteKey(const std::string& key,
                            const Version& version);
-    virtual const std::string* getName();
+    virtual const std::string* getName() const;
     virtual void close();
 
 private:
@@ -71,4 +71,4 @@ private:
 
 } /* namespace Voldemort */
 
-#endif /* INCONSISTENCYRESOLVINGSTORE_H */
+#endif/*VOLDEMORT_INCONSISTENCYRESOLVINGSTORE_H*/

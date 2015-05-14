@@ -19,7 +19,6 @@ package voldemort.store.routed.action;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -39,7 +38,7 @@ public class ConfigureNodesTest extends AbstractActionTest {
 
     @Test
     public void testConfigureNodes() throws Exception {
-        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodes());
+        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodesShuffled());
         BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
         ConfigureNodes<byte[], BasicPipelineData<byte[]>> action = new ConfigureNodes<byte[], BasicPipelineData<byte[]>>(pipelineData,
                                                                                                                          Event.COMPLETED,
@@ -61,7 +60,7 @@ public class ConfigureNodesTest extends AbstractActionTest {
 
     @Test(expected = InsufficientOperationalNodesException.class)
     public void testConfigureNodesNotEnoughNodes() throws Exception {
-        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodes());
+        RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodesShuffled());
         BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
         ConfigureNodes<byte[], BasicPipelineData<byte[]>> action = new ConfigureNodes<byte[], BasicPipelineData<byte[]>>(pipelineData,
                                                                                                                          Event.COMPLETED,
@@ -84,7 +83,7 @@ public class ConfigureNodesTest extends AbstractActionTest {
 
     @Test
     public void testConfigureNodesWithZones() throws Exception {
-        RoutingStrategy routingStrategy = new ZoneRoutingStrategy(clusterWithZones.getNodes(),
+        RoutingStrategy routingStrategy = new ZoneRoutingStrategy(clusterWithZones,
                                                                   storeDef.getZoneReplicationFactor(),
                                                                   storeDef.getReplicationFactor());
 
@@ -107,8 +106,8 @@ public class ConfigureNodesTest extends AbstractActionTest {
 
             List<Node> pipelineNodes = pipelineData.getNodes();
             int pipelineNodesIndex = 0;
-            LinkedList<Integer> proximityList = clusterWithZones.getZoneById(clusterZoneId)
-                                                                .getProximityList();
+            List<Integer> proximityList = clusterWithZones.getZoneById(clusterZoneId)
+                                                          .getProximityList();
 
             // Check if returned list is as per the proximity list
             assertEquals(pipelineNodes.get(pipelineNodesIndex++).getZoneId(), clusterZoneId);

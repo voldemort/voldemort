@@ -1,3 +1,18 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.utils;
 
 import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
@@ -25,10 +40,11 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.rebalance.AbstractRebalanceTest;
+import voldemort.client.rebalance.AbstractNonZonedRebalanceTest;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.RequestRoutingType;
@@ -37,9 +53,13 @@ import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 
+// TODO: Drop this class (as well as all other ec2 tests) since the tests have
+// not been run in over a year.
 /**
  */
-public class Ec2RebalanceTest extends AbstractRebalanceTest {
+public class Ec2RebalanceTest extends AbstractNonZonedRebalanceTest {
+
+    private static int NUM_KEYS;
 
     private static final Logger logger = Logger.getLogger(Ec2RebalanceTest.class);
     private static Ec2RebalanceTestConfig ec2RebalanceTestConfig;
@@ -48,7 +68,10 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
 
     private Map<Integer, String> nodeIdsInv = new HashMap<Integer, String>();
     private List<String> activeHostNames = new ArrayList<String>();
-    private boolean useDonorBased = true;
+
+    public Ec2RebalanceTest() {
+        super();
+    }
 
     @BeforeClass
     public static void ec2Setup() throws Exception {
@@ -69,12 +92,19 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
     }
 
     @Override
+    protected int getNumKeys() {
+        return NUM_KEYS;
+    }
+
+    @Override
     protected Cluster getCurrentCluster(int nodeId) {
         String hostName = nodeIdsInv.get(nodeId);
         if(hostName == null) {
             throw new VoldemortException("Node id " + nodeId + " does not exist");
         } else {
-            AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
+            AdminClient adminClient = new AdminClient(hostName,
+                                                      new AdminClientConfig(),
+                                                      new ClientConfig());
             return adminClient.getAdminClientCluster();
         }
     }
@@ -85,8 +115,10 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         if(hostName == null) {
             throw new VoldemortException("Node id " + nodeId + " does not exist");
         } else {
-            AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
-            return adminClient.getRemoteServerState(nodeId).getValue();
+            AdminClient adminClient = new AdminClient(hostName,
+                                                      new AdminClientConfig(),
+                                                      new ClientConfig());
+            return adminClient.rebalanceOps.getRemoteServerState(nodeId).getValue();
         }
     }
 
@@ -98,7 +130,8 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         }
     }
 
-    @Override
+    // TODO: This is probably broken since it was removed from
+    // AbstractNonZonedRebalanceTest
     protected Cluster updateCluster(Cluster template) {
         List<Node> nodes = new ArrayList<Node>();
         for(Map.Entry<Integer, String> entry: nodeIdsInv.entrySet()) {
@@ -180,11 +213,6 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
             hostsToStop.add(nodeIdsInv.get(nodeId));
         }
         stopCluster(hostsToStop, ec2RebalanceTestConfig);
-    }
-
-    @Override
-    protected boolean useDonorBased() {
-        return this.useDonorBased;
     }
 
     private static class Ec2RebalanceTestConfig extends Ec2RemoteTestConfig {

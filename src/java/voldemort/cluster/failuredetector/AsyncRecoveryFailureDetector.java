@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc., 2009-2010 LinkedIn, Inc.
+ * Copyright 2009 Mustard Grain, Inc., 2009-2012 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -96,33 +96,40 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
                 getConfig().getTime().sleep(asyncRecoveryInterval);
             } catch(InterruptedException e) {
+                if(logger.isDebugEnabled()) {
+                    logger.debug("InterruptedException while sleeping " + asyncRecoveryInterval
+                                 + " ms before checking node availability", e);
+                }
+
                 break;
             }
 
-            for(Node node: getConfig().getNodes()) {
+            for(Node node: getConfig().getCluster().getNodes()) {
                 if(isAvailable(node))
                     continue;
 
                 if(logger.isDebugEnabled())
                     logger.debug("Checking previously unavailable node " + node.getId());
 
-                StoreVerifier storeVerifier = getConfig().getStoreVerifier();
+                ConnectionVerifier verifier = getConfig().getConnectionVerifier();
 
                 try {
                     // This is our test.
                     if(logger.isDebugEnabled())
                         logger.debug("Verifying previously unavailable node " + node.getId());
 
-                    storeVerifier.verifyStore(node);
+                    verifier.verifyConnection(node);
 
                     if(logger.isDebugEnabled())
                         logger.debug("Verified previously unavailable node " + node.getId()
-                                     + ", will mark as available...");
+                                     + "is now available.");
 
                     nodeRecovered(node);
                 } catch(UnreachableStoreException e) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn("Node " + node.getId() + " still unavailable", e);
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Node " + node.getId()
+                                     + " still unavailable due to UnreachableStoreException", e);
+                    }
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.ERROR))
                         logger.error("Node " + node.getId() + " unavailable due to error", e);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,24 +16,18 @@
 
 package voldemort.store.socket;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.server.RequestRoutingType;
+import voldemort.store.AbstractStore;
 import voldemort.store.NoSuchCapabilityException;
-import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.store.StoreTimeoutException;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
@@ -47,8 +41,8 @@ import voldemort.store.socket.clientrequest.GetAllClientRequest;
 import voldemort.store.socket.clientrequest.GetClientRequest;
 import voldemort.store.socket.clientrequest.GetVersionsClientRequest;
 import voldemort.store.socket.clientrequest.PutClientRequest;
+import voldemort.store.stats.ClientSocketStats;
 import voldemort.utils.ByteArray;
-import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -65,162 +59,198 @@ import voldemort.versioning.Versioned;
  * {@link ClientRequestExecutorPool pool} and adds an appropriate
  * {@link ClientRequest request} to be processed by the NIO thread.
  */
-public class SocketStore implements Store<ByteArray, byte[], byte[]>, NonblockingStore {
+public class SocketStore extends AbstractStore<ByteArray, byte[], byte[]> implements
+        NonblockingStore {
 
     private final RequestFormatFactory requestFormatFactory = new RequestFormatFactory();
 
-    private final String storeName;
     private final long timeoutMs;
     private final ClientRequestExecutorPool pool;
     private final SocketDestination destination;
     private final RequestFormat requestFormat;
     private final RequestRoutingType requestRoutingType;
     private final Logger logger = Logger.getLogger(SocketStore.class);
+    private final ClientSocketStats stats;
 
     public SocketStore(String storeName,
                        long timeoutMs,
                        SocketDestination dest,
                        ClientRequestExecutorPool pool,
-                       RequestRoutingType requestRoutingType) {
-        this.storeName = Utils.notNull(storeName);
+                       RequestRoutingType requestRoutingType,
+                       ClientSocketStats stats) {
+        super(storeName);
         this.timeoutMs = timeoutMs;
         this.pool = Utils.notNull(pool);
         this.destination = dest;
         this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
         this.requestRoutingType = requestRoutingType;
+        this.stats = stats;
     }
 
+    @Override
     public void submitDeleteRequest(ByteArray key,
                                     Version version,
                                     NonblockingStoreCallback callback,
                                     long timeoutMs) {
         StoreUtils.assertValidKey(key);
-        DeleteClientRequest clientRequest = new DeleteClientRequest(storeName,
+        DeleteClientRequest clientRequest = new DeleteClientRequest(getName(),
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     key,
                                                                     version);
+        if(logger.isDebugEnabled())
+            logger.debug("DELETE keyRef: " + System.identityHashCode(key) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
         requestAsync(clientRequest, callback, timeoutMs, "delete");
     }
 
+    @Override
     public void submitGetRequest(ByteArray key,
                                  byte[] transforms,
                                  NonblockingStoreCallback callback,
                                  long timeoutMs) {
         StoreUtils.assertValidKey(key);
-        GetClientRequest clientRequest = new GetClientRequest(storeName,
+        GetClientRequest clientRequest = new GetClientRequest(getName(),
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
                                                               transforms);
+        if(logger.isDebugEnabled())
+            logger.debug("GET keyRef: " + System.identityHashCode(key) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
         requestAsync(clientRequest, callback, timeoutMs, "get");
     }
 
+    @Override
     public void submitGetAllRequest(Iterable<ByteArray> keys,
                                     Map<ByteArray, byte[]> transforms,
                                     NonblockingStoreCallback callback,
                                     long timeoutMs) {
         StoreUtils.assertValidKeys(keys);
-        GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
+        GetAllClientRequest clientRequest = new GetAllClientRequest(getName(),
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     keys,
                                                                     transforms);
+        if(logger.isDebugEnabled())
+            logger.debug("GETALL keyRef: " + System.identityHashCode(keys) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
         requestAsync(clientRequest, callback, timeoutMs, "get all");
     }
 
+    @Override
     public void submitGetVersionsRequest(ByteArray key,
                                          NonblockingStoreCallback callback,
                                          long timeoutMs) {
         StoreUtils.assertValidKey(key);
-        GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(storeName,
+        GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(getName(),
                                                                               requestFormat,
                                                                               requestRoutingType,
                                                                               key);
+        if(logger.isDebugEnabled())
+            logger.debug("GETVERSIONS keyRef: " + System.identityHashCode(key) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
         requestAsync(clientRequest, callback, timeoutMs, "get versions");
     }
 
+    @Override
     public void submitPutRequest(ByteArray key,
                                  Versioned<byte[]> value,
                                  byte[] transforms,
                                  NonblockingStoreCallback callback,
                                  long timeoutMs) {
         StoreUtils.assertValidKey(key);
-        PutClientRequest clientRequest = new PutClientRequest(storeName,
+        PutClientRequest clientRequest = new PutClientRequest(getName(),
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
                                                               value,
                                                               transforms);
+        if(logger.isDebugEnabled())
+            logger.debug("PUT keyRef: " + System.identityHashCode(key) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
         requestAsync(clientRequest, callback, timeoutMs, "put");
     }
 
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        DeleteClientRequest clientRequest = new DeleteClientRequest(storeName,
+        DeleteClientRequest clientRequest = new DeleteClientRequest(getName(),
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     key,
                                                                     version);
+        if(logger.isDebugEnabled())
+            logger.debug("DELETE keyRef: " + System.identityHashCode(key) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
         return request(clientRequest, "delete");
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        GetClientRequest clientRequest = new GetClientRequest(storeName,
+        GetClientRequest clientRequest = new GetClientRequest(getName(),
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
                                                               transforms);
+        if(logger.isDebugEnabled())
+            logger.debug("GET keyRef: " + System.identityHashCode(key) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
         return request(clientRequest, "get");
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
-        GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
+        GetAllClientRequest clientRequest = new GetAllClientRequest(getName(),
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     keys,
                                                                     transforms);
+        if(logger.isDebugEnabled())
+            logger.debug("GETALL keyRef: " + System.identityHashCode(keys) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
         return request(clientRequest, "getAll");
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         StoreUtils.assertValidKey(key);
-        GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(storeName,
+        GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(getName(),
                                                                               requestFormat,
                                                                               requestRoutingType,
                                                                               key);
+        if(logger.isDebugEnabled())
+            logger.debug("GETVERSIONS keyRef: " + System.identityHashCode(key) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
         return request(clientRequest, "getVersions");
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        PutClientRequest clientRequest = new PutClientRequest(storeName,
+        PutClientRequest clientRequest = new PutClientRequest(getName(),
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
                                                               versioned,
                                                               transforms);
+        if(logger.isDebugEnabled())
+            logger.debug("PUT keyRef: " + System.identityHashCode(key) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
         request(clientRequest, "put");
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         if(StoreCapabilityType.SOCKET_POOL.equals(capability))
             return this.pool;
         else
             throw new NoSuchCapabilityException(capability, getName());
-    }
-
-    public String getName() {
-        return storeName;
-    }
-
-    public void close() throws VoldemortException {
-        // don't close the socket pool, it is shared
     }
 
     /**
@@ -239,25 +269,81 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
      */
 
     private <T> T request(ClientRequest<T> delegate, String operationName) {
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+        }
         ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
+        String debugMsgStr = "";
+
+        startTimeNs = System.nanoTime();
+
         BlockingClientRequest<T> blockingClientRequest = null;
         try {
             blockingClientRequest = new BlockingClientRequest<T>(delegate, timeoutMs);
-            clientRequestExecutor.addClientRequest(blockingClientRequest, timeoutMs);
-            blockingClientRequest.await();
+            clientRequestExecutor.addClientRequest(blockingClientRequest,
+                                                   timeoutMs,
+                                                   System.nanoTime() - startTimeNs);
+
+            boolean awaitResult = blockingClientRequest.await();
+
+            if(awaitResult == false) {
+                blockingClientRequest.timeOut();
+            }
+
+            if(logger.isDebugEnabled())
+                debugMsgStr += "success";
+
             return blockingClientRequest.getResult();
         } catch(InterruptedException e) {
+
+            if(logger.isDebugEnabled())
+                debugMsgStr += "unreachable: " + e.getMessage();
+
             throw new UnreachableStoreException("Failure in " + operationName + " on "
                                                 + destination + ": " + e.getMessage(), e);
-        } catch(IOException e) {
+        } catch(UnreachableStoreException e) {
             clientRequestExecutor.close();
+
+            if(logger.isDebugEnabled())
+                debugMsgStr += "failure: " + e.getMessage();
+
             throw new UnreachableStoreException("Failure in " + operationName + " on "
-                                                + destination + ": " + e.getMessage(), e);
+                                                + destination + ": " + e.getMessage(), e.getCause());
         } finally {
             if(blockingClientRequest != null && !blockingClientRequest.isComplete()) {
                 // close the executor if we timed out
                 clientRequestExecutor.close();
             }
+            // Record operation time
+            long opTimeNs = Utils.elapsedTimeNs(startTimeNs, System.nanoTime());
+            if(stats != null) {
+                stats.recordSyncOpTimeNs(destination, opTimeNs);
+            }
+            if(logger.isDebugEnabled()) {
+                logger.debug("Sync request end, type: "
+                             + operationName
+                             + " requestRef: "
+                             + System.identityHashCode(delegate)
+                             + " totalTimeNs: "
+                             + opTimeNs
+                             + " start time: "
+                             + startTimeMs
+                             + " end time: "
+                             + System.currentTimeMillis()
+                             + " client:"
+                             + clientRequestExecutor.getSocketChannel().socket().getLocalAddress()
+                             + ":"
+                             + clientRequestExecutor.getSocketChannel().socket().getLocalPort()
+                             + " server: "
+                             + clientRequestExecutor.getSocketChannel()
+                                                    .socket()
+                                                    .getRemoteSocketAddress() + " outcome: "
+                             + debugMsgStr);
+            }
+
             pool.checkin(destination, clientRequestExecutor);
         }
     }
@@ -281,112 +367,6 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
                                   NonblockingStoreCallback callback,
                                   long timeoutMs,
                                   String operationName) {
-        ClientRequestExecutor clientRequestExecutor = null;
-
-        try {
-            clientRequestExecutor = pool.checkout(destination);
-        } catch(Exception e) {
-            // If we can't check out a socket from the pool, we'll usually get
-            // either an IOException (subclass) or an UnreachableStoreException
-            // error. However, in the case of asynchronous calls, we want the
-            // error to be reported via our callback, not returned to the caller
-            // directly.
-            if(!(e instanceof UnreachableStoreException))
-                e = new UnreachableStoreException("Failure in " + operationName + ": "
-                                                  + e.getMessage(), e);
-
-            try {
-                callback.requestComplete(e, 0);
-            } catch(Exception ex) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn(ex, ex);
-            }
-
-            return;
-        }
-
-        NonblockingStoreCallbackClientRequest<T> clientRequest = new NonblockingStoreCallbackClientRequest<T>(delegate,
-                                                                                                              clientRequestExecutor,
-                                                                                                              callback);
-        clientRequestExecutor.addClientRequest(clientRequest, timeoutMs);
+        pool.submitAsync(this.destination, delegate, callback, timeoutMs, operationName);
     }
-
-    private class NonblockingStoreCallbackClientRequest<T> implements ClientRequest<T> {
-
-        private final ClientRequest<T> clientRequest;
-
-        private final ClientRequestExecutor clientRequestExecutor;
-
-        private final NonblockingStoreCallback callback;
-
-        private final long startNs;
-
-        private volatile boolean isComplete;
-
-        public NonblockingStoreCallbackClientRequest(ClientRequest<T> clientRequest,
-                                                     ClientRequestExecutor clientRequestExecutor,
-                                                     NonblockingStoreCallback callback) {
-            this.clientRequest = clientRequest;
-            this.clientRequestExecutor = clientRequestExecutor;
-            this.callback = callback;
-            this.startNs = System.nanoTime();
-        }
-
-        private void invokeCallback(Object o, long requestTime) {
-            if(callback != null) {
-                try {
-                    callback.requestComplete(o, requestTime);
-                } catch(Exception e) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn(e, e);
-                }
-            }
-        }
-
-        public void complete() {
-            try {
-                clientRequest.complete();
-                Object result = clientRequest.getResult();
-
-                invokeCallback(result, (System.nanoTime() - startNs) / Time.NS_PER_MS);
-            } catch(Exception e) {
-                invokeCallback(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
-            } finally {
-                pool.checkin(destination, clientRequestExecutor);
-                isComplete = true;
-            }
-        }
-
-        public boolean isComplete() {
-            return isComplete;
-        }
-
-        public boolean formatRequest(DataOutputStream outputStream) {
-            return clientRequest.formatRequest(outputStream);
-        }
-
-        public T getResult() throws VoldemortException, IOException {
-            return clientRequest.getResult();
-        }
-
-        public boolean isCompleteResponse(ByteBuffer buffer) {
-            return clientRequest.isCompleteResponse(buffer);
-        }
-
-        public void parseResponse(DataInputStream inputStream) {
-            clientRequest.parseResponse(inputStream);
-        }
-
-        public void timeOut() {
-            clientRequest.timeOut();
-            invokeCallback(new StoreTimeoutException("ClientRequestExecutor timed out. Cannot complete request."),
-                           (System.nanoTime() - startNs) / Time.NS_PER_MS);
-            pool.checkin(destination, clientRequestExecutor);
-        }
-
-        public boolean isTimedOut() {
-            return clientRequest.isTimedOut();
-        }
-    }
-
 }

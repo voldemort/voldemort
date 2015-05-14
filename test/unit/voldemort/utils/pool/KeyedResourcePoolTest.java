@@ -1,38 +1,57 @@
+/*
+ * Copyright 2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.utils.pool;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
+
 import voldemort.utils.Time;
 
-public class KeyedResourcePoolTest extends TestCase {
+public class KeyedResourcePoolTest extends KeyedResourcePoolTestBase {
 
-    private static int POOL_SIZE = 5;
-    private static long TIMEOUT_MS = 100;
-    private static int MAX_ATTEMPTS = 10;
+    protected static int POOL_SIZE = 5;
+    protected static long TIMEOUT_MS = 500;
 
-    private TestResourceFactory factory;
-    private KeyedResourcePool<String, TestResource> pool;
-    private ResourcePoolConfig config;
-
-    @Override
+    @Before
     public void setUp() {
         factory = new TestResourceFactory();
         config = new ResourcePoolConfig().setMaxPoolSize(POOL_SIZE)
-                                         .setTimeout(TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                                         .setMaxInvalidAttempts(MAX_ATTEMPTS);
+                                         .setTimeout(TIMEOUT_MS, TimeUnit.MILLISECONDS);
         this.pool = new KeyedResourcePool<String, TestResource>(factory, config);
     }
 
+    @Test
     public void testResourcePoolConfigTimeout() {
         // Issue 343
         assertEquals(config.getTimeout(TimeUnit.MILLISECONDS), TIMEOUT_MS);
         assertEquals(config.getTimeout(TimeUnit.NANOSECONDS), TIMEOUT_MS * Time.NS_PER_MS);
     }
 
+    @Test
     public void testPoolingOccurs() throws Exception {
         TestResource r1 = this.pool.checkout("a");
         this.pool.checkin("a", r1);
@@ -41,6 +60,7 @@ public class KeyedResourcePoolTest extends TestCase {
                    r1 == r2);
     }
 
+    @Test
     public void testFullPoolBlocks() throws Exception {
         for(int i = 0; i < POOL_SIZE; i++)
             this.pool.checkout("a");
@@ -53,42 +73,168 @@ public class KeyedResourcePoolTest extends TestCase {
         }
     }
 
-    public void testExceptions() throws Exception {
-        // we should start with an empty pool
-        assertEquals(0, this.pool.getTotalResourceCount());
+    @Test
+    public void testExceptionOnDestroy() throws Exception {
+        assertTrue("POOL_SIZE is not big enough", POOL_SIZE >= 2);
 
-        Exception toThrow = new Exception("An exception!");
-
-        // test exception on destroy
-        TestResource checkedOut = this.pool.checkout("a");
-        assertEquals(1, this.pool.getTotalResourceCount());
-        assertEquals(0, this.pool.getCheckedInResourceCount());
+        Exception toThrow = new Exception("An exception! (This exception is expected and so will print out some output to stderr.)");
         this.factory.setDestroyException(toThrow);
+
+        assertEquals(0, this.pool.getTotalResourceCount());
         try {
+            TestResource checkedOut = this.pool.checkout("a");
+            assertFalse(checkedOut.isDestroyed());
+            assertEquals(1, this.factory.getCreated());
+            assertEquals(1, this.pool.getTotalResourceCount());
+            assertEquals(0, this.pool.getCheckedInResourceCount());
+
             this.pool.checkin("a", checkedOut);
-            // checking out again should force destroy
+            assertEquals(1, this.factory.getCreated());
+            assertEquals(1, this.pool.getTotalResourceCount());
+            assertEquals(1, this.pool.getCheckedInResourceCount());
+
             this.pool.checkout("a");
-            assertTrue(checkedOut.isDestroyed());
+            assertEquals(1, this.factory.getCreated());
+            assertEquals(1, this.pool.getTotalResourceCount());
+            assertEquals(0, this.pool.getCheckedInResourceCount());
+
+            for(int i = 0; i < POOL_SIZE - 1; i++) {
+                checkedOut = this.pool.checkout("a");
+                assertFalse(checkedOut.isDestroyed());
+            }
+            assertEquals(POOL_SIZE, this.factory.getCreated());
+            assertEquals(POOL_SIZE, this.pool.getTotalResourceCount());
+            assertEquals(0, this.pool.getCheckedInResourceCount());
+            assertEquals(0, this.factory.getDestroyed());
+
+            checkedOut.invalidate();
+            try {
+                // pool.checkin should catch and print out the destroy
+                // exception.
+                this.pool.checkin("a", checkedOut);
+            } catch(Exception caught) {
+                fail("No exception expected.");
+            }
+            assertEquals(POOL_SIZE - 1, this.pool.getTotalResourceCount());
+            assertEquals(0, this.pool.getCheckedInResourceCount());
+            assertEquals(0, this.factory.getDestroyed());
+
+            this.pool.checkout("a");
+            assertEquals(POOL_SIZE + 1, this.factory.getCreated());
+            assertEquals(POOL_SIZE, this.pool.getTotalResourceCount());
+            assertEquals(0, this.pool.getCheckedInResourceCount());
+            assertEquals(0, this.factory.getDestroyed());
         } catch(Exception caught) {
             fail("No exception expected.");
         }
-        assertEquals(1, this.pool.getTotalResourceCount());
-        assertEquals(0, this.pool.getCheckedInResourceCount());
+    }
 
+    @Test
+    public void testExceptionOnCreate() throws Exception {
+        Exception toThrow = new Exception("An exception!");
+
+        assertEquals(0, this.pool.getTotalResourceCount());
         this.factory.setCreateException(toThrow);
         try {
             this.pool.checkout("b");
-            fail("Excpected exception!");
+            fail("Expected exception!");
         } catch(Exception caught) {
-            assertEquals("The exception thrown by the factory should propage to the caller.",
+            assertEquals("The exception thrown by the factory should propagate to the caller.",
                          toThrow,
                          caught);
         }
-        // failed checkout shouldn't effect count
+        // failed checkout shouldn't affect count
+        assertEquals(0, this.pool.getTotalResourceCount());
+        assertEquals(0, this.pool.getCheckedInResourceCount());
+    }
+
+    // NEGATIVE Test. See comment in line.
+    @Test
+    public void repeatedCheckins() throws Exception {
+        assertEquals(0, this.pool.getTotalResourceCount());
+
+        TestResource resource = this.pool.checkout("a");
+        assertEquals(1, this.factory.getCreated());
+        assertEquals(1, this.pool.getTotalResourceCount());
+        assertEquals(0, this.pool.getCheckedInResourceCount());
+
+        this.pool.checkin("a", resource);
+        assertEquals(1, this.factory.getCreated());
+        assertEquals(1, this.pool.getTotalResourceCount());
+        assertEquals(1, this.pool.getCheckedInResourceCount());
+
+        this.pool.checkin("a", resource);
+        assertEquals(1, this.factory.getCreated());
+        assertEquals(1, this.pool.getTotalResourceCount());
+        // KeyedResourcePool does not protect against repeated checkins. It
+        // Should. If it did, then the commented out test below would be
+        // correct.
+        assertEquals(2, this.pool.getCheckedInResourceCount());
+        // assertEquals(1, this.pool.getCheckedInResourceCount());
+    }
+
+    // NEGATIVE Test. See comment in line.
+    @Test
+    public void testExceptionOnFullCheckin() throws Exception {
+        assertEquals(0, this.pool.getTotalResourceCount());
+
+        Queue<TestResource> resources = new LinkedList<TestResource>();
+        for(int i = 0; i < POOL_SIZE; i++) {
+            TestResource resource = this.pool.checkout("a");
+            resources.add(resource);
+        }
+        assertEquals(POOL_SIZE, this.pool.getTotalResourceCount());
+
+        for(int i = 0; i < POOL_SIZE; i++) {
+            this.pool.checkin("a", resources.poll());
+        }
+        assertEquals(POOL_SIZE, this.pool.getTotalResourceCount());
+
+        try {
+            this.factory.createAsync("a", this.pool);
+        } catch(IllegalStateException ise) {
+            // this is good
+        }
+
+        // KeyedResourcePool does not protect against repeated or extraneous
+        // checkins. If an extraneous checkin occurs, then the checked in
+        // resource is destroyed and the size of the resource pool is reduced by
+        // one (even though it should not be in this exceptional case).
+        assertEquals(POOL_SIZE - 1, this.pool.getTotalResourceCount());
+        // assertEquals(POOL_SIZE, this.pool.getTotalResourceCount());
+    }
+
+    // NEGATIVE Test. See comment in line.
+    @Test
+    public void testCheckinExtraneousResource() throws Exception {
+        assertEquals(0, this.pool.getTotalResourceCount());
+
+        TestResource resource = this.pool.checkout("a");
+        this.pool.checkin("a", resource);
+
+        this.factory.createAsync("a", this.pool);
+        // KeyedResourcePool should not permit random resources to be checked
+        // in. Until it protects against arbitrary resources being checked in,
+        // it is possible to checkin an extraneous resource.
+        assertEquals(1, this.pool.getTotalResourceCount());
+        assertEquals(2, this.pool.getCheckedInResourceCount());
+    }
+
+    // NEGATIVE Test. See comment in line.
+    @Test
+    public void testNeverCheckin() throws Exception {
+        assertEquals(0, this.pool.getTotalResourceCount());
+
+        {
+            this.pool.checkout("a");
+        }
+        // KeyedResourcePool does not protect against resources being checked
+        // out and never checked back in (or destroyed).
         assertEquals(1, this.pool.getTotalResourceCount());
         assertEquals(0, this.pool.getCheckedInResourceCount());
     }
 
+    @Test
     public void testInvalidIsDestroyed() throws Exception {
         TestResource r1 = this.pool.checkout("a");
         r1.invalidate();
@@ -96,8 +242,13 @@ public class KeyedResourcePoolTest extends TestCase {
         TestResource r2 = this.pool.checkout("a");
         assertTrue("Invalid objects should be destroyed.", r1 != r2);
         assertTrue("Invalid objects should be destroyed.", r1.isDestroyed());
+        assertEquals(1, this.factory.getDestroyed());
     }
 
+    // After the move to the async model, if a resource is invalid, it will
+    // not be returned to the pool and destroyed on the checkin. So this is
+    // not valid anymore.
+    @Ignore
     public void testMaxInvalidCreations() throws Exception {
         this.factory.setCreatedValid(false);
         try {
@@ -106,95 +257,6 @@ public class KeyedResourcePoolTest extends TestCase {
         } catch(ExcessiveInvalidResourcesException e) {
             // this is expected
         }
-    }
-
-    private static class TestResource {
-
-        private String value;
-        private AtomicBoolean isValid;
-        private AtomicBoolean isDestroyed;
-
-        public TestResource(String value) {
-            this.value = value;
-            this.isValid = new AtomicBoolean(true);
-            this.isDestroyed = new AtomicBoolean(true);
-        }
-
-        public boolean isValid() {
-            return isValid.get();
-        }
-
-        public void invalidate() {
-            this.isValid.set(false);
-        }
-
-        public boolean isDestroyed() {
-            return isDestroyed.get();
-        }
-
-        public void destroy() {
-            this.isDestroyed.set(true);
-        }
-
-        @Override
-        public String toString() {
-            return "TestResource(" + value + ")";
-        }
-
-    }
-
-    private static class TestResourceFactory implements ResourceFactory<String, TestResource> {
-
-        private final AtomicInteger created = new AtomicInteger(0);
-        private final AtomicInteger destroyed = new AtomicInteger(0);
-        private Exception createException;
-        private Exception destroyException;
-        private boolean isCreatedValid = true;
-
-        public TestResource create(String key) throws Exception {
-            if(createException != null)
-                throw createException;
-            TestResource r = new TestResource(Integer.toString(created.getAndIncrement()));
-            if(!isCreatedValid)
-                r.invalidate();
-            return r;
-        }
-
-        public void destroy(String key, TestResource obj) throws Exception {
-            if(destroyException != null)
-                throw destroyException;
-            destroyed.incrementAndGet();
-            obj.destroy();
-        }
-
-        public boolean validate(String key, TestResource value) {
-            return value.isValid();
-        }
-
-        @SuppressWarnings("unused")
-        public int getCreated() {
-            return this.created.get();
-        }
-
-        @SuppressWarnings("unused")
-        public int getDestroyed() {
-            return this.destroyed.get();
-        }
-
-        public void setDestroyException(Exception e) {
-            this.destroyException = e;
-        }
-
-        public void setCreateException(Exception e) {
-            this.createException = e;
-        }
-
-        public void setCreatedValid(boolean isValid) {
-            this.isCreatedValid = isValid;
-        }
-
-        public void close() {}
-
     }
 
 }

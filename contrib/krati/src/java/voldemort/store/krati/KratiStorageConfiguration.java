@@ -4,11 +4,15 @@ import java.io.File;
 
 import krati.core.segment.MappedSegmentFactory;
 import krati.core.segment.SegmentFactory;
+
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
@@ -42,16 +46,17 @@ public class KratiStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String storeName) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
         synchronized(lock) {
-            File storeDir = new File(dataDirectory, storeName);
+            File storeDir = new File(dataDirectory, storeDef.getName());
             if(!storeDir.exists()) {
                 logger.info("Creating krati data directory '" + storeDir.getAbsolutePath() + "'.");
                 storeDir.mkdirs();
             }
 
             SegmentFactory segmentFactory = (SegmentFactory) ReflectUtils.callConstructor(factoryClass);
-            return new KratiStorageEngine(storeName,
+            return new KratiStorageEngine(storeDef.getName(),
                                           segmentFactory,
                                           segmentFileSizeMb,
                                           lockStripes,
@@ -65,4 +70,12 @@ public class KratiStorageConfiguration implements StorageConfiguration {
         return TYPE_NAME;
     }
 
+    public void update(StoreDefinition storeDef) {
+        throw new VoldemortException("Storage config updates not permitted for "
+                                     + this.getClass().getCanonicalName());
+    }
+
+    // Nothing to do here : we're not tracking the created storage engine
+    @Override
+    public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {}
 }

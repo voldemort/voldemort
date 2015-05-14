@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef REQUESTFORMAT_H
-#define REQUESTFORMAT_H
+#ifndef VOLDEMORT_REQUESTFORMAT_H
+#define VOLDEMORT_REQUESTFORMAT_H
 
 #include <voldemort/Store.h>
 #include "VectorClock.h"
@@ -166,4 +166,4 @@ public:
 
 } /* namespace Voldemort */
 
-#endif /* REQUESTFORMAT_H */
+#endif/*VOLDEMORT_REQUESTFORMAT_H*/

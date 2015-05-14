@@ -19,6 +19,7 @@ public class StoreStatsJmx {
         this.stats = stats;
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfCallsToGetAll", description = "The number of calls to GET_ALL since the last reset.")
     public long getNumberOfCallsToGetAll() {
         return stats.getCount(Tracked.GET_ALL);
@@ -49,6 +50,7 @@ public class StoreStatsJmx {
         return stats.getGetAllMaxCount();
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfCallsToGet", description = "The number of calls to GET since the last reset.")
     public long getNumberOfCallsToGet() {
         return stats.getCount(Tracked.GET);
@@ -69,6 +71,23 @@ public class StoreStatsJmx {
         return stats.getThroughputInBytes(Tracked.GET);
     }
 
+    @Deprecated
+    @JmxGetter(name = "numberOfCallsToGetVersions", description = "The number of calls to GET VERSIONS since the last reset.")
+    public long getNumberOfCallsToGetVersions() {
+        return stats.getCount(Tracked.GET_VERSIONS);
+    }
+
+    @JmxGetter(name = "averageGetVersionsCompletionTimeInMs", description = "The avg. time in ms for GET VERSIONS calls to complete.")
+    public double getAverageGetVersionsCompletionTimeInMs() {
+        return stats.getAvgTimeInMs(Tracked.GET_VERSIONS);
+    }
+
+    @JmxGetter(name = "GetVersionsThroughput", description = "Throughput of GET VERSIONS requests")
+    public float getGetVersionsThroughput() {
+        return stats.getThroughput(Tracked.GET_VERSIONS);
+    }
+
+    @Deprecated
     @JmxGetter(name = "numberOfCallsToPut", description = "The number of calls to PUT since the last reset.")
     public long getNumberOfCallsToPut() {
         return stats.getCount(Tracked.PUT);
@@ -89,6 +108,7 @@ public class StoreStatsJmx {
         return stats.getThroughputInBytes(Tracked.PUT);
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfCallsToDelete", description = "The number of calls to DELETE since the last reset.")
     public long getNumberOfCallsToDelete() {
         return stats.getCount(Tracked.DELETE);
@@ -104,11 +124,13 @@ public class StoreStatsJmx {
         return stats.getThroughput(Tracked.DELETE);
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfObsoleteVersions", description = "Number of ObsoleteVersionExceptions since the last reset.")
     public long getNumberOfObsoleteVersions() {
         return stats.getCount(Tracked.OBSOLETE);
     }
 
+    @Deprecated
     @JmxGetter(name = "numberOfExceptions", description = "The number of exceptions since the last reset.")
     public long getNumberOfExceptions() {
         return stats.getCount(Tracked.EXCEPTION);
@@ -120,6 +142,7 @@ public class StoreStatsJmx {
         double weightedTime = 0.0;
         for(Tracked stat: ImmutableList.of(Tracked.DELETE,
                                            Tracked.GET,
+                                           Tracked.GET_VERSIONS,
                                            Tracked.GET_ALL,
                                            Tracked.PUT)) {
             sum += stats.getCount(stat);
@@ -134,7 +157,8 @@ public class StoreStatsJmx {
     @JmxGetter(name = "AllOperationThroughput", description = "The throughput of all operations.")
     public double getOperationThroughput() {
         return stats.getThroughput(Tracked.DELETE) + stats.getThroughput(Tracked.GET)
-               + stats.getThroughput(Tracked.GET_ALL) + stats.getThroughput(Tracked.PUT);
+               + stats.getThroughput(Tracked.GET_VERSIONS) + stats.getThroughput(Tracked.GET_ALL)
+               + stats.getThroughput(Tracked.PUT);
     }
 
     @JmxGetter(name = "AllOperationThroughputInBytes", description = "Throughput of all operations in bytes.")
@@ -148,6 +172,12 @@ public class StoreStatsJmx {
     public double getPercentGetReturningEmptyResponse() {
         return numEmptyResponses(stats.getNumEmptyResponses(Tracked.GET),
                                  stats.getCount(Tracked.GET));
+    }
+
+    @JmxGetter(name = "percentGetVersionsReturningEmptyResponse", description = "The percentage of calls to GET VERSIONS for which no value was found.")
+    public double getPercentGetVersionsReturningEmptyResponse() {
+        return numEmptyResponses(stats.getNumEmptyResponses(Tracked.GET_VERSIONS),
+                                 stats.getCount(Tracked.GET_VERSIONS));
     }
 
     @JmxGetter(name = "percentGetAllReturningEmptyResponse", description = "The percentage of calls to GET_ALL for which no value was found, taking into account multiple returned key-values.")
@@ -170,6 +200,11 @@ public class StoreStatsJmx {
         return stats.getMaxLatencyInMs(Tracked.GET);
     }
 
+    @JmxGetter(name = "maxGetVersionsLatencyInMs", description = "Maximum latency in ms of GET VERSIONS")
+    public long getMaxGetVersionsLatency() {
+        return stats.getMaxLatencyInMs(Tracked.GET_VERSIONS);
+    }
+
     @JmxGetter(name = "maxGetAllLatencyInMs", description = "Maximum latency in ms of GET_ALL")
     public long getMaxGetAllLatency() {
         return stats.getMaxLatencyInMs(Tracked.GET_ALL);
@@ -181,73 +216,123 @@ public class StoreStatsJmx {
     }
 
     @JmxGetter(name = "q95PutLatencyInMs", description = "")
-    public long getQ95PutLatency() {
+    public double getQ95PutLatency() {
         return stats.getQ95LatencyInMs(Tracked.PUT);
     }
 
     @JmxGetter(name = "q95GetLatencyInMs", description = "")
-    public long getQ95GetLatency() {
+    public double getQ95GetLatency() {
         return stats.getQ95LatencyInMs(Tracked.GET);
     }
 
+    @JmxGetter(name = "q95GetVersionsLatencyInMs", description = "")
+    public double getQ95GetVersionsLatency() {
+        return stats.getQ95LatencyInMs(Tracked.GET_VERSIONS);
+    }
+
     @JmxGetter(name = "q95GetAllLatencyInMs", description = "")
-    public long getQ95GetAllLatency() {
+    public double getQ95GetAllLatency() {
         return stats.getQ95LatencyInMs(Tracked.GET_ALL);
     }
 
     @JmxGetter(name = "q95DeleteLatencyInMs", description = "")
-    public long getQ95DeleteLatency() {
+    public double getQ95DeleteLatency() {
         return stats.getQ95LatencyInMs(Tracked.DELETE);
     }
 
     @JmxGetter(name = "q99PutLatencyInMs", description = "")
-    public long getQ99PutLatency() {
+    public double getQ99PutLatency() {
         return stats.getQ99LatencyInMs(Tracked.PUT);
     }
 
     @JmxGetter(name = "q99GetLatencyInMs", description = "")
-    public long getQ99GetLatency() {
+    public double getQ99GetLatency() {
         return stats.getQ99LatencyInMs(Tracked.GET);
     }
 
+    @JmxGetter(name = "q99GetVersionsLatencyInMs", description = "")
+    public double getQ99GetVersionsLatency() {
+        return stats.getQ99LatencyInMs(Tracked.GET_VERSIONS);
+    }
+
     @JmxGetter(name = "q99GetAllLatencyInMs", description = "")
-    public long getQ99GetAllLatency() {
+    public double getQ99GetAllLatency() {
         return stats.getQ99LatencyInMs(Tracked.GET_ALL);
     }
 
     @JmxGetter(name = "q99DeleteLatencyInMs", description = "")
-    public long getQ99DeleteLatency() {
+    public double getQ99DeleteLatency() {
         return stats.getQ99LatencyInMs(Tracked.DELETE);
     }
 
     @JmxGetter(name = "maxPutSizeInBytes", description = "Maximum size of value returned in bytes by PUT.")
     public long getMaxPutSizeInBytes() {
-        return stats.getMaxSizeInBytes(Tracked.PUT);
+        return stats.getMaxValueSizeInBytes(Tracked.PUT);
     }
 
     @JmxGetter(name = "maxGetAllSizeInBytes", description = "Maximum size of value returned in bytes by GET_ALL.")
     public long getMaxGetAllSizeInBytes() {
-        return stats.getMaxSizeInBytes(Tracked.GET_ALL);
+        return stats.getMaxValueSizeInBytes(Tracked.GET_ALL);
     }
 
     @JmxGetter(name = "maxGetSizeInBytes", description = "Maximum size of value returned in bytes by GET.")
     public long getMaxGetSizeInBytes() {
-        return stats.getMaxSizeInBytes(Tracked.GET);
+        return stats.getMaxValueSizeInBytes(Tracked.GET);
+    }
+
+    @JmxGetter(name = "maxPutKeySizeInBytes", description = "Maximum size of key specified by PUT.")
+    public long getMaxPutKeySizeInBytes() {
+        return stats.getMaxKeySizeInBytes(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "maxGetAllKeySizeInBytes", description = "Maximum size of keys specified by GET_ALL.")
+    public long getMaxGetAllKeySizeInBytes() {
+        return stats.getMaxKeySizeInBytes(Tracked.GET_ALL);
+    }
+
+    @JmxGetter(name = "maxGetKeySizeInBytes", description = "Maximum size of key specified by GET.")
+    public long getMaxGetKeySizeInBytes() {
+        return stats.getMaxKeySizeInBytes(Tracked.GET);
+    }
+
+    @JmxGetter(name = "maxDeleteKeySizeInBytes", description = "Maximum size of key specified by DELETE.")
+    public long getMaxDeleteKeySizeInBytes() {
+        return stats.getMaxKeySizeInBytes(Tracked.DELETE);
     }
 
     @JmxGetter(name = "averageGetValueSizeInBytes", description = "Average size in bytes of GET request")
     public double getAverageGetSizeInBytes() {
-        return stats.getAvgSizeinBytes(Tracked.GET);
+        return stats.getAvgValueSizeinBytes(Tracked.GET);
     }
 
     @JmxGetter(name = "averageGetAllSizeInBytes", description = "Average size in bytes of GET_ALL request")
     public double getAverageGetAllSizeInBytes() {
-        return stats.getAvgSizeinBytes(Tracked.GET_ALL);
+        return stats.getAvgValueSizeinBytes(Tracked.GET_ALL);
     }
 
     @JmxGetter(name = "averagePutSizeInBytes", description = "Average size in bytes of PUT request")
     public double getAveragePutSizeInBytes() {
-        return stats.getAvgSizeinBytes(Tracked.PUT);
+        return stats.getAvgValueSizeinBytes(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "averageGetKeySizeInBytes", description = "Average key size in bytes of GET request")
+    public double getAverageGetKeySizeInBytes() {
+        return stats.getAvgKeySizeinBytes(Tracked.GET);
+    }
+
+    @JmxGetter(name = "averageGetAllKeySizeInBytes", description = "Average key size in bytes of GET_ALL request")
+    public double getAverageGetAllKeySizeInBytes() {
+        return stats.getAvgKeySizeinBytes(Tracked.GET_ALL);
+    }
+
+    @JmxGetter(name = "averagePutKeySizeInBytes", description = "Average key size in bytes of PUT request")
+    public double getAveragePutKeySizeInBytes() {
+        return stats.getAvgKeySizeinBytes(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "averageDeleteKeySizeInBytes", description = "Average key size in bytes of DELETE request")
+    public double getAverageDeleteKeySizeInBytes() {
+        return stats.getAvgKeySizeinBytes(Tracked.DELETE);
     }
 
 }

@@ -168,6 +168,7 @@ class StoreClient:
             raise VoldemortException("Cannot find store [%s] at %s" % (store_name, bootstrap_urls))
 
         self.node_id = random.randint(0, len(self.nodes) - 1)
+	self.connection = None
         self.node_id, self.connection = self._reconnect()
         self.reconnect_interval = reconnect_interval
         self.open = True
@@ -194,6 +195,7 @@ class StoreClient:
         num_nodes = len(self.nodes)
         attempts = 0
         new_node_id = self.node_id
+        self._close_socket(self.connection)
         while attempts < num_nodes:
             new_node_id = (new_node_id + 1) % num_nodes
             new_node = self.nodes[new_node_id]
@@ -203,7 +205,6 @@ class StoreClient:
                 self.request_count = 0
                 return new_node_id, connection
             except socket.error, (err_num, message):
-                self._close_socket(connection)
                 logging.warn('Error connecting to node ' + str(new_node_id) + ': ' + message)
                 attempts += 1
 
@@ -226,7 +227,6 @@ class StoreClient:
     def _maybe_reconnect(self):
         if self.request_count >= self.reconnect_interval:
             logging.debug('Completed ' + str(self.request_count) + ' requests using this connection, reconnecting...')
-            self._close_socket(self.connection)
             self.node_id, self.connection = self._reconnect()
 
 
@@ -239,6 +239,9 @@ class StoreClient:
     ## read a response from the connection
     def _receive_response(self, connection):
         size_bytes = connection.recv(4)
+        if not size_bytes:
+            raise VoldemortException('Connection closed')
+
         size = struct.unpack('>i', size_bytes)[0]
 
         bytes_read = 0
@@ -250,6 +253,7 @@ class StoreClient:
             data.append(chunk)
 
         return ''.join(data)
+
 
 
     ## Bootstrap cluster metadata from a list of urls of nodes in the cluster.
@@ -330,7 +334,7 @@ class StoreClient:
                 return apply(fun, args)
             except socket.error, (err_num, message):
                 logging.warn('Error while performing ' + fun.__name__ + ' on node ' + str(self.node_id) + ': ' + message)
-                self._reconnect()
+                self.node_id, self.connection = self._reconnect()
                 failures += 1
         raise VoldemortException('All nodes are down, ' + fun.__name__ + ' failed.')
 

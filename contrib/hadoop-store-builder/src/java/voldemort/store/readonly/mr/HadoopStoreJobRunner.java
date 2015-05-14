@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.readonly.mr;
 
 import java.io.BufferedReader;
@@ -76,6 +92,8 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         parser.accepts("force-overwrite", "deletes final output directory if present.");
         parser.accepts("save-keys", "save the keys in the data file");
         parser.accepts("reducer-per-bucket", "run single reducer per bucket");
+        parser.accepts("num-chunks", "number of chunks (if set, takes precedence over chunksize)");
+        parser.accepts("is-avro", "is the data format avro?");
         parser.accepts("help", "print usage information");
         return parser;
     }
@@ -167,6 +185,9 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         Class[] deps = new Class[] { ImmutableCollection.class, JDOMException.class,
                 VoldemortConfig.class, HadoopStoreJobRunner.class, mapperClass };
 
+        int numChunks = CmdUtils.valueOf(options, "num-chunks", -1);
+        boolean isAvro = CmdUtils.valueOf(options, "is-avro", false);
+
         addDepJars(conf, deps, addJars);
 
         HadoopStoreBuilder builder = new HadoopStoreBuilder(conf,
@@ -174,13 +195,16 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                                                             inputFormatClass,
                                                             cluster,
                                                             storeDef,
-                                                            chunkSizeBytes,
                                                             tempDir,
                                                             outputDir,
                                                             inputPath,
                                                             checkSumType,
                                                             saveKeys,
-                                                            reducerPerBucket);
+                                                            reducerPerBucket,
+                                                            chunkSizeBytes,
+                                                            numChunks,
+                                                            isAvro,
+                null);
 
         builder.build();
         return 0;

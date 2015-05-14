@@ -19,6 +19,7 @@ package voldemort.store.configuration;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -27,7 +28,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.store.StorageEngine;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
@@ -45,28 +46,44 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class ConfigurationStorageEngine implements StorageEngine<String, String, String> {
+public class ConfigurationStorageEngine extends AbstractStorageEngine<String, String, String> {
 
     private final static Logger logger = Logger.getLogger(ConfigurationStorageEngine.class);
-    private final String name;
+    private static final String VERSION_DIRECTORY = ".version";
+    private static final String TEMP_DIRECTORY = ".temp";
     private final File directory;
 
     public ConfigurationStorageEngine(String name, String directory) {
-        this.name = name;
+        super(name);
         this.directory = new File(directory);
         if(!this.directory.exists() && this.directory.canRead())
             throw new IllegalArgumentException("Directory " + this.directory.getAbsolutePath()
                                                + " does not exist or can not be read.");
     }
 
+    @Override
     public ClosableIterator<Pair<String, Versioned<String>>> entries() {
-        throw new VoldemortException("Iteration  not supported in ConfigurationStorageEngine");
+        List<String> fileNameList = new ArrayList<String>();
+        for(String fileName: this.directory.list()) {
+            if(fileName.equals(VERSION_DIRECTORY) || fileName.equals(TEMP_DIRECTORY)) {
+                continue;
+            }
+            fileNameList.add(fileName);
+        }
+        return new FilesIterator(fileNameList, this);
     }
 
-    public void close() throws VoldemortException {
-
+    @Override
+    public ClosableIterator<Pair<String, Versioned<String>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
     }
 
+    @Override
+    public ClosableIterator<String> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
+    @Override
     public synchronized boolean delete(String key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         for(File file: getDirectory(key).listFiles()) {
@@ -84,12 +101,14 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         return false;
     }
 
+    @Override
     public synchronized List<Versioned<String>> get(String key, String transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
         return get(key, getDirectory(key).listFiles());
     }
 
+    @Override
     public List<Version> getVersions(String key) {
         List<Versioned<String>> values = get(key, (String) null);
         List<Version> versions = new ArrayList<Version>(values.size());
@@ -99,6 +118,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         return versions;
     }
 
+    @Override
     public synchronized Map<String, List<Versioned<String>>> getAll(Iterable<String> keys,
                                                                     Map<String, String> transforms)
             throws VoldemortException {
@@ -112,10 +132,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         return result;
     }
 
-    public String getName() {
-        return name;
-    }
-
+    @Override
     public synchronized void put(String key, Versioned<String> value, String transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
@@ -182,7 +199,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
             File versionFile = new File(getVersionDirectory(), key);
             if(!versionFile.exists()) {
                 // bootstrap file save default clock as version.
-                VectorClock clock = new VectorClock();
+                VectorClock clock = new VectorClock(0);
                 writeVersion(key, clock);
                 return clock;
             } else {
@@ -209,7 +226,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
     }
 
     private File getVersionDirectory() {
-        File versionDir = new File(this.directory, ".version");
+        File versionDir = new File(this.directory, VERSION_DIRECTORY);
         if(!versionDir.exists() || !versionDir.isDirectory()) {
             versionDir.delete();
             versionDir.mkdirs();
@@ -219,7 +236,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
     }
 
     private File getTempDirectory() {
-        File tempDir = new File(this.directory, ".temp");
+        File tempDir = new File(this.directory, TEMP_DIRECTORY);
         if(!tempDir.exists() || !tempDir.isDirectory()) {
             tempDir.delete();
             tempDir.mkdirs();
@@ -228,19 +245,59 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         return tempDir;
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         throw new VoldemortException("No extra capability.");
     }
 
+    @Override
     public ClosableIterator<String> keys() {
         throw new VoldemortException("keys iteration not supported.");
     }
 
+    @Override
     public void truncate() {
         throw new VoldemortException("Truncate not supported in ConfigurationStorageEngine");
     }
 
-    public boolean isPartitionAware() {
-        return false;
+    private static class FilesIterator implements ClosableIterator<Pair<String, Versioned<String>>> {
+
+        private final Iterator<String> iterator;
+        private final ConfigurationStorageEngine storageEngineRef;
+
+        public FilesIterator(List<String> fileNames, ConfigurationStorageEngine storageEngine) {
+            iterator = fileNames.iterator();
+            storageEngineRef = storageEngine;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return iterator.hasNext();
+        }
+
+        @Override
+        public Pair<String, Versioned<String>> next() {
+            String fileName = iterator.next();
+            Pair<String, Versioned<String>> nextValue = null;
+            if(fileName != null) {
+                String key = fileName;
+                List<Versioned<String>> resultStringList = this.storageEngineRef.get(key, "");
+                if(resultStringList != null && resultStringList.size() > 0) {
+                    nextValue = Pair.create(key, resultStringList.get(0));
+                }
+            }
+
+            return nextValue;
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException("No removal y'all.");
+        }
+
+        @Override
+        public void close() {}
+
     }
+
 }

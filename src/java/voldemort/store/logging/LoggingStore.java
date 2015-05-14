@@ -24,6 +24,7 @@ import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 import voldemort.versioning.Version;
@@ -128,9 +129,8 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     private void printTimedMessage(String operation, boolean success, long startNs) {
         if(logger.isDebugEnabled()) {
             double elapsedMs = (time.getNanoseconds() - startNs) / (double) Time.NS_PER_MS;
-            logger.debug(instanceName + operation + " " + getName()
-                         + " " + (success ? "successful" : "unsuccessful") + " in "
-                         + elapsedMs + " ms");
+            logger.debug(instanceName + operation + " " + getName() + " "
+                         + (success ? "successful" : "unsuccessful") + " in " + elapsedMs + " ms");
         }
     }
 
@@ -140,6 +140,51 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
             return this.logger;
         else
             return getInnerStore().getCapability(capability);
+    }
+
+    @Override
+    public List<Versioned<V>> get(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
+        long startTimeNs = 0;
+        boolean succeeded = false;
+        if(logger.isDebugEnabled())
+            startTimeNs = time.getNanoseconds();
+        try {
+            List<Versioned<V>> l = getInnerStore().get(request);
+            succeeded = true;
+            return l;
+        } finally {
+            printTimedMessage("GET", succeeded, startTimeNs);
+        }
+    }
+
+    @Override
+    public void put(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
+        long startTimeNs = 0;
+        boolean succeeded = false;
+        if(logger.isDebugEnabled()) {
+            startTimeNs = time.getNanoseconds();
+        }
+        try {
+            getInnerStore().put(request);
+            succeeded = true;
+        } finally {
+            printTimedMessage("PUT", succeeded, startTimeNs);
+        }
+    }
+
+    @Override
+    public boolean delete(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
+        long startTimeNs = 0;
+        boolean succeeded = false;
+        if(logger.isDebugEnabled())
+            startTimeNs = time.getNanoseconds();
+        try {
+            boolean deletedSomething = getInnerStore().delete(request);
+            succeeded = true;
+            return deletedSomething;
+        } finally {
+            printTimedMessage("DELETE", succeeded, startTimeNs);
+        }
     }
 
 }

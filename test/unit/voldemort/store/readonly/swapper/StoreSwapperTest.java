@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 LinkedIn, Inc
+ * Copyright 2011-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,6 +16,10 @@
 
 package voldemort.store.readonly.swapper;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -24,8 +28,6 @@ import java.util.Properties;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import junit.framework.TestCase;
 
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
@@ -59,7 +61,7 @@ import com.google.common.collect.Maps;
 /**
 *
  */
-public class StoreSwapperTest extends TestCase {
+public class StoreSwapperTest {
 
     private static int NUM_NODES = 3;
     private static String STORE_NAME = "test";
@@ -71,60 +73,70 @@ public class StoreSwapperTest extends TestCase {
     private VoldemortServer[] servers;
     private Cluster cluster;
     private AdminClient adminClient;
-    private StoreDefinition storeDef;
     private File baseDirs[];
 
-    @Override
-    @Before
-    public void setUp() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(NUM_NODES);
-        servers = new VoldemortServer[NUM_NODES];
-        baseDirs = new File[NUM_NODES];
-        storeDef = new StoreDefinitionBuilder().setName(STORE_NAME)
-                                               .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
-                                               .setKeySerializer(serializerDef)
-                                               .setValueSerializer(serializerDef)
-                                               .setRoutingPolicy(RoutingTier.SERVER)
-                                               .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
-                                               .setReplicationFactor(2)
-                                               .setPreferredReads(1)
-                                               .setRequiredReads(1)
-                                               .setPreferredWrites(1)
-                                               .setRequiredWrites(1)
-                                               .build();
+    protected String constructStoresXml() throws IOException {
+        StoreDefinition storeDef = new StoreDefinitionBuilder().setName(STORE_NAME)
+                                                               .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
+                                                               .setKeySerializer(serializerDef)
+                                                               .setValueSerializer(serializerDef)
+                                                               .setRoutingPolicy(RoutingTier.SERVER)
+                                                               .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                               .setReplicationFactor(2)
+                                                               .setPreferredReads(1)
+                                                               .setRequiredReads(1)
+                                                               .setPreferredWrites(1)
+                                                               .setRequiredWrites(1)
+                                                               .build();
 
         File storesXml = new File(TestUtils.createTempDir(), "stores.xml");
-
         StoreDefinitionsMapper storeDefMapper = new StoreDefinitionsMapper();
         FileWriter writer = new FileWriter(storesXml);
         writer.write(storeDefMapper.writeStoreList(Lists.newArrayList(storeDef)));
         writer.close();
 
-        File baseTempDir = TestUtils.createTempDir();
+        return storesXml.getAbsolutePath();
+    }
 
+    @Before
+    public void setUp() throws IOException {
+        String storesXmlFile = constructStoresXml();
+
+        servers = new VoldemortServer[NUM_NODES];
         Properties props = new Properties();
         props.put("readonly.backups", "1");
+        cluster = ServerTestUtils.startVoldemortCluster(NUM_NODES,
+                                                        servers,
+                                                        null,
+                                                        socketStoreFactory,
+                                                        false,
+                                                        null,
+                                                        storesXmlFile,
+                                                        props);
+
+        baseDirs = new File[NUM_NODES];
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
-            servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                   ServerTestUtils.createServerConfig(false,
-                                                                                                      nodeId,
-                                                                                                      baseTempDir.getAbsolutePath(),
-                                                                                                      null,
-                                                                                                      storesXml.getAbsolutePath(),
-                                                                                                      props),
-                                                                   cluster);
-            baseDirs[nodeId] = new File(baseTempDir + "/node-" + nodeId + "/data/read-only/"
-                                        + STORE_NAME);
+            String baseDir = servers[nodeId].getVoldemortConfig().getDataDirectory();
+            baseDirs[nodeId] = new File(baseDir + "/read-only/" + STORE_NAME);
         }
+        /*-
+        for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
+            System.err.println("nodeId: " + nodeId);
+            System.err.println("  basedir: " + baseDirs[nodeId].getAbsolutePath());
+            System.err.println("  datadir: "
+                               + servers[nodeId].getVoldemortConfig().getDataDirectory());
+            System.err.println("  metadir: "
+                               + servers[nodeId].getVoldemortConfig().getMetadataDirectory());
+        }
+         */
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
 
     }
 
-    @Override
     @After
-    public void tearDown() throws IOException, InterruptedException {
-        adminClient.stop();
+    public void tearDown() throws IOException {
+        adminClient.close();
         for(VoldemortServer server: servers) {
             ServerTestUtils.stopVoldemortServer(server);
         }
@@ -150,6 +162,26 @@ public class StoreSwapperTest extends TestCase {
     }
 
     @Test
+    public void testAdminStoreSwapperForOffline() throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
+
+        try {
+            // Use the admin store swapper
+            StoreSwapper swapper = new AdminStoreSwapper(cluster,
+                                                         executor,
+                                                         adminClient,
+                                                         1000000,
+                                                         true,
+                                                         true);
+            adminClient.metadataMgmtOps.setRemoteOfflineState(0, true);
+            testFetchSwap(swapper);
+            fail("RO Fetcher should fail on offline state.");
+        } catch(Exception e) {} finally {
+            executor.shutdown();
+        }
+    }
+
+    @Test
     public void testHttpStoreSwapper() throws Exception {
         ExecutorService executor = Executors.newCachedThreadPool();
         DefaultHttpClient client = null;
@@ -170,6 +202,35 @@ public class StoreSwapperTest extends TestCase {
                                                         true);
             testFetchSwap(swapper);
         } finally {
+            executor.shutdown();
+            VoldemortIOUtils.closeQuietly(client);
+        }
+    }
+
+    @Test
+    public void testHttpStoreSwapperForOffline() throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
+        DefaultHttpClient client = null;
+        try {
+            // Use the http store swapper
+            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
+
+            connectionManager.setMaxTotal(10);
+            connectionManager.setDefaultMaxPerRoute(10);
+
+            client = new DefaultHttpClient(connectionManager);
+
+            StoreSwapper swapper = new HttpStoreSwapper(cluster,
+                                                        executor,
+                                                        client,
+                                                        "read-only/mgmt",
+                                                        true,
+                                                        true);
+
+            adminClient.metadataMgmtOps.setRemoteOfflineState(0, true);
+            testFetchSwap(swapper);
+            fail("RO Fetcher should fail on offline state.");
+        } catch(Exception e) {} finally {
             executor.shutdown();
             VoldemortIOUtils.closeQuietly(client);
         }
@@ -233,12 +294,13 @@ public class StoreSwapperTest extends TestCase {
         File temporaryDir = createTempROFolder();
 
         // Retrieve all the current versions
-        long currentVersion = adminClient.getROCurrentVersion(0, Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME);
+        long currentVersion = adminClient.readonlyOps.getROCurrentVersion(0,
+                                                                          Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME);
         for(int nodeId = 1; nodeId < NUM_NODES; nodeId++) {
-            long newVersion = adminClient.getROCurrentVersion(nodeId,
-                                                              Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME);
+            long newVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                          Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME);
             if(newVersion != currentVersion)
                 fail("Current version (on " + nodeId + ") = " + newVersion
                      + " is not equal to others");
@@ -269,8 +331,9 @@ public class StoreSwapperTest extends TestCase {
 
         // ... check if "currentVersion + 3 " is NOT deleted
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
-            long maxVersion = adminClient.getROMaxVersion(nodeId, Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME);
+            long maxVersion = adminClient.readonlyOps.getROMaxVersion(nodeId,
+                                                                      Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME);
 
             assertTrue(maxVersion == (currentVersion + 3));
         }
@@ -283,12 +346,13 @@ public class StoreSwapperTest extends TestCase {
         File temporaryDir = createTempROFolder();
 
         // Retrieve all the current versions
-        long currentVersion = adminClient.getROCurrentVersion(0, Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME);
+        long currentVersion = adminClient.readonlyOps.getROCurrentVersion(0,
+                                                                          Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME);
         for(int nodeId = 1; nodeId < NUM_NODES; nodeId++) {
-            long newVersion = adminClient.getROCurrentVersion(nodeId,
-                                                              Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME);
+            long newVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                          Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME);
             if(newVersion != currentVersion)
                 fail("Current version (on " + nodeId + ") = " + newVersion
                      + " is not equal to others");
@@ -361,9 +425,9 @@ public class StoreSwapperTest extends TestCase {
 
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
             versionToNode.put(nodeId,
-                              adminClient.getROCurrentVersion(nodeId,
-                                                              Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME));
+                              adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                          Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME));
         }
 
         servers[1].getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
@@ -376,9 +440,9 @@ public class StoreSwapperTest extends TestCase {
 
         // Check that latest is not currentVersion + 4
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
-            long currentNodeVersion = adminClient.getROCurrentVersion(nodeId,
-                                                                      Lists.newArrayList(STORE_NAME))
-                                                 .get(STORE_NAME);
+            long currentNodeVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                                  Lists.newArrayList(STORE_NAME))
+                                                             .get(STORE_NAME);
             assertTrue(currentNodeVersion != (currentVersion + 4));
             assertEquals(currentNodeVersion, (long) versionToNode.get(nodeId));
         }
@@ -391,9 +455,9 @@ public class StoreSwapperTest extends TestCase {
         swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 5);
 
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
-            long currentNodeVersion = adminClient.getROCurrentVersion(nodeId,
-                                                                      Lists.newArrayList(STORE_NAME))
-                                                 .get(STORE_NAME);
+            long currentNodeVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                                  Lists.newArrayList(STORE_NAME))
+                                                             .get(STORE_NAME);
             assertTrue(currentNodeVersion == (currentVersion + 5));
         }
     }

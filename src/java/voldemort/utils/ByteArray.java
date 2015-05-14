@@ -1,6 +1,7 @@
 package voldemort.utils;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -40,7 +41,20 @@ public final class ByteArray implements Serializable {
 
     @Override
     public String toString() {
-        return Arrays.toString(underlying);
+        return ByteUtils.toHexString(underlying);
+    }
+
+    /**
+     * Translate the each ByteArray in an iterable into a hexidecimal string
+     * 
+     * @param arrays The array of bytes to translate
+     * @return An iterable of converted strings
+     */
+    public static Iterable<String> toHexStrings(Iterable<ByteArray> arrays) {
+        ArrayList<String> ret = new ArrayList<String>();
+        for(ByteArray array: arrays)
+            ret.add(ByteUtils.toHexString(array.get()));
+        return ret;
     }
 
     public int length() {

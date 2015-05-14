@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 LinkedIn, Inc.
+ * Copyright 2009-2012 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -68,14 +68,14 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
     @Override
     public void recordException(Node node, long requestTime, UnreachableStoreException e) {
         checkArgs(node, requestTime);
-        update(node, 0, e);
+        update(node, false, e);
     }
 
     @Override
     public void recordSuccess(Node node, long requestTime) {
         checkArgs(node, requestTime);
 
-        int successDelta = 1;
+        boolean isSuccess = true;
         UnreachableStoreException e = null;
 
         if(requestTime > getConfig().getRequestLengthThreshold()) {
@@ -86,17 +86,19 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                                               + requestTime + ") exceeded threshold ("
                                               + getConfig().getRequestLengthThreshold() + ")");
 
-            successDelta = 0;
+            isSuccess = false;
         }
 
-        update(node, successDelta, e);
+        update(node, isSuccess, e);
     }
 
-    @JmxGetter(name = "nodeThresholdStats", description = "Each node is listed with its status (available/unavailable) and success percentage")
+    @JmxGetter(
+            name = "nodeThresholdStats",
+            description = "Each node is listed with its status (available/unavailable) and success percentage")
     public String getNodeThresholdStats() {
         List<String> list = new ArrayList<String>();
 
-        for(Node node: getConfig().getNodes()) {
+        for(Node node: getConfig().getCluster().getNodes()) {
             NodeStatus nodeStatus = getNodeStatus(node);
             boolean isAvailabile = false;
             long percentage = 0;
@@ -126,58 +128,88 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
-            nodeStatus.setStartMillis(getConfig().getTime().getMilliseconds());
-            nodeStatus.setSuccess(0);
-            nodeStatus.setTotal(0);
+            nodeStatus.resetCounters(getConfig().getTime().getMilliseconds());
             super.nodeRecovered(node);
         }
     }
 
-    protected void update(Node node, int successDelta, UnreachableStoreException e) {
+    protected void update(Node node, boolean isSuccess, UnreachableStoreException e) {
         if(logger.isTraceEnabled()) {
             if(e != null)
-                logger.trace("Node " + node.getId() + " updated, successDelta: " + successDelta, e);
+                logger.trace("Node " + node.getId() + " updated, isSuccess: " + isSuccess, e);
             else
-                logger.trace("Node " + node.getId() + " updated, successDelta: " + successDelta);
+                logger.trace("Node " + node.getId() + " updated, isSuccess: " + isSuccess);
         }
 
         final long currentTime = getConfig().getTime().getMilliseconds();
-        String catastrophicError = getCatastrophicError(e);
+        String catastrophicError = null;
+        if(!isSuccess) {
+            catastrophicError = getCatastrophicError(e);
+        }
         NodeStatus nodeStatus = getNodeStatus(node);
 
+        boolean invokeSetAvailable = false;
+        boolean invokeSetUnavailable = false;
+        // Protect all logic to decide on available/unavailable w/in
+        // synchronized section
         synchronized(nodeStatus) {
+
             if(currentTime >= nodeStatus.getStartMillis() + getConfig().getThresholdInterval()) {
                 // We've passed into a new interval, so reset our counts
                 // appropriately.
-                nodeStatus.setStartMillis(currentTime);
-                nodeStatus.setSuccess(successDelta);
-                if(successDelta < 1)
-                    nodeStatus.setFailure(1);
-                nodeStatus.setTotal(1);
+                nodeStatus.resetCounters(currentTime);
+            }
+
+            nodeStatus.recordOperation(isSuccess);
+
+            int numCatastrophicErrors;
+
+            if(catastrophicError != null) {
+                numCatastrophicErrors = nodeStatus.incrementConsecutiveCatastrophicErrors();
+
+                if(logger.isTraceEnabled()) {
+                    logger.trace("Node " + node.getId() + " experienced catastrophic error: "
+                                 + catastrophicError + " on node : " + node
+                                 + " # accumulated errors = " + numCatastrophicErrors);
+                }
             } else {
-                nodeStatus.incrementSuccess(successDelta);
-                if(successDelta < 1)
-                    nodeStatus.incrementFailure(1);
-                nodeStatus.incrementTotal(1);
+                numCatastrophicErrors = nodeStatus.getNumConsecutiveCatastrophicErrors();
 
-                if(catastrophicError != null) {
-                    if(logger.isTraceEnabled())
-                        logger.trace("Node " + node.getId() + " experienced catastrophic error: "
-                                     + catastrophicError);
-
-                    setUnavailable(node, e);
-                } else if(nodeStatus.getFailure() >= getConfig().getThresholdCountMinimum()) {
-                    long percentage = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
-
-                    if(logger.isTraceEnabled())
-                        logger.trace("Node " + node.getId() + " percentage: " + percentage + "%");
-
-                    if(percentage >= getConfig().getThreshold())
-                        setAvailable(node);
-                    else
-                        setUnavailable(node, e);
+                if(numCatastrophicErrors > 0 && isSuccess) {
+                    numCatastrophicErrors = 0;
+                    nodeStatus.resetNumConsecutiveCatastrophicErrors();
+                    if(logger.isTraceEnabled()) {
+                        logger.trace("Resetting # consecutive connect errors for node : " + node);
+                    }
                 }
             }
+
+            if(numCatastrophicErrors > 0
+               && numCatastrophicErrors >= this.failureDetectorConfig.getMaximumTolerableFatalFailures()) {
+                invokeSetUnavailable = true;
+            } else if(nodeStatus.getFailure() >= getConfig().getThresholdCountMinimum()) {
+                long successPercentage = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
+
+                if(logger.isTraceEnabled()) {
+                    logger.trace("Node " + node.getId() + " success percentage: "
+                                 + successPercentage + "%");
+                }
+
+                if(successPercentage >= getConfig().getThreshold()) {
+                    invokeSetAvailable = true;
+                } else {
+                    invokeSetUnavailable = true;
+                }
+            }
+        }
+
+        // Call set(Un)Available outside of synchronized section. This
+        // ensures that side effects are not w/in a sync section (e.g., alerting
+        // all the failure detector listeners).
+        if(isSuccess && invokeSetAvailable) {
+            setAvailable(node);
+        } else if(invokeSetUnavailable) {
+            setUnavailable(node, e);
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,24 +17,39 @@
 package voldemort;
 
 import java.io.File;
+import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
 import junit.framework.AssertionFailedError;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.StoreRoutingPlan;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
+import voldemort.versioning.ClockEntry;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
+
+import com.google.common.collect.Lists;
+import com.google.common.io.Files;
 
 /**
  * Helper utilities for tests
@@ -46,8 +61,10 @@ public class TestUtils {
     public static final String DIGITS = "0123456789";
     public static final String LETTERS = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM";
     public static final String CHARACTERS = LETTERS + DIGITS + "~!@#$%^&*()____+-=[];',,,./>?:{}";
-    public static final Random SEEDED_RANDOM = new Random(19873482374L);
+    public static final Long SEED = System.currentTimeMillis();
+    public static final Random SEEDED_RANDOM = new Random(SEED);
     public static final Random UNSEEDED_RANDOM = new Random();
+    private static final CharSequence VOLD_TEST_DATA_DIRECTORY_NAME = "vold-test-data";
 
     /**
      * Get a vector clock with events on the sequence of nodes given So
@@ -63,6 +80,84 @@ public class TestUtils {
         return clock;
     }
 
+    public static VectorClock getClockWithTs(long ts, int... nodes) {
+        VectorClock clock = new VectorClock(ts);
+        increment(clock, nodes);
+        return clock;
+    }
+
+    /**
+     * Constructs a vector clock as in versioned put based on timestamp
+     * 
+     * @param timeMs timestamp to use in the clock value
+     * @param master node for the put. the master's versions will be timeMs+1,
+     *        if master > -1
+     * @return
+     */
+    @SuppressWarnings("deprecation")
+    public static VectorClock getVersionedPutClock(long timeMs, int master, int... nodes) {
+        List<ClockEntry> clockEntries = Lists.newArrayList();
+        for(int node: nodes) {
+            if(master >= 0 && node == master) {
+                clockEntries.add(new ClockEntry((short) node, timeMs + 1));
+            } else {
+                clockEntries.add(new ClockEntry((short) node, timeMs));
+            }
+        }
+        return new VectorClock(clockEntries, timeMs);
+    }
+
+    /**
+     * Helper method to construct Versioned byte value.
+     * 
+     * @param nodes See getClock method for explanation of this argument
+     * @return
+     */
+    public static Versioned<byte[]> getVersioned(byte[] value, int... nodes) {
+        return new Versioned<byte[]>(value, getClock(nodes));
+    }
+
+    /**
+     * Returns true if both the versioned lists are equal, in terms of values
+     * and vector clocks, taking into consideration, they might be in different
+     * orders as well. Ignores the timestamps as a part of the vector clock
+     * 
+     * @param first
+     * @param second
+     * @return
+     */
+    public static boolean areVersionedListsEqual(List<Versioned<byte[]>> first,
+                                                 List<Versioned<byte[]>> second) {
+        if(first.size() != second.size())
+            return false;
+        // find a match for every first element in second list
+        for(Versioned<byte[]> firstElement: first) {
+            boolean found = false;
+            for(Versioned<byte[]> secondElement: second) {
+                if(firstElement.equals(secondElement)) {
+                    found = true;
+                    break;
+                }
+            }
+            if(!found)
+                return false;
+        }
+
+        // find a match for every second element in first list
+        for(Versioned<byte[]> secondElement: second) {
+            boolean found = false;
+            for(Versioned<byte[]> firstElement: first) {
+                if(firstElement.equals(secondElement)) {
+                    found = true;
+                    break;
+                }
+            }
+            if(!found)
+                return false;
+        }
+        return true;
+    }
+
     /**
      * Record events for the given sequence of nodes
      * 
@@ -71,7 +166,7 @@ public class TestUtils {
      */
     public static void increment(VectorClock clock, int... nodes) {
         for(int n: nodes)
-            clock.incrementVersion((short) n, System.currentTimeMillis());
+            clock.incrementVersion((short) n, clock.getTimestamp());
     }
 
     /**
@@ -224,7 +319,19 @@ public class TestUtils {
      * @return The directory created.
      */
     public static File createTempDir() {
-        return createTempDir(new File(System.getProperty("java.io.tmpdir")));
+        String systemTempDir = System.getProperty("java.io.tmpdir");
+        if(!(systemTempDir.contains(VOLD_TEST_DATA_DIRECTORY_NAME))) {
+            File parentDir = new File(systemTempDir + "/" + VOLD_TEST_DATA_DIRECTORY_NAME);
+            parentDir.delete();
+            parentDir.mkdir();
+            parentDir.deleteOnExit();
+            System.setProperty("java.io.tmpdir", parentDir.getAbsolutePath());
+        }
+        File tempdir = Files.createTempDir();
+        tempdir.delete();
+        tempdir.mkdir();
+        tempdir.deleteOnExit();
+        return tempdir;
     }
 
     /**
@@ -294,6 +401,39 @@ public class TestUtils {
     }
 
     /**
+     * Given a StoreRoutingPlan generates upto numKeysPerPartition keys per
+     * partition
+     * 
+     * @param numKeysPerPartition
+     * @return a hashmap of partition to list of keys generated
+     */
+    public static HashMap<Integer, List<byte[]>> createPartitionsKeys(StoreRoutingPlan routingPlan,
+                                                                      int numKeysPerPartition) {
+        HashMap<Integer, List<byte[]>> partitionToKeyList = new HashMap<Integer, List<byte[]>>();
+        Set<Integer> partitionsPending = new HashSet<Integer>(routingPlan.getCluster()
+                                                                         .getNumberOfPartitions());
+        for(int partition = 0; partition < routingPlan.getCluster().getNumberOfPartitions(); partition++) {
+            partitionsPending.add(partition);
+            partitionToKeyList.put(partition, new ArrayList<byte[]>(numKeysPerPartition));
+        }
+
+        for(int key = 0;; key++) {
+            byte[] keyBytes = ("key" + key).getBytes();
+            int partition = routingPlan.getMasterPartitionId(keyBytes);
+            if(partitionToKeyList.get(partition).size() < numKeysPerPartition) {
+                partitionToKeyList.get(partition).add(keyBytes);
+                if(partitionToKeyList.get(partition).size() == numKeysPerPartition) {
+                    partitionsPending.remove(partition);
+                }
+            }
+            if(partitionsPending.size() == 0) {
+                break;
+            }
+        }
+        return partitionToKeyList;
+    }
+
+    /**
      * Always uses UTF-8.
      */
     public static ByteArray toByteArray(String s) {
@@ -340,4 +480,100 @@ public class TestUtils {
         return (T) eventDataQueueField.get(instance);
     }
 
+    /**
+     * Wrapper to get a StoreDefinition object constructed, given a store name
+     */
+    public static StoreDefinition makeStoreDefinition(String storeName) {
+        return new StoreDefinition(storeName,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   0,
+                                   null,
+                                   0,
+                                   null,
+                                   0,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   0);
+    }
+
+    /**
+     * Wrapper to get a StoreDefinition object constructed, given a store name,
+     * memory foot print
+     */
+    public static StoreDefinition makeStoreDefinition(String storeName, long memFootprintMB) {
+        return new StoreDefinition(storeName,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   0,
+                                   null,
+                                   0,
+                                   null,
+                                   0,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   memFootprintMB);
+    }
+
+    /**
+     * Provides a routing strategy for local tests to work with
+     * 
+     * @return
+     */
+    public static RoutingStrategy makeSingleNodeRoutingStrategy() {
+        Cluster cluster = VoldemortTestConstants.getOneNodeCluster();
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getSingleStoreDefinitionsXml()));
+        return new RoutingStrategyFactory().updateRoutingStrategy(storeDefs.get(0), cluster);
+    }
+
+    /**
+     * Constructs a calendar object representing the given time
+     */
+    public static GregorianCalendar getCalendar(int year,
+                                                int month,
+                                                int day,
+                                                int hour,
+                                                int mins,
+                                                int secs) {
+        GregorianCalendar cal = new GregorianCalendar();
+        cal.set(Calendar.YEAR, year);
+        cal.set(Calendar.MONTH, month);
+        cal.set(Calendar.DATE, day);
+        cal.set(Calendar.HOUR_OF_DAY, hour);
+        cal.set(Calendar.MINUTE, mins);
+        cal.set(Calendar.SECOND, secs);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal;
+    }
 }

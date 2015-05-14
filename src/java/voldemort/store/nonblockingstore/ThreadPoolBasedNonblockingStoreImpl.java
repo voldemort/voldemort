@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 LinkedIn, Inc
+ * Copyright 2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -127,10 +127,8 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
 
                 try {
                     Object result = request.request(innerStore);
-
                     if(callback != null) {
-                        long diff = System.nanoTime() - start;
-
+                        long diff = Utils.elapsedTimeNs(start, System.nanoTime());
                         if(diff <= timeoutNs) {
                             try {
                                 callback.requestComplete(result, diff / Time.NS_PER_MS);
@@ -143,7 +141,7 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
                                                                                          + operationName
                                                                                          + ": time out exceeded");
                             try {
-                                callback.requestComplete(ex, diff);
+                                callback.requestComplete(ex, diff / Time.NS_PER_MS);
                             } catch(Exception e) {
                                 if(logger.isEnabledFor(Level.WARN))
                                     logger.warn(e, e);

@@ -1,0 +1,120 @@
+<stores>
+  <store>
+    <name>test</name>
+    <persistence>bdb</persistence>
+    <description>Test store</description>
+    <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+    <routing-strategy>consistent-routing</routing-strategy>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <required-reads>1</required-reads>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>json</type>
+      <schema-info version="0">{"id":"int32", "name":"string"}</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>avro-generic-versioned</type>
+      <schema-info version="0">
+      {"type": "record",
+       "name": "myrec",
+       "fields": [{ "name": "lname", "type": "string" },{"name":"age","type": "int"}]}
+      </schema-info>
+    </value-serializer>
+    <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>    
+  </store>
+
+  <store>
+    <name>test1</name>
+    <persistence>bdb</persistence>
+    <description>Test store</description>
+    <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+    <routing-strategy>consistent-routing</routing-strategy>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <required-reads>1</required-reads>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>json</type>
+      <schema-info version="0">{"id":"int32", "name":"string"}</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+    </value-serializer>
+    <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>    
+  </store>
+
+  <store>
+    <name>test2</name>
+    <persistence>bdb</persistence>
+    <description>Test store</description>
+    <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+    <routing-strategy>consistent-routing</routing-strategy>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <required-reads>1</required-reads>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>string</type>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+    </value-serializer>
+    <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>    
+  </store>
+
+  <store>
+    <name>test3</name>
+    <persistence>bdb</persistence>
+    <description>Test store</description>
+    <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+    <routing-strategy>consistent-routing</routing-strategy>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <required-reads>1</required-reads>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>string</type>
+    </key-serializer>
+    <value-serializer>
+      <type>json</type>
+      <schema-info version="0">{"id":"int32", "name":"string"}</schema-info>
+    </value-serializer>
+    <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>    
+  </store>
+
+<store>
+    <name>test4</name>
+    <persistence>bdb</persistence>
+    <description>Test store</description>
+    <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+    <routing-strategy>consistent-routing</routing-strategy>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <required-reads>1</required-reads>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>avro-generic-versioned</type>
+      <schema-info version="0">
+      {"type": "record",
+       "name": "mykeyrec",
+       "fields": [{ "name": "id", "type": "long" },{"name":"name","type": "string"}]}
+      </schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>avro-generic-versioned</type>
+      <schema-info version="0">
+      {
+       "type":"array",
+       "items":{"type": "record",
+                "name": "myvaluerec",
+                "fields": [{ "name": "skill", "type": "string" },{"name":"score","type": "float"},{"name":"isendorsed","type": "boolean"}]
+               }
+      }
+      </schema-info>
+    </value-serializer>
+    <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>    
+  </store>
+
+
+</stores>

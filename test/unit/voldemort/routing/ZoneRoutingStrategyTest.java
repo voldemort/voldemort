@@ -21,9 +21,10 @@ import java.util.HashMap;
 import java.util.List;
 
 import junit.framework.TestCase;
+import voldemort.ClusterTestUtils;
+import voldemort.ServerTestUtils;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-
-import com.google.common.collect.ImmutableList;
 
 public class ZoneRoutingStrategyTest extends TestCase {
 
@@ -32,7 +33,7 @@ public class ZoneRoutingStrategyTest extends TestCase {
         for(int i = 0; i < zonesRepFactor.length; i++) {
             totalZoneRepFactor += zonesRepFactor[i];
         }
-        return new ZoneRoutingStrategy(getTestNodes(),
+        return new ZoneRoutingStrategy(getTestCluster(),
                                        getTestZoneReplicationFactor(zonesRepFactor),
                                        totalZoneRepFactor);
     }
@@ -46,30 +47,30 @@ public class ZoneRoutingStrategyTest extends TestCase {
         return returnHashMap;
     }
 
-    private List<Node> getTestNodes() {
-        return ImmutableList.of(node(0, 0, 0, 1, 2),
-                                node(1, 0, 3, 4, 5),
-                                node(2, 0, 6, 7),
-                                node(3, 0, 8, 9, 10),
-                                node(4, 1, 11, 12, 13),
-                                node(5, 1, 14, 15),
-                                node(6, 1, 16, 17, 18),
-                                node(7, 1, 19, 20, 21),
-                                node(8, 2, 22, 23, 24, 25),
-                                node(9, 2, 26, 27, 28),
-                                node(10, 2, 29, 30),
-                                node(11, 3, 31),
-                                node(12, 3, 32));
+    private Cluster getTestCluster() {
+        int numberOfNodes = 13;
+        int numberOfZones = 4;
+        int[] nodeToZoneMapping = new int[] { 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 3 };
+        int[][] partitionMap = new int[][] { { 0, 1, 2 }, { 3, 4, 5 }, { 6, 7 }, { 8, 9, 10 },
+                { 11, 12, 13 }, { 14, 15 }, { 16, 17, 18 }, { 19, 20, 21 }, { 22, 23, 24, 25 },
+                { 26, 27, 28 }, { 29, 30 }, { 31 }, { 32 } };
+
+        int ports[] = new int [3*numberOfNodes];
+        for (int i=0; i<numberOfNodes; i++) {
+            ports[i*3] = 8080;
+            ports[i*3+1] = 6666;
+            ports[i*3+2] = 6667;
+
+        }
+
+        return ServerTestUtils.getLocalZonedCluster(numberOfNodes,
+                                                    numberOfZones,
+                                                    nodeToZoneMapping,
+                                                    partitionMap,
+                                                    ports);
 
     }
-
-    private Node node(int id, int zoneId, int... tags) {
-        List<Integer> list = new ArrayList<Integer>(tags.length);
-        for(int tag: tags)
-            list.add(tag);
-        return new Node(id, "localhost", 8080, 6666, 6667, zoneId, list);
-    }
-
+    
     private void assertReplicationPartitions(List<Integer> partitions, int... expected) {
         assertEquals("Router produced unexpected number of replication partitions.",
                      expected.length,
@@ -128,6 +129,90 @@ public class ZoneRoutingStrategyTest extends TestCase {
                                     22,
                                     31,
                                     32);
+    }
+    
+    private ZoneRoutingStrategy getRouterForNonContiguousZones(List<Integer> zoneIds, int... zonesRepFactor) {
+        int totalZoneRepFactor = 0;
+        for(int i = 0; i < zonesRepFactor.length; i++) {
+            totalZoneRepFactor += zonesRepFactor[i];
+        }
+        return new ZoneRoutingStrategy(getTestClusterWithNonContiguousZones(),
+                                       getTestZoneReplicationFactorWithNonContiguousZones(zoneIds, zonesRepFactor),
+                                       totalZoneRepFactor);
+    }
+
+    private HashMap<Integer, Integer> getTestZoneReplicationFactorWithNonContiguousZones(List<Integer> zoneIds,
+                                                                                         int... zonesRepFactor) {
+        HashMap<Integer, Integer> returnHashMap = new HashMap<Integer, Integer>();
+        int index = 0;
+        for(int zoneId: zoneIds) {
+            returnHashMap.put(zoneId, zonesRepFactor[index]);
+            index++;
+        }
+        return returnHashMap;
+    }
+
+    private Cluster getTestClusterWithNonContiguousZones() {
+        return ClusterTestUtils.getZ1Z3Z5Z10ClusterWithNonContiguousNodeIds();
+    }
+
+    
+    public void testReplicationWithNonContiguousZonesAndNodes() {
+        ArrayList<Integer> zoneIds = new ArrayList<Integer>();
+        
+        zoneIds.add(1);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 1)
+                                                          .getReplicatingPartitionList(0), 0);
+                                                          
+        zoneIds.add(3);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 1, 1)
+                                                          .getReplicatingPartitionList(0), 0, 4);
+        
+        zoneIds.add(5);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 1, 1, 1)
+                                                          .getReplicatingPartitionList(0), 0, 4, 22);
+        
+        zoneIds.add(10);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 1, 1, 1, 1)
+                                    .getReplicatingPartitionList(0), 0, 4, 22, 29);
+       
+        zoneIds.clear();
+        
+        zoneIds.add(1);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 2)
+                                    .getReplicatingPartitionList(0), 0, 1);
+        
+        zoneIds.add(3);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 2, 1)
+                                    .getReplicatingPartitionList(0), 0, 1, 4);
+        
+        zoneIds.add(5);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 2, 1, 1)
+                                    .getReplicatingPartitionList(0), 0, 1, 4, 22);
+        
+        zoneIds.add(10);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 2, 1, 1, 1)
+                                    .getReplicatingPartitionList(0), 0, 1, 4, 22, 29);
+        
+        zoneIds.clear();
+        
+        zoneIds.add(1);
+        zoneIds.add(3);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 2, 2)
+                                    .getReplicatingPartitionList(0), 0, 1, 4, 5);
+        
+        zoneIds.add(5);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 2, 2, 1)
+                                    .getReplicatingPartitionList(0), 0, 1, 4, 5, 22); 
+        
+        zoneIds.add(10);
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 2, 2, 1, 2)
+                                    .getReplicatingPartitionList(0),
+                                    0, 1, 4, 5, 22, 29, 31);
+        // Should not fail
+        assertReplicationPartitions(getRouterForNonContiguousZones(zoneIds, 2, 2, 1, 3)
+                                    .getReplicatingPartitionList(0),
+                                    0, 1, 4, 5, 22, 29, 31);
     }
 
 }

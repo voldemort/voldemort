@@ -24,10 +24,11 @@ import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.ReadRepairer;
-import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -75,6 +76,11 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
     public void execute(Pipeline pipeline) {
         insertNodeValues();
 
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled())
+            startTimeNs = System.nanoTime();
+
         if(nodeValues.size() > 1 && preferred > 1) {
             List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();
 
@@ -96,7 +102,8 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
                 try {
                     if(logger.isDebugEnabled())
                         logger.debug("Doing read repair on node " + v.getNodeId() + " for key '"
-                                     + v.getKey() + "' with version " + v.getVersion() + ".");
+                                     + ByteUtils.toHexString(v.getKey().get()) + "' with version "
+                                     + v.getVersion() + ".");
 
                     NonblockingStore store = nonblockingStores.get(v.getNodeId());
                     store.submitPutRequest(v.getKey(), v.getVersioned(), null, null, timeoutMs);
@@ -105,11 +112,21 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
                         logger.debug("Read repair cancelled due to application level exception on node "
                                      + v.getNodeId()
                                      + " for key '"
-                                     + v.getKey()
-                                     + "' with version " + v.getVersion() + ": " + e.getMessage());
+                                     + ByteUtils.toHexString(v.getKey().get())
+                                     + "' with version "
+                                     + v.getVersion() + ": " + e.getMessage());
                 } catch(Exception e) {
                     logger.debug("Read repair failed: ", e);
                 }
+            }
+
+            if(logger.isDebugEnabled()) {
+                String logStr = "Repaired (node, key, version): (";
+                for(NodeValue<ByteArray, byte[]> v: toReadRepair) {
+                    logStr += "(" + v.getNodeId() + ", " + v.getKey() + "," + v.getVersion() + ") ";
+                }
+                logStr += "in " + (System.nanoTime() - startTimeNs) + " ns";
+                logger.debug(logStr);
             }
         }
 

@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef VOLDEMORTEXCEPTION_H
-#define VOLDEMORTEXCEPTION_H
+#ifndef VOLDEMORT_VOLDEMORTEXCEPTION_H
+#define VOLDEMORT_VOLDEMORTEXCEPTION_H
 
 #include <stdexcept>
 #include <string>
@@ -43,5 +43,4 @@ public:
 
 } // namespace Voldemort
 
-#endif // VOLDEMORTEXCEPTION_H
-
+#endif/*VOLDEMORT_VOLDEMORTEXCEPTION_H*/

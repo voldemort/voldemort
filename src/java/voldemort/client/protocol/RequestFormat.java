@@ -38,6 +38,8 @@ import voldemort.versioning.Versioned;
  */
 public interface RequestFormat {
 
+    public int SIZE_UNKNOWN = -1;
+
     public void writeGetRequest(DataOutputStream output,
                                 String storeName,
                                 ByteArray key,
@@ -67,6 +69,17 @@ public interface RequestFormat {
 
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream stream)
             throws IOException;
+
+    /*
+     * returns the max expected put request size, An implementation can avoid it
+     * by returning the value SIZE_UNKNOWN
+     */
+    public int getExpectedPutRequestSize(String storeName,
+                                 ByteArray key,
+                                 byte[] value,
+                                 byte[] transforms,
+                                 VectorClock version,
+                                 RequestRoutingType routingType);
 
     public void writePutRequest(DataOutputStream output,
                                 String storeName,

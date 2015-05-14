@@ -20,12 +20,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
-import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 import static voldemort.VoldemortTestConstants.getTenNodeCluster;
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+import static voldemort.cluster.failuredetector.MutableStoreConnectionVerifier.create;
 
-import java.net.ConnectException;
-import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
 
 import org.junit.Test;
@@ -39,17 +37,20 @@ import com.google.common.collect.Iterables;
 
 public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
 
-    private MutableStoreVerifier storeVerifier;
+    private MutableStoreConnectionVerifier connectionVerifier;
 
     @Override
     public FailureDetector createFailureDetector() throws Exception {
-        storeVerifier = create(cluster.getNodes());
+        // This test does not create any VoldemortServer. It uses the test store
+        // verifier which can be controlled via the functions recordException
+        // and recordSuccess to set and clear error states for a node.
+        connectionVerifier = create(cluster.getNodes());
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(ThresholdFailureDetector.class.getName())
                                                                                  .setBannagePeriod(BANNAGE_MILLIS)
                                                                                  .setAsyncRecoveryInterval(250)
                                                                                  .setThresholdInterval(500)
-                                                                                 .setNodes(cluster.getNodes())
-                                                                                 .setStoreVerifier(storeVerifier)
+                                                                                 .setCluster(cluster)
+                                                                                 .setConnectionVerifier(connectionVerifier)
                                                                                  .setTime(time);
         return create(failureDetectorConfig, true);
     }
@@ -63,25 +64,37 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
     public void testCatastrophicErrors() throws Exception {
         Node node = Iterables.get(cluster.getNodes(), 8);
 
-        failureDetector.recordException(node,
-                                        0,
-                                        new UnreachableStoreException("intentionalerror",
-                                                                      new ConnectException("intentionalerror")));
+        for(int i = 0; i < 1000; i++) {
+            failureDetector.recordSuccess(node, 1);
+        }
+
+        UnreachableStoreException normalError = new UnreachableStoreException("intentionalerror");
+        for(int i = 0; i < 10; i++) {
+            failureDetector.recordException(node, 0, normalError);
+        }
+        assertAvailable(node);
+
+        UnreachableStoreException catastrophicError = new UnreachableStoreException("intentionalerror",
+                                                                                    new UnknownHostException("intentionalerror"));
+        for(int i = 0; i < 10; i++) {
+            failureDetector.recordException(node, 0, catastrophicError);
+        }
+
         assertEquals(false, failureDetector.isAvailable(node));
         failureDetector.waitForAvailability(node);
 
-        failureDetector.recordException(node,
-                                        0,
-                                        new UnreachableStoreException("intentionalerror",
-                                                                      new UnknownHostException("intentionalerror")));
+        for(int i = 0; i < 10; i++) {
+            failureDetector.recordException(node, 0, catastrophicError);
+        }
         assertEquals(false, failureDetector.isAvailable(node));
-        failureDetector.waitForAvailability(node);
 
-        failureDetector.recordException(node,
-                                        0,
-                                        new UnreachableStoreException("intentionalerror",
-                                                                      new NoRouteToHostException("intentionalerror")));
+        failureDetector.recordSuccess(node,
+                                      failureDetector.getConfig().getRequestLengthThreshold() + 1);
         assertEquals(false, failureDetector.isAvailable(node));
+
+        failureDetector.recordException(node, 0, normalError);
+        assertEquals(false, failureDetector.isAvailable(node));
+
         failureDetector.waitForAvailability(node);
     }
 
@@ -107,6 +120,7 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
 
         assertEquals(false, failureDetector.isAvailable(node));
         failureDetector.waitForAvailability(node);
+
         assertTrue(failureDetector.isAvailable(node));
     }
 
@@ -116,26 +130,31 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
 
         Node node = Iterables.get(cluster.getNodes(), 8);
 
-        for(int i = 0; i < minimum - 1; i++)
+        for(int iter = 0; iter < 2; iter++) {
+            for(int i = 0; i < minimum - 1; i++)
+                recordException(failureDetector, node);
+
+            assertAvailable(node);
+
             recordException(failureDetector, node);
 
-        assertAvailable(node);
+            assertUnavailable(node);
+            assertJmxEquals("availableNodes", "0,1,2,3,4,5,6,7");
+            assertJmxEquals("unavailableNodes", "8");
+            assertJmxEquals("availableNodeCount", 8);
+            assertJmxEquals("nodeCount", 9);
 
-        recordException(failureDetector, node);
-
-        assertUnavailable(node);
-        assertJmxEquals("availableNodes", "0,1,2,3,4,5,6,7");
-        assertJmxEquals("unavailableNodes", "8");
-        assertJmxEquals("availableNodeCount", 8);
-        assertJmxEquals("nodeCount", 9);
-
-        recordSuccess(failureDetector, node);
+            recordSuccess(failureDetector, node);
+            failureDetector.waitForAvailability(node);
+        }
     }
 
     @Test
     public void testStartOffDownComeBackOnline() throws Exception {
-        failureDetector.getConfig().setThreshold(80);
-        failureDetector.getConfig().setThresholdCountMinimum(10);
+        final int SUCCESS_PERCENTAGE = 80;
+        final int ERROR_COUNT_MINIMUM = 10;
+        failureDetector.getConfig().setThreshold(SUCCESS_PERCENTAGE);
+        failureDetector.getConfig().setThresholdCountMinimum(ERROR_COUNT_MINIMUM);
 
         int failureCount = 20;
 
@@ -152,7 +171,6 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
         recordSuccess(failureDetector, node, 0, false);
 
         failureDetector.waitForAvailability(node);
-
         assertAvailable(node);
     }
 
@@ -173,11 +191,18 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
     public void testChangeMetadata() throws Exception {
         cluster = getTenNodeCluster();
         Node node = cluster.getNodeById(9);
-        storeVerifier.addStore(node);
-        failureDetector.recordException(node,
-                                        0,
-                                        new UnreachableStoreException("intentionalerror",
-                                                                      new ConnectException("intentionalerror")));
+        connectionVerifier.addStore(node);
+        for(int i = 0; i < 10; i++) {
+            failureDetector.recordException(node,
+                                            0,
+                                            new UnreachableStoreException("intentionalerror",
+                                                                          new UnknownHostException("intentionalerror")));
+        }
+
+        /**
+         * Update the failure detector state with the new cluster
+         */
+        failureDetector.getConfig().setCluster(this.cluster);
 
         assertEquals(false, failureDetector.isAvailable(node));
         Thread.sleep(failureDetector.getConfig().getAsyncRecoveryInterval() * 2);

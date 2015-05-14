@@ -16,6 +16,7 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Holds the status of a node--either available or unavailable as well as the
@@ -38,6 +39,12 @@ class NodeStatus {
     private long failure;
 
     private long total;
+
+    private final AtomicInteger numConsecutiveCatastrophicErrors;
+
+    public NodeStatus() {
+        numConsecutiveCatastrophicErrors = new AtomicInteger(0);
+    }
 
     public long getLastChecked() {
         return lastChecked;
@@ -67,36 +74,42 @@ class NodeStatus {
         return success;
     }
 
-    public void setSuccess(long success) {
-        this.success = success;
-    }
-
-    public void incrementSuccess(long delta) {
-        this.success += delta;
-    }
-
     public long getFailure() {
         return failure;
-    }
-
-    public void setFailure(long failure) {
-        this.failure = failure;
-    }
-
-    public void incrementFailure(long delta) {
-        this.failure += delta;
     }
 
     public long getTotal() {
         return total;
     }
 
-    public void setTotal(long total) {
-        this.total = total;
+    public int getNumConsecutiveCatastrophicErrors() {
+        return numConsecutiveCatastrophicErrors.get();
     }
 
-    public void incrementTotal(long delta) {
-        this.total += delta;
+    public void resetNumConsecutiveCatastrophicErrors() {
+        this.numConsecutiveCatastrophicErrors.set(0);
+    }
+
+    public int incrementConsecutiveCatastrophicErrors() {
+        return this.numConsecutiveCatastrophicErrors.incrementAndGet();
+    }
+
+    public void resetCounters(long currentTime) {
+        setStartMillis(currentTime);
+        // Not resetting the catastrophic errors, as they will be reset
+        // whenever a success is received.
+        success = 0;
+        failure = 0;
+        total = 0;
+    }
+
+    public void recordOperation(boolean isSuccess) {
+        if(isSuccess) {
+            success++;
+        } else {
+            failure++;
+        }
+        total++;
     }
 
 }

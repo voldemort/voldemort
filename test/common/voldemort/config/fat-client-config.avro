@@ -1,0 +1,9 @@
+{
+	"test": {
+		"socket_timeout_ms": "1500",
+		"routing_timeout_ms": "1500"
+	},
+	"slow-store-test": {
+		"connection_timeout_ms": "500"
+	}
+}

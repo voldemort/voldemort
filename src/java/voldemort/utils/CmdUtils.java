@@ -2,6 +2,7 @@ package voldemort.utils;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import joptsimple.OptionParser;
@@ -36,17 +37,25 @@ public class CmdUtils {
 
     @SuppressWarnings("unchecked")
     public static <T> T valueOf(OptionSet options, String opt, T defaultValue) {
-        if(options.has(opt))
+        if(options.has(opt) && options.valueOf(opt) != null)
             return (T) options.valueOf(opt);
         else
             return defaultValue;
     }
 
     public static <T> T valueOf(OptionSet options, OptionSpec<T> opt, T defaultValue) {
-        if(options.has(opt))
+        if(options.has(opt) && options.valueOf(opt) != null)
             return options.valueOf(opt);
         else
             return defaultValue;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> List<T> valuesOf(OptionSet options, String opt, List<T> defaultList) {
+        if (options.has(opt) && options.valuesOf(opt) != null)
+            return (List<T>) options.valuesOf(opt);
+        else
+            return defaultList;
     }
 
     public static void croakIfMissing(OptionParser parser, OptionSet options, String... required) {

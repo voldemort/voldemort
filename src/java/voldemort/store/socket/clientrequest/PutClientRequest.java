@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import voldemort.client.protocol.RequestFormat;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
 import voldemort.server.RequestRoutingType;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
@@ -52,8 +53,18 @@ public class PutClientRequest extends AbstractStoreClientRequest<Void> {
     }
 
     @Override
-    protected void formatRequestInternal(DataOutputStream outputStream) throws IOException {
-        requestFormat.writePutRequest(outputStream,
+    protected void formatRequestInternal(ByteBufferBackedOutputStream outputStream)
+            throws IOException {
+        int size = requestFormat.getExpectedPutRequestSize(storeName,
+                                                   key,
+                                                   versioned.getValue(),
+                                                   transforms,
+                                                   (VectorClock) versioned.getVersion(),
+                                                   requestRoutingType);
+        if(size != RequestFormat.SIZE_UNKNOWN) {
+            outputStream.getBufferContainer().ensureSpace(size);
+        }
+        requestFormat.writePutRequest(new DataOutputStream(outputStream),
                                       storeName,
                                       key,
                                       versioned.getValue(),

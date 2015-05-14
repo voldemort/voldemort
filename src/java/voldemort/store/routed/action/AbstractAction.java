@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 LinkedIn, Inc
+ * Copyright 2010-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -29,6 +29,7 @@ import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Response;
 import voldemort.utils.Utils;
+import voldemort.versioning.ObsoleteVersionException;
 
 public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implements Action {
 
@@ -58,16 +59,34 @@ public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implem
                                           long requestTime,
                                           Pipeline pipeline,
                                           FailureDetector failureDetector) {
-        if(logger.isEnabledFor(Level.WARN)) {
-            if(e instanceof StoreTimeoutException)
-                logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
-                            + node.getId() + "(" + node.getHost() + ") : " + e.getMessage());
-            else
-                logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
-                            + node.getId() + "(" + node.getHost() + ")", e);
+        if(e instanceof StoreTimeoutException || e instanceof ObsoleteVersionException
+           || e instanceof UnreachableStoreException) {
+            // Quietly mask all errors that are "expected" regularly.
+            if(logger.isEnabledFor(Level.DEBUG)) {
+                logger.debug("Error in " + pipeline.getOperation().getSimpleName() + " on node "
+                             + node.getId() + " (" + node.getHost() + ") : " + e.getMessage());
+            }
+        } else {
+            // Printing Call Stack causes EKG ticket to be opened. So only include the call stack for Debug level or Inner exceptions.
+            if(logger.isEnabledFor(Level.WARN)) {
+                String errorMessage = "Error in " + pipeline.getOperation().getSimpleName() + " on node "
+                        + node.getId() + " (" + node.getHost() + ")";
+
+                if(logger.isEnabledFor(Level.DEBUG) || e.getCause() != null) {
+                    logger.warn(errorMessage, e);
+                }
+                else {
+                    errorMessage += " : ExceptionType " + e.getClass().getSimpleName();
+                    errorMessage += " : ExceptionMessage " + e.getMessage();
+                    logger.warn(errorMessage);
+                }
+            }
         }
 
         if(e instanceof UnreachableStoreException) {
+            if(logger.isTraceEnabled()) {
+                logger.trace("Adding node [" + node + "] to failed nodes list");
+            }
             pipelineData.addFailedNode(node);
             pipelineData.recordFailure(e);
             failureDetector.recordException(node, requestTime, (UnreachableStoreException) e);

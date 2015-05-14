@@ -17,6 +17,7 @@
 package voldemort;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 
 import org.apache.commons.io.IOUtils;
@@ -42,6 +43,10 @@ public class VoldemortTestConstants {
         return readString("config/single-store.xml");
     }
 
+    public static String getTwoStoreDefinitionsXml() {
+        return readString("config/two-stores.xml");
+    }
+
     public static String getNoVersionStoreDefinitionsXml() {
         return readString("config/no-version-store.xml");
     }
@@ -54,6 +59,10 @@ public class VoldemortTestConstants {
         return readString("config/two-node-cluster.xml");
     }
 
+    public static String getThreeNodeClusterWith3ZonesXml() {
+        return readString("config/three-node-cluster-with-3-zones.xml");
+    }
+
     public static String getStoreWithTwoKeyVersions() {
         return readString("config/store-with-two-key-versions.xml");
     }
@@ -62,9 +71,22 @@ public class VoldemortTestConstants {
         return new ClusterMapper().readCluster(new StringReader(getTwoNodeClusterXml()));
     }
 
+    public static Cluster getThreeNodeClusterWith3Zones() {
+        return new ClusterMapper().readCluster(new StringReader(getThreeNodeClusterWith3ZonesXml()));
+    }
+
+    public static String getSixNodeClusterWith3ZonesXml() {
+        return readString("config/six-node-cluster-with-3-zones.xml");
+    }
+
+    public static Cluster getSixNodeClusterWith3Zones() {
+        return new ClusterMapper().readCluster(new StringReader(getSixNodeClusterWith3ZonesXml()));
+    }
+
     public static String getTenNodeClusterXml() {
         return readString("config/ten-node-cluster.xml");
     }
+
     public static String getNineNodeClusterXml() {
         return readString("config/nine-node-cluster.xml");
     }
@@ -77,12 +99,28 @@ public class VoldemortTestConstants {
         return readString("config/four-node-cluster-with-zones.xml");
     }
 
+    public static String getInvalidFourNodeClusterWithZonesXml() {
+        return readString("config/four-node-cluster-with-zones-invalid.xml");
+    }
+
     public static String getEightNodeClusterWithZonesXml() {
         return readString("config/eight-node-cluster-with-zones.xml");
     }
 
+    public static String getNineNodeClusterWith3ZonesXml() {
+        return readString("config/nine-node-cluster-with-3-zones.xml");
+    }
+
     public static String getSingleStoreWithZonesXml() {
         return readString("config/single-store-with-zones.xml");
+    }
+
+    public static String getTwoStoresWithZonesXml() {
+        return readString("config/two-stores-with-zones.xml");
+    }
+
+    public static String getThreeStoresWithZonesXml() {
+        return readString("config/three-stores-with-zones.xml");
     }
 
     public static Cluster getTenNodeCluster() {
@@ -105,9 +143,17 @@ public class VoldemortTestConstants {
         return new ClusterMapper().readCluster(new StringReader(getEightNodeClusterWithZonesXml()));
     }
 
+    public static Cluster getNineNodeClusterWith3Zones() {
+        return new ClusterMapper().readCluster(new StringReader(getNineNodeClusterWith3ZonesXml()));
+    }
+
     private static String readString(String filename) {
         try {
-            return IOUtils.toString(VoldemortTestConstants.class.getResourceAsStream(filename));
+            InputStream inputStream = VoldemortTestConstants.class.getResourceAsStream(filename);
+            if(inputStream == null) {
+                throw new VoldemortException("Could not locate resource " + filename);
+            }
+            return IOUtils.toString(inputStream);
         } catch(IOException e) {
             throw new RuntimeException(e);
         }

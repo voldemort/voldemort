@@ -29,12 +29,12 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
-import voldemort.serialization.VoldemortOpCode;
+import voldemort.common.VoldemortOpCode;
+import voldemort.common.nio.ByteBufferBackedInputStream;
 import voldemort.server.RequestRoutingType;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
@@ -116,7 +116,27 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
     }
 
     public boolean isCompleteGetResponse(ByteBuffer buffer) {
-        return isCompleteResponse(buffer, VoldemortOpCode.GET_OP_CODE);
+        try {
+            DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
+            checkException(inputStream);
+            if(!skipeResults(inputStream, buffer)) {
+                return false;
+            }
+        } catch(VoldemortException e) {
+        } catch(IOException e) {
+            return false;
+        }
+        return !buffer.hasRemaining();
+    }
+
+    private boolean skipeResults(DataInputStream inputStream, ByteBuffer buffer) throws IOException {
+        int resultSize = inputStream.readInt();
+        for(int i = 0; i < resultSize; i++) {
+            int valueSize = inputStream.readInt();
+            if(!ByteUtils.skipByteArray(buffer, valueSize))
+                return false;
+        }
+        return true;
     }
 
     private List<Versioned<byte[]>> readResults(DataInputStream inputStream) throws IOException {
@@ -173,8 +193,26 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         }
     }
 
+    @Override
     public boolean isCompleteGetAllResponse(ByteBuffer buffer) {
-        return isCompleteResponse(buffer, VoldemortOpCode.GET_ALL_OP_CODE);
+        try {
+            DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
+            checkException(inputStream);
+            int numResults = inputStream.readInt();
+            for(int i = 0; i < numResults; i++) {
+                int keySize = inputStream.readInt();
+                if(!ByteUtils.skipByteArray(buffer, keySize)) {
+                    return false;
+                }
+                if(!skipeResults(inputStream, buffer)) {
+                    return false;
+                }
+            }
+        } catch(VoldemortException e) {
+        } catch(IOException e) {
+            return false;
+        }
+        return !buffer.hasRemaining();
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream stream)
@@ -189,6 +227,28 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
             results.put(new ByteArray(key), readResults(stream));
         }
         return results;
+    }
+
+    @Override
+    public int getExpectedPutRequestSize(String storeName,
+                                 ByteArray key,
+                                 byte[] value,
+                                 byte[] transforms,
+                                 VectorClock version,
+                                 RequestRoutingType routingType) {
+        int size = 1 + ByteUtils.getUTFMaxLength(storeName) + 1;
+        if(protocolVersion > 1) {
+            size += 1;
+        }
+        size += (4 + key.length());
+        size += 4 + (value.length + version.sizeInBytes());
+        if(protocolVersion > 2) {
+            size += 1;
+            if(transforms != null) {
+                size += 4 + transforms.length;
+            }
+        }
+        return size;
     }
 
     public void writePutRequest(DataOutputStream outputStream,
@@ -278,16 +338,8 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         try {
             try {
                 switch(opCode) {
-                    case VoldemortOpCode.GET_OP_CODE:
-                        readGetResponse(inputStream);
-                        break;
-
                     case VoldemortOpCode.GET_VERSION_OP_CODE:
                         readGetVersionResponse(inputStream);
-                        break;
-
-                    case VoldemortOpCode.GET_ALL_OP_CODE:
-                        readGetAllResponse(inputStream);
                         break;
 
                     case VoldemortOpCode.DELETE_OP_CODE:
@@ -297,6 +349,9 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
                     case VoldemortOpCode.PUT_OP_CODE:
                         readPutResponse(inputStream);
                         break;
+                    default:
+                        throw new VoldemortException("Unrecognized OpCode is inCompleteResponse "
+                                                     + opCode);
                 }
             } catch(VoldemortException e) {
                 // Ignore application-level exceptions

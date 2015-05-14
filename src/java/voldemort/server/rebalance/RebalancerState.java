@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -22,37 +22,36 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.RebalanceUtils;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
  * Store and manipulate rebalancing state. Moved out from
- * {@link RebalancePartitionsInfo} and {@link MetadataStore}
+ * {@link RebalanceTaskInfo} and {@link MetadataStore}
  * 
  */
 public class RebalancerState {
 
-    protected final Map<Integer, RebalancePartitionsInfo> stealInfoMap;
+    protected final Map<Integer, RebalanceTaskInfo> stealInfoMap;
 
-    public RebalancerState(List<RebalancePartitionsInfo> stealInfoList) {
+    public RebalancerState(List<RebalanceTaskInfo> stealInfoList) {
         stealInfoMap = Maps.newHashMapWithExpectedSize(stealInfoList.size());
-        for(RebalancePartitionsInfo rebalancePartitionsInfo: stealInfoList)
-            stealInfoMap.put(rebalancePartitionsInfo.getDonorId(), rebalancePartitionsInfo);
+        for(RebalanceTaskInfo rebalanceTaskInfo: stealInfoList)
+            stealInfoMap.put(rebalanceTaskInfo.getDonorId(), rebalanceTaskInfo);
     }
 
     public static RebalancerState create(String json) {
-        List<RebalancePartitionsInfo> stealInfoList = Lists.newLinkedList();
+        List<RebalanceTaskInfo> stealInfoList = Lists.newLinkedList();
         JsonReader reader = new JsonReader(new StringReader(json));
 
         for(Object o: reader.readArray()) {
             Map<?, ?> m = (Map<?, ?>) o;
-            stealInfoList.add(RebalancePartitionsInfo.create(m));
+            stealInfoList.add(RebalanceTaskInfo.create(m));
         }
 
         return new RebalancerState(stealInfoList);
@@ -61,8 +60,8 @@ public class RebalancerState {
     public String toJsonString() {
         List<Map<String, Object>> maps = Lists.newLinkedList();
 
-        for(RebalancePartitionsInfo rebalancePartitionsInfo: stealInfoMap.values())
-            maps.add(rebalancePartitionsInfo.asMap());
+        for(RebalanceTaskInfo rebalanceTaskInfo: stealInfoMap.values())
+            maps.add(rebalanceTaskInfo.asMap());
 
         StringWriter stringWriter = new StringWriter();
         new JsonWriter(stringWriter).write(maps);
@@ -75,47 +74,24 @@ public class RebalancerState {
         return stealInfoMap.isEmpty();
     }
 
-    public boolean remove(RebalancePartitionsInfo rebalancePartitionsInfo) {
-        RebalancePartitionsInfo prev = stealInfoMap.remove(rebalancePartitionsInfo.getDonorId());
-
+    public boolean remove(RebalanceTaskInfo rebalanceTaskInfo) {
+        RebalanceTaskInfo prev = stealInfoMap.remove(rebalanceTaskInfo.getDonorId());
         return prev != null;
     }
 
-    public boolean update(RebalancePartitionsInfo rebalancePartitionsInfo) {
-        if(stealInfoMap.containsKey(rebalancePartitionsInfo.getDonorId()))
+    public boolean update(RebalanceTaskInfo rebalanceTaskInfo) {
+        if(stealInfoMap.containsKey(rebalanceTaskInfo.getDonorId()))
             return false;
 
-        stealInfoMap.put(rebalancePartitionsInfo.getDonorId(), rebalancePartitionsInfo);
+        stealInfoMap.put(rebalanceTaskInfo.getDonorId(), rebalanceTaskInfo);
         return true;
     }
 
-    public Collection<RebalancePartitionsInfo> getAll() {
+    public Collection<RebalanceTaskInfo> getAll() {
         return stealInfoMap.values();
     }
 
-    public RebalancePartitionsInfo find(String storeName,
-                                        List<Integer> keyPartitions,
-                                        List<Integer> nodePartitions) {
-        for(RebalancePartitionsInfo info: getAll()) {
-
-            // First check if the store exists
-            if(info.getUnbalancedStoreList().contains(storeName)) {
-
-                // If yes, check if the key belongs to one of the partitions
-                // being moved
-                if(RebalanceUtils.checkKeyBelongsToPartition(keyPartitions,
-                                                             nodePartitions,
-                                                             info.getReplicaToAddPartitionList(storeName))) {
-                    return info;
-                }
-            }
-        }
-
-        // If none of them match, null
-        return null;
-    }
-
-    public RebalancePartitionsInfo find(int donorId) {
+    public RebalanceTaskInfo find(int donorId) {
         return stealInfoMap.get(donorId);
     }
 
@@ -143,7 +119,7 @@ public class RebalancerState {
     public String toString() {
         StringBuilder sb = new StringBuilder("RebalancerState(operations: ");
         sb.append("\n");
-        for(RebalancePartitionsInfo info: getAll()) {
+        for(RebalanceTaskInfo info: getAll()) {
             sb.append(info);
             sb.append("\n");
         }

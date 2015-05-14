@@ -1,24 +1,37 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client.rebalance.task;
 
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.RebalanceClientConfig;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.client.rebalance.RebalanceBatchPlanProgressBar;
+import voldemort.client.rebalance.RebalanceScheduler;
+import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.store.UnreachableStoreException;
-import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.utils.RebalanceUtils;
 
 import com.google.common.collect.Lists;
 
 /**
- * Immutable class that executes a {@link RebalancePartitionsInfo} instance on
+ * Immutable class that executes a {@link RebalanceTaskInfo} instance on
  * the rebalance client side.
  * 
  * This is run from the stealer nodes perspective
@@ -28,87 +41,88 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
     private static final Logger logger = Logger.getLogger(StealerBasedRebalanceTask.class);
 
     private final int stealerNodeId;
+    private final int donorNodeId;
 
-    public StealerBasedRebalanceTask(final int taskId,
-                                     final RebalancePartitionsInfo stealInfo,
-                                     final RebalanceClientConfig config,
+    private final RebalanceScheduler scheduler;
+
+    public StealerBasedRebalanceTask(final int batchId,
+                                     final int taskId,
+                                     final RebalanceTaskInfo stealInfo,
                                      final Semaphore donorPermit,
-                                     final AdminClient adminClient) {
-        super(taskId, Lists.newArrayList(stealInfo), config, donorPermit, adminClient);
+                                     final AdminClient adminClient,
+                                     final RebalanceBatchPlanProgressBar progressBar,
+                                     final RebalanceScheduler scheduler) {
+        super(batchId,
+              taskId,
+              Lists.newArrayList(stealInfo),
+              donorPermit,
+              adminClient,
+              progressBar,
+              logger);
+
         this.stealerNodeId = stealInfo.getStealerId();
+        this.donorNodeId = stealInfo.getDonorId();
+        this.scheduler = scheduler;
+
+        taskLog(toString());
     }
 
     private int startNodeRebalancing() {
-        int nTries = 0;
-        AlreadyRebalancingException rebalanceException = null;
+        try {
+            taskLog("Trying to start async rebalance task on stealer node " + stealerNodeId);
+            int asyncOperationId = adminClient.rebalanceOps.rebalanceNode(stealInfos.get(0));
+            taskLog("Started async rebalance task on stealer node " + stealerNodeId);
 
-        while(nTries < config.getMaxTriesRebalancing()) {
-            nTries++;
-            try {
+            return asyncOperationId;
 
-                RebalanceUtils.printLog(taskId, logger, "Starting on node " + stealerNodeId
-                                                        + " rebalancing task " + stealInfos.get(0));
-
-                int asyncOperationId = adminClient.rebalanceNode(stealInfos.get(0));
-                return asyncOperationId;
-
-            } catch(AlreadyRebalancingException e) {
-                RebalanceUtils.printLog(taskId,
-                                        logger,
-                                        "Node "
-                                                + stealerNodeId
-                                                + " is currently rebalancing. Waiting till completion");
-                adminClient.waitForCompletion(stealerNodeId,
-                                              MetadataStore.SERVER_STATE_KEY,
-                                              VoldemortState.NORMAL_SERVER.toString(),
-                                              config.getRebalancingClientTimeoutSeconds(),
-                                              TimeUnit.SECONDS);
-                rebalanceException = e;
-            }
+        } catch(AlreadyRebalancingException e) {
+            String errorMessage = "Node "
+                                  + stealerNodeId
+                                  + " is currently rebalancing. Should not have tried to start new task on stealer node!";
+            taskLog(errorMessage);
+            throw new VoldemortException(errorMessage + " Failed to start rebalancing with plan: "
+                                         + getStealInfos(), e);
         }
-
-        throw new VoldemortException("Failed to start rebalancing with plan: " + getStealInfos(),
-                                     rebalanceException);
     }
 
+    @Override
     public void run() {
         int rebalanceAsyncId = INVALID_REBALANCE_ID;
+        String threadName = Thread.currentThread().getName();
 
         try {
-            RebalanceUtils.printLog(taskId, logger, "Acquiring donor permit for node "
-                                                    + stealInfos.get(0).getDonorId() + " for "
-                                                    + stealInfos);
-            donorPermit.acquire();
+            Thread.currentThread().setName(threadName + "-Task-" + taskId + "-asyncid-"
+                                           + rebalanceAsyncId);
 
+            acquirePermit(stealInfos.get(0).getDonorId());
+
+            // Start rebalance task and then wait.
             rebalanceAsyncId = startNodeRebalancing();
+            taskStart(taskId, rebalanceAsyncId);
 
-            // Wait for the task to get over
-            adminClient.waitForCompletion(stealerNodeId,
-                                          rebalanceAsyncId,
-                                          config.getRebalancingClientTimeoutSeconds(),
-                                          TimeUnit.SECONDS);
-            RebalanceUtils.printLog(taskId,
-                                    logger,
-                                    "Succesfully finished rebalance for async operation id "
-                                            + rebalanceAsyncId);
+            adminClient.rpcOps.waitForCompletion(stealerNodeId, rebalanceAsyncId);
+            taskDone(taskId, rebalanceAsyncId);
 
         } catch(UnreachableStoreException e) {
             exception = e;
             logger.error("Stealer node " + stealerNodeId
                          + " is unreachable, please make sure it is up and running : "
-                         + e.getMessage(), e);
+                         + e.getMessage(),
+                         e);
         } catch(Exception e) {
             exception = e;
             logger.error("Rebalance failed : " + e.getMessage(), e);
         } finally {
+            Thread.currentThread().setName(threadName);
             donorPermit.release();
             isComplete.set(true);
+            scheduler.doneTask(stealerNodeId, donorNodeId);
         }
     }
 
     @Override
     public String toString() {
-        return "Stealer based rebalance task on stealer node " + stealerNodeId + " : "
-               + getStealInfos();
+        return "Stealer based rebalance task on stealer node " + stealerNodeId
+               + " from donor node " + donorNodeId + " : " + getStealInfos();
     }
 }

@@ -18,8 +18,8 @@
  * the License.
  */
 
-#ifndef INCONSISTENCYRESOLVER_H
-#define INCONSISTENCYRESOLVER_H
+#ifndef VOLDEMORT_INCONSISTENCYRESOLVER_H
+#define VOLDEMORT_INCONSISTENCYRESOLVER_H
 
 #include <voldemort/VersionedValue.h>
 
@@ -53,4 +53,4 @@ public:
 
 } /* namespace Voldemort */
 
-#endif /* INCONSISTENCYRESOLVER_H */
+#endif /*VOLDEMORT_INCONSISTENCYRESOLVER_H */

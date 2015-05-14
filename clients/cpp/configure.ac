@@ -29,7 +29,7 @@
 
 m4_define([sdk_pversion], 0)
 m4_define([sdk_sversion], 1)
-m4_define([sdk_iversion], 0)
+m4_define([sdk_iversion], 1)
 AC_INIT([voldemort], [sdk_pversion.sdk_sversion.sdk_iversion])
 AC_SUBST(SDK_MARKETNAME, ["Voldemort C++ Client"])
 AC_DEFINE(SDK_MARKETNAME, ["Voldemort C++ Client"], [Marketing name for SDK])
@@ -109,7 +109,8 @@ AM_CONDITIONAL(HAVE_DOXYGEN, [test x$DOXYGEN != 'xnone'])
 AC_STDC_HEADERS
 AC_HAVE_HEADERS(pthread.h sys/stat.h unistd.h getopt.h)
 
-AX_BOOST_BASE([1.3.7])
+AX_BOOST_BASE([1.5.0])
+AX_BOOST_SYSTEM
 AX_BOOST_ASIO
 AX_BOOST_UNIT_TEST_FRAMEWORK
 AX_BOOST_THREAD
@@ -123,16 +124,8 @@ fi
 if test "x$BOOST_THREAD_LIB" = "x"; then
    AC_MSG_ERROR([Boost Thread library is required])
 fi
-
-# Check for system pthread convention.  See macro definition in
-# acinclude.m4
-ACX_PTHREAD([], [])
-LIBS="$PTHREAD_LIBS $LIBS"
-CFLAGS="$CFLAGS $PTHREAD_CFLAGS -D_REENTRANT"
-CXXFLAGS="$CXXFLAGS $PTHREAD_CFLAGS"
-
-if test x$have_pthread = 'xfalse'; then
-   AC_MSG_NOTICE([Could not find pthreads library])
+if test "x$BOOST_SYSTEM_LIB" = "x"; then
+   AC_MSG_ERROR([Boost System library is required])
 fi
 
 # Check for protocol buffers library

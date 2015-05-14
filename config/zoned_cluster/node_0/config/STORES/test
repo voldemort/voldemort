@@ -1,0 +1,21 @@
+<store>
+  <name>test</name>
+  <persistence>bdb</persistence>
+  <routing>client</routing>
+  <routing-strategy>zone-routing</routing-strategy>
+  <replication-factor>4</replication-factor>
+  <required-reads>2</required-reads>
+  <required-writes>2</required-writes>
+  <zone-replication-factor>
+    <replication-factor zone-id="0">2</replication-factor>
+    <replication-factor zone-id="1">2</replication-factor>
+  </zone-replication-factor>
+  <zone-count-reads>1</zone-count-reads>
+  <zone-count-writes>1</zone-count-writes>
+  <key-serializer>
+    <type>string</type>
+  </key-serializer>
+  <value-serializer>
+    <type>string</type>
+  </value-serializer>
+</store>

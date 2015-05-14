@@ -2,7 +2,6 @@ package voldemort;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.client.DefaultStoreClient;
@@ -11,6 +10,7 @@ import voldemort.client.StoreClientFactory;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.store.Store;
+import voldemort.store.stats.StoreClientFactoryStats;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
@@ -32,6 +32,7 @@ public class StaticStoreClientFactory implements StoreClientFactory {
     private final AtomicInteger current;
     private final List<Store<?, ?, ?>> stores;
     private final FailureDetector failureDetector;
+    private final StoreClientFactoryStats staticStoreClientFactoryStats;
 
     public StaticStoreClientFactory(Store<?, ?, ?>... stores) {
         if(stores.length < 1)
@@ -39,19 +40,13 @@ public class StaticStoreClientFactory implements StoreClientFactory {
         this.stores = Arrays.asList(stores);
         current = new AtomicInteger(0);
         failureDetector = new NoopFailureDetector();
-    }
-
-    @SuppressWarnings("unchecked")
-    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver,
-                                                UUID clientId) {
-        return (Store<K, V, T>) stores.get(Math.max(current.getAndIncrement(), stores.size() - 1));
+        staticStoreClientFactoryStats = new StoreClientFactoryStats();
     }
 
     @SuppressWarnings("unchecked")
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver) {
-        return getRawStore(storeName, resolver, null);
+        return (Store<K, V, T>) stores.get(Math.max(current.getAndIncrement(), stores.size() - 1));
     }
 
     @SuppressWarnings("unchecked")
@@ -73,5 +68,4 @@ public class StaticStoreClientFactory implements StoreClientFactory {
     public FailureDetector getFailureDetector() {
         return failureDetector;
     }
-
 }

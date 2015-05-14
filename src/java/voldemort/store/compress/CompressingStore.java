@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import voldemort.VoldemortException;
+import voldemort.store.AbstractStore;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
@@ -45,7 +46,7 @@ import com.google.common.collect.Maps;
  * @see NoopCompressionStrategy
  * @see GzipCompressionStrategy
  */
-public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
+public class CompressingStore extends AbstractStore<ByteArray, byte[], byte[]> {
 
     private final Store<ByteArray, byte[], byte[]> innerStore;
     private final CompressionStrategy keysCompressionStrategy;
@@ -54,11 +55,13 @@ public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
     public CompressingStore(Store<ByteArray, byte[], byte[]> innerStore,
                             CompressionStrategy keysCompressionStrategy,
                             CompressionStrategy valuesCompressionStrategy) {
+        super(innerStore.getName());
         this.keysCompressionStrategy = Utils.notNull(keysCompressionStrategy);
         this.valuesCompressionStrategy = Utils.notNull(valuesCompressionStrategy);
         this.innerStore = Utils.notNull(innerStore);
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -130,11 +133,13 @@ public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
         }
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         return inflateValues(innerStore.get(deflateKey(key), transforms));
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         return innerStore.getVersions(deflateKey(key));
     }
@@ -147,24 +152,24 @@ public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
         return inflated;
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
         innerStore.put(deflateKey(key), deflateValue(value), transforms);
     }
 
+    @Override
     public void close() throws VoldemortException {
         innerStore.close();
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         return innerStore.getCapability(capability);
     }
 
-    public String getName() {
-        return innerStore.getName();
-    }
-
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         return innerStore.delete(deflateKey(key), version);

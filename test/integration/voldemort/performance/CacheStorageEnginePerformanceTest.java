@@ -18,6 +18,7 @@ package voldemort.performance;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import voldemort.TestUtils;
 import voldemort.store.Store;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.utils.ByteArray;
@@ -38,7 +39,8 @@ public class CacheStorageEnginePerformanceTest {
         final int mod = 100;
         final int readMax = (int) readPercent * mod;
 
-        final Store<ByteArray, byte[], byte[]> store = new CacheStorageConfiguration(null).getStore("test");
+        final Store<ByteArray, byte[], byte[]> store = new CacheStorageConfiguration(null).getStore(TestUtils.makeStoreDefinition("test"),
+                                                                                                    TestUtils.makeSingleNodeRoutingStrategy());
         final AtomicInteger obsoletes = new AtomicInteger(0);
 
         PerformanceTest readWriteTest = new PerformanceTest() {

@@ -25,18 +25,22 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
-import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Level;
 
+import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.common.nio.ByteBufferBackedInputStream;
+import voldemort.common.nio.ByteBufferBackedOutputStream;
+import voldemort.common.nio.ByteBufferContainer;
+import voldemort.common.nio.CommBufferSizeStats;
+import voldemort.common.nio.SelectorManagerWorker;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.server.protocol.StreamRequestHandler.StreamRequestDirection;
 import voldemort.server.protocol.StreamRequestHandler.StreamRequestHandlerState;
 import voldemort.utils.ByteUtils;
-import voldemort.utils.SelectorManagerWorker;
 
 /**
  * AsyncRequestHandler manages a Selector, SocketChannel, and RequestHandler
@@ -60,21 +64,80 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
     private StreamRequestHandler streamRequestHandler;
 
-    private MutableInt serverConnectionCount;
+    private NioSelectorManagerStats nioStats;
 
     public AsyncRequestHandler(Selector selector,
                                SocketChannel socketChannel,
                                RequestHandlerFactory requestHandlerFactory,
                                int socketBufferSize,
-                               MutableInt serverConnectionCount) {
+                               NioSelectorManagerStats nioStats) {
         super(selector, socketChannel, socketBufferSize);
         this.requestHandlerFactory = requestHandlerFactory;
-        this.serverConnectionCount = serverConnectionCount;
+        this.nioStats = nioStats;
+
+        initializeStreams(socketBufferSize, nioStats.getServerCommBufferStats());
+        if(this.inputStream == null || this.outputStream == null) {
+            throw new VoldemortApplicationException("InputStream or OuputStream is null after initialization");
+        }
+    }
+
+    /**
+     * Flips the output buffer, and lets the Selector know we're ready to write.
+     * 
+     * @param selectionKey
+     */
+
+    protected void prepForWrite(SelectionKey selectionKey) {
+        if(logger.isTraceEnabled())
+            traceInputBufferState("About to clear read buffer");
+
+        if(requestHandlerFactory.shareReadWriteBuffer() == false) {
+            inputStream.clear();
+        }
+
+        if(logger.isTraceEnabled())
+            traceInputBufferState("Cleared read buffer");
+
+        outputStream.getBuffer().flip();
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+    }
+
+    @Override
+    protected void initializeStreams(int socketBufferSize, CommBufferSizeStats commBufferStats) {
+        ByteBufferContainer inputBufferContainer, outputBufferContainer;
+        inputBufferContainer = new ByteBufferContainer(socketBufferSize,
+                                                       resizeThreshold,
+                                                       commBufferStats.getCommReadBufferSizeTracker());
+
+        if(requestHandlerFactory.shareReadWriteBuffer()) {
+            outputBufferContainer = inputBufferContainer;
+        } else {
+            outputBufferContainer = new ByteBufferContainer(socketBufferSize,
+                                                            resizeThreshold,
+                                                            commBufferStats.getCommWriteBufferSizeTracker());
+        }
+        this.inputStream = new ByteBufferBackedInputStream(inputBufferContainer);
+        this.outputStream = new ByteBufferBackedOutputStream(outputBufferContainer);
+    }
+
+    @Override
+    protected void connect(SelectionKey selectionKey) throws IOException {
+        throw new IOException("Not implemented for Server sockets");
+    }
+
+    @Override
+    protected void reportException(IOException e) {
+        // Not handled for Server side.
     }
 
     @Override
     protected void read(SelectionKey selectionKey) throws IOException {
         int count = 0;
+
+        long startNs = -1;
+
+        if(logger.isDebugEnabled())
+            startNs = System.nanoTime();
 
         if((count = socketChannel.read(inputStream.getBuffer())) == -1)
             throw new EOFException("EOF for " + socketChannel.socket());
@@ -122,8 +185,19 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         if(logger.isTraceEnabled())
             logger.trace("Starting execution for " + socketChannel.socket());
 
-        streamRequestHandler = requestHandler.handleRequest(new DataInputStream(inputStream),
-                                                            new DataOutputStream(outputStream));
+        DataInputStream dataInputStream = new DataInputStream(inputStream);
+        DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+        streamRequestHandler = requestHandler.handleRequest(dataInputStream,
+                                                            dataOutputStream,
+                                                            outputStream.getBufferContainer());
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("AsyncRequestHandler:read finished request from "
+                         + socketChannel.socket().getRemoteSocketAddress() + " handlerRef: "
+                         + System.identityHashCode(outputStream) + " at time: "
+                         + System.currentTimeMillis() + " elapsed time: "
+                         + (System.nanoTime() - startNs) + " ns");
+        }
 
         if(streamRequestHandler != null) {
             // In the case of a StreamRequestHandler, we handle that separately
@@ -173,10 +247,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
         // If we don't have anything else to write, that means we're done with
         // the request! So clear the buffers (resizing if necessary).
-        if(outputStream.getBuffer().capacity() >= resizeThreshold)
-            outputStream.setBuffer(ByteBuffer.allocate(socketBufferSize));
-        else
-            outputStream.getBuffer().clear();
+        outputStream.clear();
 
         if(streamRequestHandler != null
            && streamRequestHandler.getDirection() == StreamRequestDirection.WRITING) {
@@ -282,7 +353,22 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
             if(logger.isTraceEnabled())
                 traceInputBufferState("Before streaming request handler");
 
+            // this is the lowest level in the NioSocketServer stack at which we
+            // still have a reference to the client IP address and port
+            long startNs = -1;
+
+            if(logger.isDebugEnabled())
+                startNs = System.nanoTime();
+
             state = streamRequestHandler.handleRequest(dataInputStream, dataOutputStream);
+
+            if(logger.isDebugEnabled()) {
+                logger.debug("Handled request from "
+                             + socketChannel.socket().getRemoteSocketAddress() + " handlerRef: "
+                             + System.identityHashCode(dataInputStream) + " at time: "
+                             + System.currentTimeMillis() + " elapsed time: "
+                             + (System.nanoTime() - startNs) + " ns");
+            }
 
             if(logger.isTraceEnabled())
                 traceInputBufferState("After streaming request handler");
@@ -322,6 +408,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
         try {
             String proto = ByteUtils.getString(protoBytes, "UTF-8");
+            inputBuffer.clear();
             RequestFormatType requestFormatType = RequestFormatType.fromCode(proto);
             requestHandler = requestHandlerFactory.getRequestHandler(requestFormatType);
 
@@ -355,7 +442,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         if(!isClosed.compareAndSet(false, true))
             return;
 
-        serverConnectionCount.decrement();
+        nioStats.removeConnection();
         closeInternal();
     }
 }

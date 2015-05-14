@@ -1,3 +1,19 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client;
 
 import java.io.IOException;
@@ -6,8 +22,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Map.Entry;
+import java.util.Properties;
 
 import junit.framework.TestCase;
 
@@ -110,6 +126,8 @@ public class AdminServiceFailureTest extends TestCase {
                                                                                                                                null,
                                                                                                                                new Properties()),
                                                                                             null,
+                                                                                            null,
+                                                                                            null,
                                                                                             null);
         return ServerTestUtils.getSocketService(useNio,
                                                 requestHandlerFactory,
@@ -124,7 +142,7 @@ public class AdminServiceFailureTest extends TestCase {
     public void tearDown() throws IOException {
         try {
             adminServer.stop();
-            adminClient.stop();
+            adminClient.close();
         } catch(Exception e) {
             // ignore
         }
@@ -169,33 +187,36 @@ public class AdminServiceFailureTest extends TestCase {
         switch(e) {
             case DELETE_PARTITIONS:
                 putAlltoStore();
-                getAdminClient().deletePartitions(nodeId, storeName, partitionList, null);
+                getAdminClient().storeMntOps.deletePartitions(nodeId,
+                                                              storeName,
+                                                              partitionList,
+                                                              null);
                 return;
             case FETCH_ENTRIES:
                 putAlltoStore();
-                consumeIterator(getAdminClient().fetchEntries(nodeId,
-                                                              storeName,
-                                                              partitionList,
-                                                              null,
-                                                              false));
+                consumeIterator(getAdminClient().bulkFetchOps.fetchEntries(nodeId,
+                                                                           storeName,
+                                                                           partitionList,
+                                                                           null,
+                                                                           false));
                 return;
             case FETCH_KEYS:
                 putAlltoStore();
-                consumeIterator(getAdminClient().fetchKeys(nodeId,
-                                                           storeName,
-                                                           partitionList,
-                                                           null,
-                                                           false));
+                consumeIterator(getAdminClient().bulkFetchOps.fetchKeys(nodeId,
+                                                                        storeName,
+                                                                        partitionList,
+                                                                        null,
+                                                                        false));
                 return;
             case UPDATE_ENTRIES:
-                getAdminClient().updateEntries(nodeId,
-                                               storeName,
-                                               getRandomlyFailingIterator(ServerTestUtils.createRandomKeyValuePairs(TEST_KEYS)),
-                                               null);
+                getAdminClient().streamingOps.updateEntries(nodeId,
+                                                            storeName,
+                                                            getRandomlyFailingIterator(ServerTestUtils.createRandomKeyValuePairs(TEST_KEYS)),
+                                                            null);
                 return;
             case TRUNCATE_ENTRIES:
                 putAlltoStore();
-                getAdminClient().truncate(nodeId, storeName);
+                getAdminClient().storeMntOps.truncate(nodeId, storeName);
                 return;
 
             default:

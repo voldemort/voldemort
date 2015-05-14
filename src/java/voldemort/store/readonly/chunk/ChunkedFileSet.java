@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -22,6 +23,7 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.store.readonly.io.MappedFileReader;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
@@ -39,12 +41,15 @@ public class ChunkedFileSet {
 
     private static Logger logger = Logger.getLogger(ChunkedFileSet.class);
 
-    private final int numChunks;
+    private int numChunks;
     private final int nodeId;
-    private final File baseDir;
+    private File baseDir;
     private final List<Integer> indexFileSizes;
     private final List<Integer> dataFileSizes;
+    private final List<String> fileNames;
     private final List<MappedByteBuffer> indexFiles;
+
+    private List<MappedFileReader> mappedIndexFileReader;
     private final List<FileChannel> dataFiles;
     private final HashMap<Object, Integer> chunkIdToChunkStart;
     private final HashMap<Object, Integer> chunkIdToNumChunks;
@@ -52,30 +57,51 @@ public class ChunkedFileSet {
     private RoutingStrategy routingStrategy;
     private ReadOnlyStorageFormat storageFormat;
 
-    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId) {
+    private boolean enforceMlock = false;
+
+    public ChunkedFileSet(File directory,
+                          RoutingStrategy routingStrategy,
+                          int nodeId,
+                          boolean enforceMlock) throws IOException {
+
+        this.enforceMlock = enforceMlock;
         this.baseDir = directory;
-        if(!Utils.isReadableDir(directory))
+        if(!Utils.isReadableDir(directory)) {
             throw new VoldemortException(directory.getAbsolutePath()
                                          + " is not a readable directory.");
+        }
 
-        // Check if format file exists
         File metadataFile = new File(baseDir, ".metadata");
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+
+        // Check if metadata file exists. If not, create one with RO2 format.
+        if(!metadataFile.exists()) {
+            metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                         ReadOnlyStorageFormat.READONLY_V2.getCode());
+            try {
+                FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
+            } catch(IOException e) {
+                logger.error("Cannot create metadata file ", e);
+                throw new IOException("Unable to create metadata file " + metadataFile);
+            }
+        }
+        // Read metadata file to populate metadata object
         if(Utils.isReadableFile(metadataFile)) {
             try {
                 metadata = new ReadOnlyStorageMetadata(metadataFile);
             } catch(IOException e) {
                 logger.warn("Cannot read metadata file, assuming default values");
             }
-        } else {
-            logger.warn("Metadata file not found. Assuming default settings");
         }
 
         this.storageFormat = ReadOnlyStorageFormat.fromCode((String) metadata.get(ReadOnlyStorageMetadata.FORMAT,
-                                                                                  ReadOnlyStorageFormat.READONLY_V0.getCode()));
+                                                                                  ReadOnlyStorageFormat.READONLY_V2.getCode()));
         this.indexFileSizes = new ArrayList<Integer>();
         this.dataFileSizes = new ArrayList<Integer>();
+        this.fileNames = new ArrayList<String>();
         this.indexFiles = new ArrayList<MappedByteBuffer>();
+        this.mappedIndexFileReader = new ArrayList<MappedFileReader>();
+
         this.dataFiles = new ArrayList<FileChannel>();
         this.chunkIdToChunkStart = new HashMap<Object, Integer>();
         this.chunkIdToNumChunks = new HashMap<Object, Integer>();
@@ -99,6 +125,12 @@ public class ChunkedFileSet {
         this.numChunks = indexFileSizes.size();
         logger.trace("Opened chunked file set for " + baseDir + " with " + indexFileSizes.size()
                      + " chunks and format  " + storageFormat);
+    }
+
+    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId)
+                                                                                      throws IOException {
+        this(directory, routingStrategy, nodeId, false);
+
     }
 
     public DataFileChunkSet toDataFileChunkSet() {
@@ -131,8 +163,9 @@ public class ChunkedFileSet {
         // initialize all the chunks
         int chunkId = 0;
         while(true) {
-            File index = new File(baseDir, Integer.toString(chunkId) + ".index");
-            File data = new File(baseDir, Integer.toString(chunkId) + ".data");
+            String fileName = Integer.toString(chunkId);
+            File index = new File(baseDir, fileName + ".index");
+            File data = new File(baseDir, fileName + ".data");
             if(!index.exists() && !data.exists())
                 break;
             else if(index.exists() ^ data.exists())
@@ -145,10 +178,22 @@ public class ChunkedFileSet {
             validateFileSizes(indexLength, dataLength);
             indexFileSizes.add((int) indexLength);
             dataFileSizes.add((int) dataLength);
+            fileNames.add(fileName);
 
             /* Add the file channel for data */
             dataFiles.add(openChannel(data));
-            indexFiles.add(mapFile(index));
+
+            MappedFileReader idxFileReader = null;
+            try {
+                idxFileReader = new MappedFileReader(index);
+                mappedIndexFileReader.add(idxFileReader);
+                indexFiles.add(idxFileReader.map(enforceMlock));
+            } catch(IOException e) {
+
+                logger.error("Error in mlock", e);
+            }
+
+            // indexFiles.add(mapFile(index));
             chunkId++;
         }
         if(chunkId == 0)
@@ -197,10 +242,21 @@ public class ChunkedFileSet {
                     validateFileSizes(indexLength, dataLength);
                     indexFileSizes.add((int) indexLength);
                     dataFileSizes.add((int) dataLength);
+                    fileNames.add(fileName);
 
                     /* Add the file channel for data */
                     dataFiles.add(openChannel(data));
-                    indexFiles.add(mapFile(index));
+
+                    MappedFileReader idxFileReader = null;
+                    try {
+                        idxFileReader = new MappedFileReader(index);
+                        mappedIndexFileReader.add(idxFileReader);
+                        indexFiles.add(idxFileReader.map(enforceMlock));
+                    } catch(IOException e) {
+                        logger.error("Error in mlock", e);
+                    }
+
+                    // indexFiles.add(mapFile(index));
                     chunkId++;
                     globalChunkId++;
                 }
@@ -226,13 +282,14 @@ public class ChunkedFileSet {
 
                     // Find intersection with nodes partition ids
                     Pair<Integer, Integer> bucket = null;
-                    for(int replicaType = 0; replicaType < routingPartitionList.size(); replicaType++) {
+                    for(int replicatingPartition = 0; replicatingPartition < routingPartitionList.size(); replicatingPartition++) {
 
-                        if(nodePartitionIds.contains(routingPartitionList.get(replicaType))) {
+                        if(nodePartitionIds.contains(routingPartitionList.get(replicatingPartition))) {
                             if(bucket == null) {
 
                                 // Generate bucket information
-                                bucket = Pair.create(routingPartitionList.get(0), replicaType);
+                                bucket = Pair.create(routingPartitionList.get(0),
+                                                     replicatingPartition);
 
                                 int chunkId = 0;
                                 while(true) {
@@ -251,12 +308,13 @@ public class ChunkedFileSet {
                                                 new File(baseDir, fileName + ".data").createNewFile();
                                                 logger.info("No index or data files found, creating empty files for partition "
                                                             + routingPartitionList.get(0)
-                                                            + " and replica type " + replicaType);
+                                                            + " and replicating partition "
+                                                            + replicatingPartition);
                                             } catch(IOException e) {
                                                 throw new VoldemortException("Error creating empty read-only files for partition "
                                                                                      + routingPartitionList.get(0)
-                                                                                     + " and replica type "
-                                                                                     + replicaType,
+                                                                                     + " and replicating partition "
+                                                                                     + replicatingPartition,
                                                                              e);
                                             }
                                         } else {
@@ -279,10 +337,21 @@ public class ChunkedFileSet {
                                     validateFileSizes(indexLength, dataLength);
                                     indexFileSizes.add((int) indexLength);
                                     dataFileSizes.add((int) dataLength);
+                                    fileNames.add(fileName);
 
                                     /* Add the file channel for data */
                                     dataFiles.add(openChannel(data));
-                                    indexFiles.add(mapFile(index));
+
+                                    MappedFileReader idxFileReader = null;
+                                    try {
+                                        idxFileReader = new MappedFileReader(index);
+                                        mappedIndexFileReader.add(idxFileReader);
+                                        indexFiles.add(idxFileReader.map(enforceMlock));
+                                    } catch(IOException e) {
+                                        logger.error("Error in mlock", e);
+                                    }
+
+                                    // indexFiles.add(mapFile(index));
                                     chunkId++;
                                     globalChunkId++;
                                 }
@@ -340,6 +409,28 @@ public class ChunkedFileSet {
                                          + dataLength + " bytes.");
     }
 
+    /*
+     * Ideally all methods after the close should throw an Exception if called,
+     * but that will involve changing a lot of code ( this file and callers )
+     * and testing. So reseting most of the collections so that the read returns
+     * empty data. Before this method was introduced JVM used to crash when the
+     * memory mapped file was accessed after it was closed.
+     */
+    private void reset() {
+        this.numChunks = 0;
+        this.baseDir = null;
+        this.indexFileSizes.clear();
+        this.dataFileSizes.clear();
+        this.fileNames.clear();
+        this.indexFiles.clear();
+        this.mappedIndexFileReader.clear();
+
+        this.dataFiles.clear();
+        this.chunkIdToChunkStart.clear();
+        this.chunkIdToNumChunks.clear();
+
+    }
+
     public void close() {
         for(int chunk = 0; chunk < this.numChunks; chunk++) {
             FileChannel channel = dataFileFor(chunk);
@@ -348,7 +439,17 @@ public class ChunkedFileSet {
             } catch(IOException e) {
                 logger.error("Error while closing file.", e);
             }
+
+            MappedFileReader idxFileReader = mappedIndexFileReader.get(chunk);
+            try {
+                idxFileReader.close();
+            } catch(IOException e) {
+
+                logger.error("Error while closing file.", e);
+            }
         }
+        reset();
+
     }
 
     private FileChannel openChannel(File file) {
@@ -419,11 +520,19 @@ public class ChunkedFileSet {
      * @return Chunk id
      */
     public int getChunkForKey(byte[] key) {
+        if(numChunks == 0) {
+            // The ChunkedFileSet is closed
+            return -1;
+        }
+
         switch(storageFormat) {
             case READONLY_V0: {
                 return ReadOnlyUtils.chunk(ByteUtils.md5(key), numChunks);
             }
             case READONLY_V1: {
+                if(nodePartitionIds == null) {
+                    return -1;
+                }
                 List<Integer> routingPartitionList = routingStrategy.getPartitionList(key);
                 routingPartitionList.retainAll(nodePartitionIds);
 
@@ -440,7 +549,9 @@ public class ChunkedFileSet {
 
                 Pair<Integer, Integer> bucket = null;
                 for(int replicaType = 0; replicaType < routingPartitionList.size(); replicaType++) {
-
+                    if(nodePartitionIds == null) {
+                        return -1;
+                    }
                     if(nodePartitionIds.contains(routingPartitionList.get(replicaType))) {
                         if(bucket == null) {
                             bucket = Pair.create(routingPartitionList.get(0), replicaType);
@@ -707,4 +818,7 @@ public class ChunkedFileSet {
         return this.dataFileSizes.get(chunk);
     }
 
+    public List<String> getFileNames() {
+        return this.fileNames;
+    }
 }

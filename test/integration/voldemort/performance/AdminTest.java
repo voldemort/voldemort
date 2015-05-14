@@ -3,7 +3,6 @@ package voldemort.performance;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -20,7 +19,6 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 
 public class AdminTest {
@@ -129,13 +127,14 @@ public class AdminTest {
                                + nodePartitions.get(node) + ": \n");
             measureFunction(new Measurable() {
 
+                @Override
                 public long apply() {
                     long i = 0;
-                    Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.fetchEntries(node,
-                                                                                                   storeName,
-                                                                                                   new ArrayList<Integer>(nodePartitions.get(node)),
-                                                                                                   null,
-                                                                                                   false);
+                    Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.bulkFetchOps.fetchEntries(node,
+                                                                                                                storeName,
+                                                                                                                new ArrayList<Integer>(nodePartitions.get(node)),
+                                                                                                                null,
+                                                                                                                false);
                     while(result.hasNext()) {
                         i++;
                         result.next();
@@ -151,22 +150,22 @@ public class AdminTest {
         for(final Integer node: from.keySet()) {
             timeFunction(new Timed() {
 
+                @Override
                 public void apply() {
-                    HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
-                    replicaToPartitionList.put(0, Lists.newArrayList(from.get(node)));
-                    adminClient.migratePartitions(node,
-                                                  to,
-                                                  storeName,
-                                                  replicaToPartitionList,
-                                                  null,
-                                                  null,
-                                                  false);
+                    List<Integer> partitionIds = Lists.newArrayList(from.get(node));
+                    adminClient.storeMntOps.migratePartitions(node,
+                                                              to,
+                                                              storeName,
+                                                              partitionIds,
+                                                              null,
+                                                              null);
                 }
 
             }, 1);
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
 
@@ -183,7 +182,7 @@ public class AdminTest {
               .withValuesSeparatedBy(',');
         OptionSet options = parser.parse(args);
 
-        List<String> nonOptions = options.nonOptionArguments();
+        List<String> nonOptions = (List<String>) options.nonOptionArguments();
 
         if(args.length < 2) {
             System.out.println(usageStr);

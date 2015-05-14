@@ -16,58 +16,74 @@
 
 package voldemort.store.bdb;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collection;
 
-import junit.framework.TestCase;
+import junit.framework.Assert;
 
-import org.apache.commons.io.FileDeleteStrategy;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.TestUtils;
 import voldemort.server.VoldemortConfig;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
 
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.Durability;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.EnvironmentStats;
-import com.sleepycat.je.LockMode;
 import com.sleepycat.je.StatsConfig;
 
 /**
- * checks that
+ * checks BDB runtime behavior relating to operating multiple environments
  * 
  * 
  */
-public class BdbSplitStorageEngineTest extends TestCase {
+@RunWith(Parameterized.class)
+public class BdbSplitStorageEngineTest {
 
     private File bdbMasterDir;
     private BdbStorageConfiguration bdbStorage;
 
     private static long CACHE_SIZE = (long) Math.min(Runtime.getRuntime().maxMemory() * 0.30,
                                                      32 * 1000 * 1000);
+    private boolean prefixPartitionId;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    public BdbSplitStorageEngineTest(boolean prefixPartitionId) {
+        this.prefixPartitionId = prefixPartitionId;
+    }
 
+    @Parameters
+    public static Collection<Object[]> modes() {
+        Object[][] data = new Object[][] { { true }, { false } };
+        return Arrays.asList(data);
+    }
+
+    @Before
+    public void setUp() throws Exception {
         bdbMasterDir = TestUtils.createTempDir();
-        FileDeleteStrategy.FORCE.delete(bdbMasterDir);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-        try {
-            if(bdbStorage != null)
-                bdbStorage.close();
-        } finally {
-            FileDeleteStrategy.FORCE.delete(bdbMasterDir);
-        }
+    @After
+    public void tearDown() throws Exception {
+        if(bdbStorage != null)
+            bdbStorage.close();
     }
 
+    @Test
     public void testNoMultipleEnvironment() {
         // lets use all the default values.
         Props props = new Props();
@@ -77,10 +93,13 @@ public class BdbSplitStorageEngineTest extends TestCase {
         voldemortConfig.setBdbCacheSize(1 * 1024 * 1024);
         voldemortConfig.setBdbDataDirectory(bdbMasterDir.toURI().getPath());
         voldemortConfig.setBdbOneEnvPerStore(false);
+        voldemortConfig.setBdbPrefixKeysWithPartitionId(prefixPartitionId);
 
         bdbStorage = new BdbStorageConfiguration(voldemortConfig);
-        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore("storeA");
-        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore("storeB");
+        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeA"),
+                                                                         TestUtils.makeSingleNodeRoutingStrategy());
+        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeB"),
+                                                                         TestUtils.makeSingleNodeRoutingStrategy());
 
         storeA.put(TestUtils.toByteArray("testKey1"),
                    new Versioned<byte[]>("value".getBytes()),
@@ -105,7 +124,7 @@ public class BdbSplitStorageEngineTest extends TestCase {
         storeA.close();
         storeB.close();
 
-        assertEquals("common BDB file should exists.", true, (bdbMasterDir.exists()));
+        Assert.assertEquals("common BDB file should exists.", true, (bdbMasterDir.exists()));
 
         assertNotSame("StoreA BDB file should not exists.", true, (new File(bdbMasterDir + "/"
                                                                             + "storeA").exists()));
@@ -113,6 +132,7 @@ public class BdbSplitStorageEngineTest extends TestCase {
                                                                             + "storeB").exists()));
     }
 
+    @Test
     public void testMultipleEnvironment() {
         // lets use all the default values.
         Props props = new Props();
@@ -122,10 +142,13 @@ public class BdbSplitStorageEngineTest extends TestCase {
         voldemortConfig.setBdbCacheSize(1 * 1024 * 1024);
         voldemortConfig.setBdbOneEnvPerStore(true);
         voldemortConfig.setBdbDataDirectory(bdbMasterDir.toURI().getPath());
+        voldemortConfig.setBdbPrefixKeysWithPartitionId(prefixPartitionId);
 
         bdbStorage = new BdbStorageConfiguration(voldemortConfig);
-        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore("storeA");
-        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore("storeB");
+        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeA"),
+                                                                         TestUtils.makeSingleNodeRoutingStrategy());
+        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeB"),
+                                                                         TestUtils.makeSingleNodeRoutingStrategy());
 
         storeA.put(TestUtils.toByteArray("testKey1"),
                    new Versioned<byte[]>("value".getBytes()),
@@ -156,10 +179,10 @@ public class BdbSplitStorageEngineTest extends TestCase {
                                                                         + "storeB").exists()));
     }
 
+    @Test
     public void testUnsharedCache() throws DatabaseException {
         EnvironmentConfig environmentConfig = new EnvironmentConfig();
-        environmentConfig = new EnvironmentConfig();
-        environmentConfig.setTxnNoSync(true);
+        environmentConfig.setDurability(Durability.COMMIT_NO_SYNC);
         environmentConfig.setAllowCreate(true);
         environmentConfig.setTransactional(true);
         environmentConfig.setSharedCache(false);
@@ -176,9 +199,10 @@ public class BdbSplitStorageEngineTest extends TestCase {
         assertEquals("MaxCacheSize < 2 * CACHE_SIZE", true, maxCacheSize < 2 * CACHE_SIZE);
     }
 
+    @Test
     public void testSharedCache() throws DatabaseException {
         EnvironmentConfig environmentConfig = new EnvironmentConfig();
-        environmentConfig.setTxnNoSync(true);
+        environmentConfig.setDurability(Durability.COMMIT_NO_SYNC);
         environmentConfig.setAllowCreate(true);
         environmentConfig.setTransactional(true);
         environmentConfig.setSharedCache(true);
@@ -190,7 +214,11 @@ public class BdbSplitStorageEngineTest extends TestCase {
         databaseConfig.setSortedDuplicates(true);
 
         long maxCacheSize = getMaxCacheUsage(environmentConfig, databaseConfig);
-        assertEquals("MaxCacheSize <= CACHE_SIZE", true, maxCacheSize <= CACHE_SIZE);
+        // Include a buffer of 1mb.. since the actual cache usage can be a few
+        // bytes more
+        assertEquals("MaxCacheSize" + maxCacheSize + " <= CACHE_SIZE:" + CACHE_SIZE,
+                     true,
+                     maxCacheSize <= (CACHE_SIZE + ByteUtils.BYTES_PER_MB));
     }
 
     private long getMaxCacheUsage(EnvironmentConfig environmentConfig, DatabaseConfig databaseConfig)
@@ -201,7 +229,11 @@ public class BdbSplitStorageEngineTest extends TestCase {
         }
         Environment environmentA = new Environment(dirA, environmentConfig);
         Database databaseA = environmentA.openDatabase(null, "storeA", databaseConfig);
-        BdbStorageEngine storeA = new BdbStorageEngine("storeA", environmentA, databaseA, new BdbRuntimeConfig());
+        BdbStorageEngine storeA = BdbStorageEngineTest.makeBdbStorageEngine("storeA",
+                                                                            environmentA,
+                                                                            databaseA,
+                                                                            new BdbRuntimeConfig(),
+                                                                            this.prefixPartitionId);
 
         File dirB = new File(bdbMasterDir + "/" + "storeB");
         if(!dirB.exists()) {
@@ -209,12 +241,16 @@ public class BdbSplitStorageEngineTest extends TestCase {
         }
         Environment environmentB = new Environment(dirB, environmentConfig);
         Database databaseB = environmentB.openDatabase(null, "storeB", databaseConfig);
-        BdbStorageEngine storeB = new BdbStorageEngine("storeB", environmentB, databaseB, new BdbRuntimeConfig());
+        BdbStorageEngine storeB = BdbStorageEngineTest.makeBdbStorageEngine("storeB",
+                                                                            environmentB,
+                                                                            databaseB,
+                                                                            new BdbRuntimeConfig(),
+                                                                            this.prefixPartitionId);
 
         long maxCacheUsage = 0;
-        for(int i = 0; i <= 4; i++) {
+        for(int i = 0; i <= 10000; i++) {
 
-            byte[] value = new byte[(int) (CACHE_SIZE / 4)];
+            byte[] value = new byte[(int) (CACHE_SIZE / 10000)];
             // try to push values in cache
             storeA.put(TestUtils.toByteArray(i + "A"), new Versioned<byte[]>(value), null);
             storeA.get(TestUtils.toByteArray(i + "A"), null);

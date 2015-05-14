@@ -19,12 +19,15 @@ package voldemort.store;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 public class ForceFailStore<K, V, T> extends DelegatingStore<K, V, T> {
 
+    private final static Logger logger = Logger.getLogger(ForceFailStore.class);
     private final VoldemortException e;
 
     private volatile boolean fail = false;
@@ -40,16 +43,24 @@ public class ForceFailStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     @Override
     public void put(K key, Versioned<V> value, T transform) throws VoldemortException {
-        if(fail)
+        if(fail) {
+            if(logger.isDebugEnabled()) {
+                logger.debug("PUT key " + key + " was forced to fail");
+            }
             throw e;
+        }
 
         getInnerStore().put(key, value, transform);
     }
 
     @Override
     public boolean delete(K key, Version version) throws VoldemortException {
-        if(fail)
+        if(fail) {
+            if(logger.isDebugEnabled()) {
+                logger.debug("DELETE key " + key + " was forced to fail");
+            }
             throw e;
+        }
 
         return getInnerStore().delete(key, version);
     }
@@ -57,16 +68,24 @@ public class ForceFailStore<K, V, T> extends DelegatingStore<K, V, T> {
     @Override
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
             throws VoldemortException {
-        if(fail)
+        if(fail) {
+            if(logger.isDebugEnabled()) {
+                logger.debug("GETALL was forced to fail");
+            }
             throw e;
+        }
 
         return getInnerStore().getAll(keys, transforms);
     }
 
     @Override
     public List<Versioned<V>> get(K key, T transform) throws VoldemortException {
-        if(fail)
+        if(fail) {
+            if(logger.isDebugEnabled()) {
+                logger.debug("GET key " + key + " was forced to fail");
+            }
             throw e;
+        }
 
         return getInnerStore().get(key, transform);
     }

@@ -17,14 +17,19 @@
 package voldemort.store.routed.action;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import voldemort.VoldemortException;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PipelineData;
+import voldemort.store.routed.PutPipelineData;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 
@@ -61,6 +66,9 @@ public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>
             if(failureDetector.isAvailable(node))
                 nodes.add(node);
             else {
+                if(pipelineData instanceof PutPipelineData) {
+                    ((PutPipelineData) pipelineData).getSynchronizer().tryDelegateSlop(node);
+                }
                 pipelineData.addFailedNode(node);
                 if(logger.isDebugEnabled()) {
                     logger.debug("Key " + ByteUtils.toHexString(key.get()) + " Node "
@@ -87,5 +95,40 @@ public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>
             throw new InsufficientOperationalNodesException(errorMessage);
         }
         return nodes;
+    }
+
+    public static Map<Integer, List<Node>> convertToZoneNodeMap(List<Node> nodes) {
+        // Create zone id to node mapping
+        Map<Integer, List<Node>> zoneIdToNode = new HashMap<Integer, List<Node>>();
+        for(Node node: nodes) {
+            List<Node> nodesList = null;
+            if(zoneIdToNode.containsKey(node.getZoneId())) {
+                nodesList = zoneIdToNode.get(node.getZoneId());
+            } else {
+                nodesList = new ArrayList<Node>();
+                zoneIdToNode.put(node.getZoneId(), nodesList);
+            }
+            nodesList.add(node);
+        }
+        return zoneIdToNode;
+    }
+
+    public void validateZonesRequired(Zone clientZone, int zonesRequired) {
+        if(zonesRequired > clientZone.getProximityList().size()) {
+            throw new VoldemortException("Number of zones required (" + zonesRequired
+                                         + ") for zone id (" + clientZone.getId()
+                                         + ") should be less than the total number of zones "
+                                         + +clientZone.getProximityList().size());
+        }
+
+        if(zonesRequired > required) {
+            throw new VoldemortException("Number of zones required ("
+                                         + zonesRequired
+                                         + ") for zone id ("
+                                         + clientZone.getId()
+                                         + ") should be less than the required number of zones for operation "
+                                         + required);
+        }
+
     }
 }

@@ -18,8 +18,8 @@ package voldemort.client;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.Map.Entry;
+import java.util.concurrent.Callable;
 
 import org.apache.log4j.Logger;
 
@@ -58,58 +58,52 @@ import com.google.common.collect.Maps;
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private final Logger logger = Logger.getLogger(DefaultStoreClient.class);
-    private final StoreClientFactory storeFactory;
-
-    private final int metadataRefreshAttempts;
-    private final String storeName;
-    private final InconsistencyResolver<Versioned<V>> resolver;
-    private volatile Store<K, V, Object> store;
-    private final UUID clientId;
+    protected Callable<Object> beforeRebootstrapCallback = null;
+    protected StoreClientFactory storeFactory;
+    protected int metadataRefreshAttempts;
+    protected String storeName;
+    protected InconsistencyResolver<Versioned<V>> resolver;
+    protected volatile Store<K, V, Object> store;
 
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,
                               StoreClientFactory storeFactory,
                               int maxMetadataRefreshAttempts) {
-        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0);
-    }
-
-    public DefaultStoreClient(String storeName,
-                              InconsistencyResolver<Versioned<V>> resolver,
-                              StoreClientFactory storeFactory,
-                              int maxMetadataRefreshAttempts,
-                              String clientContext,
-                              int clientSequence) {
-
         this.storeName = Utils.notNull(storeName);
         this.resolver = resolver;
         this.storeFactory = Utils.notNull(storeFactory);
         this.metadataRefreshAttempts = maxMetadataRefreshAttempts;
-        this.clientId = AbstractStoreClientFactory.generateClientId(storeName,
-                                                                    clientContext,
-                                                                    clientSequence);
+
         // Registering self to be able to bootstrap client dynamically via JMX
         JmxUtils.registerMbean(this,
                                JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
                                                          JmxUtils.getClassName(this.getClass())
-                                                                 + "." + clientContext + "."
-                                                                 + storeName + "."
-                                                                 + clientId.toString()));
+                                                                 + "." + storeName));
+
         bootStrap();
-        logger.info("Voldemort client created: clientContext=" + clientContext + " clientSequence="
-                    + clientSequence + " clientId=" + clientId.toString());
     }
+
+    // Default constructor invoked from child class
+    public DefaultStoreClient() {}
 
     @JmxOperation(description = "bootstrap metadata from the cluster.")
     public void bootStrap() {
+        if(beforeRebootstrapCallback != null) {
+            try {
+                beforeRebootstrapCallback.call();
+            } catch(Exception e) {
+                logger.warn("Exception caught when running callback before bootstrap", e);
+            }
+        }
         logger.info("Bootstrapping metadata for store " + this.storeName);
-        this.store = storeFactory.getRawStore(storeName, resolver, clientId);
+        this.store = storeFactory.getRawStore(storeName, resolver);
     }
 
     public boolean delete(K key) {
-        Versioned<V> versioned = get(key);
-        if(versioned == null)
+        Version version = getVersionWithResolution(key);
+        if(version == null)
             return false;
-        return delete(key, versioned.getVersion());
+        return delete(key, version);
     }
 
     public boolean delete(K key, Version version) {
@@ -172,7 +166,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
-    private List<Version> getVersions(K key) {
+    protected List<Version> getVersions(K key) {
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
                 return store.getVersions(key);
@@ -186,7 +180,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
-    private Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
+    protected Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
         if(items.size() == 0)
             return defaultValue;
         else if(items.size() == 1)
@@ -225,19 +219,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public Version put(K key, V value) {
-        List<Version> versions = getVersions(key);
-        Versioned<V> versioned;
-        if(versions.isEmpty())
-            versioned = Versioned.value(value, new VectorClock());
-        else if(versions.size() == 1)
-            versioned = Versioned.value(value, versions.get(0));
-        else {
-            versioned = get(key, null);
-            if(versioned == null)
-                versioned = Versioned.value(value, new VectorClock());
-            else
-                versioned.setObject(value);
-        }
+        Version version = getVersionForPut(key);
+        Versioned<V> versioned = Versioned.value(value, version);
         return put(key, versioned);
     }
 
@@ -316,7 +299,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     @SuppressWarnings("unused")
-    private Version getVersion(K key) {
+    protected Version getVersion(K key) {
         List<Version> versions = getVersions(key);
         if(versions.size() == 0)
             return null;
@@ -355,25 +338,37 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         return result;
     }
 
-    public Version put(K key, V value, Object transforms) {
+    private Version getVersionWithResolution(K key) {
         List<Version> versions = getVersions(key);
-        Versioned<V> versioned;
         if(versions.isEmpty())
-            versioned = Versioned.value(value, new VectorClock());
+            return null;
         else if(versions.size() == 1)
-            versioned = Versioned.value(value, versions.get(0));
+            return versions.get(0);
         else {
-            versioned = get(key, null);
+            Versioned<V> versioned = get(key, null);
             if(versioned == null)
-                versioned = Versioned.value(value, new VectorClock());
+                return null;
             else
-                versioned.setObject(value);
+                return versioned.getVersion();
         }
+    }
+
+    private Version getVersionForPut(K key) {
+        Version version = getVersionWithResolution(key);
+        if(version == null) {
+            version = new VectorClock();
+        }
+        return version;
+    }
+
+    public Version put(K key, V value, Object transforms) {
+        Version version = getVersionForPut(key);
+        Versioned<V> versioned = Versioned.value(value, version);
         return put(key, versioned, transforms);
 
     }
 
-    public UUID getClientId() {
-        return clientId;
+    public void setBeforeRebootstrapCallback(Callable<Object> callback) {
+        beforeRebootstrapCallback = callback;
     }
 }

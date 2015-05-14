@@ -46,7 +46,7 @@ import voldemort.utils.ByteUtils;
  * 
  * 
  */
-@SuppressWarnings("deprecation")
+
 public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         AbstractStoreBuilderConfigurable implements Mapper<K, V, BytesWritable, BytesWritable> {
 
@@ -76,6 +76,7 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
                     V value,
                     OutputCollector<BytesWritable, BytesWritable> output,
                     Reporter reporter) throws IOException {
+
         byte[] keyBytes = keySerializer.toBytes(makeKey(key, value));
         byte[] valBytes = valueSerializer.toBytes(makeValue(key, value));
 
@@ -198,7 +199,7 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         keyCompressor = new CompressionStrategyFactory().get(keySerializerDefinition.getCompression());
         valueCompressor = new CompressionStrategyFactory().get(valueSerializerDefinition.getCompression());
 
-        routingStrategy = new ConsistentRoutingStrategy(getCluster().getNodes(),
+        routingStrategy = new ConsistentRoutingStrategy(getCluster(),
                                                         getStoreDef().getReplicationFactor());
     }
 }

@@ -38,7 +38,7 @@ public class ClientThreadPool extends ThreadPoolExecutor {
               threadIdleMs,
               TimeUnit.MILLISECONDS,
               new LinkedBlockingQueue<Runnable>(maxQueuedRequests),
-              new DaemonThreadFactory("voldemort-client-thread-"),
+              new DaemonThreadFactory("voldemort-client-thread"),
               new ThreadPoolExecutor.CallerRunsPolicy());
     }
 

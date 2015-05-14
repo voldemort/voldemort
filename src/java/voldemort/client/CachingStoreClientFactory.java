@@ -17,7 +17,6 @@
 package voldemort.client;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -27,6 +26,7 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
+import voldemort.store.stats.StoreClientFactoryStats;
 import voldemort.utils.Pair;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -45,25 +45,23 @@ public class CachingStoreClientFactory implements StoreClientFactory {
 
     private final StoreClientFactory inner;
     private final ConcurrentMap<Pair<String, Object>, StoreClient<?, ?>> cache;
+    private final StoreClientFactoryStats cacheStoreClientFactoryStats;
 
     public CachingStoreClientFactory(StoreClientFactory inner) {
         this.inner = inner;
         this.cache = new ConcurrentHashMap<Pair<String, Object>, StoreClient<?, ?>>();
+        this.cacheStoreClientFactoryStats = new StoreClientFactoryStats();
     }
 
     @SuppressWarnings("unchecked")
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
-        Pair<String, Object> key = Pair.create(storeName, null);
-        if(!cache.containsKey(key)) {
-            StoreClient<K, V> result = inner.getStoreClient(storeName);
-            cache.putIfAbsent(key, result);
-        }
-
-        return (StoreClient<K, V>) cache.get(key);
+        return getStoreClient(storeName, null);
     }
 
+    /* Using synchronized for thread safety. Otherwise, there could be a racing condition
+    That caused multiple clients being generated and mess up the JMX and stats object */
     @SuppressWarnings("unchecked")
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
+    public synchronized <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
         Pair<String, Object> key = Pair.create(storeName, (Object) resolver);
         if(!cache.containsKey(key)) {
@@ -76,13 +74,7 @@ public class CachingStoreClientFactory implements StoreClientFactory {
 
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver) {
-        return getRawStore(storeName, resolver, null);
-    }
-
-    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver,
-                                                UUID clientId) {
-        return inner.getRawStore(storeName, resolver, clientId);
+        return inner.getRawStore(storeName, resolver);
     }
 
     public void close() {

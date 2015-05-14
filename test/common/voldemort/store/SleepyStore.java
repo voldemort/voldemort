@@ -25,10 +25,14 @@ import voldemort.versioning.Versioned;
 
 public class SleepyStore<K, V, T> extends DelegatingStore<K, V, T> {
 
-    private final long sleepTimeMs;
+    private long sleepTimeMs;
 
     public SleepyStore(long sleepTimeMs, Store<K, V, T> innerStore) {
         super(innerStore);
+        this.sleepTimeMs = sleepTimeMs;
+    }
+
+    public void setSleepTimeMs(long sleepTimeMs) {
         this.sleepTimeMs = sleepTimeMs;
     }
 

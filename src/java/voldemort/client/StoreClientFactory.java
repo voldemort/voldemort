@@ -16,8 +16,6 @@
 
 package voldemort.client;
 
-import java.util.UUID;
-
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.versioning.InconsistencyResolver;
@@ -75,18 +73,6 @@ public interface StoreClientFactory {
                                          InconsistencyResolver<Versioned<V>> resolver);
 
     /**
-     * Get the underlying store, not the public StoreClient interface
-     * 
-     * @param storeName The name of the store
-     * @param resolver The inconsistency resolver
-     * @param clientId The unique id of the client
-     * @return The appropriate store
-     */
-    <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                         InconsistencyResolver<Versioned<V>> resolver,
-                                         UUID clientId);
-
-    /**
      * Close the store client
      */
     public void close();
@@ -99,5 +85,4 @@ public interface StoreClientFactory {
      */
 
     public FailureDetector getFailureDetector();
-
 }

@@ -64,6 +64,7 @@ public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byt
     @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
+        StoreUtils.assertValidNode(metadata, nodeId);
         StoreUtils.assertValidMetadata(key,
                                        metadata.getRoutingStrategy(getName()),
                                        metadata.getCluster().getNodeById(nodeId));
@@ -76,6 +77,7 @@ public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byt
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
+        StoreUtils.assertValidNode(metadata, nodeId);
         RoutingStrategy routingStrategy = metadata.getRoutingStrategy(getName());
         Node node = metadata.getCluster().getNodeById(nodeId);
         for(ByteArray key: keys)
@@ -88,6 +90,7 @@ public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byt
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
+        StoreUtils.assertValidNode(metadata, nodeId);
         StoreUtils.assertValidMetadata(key,
                                        metadata.getRoutingStrategy(getName()),
                                        metadata.getCluster().getNodeById(nodeId));
@@ -98,6 +101,7 @@ public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byt
     @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
+        StoreUtils.assertValidNode(metadata, nodeId);
         StoreUtils.assertValidMetadata(key,
                                        metadata.getRoutingStrategy(getName()),
                                        metadata.getCluster().getNodeById(nodeId));

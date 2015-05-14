@@ -1,3 +1,18 @@
+/*
+ * Copyright 2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.scheduled;
 
 import static org.junit.Assert.assertEquals;
@@ -10,23 +25,29 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.Semaphore;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.failuredetector.AdminSlopStreamingVerifier;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
-import voldemort.cluster.failuredetector.ServerStoreVerifier;
+import voldemort.cluster.failuredetector.ServerStoreConnectionVerifier;
+import voldemort.cluster.failuredetector.ThresholdFailureDetector;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.SlopStorageEngine;
@@ -37,6 +58,7 @@ import voldemort.utils.ByteUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
@@ -78,7 +100,30 @@ public class StreamingSlopPusherTest {
         }
     }
 
-    private void startServers(int... nodeIds) {
+    private void replaceOneNode(int nodeId) throws IOException {
+        Cluster oldCluster = cluster;
+        cluster = ServerTestUtils.getLocalClusterWithOneNodeReplaced(cluster, nodeId);
+        metadataStore = ServerTestUtils.createMetadataStore(cluster,
+                                                            new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile)));
+        String newClusterXml = new ClusterMapper().writeCluster(cluster);
+        AdminClient adminClient = ServerTestUtils.getAdminClient(oldCluster);
+        for(Integer remoteNodeId: oldCluster.getNodeIds()) {
+            try {
+                adminClient.metadataMgmtOps.updateRemoteMetadata(remoteNodeId,
+                                                                 MetadataStore.CLUSTER_KEY,
+                                                                 newClusterXml);
+            } catch(UnreachableStoreException e) {
+
+            }
+        }
+    }
+
+    // This method is susceptible to BindException issues due to TOCTOU
+    // problem with getLocalCluster. It is not obvious how to change this set of
+    // unit tests to better protect against BindException risk since subsets of
+    // servers are started and stopped. And, since there are multiple
+    // invocations of startServers within one test in some cases.
+    private void startServers(int... nodeIds) throws IOException {
         for(int nodeId: nodeIds) {
             if(nodeId < NUM_SERVERS) {
                 servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
@@ -92,6 +137,13 @@ public class StreamingSlopPusherTest {
         for(int nodeId: nodeIds) {
             if(nodeId < NUM_SERVERS)
                 ServerTestUtils.stopVoldemortServer(servers[nodeId]);
+        }
+    }
+
+    private void stopServersWithoutRemovingVoldemortHome(int... nodeIds) throws IOException {
+        for(int nodeId: nodeIds) {
+            if(nodeId < NUM_SERVERS)
+                ServerTestUtils.stopVoldemortServer(servers[nodeId], false);
         }
     }
 
@@ -136,12 +188,12 @@ public class StreamingSlopPusherTest {
 
         StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                    getVoldemortServer(0).getMetadataStore(),
-                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                                                               .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
+                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
+                                                                                                                               .setConnectionVerifier(new ServerStoreConnectionVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
                                                                    configs[0],
-                                                                   new Semaphore(1));
+                                                                   new ScanPermitWrapper(1));
 
         pusher.run();
 
@@ -156,8 +208,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(2).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -269,12 +322,12 @@ public class StreamingSlopPusherTest {
 
         StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                    getVoldemortServer(0).getMetadataStore(),
-                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                                                               .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
+                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
+                                                                                                                               .setConnectionVerifier(new ServerStoreConnectionVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
                                                                    configs[0],
-                                                                   new Semaphore(1));
+                                                                   new ScanPermitWrapper(1));
 
         pusher.run();
 
@@ -320,12 +373,12 @@ public class StreamingSlopPusherTest {
 
         StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                    getVoldemortServer(0).getMetadataStore(),
-                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                                                               .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
+                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
+                                                                                                                               .setConnectionVerifier(new ServerStoreConnectionVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
                                                                    configs[0],
-                                                                   new Semaphore(1));
+                                                                   new ScanPermitWrapper(1));
 
         pusher.run();
 
@@ -340,8 +393,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(1).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -354,6 +408,125 @@ public class StreamingSlopPusherTest {
             assertEquals("slop should have gone", 0, slopStoreNode0.get(nextSlop.makeKey(), null)
                                                                    .size());
         }
+
+        // Check counts
+        SlopStorageEngine slopEngine = getVoldemortServer(0).getStoreRepository().getSlopStore();
+        assertEquals(slopEngine.getOutstandingTotal(), 0);
+        assertEquals(slopEngine.getOutstandingByNode().get(1), new Long(0));
+        assertEquals(slopEngine.getOutstandingByNode().get(2), new Long(0));
+
+        stopServers(0, 1);
+    }
+
+    boolean verifySlopPushResult(List<Versioned<Slop>> entrySet,
+                                 StorageEngine<ByteArray, Slop, byte[]> sourceSlopEngine,
+                                 Integer targetNodeId) {
+        try {
+        Iterator<Versioned<Slop>> entryIterator = entrySet.listIterator();
+        while(entryIterator.hasNext()) {
+            Versioned<Slop> versionedSlop = entryIterator.next();
+            Slop nextSlop = versionedSlop.getValue();
+            StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(targetNodeId).getStoreRepository()
+                                                                                  .getStorageEngine(nextSlop.getStoreName());
+            if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
+                // entry should be present at store
+                if(store.get(nextSlop.getKey(), null).size() == 0) {
+                    return false;
+                }
+                // entry value should match
+                if(!new String(nextSlop.getValue()).equals(new String(store.get(nextSlop.getKey(),
+                                                                               null)
+                                                                          .get(0)
+                                                                          .getValue()))) {
+                    return false;
+                }
+            } else if(nextSlop.getOperation().equals(Slop.Operation.DELETE)) {
+                // entry value should match (value has to be null after DELETE)
+                if(store.get(nextSlop.getKey(), null).size() != 0) {
+                    return false;
+                }
+            }
+            // did it get deleted correctly in source slop engine
+            if(sourceSlopEngine.get(nextSlop.makeKey(), null).size() != 0) {
+                return false;
+            }
+        }
+        } catch(Exception e) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 
+     * Procedure: 1. bring up 2-node cluster; 2. set up slop pusher job with the
+     * cluster info; 3. replace node 1 by simply changing its port-ids, update
+     * the cluster metadata to whole cluster; 4. run slop pusher job and it has
+     * to fail; 5. setCluster in FD and the slop pusher job has to succeed
+     * 
+     * @throws InterruptedException
+     * @throws IOException
+     */
+    @Test
+    public void testPushForHostSwap() throws InterruptedException, IOException {
+        startServers(0, 1);
+
+        // Put into slop store 0
+        StorageEngine<ByteArray, Slop, byte[]> slopStoreNode0 = getVoldemortServer(0).getStoreRepository()
+                                                                                     .getSlopStore()
+                                                                                     .asSlopStore();
+
+        // Generate slops for 1
+        final List<Versioned<Slop>> entrySet = ServerTestUtils.createRandomSlops(1,
+                                                                                 100,
+                                                                                 "test-replication-memory",
+                                                                                 "users",
+                                                                                 "test-replication-persistent",
+                                                                                 "test-readrepair-memory",
+                                                                                 "test-consistent",
+                                                                                 "test-consistent-with-pref-list");
+
+        populateSlops(0, slopStoreNode0, entrySet);
+
+        FailureDetector failureDetector = new ThresholdFailureDetector(new FailureDetectorConfig().setCluster(cluster)
+                                                                                         .setConnectionVerifier(new AdminSlopStreamingVerifier(cluster)));
+
+        // replace node 1 and update metadata on all nodes
+        replaceOneNode(1);
+
+        // test if node 1 is down
+        stopServersWithoutRemovingVoldemortHome(1);
+        // slop should fail here
+        new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
+                                   getVoldemortServer(0).getMetadataStore(),
+                                   failureDetector,
+                                   configs[0],
+                                   new ScanPermitWrapper(1)).run();
+        Thread.sleep(2000);
+        Assert.assertFalse(verifySlopPushResult(entrySet, slopStoreNode0, 1));
+
+        // test if node 1 is up
+        startServers(1);
+        // slop push should fail
+        new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
+                                   getVoldemortServer(0).getMetadataStore(),
+                                   failureDetector,
+                                   configs[0],
+                                   new ScanPermitWrapper(1)).run();
+        Thread.sleep(2000);
+        Assert.assertFalse(verifySlopPushResult(entrySet, slopStoreNode0, 1));
+
+        // test if cached cluster object is refreshed
+        failureDetector.getConfig().setCluster(cluster);
+        // slop push should succeed
+        new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
+                                   getVoldemortServer(0).getMetadataStore(),
+                                   new ThresholdFailureDetector(new FailureDetectorConfig().setCluster(cluster)
+                                                                                           .setConnectionVerifier(new AdminSlopStreamingVerifier(cluster))),
+                                   configs[0],
+                                   new ScanPermitWrapper(1)).run();
+        Thread.sleep(2000);
+        Assert.assertTrue(verifySlopPushResult(entrySet, slopStoreNode0, 1));
 
         // Check counts
         SlopStorageEngine slopEngine = getVoldemortServer(0).getStoreRepository().getSlopStore();
@@ -435,19 +608,19 @@ public class StreamingSlopPusherTest {
 
         StreamingSlopPusherJob pusher0 = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                     getVoldemortServer(0).getMetadataStore(),
-                                                                    new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
+                                                                    new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
+                                                                                                                                .setConnectionVerifier(new ServerStoreConnectionVerifier(socketStoreFactory,
                                                                                                                                                                           metadataStore,
                                                                                                                                                                           configs[0]))),
                                                                     configs[0],
-                                                                    new Semaphore(1)), pusher1 = new StreamingSlopPusherJob(getVoldemortServer(1).getStoreRepository(),
-                                                                                                                            getVoldemortServer(1).getMetadataStore(),
-                                                                                                                            new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                                                                                                                        .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
-                                                                                                                                                                                                                                  metadataStore,
-                                                                                                                                                                                                                                  configs[1]))),
-                                                                                                                            configs[1],
-                                                                                                                            new Semaphore(1));
+                                                                    new ScanPermitWrapper(1)), pusher1 = new StreamingSlopPusherJob(getVoldemortServer(1).getStoreRepository(),
+                                                                                                                                    getVoldemortServer(1).getMetadataStore(),
+                                                                                                                                    new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
+                                                                                                                                                                                                .setConnectionVerifier(new ServerStoreConnectionVerifier(socketStoreFactory,
+                                                                                                                                                                                                                                          metadataStore,
+                                                                                                                                                                                                                                          configs[1]))),
+                                                                                                                                    configs[1],
+                                                                                                                                    new ScanPermitWrapper(1));
 
         pusher0.run();
         pusher1.run();
@@ -463,8 +636,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(1).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -484,8 +658,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(0).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -542,12 +717,12 @@ public class StreamingSlopPusherTest {
 
         StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                    getVoldemortServer(0).getMetadataStore(),
-                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                                                               .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
+                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
+                                                                                                                               .setConnectionVerifier(new ServerStoreConnectionVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
                                                                    configs[0],
-                                                                   new Semaphore(1));
+                                                                   new ScanPermitWrapper(1));
 
         pusher.run();
 
@@ -562,8 +737,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(2).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -619,8 +795,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(1).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));

@@ -32,8 +32,8 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.common.service.ServiceType;
 import voldemort.server.AbstractSocketService;
-import voldemort.server.ServiceType;
 import voldemort.server.StatusManager;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.utils.DaemonThreadFactory;
@@ -72,6 +72,8 @@ public class NioSocketService extends AbstractSocketService {
 
     private final int socketBufferSize;
 
+    private final int acceptorBacklog;
+
     private final StatusManager statusManager;
 
     private final Thread acceptorThread;
@@ -83,10 +85,12 @@ public class NioSocketService extends AbstractSocketService {
                             int socketBufferSize,
                             int selectors,
                             String serviceName,
-                            boolean enableJmx) {
+                            boolean enableJmx,
+                            int acceptorBacklog) {
         super(ServiceType.SOCKET, port, serviceName, enableJmx);
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
+        this.acceptorBacklog = acceptorBacklog;
 
         try {
             this.serverSocketChannel = ServerSocketChannel.open();
@@ -97,10 +101,12 @@ public class NioSocketService extends AbstractSocketService {
         this.endpoint = new InetSocketAddress(port);
 
         this.selectorManagers = new NioSelectorManager[selectors];
+
+        String threadFactoryPrefix = "voldemort-" + serviceName;
         this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
-                                                                      new DaemonThreadFactory("voldemort-niosocket-server"));
+                                                                      new DaemonThreadFactory(threadFactoryPrefix));
         this.statusManager = new StatusManager((ThreadPoolExecutor) this.selectorManagerThreadPool);
-        this.acceptorThread = new Thread(new Acceptor(), "NioSocketService.Acceptor");
+        this.acceptorThread = new Thread(new Acceptor(), threadFactoryPrefix + ".Acceptor");
     }
 
     @Override
@@ -122,7 +128,7 @@ public class NioSocketService extends AbstractSocketService {
                 selectorManagerThreadPool.execute(selectorManagers[i]);
             }
 
-            serverSocketChannel.socket().bind(endpoint);
+            serverSocketChannel.socket().bind(endpoint, acceptorBacklog);
             serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
             serverSocketChannel.socket().setReuseAddress(true);
 
@@ -277,4 +283,75 @@ public class NioSocketService extends AbstractSocketService {
         return sum;
     }
 
+    @JmxGetter(name = "selectCountAvg", description = "average number of connections selected in each select() call")
+    public final double getSelectCountAvg() {
+        double sum = 0.0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getSelectCountHistogram().getAverage();
+        }
+        return sum / selectorManagers.length;
+    }
+
+    @JmxGetter(name = "selectCount99th", description = "99th percentile of number of connections selected in each select() call")
+    public final double getSelectCount99th() {
+        double sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getSelectCountHistogram().getQuantile(0.99);
+        }
+        return sum / selectorManagers.length;
+    }
+
+    @JmxGetter(name = "selectTimeMsAvg", description = "average time spent in the select() call")
+    public final double getSelectTimeMsAvg() {
+        double sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getSelectTimeMsHistogram().getAverage();
+        }
+        return sum / selectorManagers.length;
+    }
+
+    @JmxGetter(name = "selectTimeMs99th", description = "99th percentile of time spent in the select() call")
+    public final double getSelectTimeMs99th() {
+        double sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getSelectTimeMsHistogram().getQuantile(0.99);
+        }
+        return sum / selectorManagers.length;
+    }
+
+    @JmxGetter(name = "processingTimeMsAvg", description = "average time spent processing all read/write requests, in a select() loop")
+    public final double getProcessingTimeMsAvg() {
+        double sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getProcessingTimeMsHistogram().getAverage();
+        }
+        return sum / selectorManagers.length;
+    }
+
+    @JmxGetter(name = "processingTimeMs99th", description = "99th percentile of time spent processing all the read/write requests, in a select() loop")
+    public final double getprocessingTimeMs99th() {
+        double sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getProcessingTimeMsHistogram().getQuantile(0.99);
+        }
+        return sum / selectorManagers.length;
+    }
+
+    @JmxGetter(name = "commReadBufferSize", description = "total amount of memory consumed by all the communication read buffers, in bytes")
+    public final double getCommReadBufferSize() {
+        long sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getCommBufferSizeStats().getCommReadBufferSizeTracker().longValue();
+        }
+        return sum;
+    }
+
+    @JmxGetter(name = "commWriteBufferSize", description = "total amount of memory consumed by all the communication write buffers, in bytes")
+    public final double getCommWriteBufferSize() {
+        long sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getCommBufferSizeStats().getCommWriteBufferSizeTracker().longValue();
+        }
+        return sum;
+    }
 }

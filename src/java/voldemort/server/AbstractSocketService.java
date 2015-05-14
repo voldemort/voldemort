@@ -18,6 +18,9 @@ package voldemort.server;
 
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
+import voldemort.common.service.AbstractService;
+import voldemort.common.service.ServiceType;
+import voldemort.common.service.VoldemortService;
 import voldemort.utils.JmxUtils;
 
 /**
