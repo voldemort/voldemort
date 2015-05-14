@@ -5,7 +5,7 @@
 
   <groupId>voldemort</groupId>
   <artifactId>voldemort-reactor</artifactId>
-  <version>0.90.1</version>
+  <version>1.9.13</version>
   <packaging>pom</packaging>  
 
   <name>${project.artifactId}</name>
