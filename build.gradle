@@ -405,7 +405,7 @@ dependencies {
 
     // commons io is used at many places
     // IOUtils, FileUtils and ByteArrayOutputStream
-    compile 'commons-io:commons-io:1.4'
+    compile 'commons-io:commons-io:2.1'
 
     // LZF compression strategy for store and tests.
     compile 'com.ning:compress-lzf:0.9.1'
@@ -536,7 +536,7 @@ dependencies {
     // conflict resolution is not done properly across sourceSets
     // and we end up with 2 versions of few jars like ( log4j, servlet etc. )
     compile 'commons-configuration:commons-configuration:1.6'
-    compile 'org.apache.hadoop:hadoop-core:1.0.4'
+    compile 'org.apache.hadoop:hadoop-core:1.2.1'
 
     compile 'com.linkedin.pegasus:r2:1.8.3'
     compile 'com.linkedin.pegasus:data:1.8.3'
@@ -568,6 +568,7 @@ eclipse {
     }
     classpath {
         defaultOutputDir = project.file('classes')
+        downloadSources=true
         file {
             // SourceSets creates multiple src/java in .classpath with varying includes
             // But eclipse 4.3 is complaining about duplicate classpaths
