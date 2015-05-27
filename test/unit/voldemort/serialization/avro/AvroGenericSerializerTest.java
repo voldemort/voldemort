@@ -15,6 +15,7 @@
  */
 package voldemort.serialization.avro;
 
+import static org.junit.Assert.assertArrayEquals;
 import junit.framework.TestCase;
 
 import org.apache.avro.Schema;
@@ -59,6 +60,15 @@ public class AvroGenericSerializerTest extends TestCase {
         record.put("name", new Utf8("Hello"));
         byte[] bytes = serializer.toBytes(record);
         assertTrue(serializer.toObject(bytes).equals(record));
+    }
+
+    public void testSimpleStringSchema() throws Exception {
+        String jsonSchema = "\"string\"";
+        AvroGenericSerializer serializer = new AvroGenericSerializer(jsonSchema);
+
+        byte[] byte1 = serializer.toBytes(new Utf8("abc"));
+        byte[] byte2 = serializer.toBytes("abc");
+        assertArrayEquals(" should serialize to same value", byte1, byte2);
     }
 
 }

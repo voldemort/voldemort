@@ -17,15 +17,20 @@
 package voldemort.serialization.json;
 
 import static java.util.Arrays.asList;
+import static org.junit.Assert.assertArrayEquals;
 import static voldemort.TestUtils.quote;
 import static voldemort.serialization.json.JsonTypeDefinition.fromJson;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
 import junit.framework.TestCase;
+
+import org.apache.avro.util.Utf8;
+
 import voldemort.TestUtils;
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.Serializer;
@@ -249,6 +254,98 @@ public class JsonTypeSerializerTest extends TestCase {
                 vals.add(Byte.valueOf((byte) 9));
             assertInverse("['int8']", vals);
         }
+    }
+
+    public void testStringSerializer() {
+        String serializer = quote("string"); 
+        assertInverse(serializer, "asdfasdf d");
+        
+        JsonTypeSerializer jsonSerializer = getSerializer(serializer);
+        Object val = doubleInvert(jsonSerializer, "asdf");
+        assertEquals("Return type should be string", String.class, val.getClass());
+
+        assertInverse(serializer, null);
+        assertToBytesFails(serializer, 123);
+        assertToBytesFails(serializer, new Utf8("avro utf8"));
+        assertToBytesFails(serializer, 'C');
+        assertToBytesFails(serializer, Arrays.asList(new String[] { "a", "b" }));
+        assertToBytesFails(serializer, Arrays.asList(new char[] { 'a', 'b' }));
+        assertToBytesFails(serializer, "abc".getBytes());
+        assertToBytesFails(serializer, "abc".toCharArray());
+    }
+
+    public void testInt32Serializer() {
+        String serializer = quote("int32");
+        byte b = 123;
+        short s = 123;
+        int i = 123;
+
+        assertInverse(serializer, null);
+        assertInverse(serializer, Integer.MAX_VALUE);
+
+        byte[][] arrays = new byte[3][];
+        arrays[0] = toBytes(serializer, b);
+        arrays[1] = toBytes(serializer, s);
+        arrays[2] = toBytes(serializer, i);
+
+        for(int k = 1; k < arrays.length; k++) {
+            assertArrayEquals("serialized value should be the same", arrays[0], arrays[k]);
+        }
+        
+        for(int k = 0; k < arrays.length; k++) {
+            Object obj = toObject(serializer, arrays[k]);
+            assertEquals("Return type should be int32", Integer.class, obj.getClass());
+            assertEquals("Value should be equals", 123, obj);
+        }
+
+        long l = 123;
+        char c = '1';
+        assertToBytesFails(serializer, l);
+        assertToBytesFails(serializer, c);
+
+        assertToBytesFails(serializer, Integer.MIN_VALUE);
+    }
+
+    public void testInt64Serializer() {
+        String serializer = quote("int64");
+        byte b = 123;
+        short s = 123;
+        int i = 123;
+        long l = 123;
+
+        assertInverse(serializer, null);
+        assertInverse(serializer, Long.MAX_VALUE);
+
+        byte[][] arrays = new byte[4][];
+        arrays[0] = toBytes(serializer, b);
+        arrays[1] = toBytes(serializer, s);
+        arrays[2] = toBytes(serializer, i);
+        arrays[3] = toBytes(serializer, l);
+
+        for(int k = 1; k < arrays.length; k++) {
+            assertArrayEquals("serialized value should be the same", arrays[0], arrays[k]);
+        }
+
+        for(int k = 0; k < arrays.length; k++) {
+            Object obj = toObject(serializer, arrays[k]);
+            assertEquals("Return type should be int32", Long.class, obj.getClass());
+            assertEquals("Value should be equals", 123L, obj);
+        }
+
+        char c = '1';
+        assertToBytesFails(serializer, c);
+
+        assertToBytesFails(serializer, Long.MIN_VALUE);
+    }
+
+    private byte[] toBytes(String typeDef, Object obj) {
+        JsonTypeSerializer serializer = getSerializer(typeDef);
+        return serializer.toBytes(obj);
+    }
+
+    private Object toObject(String typeDef, byte[] bytes) {
+        JsonTypeSerializer serializer = getSerializer(typeDef);
+        return serializer.toObject(bytes);
     }
 
     public void assertInvalidTypeDef(String typeDef) {
