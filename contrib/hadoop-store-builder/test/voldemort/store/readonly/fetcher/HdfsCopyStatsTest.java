@@ -8,8 +8,10 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -92,7 +94,7 @@ public class HdfsCopyStatsTest {
                          maxStatsFile,
                          statsFiles.length);
             
-            List<String> actualStatsFile = new ArrayList<String>();
+            Set<String> actualStatsFile = new HashSet<String>();
             for(File statFile : statsFiles) {
                 assertTrue("Size of the stat file should be greater than zero",
                            statFile.length() > 0);
@@ -104,7 +106,7 @@ public class HdfsCopyStatsTest {
             }
 
             assertEquals("Expected and actual files are different",
-                         expectedStatsFile,
+                         new HashSet<String>(expectedStatsFile),
                          actualStatsFile);
         } else {
             assertFalse("statsDir " + statsDir + " should not exist", statsDir.exists());
