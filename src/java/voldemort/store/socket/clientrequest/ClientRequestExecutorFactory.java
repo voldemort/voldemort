@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2012 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,6 +16,7 @@
 
 package voldemort.store.socket.clientrequest;
 
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.ClosedSelectorException;
@@ -37,6 +38,8 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.common.nio.SelectorManager;
+import voldemort.store.StoreTimeoutException;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.stats.ClientSocketStats;
@@ -123,7 +126,7 @@ public class ClientRequestExecutorFactory implements
 
     /**
      * Create a ClientRequestExecutor for the given {@link SocketDestination}.
-     * 
+     *
      * @param dest {@link SocketDestination}
      */
     @Override
@@ -163,7 +166,8 @@ public class ClientRequestExecutorFactory implements
             Selector selector = selectorManager.getSelector();
             clientRequestExecutor = new ClientRequestExecutor(selector,
                                                               socketChannel,
-                                                              socketBufferSize);
+                                                              socketBufferSize,
+                                                              dest);
             int timeoutMs = this.getTimeout();
 
             ProtocolNegotiatorClientRequest protocolRequest = new ProtocolNegotiatorClientRequest(dest.getRequestFormatType());
@@ -173,8 +177,45 @@ public class ClientRequestExecutorFactory implements
                 @Override
                 public void requestComplete(Object result, long requestTime) {
                     if(result instanceof Exception) {
-                        logger.info("Reporting exception to pool " + result.getClass());
-                        pool.reportException(dest, (Exception) result);
+                        Exception e = (Exception) result;
+                        /*
+                         * There are 2 places where we can get a store timeout
+                         * Exception
+                         * 
+                         * 1) While doing connect - the machine was up once, but
+                         * not anymore. In that case, TCP SYN will be sent by
+                         * the client, but server would not sent TCP ACK as it
+                         * is dead.
+                         * 
+                         * 2) After connect doing Protocol Negotiation - Most
+                         * likely the server and kernel is up, but the process
+                         * is in a zombie state because of hard drive failure or
+                         * stuck in shutdown or doing a GC. This can be
+                         * intermittent or hard failures. Before this code
+                         * change, if the process entered this state, Voldemort
+                         * clients may not detect the failure immediately. They
+                         * are treated as normal errors, instead of catastrophic
+                         * erros.This was the reason before it is better to kill
+                         * the process on a machine and let the machine stay up.
+                         * After this code change they will be treated as
+                         * connection failures ( catastrophic errors) to help
+                         * recover the clients faster.
+                         * 
+                         * The second case can increase the false positives, but
+                         * if a server is consistently timing out it is better
+                         * to treat the server as dead and let the clients
+                         * recover faster.
+                         */
+                        if(e instanceof StoreTimeoutException) {
+                            e = new UnreachableStoreException("Error establishing connection for destination "
+                                                                      + dest,
+                                                              new ConnectException(e.getMessage()));
+                        }
+
+                        logger.info("Reporting exception to pool " + e.getClass()
+                                    + " for destination " + dest);
+
+                        pool.reportException(dest, e);
                     }
                 }
 
@@ -207,7 +248,8 @@ public class ClientRequestExecutorFactory implements
             // .close() checks in a resource to the KeyedResourcePool that was
             // never checked out.
 
-            throw e;
+            throw UnreachableStoreException.wrap("Error establishing connection for destination "
+                                                 + dest, e);
         }
         if(stats != null) {
             stats.incrementCount(dest, ClientSocketStats.Tracked.CONNECTION_CREATED_EVENT);
@@ -225,7 +267,7 @@ public class ClientRequestExecutorFactory implements
          * immediately. For in-flight sockets that aren't in the pool at time of
          * closure of the SocketDestination, these are caught when they're
          * checked in via validate noting the relation of the timestamps.
-         * 
+         *
          * See bug #222.
          */
         long lastClosedTimestamp = getLastClosedTimestamp(dest);
@@ -403,12 +445,12 @@ public class ClientRequestExecutorFactory implements
      * is marked as unavailable if the node goes down (temporarily or
      * otherwise). This timestamp is used to determine when sockets related to
      * the SocketDestination should be closed.
-     * 
+     *
      * <p/>
-     * 
+     *
      * This value starts off as 0 and is updated via setLastClosedTimestamp each
      * time the node is marked as unavailable.
-     * 
+     *
      * @return Nanosecond-based timestamp of last close
      */
 
@@ -420,9 +462,9 @@ public class ClientRequestExecutorFactory implements
     /**
      * Assigns the last closed timestamp based on the current time in
      * nanoseconds.
-     * 
+     *
      * <p/>
-     * 
+     *
      * This value starts off as 0 and is updated via this method each time the
      * node is marked as unavailable.
      */

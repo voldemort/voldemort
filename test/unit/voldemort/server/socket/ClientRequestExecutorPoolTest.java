@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2012 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -18,11 +18,16 @@ package voldemort.server.socket;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import java.io.IOException;
+import java.net.ConnectException;
+import java.nio.channels.UnresolvedAddressException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.After;
 import org.junit.Before;
@@ -32,28 +37,40 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
+import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.AbstractSocketService;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
+import voldemort.server.niosocket.NonRespondingSocketService;
 import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.store.UnreachableStoreException;
+import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.store.socket.clientrequest.GetClientRequest;
 import voldemort.store.stats.ClientSocketStats;
+import voldemort.utils.ByteArray;
 
 /**
  * Tests for the socket pooling
- * 
- * 
+ *
+ *
  */
 @RunWith(Parameterized.class)
 public class ClientRequestExecutorPoolTest {
 
     private int port;
+    private int nonRespondingPort;
     private int maxConnectionsPerNode = 3;
     private ClientRequestExecutorPool pool;
     private SocketDestination dest1;
+    private SocketDestination nonRespondingDest;
     private AbstractSocketService server;
+    private NonRespondingSocketService nonRespondingServer;
+    private static final int SOCKET_TIMEOUT_MS = 1000;
+    private static final int CONNECTION_TIMEOUT_MS = 1500;
 
     private final boolean useNio;
 
@@ -67,12 +84,12 @@ public class ClientRequestExecutorPoolTest {
     }
 
     @Before
-    public void setUp() {
+    public void setUp() throws IOException {
         this.port = ServerTestUtils.findFreePort();
         this.pool = new ClientRequestExecutorPool(2,
                                                   maxConnectionsPerNode,
-                                                  1000,
-                                                  1000,
+                                                  CONNECTION_TIMEOUT_MS,
+                                                  SOCKET_TIMEOUT_MS,
                                                   32 * 1024,
                                                   false,
                                                   true,
@@ -87,12 +104,21 @@ public class ClientRequestExecutorPoolTest {
                                                        10000);
 
         this.server.start();
+
+        this.nonRespondingPort = ServerTestUtils.findFreePort();
+        this.nonRespondingDest = new SocketDestination("localhost",
+                                                       nonRespondingPort,
+                                                       RequestFormatType.VOLDEMORT_V1);
+        this.nonRespondingServer = new NonRespondingSocketService(nonRespondingPort);
+        this.nonRespondingServer.start();
+
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws IOException {
         this.pool.close();
         this.server.stop();
+        this.nonRespondingServer.stop();
     }
 
     @Test
@@ -146,6 +172,226 @@ public class ClientRequestExecutorPoolTest {
         pool.close(dest1);
         pool.checkin(dest1, sas2);
         pool.close(dest1);
+    }
+
+    private void testCheckoutConnectionFailure(ClientRequestExecutorPool execPool,
+                                               SocketDestination dest,
+                                               Class<?> expectedExceptionClass) {
+        try {
+            execPool.checkout(dest);
+            fail("should have thrown an connection exception");
+        } catch(UnreachableStoreException e) {
+            assertEquals("inner exception should be of type connect exception",
+                         expectedExceptionClass,
+                         e.getCause().getClass());
+        }
+    }
+
+    private void testNonBlockingCheckoutConnectionFailure(ClientRequestExecutorPool execPool,
+                                                          SocketDestination dest,
+                                                          Class<?> expectedExceptionClass)
+            throws Exception {
+
+        try {
+            ClientRequestExecutor resource = execPool.internalGetQueuedPool()
+                                                     .internalNonBlockingGet(dest);
+            // First time you call non blocking get, it triggers an async
+            // operation and returns null most likely.
+            if(resource == null) {
+                Thread.sleep(execPool.getFactory().getTimeout() + 5);
+                execPool.internalGetQueuedPool().internalNonBlockingGet(dest);
+            }
+            fail("should have thrown an connection exception");
+        } catch(UnreachableStoreException e) {
+            assertEquals("inner exception should be of type connect exception",
+                         expectedExceptionClass,
+                         e.getCause().getClass());
+        }
+
+    }
+
+    private void testConnectionFailure(ClientRequestExecutorPool execPool,
+                                       SocketDestination dest,
+                                       Class<?> expectedExceptionClass)
+            throws Exception {
+        testCheckoutConnectionFailure(execPool, dest, expectedExceptionClass);
+        testNonBlockingCheckoutConnectionFailure(execPool, dest, expectedExceptionClass);
+    }
+
+    @Test
+    public void testNonExistentHost() throws Exception {
+        SocketDestination nonExistentHost = new SocketDestination("unknown.host",
+                                                                  port,
+                                                                  RequestFormatType.VOLDEMORT_V1);
+        testConnectionFailure(pool, nonExistentHost, UnresolvedAddressException.class);
+    }
+
+    @Test
+    public void testUnresponsiveServerThrows() throws Exception {
+        testConnectionFailure(pool, nonRespondingDest, ConnectException.class);
+    }
+
+    @Test
+    public void testMachinUpProcessDownThrows() throws Exception {
+        int processDownPort = ServerTestUtils.findFreePort();
+        SocketDestination processDownDest = new SocketDestination("localhost",
+                                                                  processDownPort,
+                                                       RequestFormatType.VOLDEMORT_V1);
+
+        testConnectionFailure(pool, processDownDest, ConnectException.class);
+
+    }
+
+    @Test
+    public void testConnectionTimeoutThrows() throws Exception {
+
+
+        ClientRequestExecutorPool timeoutPool = new ClientRequestExecutorPool(2,
+                                                                          maxConnectionsPerNode,
+                                                                          50,   //Connection timeout
+                                                                          0,    // Socket timeout, 0 milliseconds :)
+                                                                          32 * 1024,
+                                                                          false,
+                                                                          true,
+                                                                          new String());
+        testConnectionFailure(timeoutPool, dest1, ConnectException.class);
+    }
+
+    @Test
+    public void testCloseWithOutstandingQueue() {
+        final int MAX_CONNECTIONS = 2;
+        ClientRequestExecutorPool execPool = new ClientRequestExecutorPool(2,
+                                                                              MAX_CONNECTIONS,
+                                                                              CONNECTION_TIMEOUT_MS,
+                                                                              SOCKET_TIMEOUT_MS,
+                                                                              32 * 1024,
+                                                                              false,
+                                                                              true,
+                                                                              new String());
+
+        for(int i = 0; i < MAX_CONNECTIONS; i++) {
+            execPool.checkout(dest1);
+        }
+
+        for(int j = 0; j < 2; j++) {
+
+            GetClientRequest clientRequest = new GetClientRequest("sampleStore",
+                                                                  new RequestFormatFactory().getRequestFormat(dest1.getRequestFormatType()),
+                                                                  RequestRoutingType.ROUTED,
+                                                                  new ByteArray(new byte[] { 1, 2,
+                                                                          3 }),
+                                                                  null);
+
+            final AtomicInteger cancelledEvents = new AtomicInteger(0);
+
+            NonblockingStoreCallback callback = new NonblockingStoreCallback() {
+
+                @Override
+                public void requestComplete(Object result, long requestTime) {
+                    if(result instanceof UnreachableStoreException)
+                        cancelledEvents.incrementAndGet();
+                    else
+                        fail("The request must have failed with UnreachableException" + result);
+                }
+            };
+
+            int queuedRequestCount = 20;
+            for(int i = 0; i < queuedRequestCount; i++) {
+                execPool.submitAsync(dest1, clientRequest, callback, 5000, "get");
+            }
+
+            int outstandingQueue = execPool.internalGetQueuedPool()
+                                           .getRegisteredResourceRequestCount(dest1);
+            assertEquals("Queued request count should match", queuedRequestCount, outstandingQueue);
+
+            // Now reset the queue, the outstanding requests should fail with
+            // UnreachableStoreException
+            execPool.close(dest1);
+
+            outstandingQueue = execPool.internalGetQueuedPool()
+                                       .getRegisteredResourceRequestCount(dest1);
+
+            assertEquals("Queued request should have been cleared", 0, outstandingQueue);
+
+            // CancelledEvents should be
+            assertEquals("All Queuedrequest must have been cancelled.",
+                         queuedRequestCount,
+                         cancelledEvents.get());
+        }
+
+    }
+
+    @Test
+    public void testRememberedExceptions() {
+
+        ConnectException connectEx = new ConnectException("Connect exception");
+        UnreachableStoreException unreachableEx = new UnreachableStoreException("test Exception", connectEx);
+        final int COUNT = 10;
+        for(int i = 0; i < COUNT; i++) {
+            this.pool.internalGetQueuedPool().reportException(dest1, unreachableEx);
+        }
+        
+        for(int i = 0; i < COUNT; i ++) {
+            try {
+                this.pool.internalGetQueuedPool().checkout(dest1);
+                fail("should have thrown an exception");
+            } catch(Exception ex) {
+                assertEquals("Expected Unreachable Store Exception",
+                             unreachableEx.getClass(),
+                             ex.getClass());
+                assertEquals("Expected Unreachable Store Exception",
+                             unreachableEx.getMessage(),
+                             ex.getMessage());
+                assertEquals("InnerException is connect Exception",
+                             connectEx.getClass(),
+                             ex.getCause().getClass());
+                assertEquals("InnerException is connect Exception",
+                             connectEx.getMessage(),
+                             ex.getCause().getMessage());
+            }
+        }
+
+        // should not fail
+        this.pool.checkout(dest1);
+    }
+
+    @Test
+    public void testRememberedExceptionsBeyondTime() throws Exception {
+
+        final int CURRENT_CONNECTION_TIMEOUT = 50;
+        ClientRequestExecutorPool timeoutPool = new ClientRequestExecutorPool(2,
+                                                                              maxConnectionsPerNode,
+                                                                              CURRENT_CONNECTION_TIMEOUT,
+                                                                              CURRENT_CONNECTION_TIMEOUT,
+                                                                              32 * 1024,
+                                                                              false,
+                                                                              true,
+                                                                              new String());
+
+        ConnectException connectEx = new ConnectException("Connect exception");
+        UnreachableStoreException unreachableEx = new UnreachableStoreException("test Exception",
+                                                                                connectEx);
+        final int COUNT = 10;
+        for(int i = 0; i < COUNT; i++) {
+            timeoutPool.internalGetQueuedPool().reportException(dest1, unreachableEx);
+        }
+
+        Thread.sleep(CURRENT_CONNECTION_TIMEOUT);
+
+        // Get all exceptions but 1.
+        for(int i = 0; i < COUNT - 1; i++) {
+            try {
+                timeoutPool.internalGetQueuedPool().checkout(dest1);
+                fail("should have thrown an exception");
+            } catch(Exception ex) {
+
+            }
+        }
+        Thread.sleep(CURRENT_CONNECTION_TIMEOUT + 1);
+
+        // should not fail
+        timeoutPool.checkout(dest1);
+
     }
 
 }

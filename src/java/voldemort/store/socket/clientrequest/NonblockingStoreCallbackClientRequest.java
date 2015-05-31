@@ -125,7 +125,8 @@ public class NonblockingStoreCallbackClientRequest<T> implements ClientRequest<T
     @Override
     public void timeOut() {
         clientRequest.timeOut();
-        invokeCallback(new StoreTimeoutException("ClientRequestExecutor timed out. Cannot complete request."),
+        invokeCallback(new StoreTimeoutException("ClientRequestExecutor timed out for destination "
+                                                 + destination),
                        (System.nanoTime() - startNs) / Time.NS_PER_MS);
         executorPool.checkin(destination, clientRequestExecutor);
     }

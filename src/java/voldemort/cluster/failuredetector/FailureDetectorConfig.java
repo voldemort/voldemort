@@ -19,6 +19,7 @@ package voldemort.cluster.failuredetector;
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
+import java.nio.channels.UnresolvedAddressException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -58,7 +59,8 @@ public class FailureDetectorConfig {
 
     public static final List<String> DEFAULT_CATASTROPHIC_ERROR_TYPES = ImmutableList.of(ConnectException.class.getName(),
                                                                                          UnknownHostException.class.getName(),
-                                                                                         NoRouteToHostException.class.getName());
+                                                                                         NoRouteToHostException.class.getName(),
+                                                                                         UnresolvedAddressException.class.getName());
 
     public static final long DEFAULT_REQUEST_LENGTH_THRESHOLD = 5000;
 

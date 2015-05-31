@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2012 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -32,6 +32,7 @@ import voldemort.common.nio.ByteBufferBackedOutputStream;
 import voldemort.common.nio.ByteBufferContainer;
 import voldemort.common.nio.CommBufferSizeStats;
 import voldemort.common.nio.SelectorManagerWorker;
+import voldemort.store.socket.SocketDestination;
 import voldemort.utils.Time;
 
 /**
@@ -57,10 +58,12 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     private long timeoutMs;
     private boolean isExpired;
     protected ByteBufferContainer bufferContainer;
+    private final SocketDestination socketDesination;
 
     public ClientRequestExecutor(Selector selector,
                                  SocketChannel socketChannel,
-                                 int socketBufferSize) {
+                                 int socketBufferSize,
+                                 SocketDestination socketDesination) {
         // Not tracking or exposing the comm buffer statistics for now
         super(selector, socketChannel, socketBufferSize);
         isExpired = false;
@@ -69,6 +72,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(this.inputStream == null || this.outputStream == null) {
             throw new VoldemortApplicationException("InputStream or OuputStream is null after initialization");
         }
+        this.socketDesination = socketDesination;
 
     }
 
@@ -96,7 +100,8 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
             long allowedTime = expiration - startTime;
             long elapsedTime = nowNs - startTime;
             logger.warn("Client request associated with " + socketChannel.socket()
-                        + " timed out. Start time(ns) " + startTime + " allowed time(ns) "
+                        + " Destination " + socketDesination + " timed out. Start time(ns) "
+                        + startTime + " allowed time(ns) "
                         + allowedTime + " elapsed time(ns) " + elapsedTime);
         }
         isExpired = true;
@@ -134,8 +139,9 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     public synchronized void addClientRequest(ClientRequest<?> clientRequest,
                                               long timeoutMs,
                                               long elapsedNs) {
-        if(logger.isTraceEnabled())
+        if(logger.isTraceEnabled()) {
             logger.trace("Associating client with " + socketChannel.socket());
+        }
 
         this.clientRequest = clientRequest;
         computeExpirationTime(timeoutMs, elapsedNs);
@@ -263,8 +269,9 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     @Override
     protected void connect(SelectionKey selectionKey) throws IOException {
-        if(!checkTimeout())
+        if(!checkTimeout()) {
             return;
+        }
 
         if(socketChannel.finishConnect() == false) {
             return;
@@ -347,10 +354,12 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
             return null;
         }
 
-        if(isExpired)
+        if(isExpired) {
             local.timeOut();
-        else
+        }
+        else {
             local.complete();
+        }
 
         if(logger.isTraceEnabled())
             logger.trace("Marked client associated with " + socketChannel.socket() + " as complete");

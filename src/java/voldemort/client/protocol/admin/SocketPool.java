@@ -90,7 +90,7 @@ public class SocketPool {
 
             return sas;
         } catch(Exception e) {
-            throw new UnreachableStoreException("Failure while checking out socket for "
+            throw UnreachableStoreException.wrap("Failure while checking out socket for "
                                                 + destination + ": ", e);
         }
     }

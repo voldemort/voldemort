@@ -36,4 +36,11 @@ public class UnreachableStoreException extends VoldemortException {
         super(s, t);
     }
 
+    public static UnreachableStoreException wrap(String s, Throwable t) {
+        if(t instanceof UnreachableStoreException) {
+            return new UnreachableStoreException(s, t.getCause());
+        }
+        return new UnreachableStoreException(s, t);
+    }
+
 }
