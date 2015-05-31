@@ -122,6 +122,19 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /**
+     * Used only for unit testing. Please do not use this method in other ways.
+     * 
+     * @param key
+     * @return
+     * @throws Exception
+     */
+    public V internalNonBlockingGet(K key) throws Exception {
+        Pool<V> resourcePool = getResourcePoolForKey(key);
+        V resource = null;
+        return attemptNonBlockingCheckout(key, resourcePool);
+    }
+
+    /**
      * Pops resource requests off the queue until queue is empty or an unexpired
      * resource request is found. Invokes .handleTimeout on all expired resource
      * requests popped off the queue.
@@ -220,7 +233,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     private void processQueueLoop(K key) {
         while(processQueue(key)) {}
     }
-    
+
     @Override
     public void reportException(K key, Exception e) {
         super.reportException(key, e);
@@ -252,7 +265,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
                 // AsyncResourceRequest, treat "destroy" as an exception since
                 // there is no resource to pass into useResource, and the
                 // timeout has not expired.
-                Exception e = new UnreachableStoreException("Resource request destroyed before resource checked out.");
+                Exception e = new UnreachableStoreException("Client request was terminated while waiting in the queue.");
                 resourceRequest.handleException(e);
             } catch(Exception ex) {
                 logger.error("Exception while destroying resource request:", ex);
@@ -290,6 +303,18 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         return wasOpen;
     }
 
+    @Override
+    public void reset(K key) {
+        try {
+            Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForExistingKey(key);
+            if(requestQueue != null) {
+                destroyRequestQueue(requestQueue);
+            }
+        } finally {
+            super.reset(key);
+        }
+    }
+
     /**
      * Close the queue and the pool.
      */
@@ -314,14 +339,10 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /*
-     * Get the pool for the given key. If no pool exists, throw an exception.
+     * Get the pool for the given key. If no pool exists, returns null.
      */
     protected Queue<AsyncResourceRequest<V>> getRequestQueueForExistingKey(K key) {
         Queue<AsyncResourceRequest<V>> requestQueue = requestQueueMap.get(key);
-        if(requestQueue == null) {
-            throw new IllegalArgumentException("Invalid key '" + key
-                                               + "': no request queue exists for that key.");
-        }
         return requestQueue;
     }
 
@@ -334,14 +355,10 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      */
     public int getRegisteredResourceRequestCount(K key) {
         if(requestQueueMap.containsKey(key)) {
-            try {
-                Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForExistingKey(key);
-                // FYI: .size() is not constant time in the next call. ;)
+            Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForExistingKey(key);
+            // FYI: .size() is not constant time in the next call. ;)
+            if(requestQueue != null) {
                 return requestQueue.size();
-            } catch(IllegalArgumentException iae) {
-                if(logger.isDebugEnabled()) {
-                    logger.debug("getRegisteredResourceRequestCount called on invalid key: ", iae);
-                }
             }
         }
         return 0;

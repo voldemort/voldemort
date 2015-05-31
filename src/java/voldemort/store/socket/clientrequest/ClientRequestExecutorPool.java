@@ -210,7 +210,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             // in this catch. Even if it was, clientRequestExecutore.close()
             // checks in the SocketDestination resource and so is not safe to
             // call.
-            throw new UnreachableStoreException("Failure while checking out socket for "
+
+            throw UnreachableStoreException.wrap("Failure while checking out socket for "
                                                 + destination + ": ", e);
         } finally {
             if(stats != null) {
@@ -236,6 +237,16 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             throw new VoldemortException("Failure while checking in socket for " + destination
                                          + ": ", e);
         }
+    }
+
+
+    /**
+     * Used only for testing. Don't take a production dependency
+     * 
+     * @return queuedpool
+     */
+    public QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> internalGetQueuedPool() {
+        return this.queuedPool;
     }
 
     /**

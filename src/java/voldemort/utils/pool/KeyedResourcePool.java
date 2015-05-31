@@ -1,12 +1,12 @@
 /*
  * Copyright 2012 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -41,7 +41,7 @@ import voldemort.utils.Utils;
  * <li>allocates resources in FIFO order
  * <li>Pools are per key and there is no global maximum pool limit.
  * </ul>
- * 
+ *
  * Invariants that this implementation does not guarantee:
  * <ul>
  * <li>A checked in resource was previously checked out. (I.e., user can use
@@ -55,7 +55,7 @@ import voldemort.utils.Utils;
  * or let its reference to the resource lapse without checking the resource in
  * or destroying the resource.)
  * </ul>
- * 
+ *
  * Phrased differently, the following is expected of the user of this class:
  * <ul>
  * <li>A checked out resource is checked in exactly once.
@@ -84,7 +84,7 @@ public class KeyedResourcePool<K, V> {
 
     /**
      * Create a new pool
-     * 
+     *
      * @param <K> The type of the keys
      * @param <V> The type of the values
      * @param factory The factory that creates objects
@@ -98,7 +98,7 @@ public class KeyedResourcePool<K, V> {
 
     /**
      * Create a new pool using the defaults
-     * 
+     *
      * @param <K> The type of the keys
      * @param <V> The type of the values
      * @param factory The factory that creates objects
@@ -114,11 +114,11 @@ public class KeyedResourcePool<K, V> {
      * one. If no resources are available and we are already at the max size
      * then block for up to the maximum time specified. When we hit the maximum
      * time, if we still have not retrieved a valid resource throw an exception.
-     * 
+     *
      * This method is guaranteed to either return a valid resource in the pool
      * timeout + object creation time or throw an exception. If an exception is
      * thrown, resource is guaranteed to be destroyed.
-     * 
+     *
      * @param key The key to checkout the resource for
      * @return The resource
      */
@@ -187,7 +187,7 @@ public class KeyedResourcePool<K, V> {
      * attempt to create a new resource (up to the max allowed for the pool).
      * This method does not block per se. However, creating a resource may be
      * (relatively) expensive. This method either returns null or a resource.
-     * 
+     *
      * This method is the only way in which new resources are created for the
      * pool. So, non blocking checkouts must be attempted to populate the
      * resource pool.
@@ -222,7 +222,7 @@ public class KeyedResourcePool<K, V> {
      * it to the pool. This method is cheap to call even if the pool is full
      * (i.e., the first thing it does is looks a the current size of the pool
      * relative to the max pool size.
-     * 
+     *
      * @param key
      * @param objectFactory
      * @return True if and only if a resource was successfully added to the
@@ -230,7 +230,7 @@ public class KeyedResourcePool<K, V> {
      * @throws Exception if there are issues creating a new object, or
      *         destroying newly created object that could not be added to the
      *         pool.
-     * 
+     *
      */
     private boolean attemptGrow(K key, ResourceFactory<K, V> objectFactory, Pool<V> pool)
             throws Exception {
@@ -303,13 +303,13 @@ public class KeyedResourcePool<K, V> {
     }
 
     public void reportException(K key, Exception e) {
-        Pool<V> resourcePool = resourcePoolMap.get(key);
+        Pool<V> resourcePool = getResourcePoolForKey(key);
         resourcePool.reportException(e);
     }
 
     /**
      * Check the given resource back into the pool
-     * 
+     *
      * @param key The key for the resource
      * @param resource The resource
      */
@@ -363,7 +363,7 @@ public class KeyedResourcePool<K, V> {
      * Reset a specific resource pool. Destroys all of the idle resources in the
      * pool. This method does not affect whether the pool is "open" in the sense
      * of permitting new resources to be added to it.
-     * 
+     *
      * @param key The key for the pool to reset.
      */
     public void reset(K key) {
@@ -377,7 +377,7 @@ public class KeyedResourcePool<K, V> {
 
     /**
      * Count the number of existing resources for a specific pool.
-     * 
+     *
      * @param key The key
      * @return The count of existing resources. Returns 0 if no pool exists for
      *         given key.
@@ -400,7 +400,7 @@ public class KeyedResourcePool<K, V> {
      * Count the total number of existing resources for all pools. The result is
      * "approximate" in the face of concurrency since individual pools can
      * change size during the aggregate count.
-     * 
+     *
      * @return The (approximate) aggregate count of existing resources.
      */
     public int getTotalResourceCount() {
@@ -412,7 +412,7 @@ public class KeyedResourcePool<K, V> {
 
     /**
      * Count the number of checked in (idle) resources for a specific pool.
-     * 
+     *
      * @param key The key
      * @return The count of checked in resources. Returns 0 if no pool exists
      *         for given key.
@@ -435,7 +435,7 @@ public class KeyedResourcePool<K, V> {
      * Count the total number of checked in (idle) resources across all pools.
      * The result is "approximate" in the face of concurrency since individual
      * pools can have resources checked in, or out, during the aggregate count.
-     * 
+     *
      * @return The (approximate) aggregate count of checked in resources.
      */
     public int getCheckedInResourceCount() {
@@ -447,7 +447,7 @@ public class KeyedResourcePool<K, V> {
 
     /**
      * Count the number of blocking gets for a specific key.
-     * 
+     *
      * @param key The key
      * @return The count of blocking gets. Returns 0 if no pool exists for given
      *         key.
@@ -470,7 +470,7 @@ public class KeyedResourcePool<K, V> {
      * Count the total number of blocking gets across all pools. The result is
      * "approximate" in the face of concurrency since blocking gets for
      * individual pools can be issued or serviced during the aggregate count.
-     * 
+     *
      * @return The (approximate) aggregate count of blocking gets.
      */
     public int getBlockingGetsCount() {
@@ -493,7 +493,7 @@ public class KeyedResourcePool<K, V> {
      * A fixed size pool that uses an ArrayBlockingQueue. The pool grows to no
      * more than some specified maxPoolSize. The pool creates new resources in
      * the face of existing resources being destroyed.
-     * 
+     *
      */
     protected static class Pool<V> {
 
@@ -503,13 +503,16 @@ public class KeyedResourcePool<K, V> {
         final private BlockingQueue<V> queue;
         private final BlockingQueue<Pair<Long, Exception>> asyncExceptions;
 
-        final long EXCEPTION_REPORT_TIME_MS = TimeUnit.MILLISECONDS.convert(3, TimeUnit.SECONDS);
+        private final long excpetionReportTimeMS;
         final int EXCEPTION_COUNT_MAX = 300;
 
         public Pool(ResourcePoolConfig resourcePoolConfig) {
             this.maxPoolSize = resourcePoolConfig.getMaxPoolSize();
             queue = new ArrayBlockingQueue<V>(this.maxPoolSize, resourcePoolConfig.isFair());
             this.asyncExceptions = new ArrayBlockingQueue<Pair<Long, Exception>>(EXCEPTION_COUNT_MAX);
+            long configExceptionReportTime = resourcePoolConfig.getTimeout(TimeUnit.MILLISECONDS) * 2;
+            long MAX_EXCEPTION_REPORT_TIME = TimeUnit.MILLISECONDS.convert(30, TimeUnit.SECONDS);
+            excpetionReportTimeMS = Math.min(configExceptionReportTime, MAX_EXCEPTION_REPORT_TIME);
         }
 
         public void reportException(Exception e) {
@@ -518,16 +521,23 @@ public class KeyedResourcePool<K, V> {
 
         private void throwReportedExceptions() throws Exception {
             Pair<Long, Exception> entry;
+            int skippedExceptionCount = 0;
             while(true) {
                 entry = asyncExceptions.poll();
                 if(entry == null) {
+                    if(skippedExceptionCount > 0) {
+                        logger.info(" All Exceptions were expired exceptions. Count "
+                                    + skippedExceptionCount);
+                    }
                     return;
                 }
+
                 long elapsedTime = System.currentTimeMillis() - entry.getFirst();
-                if(elapsedTime <= EXCEPTION_REPORT_TIME_MS) {
+                skippedExceptionCount++;
+                if(elapsedTime <= excpetionReportTimeMS) {
                     Exception e = entry.getSecond();
                     logger.info(" Throwing remembered exception. time elapsed (ms) " + elapsedTime
-                                + "Exception "
+                                + ". Exception : "
                                 + e.getMessage());
                     throw e;
                 }
