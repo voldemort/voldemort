@@ -869,11 +869,25 @@ public class AdminClient {
 
             String description = null;
             String oldStatus = "";
+
+            // State to detect hung async jobs
+            long oldStatusTime = -1;
+            long lastStatusReportTime = -1;
+            final long maxUnchangingStatusDelay = adminClientConfig.getMaxBackoffDelayMs() * 10; // 10 minutes under default settings
+
             while(System.currentTimeMillis() < waitUntil) {
                 try {
                     AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
+                    long statusResponseTime = System.currentTimeMillis();
                     if(!status.getStatus().equalsIgnoreCase(oldStatus)) {
                         logger.info("Status from node [" + nodeId + "] "+  status);
+                        oldStatusTime = statusResponseTime;
+                        lastStatusReportTime = oldStatusTime;
+                    } else if (statusResponseTime - lastStatusReportTime > maxUnchangingStatusDelay) {
+                        // If hung jobs are detected, print out a message periodically
+                        logger.warn("Async Task ID " + requestId + " on node [" + nodeId + "] has not progressed for " +
+                                ((statusResponseTime - oldStatusTime) / 1000) + " seconds.");
+                        lastStatusReportTime = statusResponseTime;
                     }
                     oldStatus = status.getStatus();
 

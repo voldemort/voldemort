@@ -88,6 +88,7 @@ public class HdfsFetcher implements FileFetcher {
     private VoldemortConfig voldemortConfig = null;
     private final boolean enableStatsFile;
     private final int maxVersionsStatsFile;
+    private int socketTimeout;
 
     public static final String FS_DEFAULT_NAME = "fs.default.name";
 
@@ -113,16 +114,18 @@ public class HdfsFetcher implements FileFetcher {
              config.getReadOnlyFetchRetryCount(),
              config.getReadOnlyFetchRetryDelayMs(),
              config.isReadOnlyStatsFileEnabled(),
-             config.getReadOnlyMaxVersionsStatsFile());
+             config.getReadOnlyMaxVersionsStatsFile(),
+             config.getFetcherSocketTimeout());
         this.voldemortConfig = config;
 
         if(dynThrottleLimit == null) {
             logger.info("Created hdfs fetcher with no dynamic throttler, buffer size " + bufferSize
-                        + ", reporting interval bytes " + reportingIntervalBytes);
+                        + ", reporting interval bytes " + reportingIntervalBytes
+                        + ", fetcher socket timeout " + socketTimeout);
         } else {
             logger.info("Created hdfs fetcher with throttle rate " + dynThrottleLimit.getRate()
                         + ", buffer size " + bufferSize + ", reporting interval bytes "
-                        + reportingIntervalBytes);
+                        + reportingIntervalBytes + ", fetcher socket timeout " + socketTimeout);
         }
     }
 
@@ -130,7 +133,7 @@ public class HdfsFetcher implements FileFetcher {
     public HdfsFetcher() {
         this((Long) null,
              VoldemortConfig.REPORTING_INTERVAL_BYTES,
-             VoldemortConfig.DEFAULT_BUFFER_SIZE);
+             VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE);
     }
 
     // Test-only constructor
@@ -145,7 +148,8 @@ public class HdfsFetcher implements FileFetcher {
              3,
              1000,
              true,
-             50);
+             50,
+             VoldemortConfig.DEFAULT_FETCHER_SOCKET_TIMEOUT);
     }
 
     public HdfsFetcher(DynamicThrottleLimit dynThrottleLimit,
@@ -158,7 +162,8 @@ public class HdfsFetcher implements FileFetcher {
                        int retryCount,
                        long retryDelayMs,
                        boolean enableStatsFile,
-                       int maxVersionsStatsFile) {
+                       int maxVersionsStatsFile,
+                       int socketTimeout) {
         if(maxBytesPerSecond != null) {
             this.maxBytesPerSecond = maxBytesPerSecond;
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
@@ -178,6 +183,7 @@ public class HdfsFetcher implements FileFetcher {
         this.retryDelayMs = retryDelayMs;
         this.enableStatsFile = enableStatsFile;
         this.maxVersionsStatsFile = maxVersionsStatsFile;
+        this.socketTimeout = socketTimeout;
         HdfsFetcher.kerberosPrincipal = kerberosUser;
         HdfsFetcher.keytabPath = keytabLocation;
     }
@@ -196,7 +202,8 @@ public class HdfsFetcher implements FileFetcher {
 
     private Configuration getConfiguration(String sourceFileUrl, String hadoopConfigPath) {
         final Configuration config = new Configuration();
-        config.setInt("io.socket.receive.buffer", bufferSize);
+        config.setInt(ConfigurableSocketFactory.SO_RCVBUF, bufferSize);
+        config.setInt(ConfigurableSocketFactory.SO_TIMEOUT, socketTimeout);
         config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
                    ConfigurableSocketFactory.class.getName());
         config.set("hadoop.security.group.mapping",
@@ -631,7 +638,7 @@ public class HdfsFetcher implements FileFetcher {
 
         final Configuration config = new Configuration();
         final URI uri = new URI(url);
-        config.setInt("io.file.buffer.size", VoldemortConfig.DEFAULT_BUFFER_SIZE);
+        config.setInt("io.file.buffer.size", VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE);
         config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
                    ConfigurableSocketFactory.class.getName());
         config.setInt("io.socket.receive.buffer", 1 * 1024 * 1024 - 10000);
@@ -712,14 +719,15 @@ public class HdfsFetcher implements FileFetcher {
         HdfsFetcher fetcher = new HdfsFetcher(null,
                                               maxBytesPerSec,
                                               VoldemortConfig.REPORTING_INTERVAL_BYTES,
-                                              VoldemortConfig.DEFAULT_BUFFER_SIZE,
+                                              VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE,
                                               0,
                                               keytabLocation,
                                               kerberosUser,
                                               5,
                                               5000,
                                               true,
-                                              50);
+                                              50,
+                                              VoldemortConfig.DEFAULT_FETCHER_SOCKET_TIMEOUT);
         long start = System.currentTimeMillis();
         if(destDir == null)
             destDir = System.getProperty("java.io.tmpdir") + File.separator + start;

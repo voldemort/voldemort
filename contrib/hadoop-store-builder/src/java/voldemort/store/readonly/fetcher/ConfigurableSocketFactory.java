@@ -12,6 +12,7 @@ import javax.net.SocketFactory;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.log4j.Logger;
+import voldemort.server.VoldemortConfig;
 
 /**
  * A lot of boilerplate code to tell hadoop to use a non-standard socket buffer
@@ -23,13 +24,16 @@ import org.apache.log4j.Logger;
 class ConfigurableSocketFactory extends SocketFactory implements Configurable {
 
     private static final Logger logger = Logger.getLogger(ConfigurableSocketFactory.class);
+    public static final String SO_RCVBUF = "io.socket.receive.buffer";
+    public static final String SO_TIMEOUT = "io.socket.timeout";
 
     static {
         logger.info("----- Using configurable socket factory -------");
     }
 
     private Configuration configuration;
-    private int socketReceiveBufferSize = -1;
+    private int socketReceiveBufferSize;
+    private int socketTimeout;
 
     @Override
     public Socket createSocket() throws IOException {
@@ -43,7 +47,7 @@ class ConfigurableSocketFactory extends SocketFactory implements Configurable {
                                int localPort) throws IOException {
         Socket socket = applySettings(createSocket());
         socket.bind(new InetSocketAddress(address, localPort));
-        socket.connect(new InetSocketAddress(localAddress, port));
+        socket.connect(new InetSocketAddress(localAddress, port), socketTimeout);
         return socket;
     }
 
@@ -59,14 +63,14 @@ class ConfigurableSocketFactory extends SocketFactory implements Configurable {
             throws IOException, UnknownHostException {
         Socket socket = applySettings(createSocket());
         socket.bind(new InetSocketAddress(host, localPort));
-        socket.connect(new InetSocketAddress(host, port));
+        socket.connect(new InetSocketAddress(host, port), socketTimeout);
         return socket;
     }
 
     @Override
     public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
         Socket socket = applySettings(createSocket());
-        socket.connect(new InetSocketAddress(host, port));
+        socket.connect(new InetSocketAddress(host, port), socketTimeout);
         return socket;
     }
 
@@ -76,7 +80,8 @@ class ConfigurableSocketFactory extends SocketFactory implements Configurable {
 
     public void setConf(Configuration conf) {
         this.configuration = conf;
-        this.socketReceiveBufferSize = conf.getInt("io.socket.receive.buffer", 100 * 1024 * 1024);
+        this.socketReceiveBufferSize = conf.getInt(SO_RCVBUF, VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE);
+        this.socketTimeout = conf.getInt(SO_TIMEOUT, VoldemortConfig.DEFAULT_FETCHER_SOCKET_TIMEOUT);
     }
 
     private Socket applySettings(Socket s) throws IOException {
@@ -84,6 +89,7 @@ class ConfigurableSocketFactory extends SocketFactory implements Configurable {
             logger.debug("Attempting to set socket receive buffer of "
                          + this.socketReceiveBufferSize + " bytes");
         s.setReceiveBufferSize(socketReceiveBufferSize);
+        s.setSoTimeout(socketTimeout);
         if(logger.isDebugEnabled())
             logger.info("Actually set socket receive buffer to " + s.getReceiveBufferSize()
                         + " bytes");
