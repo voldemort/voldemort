@@ -143,7 +143,7 @@ public class HDFSFetcherAdvancedTest {
      */
     private byte[] calculateCheckSumForFile(Path source) throws Exception {
         CheckSum fileCheckSumGenerator = CheckSum.getInstance(CheckSumType.MD5);
-        byte[] buffer = new byte[VoldemortConfig.DEFAULT_BUFFER_SIZE];
+        byte[] buffer = new byte[VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE];
 
         FSDataInputStream input = null;
 
@@ -202,7 +202,7 @@ public class HDFSFetcherAdvancedTest {
         testDestDir = testSourceDir;
         indexFileName = "0_0.index";
         File indexFile = new File(testSourceDir, indexFileName);
-        byte[] indexBytes = TestUtils.randomBytes(VoldemortConfig.DEFAULT_BUFFER_SIZE * 3);
+        byte[] indexBytes = TestUtils.randomBytes(VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE * 3);
         FileUtils.writeByteArrayToFile(indexFile, indexBytes);
         source = new Path(indexFile.getAbsolutePath());
         checksumCalculated = calculateCheckSumForFile(source);
@@ -245,7 +245,7 @@ public class HDFSFetcherAdvancedTest {
 
         Utils.mkdirs(destination);
 
-        buffer = new byte[VoldemortConfig.DEFAULT_BUFFER_SIZE];
+        buffer = new byte[VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE];
     }
 
     private void cleanUp() {

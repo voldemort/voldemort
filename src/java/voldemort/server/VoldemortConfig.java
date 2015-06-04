@@ -78,7 +78,8 @@ public class VoldemortConfig implements Serializable {
     private static final String VOLDEMORT_NODE_ID_VAR_NAME = "VOLDEMORT_NODE_ID";
     public static int VOLDEMORT_DEFAULT_ADMIN_PORT = 6660;
     public static final long REPORTING_INTERVAL_BYTES = 25 * 1024 * 1024;
-    public static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
+    public static final int DEFAULT_FETCHER_BUFFER_SIZE = 64 * 1024;
+    public static final int DEFAULT_FETCHER_SOCKET_TIMEOUT = 1000 * 60 * 30; // 30 minutes
 
     // Kerberos support for read-only fetches (constants)
     public static final String DEFAULT_KERBEROS_PRINCIPAL = "voldemrt";
@@ -151,6 +152,7 @@ public class VoldemortConfig implements Serializable {
     private int readOnlyFetchRetryCount;
     private long readOnlyFetchRetryDelayMs;
     private int fetcherBufferSize;
+    private int fetcherSocketTimeout;
     private String readOnlyKeytabPath;
     private String readOnlyKerberosUser;
     private String hadoopConfigPath;
@@ -330,7 +332,7 @@ public class VoldemortConfig implements Serializable {
 
         this.numReadOnlyVersions = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
-                                                      BinarySearchStrategy.class.getName());
+                BinarySearchStrategy.class.getName());
         this.readOnlyStorageDir = props.getString("readonly.data.directory", this.dataDirectory
                                                                              + File.separator
                                                                              + "read-only");
@@ -341,8 +343,10 @@ public class VoldemortConfig implements Serializable {
                                                                     REPORTING_INTERVAL_BYTES);
         this.readOnlyFetchRetryCount = props.getInt("fetcher.retry.count", 5);
         this.readOnlyFetchRetryDelayMs = props.getLong("fetcher.retry.delay.ms", 5000);
-        this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
-                                                      DEFAULT_BUFFER_SIZE);
+        this.fetcherBufferSize = props.getInt("hdfs.fetcher.buffer.size",
+                                              DEFAULT_FETCHER_BUFFER_SIZE);
+        this.fetcherSocketTimeout = props.getInt("hdfs.fetcher.socket.timeout",
+                                                 DEFAULT_FETCHER_SOCKET_TIMEOUT);
         this.readOnlyKeytabPath = props.getString("readonly.keytab.path",
                                                   this.metadataDirectory
                                                           + VoldemortConfig.DEFAULT_KEYTAB_PATH);
@@ -2863,7 +2867,7 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * Size of buffer to be used for HdfsFetcher. Note that this does not apply
-     * to WebHDFS fetches
+     * to WebHDFS fetches.
      * 
      * <ul>
      * <li>Property :"hdfs.fetcher.buffer.size"</li>
@@ -2872,6 +2876,24 @@ public class VoldemortConfig implements Serializable {
      */
     public void setFetcherBufferSize(int fetcherBufferSize) {
         this.fetcherBufferSize = fetcherBufferSize;
+    }
+
+
+    public int getFetcherSocketTimeout() {
+        return fetcherSocketTimeout;
+    }
+
+    /**
+     * Amount of time (in ms) to block while waiting for content on a socket used
+     * in the HdfsFetcher. Note that this does not apply to WebHDFS fetches.
+     *
+     * <ul>
+     * <li>Property :"hdfs.fetcher.socket.timeout"</li>
+     * <li>Default : 30 minutes</li>
+     * </ul>
+     */
+    public void setFetcherSocketTimeout(int fetcherSocketTimeout) {
+        this.fetcherSocketTimeout = fetcherSocketTimeout;
     }
 
     /**
