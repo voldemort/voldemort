@@ -65,7 +65,7 @@ import voldemort.utils.Utils;
  * This test suite tests the HDFSFetcher We test the fetch from hadoop by
  * simulating exceptions during fetches
  */
-public class HDFSFetcherAdvancedTest {
+public class HdfsFetcherAdvancedTest {
 
     public static final Random UNSEEDED_RANDOM = new Random();
     private final boolean isCompressed;
@@ -85,7 +85,7 @@ public class HDFSFetcherAdvancedTest {
         return Arrays.asList(new Object[][] { { false, true }, { true, false } });
     }
 
-    public HDFSFetcherAdvancedTest(boolean isCompressed, boolean enableStatsFile) {
+    public HdfsFetcherAdvancedTest(boolean isCompressed, boolean enableStatsFile) {
         this.isCompressed = isCompressed;
         this.enableStatsFile = enableStatsFile;
     }
@@ -231,7 +231,7 @@ public class HDFSFetcherAdvancedTest {
                                       enableStatsFile,
                                       5,
                                       false,
-                                      sizeOfPath(fs, source));
+                                      new HdfsPathInfo(fs, source));
             copyLocation = new File(destination, indexFileName + ".gz");
         } else {
             stats = new HdfsCopyStats(testSourceDir.getAbsolutePath(),
@@ -239,7 +239,7 @@ public class HDFSFetcherAdvancedTest {
                                       enableStatsFile,
                                       5,
                                       false,
-                                      sizeOfPath(fs, source));
+                                      new HdfsPathInfo(fs, source));
             copyLocation = new File(destination, indexFileName);
         }
 

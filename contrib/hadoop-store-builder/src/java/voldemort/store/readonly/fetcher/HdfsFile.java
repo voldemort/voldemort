@@ -14,7 +14,7 @@ public class HdfsFile implements Comparable<HdfsFile> {
 
     private final FileStatus fs;
     private final FileType type;
-    
+
     private FileType getFileType(String fileName) {
         if(fileName.contains(HdfsFetcher.METADATA_FILE_EXTENSION)) {
             return FileType.METADATA;
@@ -101,6 +101,11 @@ public class HdfsFile implements Comparable<HdfsFile> {
 
     public boolean isCompressed() {
         return getPath().getName().endsWith(HdfsFetcher.GZIP_FILE_EXTENSION);
+    }
+
+    @Override
+    public String toString() {
+        return getPath().toString();
     }
 
 }

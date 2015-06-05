@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -347,7 +347,7 @@ public class HdfsFetcher implements FileFetcher {
                                       enableStatsFile,
                                       maxVersionsStatsFile,
                                       isFile,
-                                      sizeOfPath(fs, path));
+                                      new HdfsPathInfo(fs, path));
             jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(), stats);
 
 
@@ -460,7 +460,7 @@ public class HdfsFetcher implements FileFetcher {
      * Function to copy a file from the given filesystem with a checksum of type
      * 'checkSumType' computed and returned. In case an error occurs during such
      * a copy, we do a retry for a maximum of NUM_RETRIES
-     * 
+     *
      * @param fs Filesystem used to copy the file
      * @param source Source path of the file to copy
      * @param dest Destination path of the file on the local machine
@@ -589,20 +589,6 @@ public class HdfsFetcher implements FileFetcher {
             logger.debug("Completed copy of " + source + " to " + dest);
         }
         return fileCheckSumGenerator;
-    }
-
-    private long sizeOfPath(FileSystem fs, Path path) throws IOException {
-        long size = 0;
-        FileStatus[] statuses = fs.listStatus(path);
-        if(statuses != null) {
-            for(FileStatus status: statuses) {
-                if(status.isDir())
-                    size += sizeOfPath(fs, status.getPath());
-                else
-                    size += status.getLen();
-            }
-        }
-        return size;
     }
 
     public void setAsyncOperationStatus(AsyncOperationStatus status) {

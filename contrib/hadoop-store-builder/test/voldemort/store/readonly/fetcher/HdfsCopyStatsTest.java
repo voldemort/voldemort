@@ -34,7 +34,7 @@ public class HdfsCopyStatsTest {
     }
 
     public HdfsCopyStatsTest(boolean enableStatsFile) {
-        testSourceDir = HDFSFetcherAdvancedTest.createTempDir();
+        testSourceDir = HdfsFetcherAdvancedTest.createTempDir();
         destination = new File(testSourceDir.getAbsolutePath() + "_dest");
         statsDir = HdfsCopyStats.getStatDir(destination);
         this.enableStatsFile = enableStatsFile;
@@ -47,7 +47,7 @@ public class HdfsCopyStatsTest {
         destination = new File(testSourceDir.getAbsolutePath() + "_dest");
         statsDir = HdfsCopyStats.getStatDir(destination);
         if(statsDir != null)
-            HDFSFetcherAdvancedTest.deleteDir(statsDir);
+            HdfsFetcherAdvancedTest.deleteDir(statsDir);
         List<String> expectedStatsFile = new ArrayList<String>();
         for(int i = 0; i < maxStatsFile + 2; i++) {
             destination = new File(testSourceDir.getAbsolutePath() + "_dest" + i);
@@ -61,7 +61,7 @@ public class HdfsCopyStatsTest {
                                                     enableStatsFile,
                                                     maxStatsFile,
                                                     isFileCopy,
-                                                    1000);
+                                                    HdfsPathInfo.getTestObject(1000));
 
             Random r = new Random();
             for(int j = 0; j < 10; j++) {
@@ -72,8 +72,7 @@ public class HdfsCopyStatsTest {
                                            r.nextLong(),
                                            r.nextInt(),
                                            r.nextLong());
-                
-               
+
             }
             Exception e = r.nextBoolean() ? null : new Exception();
             stats.reportFileError(new File(destination, "error"), r.nextInt(), r.nextLong(), e);
@@ -82,7 +81,7 @@ public class HdfsCopyStatsTest {
             stats.complete();
 
             if(destination != null)
-                HDFSFetcherAdvancedTest.deleteDir(destination);
+                HdfsFetcherAdvancedTest.deleteDir(destination);
         }
 
         statsDir = HdfsCopyStats.getStatDir(destination);
@@ -93,7 +92,7 @@ public class HdfsCopyStatsTest {
             assertEquals("Number of files should be equal to the maxStatsFiles",
                          maxStatsFile,
                          statsFiles.length);
-            
+
             Set<String> actualStatsFile = new HashSet<String>();
             for(File statFile : statsFiles) {
                 assertTrue("Size of the stat file should be greater than zero",
@@ -117,8 +116,8 @@ public class HdfsCopyStatsTest {
 
     public void cleanUp() {
         if(testSourceDir != null)
-            HDFSFetcherAdvancedTest.deleteDir(testSourceDir);
+            HdfsFetcherAdvancedTest.deleteDir(testSourceDir);
         if(statsDir != null)
-            HDFSFetcherAdvancedTest.deleteDir(statsDir);
+            HdfsFetcherAdvancedTest.deleteDir(statsDir);
     }
 }

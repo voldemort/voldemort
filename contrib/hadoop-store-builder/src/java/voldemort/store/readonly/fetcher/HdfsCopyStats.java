@@ -23,7 +23,7 @@ public class HdfsCopyStats {
     private volatile long bytesSinceLastReport;
     private volatile long totalBytesCopied;
     private volatile long lastReportNs;
-    private volatile long totalBytes;
+    private final HdfsPathInfo pathInfo;
 
     private BufferedWriter statsFileWriter = null;
     public static final String STATS_DIRECTORY = ".stats";
@@ -80,13 +80,12 @@ public class HdfsCopyStats {
         if(enableStatsFile == false) {
             return;
         }
-        
+
         // Downloading just a file(test), stats are not required.
         if(isFileCopy) {
             return;
         }
-        
-        
+
         File statsDirectory = getStatDir(destination);
         if(statsDirectory == null) {
             return;
@@ -95,7 +94,7 @@ public class HdfsCopyStats {
             if(statsDirectory.exists() == false) {
                 statsDirectory.mkdirs();
             }
-            
+
             if(statsDirectory.exists() == false) {
                 logger.info("Could not create stats directory for destination " + destination);
                 return;
@@ -108,8 +107,8 @@ public class HdfsCopyStats {
             statsFile.createNewFile();
 
             statsFileWriter = new BufferedWriter(new FileWriter(statsFile));
-            statsFileWriter.write("Starting fetch at " + startTimeMS + "MS from "
-                                  + sourceFile);
+            statsFileWriter.write("Starting fetch at " + startTimeMS + "MS from " + sourceFile
+                                  + " . Info: " + pathInfo);
             statsFileWriter.newLine();
             statsFileWriter.write("Time, FileName, StartTime(MS), Size, TimeTaken(MS), Attempts #, TotalBytes");
             statsFileWriter.newLine();
@@ -126,11 +125,11 @@ public class HdfsCopyStats {
                          boolean enableStatsFile,
                          int maxVersionsStatsFile,
                          boolean isFileCopy,
-                         long totalBytes) {
+                         HdfsPathInfo pathInfo) {
         this.sourceFile = source;
         this.totalBytesCopied = 0L;
         this.bytesSinceLastReport = 0L;
-        this.totalBytes = totalBytes;
+        this.pathInfo = pathInfo;
         this.lastReportNs = System.nanoTime();
         this.startTimeMS = System.currentTimeMillis();
         initializeStatsFile(destination, enableStatsFile, maxVersionsStatsFile, isFileCopy);
@@ -149,7 +148,7 @@ public class HdfsCopyStats {
     public long getBytesSinceLastReport() {
         return bytesSinceLastReport;
     }
-    
+
     private void reportStats(String message) {
         try {
             if(statsFileWriter != null) {
@@ -169,6 +168,8 @@ public class HdfsCopyStats {
             reportStats(message + " Error Message : " + t.getMessage());
             PrintWriter pw = new PrintWriter(statsFileWriter);
             t.printStackTrace(pw);
+        } else {
+            reportStats(message);
         }
     }
 
@@ -193,7 +194,7 @@ public class HdfsCopyStats {
     public void complete() {
         long nowMS = System.currentTimeMillis() ;
         reportStats(" Completed at " + nowMS + "MS. Total bytes Copied " + totalBytesCopied
-                    + " . Expected Total bytes " + totalBytes + " . Time taken(MS) "
+                    + " . Expected Total bytes " + pathInfo.getTotalSize() + " . Time taken(MS) "
                     + (nowMS - startTimeMS));
         if(statsFileWriter != null) {
             IOUtils.closeQuietly(statsFileWriter);
@@ -201,10 +202,10 @@ public class HdfsCopyStats {
     }
 
     public double getPercentCopied() {
-        if(totalBytes == 0) {
+        if(pathInfo.getTotalSize() == 0) {
             return 0.0;
         } else {
-            return (double) (totalBytesCopied * 100) / (double) totalBytes;
+            return (double) (totalBytesCopied * 100) / (double) pathInfo.getTotalSize();
         }
     }
 
