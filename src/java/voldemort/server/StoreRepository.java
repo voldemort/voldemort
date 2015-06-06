@@ -185,7 +185,7 @@ public class StoreRepository {
         // register streaming stats object for the store
         if(streamingStatsMap != null) {
             JmxUtils.unregisterMbean(JmxUtils.createObjectName(this.getClass().getCanonicalName(),
-                                                               storeName));
+                                                               storeName + "-streaming-stats"));
             streamingStatsMap.remove(storeName);
             // lazily unregister the aggregated mbean
             if(storageEngines.size() == 1) {
