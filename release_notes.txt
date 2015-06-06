@@ -1,3 +1,10 @@
+Release 1.9.15 on 06/05/2015
+  * Unit tests for Serialization
+  * Alert if BnP jobs does not progress
+  * Add Timeout for ConfigurableSocketStoreFactory
+  * HdfsCopyStats outputs object ids, not Hdfs Paths
+  * HdfsCopyStatsTest fails intermittently
+
 Release 1.9.14 on 05/22/2015
   * RO stats feature
   * HdfsFetcher refactoring
