@@ -54,8 +54,7 @@ public class AvroUtils {
                 try {
                     inStream = new BufferedInputStream(fs.open(path));
                 } catch(IOException e1) {
-                    // TODO Auto-generated catch block
-                    e1.printStackTrace();
+		    throw new RuntimeException("Unable to open " + path, e1);
                 }
                 GenericDatumReader datum = new GenericDatumReader();
 
@@ -63,8 +62,7 @@ public class AvroUtils {
                 try {
                     reader = new DataFileStream(inStream, datum);
                 } catch(IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+		    throw new RuntimeException("Invalid avro format, path " + path, e);
                 }
                 return reader.getSchema();
             } else {
@@ -72,13 +70,14 @@ public class AvroUtils {
                 if(fs.isDirectory(path)) {
                     // this is a directory, get schemas from all subfiles
                     statuses = fs.listStatus(path);
+		    if(statuses == null || statuses.length == 0)
+			throw new IllegalArgumentException("No files in directory " + path);
                 } else {
                     // this is wildcard path, get schemas from all matched files
                     statuses = fs.globStatus(path);
+		    if(statuses == null || statuses.length == 0)
+			throw new IllegalArgumentException("No matches for path pattern " + path);
                 }
-                if(statuses == null || statuses.length == 0)
-                    throw new IllegalArgumentException("No files found in path pattern "
-                                                       + path.toUri().getPath());
                 List<Schema> schemas = new ArrayList<Schema>();
                 for(FileStatus status: statuses) {
                     if(!HadoopUtils.shouldPathBeIgnored(status.getPath())) {
@@ -96,22 +95,19 @@ public class AvroUtils {
                     for(int i = 1; i < schemas.size(); i++)
                         if(!schema.equals(schemas.get(i)))
                             throw new IllegalArgumentException("The directory "
-                                                               + path.toString()
+                                                               + path
                                                                + " contains heterogenous schemas: found both '"
-                                                               + schema.toString() + "' and '"
-                                                               + schemas.get(i).toString() + "'.");
+                                                               + schema + "' and '"
+                                                               + schemas.get(i) + "'.");
 
                     return schema;
                 } else {
-                    throw new IllegalArgumentException("No Valid metadata file found for Path:"
-                                                       + path.toString());
+                    throw new IllegalArgumentException("No valid metadata file found for path " + path);
                 }
             }
         } catch(Exception e) {
-            // logger.error("failed to get metadata from path:" + path);
-            throw new RuntimeException(e);
+            throw new RuntimeException("Error getting schema for path " + path, e);
         }
-
     }
 
     public static Schema getAvroSchemaFromPath(Path path) throws IOException {
