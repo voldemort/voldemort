@@ -27,6 +27,24 @@ public class SleepyStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     private long sleepTimeMs;
 
+    private Object waitObject = new Object();
+
+    private void sleep() {
+        try {
+            synchronized (waitObject) {
+                waitObject.wait(sleepTimeMs);
+            }
+        } catch (InterruptedException e) {
+            throw new VoldemortException(e);
+        }
+    }
+
+    public void releaseThreads() {
+        synchronized (waitObject) {
+            waitObject.notifyAll();
+        }
+    }
+
     public SleepyStore(long sleepTimeMs, Store<K, V, T> innerStore) {
         super(innerStore);
         this.sleepTimeMs = sleepTimeMs;
@@ -38,43 +56,27 @@ public class SleepyStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     @Override
     public boolean delete(K key, Version version) throws VoldemortException {
-        try {
-            Thread.sleep(sleepTimeMs);
-            return getInnerStore().delete(key, version);
-        } catch(InterruptedException e) {
-            throw new VoldemortException(e);
-        }
+        sleep();
+        return getInnerStore().delete(key, version);
     }
 
     @Override
     public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
-        try {
-            Thread.sleep(sleepTimeMs);
-            return getInnerStore().get(key, transforms);
-        } catch(InterruptedException e) {
-            throw new VoldemortException(e);
-        }
+        sleep();
+        return getInnerStore().get(key, transforms);
     }
 
     @Override
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
             throws VoldemortException {
-        try {
-            Thread.sleep(sleepTimeMs);
-            return getInnerStore().getAll(keys, transforms);
-        } catch(InterruptedException e) {
-            throw new VoldemortException(e);
-        }
+        sleep();
+        return getInnerStore().getAll(keys, transforms);
     }
 
     @Override
     public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
-        try {
-            Thread.sleep(sleepTimeMs);
-            getInnerStore().put(key, value, transforms);
-        } catch(InterruptedException e) {
-            throw new VoldemortException(e);
-        }
+        sleep();
+        getInnerStore().put(key, value, transforms);
     }
 
 }

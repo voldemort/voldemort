@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.common.nio.SelectorManager;
+import voldemort.common.nio.AbstractSelectorManager;
 import voldemort.store.StoreTimeoutException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
@@ -344,7 +344,11 @@ public class ClientRequestExecutorFactory implements
         }
     }
 
-    private class ClientRequestSelectorManager extends SelectorManager {
+    private class ClientRequestSelectorManager extends AbstractSelectorManager {
+
+        public ClientRequestSelectorManager() {
+            super(TimeUnit.MILLISECONDS.convert(3, TimeUnit.MINUTES));
+        }
 
         private final Queue<ClientRequestExecutor> registrationQueue = new ConcurrentLinkedQueue<ClientRequestExecutor>();
 

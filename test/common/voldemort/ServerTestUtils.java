@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.http.client.HttpClient;
@@ -76,7 +77,11 @@ import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
-import voldemort.utils.*;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.Props;
+import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -147,7 +152,8 @@ public class ServerTestUtils {
                                                          int port,
                                                          int coreConnections,
                                                          int maxConnections,
-                                                         int bufferSize) {
+                                                         int bufferSize,
+                                                         long maxHeartBeatTimeMs) {
         AbstractSocketService socketService = null;
 
         if(useNio) {
@@ -158,7 +164,8 @@ public class ServerTestUtils {
                                                  coreConnections,
                                                  "client-request-service",
                                                  false,
-                                                 -1);
+                                                 -1,
+                                                 maxHeartBeatTimeMs);
         } else {
             socketService = new SocketService(requestHandlerFactory,
                                               port,
@@ -171,6 +178,22 @@ public class ServerTestUtils {
 
         return socketService;
     }
+
+    public static AbstractSocketService getSocketService(boolean useNio,
+                                                         RequestHandlerFactory requestHandlerFactory,
+                                                         int port,
+                                                         int coreConnections,
+                                                         int maxConnections,
+                                                         int bufferSize) {
+        return getSocketService(useNio,
+                                requestHandlerFactory,
+                                port,
+                                coreConnections,
+                                maxConnections,
+                                bufferSize,
+                                TimeUnit.MILLISECONDS.convert(3, TimeUnit.MINUTES));
+
+	}
 
     public static Store<ByteArray, byte[], byte[]> getSocketStore(SocketStoreFactory storeFactory,
                                                                   String storeName,

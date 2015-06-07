@@ -25,8 +25,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.log4j.Level;
 
+import voldemort.common.nio.AbstractSelectorManager;
 import voldemort.common.nio.CommBufferSizeStats;
-import voldemort.common.nio.SelectorManager;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.store.stats.Histogram;
 
@@ -91,7 +91,7 @@ import voldemort.store.stats.Histogram;
  * 
  */
 
-public class NioSelectorManager extends SelectorManager {
+public class NioSelectorManager extends AbstractSelectorManager {
 
     private final InetSocketAddress endpoint;
 
@@ -108,7 +108,9 @@ public class NioSelectorManager extends SelectorManager {
     public NioSelectorManager(InetSocketAddress endpoint,
                               RequestHandlerFactory requestHandlerFactory,
                               int socketBufferSize,
-                              boolean socketKeepAlive) {
+                              boolean socketKeepAlive,
+                              long maxHeartBeatTimeMs) {
+        super(maxHeartBeatTimeMs);
         this.endpoint = endpoint;
         this.socketChannelQueue = new ConcurrentLinkedQueue<SocketChannel>();
         this.requestHandlerFactory = requestHandlerFactory;

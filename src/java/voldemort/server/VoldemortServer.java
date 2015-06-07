@@ -249,7 +249,8 @@ public class VoldemortServer extends AbstractService {
                                                                          voldemortConfig.getNioConnectorSelectors(),
                                                                          "nio-socket-server",
                                                                          voldemortConfig.isJmxEnabled(),
-                                                                         voldemortConfig.getNioAcceptorBacklog());
+                                                                         voldemortConfig.getNioAcceptorBacklog(),
+                                                                         voldemortConfig.getNioSelectorMaxHeartBeatTimeMs());
                 onlineServices.add(nioSocketService);
             } else {
                 logger.info("Using BIO Connector.");
@@ -310,7 +311,8 @@ public class VoldemortServer extends AbstractService {
                                                   voldemortConfig.getNioAdminConnectorSelectors(),
                                                   "admin-server",
                                                   voldemortConfig.isJmxEnabled(),
-                                                  voldemortConfig.getNioAcceptorBacklog()));
+                                                  voldemortConfig.getNioAcceptorBacklog(),
+                                                  voldemortConfig.getNioSelectorMaxHeartBeatTimeMs()));
             } else {
                 logger.info("Using BIO Connector for Admin Service.");
                 services.add(new SocketService(adminRequestHandlerFactory,

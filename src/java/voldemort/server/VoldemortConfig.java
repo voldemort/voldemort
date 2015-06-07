@@ -16,7 +16,15 @@
 
 package voldemort.server;
 
-import com.google.common.collect.ImmutableList;
+import java.io.File;
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.List;
+import java.util.Properties;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.TimeUnit;
+
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.TimeoutConfig;
@@ -56,13 +64,7 @@ import voldemort.utils.Time;
 import voldemort.utils.UndefinedPropertyException;
 import voldemort.utils.Utils;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.List;
-import java.util.Properties;
-import java.util.Timer;
-import java.util.TimerTask;
+import com.google.common.collect.ImmutableList;
 
 /**
  * Configuration parameters for the voldemort server.
@@ -191,6 +193,7 @@ public class VoldemortConfig implements Serializable {
     private int nioAdminConnectorSelectors;
     private boolean nioAdminConnectorKeepAlive;
     private int nioAcceptorBacklog;
+    private long nioSelectorMaxHeartBeatTimeMs;
 
     private int clientSelectors;
     private TimeoutConfig clientTimeoutConfig;
@@ -455,6 +458,8 @@ public class VoldemortConfig implements Serializable {
         this.nioAdminConnectorKeepAlive = props.getBoolean("nio.admin.connector.keepalive", false);
         // a value <= 0 forces the default to be used
         this.nioAcceptorBacklog = props.getInt("nio.acceptor.backlog", 256);
+        this.nioSelectorMaxHeartBeatTimeMs = props.getLong("nio.selector.max.heart.beat.time.ms", 
+                                                           TimeUnit.MILLISECONDS.convert(3, TimeUnit.MINUTES));
 
         this.clientSelectors = props.getInt("client.selectors", 4);
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 50);
@@ -2397,6 +2402,14 @@ public class VoldemortConfig implements Serializable {
 
     public int getNioAcceptorBacklog() {
         return nioAcceptorBacklog;
+    }
+
+    public long getNioSelectorMaxHeartBeatTimeMs() {
+        return nioSelectorMaxHeartBeatTimeMs;
+    }
+
+    public void setNioSelectorMaxHeartBeatTimeMs(long nioSelectorMaxHeartBeatTimeMs) {
+        this.nioSelectorMaxHeartBeatTimeMs = nioSelectorMaxHeartBeatTimeMs;
     }
 
     /**

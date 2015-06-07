@@ -3,7 +3,7 @@ package voldemort.server.niosocket;
 import org.apache.commons.lang.mutable.MutableInt;
 
 import voldemort.common.nio.CommBufferSizeStats;
-import voldemort.common.nio.SelectorManager;
+import voldemort.common.nio.AbstractSelectorManager;
 import voldemort.store.stats.Histogram;
 
 /**
@@ -31,7 +31,7 @@ public class NioSelectorManagerStats {
 
         // Theoretically, the delay can be only upto SELECTOR_POLL_MS.
         // But sometimes wallclock time can be higher
-        this.selectTimeMsHistogram = new Histogram(SelectorManager.SELECTOR_POLL_MS * 2,
+        this.selectTimeMsHistogram = new Histogram(AbstractSelectorManager.SELECTOR_POLL_MS * 2,
                                                    1,
                                                    SELECTOR_STATS_RESET_INTERVAL);
         // Not a scientific limit. Not expecting a server thread to handle more

@@ -88,9 +88,11 @@ import voldemort.VoldemortException;
  * re-balance the remaining requests evenly.
  */
 
-public class SelectorManager implements Runnable {
+public abstract class AbstractSelectorManager implements Runnable {
 
     public static final int SELECTOR_POLL_MS = 500;
+
+    private final long maxHeartBeatTimeMs;
 
     protected final Selector selector;
 
@@ -115,7 +117,16 @@ public class SelectorManager implements Runnable {
      */
     protected long selectTimeMs = -1;
 
-    public SelectorManager() {
+    /**
+     * Last time processEvent was called. A healthy selector thread will be
+     * reading/writing and also seeing how many threads are registered for
+     * Selector. If the processEvents is not called for a long time, then it
+     * indicates a problem with the Selector thread.
+     */
+    private long lastHeartBeatTimeMs = -1;
+    private String threadName = "";
+
+    public AbstractSelectorManager(long maxHeartBeatTimeMs) {
         try {
             this.selector = Selector.open();
         } catch(IOException e) {
@@ -123,6 +134,7 @@ public class SelectorManager implements Runnable {
         }
 
         this.isClosed = new AtomicBoolean(false);
+        this.maxHeartBeatTimeMs = maxHeartBeatTimeMs;
     }
 
     public void close() {
@@ -166,17 +178,26 @@ public class SelectorManager implements Runnable {
         }
     }
 
+    public boolean isHealthy() {
+        long timeElapsed = System.currentTimeMillis() - lastHeartBeatTimeMs;
+        boolean healthy = timeElapsed < maxHeartBeatTimeMs;
+        if (!healthy) {
+            logger.warn("Selector " + threadName + " is not healthy. Last heart beat(MS) " + lastHeartBeatTimeMs + " time elapsed(MS) "
+                    + timeElapsed + " max heart beat time(MS) " + maxHeartBeatTimeMs);
+        }
+        return healthy;
+    }
+
     /**
      * This is a stub method to process any "events" before we go back to
      * select-ing again. This is the place to process queues for registering new
      * Channel instances, for example.
      */
 
-    protected void processEvents() {
-
-    }
+    protected abstract void processEvents();
 
     public void run() {
+        threadName = Thread.currentThread().getName();
 
         try {
             while(true) {
@@ -186,6 +207,7 @@ public class SelectorManager implements Runnable {
                     break;
                 }
 
+                lastHeartBeatTimeMs = System.currentTimeMillis();
                 processEvents();
 
                 try {
