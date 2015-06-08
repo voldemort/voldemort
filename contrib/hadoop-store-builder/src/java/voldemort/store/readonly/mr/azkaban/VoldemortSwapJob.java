@@ -18,11 +18,13 @@ package voldemort.store.readonly.mr.azkaban;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -36,6 +38,7 @@ import voldemort.cluster.Cluster;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import azkaban.jobExecutor.AbstractJob;
+import voldemort.store.readonly.swapper.FailedFetchStrategy;
 import voldemort.utils.Props;
 
 /*
@@ -73,7 +76,8 @@ public class VoldemortSwapJob extends AbstractJob {
         private int httpTimeoutMs;
         private long pushVersion;
         private int maxBackoffDelayMs = 60 * 1000;
-        private boolean rollback = false;
+        private boolean rollbackFailedSwap = false;
+        private List<FailedFetchStrategy> failedFetchStrategyList = Lists.newArrayList();
 
         public VoldemortSwapConf(Props props) throws IOException {
             this(HadoopUtils.readCluster(props.getString("cluster.xml"), new Configuration()),
@@ -94,14 +98,12 @@ public class VoldemortSwapJob extends AbstractJob {
                                  int httpTimeoutMs,
                                  long pushVersion,
                                  int maxBackoffDelayMs,
-                                 boolean rollback) {
-            this.cluster = cluster;
-            this.dataDir = dataDir;
-            this.storeName = storeName;
-            this.httpTimeoutMs = httpTimeoutMs;
-            this.pushVersion = pushVersion;
+                                 boolean rollbackFailedSwap,
+                                 List<FailedFetchStrategy> failedFetchStrategyList) {
+            this(cluster, dataDir, storeName, httpTimeoutMs, pushVersion);
             this.maxBackoffDelayMs = maxBackoffDelayMs;
-            this.rollback = rollback;
+            this.rollbackFailedSwap = rollbackFailedSwap;
+            this.failedFetchStrategyList = failedFetchStrategyList;
         }
 
         public VoldemortSwapConf(Cluster cluster,
@@ -140,8 +142,12 @@ public class VoldemortSwapJob extends AbstractJob {
             return maxBackoffDelayMs;
         }
 
-        public boolean getRollback() {
-            return rollback;
+        public boolean getRollbackFailedSwap() {
+            return rollbackFailedSwap;
+        }
+
+        public List<FailedFetchStrategy> getFailedFetchStrategyList() {
+            return failedFetchStrategyList;
         }
     }
 
@@ -182,7 +188,6 @@ public class VoldemortSwapJob extends AbstractJob {
                                              new ClientConfig());
 
         if(pushVersion == -1L) {
-
             // Need to retrieve max version
             ArrayList<String> stores = new ArrayList<String>();
             stores.add(storeName);
@@ -198,12 +203,13 @@ public class VoldemortSwapJob extends AbstractJob {
 
         // do the swap
         info("Initiating swap of " + storeName + " with dataDir:" + dataDir);
-        AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
-                                                          executor,
-                                                          client,
-                                                          httpTimeoutMs,
-                                                          swapConf.getRollback(),
-                                                          swapConf.getRollback());
+        AdminStoreSwapper swapper = new AdminStoreSwapper(
+                cluster,
+                executor,
+                client,
+                httpTimeoutMs,
+                swapConf.getRollbackFailedSwap(),
+                swapConf.getFailedFetchStrategyList());
         swapper.swapStoreData(storeName, dataDir, pushVersion);
         info("Swap complete.");
         executor.shutdownNow();
