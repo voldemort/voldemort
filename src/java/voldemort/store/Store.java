@@ -96,7 +96,7 @@ public interface Store<K, V, T> {
      * 
      * @param capability The capability type to retrieve
      * @return The given capaiblity
-     * @throws NoSuchCapabilityException if the capaibility is not present
+     * @throws NoSuchCapabilityException if the capability is not present
      */
     public Object getCapability(StoreCapabilityType capability);
 

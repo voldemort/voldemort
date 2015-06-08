@@ -81,7 +81,6 @@ class HttpHookRunnable implements Runnable {
                     // no-op
                 }
             }
-
         }
     }
 

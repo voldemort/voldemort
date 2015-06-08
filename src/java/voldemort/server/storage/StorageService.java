@@ -38,6 +38,7 @@ import javax.management.MBeanOperationInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -67,9 +68,12 @@ import voldemort.server.scheduler.slop.SlopPurgeJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.server.storage.repairjob.RepairJob;
+import voldemort.store.DisabledStoreException;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.configuration.FileBackedCachingStorageConfiguration;
 import voldemort.store.configuration.FileBackedCachingStorageEngine;
@@ -83,6 +87,7 @@ import voldemort.store.quota.QuotaLimitStats;
 import voldemort.store.quota.QuotaLimitingStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.readonly.StoreVersionManager;
 import voldemort.store.rebalancing.ProxyPutStats;
 import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
@@ -426,7 +431,26 @@ public class StorageService extends AbstractService {
                                        JmxUtils.createObjectName("voldemort.store.stats.aggregate",
                                                                  "aggregate-perf"));
 
-        logger.info("All stores initialized.");
+        List<StorageEngine> listOfDisabledStores = Lists.newArrayList();
+        for (StorageEngine storageEngine: storeRepository.getAllStorageEngines()) {
+            try {
+                StoreVersionManager storeVersionManager = (StoreVersionManager)
+                        storageEngine.getCapability(StoreCapabilityType.DISABLE_STORE_VERSION);
+                if (storeVersionManager.hasAnyDisabledVersion()) {
+                    listOfDisabledStores.add(storageEngine);
+                    logger.warn("The following store is marked as disabled: " + storageEngine.getName());
+                    // Must put server in offline mode.
+                }
+            } catch (NoSuchCapabilityException e) {
+                // Not a read-only store: no-op
+            }
+        }
+        if (listOfDisabledStores.isEmpty()) {
+            logger.info("All stores initialized.");
+        } else {
+            throw new DisabledStoreException("All stores initialized, but the server needs to go " +
+                    "in offline mode because some store(s) are disabled.");
+        }
     }
 
     protected void initializeMetadataVersions(List<StoreDefinition> storeDefs) {

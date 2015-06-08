@@ -50,6 +50,7 @@ import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
+import voldemort.store.DisabledStoreException;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.JNAUtils;
@@ -332,7 +333,7 @@ public class VoldemortServer extends AbstractService {
         return ImmutableList.copyOf(services);
     }
 
-    public void startOnlineServices() {
+    private void startOnlineServices() {
         if(jmxService != null) {
             jmxService.registerServices(onlineServices);
         }
@@ -341,7 +342,7 @@ public class VoldemortServer extends AbstractService {
         }
     }
 
-    public List<VoldemortException> stopOnlineServices() {
+    private List<VoldemortException> stopOnlineServices() {
         List<VoldemortException> exceptions = Lists.newArrayList();
         for(VoldemortService service: Utils.reversed(onlineServices)) {
             try {
@@ -363,10 +364,20 @@ public class VoldemortServer extends AbstractService {
         JNAUtils.tryMlockall();
         logger.info("Starting " + basicServices.size() + " services.");
         long start = System.currentTimeMillis();
+        boolean goOnline = true;
         for(VoldemortService service: basicServices) {
-            service.start();
+            try {
+                service.start();
+            } catch (DisabledStoreException e) {
+                logger.error("Got a DisabledStoreException from " + service.getType().getDisplayName(), e);
+                goOnline = false;
+            }
         }
-        startOnlineServices();
+        if (goOnline) {
+            startOnlineServices();
+        } else {
+            goOffline();
+        }
         long end = System.currentTimeMillis();
         logger.info("Startup completed in " + (end - start) + " ms.");
     }
@@ -473,4 +484,14 @@ public class VoldemortServer extends AbstractService {
         }
     }
 
+    public void goOffline() {
+        getMetadataStore().setOfflineState(true);
+        stopOnlineServices();
+    }
+
+    public void goOnline() {
+        getMetadataStore().setOfflineState(false);
+        createOnlineServices();
+        startOnlineServices();
+    }
 }

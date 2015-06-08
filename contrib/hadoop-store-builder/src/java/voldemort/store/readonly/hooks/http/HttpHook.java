@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class HttpHook extends AbstractBuildAndPushHook {
@@ -40,14 +42,19 @@ public abstract class HttpHook extends AbstractBuildAndPushHook {
     @Override
     public synchronized void invoke(BuildAndPushStatus buildAndPushStatus, String details) {
         if (running.get() == true) {
-            if (statusesToCallHookFor.contains(buildAndPushStatus)) {
-                httpFutureResults.add(this.executorService.submit(new HttpHookRunnable(
-                        getName(),
-                        log,
-                        getUrlToCall(buildAndPushStatus, details),
-                        getHttpMethod(buildAndPushStatus, details),
-                        getContentType(buildAndPushStatus, details),
-                        getRequestBody(buildAndPushStatus, details))));
+            try {
+                if (statusesToCallHookFor.contains(buildAndPushStatus)) {
+                    httpFutureResults.add(this.executorService.submit(new HttpHookRunnable(
+                            getName(),
+                            log,
+                            getUrlToCall(buildAndPushStatus, details),
+                            getHttpMethod(buildAndPushStatus, details),
+                            getContentType(buildAndPushStatus, details),
+                            getRequestBody(buildAndPushStatus, details))));
+                }
+            } catch (Exception e) {
+                log.error("Got an exception while trying to invoke HttpHook [" + getName() + "]. " +
+                        "Status: " + buildAndPushStatus + ", details: " + details, e);
             }
             if (terminationStatuses.contains(buildAndPushStatus)) {
                 cleanUp();
@@ -116,16 +123,25 @@ public abstract class HttpHook extends AbstractBuildAndPushHook {
 
     private synchronized void cleanUp() {
         if (running.get() == true) {
-            for (Future result : httpFutureResults) {
-                try {
-                    result.get();
-                } catch (Exception e) {
-                    this.log.error("Exception while getting the result of the " +
-                            getName() + "'s HTTP request...", e);
-                }
-            }
+            // Prevent further tasks from being submitted
             this.executorService.shutdown();
-            running.set(false);
+
+            try {
+                // Wait a while for existing tasks to terminate
+                if (!this.executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                    this.executorService.shutdownNow(); // Cancel currently executing tasks
+                    // Wait a while for tasks to respond to being cancelled
+                    if (!this.executorService.awaitTermination(60, TimeUnit.SECONDS))
+                        this.log.error("HttpHook [" + getName() + "] did not terminate cleanly.");
+                }
+            } catch (InterruptedException ie) {
+                // (Re-)Cancel if current thread also interrupted
+                this.executorService.shutdownNow();
+                // Preserve interrupt status
+                Thread.currentThread().interrupt();
+            } finally {
+                running.set(false);
+            }
         }
     }
 }

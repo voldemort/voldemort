@@ -28,6 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.google.protobuf.Message;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -56,7 +57,11 @@ import voldemort.server.storage.StorageService;
 import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.server.storage.repairjob.RepairJob;
 import voldemort.store.ErrorCodeMapper;
+import voldemort.store.NoSuchCapabilityException;
+import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
+import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreOperationFailureException;
@@ -67,6 +72,7 @@ import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.store.readonly.StoreVersionManager;
 import voldemort.store.readonly.chunk.ChunkedFileSet;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.stats.StreamingStats;
@@ -323,8 +329,16 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleReserveMemory(request.getReserveMemory()));
                 break;
+            case GET_HA_SETTINGS:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleGetHighAvailabilitySettings(request.getGetHaSettings()));
+                break;
+            case DISABLE_STORE_VERSION:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleDisableStoreVersion(request.getDisableStoreVersion()));
+                break;
             default:
-                throw new VoldemortException("Unkown operation " + request.getType());
+                throw new VoldemortException("Unknown operation: " + request.getType());
         }
 
         return null;
@@ -376,12 +390,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             Boolean setToOffline = request.getOfflineMode();
             logger.info("Setting OFFLINE_SERVER state to " + setToOffline.toString());
-            metadataStore.setOfflineState(setToOffline);
+
             if(setToOffline) {
-                server.stopOnlineServices();
+                server.goOffline();
             } else {
-                server.createOnlineServices();
-                server.startOnlineServices();
+                server.goOnline();
             }
             // TODO: deal with slop pushing here
         } catch(VoldemortException e) {
@@ -1890,4 +1903,74 @@ public class AdminServiceRequestHandler implements RequestHandler {
         }
         return response.build();
     }
+
+    private Message handleDisableStoreVersion(VAdminProto.DisableStoreVersionRequest disableStoreVersion) {
+        logger.info("Received DisableStoreVersionRequest: " + disableStoreVersion.toString());
+
+        VAdminProto.DisableStoreVersionResponse.Builder response = VAdminProto.DisableStoreVersionResponse.newBuilder();
+
+        String storeName = disableStoreVersion.getStoreName();
+        Long version = disableStoreVersion.getPushVersion();
+
+        try {
+            StorageEngine storeToDisable = storeRepository.getStorageEngine(storeName);
+
+            StoreVersionManager storeVersionManager = (StoreVersionManager)
+                    storeToDisable.getCapability(StoreCapabilityType.DISABLE_STORE_VERSION);
+
+            storeVersionManager.disableStoreVersion(version);
+            response.setDisableSuccess(true)
+                    .setDisablePersistenceSuccess(true)
+                    .setInfo("The store '" + storeName + "' version " + version + " was successfully disabled.");
+        } catch (PersistenceFailureException e) {
+            response.setDisableSuccess(true)
+                    .setDisablePersistenceSuccess(false)
+                    .setInfo("The store '" + storeName + "' version " + version + " was disabled" +
+                            " but the change could not be persisted and will thus remain in effect only" +
+                            " until the next server restart. This is likely caused by the IO subsystem" +
+                            " becoming read-only.");
+        } catch (NoSuchCapabilityException e) {
+            response.setDisableSuccess(false)
+                    .setInfo("The store '" + storeName + "' does not support disabling versions!");
+        } catch (NullPointerException e) {
+            response.setDisableSuccess(false)
+                    .setInfo("The store '" + storeName + "' does not exist!");
+        } catch (Exception e) {
+            logger.error("Got an unexpected exception while trying to disable store '" +
+                    storeName + "' version " + version + ".", e);
+            response.setDisableSuccess(false)
+                    .setInfo("The store '" + storeName + "' version " + version +
+                            " was not disabled because of an unexpected exception.");
+        }
+
+        logger.info("handleDisableStoreVersion returning response: " + response.getInfo());
+
+        if (response.getDisableSuccess()) {
+            // Then we also want to put the server in offline mode
+            VAdminProto.SetOfflineStateRequest offlineStateRequest =
+                    VAdminProto.SetOfflineStateRequest.newBuilder().setOfflineMode(true).build();
+            handleSetOfflineState(offlineStateRequest);
+        }
+
+        return response.build();
+    }
+
+    private Message handleGetHighAvailabilitySettings(VAdminProto.GetHighAvailabilitySettingsRequest getHaSettings) {
+        logger.info("Received GetHighAvailabilitySettingsRequest");
+
+        VAdminProto.GetHighAvailabilitySettingsResponse.Builder response =
+                VAdminProto.GetHighAvailabilitySettingsResponse.newBuilder();
+
+        boolean highAvailabilityPushEnabled = voldemortConfig.isHighAvailabilityPushEnabled();
+        response.setEnabled(highAvailabilityPushEnabled);
+        if (highAvailabilityPushEnabled) {
+            response.setClusterId(voldemortConfig.getHighAvailabilityPushClusterId());
+            response.setMaxNodeFailure(voldemortConfig.getHighAvailabilityPushMaxNodeFailures());
+            response.setLockPath(voldemortConfig.getHighAvailabilityPushLockPath());
+            response.setLockImplementation(voldemortConfig.getHighAvailabilityPushLockImplementation());
+        }
+
+        return response.build();
+    }
+
 }
