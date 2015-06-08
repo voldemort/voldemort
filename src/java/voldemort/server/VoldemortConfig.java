@@ -343,8 +343,8 @@ public class VoldemortConfig implements Serializable {
                                                                     REPORTING_INTERVAL_BYTES);
         this.readOnlyFetchRetryCount = props.getInt("fetcher.retry.count", 5);
         this.readOnlyFetchRetryDelayMs = props.getLong("fetcher.retry.delay.ms", 5000);
-        this.fetcherBufferSize = props.getInt("hdfs.fetcher.buffer.size",
-                                              DEFAULT_FETCHER_BUFFER_SIZE);
+        this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
+                                                      DEFAULT_FETCHER_BUFFER_SIZE);
         this.fetcherSocketTimeout = props.getInt("hdfs.fetcher.socket.timeout",
                                                  DEFAULT_FETCHER_SOCKET_TIMEOUT);
         this.readOnlyKeytabPath = props.getString("readonly.keytab.path",
