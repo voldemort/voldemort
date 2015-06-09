@@ -39,14 +39,12 @@ public class AvroUtils {
      * 
      * @param fs The filesystem to use
      * @param path The path from which to get the schema
-     * @param checkSameSchema boolean flag to check all files in directory for
-     *        same schema
      * @return The schema of this file or all its subfiles
      * @throws IOException
      */
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private static Schema getSchemaFromPath(FileSystem fs, Path path, boolean checkSameSchema) {
+    private static Schema getSchemaFromPath(FileSystem fs, Path path) {
 
         try {
             if(fs.isFile(path)) {
@@ -54,7 +52,7 @@ public class AvroUtils {
                 try {
                     inStream = new BufferedInputStream(fs.open(path));
                 } catch(IOException e1) {
-		    throw new RuntimeException("Unable to open " + path, e1);
+                    throw new RuntimeException("Unable to open " + path, e1);
                 }
                 GenericDatumReader datum = new GenericDatumReader();
 
@@ -62,7 +60,7 @@ public class AvroUtils {
                 try {
                     reader = new DataFileStream(inStream, datum);
                 } catch(IOException e) {
-		    throw new RuntimeException("Invalid avro format, path " + path, e);
+                    throw new RuntimeException("Invalid avro format, path " + path, e);
                 }
                 return reader.getSchema();
             } else {
@@ -70,22 +68,18 @@ public class AvroUtils {
                 if(fs.isDirectory(path)) {
                     // this is a directory, get schemas from all subfiles
                     statuses = fs.listStatus(path);
-		    if(statuses == null || statuses.length == 0)
-			throw new IllegalArgumentException("No files in directory " + path);
+                    if(statuses == null || statuses.length == 0)
+                        throw new IllegalArgumentException("No files in directory " + path);
                 } else {
                     // this is wildcard path, get schemas from all matched files
                     statuses = fs.globStatus(path);
-		    if(statuses == null || statuses.length == 0)
-			throw new IllegalArgumentException("No matches for path pattern " + path);
+                    if(statuses == null || statuses.length == 0)
+                        throw new IllegalArgumentException("No matches for path pattern " + path);
                 }
                 List<Schema> schemas = new ArrayList<Schema>();
                 for(FileStatus status: statuses) {
                     if(!HadoopUtils.shouldPathBeIgnored(status.getPath())) {
-                        if(!checkSameSchema) {
-                            // return first valid schema w/o checking all files
-                            return getSchemaFromPath(fs, status.getPath(), checkSameSchema);
-                        }
-                        schemas.add(getSchemaFromPath(fs, status.getPath(), checkSameSchema));
+                        schemas.add(getSchemaFromPath(fs, status.getPath()));
                     }
                 }
 
@@ -111,7 +105,7 @@ public class AvroUtils {
     }
 
     public static Schema getAvroSchemaFromPath(Path path) throws IOException {
-        return getSchemaFromPath(path.getFileSystem(new Configuration()), path, true);
+        return getSchemaFromPath(path.getFileSystem(new Configuration()), path);
     }
 
 }

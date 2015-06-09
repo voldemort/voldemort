@@ -109,6 +109,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final int heartBeatHookIntervalTime;
     private final HeartBeatHookRunnable heartBeatHookRunnable;
 
+    private Path sanitizedInputPath = null;
+    private Schema inputPathSchema = null;
+
     // build.required
     public final static String BUILD_INPUT_PATH = "build.input.path";
     public final static String BUILD_OUTPUT_DIR = "build.output.dir";
@@ -820,27 +823,45 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
      * #LATEST tag is expanded.
      */
     private Path getInputPath() throws IOException {
-        Path path = new Path(props.getString(BUILD_INPUT_PATH));
-        return HadoopUtils.getSanitizedPath(path);
+        if (sanitizedInputPath == null) {
+            // No need to query Hadoop more than once as this shouldn't change mid-run,
+            // thus, we can lazily initialize and cache the result.
+            Path path = new Path(props.getString(BUILD_INPUT_PATH));
+            sanitizedInputPath = HadoopUtils.getSanitizedPath(path);
+        }
+        return sanitizedInputPath;
+    }
+
+    /**
+     * Get the Avro Schema of the input path, assuming the path contains just one
+     * schema version in all files under that path.
+     */
+    private Schema getInputPathSchema() throws IOException {
+        if (inputPathSchema == null) {
+            // No need to query Hadoop more than once as this shouldn't change mid-run,
+            // thus, we can lazily initialize and cache the result.
+            inputPathSchema = AvroUtils.getAvroSchemaFromPath(getInputPath());
+        }
+        return inputPathSchema;
     }
 
     // Get the schema for the Avro Record from the object container file
     public String getRecordSchema() throws IOException {
-        Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
+        Schema schema = getInputPathSchema();
         String recSchema = schema.toString();
         return recSchema;
     }
 
     // Extract schema of the key field
     public String getKeySchema() throws IOException {
-        Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
+        Schema schema = getInputPathSchema();
         String keySchema = schema.getField(keyFieldName).schema().toString();
         return keySchema;
     }
 
     // Extract schema of the value field
     public String getValueSchema() throws IOException {
-        Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
+        Schema schema = getInputPathSchema();
         String valueSchema = schema.getField(valueFieldName).schema().toString();
         return valueSchema;
     }
@@ -859,7 +880,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     public void verifyOrAddStoreAvro(String url, boolean isVersioned) throws Exception {
         // create new n store def with schema from the metadata in the input path
-        Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
+        Schema schema = getInputPathSchema();
         int replicationFactor = props.getInt(BUILD_REPLICATION_FACTOR, 2);
         int requiredReads = props.getInt(BUILD_REQUIRED_READS, 1);
         int requiredWrites = props.getInt(BUILD_REQUIRED_WRITES, 1);
