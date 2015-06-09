@@ -1,3 +1,9 @@
+Release 1.9.16 on 06/09/2015
+* Fixes unregistration of JMX mbean.
+* Fixes VoldemortConfig bug introduced in 1.9.15.
+* Fixes error reporting in AvroUtils.getSchemaFromPath().
+* Caches the result of duplicate AvroUtils and HadoopUtils calls in BnP.
+
 Release 1.9.15 on 06/05/2015
 * Unit tests for Serialization
 * Alert if BnP jobs does not progress
