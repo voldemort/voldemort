@@ -1,3 +1,8 @@
+Release 1.9.17 on 06/12/2015
+* Robust handling of connection failures
+* Flush the queue on marking a node down
+* Async connect exceptions are remembered based on connection timeout
+
 Release 1.9.16 on 06/09/2015
 * Fixes unregistration of JMX mbean.
 * Fixes VoldemortConfig bug introduced in 1.9.15.
