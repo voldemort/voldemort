@@ -281,14 +281,14 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
     }
 
     public static void main(String[] args) {
-        int res;
+        int res = 1; // Init to 1 to please the compiler
         try {
             res = ToolRunner.run(new Configuration(), new HadoopStoreJobRunner(), args);
-            System.exit(res);
         } catch(Exception e) {
             e.printStackTrace();
             System.err.print("\nTry '--help' for more information.");
             System.exit(1);
         }
+        System.exit(res);
     }
 }
