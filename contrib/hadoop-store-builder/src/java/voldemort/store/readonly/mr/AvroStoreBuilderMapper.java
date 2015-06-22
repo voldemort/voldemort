@@ -25,12 +25,14 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.avro.generic.GenericData;
-import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.Pair;
+import org.apache.avro.mapred.AvroKey;
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
+import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapred.Reporter;
 
 import voldemort.VoldemortException;
@@ -55,7 +57,7 @@ import voldemort.xml.StoreDefinitionsMapper;
  * instead of k/v pairs to consume these files we use the AvroMapper
  */
 public class AvroStoreBuilderMapper extends
-        AvroMapper<GenericData.Record, Pair<ByteBuffer, ByteBuffer>> implements JobConfigurable {
+        Mapper<AvroKey<GenericData.Record>, NullWritable, ByteBuffer, ByteBuffer> {
 
     protected MessageDigest md5er;
     protected ConsistentRoutingStrategy routingStrategy;
@@ -83,12 +85,11 @@ public class AvroStoreBuilderMapper extends
      * followed by serialized value
      */
     @Override
-    public void map(GenericData.Record record,
-                    AvroCollector<Pair<ByteBuffer, ByteBuffer>> collector,
-                    Reporter reporter) throws IOException {
+    public void map(AvroKey<GenericData.Record> key, NullWritable value,
+                    Context context) throws IOException, InterruptedException {
 
-        byte[] keyBytes = keySerializer.toBytes(record.get(keyField));
-        byte[] valBytes = valueSerializer.toBytes(record.get(valField));
+        byte[] keyBytes = keySerializer.toBytes(key.datum().get(keyField));
+        byte[] valBytes = valueSerializer.toBytes(key.datum().get(valField));
 
         // Compress key and values if required
         if(keySerializerDefinition.hasCompression()) {
@@ -189,18 +190,16 @@ public class AvroStoreBuilderMapper extends
             valueBuffer.put(outputValue);
             valueBuffer.rewind();
 
-            Pair<ByteBuffer, ByteBuffer> p = new Pair<ByteBuffer, ByteBuffer>(keyBuffer,
-                                                                              valueBuffer);
-
-            collector.collect(p);
+            context.write(keyBuffer, valueBuffer);
         }
         md5er.reset();
     }
 
+    /**
     @Override
     public void configure(JobConf conf) {
 
-        super.setConf(conf);
+        //super.setConf(conf);
         // from parent code
 
         md5er = ByteUtils.getDigest("md5");
@@ -275,6 +274,7 @@ public class AvroStoreBuilderMapper extends
         routingStrategy = new ConsistentRoutingStrategy(getCluster(),
                                                         getStoreDef().getReplicationFactor());
     }
+    */
 
     private int numChunks;
     private Cluster cluster;

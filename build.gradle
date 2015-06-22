@@ -394,7 +394,8 @@ task wrapper(type: Wrapper) { gradleVersion = '2.0' }
 
 dependencies {
     // Avro serialization format
-    compile 'org.apache.avro:avro:1.4.0'
+    compile 'org.apache.avro:avro:1.7.7'
+    compile 'org.apache.avro:avro-mapred:1.7.7'
 
     // INTERNAL_LIBS azkaban version not found
     // azkaban-common-0.05.jar

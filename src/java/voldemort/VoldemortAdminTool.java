@@ -57,6 +57,7 @@ import joptsimple.OptionSet;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.io.FileUtils;
@@ -2128,7 +2129,7 @@ public class VoldemortAdminTool {
                     String keySerializerName = keySerializerDef.getName();
                     if(isAvroSchema(keySerializerName)) {
                         Schema keySchema = Schema.parse(keySerializerDef.getCurrentSchemaInfo());
-                        JsonDecoder decoder = new JsonDecoder(keySchema, keyString);
+                        JsonDecoder decoder = new DecoderFactory().jsonDecoder(keySchema, keyString);
                         GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(keySchema);
                         keyObject = datumReader.read(null, decoder);
                     } else if(keySerializerName.equals(DefaultSerializerFactory.JSON_SERIALIZER_TYPE_NAME)) {
