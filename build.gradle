@@ -6,6 +6,16 @@ apply plugin: 'idea'
 apply plugin: 'eclipse'
 apply plugin: 'war'
 
+buildscript {
+  repositories { jcenter() }
+  dependencies {
+    classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.1'
+  }
+}
+
+apply plugin: 'java' // or 'groovy'. Must be explicitly applied
+apply plugin: 'com.github.johnrengelman.shadow'
+
 def String getProjectProperty(String propertyName) {
     String propertyValue = "null"
     if (hasProperty(propertyName)) {
@@ -384,7 +394,8 @@ task wrapper(type: Wrapper) { gradleVersion = '2.0' }
 
 dependencies {
     // Avro serialization format
-    compile 'org.apache.avro:avro:1.4.0'
+    compile 'org.apache.avro:avro:1.7.7'
+    compile 'org.apache.avro:avro-mapred:1.7.7'
 
     // INTERNAL_LIBS azkaban version not found
     // azkaban-common-0.05.jar

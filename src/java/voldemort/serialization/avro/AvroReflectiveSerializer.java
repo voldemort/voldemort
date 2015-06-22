@@ -18,10 +18,7 @@ package voldemort.serialization.avro;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.apache.avro.io.BinaryEncoder;
-import org.apache.avro.io.Decoder;
-import org.apache.avro.io.DecoderFactory;
-import org.apache.avro.io.Encoder;
+import org.apache.avro.io.*;
 import org.apache.avro.reflect.ReflectDatumReader;
 import org.apache.avro.reflect.ReflectDatumWriter;
 
@@ -69,7 +66,7 @@ public class AvroReflectiveSerializer<T> implements Serializer<T> {
 
     public byte[] toBytes(T object) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        Encoder encoder = new BinaryEncoder(output);
+        Encoder encoder = new EncoderFactory().binaryEncoder(output, null);
         ReflectDatumWriter<T> datumWriter = null;
         try {
             datumWriter = new ReflectDatumWriter<T>(clazz);
