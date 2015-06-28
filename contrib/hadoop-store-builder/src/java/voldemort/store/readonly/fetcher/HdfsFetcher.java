@@ -38,6 +38,7 @@ import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AdminServiceRequestHandler;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
@@ -72,7 +73,6 @@ public class HdfsFetcher implements FileFetcher {
     private final Long maxBytesPerSecond, reportingIntervalBytes;
     private final int bufferSize;
     private static final AtomicInteger copyCount = new AtomicInteger(0);
-    private AsyncOperationStatus status;
     private EventThrottler throttler = null;
     private long minBytesPerSecond = 0;
     private long retryDelayMs = 0;
@@ -170,7 +170,6 @@ public class HdfsFetcher implements FileFetcher {
             this.maxBytesPerSecond = null;
         this.reportingIntervalBytes = Utils.notNull(reportingIntervalBytes);
         this.bufferSize = bufferSize;
-        this.status = null;
         this.minBytesPerSecond = minBytesPerSecond;
         this.maxAttempts = retryCount + 1;
         this.retryDelayMs = retryDelayMs;
@@ -181,12 +180,29 @@ public class HdfsFetcher implements FileFetcher {
         HdfsFetcher.keytabPath = keytabLocation;
     }
 
-    public File fetch(String sourceFileUrl, String destinationFile) throws IOException {
-        String hadoopConfigPath = "";
+	public File fetch(String source, String dest) throws IOException {
+		return fetch(source, dest, null, null, -1, null);
+	}
+
+	@Override
+	public File fetch(	String source,
+						String dest,
+						AsyncOperationStatus status,
+						String storeName,
+						long pushVersion,
+						MetadataStore metadataStore) throws IOException {
+		String hadoopConfigPath = "";
         if(this.voldemortConfig != null) {
             hadoopConfigPath = this.voldemortConfig.getHadoopConfigPath();
         }
-        return fetch(sourceFileUrl, destinationFile, hadoopConfigPath);
+		return fetch(	source,
+						dest,
+						status,
+						storeName,
+						pushVersion,
+						metadataStore,
+						hadoopConfigPath);
+
     }
 
     private static boolean isHftpBasedPath(String sourceFileUrl) {
@@ -312,7 +328,13 @@ public class HdfsFetcher implements FileFetcher {
         return fs;
     }
 
-    public File fetch(String sourceFileUrl, String destinationFile, String hadoopConfigPath)
+	public File fetch(	String sourceFileUrl,
+						String destinationFile,
+						AsyncOperationStatus status,
+						String storeName,
+						long pushVersion,
+						MetadataStore metadataStore,
+						String hadoopConfigPath)
             throws IOException {
         if(this.globalThrottleLimit != null) {
             if(this.globalThrottleLimit.getSpeculativeRate() < this.minBytesPerSecond)
@@ -346,7 +368,14 @@ public class HdfsFetcher implements FileFetcher {
 
 
             logger.info("Starting fetch for : " + sourceFileUrl);
-            boolean result = fetch(fs, path, destination, stats);
+			boolean result = fetch(	fs,
+									path,
+									destination,
+									status,
+									stats,
+									storeName,
+									pushVersion,
+									metadataStore);
             logger.info("Completed fetch : " + sourceFileUrl);
 
             // Close the filesystem
@@ -388,7 +417,14 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
-    private boolean fetch(FileSystem fs, Path source, File dest, HdfsCopyStats stats)
+	private boolean fetch(	FileSystem fs,
+							Path source,
+							File dest,
+							AsyncOperationStatus status,
+							HdfsCopyStats stats,
+							String storeName,
+							long pushVersion,
+							MetadataStore metadataStore)
             throws Throwable {
 		FetchStrategy fetchStrategy = new BasicFetchStrategy(	this,
 																fs,
@@ -424,10 +460,6 @@ public class HdfsFetcher implements FileFetcher {
         return false;
     }
 
-	public AsyncOperationStatus getStatus() {
-		return status;
-	}
-
 	public Long getReportingIntervalBytes() {
 		return reportingIntervalBytes;
 	}
@@ -456,15 +488,11 @@ public class HdfsFetcher implements FileFetcher {
 		FetchStrategy fetchStrategy = new BasicFetchStrategy(	this,
 																fs,
 																stats,
-																status,
+																null,
 																bufferSize);
 		return fetchStrategy.fetch(	new HdfsFile(fs.getFileStatus(source)),
 									dest,
 									checkSumType);
-    }
-
-    public void setAsyncOperationStatus(AsyncOperationStatus status) {
-        this.status = status;
     }
 
     /*
@@ -590,7 +618,13 @@ public class HdfsFetcher implements FileFetcher {
         if(destDir == null)
             destDir = System.getProperty("java.io.tmpdir") + File.separator + start;
 
-        File location = fetcher.fetch(url, destDir, hadoopPath);
+		File location = fetcher.fetch(	url,
+										destDir,
+										null,
+										null,
+										-1,
+										null,
+										hadoopPath);
 
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
         NumberFormat nf = NumberFormat.getInstance();

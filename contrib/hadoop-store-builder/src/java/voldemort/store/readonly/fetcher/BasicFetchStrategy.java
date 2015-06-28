@@ -46,7 +46,7 @@ public class BasicFetchStrategy implements FetchStrategy {
 
 	@Override
 	public Map<HdfsFile, byte[]> fetch(HdfsDirectory directory, File dest)
-			throws Throwable {
+			throws IOException {
 
 		Map<HdfsFile, byte[]> fileCheckSumMap = new HashMap<HdfsFile, byte[]>(directory.getFiles()
 																						.size());
@@ -87,7 +87,7 @@ public class BasicFetchStrategy implements FetchStrategy {
 	private CheckSum copyFileWithCheckSum(	HdfsFile source,
 											File dest,
 											CheckSumType checkSumType)
-			throws Throwable {
+			throws IOException {
 		CheckSum fileCheckSumGenerator = null;
 		logger.debug("Starting copy of " + source + " to " + dest);
 
@@ -177,7 +177,7 @@ public class BasicFetchStrategy implements FetchStrategy {
 											totalBytesRead);
 				logger.info("Completed copy of " + source + " to " + dest);
 
-			} catch (Throwable te) {
+			} catch (IOException te) {
 				success = false;
 				if (!fsOpened) {
 					logger.error("Error while opening the file stream to "
@@ -227,7 +227,7 @@ public class BasicFetchStrategy implements FetchStrategy {
 
 	@Override
 	public CheckSum fetch(HdfsFile file, File dest, CheckSumType checkSumType)
-			throws Throwable {
+			throws IOException {
 		return copyFileWithCheckSum(file, dest, checkSumType);
 	}
 

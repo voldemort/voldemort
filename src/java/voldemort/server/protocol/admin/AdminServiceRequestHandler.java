@@ -1067,6 +1067,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                               storeDirList.length - 1)[0]);
                 }
                 pushVersion = maxVersion + 1;
+				logger.warn("Push Version is not specified, this might create issues during rebalance/restore. Store"
+						+ storeName + " Generated version " + pushVersion);
             }
 
             asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Fetch store") {
@@ -1107,13 +1109,23 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     } else {
 
                         logger.info("Started executing fetch of " + fetchUrl + " for RO store '"
-                                    + storeName + "'");
+																+ storeName
+																+ "' version "
+																+ pushVersion);
                         updateStatus("0 MB copied at 0 MB/sec - 0 % complete");
-                        try {
-                            fileFetcher.setAsyncOperationStatus(status);
-                            fetchDir = fileFetcher.fetch(fetchUrl, store.getStoreDirPath()
-                                                                   + File.separator + "version-"
-                                                                   + Long.toString(pushVersion));
+
+                        try{
+
+							String destinationDir = store.getStoreDirPath()
+									+ File.separator
+									+ "version-"
+									+ Long.toString(pushVersion);
+							fetchDir = fileFetcher.fetch(	fetchUrl,
+															destinationDir,
+															status,
+															storeName,
+															pushVersion,
+															metadataStore);
                             if(fetchDir == null) {
                                 String errorMessage = "File fetcher failed for "
                                                       + fetchUrl

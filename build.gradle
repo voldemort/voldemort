@@ -360,7 +360,6 @@ task contribJunit(type: Test) {
     exclude '**/*RemoteTest.class'
     exclude '**/Ec2*Test.class'
     exclude '**/Krati*Test.class'
-    exclude '**/HadoopStoreBuilder*Test.class'
 
     classpath += sourceSets.contrib.runtimeClasspath + sourceSets.contrib.output
 }

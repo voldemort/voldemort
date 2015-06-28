@@ -58,8 +58,8 @@ import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.SearchStrategy;
 import voldemort.store.readonly.checksum.CheckSum;
-import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.fetcher.HdfsFetcher;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.utils.ByteArray;
@@ -163,7 +163,7 @@ public class HadoopStoreBuilderTest {
                                                             64 * 1024,
                                                             -1,
                                                             false,
-                null);
+															0L);
         builder.build();
 
         // Should not produce node--1 directory + have one folder for every node
