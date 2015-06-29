@@ -29,8 +29,6 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,7 +50,6 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.Utils;
-import voldemort.utils.VoldemortIOUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
@@ -149,12 +146,12 @@ public class StoreSwapperTest {
 
         try {
             // Use the admin store swapper
-            StoreSwapper swapper = new AdminStoreSwapper(cluster,
-                                                         executor,
-                                                         adminClient,
-                                                         1000000,
-                                                         true,
-                                                         true);
+            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
+                    executor,
+                    adminClient,
+                    1000000,
+                    true,
+                    true);
             testFetchSwap(swapper);
         } finally {
             executor.shutdown();
@@ -167,72 +164,17 @@ public class StoreSwapperTest {
 
         try {
             // Use the admin store swapper
-            StoreSwapper swapper = new AdminStoreSwapper(cluster,
-                                                         executor,
-                                                         adminClient,
-                                                         1000000,
-                                                         true,
-                                                         true);
+            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
+                    executor,
+                    adminClient,
+                    1000000,
+                    true,
+                    true);
             adminClient.metadataMgmtOps.setRemoteOfflineState(0, true);
             testFetchSwap(swapper);
             fail("RO Fetcher should fail on offline state.");
         } catch(Exception e) {} finally {
             executor.shutdown();
-        }
-    }
-
-    @Test
-    public void testHttpStoreSwapper() throws Exception {
-        ExecutorService executor = Executors.newCachedThreadPool();
-        DefaultHttpClient client = null;
-        try {
-            // Use the http store swapper
-            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
-
-            connectionManager.setMaxTotal(10);
-            connectionManager.setDefaultMaxPerRoute(10);
-
-            client = new DefaultHttpClient(connectionManager);
-
-            StoreSwapper swapper = new HttpStoreSwapper(cluster,
-                                                        executor,
-                                                        client,
-                                                        "read-only/mgmt",
-                                                        true,
-                                                        true);
-            testFetchSwap(swapper);
-        } finally {
-            executor.shutdown();
-            VoldemortIOUtils.closeQuietly(client);
-        }
-    }
-
-    @Test
-    public void testHttpStoreSwapperForOffline() throws Exception {
-        ExecutorService executor = Executors.newCachedThreadPool();
-        DefaultHttpClient client = null;
-        try {
-            // Use the http store swapper
-            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
-
-            connectionManager.setMaxTotal(10);
-            connectionManager.setDefaultMaxPerRoute(10);
-
-            client = new DefaultHttpClient(connectionManager);
-
-            StoreSwapper swapper = new HttpStoreSwapper(cluster,
-                                                        executor,
-                                                        client,
-                                                        "read-only/mgmt",
-                                                        true,
-                                                        true);
-
-            adminClient.metadataMgmtOps.setRemoteOfflineState(0, true);
-            testFetchSwap(swapper);
-            fail("RO Fetcher should fail on offline state.");
-        } catch(Exception e) {} finally {
-            executor.shutdown();
-            VoldemortIOUtils.closeQuietly(client);
         }
     }
 
@@ -242,41 +184,15 @@ public class StoreSwapperTest {
 
         try {
             // Use the admin store swapper
-            StoreSwapper swapper = new AdminStoreSwapper(cluster,
-                                                         executor,
-                                                         adminClient,
-                                                         1000000,
-                                                         false,
-                                                         false);
+            AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
+                    executor,
+                    adminClient,
+                    1000000,
+                    false,
+                    false);
             testFetchSwapWithoutRollback(swapper);
         } finally {
             executor.shutdown();
-        }
-    }
-
-    @Test
-    public void testHttpStoreSwapperWithoutRollback() throws Exception {
-        ExecutorService executor = Executors.newCachedThreadPool();
-        DefaultHttpClient client = null;
-        try {
-            // Use the http store swapper
-
-            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
-
-            connectionManager.setMaxTotal(10);
-            connectionManager.setDefaultMaxPerRoute(10);
-
-            client = new DefaultHttpClient(connectionManager);
-            StoreSwapper swapper = new HttpStoreSwapper(cluster,
-                                                        executor,
-                                                        client,
-                                                        "read-only/mgmt",
-                                                        false,
-                                                        false);
-            testFetchSwapWithoutRollback(swapper);
-        } finally {
-            executor.shutdown();
-            VoldemortIOUtils.closeQuietly(client);
         }
     }
 
@@ -288,7 +204,7 @@ public class StoreSwapperTest {
         return tempFolder;
     }
 
-    public void testFetchSwapWithoutRollback(StoreSwapper swapper) throws Exception {
+    public void testFetchSwapWithoutRollback(AdminStoreSwapper swapper) throws Exception {
 
         // 1) Fetch for all nodes are successful
         File temporaryDir = createTempROFolder();
@@ -340,7 +256,7 @@ public class StoreSwapperTest {
 
     }
 
-    public void testFetchSwap(StoreSwapper swapper) throws Exception {
+    public void testFetchSwap(AdminStoreSwapper swapper) throws Exception {
 
         // 1) Fetch for all nodes are successful
         File temporaryDir = createTempROFolder();
@@ -398,19 +314,19 @@ public class StoreSwapperTest {
 
         // Create "currentVersion + 2" for all other nodes
         // i.e. N0 [ latest -> v3 ], N<others> [ latest -> v2 ]
-        TreeMap<Integer, String> toSwap = Maps.newTreeMap();
+        TreeMap<Integer, AdminStoreSwapper.Response> toSwap = Maps.newTreeMap();
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
             if(nodeId != 1) {
-                File newVersion = new File(baseDirs[nodeId], "version-"
+                File versionPlusTwo = new File(baseDirs[nodeId], "version-"
                                                              + Long.toString(currentVersion + 2));
-                Utils.mkdirs(newVersion);
-                toSwap.put(nodeId, newVersion.getAbsolutePath());
+                Utils.mkdirs(versionPlusTwo);
+                toSwap.put(nodeId, new AdminStoreSwapper.Response(versionPlusTwo.getAbsolutePath()));
             }
         }
-        toSwap.put(1,
-                   new File(baseDirs[1], "version-" + Long.toString(currentVersion + 3)).getAbsolutePath());
+        File versionPlusThree = new File(baseDirs[1], "version-" + Long.toString(currentVersion + 3));
+        toSwap.put(1, new AdminStoreSwapper.Response(versionPlusThree.getAbsolutePath()));
 
-        swapper.invokeSwap(STORE_NAME, Lists.newArrayList(toSwap.values()));
+        swapper.invokeSwap(STORE_NAME, toSwap);
 
         // Try to fetch in v2, which should fail on all
         try {

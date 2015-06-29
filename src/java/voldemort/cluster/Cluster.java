@@ -123,7 +123,7 @@ public class Cluster implements Serializable {
                 this.partitionIdToNodeId.put(partitionId, node.getId());
             }
         }
-        this.numberOfPartitionIds = getNumberOfTags(nodes);
+        this.numberOfPartitionIds = getNumberOfPartitions(nodes);
         
         this.partitionIdToNodeArray = new Node[this.numberOfPartitionIds];
         for(int partitionId = 0; partitionId < this.numberOfPartitionIds; partitionId++) {
@@ -134,15 +134,16 @@ public class Cluster implements Serializable {
         Collections.shuffle(nodesShuffled, new Random());
     }
 
-    private int getNumberOfTags(List<Node> nodes) {
+    private int getNumberOfPartitions(List<Node> nodes) {
         List<Integer> tags = new ArrayList<Integer>();
         for(Node node: nodes) {
             tags.addAll(node.getPartitionIds());
         }
         Collections.sort(tags);
-        for(int i = 0; i < numberOfPartitionIds; i++) {
+        for(int i = 0; i < tags.size(); i++) {
             if(tags.get(i).intValue() != i)
-                throw new IllegalArgumentException("Invalid tag assignment.");
+                throw new IllegalArgumentException("Invalid partition assignment. " +
+                        "The partitionId space defined in cluster.xml must be dense.");
         }
         return tags.size();
     }

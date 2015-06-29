@@ -166,6 +166,17 @@ public class VoldemortConfig implements Serializable {
     // flag to indicate if we will mlock and pin index pages in memory
     private boolean useMlock;
 
+    public static final String PUSH_HA_ENABLED = "push.ha.enabled";
+    private boolean highAvailabilityPushEnabled;
+    public static final String PUSH_HA_CLUSTER_ID = "push.ha.cluster.id";
+    private String highAvailabilityPushClusterId;
+    public static final String PUSH_HA_LOCK_PATH = "push.ha.lock.path";
+    private String highAvailabilityPushLockPath;
+    public static final String PUSH_HA_LOCK_IMPLEMENTATION = "push.ha.lock.implementation";
+    private String highAvailabilityPushLockImplementation;
+    public static final String PUSH_HA_MAX_NODE_FAILURES = "push.ha.max.node.failure";
+    private int highAvailabilityPushMaxNodeFailures;
+
     private OpTimeMap testingSlowQueueingDelays;
     private OpTimeMap testingSlowConcurrentDelays;
 
@@ -368,6 +379,12 @@ public class VoldemortConfig implements Serializable {
         // property "readonly.compression.codec" to "GZIP"
         this.readOnlyCompressionCodec = props.getString("readonly.compression.codec",
                                                         VoldemortConfig.DEFAULT_RO_COMPRESSION_CODEC);
+
+        this.highAvailabilityPushClusterId = props.getString(PUSH_HA_CLUSTER_ID, null);
+        this.highAvailabilityPushLockPath = props.getString(PUSH_HA_LOCK_PATH, null);
+        this.highAvailabilityPushLockImplementation = props.getString(PUSH_HA_LOCK_IMPLEMENTATION, null);
+        this.highAvailabilityPushMaxNodeFailures = props.getInt(PUSH_HA_MAX_NODE_FAILURES, 0);
+        this.highAvailabilityPushEnabled = props.getBoolean(PUSH_HA_ENABLED, false);
 
         this.setUseMlock(props.getBoolean("readonly.mlock.index", true));
 
@@ -635,6 +652,16 @@ public class VoldemortConfig implements Serializable {
             throw new ConfigurationException("rest.service.storage.thread.pool.queue.size cannot be negative.");
         if(maxHttpAggregatedContentLength <= 0)
             throw new ConfigurationException("max.http.aggregated.content.length must be positive");
+        if (this.highAvailabilityPushEnabled) {
+            if (this.highAvailabilityPushClusterId == null)
+                throw new ConfigurationException(PUSH_HA_CLUSTER_ID + " must be set if " + PUSH_HA_ENABLED + "=true");
+            if (this.highAvailabilityPushLockPath == null)
+                throw new ConfigurationException(PUSH_HA_LOCK_PATH + " must be set if " + PUSH_HA_ENABLED + "=true");
+            if (this.highAvailabilityPushLockImplementation == null)
+                throw new ConfigurationException(PUSH_HA_LOCK_IMPLEMENTATION + " must be set if " + PUSH_HA_ENABLED + "=true");
+            if (this.highAvailabilityPushMaxNodeFailures < 1)
+                throw new ConfigurationException(PUSH_HA_MAX_NODE_FAILURES + " must be 1 or more if " + PUSH_HA_ENABLED + "=true");
+        }
     }
 
     private int getIntEnvVariable(String name) {
@@ -2907,6 +2934,106 @@ public class VoldemortConfig implements Serializable {
      */
     public void setReadOnlySearchStrategy(String readOnlySearchStrategy) {
         this.readOnlySearchStrategy = readOnlySearchStrategy;
+    }
+
+    public boolean isHighAvailabilityPushEnabled() {
+        return highAvailabilityPushEnabled;
+    }
+
+    /**
+     * Sets whether a high-availability strategy is to be used while pushing whole
+     * data sets (such as when bulk loading Read-Only stores).
+     *
+     * <ul>
+     * <li>Property : "push.ha.enabled"</li>
+     * <li>Default : false</li>
+     * </ul>
+     */
+    public void setHighAvailabilityPushEnabled(boolean highAvailabilityPushEnabled) {
+        this.highAvailabilityPushEnabled = highAvailabilityPushEnabled;
+    }
+
+    public String getHighAvailabilityPushClusterId() {
+        return highAvailabilityPushClusterId;
+    }
+
+    /**
+     * When using a high-availability push strategy, the cluster ID uniquely
+     * identifies the failure domain within which nodes can fail.
+     *
+     * Clusters containing the same stores but located in different data centers
+     * should have different cluster IDs.
+     *
+     * <ul>
+     * <li>Property : "push.ha.cluster.id"</li>
+     * <li>Default : null</li>
+     * </ul>
+     */
+    public void setHighAvailabilityPushClusterId(String highAvailabilityPushClusterId) {
+        this.highAvailabilityPushClusterId = highAvailabilityPushClusterId;
+    }
+
+    public int getHighAvailabilityPushMaxNodeFailures() {
+        return highAvailabilityPushMaxNodeFailures;
+    }
+
+    /**
+     * When using a high-availability push strategy, there is a maximum amount of nodes
+     * which can be allowed to have failed ingesting new data within a single failure
+     * domain (which is identified by "push.ha.cluster.id").
+     *
+     * This should be set to a number which is equal or less than the lowest replication
+     * factor across all stores hosted in the cluster.
+     *
+     * <ul>
+     * <li>Property : "push.ha.max.node.failure"</li>
+     * <li>Default : 0</li>
+     * </ul>
+     */
+    public void setHighAvailabilityPushMaxNodeFailures(int highAvailabilityPushMaxNodeFailures) {
+        this.highAvailabilityPushMaxNodeFailures = highAvailabilityPushMaxNodeFailures;
+    }
+
+    public String getHighAvailabilityPushLockPath() {
+        return highAvailabilityPushLockPath;
+    }
+
+    /**
+     * When using a high-availability push strategy, there is a certain path which is
+     * used as a central lock in order to make sure we do not have disabled stores on
+     * more nodes than specified by "push.ha.max.node.failure".
+     *
+     * At the moment, only an HDFS path is supported, but this could be extended to
+     * support a ZK path, or maybe a shared mounted file-system path.
+     *
+     * <ul>
+     * <li>Property : "push.ha.lock.path"</li>
+     * <li>Default : null</li>
+     * </ul>
+     */
+    public void setHighAvailabilityPushLockPath(String highAvailabilityPushLockPath) {
+        this.highAvailabilityPushLockPath = highAvailabilityPushLockPath;
+    }
+
+    public String getHighAvailabilityPushLockImplementation() {
+        return highAvailabilityPushLockImplementation;
+    }
+
+    /**
+     * When using a high-availability push strategy, there needs to be a central lock 
+     * in order to make sure we do not have disabled stores on more nodes than specified 
+     * by "push.ha.max.node.failure".
+     *
+     * At the moment, only HDFS is supported as a locking mechanism, but this could be 
+     * extended to support ZK, or maybe a shared mounted file-system.
+     *
+     * <ul>
+     * <li>Property : "push.ha.lock.implementation"</li>
+     * <li>Default : null</li>
+     * </ul>
+     */
+    public void setHighAvailabilityPushLockImplementation(String highAvailabilityPushLockImplementation) {
+        this.highAvailabilityPushLockImplementation = highAvailabilityPushLockImplementation;
     }
 
     public boolean isNetworkClassLoaderEnabled() {

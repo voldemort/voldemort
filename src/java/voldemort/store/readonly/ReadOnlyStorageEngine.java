@@ -36,6 +36,8 @@ import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.AbstractStorageEngine;
+import voldemort.store.DisabledStoreException;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.readonly.chunk.ChunkedFileSet;
 import voldemort.utils.ByteArray;
@@ -58,7 +60,6 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
     private static Logger logger = Logger.getLogger(ReadOnlyStorageEngine.class);
 
     private final int numBackups, nodeId;
-    private long currentVersionId;
     private final File storeDir;
     private final ReadWriteLock fileModificationLock;
     private final SearchStrategy searchStrategy;
@@ -68,6 +69,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
     private int deleteBackupMs = 0;
     private long lastSwapped;
     private boolean enforceMlock = false;
+    private final StoreVersionManager storeVersionManager;
 
     /**
      * Create an instance of the store
@@ -131,14 +133,23 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
         this.routingStrategy = Utils.notNull(routingStrategy);
         this.nodeId = nodeId;
         this.fileSet = null;
-        this.currentVersionId = 0L;
         /*
          * A lock that blocks reads during swap(), open(), and close()
          * operations
          */
         this.fileModificationLock = new ReentrantReadWriteLock();
         this.isOpen = false;
+        storeVersionManager = new StoreVersionManager(storeDir);
         open(null);
+    }
+
+    @Override
+    public Object getCapability(StoreCapabilityType storeCapabilityType) {
+        if (storeCapabilityType.equals(StoreCapabilityType.DISABLE_STORE_VERSION)) {
+            return storeVersionManager;
+        } else {
+            return super.getCapability(storeCapabilityType);
+        }
     }
 
     /**
@@ -193,15 +204,15 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                 throw new VoldemortException("Unable to parse id from version directory "
                                              + versionDir.getAbsolutePath());
             }
-            currentVersionId = versionId;
             Utils.mkdirs(versionDir);
 
             // Create symbolic link
             logger.info("Creating symbolic link for '" + getName() + "' using directory "
                         + versionDir.getAbsolutePath());
             Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator
-                                                        + "latest");
+                    + "latest");
             this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId, enforceMlock);
+            storeVersionManager.syncInternalStateFromFileSystem();
             this.lastSwapped = System.currentTimeMillis();
             this.isOpen = true;
         } catch(IOException e) {
@@ -229,7 +240,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
      */
     public String getCurrentDirPath() {
         return storeDir.getAbsolutePath() + File.separator + "version-"
-               + Long.toString(currentVersionId);
+               + Long.toString(getCurrentVersionId());
     }
 
     /**
@@ -238,7 +249,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
      * @return Returns a long indicating the version number
      */
     public long getCurrentVersionId() {
-        return currentVersionId;
+        return storeVersionManager.getCurrentVersion();
     }
 
     /**
@@ -367,7 +378,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
      * Delete all backups asynchronously
      */
     private void deleteBackups() {
-        File[] storeDirList = ReadOnlyUtils.getVersionDirs(storeDir, 0L, currentVersionId);
+        File[] storeDirList = ReadOnlyUtils.getVersionDirs(storeDir, 0L, getCurrentVersionId());
         if(storeDirList != null && storeDirList.length > (numBackups + 1)) {
             // delete ALL old directories asynchronously
             File[] extraBackups = ReadOnlyUtils.findKthVersionedDir(storeDirList,
@@ -404,8 +415,9 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                     Utils.rm(file);
                     logger.info("Deleting of " + file.getAbsolutePath()
                                 + " completed successfully.");
+                    storeVersionManager.syncInternalStateFromFileSystem();
                 } catch(Exception e) {
-                    logger.error(e);
+                    logger.error("Exception during deleteAsync for path: " + file, e);
                 }
             }
         }, "background-file-delete").start();
@@ -508,6 +520,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
 
     @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
+        checkEnabled();
         StoreUtils.assertValidKey(key);
         try {
             fileModificationLock.readLock().lock();
@@ -538,6 +551,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
+        checkEnabled();
         StoreUtils.assertValidKeys(keys);
         Map<ByteArray, List<Versioned<byte[]>>> results = StoreUtils.newEmptyHashMap(keys);
         try {
@@ -639,5 +653,12 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
     @Override
     public boolean isPartitionAware() {
         return true;
+    }
+
+    private void checkEnabled() throws VoldemortException {
+        if (!storeVersionManager.isCurrentVersionEnabled()) {
+            throw new DisabledStoreException(
+                    "Store '" + getName() + "' version " + getCurrentVersionId() + " is disabled on this node.");
+        }
     }
 }

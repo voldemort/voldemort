@@ -95,7 +95,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         Store<ByteArray, byte[], byte[]> store = getStore(storeName, routingType);
         if(store == null) {
             clearBuffer(outputContainer);
-            writeException(outputStream, new VoldemortException("No store named '" + storeName
+            writeException(outputStream, new VoldemortException("No store named: '" + storeName
                                                                 + "'."));
             return null;
         }
@@ -109,7 +109,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             // Put generates lot of ObsoleteVersionExceptions, suppress them
             // they are harmless and indicates normal mode of operation.
             if(!(e instanceof ObsoleteVersionException)) {
-                logger.error("Store" + storeName + ". Error: " + e.getMessage());
+                logger.error("Store: " + storeName + ". Error: " + e.getMessage());
             }
             clearBuffer(outputContainer);
             writeException(outputStream, e);
@@ -127,9 +127,9 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         requestHandler.writeResponse(outputStream);
         outputStream.flush();
         if(logger.isDebugEnabled()) {
-            String debugPrefix = "OpCode " + opCode + " started at: " + startTimeMs
-                                 + " handlerRef: " + System.identityHashCode(inputStream)
-                                 + " Elapsed : " + (System.nanoTime() - startTimeNs) + " ns, ";
+            String debugPrefix = "OpCode: " + opCode + ", started at: " + startTimeMs
+                                 + ", handlerRef: " + System.identityHashCode(inputStream)
+                                 + ", Elapsed : " + (System.nanoTime() - startTimeNs) + " ns, ";
             
             logger.debug(debugPrefix + requestHandler.getDebugMessage() );
         }
@@ -199,9 +199,8 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             // This should not happen, if we reach here and if buffer has more
             // data, there is something wrong.
             if(buffer.hasRemaining()) {
-                logger.info(" Probably a client bug, Discarding additional bytes in isCompleteRequest. Opcode "
-                            + opCode
-                            + " remaining bytes " + buffer.remaining());
+                logger.info("Probably a client bug, Discarding additional bytes in isCompleteRequest. Opcode: "
+                            + opCode + ", remaining bytes: " + buffer.remaining());
             }
             return true;
         } catch(IOException e) {

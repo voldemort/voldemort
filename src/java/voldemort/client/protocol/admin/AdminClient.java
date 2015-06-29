@@ -16,6 +16,7 @@
 
 package voldemort.client.protocol.admin;
 
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -135,7 +136,7 @@ import com.google.protobuf.Message;
  * </ul>
  * 
  */
-public class AdminClient {
+public class AdminClient implements Closeable {
 
     private static final Logger logger = Logger.getLogger(AdminClient.class);
     private static final ClusterMapper clusterMapper = new ClusterMapper();
@@ -279,6 +280,11 @@ public class AdminClient {
                        int zoneID) {
         this(bootstrapURL, adminClientConfig, clientConfig);
         helperOps.initSystemStoreClient(bootstrapURL, zoneID);
+    }
+
+    @Override
+    public String toString() {
+        return "AdminClient with mainBootstrapUrl: " + this.mainBootstrapUrl;
     }
 
     /**
@@ -542,7 +548,7 @@ public class AdminClient {
          * @param originalPartitions The entire replicating partition list
          *        (including the one needed by the restore node)
          * @param donorMap All donor nodes that will be fetched from
-         * @param zondId The zone from which donor nodes will be chosen from; -1
+         * @param zoneId The zone from which donor nodes will be chosen from; -1
          *        means all zones are fine
          * @param cluster The cluster metadata
          * @param storeDef The store to be restored
@@ -1177,7 +1183,6 @@ public class AdminClient {
         /**
          * Sets metadata.
          * 
-         * @param adminClient An instance of AdminClient points to given cluster
          * @param nodeIds Node ids to set metadata
          * @param key Metadata key to set
          * @param value Metadata value to set
@@ -3948,30 +3953,57 @@ public class AdminClient {
         }
 
         /**
-         * This is a wrapper around {@link #getROMaxVersion(int, List)} where-in
+         * This is a wrapper around {@link #getROMaxVersion(java.util.List, int)} where-in
          * we find the max versions on each machine and then return the max of
-         * all of them
+         * all of them, without tolerating any node failures.
          * 
          * @param storeNames List of all read-only stores
          * @return A map of store-name to their corresponding max version id
          */
         public Map<String, Long> getROMaxVersion(List<String> storeNames) {
+            return getROMaxVersion(storeNames, 0);
+        }
+
+        /**
+         * This is a wrapper around {@link #getROMaxVersion(int, List)} where-in
+         * we find the max versions on each machine and then return the max of
+         * all of them
+         *
+         * @param storeNames List of all read-only stores
+         * @param maxNodeFailures The maximum number of nodes which can fail to respond
+         * @return A map of store-name to their corresponding max version id
+         */
+        public Map<String, Long> getROMaxVersion(List<String> storeNames, int maxNodeFailures) {
+            int nodeFailures = 0;
             Map<String, Long> storeToMaxVersion = Maps.newHashMapWithExpectedSize(storeNames.size());
             for(String storeName: storeNames) {
                 storeToMaxVersion.put(storeName, 0L);
             }
 
             for(Node node: currentCluster.getNodes()) {
-                Map<String, Long> currentNodeVersions = getROMaxVersion(node.getId(), storeNames);
-                for(String storeName: currentNodeVersions.keySet()) {
-                    Long maxVersion = storeToMaxVersion.get(storeName);
-                    if(maxVersion != null && maxVersion < currentNodeVersions.get(storeName)) {
-                        storeToMaxVersion.put(storeName, currentNodeVersions.get(storeName));
+                try {
+                    Map<String, Long> currentNodeVersions = getROMaxVersion(node.getId(), storeNames);
+                    for(String storeName: currentNodeVersions.keySet()) {
+                        Long maxVersion = storeToMaxVersion.get(storeName);
+                        if(maxVersion != null && maxVersion < currentNodeVersions.get(storeName)) {
+                            storeToMaxVersion.put(storeName, currentNodeVersions.get(storeName));
+                        }
+                    }
+                } catch (VoldemortException e) {
+                    nodeFailures++;
+                    if (nodeFailures > maxNodeFailures) {
+                        logger.error("Got an exception while trying to reach node " + node.getId() + ". " +
+                                nodeFailures + " node failures so far; maxNodeFailures exceeded, rethrowing.");
+                        throw e;
+                    } else {
+                        logger.warn("Got an exception while trying to reach node " + node.getId() + ". " +
+                                nodeFailures + " node failures so far; continuing.", e);
                     }
                 }
             }
             return storeToMaxVersion;
         }
+
 
         /**
          * Returns the file names of a specific store on one node.
@@ -4123,6 +4155,44 @@ public class AdminClient {
                 socketPool.checkin(destination, sands);
             }
 
+        }
+
+        public VAdminProto.GetHighAvailabilitySettingsResponse getHighAvailabilitySettings(Integer nodeId) {
+            VAdminProto.GetHighAvailabilitySettingsRequest getHighAvailabilitySettingsRequest =
+                    VAdminProto.GetHighAvailabilitySettingsRequest.newBuilder().build();
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                    .setGetHaSettings(getHighAvailabilitySettingsRequest)
+                    .setType(VAdminProto.AdminRequestType.GET_HA_SETTINGS)
+                    .build();
+            return rpcOps.sendAndReceive(nodeId,
+                    adminRequest,
+                    VAdminProto.GetHighAvailabilitySettingsResponse.newBuilder()).build();
+        }
+
+        /**
+          * @return true if successful, false otherwise.
+         */
+        public boolean disableStoreVersion(Integer nodeId, String storeName, Long storeVersion, String info) {
+            VAdminProto.DisableStoreVersionRequest request = VAdminProto.DisableStoreVersionRequest.newBuilder()
+                                                                                                   .setStoreName(storeName)
+                                                                                                   .setPushVersion(storeVersion)
+                                                                                                   .setInfo(info)
+                                                                                                   .build();
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                              .setDisableStoreVersion(request)
+                                                                                              .setType(VAdminProto.AdminRequestType.DISABLE_STORE_VERSION)
+                                                                                              .build();
+            VAdminProto.DisableStoreVersionResponse.Builder response = rpcOps.sendAndReceive(nodeId,
+                                                                                             adminRequest,
+                                                                                             VAdminProto.DisableStoreVersionResponse.newBuilder());
+
+            if (response.getDisableSuccess()) {
+                logger.info(response.getInfo());
+            } else {
+                logger.error(response.getInfo());
+            }
+
+            return response.getDisableSuccess();
         }
     }
 

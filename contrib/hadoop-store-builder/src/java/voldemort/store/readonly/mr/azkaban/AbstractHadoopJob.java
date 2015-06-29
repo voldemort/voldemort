@@ -177,7 +177,7 @@ public abstract class AbstractHadoopJob /*extends AbstractJob*/ {
 
         // set input and output paths if they are present
         if(props.containsKey("input.paths")) {
-            List<String> inputPaths = props.getStringList("input.paths");
+            List<String> inputPaths = props.getList("input.paths");
             if(inputPaths.size() == 0)
                 throw new IllegalArgumentException("Must specify at least one value for property 'input.paths'");
             for(String path: inputPaths) {
