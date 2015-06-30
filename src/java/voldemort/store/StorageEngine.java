@@ -18,6 +18,7 @@ package voldemort.store;
 
 import java.util.List;
 
+import voldemort.VoldemortException;
 import voldemort.server.storage.KeyLockHandle;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;

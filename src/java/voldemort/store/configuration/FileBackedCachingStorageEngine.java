@@ -37,6 +37,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.NotThreadsafe;
 import voldemort.store.AbstractStorageEngine;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
@@ -202,7 +203,7 @@ public class FileBackedCachingStorageEngine extends
 
     @Override
     public Object getCapability(StoreCapabilityType capability) {
-        throw new VoldemortException("No extra capability.");
+        throw new NoSuchCapabilityException(capability, getName());
     }
 
     @Override

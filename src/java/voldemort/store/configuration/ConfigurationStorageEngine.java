@@ -29,6 +29,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.store.AbstractStorageEngine;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
@@ -247,7 +248,7 @@ public class ConfigurationStorageEngine extends AbstractStorageEngine<String, St
 
     @Override
     public Object getCapability(StoreCapabilityType capability) {
-        throw new VoldemortException("No extra capability.");
+        throw new NoSuchCapabilityException(capability, getName());
     }
 
     @Override

@@ -945,7 +945,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     /**
      * change server state between OFFLINE_SERVER and NORMAL_SERVER
      * 
-     * @param enabled True if set to OFFLINE_SERVER
+     * @param setToOffline True if set to OFFLINE_SERVER
      */
     public void setOfflineState(boolean setToOffline) {
         // acquire write lock
