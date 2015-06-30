@@ -60,10 +60,10 @@ public class ClusterTest extends TestCase {
     @Override
     @Before
     public void setUp() throws Exception {
-        this.nodes = ImmutableList.of(new Node(1, "test1", 1, 1, 1, ImmutableList.of(1, 2, 3)),
-                                      new Node(2, "test1", 2, 2, 2, ImmutableList.of(4, 5, 6)),
-                                      new Node(3, "test1", 3, 3, 3, ImmutableList.of(7, 8, 9)),
-                                      new Node(4, "test1", 4, 4, 4, ImmutableList.of(10, 11, 12)));
+        this.nodes = ImmutableList.of(new Node(1, "test1", 1, 1, 1, ImmutableList.of(0, 1, 2)),
+                                      new Node(2, "test1", 2, 2, 2, ImmutableList.of(3, 4, 5)),
+                                      new Node(3, "test1", 3, 3, 3, ImmutableList.of(6, 7, 8)),
+                                      new Node(4, "test1", 4, 4, 4, ImmutableList.of(9, 10, 11)));
         this.cluster = new Cluster(clusterName, nodes);
         this.time = SystemTime.INSTANCE;
 
