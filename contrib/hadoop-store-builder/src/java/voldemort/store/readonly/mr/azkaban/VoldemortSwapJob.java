@@ -30,6 +30,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.log4j.Logger;
 
 import azkaban.jobExecutor.AbstractJob;
+import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -52,9 +53,9 @@ public class VoldemortSwapJob extends AbstractJob {
     private final String hdfsFetcherPort;
     private final int maxNodeFailures;
     private final List<FailedFetchStrategy> failedFetchStrategyList;
+    private final String dataDir;
 
     // The following internal state mutates during run()
-    private String dataDir;
     private long pushVersion;
 
     public VoldemortSwapJob(String id,
@@ -89,22 +90,31 @@ public class VoldemortSwapJob extends AbstractJob {
         // Read the hadoop configuration settings
         JobConf conf = new JobConf();
         Path dataPath = new Path(dataDir);
-        dataDir = dataPath.makeQualified(FileSystem.get(conf)).toString();
+        String modifiedDataDir = dataPath.makeQualified(FileSystem.get(conf)).toString();
 
         /*
          * Replace the default protocol and port with the one derived as above
          */
-        String existingProtocol = "";
-        String existingPort = "";
-        String[] pathComponents = dataDir.split(":");
-        if(pathComponents.length >= 3) {
-            existingProtocol = pathComponents[0];
-            existingPort = pathComponents[2].split("/")[0];
+        String[] pathComponents = modifiedDataDir.split(":");
+        if (pathComponents.length >= 3) {
+            String existingProtocol = pathComponents[0];
+            String existingPort = pathComponents[2].split("/")[0];
+            info("Existing protocol = " + existingProtocol + " and port = " + existingPort);
+            if (hdfsFetcherProtocol.length() > 0 && hdfsFetcherPort.length() > 0) {
+                info("New protocol = " + hdfsFetcherProtocol + " and port = " + hdfsFetcherPort);
+                modifiedDataDir = modifiedDataDir.replaceFirst(existingProtocol, hdfsFetcherProtocol);
+                modifiedDataDir = modifiedDataDir.replaceFirst(existingPort, hdfsFetcherPort);
+            }
+        } else {
+            info("The dataDir will not be modified, since it does not contain the expected " +
+                    "structure of protocol:hostname:port/some_path");
         }
-        info("Existing protocol = " + existingProtocol + " and port = " + existingPort);
-        if(hdfsFetcherProtocol.length() > 0 && hdfsFetcherPort.length() > 0) {
-            dataDir = dataDir.replaceFirst(existingProtocol, hdfsFetcherProtocol);
-            dataDir = dataDir.replaceFirst(existingPort, hdfsFetcherPort);
+
+        try {
+            new Path(modifiedDataDir);
+        } catch (IllegalArgumentException e) {
+            throw new VoldemortException("Could not create a valid data path out of the supplied dataDir: " +
+                    dataDir, e);
         }
 
         // Create admin client
@@ -114,7 +124,7 @@ public class VoldemortSwapJob extends AbstractJob {
                                                                     .setMaxBackoffDelayMs(maxBackoffDelayMs),
                                              new ClientConfig());
 
-        if(pushVersion == -1L) {
+        if (pushVersion == -1L) {
             // Need to retrieve max version
             ArrayList<String> stores = new ArrayList<String>();
             stores.add(storeName);
@@ -129,7 +139,7 @@ public class VoldemortSwapJob extends AbstractJob {
         }
 
         // do the swap
-        info("Initiating swap of " + storeName + " with dataDir:" + dataDir);
+        info("Initiating swap of " + storeName + " with dataDir: " + dataDir);
         AdminStoreSwapper swapper = new AdminStoreSwapper(
                 cluster,
                 executor,
@@ -137,7 +147,7 @@ public class VoldemortSwapJob extends AbstractJob {
                 httpTimeoutMs,
                 rollbackFailedSwap,
                 failedFetchStrategyList);
-        swapper.swapStoreData(storeName, dataDir, pushVersion);
+        swapper.swapStoreData(storeName, modifiedDataDir, pushVersion);
         info("Swap complete.");
         executor.shutdownNow();
         executor.awaitTermination(10, TimeUnit.SECONDS);
