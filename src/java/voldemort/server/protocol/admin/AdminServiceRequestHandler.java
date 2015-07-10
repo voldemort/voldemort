@@ -1,13 +1,13 @@
 /*
- * 
+ *
  * Copyright 2008-2013 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -28,7 +28,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.google.protobuf.Message;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -60,7 +59,6 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
-import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
@@ -92,10 +90,12 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
+import com.google.protobuf.Message;
+
 
 /**
  * Protocol buffers implementation of a {@link RequestHandler}
- * 
+ *
  */
 public class AdminServiceRequestHandler implements RequestHandler {
 
@@ -968,7 +968,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     /**
      * Given a read-only store name and a directory, swaps it in while returning
      * the directory path being swapped out
-     * 
+     *
      * @param storeName The name of the read-only store
      * @param directory The directory being swapped in
      * @return The directory path which was swapped out
@@ -1067,8 +1067,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                               storeDirList.length - 1)[0]);
                 }
                 pushVersion = maxVersion + 1;
-				logger.warn("Push Version is not specified, this might create issues during rebalance/restore. Store"
-						+ storeName + " Generated version " + pushVersion);
+                logger.warn("Push Version is not specified, this might create issues during rebalance/restore. Store"
+                        + storeName + " Generated version " + pushVersion);
             }
 
             asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Fetch store") {
@@ -1109,23 +1109,19 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     } else {
 
                         logger.info("Started executing fetch of " + fetchUrl + " for RO store '"
-																+ storeName
-																+ "' version "
-																+ pushVersion);
+                                + storeName + "' version " + pushVersion);
                         updateStatus("0 MB copied at 0 MB/sec - 0 % complete");
 
-                        try{
+                        try {
 
-							String destinationDir = store.getStoreDirPath()
-									+ File.separator
-									+ "version-"
-									+ Long.toString(pushVersion);
-							fetchDir = fileFetcher.fetch(	fetchUrl,
-															destinationDir,
-															status,
-															storeName,
-															pushVersion,
-															metadataStore);
+                            String destinationDir = store.getStoreDirPath() + File.separator + "version-"
+                                            + Long.toString(pushVersion);
+                            fetchDir = fileFetcher.fetch(fetchUrl,
+                                                      destinationDir,
+                                                      status,
+                                                      storeName,
+                                                      pushVersion,
+                                                      metadataStore);
                             if(fetchDir == null) {
                                 String errorMessage = "File fetcher failed for "
                                                       + fetchUrl
@@ -1701,7 +1697,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
      * represents a complete request. Because the non-blocking code can by
      * definition not just block waiting for more data, it's possible to get
      * partial reads, and this identifies that case.
-     * 
+     *
      * @param buffer Buffer to check; the buffer is reset to position 0 before
      *        calling this method and the caller must reset it after the call
      *        returns
@@ -1926,7 +1922,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         try {
             StorageEngine storeToDisable = storeRepository.getStorageEngine(storeName);
-            
+
             if (storeToDisable == null) {
                 response.setDisableSuccess(false)
                         .setInfo("The store '" + storeName + "' does not exist!");

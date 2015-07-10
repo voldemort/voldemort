@@ -180,29 +180,28 @@ public class HdfsFetcher implements FileFetcher {
         HdfsFetcher.keytabPath = keytabLocation;
     }
 
-	public File fetch(String source, String dest) throws IOException {
-		return fetch(source, dest, null, null, -1, null);
-	}
+    public File fetch(String source, String dest) throws IOException {
+        return fetch(source, dest, null, null, -1, null);
+    }
 
-	@Override
-	public File fetch(	String source,
-						String dest,
-						AsyncOperationStatus status,
-						String storeName,
-						long pushVersion,
-						MetadataStore metadataStore) throws IOException {
-		String hadoopConfigPath = "";
-        if(this.voldemortConfig != null) {
+    @Override
+    public File fetch(String source,
+                      String dest,
+                      AsyncOperationStatus status,
+                      String storeName,
+                      long pushVersion,
+                      MetadataStore metadataStore) throws IOException {
+        String hadoopConfigPath = "";
+        if (this.voldemortConfig != null) {
             hadoopConfigPath = this.voldemortConfig.getHadoopConfigPath();
         }
-		return fetch(	source,
-						dest,
-						status,
-						storeName,
-						pushVersion,
-						metadataStore,
-						hadoopConfigPath);
-
+        return fetch(source,
+                     dest,
+                     status,
+                     storeName,
+                     pushVersion,
+                     metadataStore,
+                     hadoopConfigPath);
     }
 
     private static boolean isHftpBasedPath(String sourceFileUrl) {
@@ -328,14 +327,13 @@ public class HdfsFetcher implements FileFetcher {
         return fs;
     }
 
-	public File fetch(	String sourceFileUrl,
-						String destinationFile,
-						AsyncOperationStatus status,
-						String storeName,
-						long pushVersion,
-						MetadataStore metadataStore,
-						String hadoopConfigPath)
-            throws IOException {
+    public File fetch(String sourceFileUrl,
+                      String destinationFile,
+                      AsyncOperationStatus status,
+                      String storeName,
+                      long pushVersion,
+                      MetadataStore metadataStore,
+                      String hadoopConfigPath) throws IOException {
         if(this.globalThrottleLimit != null) {
             if(this.globalThrottleLimit.getSpeculativeRate() < this.minBytesPerSecond)
                 throw new VoldemortException("Too many push jobs.");
@@ -368,14 +366,15 @@ public class HdfsFetcher implements FileFetcher {
 
 
             logger.info("Starting fetch for : " + sourceFileUrl);
-			boolean result = fetch(	fs,
-									path,
-									destination,
-									status,
-									stats,
-									storeName,
-									pushVersion,
-									metadataStore);
+            boolean result =
+                    fetch(fs,
+                          path,
+                          destination,
+                          status,
+                          stats,
+                          storeName,
+                          pushVersion,
+                          metadataStore);
             logger.info("Completed fetch : " + sourceFileUrl);
 
             // Close the filesystem
@@ -417,82 +416,76 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
-	private boolean fetch(	FileSystem fs,
-							Path source,
-							File dest,
-							AsyncOperationStatus status,
-							HdfsCopyStats stats,
-							String storeName,
-							long pushVersion,
-							MetadataStore metadataStore)
-            throws Throwable {
-		FetchStrategy fetchStrategy = new BasicFetchStrategy(	this,
-																fs,
-																stats,
-																status,
-																bufferSize);
-        if(!fs.isFile(source)) {
+    private boolean fetch(FileSystem fs,
+                          Path source,
+                          File dest,
+                          AsyncOperationStatus status,
+                          HdfsCopyStats stats,
+                          String storeName,
+                          long pushVersion,
+                          MetadataStore metadataStore) throws Throwable {
+        FetchStrategy fetchStrategy =
+                new BasicFetchStrategy(this, fs, stats, status, bufferSize);
+        if (!fs.isFile(source)) {
             Utils.mkdirs(dest);
             HdfsDirectory directory = new HdfsDirectory(fs, source);
 
             HdfsFile metadataFile = directory.getMetadataFile();
 
-            if(metadataFile != null) {
-                File copyLocation = new File(dest, metadataFile.getPath().getName());
-				fetchStrategy.fetch(metadataFile, copyLocation, null);
+            if (metadataFile != null) {
+                File copyLocation =
+                        new File(dest, metadataFile.getPath().getName());
+                fetchStrategy.fetch(metadataFile, copyLocation, null);
                 directory.initializeMetadata(copyLocation);
             }
 
-			Map<HdfsFile, byte[]> fileCheckSumMap = fetchStrategy.fetch(directory,
-																		dest);
+            Map<HdfsFile, byte[]> fileCheckSumMap =
+                    fetchStrategy.fetch(directory, dest);
 
             return directory.validateCheckSum(fileCheckSumMap);
 
-        } else if(allowFetchOfFiles) {
+        } else if (allowFetchOfFiles) {
             Utils.mkdirs(dest);
             HdfsFile file = new HdfsFile(fs.getFileStatus(source));
             String fileName = file.getDiskFileName();
             File copyLocation = new File(dest, fileName);
-			fetchStrategy.fetch(file, copyLocation, CheckSumType.NONE);
+            fetchStrategy.fetch(file, copyLocation, CheckSumType.NONE);
             return true;
         }
         logger.error("Source " + source.toString() + " should be a directory");
         return false;
     }
 
-	public Long getReportingIntervalBytes() {
-		return reportingIntervalBytes;
-	}
+    public Long getReportingIntervalBytes() {
+        return reportingIntervalBytes;
+    }
 
-	public EventThrottler getThrottler() {
-		return throttler;
-	}
+    public EventThrottler getThrottler() {
+        return throttler;
+    }
 
-	public long getRetryDelayMs() {
-		return retryDelayMs;
-	}
+    public long getRetryDelayMs() {
+        return retryDelayMs;
+    }
 
-	public int getMaxAttempts() {
-		return maxAttempts;
-	}
+    public int getMaxAttempts() {
+        return maxAttempts;
+    }
 
-	// Used by tests
-	@SuppressWarnings("unused")
-	private CheckSum copyFileWithCheckSumTest(	FileSystem fs,
+    // Used by tests
+    @SuppressWarnings("unused")
+    private CheckSum copyFileWithCheckSumTest(FileSystem fs,
                                               Path source,
                                               File dest,
                                               HdfsCopyStats stats,
                                               CheckSumType checkSumType,
                                               byte[] buffer) throws Throwable {
 
-		FetchStrategy fetchStrategy = new BasicFetchStrategy(	this,
-																fs,
-																stats,
-																null,
-																bufferSize);
-		return fetchStrategy.fetch(	new HdfsFile(fs.getFileStatus(source)),
-									dest,
-									checkSumType);
+        FetchStrategy fetchStrategy =
+                new BasicFetchStrategy(this, fs, stats, null, bufferSize);
+        return fetchStrategy.fetch(new HdfsFile(fs.getFileStatus(source)),
+                                   dest,
+                                   checkSumType);
     }
 
     /*
@@ -618,13 +611,7 @@ public class HdfsFetcher implements FileFetcher {
         if(destDir == null)
             destDir = System.getProperty("java.io.tmpdir") + File.separator + start;
 
-		File location = fetcher.fetch(	url,
-										destDir,
-										null,
-										null,
-										-1,
-										null,
-										hadoopPath);
+        File location = fetcher.fetch(url, destDir, null, null, -1, null, hadoopPath);
 
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
         NumberFormat nf = NumberFormat.getInstance();
