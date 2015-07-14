@@ -16,16 +16,6 @@
 
 package voldemort.store.readonly.fetcher;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.security.PrivilegedExceptionAction;
-import java.text.NumberFormat;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.management.ObjectName;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FileStatus;
@@ -33,7 +23,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.log4j.Logger;
-
 import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AdminServiceRequestHandler;
@@ -42,12 +31,18 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
-import voldemort.utils.DynamicEventThrottler;
-import voldemort.utils.DynamicThrottleLimit;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
+
+import javax.management.ObjectName;
+import java.io.File;
+import java.io.IOException;
+import java.security.PrivilegedExceptionAction;
+import java.text.NumberFormat;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /*
  * A fetcher that fetches the store files from HDFS
@@ -62,22 +57,12 @@ public class HdfsFetcher implements FileFetcher {
     public static final String INDEX_FILE_EXTENSION = ".index";
     public static final String DATA_FILE_EXTENSION = ".data";
     public static final String METADATA_FILE_EXTENSION = ".metadata";
-    private static String COMPRESSED_INDEX_FILE_EXTENSION = INDEX_FILE_EXTENSION
-                                                            + GZIP_FILE_EXTENSION;
-    private static String COMPRESSED_DATA_FILE_EXTENSION = DATA_FILE_EXTENSION
-                                                           + GZIP_FILE_EXTENSION;
-
-    public static final String[] validExtensions = { INDEX_FILE_EXTENSION,
-            COMPRESSED_INDEX_FILE_EXTENSION, DATA_FILE_EXTENSION, COMPRESSED_DATA_FILE_EXTENSION };
-
     private final Long maxBytesPerSecond, reportingIntervalBytes;
     private final int bufferSize;
     private static final AtomicInteger copyCount = new AtomicInteger(0);
     private EventThrottler throttler = null;
-    private long minBytesPerSecond = 0;
     private long retryDelayMs = 0;
     private int maxAttempts = 0;
-    private DynamicThrottleLimit globalThrottleLimit = null;
     private VoldemortConfig voldemortConfig = null;
     private final boolean enableStatsFile;
     private final int maxVersionsStatsFile;
@@ -87,21 +72,15 @@ public class HdfsFetcher implements FileFetcher {
 
     private static Boolean allowFetchOfFiles = false;
 
-    /* Additional constructor invoked from ReadOnlyStoreManagementServlet */
-    public HdfsFetcher(VoldemortConfig config) {
-        this(config, null);
-    }
-
     /**
-     * this is the actual constructor invoked from
-     * {@link AdminServiceRequestHandler} via reflection
+     * this is the constructor invoked via reflection from
+     * {@link AdminServiceRequestHandler#setFetcherClass(voldemort.server.VoldemortConfig)}
      */
-    public HdfsFetcher(VoldemortConfig config, DynamicThrottleLimit dynThrottleLimit) {
-        this(dynThrottleLimit,
-             null,
+    public HdfsFetcher(VoldemortConfig config) {
+        this(config.getReadOnlyFetcherMaxBytesPerSecond(),
              config.getReadOnlyFetcherReportingIntervalBytes(),
+             config.getReadOnlyFetcherThrottlerInterval(),
              config.getFetcherBufferSize(),
-             config.getReadOnlyFetcherMinBytesPerSecond(),
              config.getReadOnlyKeytabPath(),
              config.getReadOnlyKerberosUser(),
              config.getReadOnlyFetchRetryCount(),
@@ -110,16 +89,6 @@ public class HdfsFetcher implements FileFetcher {
              config.getReadOnlyMaxVersionsStatsFile(),
              config.getFetcherSocketTimeout());
         this.voldemortConfig = config;
-
-        if(dynThrottleLimit == null) {
-            logger.info("Created hdfs fetcher with no dynamic throttler, buffer size " + bufferSize
-                        + ", reporting interval bytes " + reportingIntervalBytes
-                        + ", fetcher socket timeout " + socketTimeout);
-        } else {
-            logger.info("Created hdfs fetcher with throttle rate " + dynThrottleLimit.getRate()
-                        + ", buffer size " + bufferSize + ", reporting interval bytes "
-                        + reportingIntervalBytes + ", fetcher socket timeout " + socketTimeout);
-        }
     }
 
     // Test-only constructor
@@ -131,12 +100,11 @@ public class HdfsFetcher implements FileFetcher {
 
     // Test-only constructor
     public HdfsFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
-        this(null,
-             maxBytesPerSecond,
+        this(maxBytesPerSecond,
              reportingIntervalBytes,
+             VoldemortConfig.DEFAULT_FETCHER_THROTTLE_INTERVAL_WINDOW_MS,
              bufferSize,
-             0,
-             "",
+                "",
              "",
              3,
              1000,
@@ -145,11 +113,10 @@ public class HdfsFetcher implements FileFetcher {
              VoldemortConfig.DEFAULT_FETCHER_SOCKET_TIMEOUT);
     }
 
-    public HdfsFetcher(DynamicThrottleLimit dynThrottleLimit,
-                       Long maxBytesPerSecond,
+    public HdfsFetcher(Long maxBytesPerSecond,
                        Long reportingIntervalBytes,
+                       int throttlerIntervalMs,
                        int bufferSize,
-                       long minBytesPerSecond,
                        String keytabLocation,
                        String kerberosUser,
                        int retryCount,
@@ -157,20 +124,19 @@ public class HdfsFetcher implements FileFetcher {
                        boolean enableStatsFile,
                        int maxVersionsStatsFile,
                        int socketTimeout) {
-        if(maxBytesPerSecond != null) {
+        String throttlerInfo = "";
+        if(maxBytesPerSecond != null && maxBytesPerSecond > 0) {
             this.maxBytesPerSecond = maxBytesPerSecond;
-            this.throttler = new EventThrottler(this.maxBytesPerSecond);
-        } else if(dynThrottleLimit != null && dynThrottleLimit.getRate() != 0) {
-            this.maxBytesPerSecond = dynThrottleLimit.getRate();
-            this.throttler = new DynamicEventThrottler(dynThrottleLimit);
-            this.globalThrottleLimit = dynThrottleLimit;
-            logger.info("Initializing Dynamic Event throttler with rate : "
-                        + this.maxBytesPerSecond + " bytes / sec");
-        } else
+            this.throttler = new EventThrottler(this.maxBytesPerSecond,
+                                                throttlerIntervalMs,
+                                                "hdfs-fetcher-node-throttler");
+            throttlerInfo = "throttler with global rate = " + maxBytesPerSecond + " bytes / sec";
+        } else {
             this.maxBytesPerSecond = null;
+            throttlerInfo = "no throttler";
+        }
         this.reportingIntervalBytes = Utils.notNull(reportingIntervalBytes);
         this.bufferSize = bufferSize;
-        this.minBytesPerSecond = minBytesPerSecond;
         this.maxAttempts = retryCount + 1;
         this.retryDelayMs = retryDelayMs;
         this.enableStatsFile = enableStatsFile;
@@ -178,6 +144,11 @@ public class HdfsFetcher implements FileFetcher {
         this.socketTimeout = socketTimeout;
         HdfsFetcher.kerberosPrincipal = kerberosUser;
         HdfsFetcher.keytabPath = keytabLocation;
+
+        logger.info("Created HdfsFetcher: " + throttlerInfo +
+                ", buffer size = " + bufferSize + " bytes" +
+                ", reporting interval = " + reportingIntervalBytes + " bytes" +
+                ", fetcher socket timeout = " + socketTimeout + " ms.");
     }
 
     public File fetch(String source, String dest) throws IOException {
@@ -334,11 +305,6 @@ public class HdfsFetcher implements FileFetcher {
                       long pushVersion,
                       MetadataStore metadataStore,
                       String hadoopConfigPath) throws IOException {
-        if(this.globalThrottleLimit != null) {
-            if(this.globalThrottleLimit.getSpeculativeRate() < this.minBytesPerSecond)
-                throw new VoldemortException("Too many push jobs.");
-            this.globalThrottleLimit.incrementNumJobs();
-        }
 
         ObjectName jmxName = null;
         HdfsCopyStats stats = null;
@@ -394,9 +360,6 @@ public class HdfsFetcher implements FileFetcher {
                                          + te);
 
         } finally {
-            if(this.globalThrottleLimit != null) {
-                this.globalThrottleLimit.decrementNumJobs();
-            }
             if(jmxName != null)
                 JmxUtils.unregisterMbean(jmxName);
 
@@ -513,17 +476,15 @@ public class HdfsFetcher implements FileFetcher {
         allowFetchOfFiles = true;
 
         long maxBytesPerSec = 1024 * 1024 * 1024;
-        Path p = new Path(url);
 
         final Configuration config = new Configuration();
-        final URI uri = new URI(url);
         config.setInt("io.file.buffer.size", VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE);
         config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
                    ConfigurableSocketFactory.class.getName());
         config.setInt("io.socket.receive.buffer", 1 * 1024 * 1024 - 10000);
 
         FileSystem fs = null;
-        p = new Path(url);
+        Path p = new Path(url);
         HdfsFetcher.keytabPath = keytabLocation;
         HdfsFetcher.kerberosPrincipal = kerberosUser;
 
@@ -595,11 +556,10 @@ public class HdfsFetcher implements FileFetcher {
 
         FileStatus status = fs.listStatus(p)[0];
         long size = status.getLen();
-        HdfsFetcher fetcher = new HdfsFetcher(null,
-                                              maxBytesPerSec,
+        HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec,
                                               VoldemortConfig.REPORTING_INTERVAL_BYTES,
+                                              VoldemortConfig.DEFAULT_FETCHER_THROTTLE_INTERVAL_WINDOW_MS,
                                               VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE,
-                                              0,
                                               keytabLocation,
                                               kerberosUser,
                                               5,

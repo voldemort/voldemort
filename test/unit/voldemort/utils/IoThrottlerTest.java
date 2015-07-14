@@ -17,45 +17,55 @@
 package voldemort.utils;
 
 import junit.framework.TestCase;
-import voldemort.MockTime;
+import io.tehuti.utils.MockTime;
 
 public class IoThrottlerTest extends TestCase {
 
     public void testThrottler() {
         // 100 reads of 1000 bytes in 1 sec
-        // natural rate is 100k/sec, should be throttled to 5k
+        // natural rate is 100 KB/sec, should be throttled to 5 KB/sec
         testThrottler(1000, 100, 10, 5000);
 
+        // 100 reads of 1 MB in 1 sec
+        // natural rate is 100 MB/sec, should be throttled to 1 MB/sec
+        testThrottler(1000000, 100, 10, 1000000);
+
         // 100 reads of 30000 bytes in 0.5 sec
-        // natural rate is 6m/sec, should be throttled to 25k
-        // testThrottler(30000, 100, 5, 25000);
+        // natural rate is 6 MB/sec, should be throttled to 25 KB/sec
+        testThrottler(30000, 100, 5, 25000);
 
         // 100 reads of 100 bytes in 5 sec
-        // natural rate is 2k, no throttling
+        // natural rate is 2 KB/sec, no throttling
         testThrottler(100, 100, 50, 5000);
     }
 
     public void testThrottler(int readSize, int numReads, long readTime, long throttledRate) {
-        long startTime = 1000;
-        MockTime time = new MockTime(startTime);
-        EventThrottler throttler = new EventThrottler(time, throttledRate, 50);
+        MockTime time = new MockTime();
+        long startTime = time.milliseconds();
+        EventThrottler throttler = new EventThrottler(time, throttledRate, 1000, null);
         for(int i = 0; i < numReads; i++) {
-            time.addMilliseconds(readTime);
+            time.sleep(readTime);
             throttler.maybeThrottle(readSize);
         }
-        long doneTime = time.getMilliseconds();
+        long doneTime = time.milliseconds();
         long bytesRead = numReads * (long) readSize;
         double unthrottledSecs = readTime * numReads / (double) Time.MS_PER_SECOND;
-        double ellapsedSecs = (double) (doneTime - startTime) / Time.MS_PER_SECOND;
-        double observedRate = bytesRead / ellapsedSecs;
+        double elapsedSecs = (double) (doneTime - startTime) / Time.MS_PER_SECOND;
+        double observedRate = bytesRead / elapsedSecs;
         double unthrottledRate = bytesRead / unthrottledSecs;
         if(unthrottledRate < throttledRate) {
+            // System.out.println("unthrottledRate (" + unthrottledRate + ") < throttledRate (" + throttledRate + ")");
             assertEquals(unthrottledRate, observedRate, 0.01);
         } else {
             double percentMiss = Math.abs(observedRate - throttledRate) / throttledRate;
-            assertTrue("Observed I/O rate should be within 10% of throttle limit: observed = "
-                       + observedRate + ", expected = " + throttledRate, percentMiss < 0.2);
+            String message = "Observed I/O rate should be within 20% of throttle limit: " +
+                    "percent difference = " + percentMiss * 100 + "%" +
+                    ", unthrottled = " + unthrottledRate +
+                    ", observed (throttled) = " + observedRate +
+                    ", expected = " + throttledRate;
+            // System.out.println(message);
+            assertTrue(message,
+                    percentMiss < 0.2);
         }
     }
-
 }

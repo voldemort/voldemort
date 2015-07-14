@@ -1,5 +1,12 @@
 package voldemort.store.readonly.fetcher;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.log4j.Logger;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.store.readonly.checksum.CheckSum;
+import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -10,14 +17,6 @@ import java.text.NumberFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
-
-import org.apache.commons.io.IOUtils;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.log4j.Logger;
-
-import voldemort.server.protocol.admin.AsyncOperationStatus;
-import voldemort.store.readonly.checksum.CheckSum;
-import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 
 
 public class BasicFetchStrategy implements FetchStrategy {
@@ -43,7 +42,7 @@ public class BasicFetchStrategy implements FetchStrategy {
     }
 
     @Override
-    public Map<HdfsFile, byte[]> fetch(HdfsDirectory directory, File dest) throws IOException {
+    public Map<HdfsFile, byte[]> fetch(HdfsDirectory directory, File dest) throws Throwable {
 
         Map<HdfsFile, byte[]> fileCheckSumMap = new HashMap<HdfsFile, byte[]>(directory.getFiles().size());
 
@@ -64,21 +63,17 @@ public class BasicFetchStrategy implements FetchStrategy {
      * 'checkSumType' computed and returned. In case an error occurs during such
      * a copy, we do a retry for a maximum of NUM_RETRIES
      *
-     * @param fs
-     *            Filesystem used to copy the file
      * @param source
      *            Source path of the file to copy
      * @param dest
      *            Destination path of the file on the local machine
-     * @param stats
-     *            Stats for measuring the transfer progress
      * @param checkSumType
      *            Type of the Checksum to be computed for this file
      * @return A Checksum (generator) of type checkSumType which contains the
      *         computed checksum of the copied file
      * @throws IOException
      */
-    private CheckSum copyFileWithCheckSum(HdfsFile source, File dest, CheckSumType checkSumType) throws IOException {
+    private CheckSum copyFileWithCheckSum(HdfsFile source, File dest, CheckSumType checkSumType) throws Throwable {
         CheckSum fileCheckSumGenerator = null;
         logger.debug("Starting copy of " + source + " to " + dest);
 
@@ -89,82 +84,86 @@ public class BasicFetchStrategy implements FetchStrategy {
         OutputStream output = null;
         long startTimeMS = System.currentTimeMillis();
 
-        for (int attempt = 0; attempt < fetcher.getMaxAttempts(); attempt++) {
+        for(int attempt = 0; attempt < fetcher.getMaxAttempts(); attempt++) {
             boolean success = true;
             long totalBytesRead = 0;
             boolean fsOpened = false;
             try {
 
                 // Create a per file checksum generator
-                if (checkSumType != null) {
+                if(checkSumType != null) {
                     fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
                 }
 
                 logger.info("Attempt " + attempt + " at copy of " + source + " to " + dest);
 
-                if (!isCompressed) {
-                    input = fs.open(source.getPath());
-                } else {
+                input = new ThrottledInputStream(fs.open(source.getPath()), fetcher.getThrottler(), stats);
+
+                if(isCompressed) {
                     // We are already bounded by the "hdfs.fetcher.buffer.size"
                     // specified in the Voldemort config, the default value of
                     // which is 64K. Using the same as the buffer size for
                     // GZIPInputStream as well.
-                    input = new GZIPInputStream(fs.open(source.getPath()), this.bufferSize);
+                    input = new GZIPInputStream(input, this.bufferSize);
                 }
                 fsOpened = true;
 
                 output = new BufferedOutputStream(new FileOutputStream(dest));
 
-                while (true) {
-                    int read = input.read(buffer);
-                    if (read < 0) {
+                int read;
+
+                while(true) {
+                    read = input.read(buffer);
+                    if(read < 0) {
                         break;
                     } else {
                         output.write(buffer, 0, read);
                     }
 
                     // Update the per file checksum
-                    if (fileCheckSumGenerator != null) {
+                    if(fileCheckSumGenerator != null) {
                         fileCheckSumGenerator.update(buffer, 0, read);
                     }
 
-                    // Check if we need to throttle the fetch
-                    if (fetcher.getThrottler() != null) {
-                        fetcher.getThrottler().maybeThrottle(read);
-                    }
-
-                    stats.recordBytes(read);
+                    stats.recordBytesWritten(read);
                     totalBytesRead += read;
-                    if (stats.getBytesSinceLastReport() > fetcher.getReportingIntervalBytes()) {
+                    if(stats.getBytesTransferredSinceLastReport() > fetcher.getReportingIntervalBytes()) {
                         NumberFormat format = NumberFormat.getNumberInstance();
                         format.setMaximumFractionDigits(2);
-                        logger.info(stats.getTotalBytesCopied() / (1024 * 1024) + " MB copied at "
-                                + format.format(stats.getBytesPerSecond() / (1024 * 1024)) + " MB/sec - "
-                                + format.format(stats.getPercentCopied()) + " % complete, destination:" + dest);
-                        if (this.status != null) {
-                            this.status.setStatus(stats.getTotalBytesCopied() / (1024 * 1024) + " MB copied at "
-                                    + format.format(stats.getBytesPerSecond() / (1024 * 1024)) + " MB/sec - "
-                                    + format.format(stats.getPercentCopied()) + " % complete, destination:" + dest);
+                        String message = stats.getTotalBytesTransferred() / (1024 * 1024) + " MB copied at "
+                                + format.format(stats.getBytesTransferredPerSecond() / (1024 * 1024))
+                                + " MB/sec - " + format.format(stats.getPercentCopied())
+                                + " % complete, destination:" + dest;
+                        logger.info(message);
+                        if(this.status != null) {
+                            this.status.setStatus(message);
                         }
                         stats.reset();
                     }
                 }
-                stats.reportFileDownloaded(dest, startTimeMS, source.getSize(), System.currentTimeMillis()
-                        - startTimeMS, attempt, totalBytesRead);
+                stats.reportFileDownloaded(dest,
+                        startTimeMS,
+                        source.getSize(),
+                        System.currentTimeMillis() - startTimeMS,
+                        attempt,
+                        totalBytesRead);
                 logger.info("Completed copy of " + source + " to " + dest);
 
-            } catch (IOException te) {
+            } catch(Throwable te) {
+                // FIXME: Why are we catching a Throwable here? That seems dangerous, especially with the retries...
+                // TODO: Catch Exceptions only and let Throwables bubble up...
                 success = false;
-                if (!fsOpened) {
+                if(!fsOpened) {
                     logger.error("Error while opening the file stream to " + source, te);
                 } else {
-                    logger.error("Error while copying file " + source + " after " + totalBytesRead + " bytes.", te);
+                    logger.error("Error while copying file " + source + " after " + totalBytesRead
+                            + " bytes.", te);
                 }
-                if (te.getCause() != null) {
+                if(te.getCause() != null) {
                     logger.error("Cause of error ", te.getCause());
                 }
 
-                if (attempt < fetcher.getMaxAttempts() - 1) {
+                if(attempt < fetcher.getMaxAttempts() - 1) {
                     logger.info("Will retry copying after " + fetcher.getRetryDelayMs() + " ms");
                     sleepForRetryDelayMs();
                 } else {
@@ -175,7 +174,7 @@ public class BasicFetchStrategy implements FetchStrategy {
             } finally {
                 IOUtils.closeQuietly(output);
                 IOUtils.closeQuietly(input);
-                if (success) {
+                if(success) {
                     break;
                 }
             }
@@ -195,7 +194,7 @@ public class BasicFetchStrategy implements FetchStrategy {
     }
 
     @Override
-    public CheckSum fetch(HdfsFile file, File dest, CheckSumType checkSumType) throws IOException {
+    public CheckSum fetch(HdfsFile file, File dest, CheckSumType checkSumType) throws Throwable {
         return copyFileWithCheckSum(file, dest, checkSumType);
     }
 
