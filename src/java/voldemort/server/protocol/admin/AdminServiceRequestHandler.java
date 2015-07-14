@@ -148,13 +148,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     logger.info("Loading fetcher " + className);
                     Class<?> cls = Class.forName(className.trim());
                     this.fileFetcher = (FileFetcher) ReflectUtils.callConstructor(cls,
-                                                                                  new Class<?>[] {
-                                                                                          VoldemortConfig.class,
-                                                                                          storageService.getDynThrottleLimit()
-                                                                                                        .getClass() },
-                                                                                  new Object[] {
-                                                                                          voldemortConfig,
-                                                                                          storageService.getDynThrottleLimit() });
+                                                                                  new Class<?>[] { VoldemortConfig.class },
+                                                                                  new Object[] { voldemortConfig });
                 } catch(Exception e) {
                     throw new VoldemortException("Error loading file fetcher class " + className, e);
                 }

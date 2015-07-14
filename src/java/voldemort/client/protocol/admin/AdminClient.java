@@ -16,42 +16,14 @@
 
 package voldemort.client.protocol.admin;
 
-import java.io.Closeable;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.EOFException;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.StringReader;
-import java.io.UnsupportedEncodingException;
-import java.net.Socket;
-import java.net.SocketException;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ReadableByteChannel;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-
+import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
-
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
@@ -112,12 +84,38 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.Message;
+import java.io.Closeable;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.EOFException;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
+import java.net.Socket;
+import java.net.SocketException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * AdminClient is intended for administrative functionality that is useful and
@@ -647,7 +645,9 @@ public class AdminClient implements Closeable {
                 sands = getSocketAndStreams(destination);
                 return innerSendAndReceive(sands, message, builder);
             } catch(IOException e) {
-                helperOps.close(sands.getSocket());
+                if (sands != null) {
+                    helperOps.close(sands.getSocket());
+                }
                 throw new VoldemortException(e);
             } finally {
                 if(sands != null) {

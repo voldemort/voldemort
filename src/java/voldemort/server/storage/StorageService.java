@@ -110,7 +110,6 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.DaemonThreadFactory;
-import voldemort.utils.DynamicThrottleLimit;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Pair;
@@ -137,9 +136,6 @@ public class StorageService extends AbstractService {
     private final StoreRepository storeRepository;
     private final SchedulerService scheduler;
     private final MetadataStore metadata;
-
-    /* Dynamic throttle limit required for read-only stores */
-    private final DynamicThrottleLimit dynThrottleLimit;
 
     // Common permit shared by all job which do a disk scan
     private final ScanPermitWrapper scanPermitWrapper;
@@ -191,17 +187,6 @@ public class StorageService extends AbstractService {
         this.routedStoreFactory.setThreadPool(this.clientThreadPool);
         this.routedStoreConfig = new RoutedStoreConfig(this.voldemortConfig,
                                                        this.metadata.getCluster());
-
-        /*
-         * Initialize the dynamic throttle limit based on the per node limit
-         * config only if read-only engine is being used.
-         */
-        if(this.voldemortConfig.getStorageConfigurations()
-                               .contains(ReadOnlyStorageConfiguration.class.getName())) {
-            long rate = this.voldemortConfig.getReadOnlyFetcherMaxBytesPerSecond();
-            this.dynThrottleLimit = new DynamicThrottleLimit(rate);
-        } else
-            this.dynThrottleLimit = null;
 
         // create the proxy put thread pool
         this.proxyPutWorkerPool = Executors.newFixedThreadPool(config.getMaxProxyPutThreads(),
@@ -1274,10 +1259,6 @@ public class StorageService extends AbstractService {
 
     public SocketStoreFactory getSocketStoreFactory() {
         return storeFactory;
-    }
-
-    public DynamicThrottleLimit getDynThrottleLimit() {
-        return dynThrottleLimit;
     }
 
     @JmxGetter(name = "getScanPermitOwners", description = "Returns class names of services holding the scan permit")
