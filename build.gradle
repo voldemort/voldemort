@@ -546,7 +546,8 @@ dependencies {
     compile 'com.sna-projects.krati:krati:0.4.9'
 
     // Metrics
-    compile 'io.tehuti:tehuti:0.6'
+    compile 'io.tehuti:tehuti:0.7.0'
+    testCompile 'io.tehuti:tehuti:0.7.0-test'
 
     // Other libs...
     compile 'org.apache.tomcat:catalina-ant:6.0.43'

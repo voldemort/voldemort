@@ -16,12 +16,17 @@ import org.apache.log4j.Logger;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.utils.Time;
 
+/**
+ * N.B.: bytes written and transferred should be equal for fetches with compression disabled.
+ */
 public class HdfsCopyStats {
 
     private final String sourceFile;
     private final long startTimeMS;
-    private volatile long bytesSinceLastReport;
-    private volatile long totalBytesCopied;
+    private volatile long bytesTransferredSinceLastReport;
+    private volatile long totalBytesTransferred;
+    private volatile long bytesWrittenSinceLastReport;
+    private volatile long totalBytesWritten;
     private volatile long lastReportNs;
     private final HdfsPathInfo pathInfo;
 
@@ -110,7 +115,7 @@ public class HdfsCopyStats {
             statsFileWriter.write("Starting fetch at " + startTimeMS + "MS from " + sourceFile
                                   + " . Info: " + pathInfo);
             statsFileWriter.newLine();
-            statsFileWriter.write("Time, FileName, StartTime(MS), Size, TimeTaken(MS), Attempts #, TotalBytes");
+            statsFileWriter.write("Time, FileName, StartTime(MS), Size, TimeTaken(MS), Attempts #, TotalBytesTransferred, TotalBytesWritten");
             statsFileWriter.newLine();
 
         } catch(Exception e) {
@@ -127,26 +132,36 @@ public class HdfsCopyStats {
                          boolean isFileCopy,
                          HdfsPathInfo pathInfo) {
         this.sourceFile = source;
-        this.totalBytesCopied = 0L;
-        this.bytesSinceLastReport = 0L;
+        this.totalBytesTransferred = 0L;
+        this.bytesTransferredSinceLastReport = 0L;
         this.pathInfo = pathInfo;
         this.lastReportNs = System.nanoTime();
         this.startTimeMS = System.currentTimeMillis();
         initializeStatsFile(destination, enableStatsFile, maxVersionsStatsFile, isFileCopy);
     }
 
-    public void recordBytes(long bytes) {
-        this.totalBytesCopied += bytes;
-        this.bytesSinceLastReport += bytes;
+    public void recordBytesWritten(long bytesWritten) {
+        this.totalBytesWritten += bytesWritten;
+        this.bytesWrittenSinceLastReport += bytesWritten;
+    }
+
+    public void recordBytesTransferred(long bytesTransferred) {
+        this.totalBytesTransferred += bytesTransferred;
+        this.bytesTransferredSinceLastReport += bytesTransferred;
     }
 
     public void reset() {
-        this.bytesSinceLastReport = 0;
+        this.bytesTransferredSinceLastReport = 0;
+        this.bytesWrittenSinceLastReport = 0;
         this.lastReportNs = System.nanoTime();
     }
 
-    public long getBytesSinceLastReport() {
-        return bytesSinceLastReport;
+    public long getBytesTransferredSinceLastReport() {
+        return bytesTransferredSinceLastReport;
+    }
+
+    public long getBytesWrittenSinceLastReport() {
+        return bytesWrittenSinceLastReport;
     }
 
     private void reportStats(String message) {
@@ -186,16 +201,17 @@ public class HdfsCopyStats {
                                      long fileSize,
                                      long timeTakenMS,
                                      int attempts,
-                                     long totalBytesDownloaded) {
+                                     long totalBytesWritten) {
         reportStats(file.getName() + "," + startTimeMS + "," + fileSize + "," + timeTakenMS + ","
-                    + attempts + "," + totalBytesDownloaded);
+                + attempts + "," + totalBytesTransferred + "," + totalBytesWritten);
     }
 
     public void complete() {
         long nowMS = System.currentTimeMillis() ;
-        reportStats(" Completed at " + nowMS + "MS. Total bytes Copied " + totalBytesCopied
-                    + " . Expected Total bytes " + pathInfo.getTotalSize() + " . Time taken(MS) "
-                    + (nowMS - startTimeMS));
+        reportStats(" Completed at " + nowMS + " MS. Total bytes transferred " + totalBytesTransferred
+                    + " . Expected total bytes transferred " + pathInfo.getTotalSize()
+                    + " . Total bytes written " + totalBytesWritten
+                    + " . Time taken(MS) " + (nowMS - startTimeMS));
         if(statsFileWriter != null) {
             IOUtils.closeQuietly(statsFileWriter);
         }
@@ -205,19 +221,30 @@ public class HdfsCopyStats {
         if(pathInfo.getTotalSize() == 0) {
             return 0.0;
         } else {
-            return (double) (totalBytesCopied * 100) / (double) pathInfo.getTotalSize();
+            return (double) (totalBytesTransferred * 100) / (double) pathInfo.getTotalSize();
         }
     }
 
-    @JmxGetter(name = "totalBytesCopied", description = "The total number of bytes copied so far in this transfer.")
-    public long getTotalBytesCopied() {
-        return totalBytesCopied;
+    @JmxGetter(name = "totalBytesTransferred", description = "The total number of bytes transferred over the network so far in this transfer.")
+    public long getTotalBytesTransferred() {
+        return totalBytesTransferred;
     }
 
-    @JmxGetter(name = "bytesPerSecond", description = "The rate of the transfer in bytes/second.")
-    public double getBytesPerSecond() {
-        double ellapsedSecs = (System.nanoTime() - lastReportNs) / (double) Time.NS_PER_SECOND;
-        return bytesSinceLastReport / ellapsedSecs;
+    @JmxGetter(name = "totalBytesWritten", description = "The total number of bytes written to disk so far in this transfer.")
+    public long getTotalBytesWritten() {
+        return totalBytesWritten;
+    }
+
+    @JmxGetter(name = "bytesTransferredPerSecond", description = "The rate of the transfer in bytes/second.")
+    public double getBytesTransferredPerSecond() {
+        double elapsedSecs = (System.nanoTime() - lastReportNs) / (double) Time.NS_PER_SECOND;
+        return bytesTransferredSinceLastReport / elapsedSecs;
+    }
+
+    @JmxGetter(name = "bytesWrittenPerSecond", description = "The rate of persisting data to disk in bytes/second.")
+    public double getBytesWrittenPerSecond() {
+        double elapsedSecs = (System.nanoTime() - lastReportNs) / (double) Time.NS_PER_SECOND;
+        return bytesWrittenSinceLastReport / elapsedSecs;
     }
 
     @JmxGetter(name = "filename", description = "The file path being copied.")
