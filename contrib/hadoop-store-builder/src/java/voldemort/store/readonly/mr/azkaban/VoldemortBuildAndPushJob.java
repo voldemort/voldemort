@@ -16,29 +16,15 @@
 
 package voldemort.store.readonly.mr.azkaban;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.net.URI;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-
 import azkaban.jobExecutor.AbstractJob;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.avro.Schema;
 import org.apache.commons.lang.Validate;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.log4j.Logger;
-
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
@@ -70,43 +56,30 @@ import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
+import java.io.Closeable;
+import java.io.IOException;
+import java.net.URI;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private final Logger log;
 
-    // CONFIG VALUES (and other internal state)
-
-    private final Props props;
-    private Cluster cluster;
-    private List<StoreDefinition> storeDefs;
-    private final String storeName;
-    private final List<String> clusterURLs;
-    private final Map<String, AdminClient> adminClientPerCluster;
-    private final int nodeId;
-    private final List<String> dataDirs;
-    private final boolean isAvroJob;
-    private final String keyFieldName;
-    private final String valueFieldName;
-    private final boolean isAvroVersioned;
-    private final long minNumberOfRecords;
-    private final String hdfsFetcherPort;
-    private final String hdfsFetcherProtocol;
-    private String jsonKeyField;
-    private String jsonValueField;
-    private String reducerOutputCompressionCodec;
-    private final Set<BuildAndPushHook> hooks = new HashSet<BuildAndPushHook>();
-    private final int heartBeatHookIntervalTime;
-    private final HeartBeatHookRunnable heartBeatHookRunnable;
-    private final boolean pushHighAvailability;
-    private final List<Closeable> closeables = Lists.newArrayList();
-
     // CONFIG NAME CONSTANTS
-
-    private Path sanitizedInputPath = null;
-    private Schema inputPathSchema = null;
 
     // build.required
     public final static String BUILD_INPUT_PATH = "build.input.path";
@@ -157,7 +130,35 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String HOOKS = "hooks";
     public final static String MIN_NUMBER_OF_RECORDS = "min.number.of.records";
     public final static String REDUCER_OUTPUT_COMPRESS_CODEC = "reducer.output.compress.codec";
-    public static final String REDUCER_OUTPUT_COMPRESS = "reducer.output.compress";
+    public final static String REDUCER_OUTPUT_COMPRESS = "reducer.output.compress";
+
+    // CONFIG VALUES (and other immutable state)
+    private final Props props;
+    private final String storeName;
+    private final List<String> clusterURLs;
+    private final Map<String, AdminClient> adminClientPerCluster;
+    private final int nodeId;
+    private final List<String> dataDirs;
+    private final boolean isAvroJob;
+    private final String keyFieldName;
+    private final String valueFieldName;
+    private final boolean isAvroVersioned;
+    private final long minNumberOfRecords;
+    private final String hdfsFetcherPort;
+    private final String hdfsFetcherProtocol;
+    private final String jsonKeyField;
+    private final String jsonValueField;
+    private final Set<BuildAndPushHook> hooks = new HashSet<BuildAndPushHook>();
+    private final int heartBeatHookIntervalTime;
+    private final HeartBeatHookRunnable heartBeatHookRunnable;
+    private final boolean pushHighAvailability;
+    private final List<Closeable> closeables = Lists.newArrayList();
+    private final ExecutorService executorService;
+
+    // Mutable state
+    private List<StoreDefinition> storeDefs;
+    private Path sanitizedInputPath = null;
+    private Schema inputPathSchema = null;
 
     public VoldemortBuildAndPushJob(String name, azkaban.utils.Props azkabanProps) {
         super(name, Logger.getLogger(name));
@@ -180,19 +181,21 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             }
         }
 
-        if(clusterURLs.size() <= 0)
-            throw new RuntimeException("Number of urls should be atleast 1");
+        int numberOfClusters = this.clusterURLs.size();
 
-        // Support multiple output dirs if the user mentions only PUSH, no
-        // BUILD.
+        if (numberOfClusters <= 0) {
+            throw new RuntimeException("Number of URLs should be at least 1");
+        }
+
+        // Support multiple output dirs if the user mentions only PUSH, no BUILD.
         // If user mentions both then should have only one
         String dataDirText = props.getString(BUILD_OUTPUT_DIR);
         for(String dataDir: Utils.COMMA_SEP.split(dataDirText.trim()))
             if(dataDir.trim().length() > 0)
                 this.dataDirs.add(dataDir);
 
-        if(dataDirs.size() <= 0)
-            throw new RuntimeException("Number of data dirs should be atleast 1");
+        if(this.dataDirs.size() <= 0)
+            throw new RuntimeException("Number of data dirs should be at least 1");
 
         this.nodeId = props.getInt(PUSH_NODE, 0);
 
@@ -202,34 +205,35 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         log.info(VOLDEMORT_FETCHER_PROTOCOL + " is set to : " + hdfsFetcherProtocol);
         log.info(VOLDEMORT_FETCHER_PORT + " is set to : " + hdfsFetcherPort);
 
+        // Serialization configs
+
         isAvroJob = props.getBoolean(BUILD_TYPE_AVRO, false);
-
-        // Set default to false
-        // this ensures existing clients who are not aware of the new serializer
-        // type dont bail out
-        isAvroVersioned = props.getBoolean(AVRO_SERIALIZER_VERSIONED, false);
-
-        keyFieldName = props.getString(AVRO_KEY_FIELD, null);
-
-        valueFieldName = props.getString(AVRO_VALUE_FIELD, null);
-
-        if(isAvroJob) {
-            if(keyFieldName == null)
+        // Set default to false, this ensures existing clients who are not aware of
+        // the new serializer type don't bail out
+        this.isAvroVersioned = props.getBoolean(AVRO_SERIALIZER_VERSIONED, false);
+        this.keyFieldName = props.getString(AVRO_KEY_FIELD, null);
+        this.valueFieldName = props.getString(AVRO_VALUE_FIELD, null);
+        if(this.isAvroJob) {
+            if(this.keyFieldName == null)
                 throw new RuntimeException("The key field must be specified in the properties for the Avro build and push job!");
-            if(valueFieldName == null)
+            if(this.valueFieldName == null)
                 throw new RuntimeException("The value field must be specified in the properties for the Avro build and push job!");
         }
+        this.jsonKeyField = props.getString(KEY_SELECTION, null);
+        this.jsonValueField = props.getString(VALUE_SELECTION, null);
 
-        minNumberOfRecords = props.getLong(MIN_NUMBER_OF_RECORDS, 1);
+        // Other configs
+
+        this.minNumberOfRecords = props.getLong(MIN_NUMBER_OF_RECORDS, 1);
 
         // By default, Push HA will be enabled if the server says so.
         // If the job sets Push HA to false, then it will be disabled, no matter what the server asks for.
-        pushHighAvailability = props.getBoolean(VoldemortConfig.PUSH_HA_ENABLED, true);
+        this.pushHighAvailability = props.getBoolean(VoldemortConfig.PUSH_HA_ENABLED, true);
 
         // Initializing hooks
-        heartBeatHookIntervalTime = props.getInt(HEARTBEAT_HOOK_INTERVAL_MS, 60000);
-        heartBeatHookRunnable = new HeartBeatHookRunnable(heartBeatHookIntervalTime);
-        String hookNamesText = props.getString(HOOKS, null);
+        this.heartBeatHookIntervalTime = props.getInt(HEARTBEAT_HOOK_INTERVAL_MS, 60000);
+        this.heartBeatHookRunnable = new HeartBeatHookRunnable(heartBeatHookIntervalTime);
+        String hookNamesText = this.props.getString(HOOKS, null);
         if (hookNamesText != null && !hookNamesText.isEmpty()) {
             for (String hookName : Utils.COMMA_SEP.split(hookNamesText.trim())) {
                 try {
@@ -237,7 +241,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     try {
                         hook.init(props);
                         log.info("Initialized BuildAndPushHook [" + hook.getName() + "]");
-                        hooks.add(hook);
+                        this.hooks.add(hook);
                     } catch (Exception e) {
                         log.warn("Failed to initialize BuildAndPushHook [" + hook.getName() + "]. It will not be invoked.", e);
                     }
@@ -246,6 +250,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 }
             }
         }
+
+        this.executorService = Executors.newFixedThreadPool(numberOfClusters);
+
+        log.info("Build and Push Job constructed for " + numberOfClusters + " cluster(s).");
     }
 
     private void invokeHooks(BuildAndPushStatus status) {
@@ -383,6 +391,30 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                      // data.
     }
 
+    private class StorePushTask implements Callable<Boolean> {
+        final Props props;
+        final String url;
+        final String buildOutputDir;
+
+        StorePushTask(Props props, String url, String buildOutputDir) {
+            this.props = props;
+            this.url = url;
+            this.buildOutputDir = buildOutputDir;
+
+            log.debug("StorePushTask constructed for URL: " + url);
+        }
+
+        public Boolean call() throws Exception {
+            log.info("StorePushTask.call() invoked for URL: " + url);
+            invokeHooks(BuildAndPushStatus.PUSHING, url);
+            runPushStore(props, url, buildOutputDir);
+            invokeHooks(BuildAndPushStatus.SWAPPED, url);
+            log.info("StorePushTask.call() finished for URL: " + url);
+            return true;
+        }
+
+    }
+
     @Override
     public void run() throws Exception {
         invokeHooks(BuildAndPushStatus.STARTING);
@@ -396,8 +428,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             // These two options control the build and push phases of the job respectively.
             boolean build = props.getBoolean(BUILD, true);
             boolean push = props.getBoolean(PUSH, true);
-            jsonKeyField = props.getString(KEY_SELECTION, null);
-            jsonValueField = props.getString(VALUE_SELECTION, null);
 
             checkForPreconditions(build, push);
 
@@ -409,7 +439,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 return;
             }
 
-            reducerOutputCompressionCodec = getMatchingServerSupportedCompressionCodec(nodeId);
+            String reducerOutputCompressionCodec = getMatchingServerSupportedCompressionCodec(nodeId);
             if(reducerOutputCompressionCodec != null) {
                 log.info("Using compression codec: " + reducerOutputCompressionCodec);
                 props.put(REDUCER_OUTPUT_COMPRESS, "true");
@@ -421,6 +451,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             // Create a hashmap to capture exception per url
             HashMap<String, Exception> exceptions = Maps.newHashMap();
             String buildOutputDir = null;
+            Map<String, Future<Boolean>> tasks = Maps.newHashMap();
             for (int index = 0; index < clusterURLs.size(); index++) {
                 String url = clusterURLs.get(index);
                 if (isAvroJob) {
@@ -439,39 +470,45 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                             invokeHooks(BuildAndPushStatus.BUILDING);
                             buildOutputDir = runBuildStore(props, url);
                         } catch(Exception e) {
-                            log.error("Exception during build for url " + url, e);
+                            log.error("Exception during build for URL: " + url, e);
                             exceptions.put(url, e);
                         }
                     }
                 }
                 if (push) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Informing about push start ...");
-                    }
-                    log.info("Pushing to cluster url " + clusterURLs.get(index));
+                    log.info("Pushing to cluster URL: " + clusterURLs.get(index));
                     // If we are not building and just pushing then we want to get the built
                     // from the dataDirs, or else we will just the one that we built earlier
-                    try {
-                        if (!build) {
-                            buildOutputDir = dataDirs.get(index);
-                        }
-                        // If there was an exception during the build part the buildOutputDir might be null, check
-                        // if that's the case, if yes then continue and don't even try pushing
-                        if (buildOutputDir == null) {
-                            continue;
-                        }
-                        invokeHooks(BuildAndPushStatus.PUSHING, url);
-                        runPushStore(props, url, buildOutputDir);
-                        invokeHooks(BuildAndPushStatus.SWAPPED, url);
-                    } catch (RecoverableFailedFetchException e) {
-                        log.warn("There was a problem with some of the fetches, but a swap was still able to go through!", e);
-                        invokeHooks(BuildAndPushStatus.SWAPPED_WITH_FAILURES, url);
-                    } catch(Exception e) {
-                        log.error("Exception during push for url " + url, e);
-                        exceptions.put(url, e);
+                    if (!build) {
+                        buildOutputDir = dataDirs.get(index);
                     }
+                    // If there was an exception during the build part the buildOutputDir might be null, check
+                    // if that's the case, if yes then continue and don't even try pushing
+                    if (buildOutputDir == null) {
+                        continue;
+                    }
+                    tasks.put(url, executorService.submit(new StorePushTask(props, url, buildOutputDir)));
                 }
             }
+
+            for (Map.Entry<String, Future<Boolean>> task: tasks.entrySet()) {
+                String url = task.getKey();
+                Boolean success = false;
+                try {
+                    success = task.getValue().get();
+                } catch (RecoverableFailedFetchException e) {
+                    log.warn("There was a problem with some of the fetches, " +
+                            "but a swap was still able to go through for URL: " + url, e);
+                    invokeHooks(BuildAndPushStatus.SWAPPED_WITH_FAILURES, url);
+                } catch(Exception e) {
+                    log.error("Exception during push for URL: " + url, e);
+                    exceptions.put(url, e);
+                }
+                if (success) {
+                    log.info("Successfully pushed to URL: " + url);
+                }
+            }
+
             if(build && push && buildOutputDir != null
                && !props.getBoolean(BUILD_OUTPUT_KEEP, false)) {
                 JobConf jobConf = new JobConf();
@@ -529,6 +566,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 log.error("Got an error while trying to close " + closeable.toString(), e);
             }
         }
+        this.executorService.shutdownNow();
     }
 
     /**
@@ -623,7 +661,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 props.containsKey(BUILD_PREFERRED_WRITES) ? props.getInt(BUILD_PREFERRED_WRITES) : null,
                 keySchema,
                 valSchema)));
-        cluster = adminClientPerCluster.get(url).getAdminClientCluster();
     }
     
     /**
@@ -770,6 +807,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             keySchema = getKeySchema();
             valSchema = getValueSchema();
         }
+
+        Cluster cluster = adminClientPerCluster.get(url).getAdminClientCluster();
+
         new VoldemortStoreBuilderJob(
                 this.getId() + "-build-store",
                 props,
@@ -853,6 +893,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     new DeleteAllFailedFetchStrategy(adminClientPerCluster.get(url)));
         }
 
+        Cluster cluster = adminClientPerCluster.get(url).getAdminClientCluster();
+
         log.info("Push starting for cluster: " + url);
 
         new VoldemortSwapJob(
@@ -867,7 +909,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 hdfsFetcherProtocol,
                 hdfsFetcherPort,
                 maxNodeFailures,
-                failedFetchStrategyList).run();
+                failedFetchStrategyList,
+                url).run();
     }
 
     /**
@@ -1042,7 +1085,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                             : null,
                     returnSchemaObj.keySchema,
                     returnSchemaObj.valSchema)));
-            cluster = adminClientPerCluster.get(url).getAdminClientCluster();
         }
     }
  

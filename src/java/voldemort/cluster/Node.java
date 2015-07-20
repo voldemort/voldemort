@@ -16,17 +16,15 @@
 
 package voldemort.cluster;
 
+import com.google.common.collect.ImmutableList;
+import org.apache.log4j.Logger;
+import voldemort.annotations.concurrency.Threadsafe;
+import voldemort.utils.Utils;
+
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-
-import org.apache.log4j.Logger;
-
-import voldemort.annotations.concurrency.Threadsafe;
-import voldemort.utils.Utils;
-
-import com.google.common.collect.ImmutableList;
 
 /**
  * A node in the voldemort cluster
@@ -157,6 +155,10 @@ public class Node implements Serializable, Comparable<Node> {
     public String toString() {
         return "Node " + getHost() + " Id:" + getId() + " in zone " + getZoneId()
                + " partitionList:" + partitions;
+    }
+
+    public String briefToString() {
+        return "node " + getHost() + " [id " + getId() + "]";
     }
 
     public String getStateString() {

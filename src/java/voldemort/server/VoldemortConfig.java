@@ -86,7 +86,7 @@ public class VoldemortConfig implements Serializable {
     public static final String DEFAULT_KEYTAB_PATH = "/voldemrt.headless.keytab";
     private static final String DEFAULT_KERBEROS_KDC = "";
     private static final String DEFAULT_KERBEROS_REALM = "";
-    private static final String DEFAULT_FILE_FETCHER_CLASS = "voldemort.store.readonly.fetcher.HdfsFetcher";
+    private static final String DEFAULT_FILE_FETCHER_CLASS = null; // FIXME: Some unit tests fail without this default.
     private static final String DEFAULT_RO_COMPRESSION_CODEC = "NO_CODEC";
 
     private int nodeId;

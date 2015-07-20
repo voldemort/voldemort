@@ -1,6 +1,7 @@
 package voldemort.store.readonly.swapper;
 
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.cluster.Node;
 
 import java.util.Map;
 
@@ -15,16 +16,16 @@ public class DeleteAllFailedFetchStrategy extends FailedFetchStrategy {
     @Override
     protected boolean dealWithIt(String storeName,
                                  long pushVersion,
-                                 Map<Integer, AdminStoreSwapper.Response> fetchResponseMap) {
+                                 Map<Node, AdminStoreSwapper.Response> fetchResponseMap) {
         // Delete data from successful nodes
-        for(int nodeId: fetchResponseMap.keySet()) {
-            AdminStoreSwapper.Response response = fetchResponseMap.get(nodeId);
+        for(Node node: fetchResponseMap.keySet()) {
+            AdminStoreSwapper.Response response = fetchResponseMap.get(node);
             if (response.isSuccessful()) {
                 try {
-                    logger.info("Deleting fetched data from node " + nodeId);
-                    adminClient.readonlyOps.failedFetchStore(nodeId, storeName, response.getResponse());
+                    logger.info("Deleting fetched data from node " + node);
+                    adminClient.readonlyOps.failedFetchStore(node.getId(), storeName, response.getResponse());
                 } catch(Exception e) {
-                    logger.error("Exception thrown during delete operation on node " + nodeId + " : ", e);
+                    logger.error("Exception thrown during delete operation on node " + node + " : ", e);
                 }
             }
         }

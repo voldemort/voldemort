@@ -16,29 +16,18 @@
 
 package voldemort.store.readonly.swapper;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.Map;
-import java.util.Properties;
-import java.util.TreeMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortServer;
@@ -52,8 +41,18 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.Utils;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Map;
+import java.util.Properties;
+import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
 *
@@ -314,17 +313,19 @@ public class StoreSwapperTest {
 
         // Create "currentVersion + 2" for all other nodes
         // i.e. N0 [ latest -> v3 ], N<others> [ latest -> v2 ]
-        TreeMap<Integer, AdminStoreSwapper.Response> toSwap = Maps.newTreeMap();
+        TreeMap<Node, AdminStoreSwapper.Response> toSwap = Maps.newTreeMap();
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
             if(nodeId != 1) {
+                Node node = cluster.getNodeById(nodeId);
                 File versionPlusTwo = new File(baseDirs[nodeId], "version-"
                                                              + Long.toString(currentVersion + 2));
                 Utils.mkdirs(versionPlusTwo);
-                toSwap.put(nodeId, new AdminStoreSwapper.Response(versionPlusTwo.getAbsolutePath()));
+                toSwap.put(node, new AdminStoreSwapper.Response(versionPlusTwo.getAbsolutePath()));
             }
         }
         File versionPlusThree = new File(baseDirs[1], "version-" + Long.toString(currentVersion + 3));
-        toSwap.put(1, new AdminStoreSwapper.Response(versionPlusThree.getAbsolutePath()));
+        Node nodeWithId1 = cluster.getNodeById(1);
+        toSwap.put(nodeWithId1, new AdminStoreSwapper.Response(versionPlusThree.getAbsolutePath()));
 
         swapper.invokeSwap(STORE_NAME, toSwap);
 

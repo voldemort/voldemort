@@ -2,6 +2,7 @@ package voldemort.store.readonly.swapper;
 
 import org.apache.log4j.Logger;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.cluster.Node;
 
 import java.util.Map;
 
@@ -26,5 +27,5 @@ public abstract class FailedFetchStrategy {
      */
     protected abstract boolean dealWithIt(String storeName,
                                           long pushVersion,
-                                          Map<Integer, AdminStoreSwapper.Response> fetchResponseMap) throws Exception;
+                                          Map<Node, AdminStoreSwapper.Response> fetchResponseMap) throws Exception;
 }

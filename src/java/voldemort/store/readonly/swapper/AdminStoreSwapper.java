@@ -1,5 +1,24 @@
 package voldemort.store.readonly.swapper;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+import org.apache.commons.io.FileUtils;
+import org.apache.log4j.Logger;
+import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
+import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.utils.CmdUtils;
+import voldemort.utils.Time;
+import voldemort.utils.logging.PrefixedLogger;
+import voldemort.xml.ClusterMapper;
+
 import java.io.File;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -14,29 +33,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.collect.ImmutableSet;
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-import org.apache.commons.io.FileUtils;
-import org.apache.log4j.Logger;
-
-import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
-import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
-import voldemort.store.readonly.ReadOnlyUtils;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.Maps;
-import voldemort.utils.CmdUtils;
-import voldemort.utils.Time;
-import voldemort.xml.ClusterMapper;
-
 public class AdminStoreSwapper {
 
-    private static final Logger logger = Logger.getLogger(AdminStoreSwapper.class);
+    private final Logger logger;
 
     private AdminClient adminClient;
     private long timeoutMs;
@@ -54,19 +53,26 @@ public class AdminStoreSwapper {
      * @param timeoutMs Time out in ms
      * @param rollbackFailedSwap Boolean to indicate we want to rollback the
      * @param failedFetchStrategyList list of {@link FailedFetchStrategy} to execute in case of failure
+     * @param clusterName String added as a prefix to all logs. If null, there is no prefix on the logs.
      */
     public AdminStoreSwapper(Cluster cluster,
                              ExecutorService executor,
                              AdminClient adminClient,
                              long timeoutMs,
                              boolean rollbackFailedSwap,
-                             List<FailedFetchStrategy> failedFetchStrategyList) {
+                             List<FailedFetchStrategy> failedFetchStrategyList,
+                             String clusterName) {
         this.cluster = cluster;
         this.executor = executor;
         this.adminClient = adminClient;
         this.timeoutMs = timeoutMs;
         this.rollbackFailedSwap = rollbackFailedSwap;
         this.failedFetchStrategyList = failedFetchStrategyList;
+        if (clusterName == null) {
+            this.logger = Logger.getLogger(AdminStoreSwapper.class.getName());
+        } else {
+            this.logger = PrefixedLogger.getLogger(AdminStoreSwapper.class.getName(), clusterName);
+        }
     }
 
 
@@ -86,7 +92,7 @@ public class AdminStoreSwapper {
                              long timeoutMs,
                              boolean deleteFailedFetch,
                              boolean rollbackFailedSwap) {
-        this(cluster, executor, adminClient, timeoutMs, rollbackFailedSwap, new ArrayList<FailedFetchStrategy>());
+        this(cluster, executor, adminClient, timeoutMs, rollbackFailedSwap, new ArrayList<FailedFetchStrategy>(), null);
         if (deleteFailedFetch) {
             failedFetchStrategyList.add(new DeleteAllFailedFetchStrategy(adminClient));
         }
@@ -103,11 +109,11 @@ public class AdminStoreSwapper {
                              ExecutorService executor,
                              AdminClient adminClient,
                              long timeoutMs) {
-        this(cluster, executor, adminClient, timeoutMs, false, new ArrayList<FailedFetchStrategy>());
+        this(cluster, executor, adminClient, timeoutMs, false, new ArrayList<FailedFetchStrategy>(), null);
     }
 
     public void swapStoreData(String storeName, String basePath, long pushVersion) {
-        Map<Integer, Response> fetchResponseMap = invokeFetch(storeName, basePath, pushVersion);
+        Map<Node, Response> fetchResponseMap = invokeFetch(storeName, basePath, pushVersion);
         invokeSwap(storeName, fetchResponseMap);
         for (AdminStoreSwapper.Response response: fetchResponseMap.values()) {
             if (!response.isSuccessful()) {
@@ -120,13 +126,13 @@ public class AdminStoreSwapper {
         Exception exception = null;
         for(Node node: cluster.getNodes()) {
             try {
-                logger.info("Attempting rollback for node " + node.getId() + " storeName = "
+                logger.info("Attempting rollback for " + node.briefToString() + ", storeName = "
                             + storeName);
                 adminClient.readonlyOps.rollbackStore(node.getId(), storeName, pushVersion);
-                logger.info("Rollback succeeded for node " + node.getId());
+                logger.info("Rollback succeeded for " + node.briefToString());
             } catch(Exception e) {
                 exception = e;
-                logger.error("Exception thrown during rollback operation on node " + node.getId()
+                logger.error("Exception thrown during rollback operation on " + node.briefToString()
                              + ": ", e);
             }
         }
@@ -136,7 +142,7 @@ public class AdminStoreSwapper {
 
     }
 
-    public Map<Integer, Response> invokeFetch(final String storeName,
+    public Map<Node, Response> invokeFetch(final String storeName,
                                     final String basePath,
                                     final long pushVersion) {
         // do fetch
@@ -146,41 +152,39 @@ public class AdminStoreSwapper {
 
                 public String call() throws Exception {
                     String storeDir = basePath + "/node-" + node.getId();
-                    logger.info("Invoking fetch for node " + node.getId() + " for " + storeDir);
+                    logger.info("Invoking fetch for " + node.briefToString() + " for " + storeDir);
                     String response = adminClient.readonlyOps.fetchStore(node.getId(),
                                                                          storeName,
                                                                          storeDir,
                                                                          pushVersion,
                                                                          timeoutMs);
                     if(response == null)
-                        throw new VoldemortException("Fetch request on node " + node.getId() + " ("
-                                                     + node.getHost() + ") failed");
-                    logger.info("Fetch succeeded on node " + node.getId());
+                        throw new VoldemortException("Fetch request on " + node.briefToString() + " failed");
+                    logger.info("Fetch succeeded on " + node.briefToString());
                     return response.trim();
                 }
             }));
         }
 
-        Map<Integer, Response> fetchResponseMap = Maps.newTreeMap();
+        Map<Node, Response> fetchResponseMap = Maps.newTreeMap();
         boolean fetchErrors = false;
 
         for(final Node node: cluster.getNodes()) {
-            Integer nodeId = node.getId();
-            Future<String> val = fetchDirs.get(nodeId);
+            Future<String> val = fetchDirs.get(node.getId());
             try {
                 String response = val.get();
-                fetchResponseMap.put(nodeId, new Response(response));
+                fetchResponseMap.put(node, new Response(response));
             } catch(Exception e) {
                 fetchErrors = true;
-                fetchResponseMap.put(nodeId, new Response(e));
+                fetchResponseMap.put(node, new Response(e));
             }
         }
 
         if(fetchErrors) {
             // Log the errors for the user
-            for(Map.Entry<Integer, Response> entry: fetchResponseMap.entrySet()) {
+            for(Map.Entry<Node, Response> entry: fetchResponseMap.entrySet()) {
                 if (!entry.getValue().isSuccessful()) {
-                    logger.error("Error on node " + entry.getKey() + " during push : ",
+                    logger.error("Error on " + entry.getKey().briefToString() + " during push : ",
                             entry.getValue().getException());
                 }
             }
@@ -212,22 +216,23 @@ public class AdminStoreSwapper {
         return fetchResponseMap;
     }
 
-    public void invokeSwap(final String storeName, final Map<Integer, Response> fetchResponseMap) {
+    public void invokeSwap(final String storeName, final Map<Node, Response> fetchResponseMap) {
         // do swap
-        Map<Integer, String> previousDirs = new HashMap<Integer, String>();
-        HashMap<Integer, Exception> exceptions = Maps.newHashMap();
+        Map<Node, String> previousDirs = Maps.newHashMap();
+        HashMap<Node, Exception> exceptions = Maps.newHashMap();
 
-        for(Map.Entry<Integer, Response> entry: fetchResponseMap.entrySet()) {
+        for(Map.Entry<Node, Response> entry: fetchResponseMap.entrySet()) {
             Response response = entry.getValue();
             if (response.isSuccessful()) {
-                Integer nodeId = entry.getKey();
+                Node node = entry.getKey();
+                Integer nodeId = node.getId();
                 String dir = response.getResponse();
                 try {
-                    logger.info("Attempting swap for node " + nodeId + " dir = " + dir);
-                    previousDirs.put(nodeId, adminClient.readonlyOps.swapStore(nodeId, storeName, dir));
-                    logger.info("Swap succeeded for node " + nodeId);
+                    logger.info("Attempting swap for " + node.briefToString() + ", dir = " + dir);
+                    previousDirs.put(node, adminClient.readonlyOps.swapStore(nodeId, storeName, dir));
+                    logger.info("Swap succeeded for " + node.briefToString());
                 } catch(Exception e) {
-                    exceptions.put(nodeId, e);
+                    exceptions.put(node, e);
                 }
             }
         }
@@ -236,25 +241,26 @@ public class AdminStoreSwapper {
 
             if(rollbackFailedSwap) {
                 // Rollback data on successful nodes
-                for(int successfulNodeId: previousDirs.keySet()) {
+                for(Node node: previousDirs.keySet()) {
                     try {
-                        logger.info("Rolling back data on successful node " + successfulNodeId);
+                        int successfulNodeId = node.getId();
+                        logger.info("Rolling back data on successful " + node.briefToString());
                         adminClient.readonlyOps.rollbackStore(successfulNodeId,
                                 storeName,
-                                ReadOnlyUtils.getVersionId(new File(previousDirs.get(successfulNodeId))));
-                        logger.info("Rollback succeeded for node " + successfulNodeId);
+                                ReadOnlyUtils.getVersionId(new File(previousDirs.get(node))));
+                        logger.info("Rollback succeeded for " + node.briefToString());
                     } catch(Exception e) {
-                        logger.error("Exception thrown during rollback ( after swap ) operation on node "
-                                             + successfulNodeId + ": ",
+                        logger.error("Exception thrown during rollback ( after swap ) operation on "
+                                             + node.briefToString() + ": ",
                                      e);
                     }
                 }
             }
 
             // Finally log the errors for the user
-            for(int failedNodeId: exceptions.keySet()) {
-                logger.error("Error on node " + failedNodeId + " during swap : ",
-                             exceptions.get(failedNodeId));
+            for(Node node: exceptions.keySet()) {
+                logger.error("Error on " + node.briefToString() + " during swap : ",
+                             exceptions.get(node));
             }
 
             throw new VoldemortException("Exception during swaps on nodes "
@@ -322,7 +328,7 @@ public class AdminStoreSwapper {
                 swapper.swapStoreData(storeName, filePath, pushVersion.longValue());
             }
             long end = System.currentTimeMillis();
-            logger.info("Succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
+            swapper.logger.info("Succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
                     + " seconds.");
         } finally {
             if(adminClient != null)
@@ -369,6 +375,15 @@ public class AdminStoreSwapper {
 
         public Exception getException() {
             return exception;
+        }
+
+        @Override
+        public String toString() {
+            if (successful) {
+                return "Successful Response: " + response;
+            } else {
+                return "Unsuccessful Response: " + exception.getMessage();
+            }
         }
     }
 }

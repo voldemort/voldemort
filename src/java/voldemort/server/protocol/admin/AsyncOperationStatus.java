@@ -57,7 +57,7 @@ public class AsyncOperationStatus {
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
-        builder.append("AsyncOperationStatus(id = ");
+        builder.append("AsyncOperationStatus(task id = ");
         builder.append(getId());
         builder.append(", description = ");
         builder.append(getDescription());

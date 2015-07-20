@@ -2,6 +2,7 @@ package voldemort.store.readonly.swapper;
 
 import com.google.common.collect.Sets;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
 
 import java.util.Map;
@@ -28,7 +29,7 @@ public class DisableStoreOnFailedNodeFailedFetchStrategy extends FailedFetchStra
     @Override
     protected boolean dealWithIt(String storeName,
                                  long pushVersion,
-                                 Map<Integer, AdminStoreSwapper.Response> fetchResponseMap) throws Exception {
+                                 Map<Node, AdminStoreSwapper.Response> fetchResponseMap) throws Exception {
         int failureCount = 0;
         for (AdminStoreSwapper.Response response: fetchResponseMap.values()) {
             if (!response.isSuccessful()) {
@@ -46,9 +47,9 @@ public class DisableStoreOnFailedNodeFailedFetchStrategy extends FailedFetchStra
                 Set<Integer> alreadyDisabledNodes = distributedLock.getDisabledNodes();
                 Set<Integer> nodesFailedInThisRun = Sets.newHashSet();
 
-                for (Map.Entry<Integer, AdminStoreSwapper.Response> entry: fetchResponseMap.entrySet()) {
+                for (Map.Entry<Node, AdminStoreSwapper.Response> entry: fetchResponseMap.entrySet()) {
                     if (!entry.getValue().isSuccessful()) {
-                        nodesFailedInThisRun.add(entry.getKey());
+                        nodesFailedInThisRun.add(entry.getKey().getId());
                     }
                 }
 

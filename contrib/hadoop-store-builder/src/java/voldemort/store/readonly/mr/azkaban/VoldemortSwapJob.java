@@ -16,20 +16,10 @@
 
 package voldemort.store.readonly.mr.azkaban;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
+import azkaban.jobExecutor.AbstractJob;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.log4j.Logger;
-
-import azkaban.jobExecutor.AbstractJob;
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
@@ -37,6 +27,15 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.store.readonly.swapper.FailedFetchStrategy;
+import voldemort.utils.logging.PrefixedLogger;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /*
  * Call voldemort to swap the current store for the specified store
@@ -54,6 +53,7 @@ public class VoldemortSwapJob extends AbstractJob {
     private final int maxNodeFailures;
     private final List<FailedFetchStrategy> failedFetchStrategyList;
     private final String dataDir;
+    private final String clusterName;
 
     // The following internal state mutates during run()
     private long pushVersion;
@@ -69,8 +69,9 @@ public class VoldemortSwapJob extends AbstractJob {
                             String hdfsFetcherProtocol,
                             String hdfsFetcherPort,
                             int maxNodeFailures,
-                            List<FailedFetchStrategy> failedFetchStrategyList) throws IOException {
-        super(id, Logger.getLogger(VoldemortSwapJob.class.getName()));
+                            List<FailedFetchStrategy> failedFetchStrategyList,
+                            String clusterName) throws IOException {
+        super(id, PrefixedLogger.getLogger(AdminStoreSwapper.class.getName(), clusterName));
         this.cluster = cluster;
         this.dataDir = dataDir;
         this.storeName = storeName;
@@ -82,6 +83,7 @@ public class VoldemortSwapJob extends AbstractJob {
         this.hdfsFetcherPort = hdfsFetcherPort;
         this.maxNodeFailures = maxNodeFailures;
         this.failedFetchStrategyList = failedFetchStrategyList;
+        this.clusterName = clusterName;
     }
 
     public void run() throws Exception {
@@ -146,7 +148,8 @@ public class VoldemortSwapJob extends AbstractJob {
                 client,
                 httpTimeoutMs,
                 rollbackFailedSwap,
-                failedFetchStrategyList);
+                failedFetchStrategyList,
+                clusterName);
         swapper.swapStoreData(storeName, modifiedDataDir, pushVersion);
         info("Swap complete.");
         executor.shutdownNow();
