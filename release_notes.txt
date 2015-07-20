@@ -1,3 +1,15 @@
+Release 1.9.18 on 07/20/2015
+* Various BnP improvements:
+  * Introduces of a limited form of High Availability for BnP.
+  * Improves path handling and validation in VoldemortSwapJob.
+  * Fetch throttling now works with block-level compression.
+  * Pushes to multiple colos now happen in parallel.
+  * Some code refactoring and clean ups.
+* Minor bug fixes in scripts:
+  * Fixes a SecurityException when running HadoopStoreJobRunner in Oozie.
+  * Fixes Coordinator start script.
+* EventThrottler code now uses Tehuti.
+
 Release 1.9.17 on 06/12/2015
 * Robust handling of connection failures
 * Flush the queue on marking a node down
