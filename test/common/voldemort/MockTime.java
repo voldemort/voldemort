@@ -16,10 +16,10 @@
 
 package voldemort;
 
+import voldemort.utils.Time;
+
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
-
-import voldemort.utils.Time;
 
 public class MockTime implements Time {
 
@@ -47,6 +47,22 @@ public class MockTime implements Time {
 
     public int getSeconds() {
         return (int) (timeMs / MS_PER_SECOND);
+    }
+
+    /**
+     * The current time in milliseconds
+     */
+    @Override
+    public long milliseconds() {
+        return getMilliseconds();
+    }
+
+    /**
+     * The current time in nanoseconds
+     */
+    @Override
+    public long nanoseconds() {
+        return getNanoseconds();
     }
 
     public void sleep(long ms) {

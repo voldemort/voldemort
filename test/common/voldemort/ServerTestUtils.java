@@ -1062,7 +1062,7 @@ public class ServerTestUtils {
         // Need to trace through the constructor VoldemortServer(VoldemortConfig
         // config, Cluster cluster) to understand how this error is possible,
         // and why it only happens intermittently.
-        final int MAX_ATTEMPTS = 3;
+        final int MAX_ATTEMPTS = 10;
         VoldemortException lastVE = null;
         for(int i = 0; i < MAX_ATTEMPTS; i++) {
             try {

@@ -17,7 +17,7 @@
 package voldemort.utils;
 
 import junit.framework.TestCase;
-import io.tehuti.utils.MockTime;
+import voldemort.MockTime;
 
 public class IoThrottlerTest extends TestCase {
 

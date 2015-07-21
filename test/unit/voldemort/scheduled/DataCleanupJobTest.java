@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Random;
 
 import org.apache.commons.io.FileDeleteStrategy;
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -62,6 +63,8 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 @RunWith(Parameterized.class)
 public class DataCleanupJobTest {
+
+    Logger logger = Logger.getLogger(DataCleanupJobTest.class);
 
     private MockTime time;
     private StorageEngine<ByteArray, byte[], byte[]> engine;
@@ -115,8 +118,8 @@ public class DataCleanupJobTest {
 
     @Test
     public void testCleanupFrequency() {
-
-        SchedulerService scheduler = new SchedulerService(1, time);
+        // FIXME: This is a bad test since its timing is not deterministic.
+        SchedulerService scheduler = new SchedulerService(1, new SystemTime());
 
         try {
             Date now = new Date();
@@ -126,7 +129,7 @@ public class DataCleanupJobTest {
                                                                                 new ScanPermitWrapper(1),
                                                                                 2 * Time.MS_PER_SECOND,
                                                                                 SystemTime.INSTANCE,
-                                                                                new EventThrottler(1),
+                                                                                new EventThrottler(1000),
                                                                                 null);
 
             // and will run every 5 seconds starting now
@@ -149,7 +152,7 @@ public class DataCleanupJobTest {
             }
 
             // wait till 4 seconds from start
-            Thread.sleep(System.currentTimeMillis() - (now.getTime() + 4 * Time.MS_PER_SECOND));
+            Thread.sleep(2 * Time.MS_PER_SECOND);
             // load some more data
             for(int i = 10; i < 20; i++) {
                 ByteArray b = new ByteArray(Integer.toString(i).getBytes());
@@ -157,7 +160,7 @@ public class DataCleanupJobTest {
             }
 
             // give time for data cleanup to finally run
-            Thread.sleep(System.currentTimeMillis() - (now.getTime() + 6 * Time.MS_PER_SECOND));
+            Thread.sleep(2 * Time.MS_PER_SECOND);
 
             // first batch of writes should have been deleted
             for(int i = 0; i < 10; i++) {
@@ -173,7 +176,7 @@ public class DataCleanupJobTest {
             }
 
         } catch(Exception e) {
-
+            logger.error("Got an exception during testCleanupFrequency().", e);
         } finally {
             scheduler.stop();
         }
@@ -195,7 +198,7 @@ public class DataCleanupJobTest {
                                                       new ScanPermitWrapper(1),
                                                       Time.MS_PER_DAY,
                                                       time,
-                                                      new EventThrottler(1),
+                                                      new EventThrottler(time, 1),
                                                       null).run();
 
         // Check that all the later keys are there AND the key updated later
