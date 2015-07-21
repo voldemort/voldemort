@@ -186,7 +186,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                 VoldemortConfig.class, HadoopStoreJobRunner.class, mapperClass };
 
         int numChunks = CmdUtils.valueOf(options, "num-chunks", -1);
-        boolean isAvro = CmdUtils.valueOf(options, "is-avro", false);
+        boolean isAvro = options.has("is-avro");
 
         addDepJars(conf, deps, addJars);
 
