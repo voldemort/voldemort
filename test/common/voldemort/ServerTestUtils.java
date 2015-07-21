@@ -424,7 +424,6 @@ public class ServerTestUtils {
      * Returns a list of zones with their proximity list being in increasing
      * order
      *
-     * @param numberOfZones The number of zones to return
      * @return List of zones
      */
     public static List<Zone> getZonesFromZoneIds(int[] zoneIds) {
@@ -447,7 +446,6 @@ public class ServerTestUtils {
      * Given zone ids, this method returns a list of zones with their proximity
      * list
      *
-     * @param list of zone ids
      * @return List of zones
      */
     public static List<Zone> getZones(int numberOfZones) {
@@ -535,7 +533,6 @@ public class ServerTestUtils {
      * <b>numberOfZones</b>
      *
      * @param numberOfNodes Number of nodes in the cluster
-     * @param partitionsPerNode Number of partitions in one node
      * @param numberOfZones Number of zones
      * @return Cluster
      */
@@ -1079,7 +1076,7 @@ public class ServerTestUtils {
             } catch(VoldemortException ve) {
                 if(ve.getCause() instanceof BindException) {
                     ve.printStackTrace();
-                    trySleep(100);
+                    trySleep(30 * (i + 1)); // gradually increasing back-off time, from 30 to 300 ms
                     lastVE = ve;
                 } else {
                     throw ve;

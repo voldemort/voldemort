@@ -63,7 +63,7 @@ public class SystemTime implements Time {
         try {
             Thread.sleep(ms);
         } catch (InterruptedException e) {
-            // no-op
+            Thread.currentThread().interrupt();
         }
     }
 

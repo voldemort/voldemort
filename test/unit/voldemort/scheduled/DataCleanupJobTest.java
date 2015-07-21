@@ -177,6 +177,7 @@ public class DataCleanupJobTest {
 
         } catch(Exception e) {
             logger.error("Got an exception during testCleanupFrequency().", e);
+            fail("Got an exception during testCleanupFrequency().");
         } finally {
             scheduler.stop();
         }
