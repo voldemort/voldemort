@@ -42,6 +42,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
 
     public abstract StorageEngine<ByteArray, byte[], byte[]> getStorageEngine();
 
+    @Test
     public void testGetNoEntries() {
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;
         try {
@@ -55,6 +56,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         }
     }
 
+    @Test
     public void testGetNoKeys() {
         ClosableIterator<ByteArray> it = null;
         try {
@@ -68,6 +70,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         }
     }
 
+    @Test
     public void testKeyIterationWithSerialization() {
         StorageEngine<ByteArray, byte[], byte[]> store = getStorageEngine();
         StorageEngine<String, String, String> stringStore = new SerializingStorageEngine<String, String, String>(store,
@@ -88,6 +91,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         iter.close();
     }
 
+    @Test
     public void testIterationWithSerialization() {
         StorageEngine<ByteArray, byte[], byte[]> store = getStorageEngine();
         StorageEngine<String, String, String> stringStore = SerializingStorageEngine.wrap(store,
@@ -109,6 +113,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         iter.close();
     }
 
+    @Test
     public void testPruneOnWrite() {
         StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine();
         Versioned<byte[]> v1 = new Versioned<byte[]>(new byte[] { 1 }, TestUtils.getClock(1));
@@ -122,6 +127,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         assertEquals(1, engine.get(key, null).size());
     }
 
+    @Test
     public void testTruncate() throws Exception {
         StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine();
         Versioned<byte[]> v1 = new Versioned<byte[]>(new byte[] { 1 });
