@@ -362,6 +362,13 @@ public class StoreDefinition implements Serializable {
         return memoryFootprintMB != 0;
     }
 
+    /**
+     * When making changes, always make sure {@link #equals(Object)}, {@link #hashCode()} and
+     * {@link #diff(StoreDefinition, String, String)} behave consistently.
+     *
+     * @param o other {@link Object} to compare against.
+     * @return true if this instance equals the other instance, false otherwise.
+     */
     @Override
     public boolean equals(Object o) {
         if(this == o)
@@ -402,6 +409,10 @@ public class StoreDefinition implements Serializable {
                && Objects.equal(getMemoryFootprintMB(), def.getMemoryFootprintMB());
     }
 
+    /**
+     * When making changes, always make sure {@link #equals(Object)}, {@link #hashCode()} and
+     * {@link #diff(StoreDefinition, String, String)} behave consistently.
+     */
     @Override
     public int hashCode() {
         return Objects.hashCode(getName(),
@@ -453,88 +464,104 @@ public class StoreDefinition implements Serializable {
                + ", memory-footprint(MB) = " + getMemoryFootprintMB() + ")";
     }
 
+    /**
+     * Calls {@link #diff(StoreDefinition, "this", "other")}
+     *
+     * @param other StoreDefinition to compare against.
+     * @return a String containing information about differences between this StoreDefinition and the other one.
+     */
     public String diff(StoreDefinition other) {
         return diff(other, "this", "other");
     }
 
+    /**
+     * When making changes, always make sure {@link #equals(Object)}, {@link #hashCode()} and
+     * {@link #diff(StoreDefinition, String, String)} behave consistently.
+     * 
+     * @param other StoreDefinition to compare against.
+     * @param thisName The name to be printed to identify this StoreDefinition instance.
+     * @param otherName The name to be printed to identify the other StoreDefinition instance.
+     * @return a String containing information about differences between this StoreDefinition and the other one.
+     */
     public String diff(StoreDefinition other, String thisName, String otherName) {
         if (this.equals(other)) {
             return "StoreDefinitions are identical.";
         } else {
             StringBuilder sb = new StringBuilder();
-            if (!getName().equals(other.getName())) {
+            if (!this.getName().equals(other.getName())) {
                 addToDiff("Name", this.getName(), other.getName(), sb, thisName, otherName);
             }
-            if (!getType().equals(other.getType())) {
+            if (!this.getType().equals(other.getType())) {
                 addToDiff("Type", this.getType(), other.getType(), sb, thisName, otherName);
             }
-            if (getReplicationFactor() != other.getReplicationFactor()) {
+            if (this.getReplicationFactor() != other.getReplicationFactor()) {
                 addToDiff("Replication factor", this.getReplicationFactor(), other.getReplicationFactor(), sb, thisName, otherName);
             }
-            if (getRequiredReads() != other.getRequiredReads()) {
+            if (this.getRequiredReads() != other.getRequiredReads()) {
                 addToDiff("Required reads", this.getRequiredReads(), other.getRequiredReads(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getPreferredReads(), other.getPreferredReads())) {
+            if (!Objects.equal(this.getPreferredReads(), other.getPreferredReads())) {
                 addToDiff("Preferred reads", this.getPreferredReads(), other.getPreferredReads(), sb, thisName, otherName);
             }
-            if (getRequiredWrites() != other.getRequiredWrites()) {
+            if (this.getRequiredWrites() != other.getRequiredWrites()) {
                 addToDiff("Required writes", this.getRequiredWrites(), other.getRequiredWrites(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getPreferredWrites(), other.getPreferredWrites())) {
+            if (!Objects.equal(this.getPreferredWrites(), other.getPreferredWrites())) {
                 addToDiff("Preferred writes", this.getPreferredWrites(), other.getPreferredWrites(), sb, thisName, otherName);
             }
-            if (!getKeySerializer().equals(other.getKeySerializer())) {
+            if (!this.getKeySerializer().equals(other.getKeySerializer())) {
                 addToDiff("Key serializer", this.getKeySerializer().toString(), other.getKeySerializer().toString(), sb, thisName, otherName);
             }
-            if (!getValueSerializer().equals(other.getValueSerializer())) {
+            if (!this.getValueSerializer().equals(other.getValueSerializer())) {
                 addToDiff("Value serializer", this.getValueSerializer().toString(), other.getValueSerializer().toString(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getTransformsSerializer() != null ? getTransformsSerializer(): null,
+            if (!Objects.equal(this.getTransformsSerializer() != null ? this.getTransformsSerializer(): null,
                     other.getTransformsSerializer() != null ? other.getTransformsSerializer(): null)) {
+                // FIXME: This ternary operator is useless. Leaving it as is for consistency with equals().
                 addToDiff("Transforms Serializer", this.getTransformsSerializer().toString(), other.getTransformsSerializer().toString(), sb, thisName, otherName);
             }
-            if (getRoutingPolicy() != other.getRoutingPolicy()) {
+            if (this.getRoutingPolicy() != other.getRoutingPolicy()) {
                 addToDiff("Routing policy", this.getRoutingPolicy().toDisplay(), other.getRoutingPolicy().toDisplay(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getViewTargetStoreName(), other.getViewTargetStoreName())) {
+            if (!Objects.equal(this.getViewTargetStoreName(), other.getViewTargetStoreName())) {
                 addToDiff("View target store name", this.getViewTargetStoreName(), other.getViewTargetStoreName(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getValueTransformation() != null ? getValueTransformation().getClass(): null,
+            if (!Objects.equal(this.getValueTransformation() != null ? this.getValueTransformation().getClass(): null,
                     other.getValueTransformation() != null ? other.getValueTransformation().getClass() : null)) {
-                // FIXME: This comparison is irrelevant, but leaving it as is so that it yields the same result as equals()
+                // FIXME: This class comparison is irrelevant since it's always a String. Leaving it as is for consistency with equals().
                 addToDiff("Value transformation", this.getValueTransformation(), other.getValueTransformation(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getZoneReplicationFactor() != null ? getZoneReplicationFactor().getClass(): null,
+            if (!Objects.equal(this.getZoneReplicationFactor() != null ? this.getZoneReplicationFactor().getClass(): null,
                     other.getZoneReplicationFactor() != null ? other.getZoneReplicationFactor().getClass(): null)) {
-                // FIXME: This comparison is irrelevant, but leaving it as is so that it yields the same result as equals()
+                // FIXME: This class comparison is irrelevant since it's always a HashMap. Leaving it as is for consistency with equals().
                 addToDiff("Zone replication factor", this.getZoneReplicationFactor().toString(), other.getZoneReplicationFactor().toString(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getZoneCountReads(), other.getZoneCountReads())) {
+            if (!Objects.equal(this.getZoneCountReads(), other.getZoneCountReads())) {
                 addToDiff("Zone count reads", this.getZoneCountReads(), other.getZoneCountReads(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getZoneCountWrites(), other.getZoneCountWrites())) {
+            if (!Objects.equal(this.getZoneCountWrites(), other.getZoneCountWrites())) {
                 addToDiff("Zone count writes", this.getZoneCountWrites(), other.getZoneCountWrites(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getRetentionDays(), other.getRetentionDays())) {
+            if (!Objects.equal(this.getRetentionDays(), other.getRetentionDays())) {
                 addToDiff("Retention days", this.getRetentionDays(), other.getRetentionDays(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getRetentionScanThrottleRate(), other.getRetentionScanThrottleRate())) {
+            if (!Objects.equal(this.getRetentionScanThrottleRate(), other.getRetentionScanThrottleRate())) {
                 addToDiff("Retention scan throttle rate", this.getRetentionScanThrottleRate(), other.getRetentionScanThrottleRate(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getSerializerFactory() != null ? getSerializerFactory() : null,
+            if (!Objects.equal(this.getSerializerFactory() != null ? getSerializerFactory() : null,
                     other.getSerializerFactory() != null ? other.getSerializerFactory(): null)) {
                 addToDiff("Serialization Factory", this.getSerializerFactory(), other.getSerializerFactory(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getHintedHandoffStrategyType(), other.getHintedHandoffStrategyType())) {
+            if (!Objects.equal(this.getHintedHandoffStrategyType(), other.getHintedHandoffStrategyType())) {
                 addToDiff("Hinted handoff strategy", this.getHintedHandoffStrategyType().toDisplay(), other.getHintedHandoffStrategyType().toDisplay(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getHintPrefListSize(), other.getHintPrefListSize())) {
+            if (!Objects.equal(this.getHintPrefListSize(), other.getHintPrefListSize())) {
                 addToDiff("Hinted preference list size", this.getHintPrefListSize(), other.getHintPrefListSize(), sb, thisName, otherName);
             }
-            if (!Objects.equal(getMemoryFootprintMB(), other.getMemoryFootprintMB())) {
+            if (!Objects.equal(this.getMemoryFootprintMB(), other.getMemoryFootprintMB())) {
                 addToDiff("Memory footprint (MB)", this.getMemoryFootprintMB(), other.getMemoryFootprintMB(), sb, thisName, otherName);
             }
-            sb.append("Every other properties are identical.");
+            sb.append("All other properties are identical.");
             return sb.toString();
         }
     }
