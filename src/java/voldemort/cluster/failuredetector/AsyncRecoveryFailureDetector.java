@@ -16,13 +16,12 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.lang.Thread.UncaughtExceptionHandler;
-
 import org.apache.log4j.Level;
-
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
+
+import java.lang.Thread.UncaughtExceptionHandler;
 
 /**
  * AsyncRecoveryFailureDetector detects failures and then attempts to contact
@@ -88,21 +87,12 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
         long asyncRecoveryInterval = getConfig().getAsyncRecoveryInterval();
 
         while(!Thread.currentThread().isInterrupted() && isRunning) {
-            try {
-                if(logger.isDebugEnabled()) {
-                    logger.debug("Sleeping for " + asyncRecoveryInterval
-                                 + " ms before checking node availability");
-                }
-
-                getConfig().getTime().sleep(asyncRecoveryInterval);
-            } catch(InterruptedException e) {
-                if(logger.isDebugEnabled()) {
-                    logger.debug("InterruptedException while sleeping " + asyncRecoveryInterval
-                                 + " ms before checking node availability", e);
-                }
-
-                break;
+            if(logger.isDebugEnabled()) {
+                logger.debug("Sleeping for " + asyncRecoveryInterval
+                             + " ms before checking node availability");
             }
+
+            getConfig().getTime().sleep(asyncRecoveryInterval);
 
             for(Node node: getConfig().getCluster().getNodes()) {
                 if(isAvailable(node))

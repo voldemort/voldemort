@@ -79,7 +79,7 @@ public class SchedulerService extends AbstractService {
     }
 
     private final ScheduledThreadPoolExecutor scheduler;
-    private final Time time;
+    private final Time time; // FIXME: This seems useless since ScheduledThreadPoolExecutor does not honor MockTime...
 
     private final Map<String, ScheduledFuture> scheduledJobResults;
     private final Map<String, ScheduledRunnable> allJobs;

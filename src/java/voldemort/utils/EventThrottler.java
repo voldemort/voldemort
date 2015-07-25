@@ -65,12 +65,19 @@ public class EventThrottler {
 
     /**
      * @param maxRatePerSecond Maximum rate that this throttler should allow (0 is unlimited)
+     */
+    public EventThrottler(Time time, long maxRatePerSecond) {
+        this(time, maxRatePerSecond, DEFAULT_CHECK_INTERVAL_MS, null);
+    }
+
+    /**
+     * @param maxRatePerSecond Maximum rate that this throttler should allow (0 is unlimited)
      * @param intervalMs Minimum interval over which the rate is measured (maximum is twice that)
      * @param throttlerName if specified, the throttler will share its limit with others named the same
      *                      if null, the throttler will be independent of the others
      */
     public EventThrottler(long maxRatePerSecond, long intervalMs, String throttlerName) {
-        this(new io.tehuti.utils.SystemTime(), maxRatePerSecond, intervalMs, throttlerName);
+        this(new SystemTime(), maxRatePerSecond, intervalMs, throttlerName);
     }
 
     /**
@@ -80,7 +87,7 @@ public class EventThrottler {
      * @param throttlerName if specified, the throttler will share its limit with others named the same
      *                      if null, the throttler will be independent of the others
      */
-    public EventThrottler(io.tehuti.utils.Time time,
+    public EventThrottler(Time time,
                           long maxRatePerSecond,
                           long intervalMs,
                           String throttlerName) {

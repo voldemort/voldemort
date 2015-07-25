@@ -319,7 +319,8 @@ public class HintedHandoffSendHintTest {
         for(VoldemortServer vs: voldemortServers.values()) {
             vs.stop();
         }
-        routedStore.close();
+        if (routedStore != null)
+            routedStore.close();
         if(logger.isDebugEnabled()) {
             logger.debug("Test Ended: replication[" + REPLICATION_FACTOR + "], preferredW["
                          + P_WRITES + "], requiredW[" + R_WRITES + "]");

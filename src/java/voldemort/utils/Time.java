@@ -23,7 +23,7 @@ import java.util.Date;
  * 
  * 
  */
-public interface Time {
+public interface Time extends io.tehuti.utils.Time {
 
     public final static long HOURS_PER_DAY = 24;
     public final static long US_PER_MS = 1000;
@@ -45,6 +45,6 @@ public interface Time {
 
     public Date getCurrentDate();
 
-    public void sleep(long ms) throws InterruptedException;
+    public void sleep(long ms);
 
 }
