@@ -911,7 +911,6 @@ public class AdminClient implements Closeable {
                     }
 
                     if(status.isComplete()) {
-                        logger.info(nodeName + " : " + status);
                         return status.getStatus();
                     }
 
