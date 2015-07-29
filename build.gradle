@@ -1,7 +1,6 @@
 import java.util.jar.JarEntry;
 
 apply plugin: 'java'
-apply plugin: 'scala'
 apply plugin: 'idea'
 apply plugin: 'eclipse'
 apply plugin: 'war'
@@ -38,7 +37,6 @@ def contribRootDir = getProjectProperty('contrib.root.dir')
 
 def voldVersion = getProjectProperty('curr.release')
 def javacVersion = getProjectProperty('javac.version')
-def scalaVersion = getProjectProperty('scalac.version')
 
 //This is the javaCompile variable version. Directly defining 'def version' will override this and cause nightmare
 version = voldVersion
@@ -56,12 +54,6 @@ sourceCompatibility = javacVersion
 targetCompatibility = javacVersion
 compileJava.options.debug = true
 
-
-// Using zinc scala compiler fails intermittently because of missing dependencies
-// Scala is not main stream so incremeental compilation is not worth the problem
-// it is causing.
-// tasks.withType(ScalaCompile) { scalaCompileOptions.useAnt = false }
-
 repositories {
     mavenCentral()
     flatDir { dirs privateLibDir }
@@ -72,10 +64,6 @@ repositories {
 sourceSets {
     main {
         java { srcDirs = [javaDir]}
-        scala {
-            srcDirs = [sourceDir]
-            include '**/*.scala'
-        }
         resources {
             srcDirs = [javaDir]
             include '**/*.xsd'
@@ -103,7 +91,7 @@ sourceSets {
 
 compileJava.doLast {
     project.copy {
-        from (javaDir) { exclude '**/*.java','**/*.html','**/*.scala', '**/log4j.properties' }
+        from (javaDir) { exclude '**/*.java','**/*.html','**/log4j.properties' }
         into classesDir
     }
 
@@ -126,7 +114,6 @@ compileTestJava.doLast {
 
 compileContribJava.doLast {
     project.copy {
-        from (contribRootDir + '/ec2-testing/resources')
         into contribClassesDir
     }
 }
@@ -484,11 +471,6 @@ dependencies {
     // protobuf is a supported protocol format between voldemort client and server
     compile 'com.google.protobuf:protobuf-java:2.3.0'
 
-    // Command line shell is also supported in scala
-    compile 'org.scala-lang:scala-compiler:2.10.4'
-    compile 'org.scala-lang:scala-library:2.10.4'
-    compile 'org.scala-lang:scala-reflect:2.10.4'
-
     // Servlet
     compile 'javax.servlet:servlet-api:2.5'
 
@@ -514,9 +496,6 @@ dependencies {
     // cern library containing high performance Maps for int and double
     // Currently only used in the tests
     testCompile 'colt:colt:1.2.0'
-
-    // Used in ec2 testing , is a wrapper over any logging framework
-    testCompile 'commons-logging:commons-logging:1.1.1'
 
     // Used in resource pool perf testing class
     testCompile 'commons-pool:commons-pool:1.5.2'
@@ -588,9 +567,6 @@ eclipse {
                 def node = it.asNode()
                 [
                     "src/java",
-                    "contrib/ec2-testing/resources",
-                    "contrib/ec2-testing/src/java",
-                    "contrib/ec2-testing/test",
                     "contrib/hadoop-store-builder/test",
                     "contrib/hadoop-store-builder/src/java",
                     "test/unit",
