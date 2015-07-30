@@ -21,7 +21,6 @@ def sourceDir = getProjectProperty('src.dir')
 def distDir = getProjectProperty('dist.dir')
 def classesDir = getProjectProperty('classes.dir')
 def javaDir = getProjectProperty('java.dir')
-def privateLibDir = getProjectProperty('private.lib.dir')
 def resourcesDir = getProjectProperty('resources.dir')
 def javaDocDir = getProjectProperty('javadoc.dir')
 
@@ -56,7 +55,9 @@ compileJava.options.debug = true
 
 repositories {
     mavenCentral()
-    flatDir { dirs privateLibDir }
+    maven {
+        url "http://download.oracle.com/maven/"
+    }
     flatDir { dirs contribRootDir }
 }
 
@@ -481,8 +482,6 @@ dependencies {
     // used by jdom
     // compile 'xerces:xercesImpl:2.9.1'
 
-    compile fileTree(dir: privateLibDir, includes: ['**/*.jar'])
-
     // cern library containing high performance Maps for int and double
     // Currently only used in the tests
     testCompile 'colt:colt:1.2.0'
@@ -527,6 +526,9 @@ dependencies {
     
     // rocksdb from maven
     compile 'org.rocksdb:rocksdbjni:3.6.2'
+
+    // BDB-JE from Oracle
+    compile 'com.sleepycat:je:5.0.104'
 }
 
 eclipse {
