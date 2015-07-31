@@ -56,6 +56,10 @@ compileJava.options.debug = true
 
 repositories {
     mavenCentral()
+    maven {
+        // For Hadoop dependencies
+        url "https://repository.cloudera.com/artifactory/cloudera-repos/"
+    }
     flatDir { dirs privateLibDir }
     flatDir { dirs contribRootDir }
 }
@@ -393,7 +397,7 @@ dependencies {
     compile 'com.google.guava:guava:14.0.1'
 
     // used for readonly store hdfs fetcher.
-    compile 'org.apache.hadoop:hadoop-auth:2.0.5-alpha'
+    compile 'org.apache.hadoop:hadoop-auth:2.3.0-cdh5.1.5'
 
     // used at lots of places. Seems like there is some overlap between httpclient and core, but not clear
     compile 'org.apache.httpcomponents:httpclient:4.1.2'
@@ -409,17 +413,6 @@ dependencies {
 
     // Used for reading XML files and Document.
     compile 'jdom:jdom:1.1'
-
-    // je- BDB je 5.0.88 is not available in maven central repository.
-    // Could be possibly found in oracle maven repository, but not sure
-    /*
-     groupId>com.sleepycat</groupId>
-     <artifactId>je</artifactId>
-     <version>3.3.75</version>
-     groupId>com.sleepycat</groupId>
-     <artifactId>je</artifactId>
-     <version>3.3.75</version>
-     */
 
     // Jetty is used for HttpService and tests. Jetty Util is used for QueuedThreadPool class.
     compile 'org.mortbay.jetty:jetty-util:6.1.18'
@@ -439,11 +432,6 @@ dependencies {
 
     // Used for argument command line parsing
     compile 'net.sf.jopt-simple:jopt-simple:4.6'
-
-    // INTERNAL_LIBS thrift is one of the supported serialization format.
-    // libthrift 0.5 version is not found in the maven central repository.
-    // The closest version available is 0.6.1
-    // libthrift-0.5.0.jar
 
     // log4j - logger used in almost all files
     compile 'log4j:log4j:1.2.15'
@@ -507,7 +495,18 @@ dependencies {
     // conflict resolution is not done properly across sourceSets
     // and we end up with 2 versions of few jars like ( log4j, servlet etc. )
     compile 'commons-configuration:commons-configuration:1.6'
-    compile 'org.apache.hadoop:hadoop-core:1.2.1'
+    compile('org.apache.hadoop:hadoop-core:2.3.0-mr1-cdh5.1.5') {
+        exclude group: 'com.google.protobuf'
+        exclude group: 'org.apache.avro'
+    }
+    compile('org.apache.hadoop:hadoop-common:2.3.0-cdh5.1.5') {
+        exclude group: 'com.google.protobuf'
+        exclude group: 'org.apache.avro'
+    }
+    compile('org.apache.hadoop:hadoop-hdfs:2.3.0-cdh5.1.5') {
+        exclude group: 'com.google.protobuf'
+        exclude group: 'org.apache.avro'
+    }
 
     compile 'com.linkedin.pegasus:r2:1.8.3'
     compile 'com.linkedin.pegasus:data:1.8.3'
