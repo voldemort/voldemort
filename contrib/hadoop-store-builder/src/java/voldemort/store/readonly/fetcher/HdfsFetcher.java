@@ -22,6 +22,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.authentication.client.AuthenticationException;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
@@ -57,6 +58,7 @@ public class HdfsFetcher implements FileFetcher {
     public static final String INDEX_FILE_EXTENSION = ".index";
     public static final String DATA_FILE_EXTENSION = ".data";
     public static final String METADATA_FILE_EXTENSION = ".metadata";
+    private static final Class AUTH_EXCEPTION = AuthenticationException.class;
     private final Long maxBytesPerSecond, reportingIntervalBytes;
     private final int bufferSize;
     private static final AtomicInteger copyCount = new AtomicInteger(0);
@@ -220,13 +222,15 @@ public class HdfsFetcher implements FileFetcher {
         final Path path = new Path(sourceFileUrl);
         FileSystem fs = null;
 
-        // TODO: Remove this for loop if we don't see the errors anymore.
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                if(HdfsFetcher.keytabPath.length() > 0 && currentHadoopUser == null) {
-                    // Login should only need to happen once during the lifetime of the JVM, hence the synchronization.
-                    // UserGroupInformation will auto-renew its Kerberos token in the background.
+                if(currentHadoopUser == null && HdfsFetcher.keytabPath.length() > 0) {
+                    // UserGroupInformation.loginUserFromKeytab() should only need to happen once during
+                    // the lifetime of the JVM. We try to minimize login operations as much as possible,
+                    // but we will redo it if an AuthenticationException is caught below.
                     synchronized (HdfsFetcher.class) {
+                        // Another null check within the synchronized block just to make sure multiple
+                        // concurrent instances still login only once.
                         if (currentHadoopUser == null) {
                             if(!new File(HdfsFetcher.keytabPath).exists()) {
                                 logger.error("Invalid keytab file path. Please provide a valid keytab path");
@@ -240,9 +244,23 @@ public class HdfsFetcher implements FileFetcher {
                     }
                 }
 
+                // reloginFromKeytab() will not actually do anything unless the token is close to expiry.
+                currentHadoopUser.reloginFromKeytab();
+
                 fs = path.getFileSystem(config);
+
+                // Just a small operation to make sure the FileSystem instance works
+                fs.exists(path);
+
+                // Congrats for making it this far. Pass go and collect $200.
                 break;
             } catch(Exception e) {
+                if (e.getClass().equals(AUTH_EXCEPTION) || e.getCause().getClass().equals(AUTH_EXCEPTION)) {
+                    logger.info("Got an AuthenticationException from HDFS. " +
+                            "Will retry to login from scratch, on next attempt.", e);
+                    currentHadoopUser.checkTGTAndReloginFromKeytab();
+                    currentHadoopUser = null;
+                }
                 if(attempt < maxAttempts) {
                     sleepForRetryDelayMs(attempt);
                 } else {
