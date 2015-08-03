@@ -33,6 +33,7 @@ import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.EventThrottler;
+import voldemort.utils.ExceptionUtils;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -58,7 +59,6 @@ public class HdfsFetcher implements FileFetcher {
     public static final String INDEX_FILE_EXTENSION = ".index";
     public static final String DATA_FILE_EXTENSION = ".data";
     public static final String METADATA_FILE_EXTENSION = ".metadata";
-    private static final Class AUTH_EXCEPTION = AuthenticationException.class;
     private final Long maxBytesPerSecond, reportingIntervalBytes;
     private final int bufferSize;
     private static final AtomicInteger copyCount = new AtomicInteger(0);
@@ -255,10 +255,9 @@ public class HdfsFetcher implements FileFetcher {
                 // Congrats for making it this far. Pass go and collect $200.
                 break;
             } catch(Exception e) {
-                if (e.getClass().equals(AUTH_EXCEPTION) || e.getCause().getClass().equals(AUTH_EXCEPTION)) {
+                if (ExceptionUtils.recursiveClassEquals(e, AuthenticationException.class)) {
                     logger.info("Got an AuthenticationException from HDFS. " +
                             "Will retry to login from scratch, on next attempt.", e);
-                    currentHadoopUser.checkTGTAndReloginFromKeytab();
                     currentHadoopUser = null;
                 }
                 if(attempt < maxAttempts) {
