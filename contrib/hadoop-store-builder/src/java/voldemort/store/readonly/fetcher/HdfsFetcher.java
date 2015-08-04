@@ -224,15 +224,16 @@ public class HdfsFetcher implements FileFetcher {
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                if(currentHadoopUser == null && HdfsFetcher.keytabPath.length() > 0) {
+                if (HdfsFetcher.keytabPath.length() > 0) {
                     // UserGroupInformation.loginUserFromKeytab() should only need to happen once during
                     // the lifetime of the JVM. We try to minimize login operations as much as possible,
                     // but we will redo it if an AuthenticationException is caught below.
                     synchronized (HdfsFetcher.class) {
-                        // Another null check within the synchronized block just to make sure multiple
-                        // concurrent instances still login only once.
+                        // The null check within the synchronized block is for two reasons:
+                        // 1- To minimize the amount of login operations from concurrent pushes.
+                        // 2- To prevent NPEs if the currentHadoopUser is reset to null in the catch block.
                         if (currentHadoopUser == null) {
-                            if(!new File(HdfsFetcher.keytabPath).exists()) {
+                            if (!new File(HdfsFetcher.keytabPath).exists()) {
                                 logger.error("Invalid keytab file path. Please provide a valid keytab path");
                                 throw new VoldemortException("Error in getting Hadoop filesystem. Invalid keytab file path.");
                             }
@@ -240,16 +241,16 @@ public class HdfsFetcher implements FileFetcher {
                             UserGroupInformation.loginUserFromKeytab(HdfsFetcher.kerberosPrincipal, HdfsFetcher.keytabPath);
                             currentHadoopUser = UserGroupInformation.getCurrentUser();
                             logger.info("I have logged in as " + currentHadoopUser.getUserName());
+                        } else {
+                            // reloginFromKeytab() will not actually do anything unless the token is close to expiring.
+                            currentHadoopUser.reloginFromKeytab();
                         }
                     }
                 }
 
-                // reloginFromKeytab() will not actually do anything unless the token is close to expiry.
-                currentHadoopUser.reloginFromKeytab();
-
                 fs = path.getFileSystem(config);
 
-                // Just a small operation to make sure the FileSystem instance works
+                // Just a small operation to make sure the FileSystem instance works.
                 fs.exists(path);
 
                 // Congrats for making it this far. Pass go and collect $200.
@@ -258,7 +259,10 @@ public class HdfsFetcher implements FileFetcher {
                 if (ExceptionUtils.recursiveClassEquals(e, AuthenticationException.class)) {
                     logger.info("Got an AuthenticationException from HDFS. " +
                             "Will retry to login from scratch, on next attempt.", e);
-                    currentHadoopUser = null;
+                    synchronized (HdfsFetcher.class) {
+                        // Synchronized to prevent NPEs in the other synchronized block, above.
+                        currentHadoopUser = null;
+                    }
                 }
                 if(attempt < maxAttempts) {
                     sleepForRetryDelayMs(attempt);
