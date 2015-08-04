@@ -206,7 +206,8 @@ public class HadoopStoreBuilder {
             long size = sizeOfPath(tempFs, inputPath);
             logger.info("Data size = " + size + ", replication factor = "
                         + storeDef.getReplicationFactor() + ", numNodes = "
-                        + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes);
+                        + cluster.getNumberOfNodes() + ", numPartitions = "
+                        + cluster.getNumberOfPartitions() + ", chunk size = " + chunkSizeBytes);
 
             // Derive "rough" number of chunks and reducers
             int numReducers;
