@@ -5,6 +5,16 @@ apply plugin: 'idea'
 apply plugin: 'eclipse'
 apply plugin: 'war'
 
+buildscript {
+  repositories { jcenter() }
+  dependencies {
+    classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.1'
+  }
+}
+
+apply plugin: 'java' // or 'groovy'. Must be explicitly applied
+apply plugin: 'com.github.johnrengelman.shadow'
+
 def String getProjectProperty(String propertyName) {
     String propertyValue = "null"
     if (hasProperty(propertyName)) {
@@ -160,6 +170,19 @@ clean {
     delete(distDir)
     delete('lib')
     doLast { deleteDirectoryContents(javaDocDir) }
+}
+
+shadowJar {
+    from sourceSets.main.output, sourceSets.contrib.output, sourceSets.test.output, sourceSets.main.resources
+
+    // Required when working in an Hadoop 2.x environment
+    dependencies {
+        include(dependency('org.apache.avro:avro:1.4.0'))
+        include(dependency('com.google.protobuf:protobuf-java:2.3.0'))
+        include(dependency('org.jdom:jdom:1.1'))
+    }
+    relocate 'com.google.protobuf', 'voldemort.com.google.protobuf'
+    relocate 'org.apache.avro', 'voldemort.org.apache.avro'
 }
 
 task copySources (type: Copy) {
