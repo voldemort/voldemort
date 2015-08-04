@@ -255,6 +255,9 @@ public class HdfsFetcher implements FileFetcher {
 
                 // Congrats for making it this far. Pass go and collect $200.
                 break;
+            } catch(VoldemortException e) {
+                // We only intend to catch and retry Hadoop-related exceptions, not Voldemort ones.
+                throw e;
             } catch(Exception e) {
                 if (ExceptionUtils.recursiveClassEquals(e, AuthenticationException.class)) {
                     logger.info("Got an AuthenticationException from HDFS. " +
