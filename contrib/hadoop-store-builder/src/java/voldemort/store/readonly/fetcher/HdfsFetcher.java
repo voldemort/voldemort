@@ -287,9 +287,10 @@ public class HdfsFetcher implements FileFetcher {
 
         ObjectName jmxName = null;
         HdfsCopyStats stats = null;
+        FileSystem fs = null;
         try {
 
-            final FileSystem fs = getHadoopFileSystem(sourceFileUrl, hadoopConfigPath);
+            fs = getHadoopFileSystem(sourceFileUrl, hadoopConfigPath);
             final Path path = new Path(sourceFileUrl);
             File destination = new File(destinationFile);
 
@@ -308,8 +309,6 @@ public class HdfsFetcher implements FileFetcher {
                                       new HdfsPathInfo(fs, path));
             jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(), stats);
 
-
-
             logger.info("Starting fetch for : " + sourceFileUrl);
             boolean result =
                     fetch(fs,
@@ -322,21 +321,16 @@ public class HdfsFetcher implements FileFetcher {
                           metadataStore);
             logger.info("Completed fetch : " + sourceFileUrl);
 
-            // Close the filesystem
-            fs.close();
-
             if(result) {
                 return destination;
             } else {
                 return null;
             }
-        } catch(Throwable te) {
-            logger.error("Error thrown while trying to get data from Hadoop filesystem", te);
+        } catch (Exception e) {
             if(stats != null) {
-                stats.reportError("File fetcher failed for destination " + destinationFile, te);
+                stats.reportError("File fetcher failed for destination " + destinationFile, e);
             }
-            throw new VoldemortException("Error thrown while trying to get data from Hadoop filesystem : "
-                                         + te);
+            throw new VoldemortException("Error thrown while trying to get data from Hadoop filesystem : ", e);
 
         } finally {
             if(jmxName != null)
@@ -344,6 +338,18 @@ public class HdfsFetcher implements FileFetcher {
 
             if(stats != null) {
                 stats.complete();
+            }
+
+            if (fs != null) {
+                try {
+                    fs.close();
+                } catch (IOException e) {
+                    String errorMessage = "Got IOException while trying to close the filesystem instance (harmless).";
+                    if(stats != null) {
+                        stats.reportError(errorMessage, e);
+                    }
+                    logger.info(errorMessage, e);
+                }
             }
         }
     }
