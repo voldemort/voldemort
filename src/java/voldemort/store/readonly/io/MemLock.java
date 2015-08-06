@@ -42,7 +42,7 @@ public class MemLock implements Closeable {
 
         int fd = voldemort.store.readonly.io.Native.getFd(descriptor);
 
-        pa = mman.mmap(length, mman.PROT_READ, mman.MAP_SHARED | mman.MAP_ALIGN, fd, offset);
+        pa = mman.mmap(length, mman.PROT_READ, mman.MAP_SHARED, fd, offset);
 
         mman.mlock(pa, length);
 
