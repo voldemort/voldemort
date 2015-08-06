@@ -23,8 +23,6 @@ public class mman {
 
     public static final int MAP_ALIGN = 0x200; /* addr specifies alignment */
 
-    public static final int MAP_LOCKED = 0x02000; /* Lock the mapping. */
-
     // http://linux.die.net/man/2/mmap
     // http://www.opengroup.org/sud/sud1/xsh/mmap.htm
     // http://linux.die.net/include/sys/mman.h
