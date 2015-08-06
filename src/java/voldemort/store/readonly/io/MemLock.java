@@ -18,7 +18,6 @@ public class MemLock implements Closeable {
     private Pointer pa;
     private long length;
     private File file;
-    private FileDescriptor descriptor;
 
     /**
      * Call mmap a file descriptor, then lock the pages using mlock(). This
@@ -36,8 +35,7 @@ public class MemLock implements Closeable {
         if(logger.isDebugEnabled())
             logger.debug("mlocking " + file + " with length " + length);
 
-        this.setFile(file);
-        this.setDescriptor(descriptor);
+        this.file = file;
         this.length = length;
 	pa = null;
 
@@ -74,18 +72,6 @@ public class MemLock implements Closeable {
 
     public File getFile() {
         return file;
-    }
-
-    public void setFile(File file) {
-        this.file = file;
-    }
-
-    public FileDescriptor getDescriptor() {
-        return descriptor;
-    }
-
-    public void setDescriptor(FileDescriptor descriptor) {
-        this.descriptor = descriptor;
     }
 
 }
