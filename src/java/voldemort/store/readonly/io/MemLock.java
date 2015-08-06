@@ -21,11 +21,11 @@ public class MemLock implements Closeable {
     private FileDescriptor descriptor;
 
     /**
-     * Call mmap a file descriptor, then lock the pages with MAP_LOCKED. This
+     * Call mmap a file descriptor, then lock the pages using mlock(). This
      * will then prevent the pages from being swapped out due to VFS cache
      * pressure.
      * 
-     * @param descriptor The file we should mmap and MAP_LOCKED
+     * @param descriptor The file we should mmap and mlock
      * @param offset
      * @param length
      * @see #close()
@@ -43,9 +43,6 @@ public class MemLock implements Closeable {
         int fd = voldemort.store.readonly.io.Native.getFd(descriptor);
 
         pa = mman.mmap(length, mman.PROT_READ, mman.MAP_SHARED | mman.MAP_ALIGN, fd, offset);
-
-        // even though technically we have specified MAP_LOCKED this isn't
-        // supported on OpenSolaris or older Linux kernels (or OS X).
 
         mman.mlock(pa, length);
 
