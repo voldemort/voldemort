@@ -15,13 +15,44 @@ import org.apache.log4j.Logger;
  * pages, and closing all dependent resources.
  * 
  */
-public class MappedFileReader extends BaseMappedFile implements Closeable {
+public class MappedFileReader implements Closeable {
+
+    private FileChannel channel;
+
+    private long offset = 0;
+
+    private long length = 0;
+
+    private Closer closer = new Closer();
+
+    private File file;
+
+    private int fd;
+
+    private boolean fadvise = true;
+
+    public File getFile() {
+        return file;
+    }
+
+    public int getFd() {
+        return fd;
+    }
+
+    public boolean isClosed() {
+        return closer.isClosed();
+    }
+
+    @Override
+    public String toString() {
+        return file.toString();
+    }
 
     private static final Logger log = Logger.getLogger(MappedFileReader.class);
 
-    protected FileInputStream in;
+    private FileInputStream in;
 
-    protected MappedByteBuffer mappedByteBuffer = null;
+    private MappedByteBuffer mappedByteBuffer = null;
 
     public MappedFileReader(String path) throws IOException {
         this(new File(path));
