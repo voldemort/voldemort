@@ -39,12 +39,17 @@ public class MemLock implements Closeable {
         this.setFile(file);
         this.setDescriptor(descriptor);
         this.length = length;
+	pa = null;
 
         int fd = voldemort.store.readonly.io.Native.getFd(descriptor);
 
         pa = mman.mmap(length, mman.PROT_READ, mman.MAP_SHARED, fd, offset);
 
-        mman.mlock(pa, length);
+	/* note, any failure in the mlock() system call is ignored,
+	 * because it's normal behavior in an unprivileged process is to
+	 * fail due system rlimits.
+	 */
+	mman.mlock(pa, length);
 
     }
 
@@ -55,12 +60,16 @@ public class MemLock implements Closeable {
     @Override
     public void close() throws IOException {
 
-        mman.munlock(pa, length);
-        mman.munmap(pa, length);
-
         if(logger.isDebugEnabled())
             logger.debug("munlocking " + file + " with length " + length);
 
+	if(pa != null) {
+	    /* note: any failure in the munlock() system call is ignored too */
+	    Pointer xpa = pa;
+	    pa = null;
+	    mman.munlock(xpa, length);
+	    mman.munmap(xpa, length);
+	}
     }
 
     public File getFile() {
