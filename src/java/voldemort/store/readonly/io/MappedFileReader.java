@@ -19,8 +19,6 @@ public class MappedFileReader implements Closeable {
 
     private FileChannel channel;
 
-    private long offset = 0;
-
     private long length = 0;
 
     private Closer closer = new Closer();
@@ -28,8 +26,6 @@ public class MappedFileReader implements Closeable {
     private File file;
 
     private int fd;
-
-    private boolean fadvise = true;
 
     public File getFile() {
         return file;
@@ -86,10 +82,10 @@ public class MappedFileReader implements Closeable {
             if(mappedByteBuffer == null) {
 
                 if(setAutoLock) {
-                    closer.add(new MemLock(file, in.getFD(), offset, length));
+                    closer.add(new MemLock(file, in.getFD(), 0, length));
                 }
 
-                mappedByteBuffer = channel.map(FileChannel.MapMode.READ_ONLY, offset, length);
+                mappedByteBuffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, length);
 
                 closer.add(new MappedByteBufferCloser(mappedByteBuffer));
 
@@ -99,15 +95,12 @@ public class MappedFileReader implements Closeable {
 
         } catch(IOException e) {
 
-            log.error(String.format("Failed to map %s of length %,d at %,d",
-                                    file.getPath(),
-                                    length,
-                                    offset), e);
+            log.error(String.format("Failed to map %s of length %,d",
+                                    file.getPath(), length), e);
 
-            throw new IOException(String.format("Failed to map %s of length %,d at %,d",
+            throw new IOException(String.format("Failed to map %s of length %,d",
                                                 file.getPath(),
-                                                length,
-                                                offset), e);
+                                                length), e);
 
         }
 
