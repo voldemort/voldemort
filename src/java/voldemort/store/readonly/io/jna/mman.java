@@ -21,8 +21,6 @@ public class mman {
     public static final int MAP_SHARED = 0x01; /* Share changes. */
     public static final int MAP_PRIVATE = 0x02; /* Changes are private. */
 
-    public static final int MAP_ALIGN = 0x200; /* addr specifies alignment */
-
     // http://linux.die.net/man/2/mmap
     // http://www.opengroup.org/sud/sud1/xsh/mmap.htm
     // http://linux.die.net/include/sys/mman.h
@@ -127,7 +125,7 @@ public class mman {
             logger.debug("File descriptor is: " + fd);
 
         // mmap a large file...
-        Pointer addr = mmap(file.length(), PROT_READ, mman.MAP_SHARED | mman.MAP_ALIGN, fd, 0L);
+        Pointer addr = mmap(file.length(), PROT_READ, mman.MAP_SHARED, fd, 0L);
         if(logger.isDebugEnabled())
             logger.debug("mmap address is: " + Pointer.nativeValue(addr));
 
