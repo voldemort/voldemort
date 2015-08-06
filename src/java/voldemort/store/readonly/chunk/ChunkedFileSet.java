@@ -193,7 +193,6 @@ public class ChunkedFileSet {
                 logger.error("Error in mlock", e);
             }
 
-            // indexFiles.add(mapFile(index));
             chunkId++;
         }
         if(chunkId == 0)
@@ -256,7 +255,6 @@ public class ChunkedFileSet {
                         logger.error("Error in mlock", e);
                     }
 
-                    // indexFiles.add(mapFile(index));
                     chunkId++;
                     globalChunkId++;
                 }
@@ -351,7 +349,6 @@ public class ChunkedFileSet {
                                         logger.error("Error in mlock", e);
                                     }
 
-                                    // indexFiles.add(mapFile(index));
                                     chunkId++;
                                     globalChunkId++;
                                 }
@@ -455,17 +452,6 @@ public class ChunkedFileSet {
     private FileChannel openChannel(File file) {
         try {
             return new FileInputStream(file).getChannel();
-        } catch(IOException e) {
-            throw new VoldemortException(e);
-        }
-    }
-
-    private MappedByteBuffer mapFile(File file) {
-        try {
-            FileChannel channel = new FileInputStream(file).getChannel();
-            MappedByteBuffer buffer = channel.map(MapMode.READ_ONLY, 0, file.length());
-            channel.close();
-            return buffer;
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
