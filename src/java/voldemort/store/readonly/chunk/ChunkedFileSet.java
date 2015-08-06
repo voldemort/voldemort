@@ -183,15 +183,7 @@ public class ChunkedFileSet {
             /* Add the file channel for data */
             dataFiles.add(openChannel(data));
 
-            MappedFileReader idxFileReader = null;
-            try {
-                idxFileReader = new MappedFileReader(index);
-                mappedIndexFileReader.add(idxFileReader);
-                indexFiles.add(idxFileReader.map(enforceMlock));
-            } catch(IOException e) {
-
-                logger.error("Error in mlock", e);
-            }
+	    mapAndRememberIndexFile(index);
 
             chunkId++;
         }
@@ -246,14 +238,7 @@ public class ChunkedFileSet {
                     /* Add the file channel for data */
                     dataFiles.add(openChannel(data));
 
-                    MappedFileReader idxFileReader = null;
-                    try {
-                        idxFileReader = new MappedFileReader(index);
-                        mappedIndexFileReader.add(idxFileReader);
-                        indexFiles.add(idxFileReader.map(enforceMlock));
-                    } catch(IOException e) {
-                        logger.error("Error in mlock", e);
-                    }
+		    mapAndRememberIndexFile(index);
 
                     chunkId++;
                     globalChunkId++;
@@ -340,14 +325,7 @@ public class ChunkedFileSet {
                                     /* Add the file channel for data */
                                     dataFiles.add(openChannel(data));
 
-                                    MappedFileReader idxFileReader = null;
-                                    try {
-                                        idxFileReader = new MappedFileReader(index);
-                                        mappedIndexFileReader.add(idxFileReader);
-                                        indexFiles.add(idxFileReader.map(enforceMlock));
-                                    } catch(IOException e) {
-                                        logger.error("Error in mlock", e);
-                                    }
+				    mapAndRememberIndexFile(index);
 
                                     chunkId++;
                                     globalChunkId++;
@@ -786,6 +764,21 @@ public class ChunkedFileSet {
                 md5er.reset();
             }
         }
+    }
+
+    /**
+     * Open and map the given file and remember it in the
+     * mappedIndexFileReader[] and indexFiles[] arrays
+     */
+    private void mapAndRememberIndexFile(File index) {
+	MappedFileReader idxFileReader = null;
+	try {
+	    idxFileReader = new MappedFileReader(index);
+	    mappedIndexFileReader.add(idxFileReader);
+	    indexFiles.add(idxFileReader.map(enforceMlock));
+	} catch(IOException e) {
+	    logger.error("Error mmapping " + index, e);
+	}
     }
 
     public ByteBuffer indexFileFor(int chunk) {
