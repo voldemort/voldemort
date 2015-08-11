@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Random;
 
 import org.apache.commons.io.FileDeleteStrategy;
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -62,6 +63,8 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 @RunWith(Parameterized.class)
 public class DataCleanupJobTest {
+
+    private static final Logger logger = Logger.getLogger(DataCleanupJobTest.class);
 
     private MockTime time;
     private StorageEngine<ByteArray, byte[], byte[]> engine;
@@ -117,20 +120,26 @@ public class DataCleanupJobTest {
     public void testCleanupFrequency() {
 
         SchedulerService scheduler = new SchedulerService(1, time);
+        String cleanUpJobName = "cleanup-freq-test";
 
         try {
-            Date now = new Date();
+            // FIXME: This is a bad test, which relies on system time instead of a virtual/deterministic time.
+            Date beginningOfTest = new Date();
 
             // clean up will purge everything older than last 2 seconds
             Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
                                                                                 new ScanPermitWrapper(1),
                                                                                 2 * Time.MS_PER_SECOND,
                                                                                 SystemTime.INSTANCE,
-                                                                                new EventThrottler(1),
+                                                                                // Not testing throttler, we just want it out of the way
+                                                                                new EventThrottler(1000),
                                                                                 null);
 
             // and will run every 5 seconds starting now
-            scheduler.schedule("cleanup-freq-test", cleanupJob, now, 5 * Time.MS_PER_SECOND);
+            scheduler.schedule(cleanUpJobName, cleanupJob, beginningOfTest, 5 * Time.MS_PER_SECOND);
+
+            // sleep for 1 seconds
+            // Thread.sleep(1 * Time.MS_PER_SECOND);
 
             // load some data
             for(int i = 0; i < 10; i++) {
@@ -149,7 +158,7 @@ public class DataCleanupJobTest {
             }
 
             // wait till 4 seconds from start
-            Thread.sleep(System.currentTimeMillis() - (now.getTime() + 4 * Time.MS_PER_SECOND));
+            Thread.sleep((beginningOfTest.getTime() + 4 * Time.MS_PER_SECOND) - System.currentTimeMillis());
             // load some more data
             for(int i = 10; i < 20; i++) {
                 ByteArray b = new ByteArray(Integer.toString(i).getBytes());
@@ -157,7 +166,7 @@ public class DataCleanupJobTest {
             }
 
             // give time for data cleanup to finally run
-            Thread.sleep(System.currentTimeMillis() - (now.getTime() + 6 * Time.MS_PER_SECOND));
+            Thread.sleep((beginningOfTest.getTime() + 6 * Time.MS_PER_SECOND) - System.currentTimeMillis());
 
             // first batch of writes should have been deleted
             for(int i = 0; i < 10; i++) {
@@ -173,8 +182,10 @@ public class DataCleanupJobTest {
             }
 
         } catch(Exception e) {
-
+            logger.error("Got exception in testCleanupFrequency", e);
+            fail("Got exception in testCleanupFrequency");
         } finally {
+            scheduler.terminate(cleanUpJobName);
             scheduler.stop();
         }
     }
