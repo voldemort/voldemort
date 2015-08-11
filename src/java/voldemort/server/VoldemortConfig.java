@@ -2877,9 +2877,9 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * Amount of delay in ms between readonly fetcher retries, to fetch data
-     * from Hadoop
-     * 
+     * Minimum delay in ms between readonly fetcher retries, to fetch data
+     * from Hadoop. The maximum delay is 2x this amount, determined randomly.
+     *
      * <ul>
      * <li>Property :"fetcher.retry.delay.ms"</li>
      * <li>Default :5000 (5 seconds)</li>
