@@ -132,6 +132,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String MIN_NUMBER_OF_RECORDS = "min.number.of.records";
     public final static String REDUCER_OUTPUT_COMPRESS_CODEC = "reducer.output.compress.codec";
     public final static String REDUCER_OUTPUT_COMPRESS = "reducer.output.compress";
+    // default
+    private final static String RECOMMENDED_FETCHER_PROTOCOL = "webhdfs";
 
     // CONFIG VALUES (and other immutable state)
     private final Props props;
@@ -200,7 +202,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         this.nodeId = props.getInt(PUSH_NODE, 0);
 
-        this.hdfsFetcherProtocol = props.getString(VOLDEMORT_FETCHER_PROTOCOL, "hftp");
+        this.hdfsFetcherProtocol = props.getString(VOLDEMORT_FETCHER_PROTOCOL, RECOMMENDED_FETCHER_PROTOCOL);
+        if (this.hdfsFetcherProtocol != RECOMMENDED_FETCHER_PROTOCOL) {
+            log.warn("It is recommended to use the " + RECOMMENDED_FETCHER_PROTOCOL + " protocol only.");
+        }
+
         this.hdfsFetcherPort = props.getString(VOLDEMORT_FETCHER_PORT, "50070");
 
         log.info(VOLDEMORT_FETCHER_PROTOCOL + " is set to : " + hdfsFetcherProtocol);
