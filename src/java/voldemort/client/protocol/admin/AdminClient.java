@@ -4201,12 +4201,12 @@ public class AdminClient implements Closeable {
     public class QuotaManagementOperations {
 
         public void setQuota(String storeName, String quotaTypeStr, String quotaValue) {
-            QuotaType quotaType = QuotaType.valueOf(quotaTypeStr);
-            if(quotaType != QuotaType.GET_THROUGHPUT && quotaType != QuotaType.PUT_THROUGHPUT) {
-                // TODO : Convert this to warning to exception once existing
-                // clients are upgraded. Probably around End of 2014.
-                logger.warn(" Quota only supports GET (Read) / PUT (Write) throughputs. Other throughput types are deprecated for easier use"
-                            + "StoreName: " + storeName + " QuotaType: " + quotaType);
+            QuotaType quotaType = null;
+            try {
+                quotaType = QuotaType.valueOf(quotaTypeStr);
+            } catch (IllegalArgumentException e) {
+                throw new VoldemortException("'" + quotaTypeStr + "' is not a supported quota type. " +
+                        "The following types are supported: " + Lists.newArrayList(QuotaType.values()), e);
             }
             // FIXME This is a temporary workaround for System store client not
             // being able to do a second insert. We simply generate a super
