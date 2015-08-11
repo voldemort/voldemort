@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 public class EventThrottler {
 
     private static final Logger logger = Logger.getLogger(EventThrottler.class);
-    private static final long DEFAULT_CHECK_INTERVAL_MS = 50;
+    private static final long DEFAULT_CHECK_INTERVAL_MS = 1000;
     private static final String THROTTLER_NAME = "event-throttler";
 
     private final long maxRatePerSecond;
