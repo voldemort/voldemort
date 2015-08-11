@@ -20,12 +20,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
@@ -100,8 +95,12 @@ public class AdminToolUtils {
         } else {
             System.out.println("Are you sure you want to " + opDesc + "? (yes/no)");
             BufferedReader buffer = new BufferedReader(new InputStreamReader(System.in));
-            String text = buffer.readLine();
-            return text.equals("yes");
+            String text = buffer.readLine().toLowerCase(Locale.ENGLISH);
+            boolean go = text.equals("yes") || text.equals("y");
+            if (!go) {
+                System.out.println("Did not confirm; " + opDesc + " aborted.");
+            }
+            return go;
         }
     }
 
@@ -109,7 +108,7 @@ public class AdminToolUtils {
      * Utility function that gives list of values from list of value-pair
      * strings.
      * 
-     * @param valueList List of value-pair strings
+     * @param valuePairs List of value-pair strings
      * @param delim Delimiter that separates the value pair
      * @returns The list of values; empty if no value-pair is present, The even
      *          elements are the first ones of the value pair, and the odd
@@ -123,7 +122,7 @@ public class AdminToolUtils {
         for(String valuePair: valuePairs) {
             String[] value = valuePair.split(delim, 2);
             if(value.length != 2)
-                throw new VoldemortException("Invalid argument pair: " + value);
+                throw new VoldemortException("Invalid argument pair: " + valuePair);
             valueList.add(value[0]);
             valueList.add(value[1]);
         }
@@ -230,10 +229,6 @@ public class AdminToolUtils {
 
     /**
      * Utility function that fetches quota types.
-     * 
-     * @param nodeIds List of IDs of nodes parsed from command-line input
-     * @param allNodes Tells if all nodes are selected
-     * @return Collection of node objects selected by user
      */
     public static List<String> getQuotaTypes(List<String> quotaTypes) {
         if(quotaTypes.size() < 1) {
@@ -249,7 +244,8 @@ public class AdminToolUtils {
         } else {
             for(String quotaType: quotaTypes) {
                 if(!validQuotaTypes.contains(quotaType)) {
-                    Utils.croak("Specify a valid quota type from :" + validQuotaTypes);
+                    throw new VoldemortException("'" + quotaType + "' is not a valid quota type. " +
+                            "Specify a valid quota type from: " + validQuotaTypes);
                 }
             }
         }

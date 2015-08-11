@@ -17,15 +17,19 @@
 package voldemort.store.quota;
 
 /**
- * All possible type of quotas that can be implemented in Voldemort. For now,
- * includes get,put,getall,delete throughputs (Rate limiting alone)
+ * All possible type of quotas that can be implemented in Voldemort.
+ *
+ * For now, it includes the following:
+ *
+ * - GET_THROUGHPUT which includes all read ops (get and get all)
+ * - PUT_THROUGHPUT which includes all write ops (put and delete)
+ * - STORAGE_SPACE which is used exclusively for Read-Only stores
  * 
- * In the future, can include disk space, memory used, sockets etc.
+ * In the future, it could be extended for memory used, sockets etc.
  * 
  */
 public enum QuotaType {
-    GET_THROUGHPUT,
-    PUT_THROUGHPUT,
-    GET_ALL_THROUGHPUT,
-    DELETE_THROUGHPUT
+    GET_THROUGHPUT, // Includes all read ops (get and get all)
+    PUT_THROUGHPUT, // Includes all write ops (put and delete)
+    STORAGE_SPACE // Currently used exclusively for Read-Only stores
 }
