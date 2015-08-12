@@ -38,8 +38,6 @@ public class SystemStoreConstants {
         voldsys$_store_quotas;
     }
 
-    public static final String QUOTA_STORE_NAME = SystemStoreName.voldsys$_store_quotas.name();
-
     public static final String CLUSTER_VERSION_KEY = "cluster.xml";
     public static final String STORES_VERSION_KEY = "stores.xml";
     public static final String VERSIONS_METADATA_KEY = "metadata-versions";

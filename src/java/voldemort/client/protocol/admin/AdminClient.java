@@ -366,7 +366,7 @@ public class AdminClient implements Closeable {
                     systemStoreFactory = new SystemStoreClientFactory<String, String>(clientConfig);
                 }
                 String metadataVersionStoreName = SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name();
-                String quotaStoreName = SystemStoreConstants.QUOTA_STORE_NAME;
+                String quotaStoreName = SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name();
                 metadataVersionSysStoreClient = systemStoreFactory.createSystemStore(metadataVersionStoreName,
                                                                                      null,
                                                                                      null);
@@ -4208,21 +4208,12 @@ public class AdminClient implements Closeable {
                 throw new VoldemortException("'" + quotaTypeStr + "' is not a supported quota type. " +
                         "The following types are supported: " + Lists.newArrayList(QuotaType.values()), e);
             }
-
-            /*
-             * Set node by node, instead of using the generic put call
-             * Generic put call, returns success after one put succeeds and tries to do
-             * the rest in background. If the background calls fail, they are ignored
-             * and there is no feedback. Often this drains the operational persons
-             * efforts. 
-             * For Generic put call, you need a vector clock that is higher than
-             * all the nodes. So a super clock needs to be genreated with addition
-             * and removal of nodes, generating such a clock is close to impossible.
-             */
-            Integer quota = Integer.parseInt(quotaValue);
-            for (Integer nodeId : currentCluster.getNodeIds()) {
-                setQuotaForNode(storeName, quotaType, nodeId, quota);
-            }
+            // FIXME This is a temporary workaround for System store client not
+            // being able to do a second insert. We simply generate a super
+            // clock that will trump what is on storage
+            VectorClock denseClock = VectorClockUtils.makeClockWithCurrentTime(currentCluster.getNodeIds());
+            String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
+            quotaSysStoreClient.putSysStore(quotaKey, new Versioned<String>(quotaValue, denseClock));
             logger.info("Set quota " + quotaTypeStr + " to " + quotaValue + " for store "
                         + storeName);
         }
@@ -4242,38 +4233,15 @@ public class AdminClient implements Closeable {
             try {
                 String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
                 ByteArray keyArray = new ByteArray(quotaKey.getBytes("UTF8"));
-
-                /*
-                 * Historically, The quota was set by genrating a super clock ( Vector clock
-                 * with all nodes and the version set to epoch). This is hacky as nodes
-                 * are added and removed you will never be able to update the existing values.
-                 * 
-                 * So currently the code does the following
-                 * 1) Retrieve the existing quota.
-                 * 2) If the clock has more than one node, delete the value 
-                 * 3) Increment the version of the node being set
-                 * 4) Write the new value.
-                 */
-                Versioned<String> quotaForNode = getQuotaForNode(storeName, quotaType, nodeId);
-                VectorClock newClock = new VectorClock();
-                if (quotaForNode != null) {
-                    VectorClock existingClock = (VectorClock) quotaForNode.getVersion();
-                    if (existingClock.getVersionMap().size() > 1) {
-                        // This is a super clock generated from the old code, get rid of it
-                        storeOps.deleteNodeKeyValue(storeName, nodeId, keyArray);
-                    } else {
-                        newClock = existingClock;
-                    }
-                }
-
-                newClock.incremented(nodeId, System.currentTimeMillis());
-                byte[] value = ByteUtils.getBytes(quota.toString(),"UTF8");
-                Versioned<byte[]> versionedValue = new Versioned<byte[]>(value , newClock);
-
-                NodeValue<ByteArray, byte[]> nodeKeyValue =
-                        new NodeValue<ByteArray, byte[]>(nodeId, keyArray, versionedValue);
-
-                storeOps.putNodeKeyValue(SystemStoreConstants.QUOTA_STORE_NAME, nodeKeyValue);
+                VectorClock clock = VectorClockUtils.makeClockWithCurrentTime(currentCluster.getNodeIds());
+                NodeValue<ByteArray, byte[]> nodeKeyValue = new NodeValue<ByteArray, byte[]>(nodeId,
+                                                                                             keyArray,
+                                                                                             new Versioned<byte[]>(ByteUtils.getBytes(quota.toString(),
+                                                                                                                                      "UTF8"),
+                                                                                                                   clock));
+                storeOps.deleteNodeKeyValue(storeName, nodeId, keyArray);
+                storeOps.putNodeKeyValue(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
+                                         nodeKeyValue);
             } catch(UnsupportedEncodingException e) {
                 throw new VoldemortException(e);
             }
@@ -4284,7 +4252,7 @@ public class AdminClient implements Closeable {
                 String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
 
                 ByteArray keyArray = new ByteArray(quotaKey.getBytes("UTF8"));
-                return storeOps.deleteNodeKeyValue(SystemStoreConstants.QUOTA_STORE_NAME,
+                return storeOps.deleteNodeKeyValue(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
                                                    nodeId,
                                                    keyArray);
             } catch(UnsupportedEncodingException e) {
@@ -4299,8 +4267,7 @@ public class AdminClient implements Closeable {
                 String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
                 
                 ByteArray keyArray = new ByteArray(quotaKey.getBytes("UTF8"));
-                List<Versioned<byte[]>> valueObj =
-                        storeOps.getNodeKey(SystemStoreConstants.QUOTA_STORE_NAME,
+                List<Versioned<byte[]>> valueObj = storeOps.getNodeKey(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
                                                                        nodeId,
                                                                        keyArray);
     
