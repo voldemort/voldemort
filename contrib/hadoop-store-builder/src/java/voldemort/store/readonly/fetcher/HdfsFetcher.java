@@ -196,19 +196,17 @@ public class HdfsFetcher implements FileFetcher {
 
             String security = config.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION);
 
-            if (security == null) {
-                throw new VoldemortException(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION +
-                        " is undefined in the config. It must be set to either 'kerberos' or 'simple'.");
-            } else if (security.equals("simple")) {
-                logger.info("Security is explicitly disabled in the conf.");
-            } else if (!security.equals("kerberos")) {
+            if (security != null && security.equals("kerberos")) {
+                logger.info("Kerberos authentication is turned on in the Hadoop conf.");
+            } else if (security != null && security.equals("simple")) {
+                logger.info("Authentication is explicitly disabled in the Hadoop conf.");
+            } else {
                 throw new VoldemortException("Error in getting a valid Hadoop Configuration. " +
                         "Make sure the Hadoop config directory path is correct via" +
-                        VoldemortConfig.HADOOP_CONFIG_PATH + " and that " +
+                        VoldemortConfig.HADOOP_CONFIG_PATH + " and that the " +
                         CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION +
-                        " is set to either 'kerberos' or 'simple'.");
-            } else {
-                logger.info("Security is turned on in the conf.");
+                        " property in the Hadoop config is set to either 'kerberos' or 'simple'. " +
+                        "That property is currently set to '" + security + "'.");
             }
         }
         return config;
