@@ -155,6 +155,7 @@ public class VoldemortConfig implements Serializable {
     private int fetcherSocketTimeout;
     private String readOnlyKeytabPath;
     private String readOnlyKerberosUser;
+    public static final String HADOOP_CONFIG_PATH = "readonly.hadoop.config.path";
     private String hadoopConfigPath;
     private String readOnlyKerberosKdc;
     private String readOnlykerberosRealm;
@@ -364,7 +365,7 @@ public class VoldemortConfig implements Serializable {
                                                           + VoldemortConfig.DEFAULT_KEYTAB_PATH);
         this.readOnlyKerberosUser = props.getString("readonly.kerberos.user",
                                                     VoldemortConfig.DEFAULT_KERBEROS_PRINCIPAL);
-        this.setHadoopConfigPath(props.getString("readonly.hadoop.config.path",
+        this.hadoopConfigPath = (props.getString(VoldemortConfig.HADOOP_CONFIG_PATH,
                                                  this.metadataDirectory + "/hadoop-conf"));
         this.readOnlyKerberosKdc = props.getString("readonly.kerberos.kdc",
                                                    VoldemortConfig.DEFAULT_KERBEROS_KDC);
