@@ -27,9 +27,8 @@ echo "config_file : $CONFIG_FILE"
 echo "hadoop_config_path : $HADOOP_CONFIG_PATH"
 
 # The jar file's name depends on the directory name...
-export VOLDEMORT_JAR="$(echo $base_dir/build/libs/*-$VERSION-all.jar)"
-export HADOOP_CLASSPATH="$(echo $base_dir/lib/*.jar $HADOOP_CONFIG_PATH | tr ' ' :)"
+export VOLDEMORT_JAR="$(echo $base_dir/build/libs/*-$VERSION-bnp.jar)"
+export HADOOP_CLASSPATH=$HADOOP_CONFIG_PATH
 hadoop jar $VOLDEMORT_JAR voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJobRunner $CONFIG_FILE
 
-#CLASSPATH="$base_dir/dist/voldemort-$VERSION.jar:$base_dir/dist/voldemort-contrib-$VERSION.jar:$base_dir/lib/*:$HADOOP_CONFIG_PATH"
-#java -cp $CLASSPATH voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJobRunner $CONFIG_FILE
+echo "BnP run script finished!"
