@@ -93,7 +93,8 @@ public class SystemStoreConstants {
                                                      + "    </key-serializer>"
                                                      + "    <value-serializer>"
                                                      + "      <type>string</type>"
-                                                     + "    </value-serializer>" + "  </store>"
+                                                     + "    </value-serializer>"
+                                                     + "  </store>"
 
                                                      + "</stores>";
 
