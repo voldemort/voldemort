@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.channels.FileChannel.MapMode;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,14 +56,10 @@ public class ChunkedFileSet {
     private RoutingStrategy routingStrategy;
     private ReadOnlyStorageFormat storageFormat;
 
-    private boolean enforceMlock = false;
-
     public ChunkedFileSet(File directory,
                           RoutingStrategy routingStrategy,
-                          int nodeId,
-                          boolean enforceMlock) throws IOException {
+                          int nodeId) throws IOException {
 
-        this.enforceMlock = enforceMlock;
         this.baseDir = directory;
         if(!Utils.isReadableDir(directory)) {
             throw new VoldemortException(directory.getAbsolutePath()
@@ -127,12 +122,6 @@ public class ChunkedFileSet {
                      + " chunks and format  " + storageFormat);
     }
 
-    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId)
-                                                                                      throws IOException {
-        this(directory, routingStrategy, nodeId, false);
-
-    }
-
     public DataFileChunkSet toDataFileChunkSet() {
 
         // Convert the index file into chunk set
@@ -183,7 +172,7 @@ public class ChunkedFileSet {
             /* Add the file channel for data */
             dataFiles.add(openChannel(data));
 
-	    mapAndRememberIndexFile(index);
+            mapAndRememberIndexFile(index);
 
             chunkId++;
         }
@@ -238,7 +227,7 @@ public class ChunkedFileSet {
                     /* Add the file channel for data */
                     dataFiles.add(openChannel(data));
 
-		    mapAndRememberIndexFile(index);
+                    mapAndRememberIndexFile(index);
 
                     chunkId++;
                     globalChunkId++;
@@ -325,7 +314,7 @@ public class ChunkedFileSet {
                                     /* Add the file channel for data */
                                     dataFiles.add(openChannel(data));
 
-				    mapAndRememberIndexFile(index);
+                                    mapAndRememberIndexFile(index);
 
                                     chunkId++;
                                     globalChunkId++;
@@ -771,14 +760,14 @@ public class ChunkedFileSet {
      * mappedIndexFileReader[] and indexFiles[] arrays
      */
     private void mapAndRememberIndexFile(File index) {
-	MappedFileReader idxFileReader = null;
-	try {
-	    idxFileReader = new MappedFileReader(index);
-	    mappedIndexFileReader.add(idxFileReader);
-	    indexFiles.add(idxFileReader.map(enforceMlock));
-	} catch(IOException e) {
-	    logger.error("Error mmapping " + index, e);
-	}
+        MappedFileReader idxFileReader = null;
+        try {
+            idxFileReader = new MappedFileReader(index);
+            mappedIndexFileReader.add(idxFileReader);
+            indexFiles.add(idxFileReader.map());
+        } catch(IOException e) {
+            logger.error("Error mmapping " + index, e);
+        }
     }
 
     public ByteBuffer indexFileFor(int chunk) {

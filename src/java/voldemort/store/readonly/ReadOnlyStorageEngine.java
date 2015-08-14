@@ -68,31 +68,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
     private volatile boolean isOpen;
     private int deleteBackupMs = 0;
     private long lastSwapped;
-    private boolean enforceMlock = false;
     private final StoreVersionManager storeVersionManager;
-
-    /**
-     * Create an instance of the store
-     * 
-     * @param name The name of the store
-     * @param searchStrategy The algorithm to use for searching for keys
-     * @param routingStrategy The routing strategy used to route keys
-     * @param nodeId Node id
-     * @param storeDir The directory in which the .data and .index files reside
-     * @param numBackups The number of backups of these files to retain
-     * @param deleteBackupMs The time in ms for which we'll wait before we
-     *        delete a backup
-     */
-    public ReadOnlyStorageEngine(String name,
-                                 SearchStrategy searchStrategy,
-                                 RoutingStrategy routingStrategy,
-                                 int nodeId,
-                                 File storeDir,
-                                 int numBackups,
-                                 int deleteBackupMs) {
-        this(name, searchStrategy, routingStrategy, nodeId, storeDir, numBackups);
-        this.deleteBackupMs = deleteBackupMs;
-    }
 
     /**
      * Create an instance of the store
@@ -110,11 +86,20 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                                  int nodeId,
                                  File storeDir,
                                  int numBackups) {
-        this(name, searchStrategy, routingStrategy, nodeId, storeDir, numBackups, 0, false);
+        this(name, searchStrategy, routingStrategy, nodeId, storeDir, numBackups, 0);
     }
 
-    /*
-     * Overload constructor to accept the mlock config
+    /**
+     * Create an instance of the store
+     *
+     * @param name The name of the store
+     * @param searchStrategy The algorithm to use for searching for keys
+     * @param routingStrategy The routing strategy used to route keys
+     * @param nodeId Node id
+     * @param storeDir The directory in which the .data and .index files reside
+     * @param numBackups The number of backups of these files to retain
+     * @param deleteBackupMs The time in ms for which we'll wait before we
+     *        delete a backup
      */
     public ReadOnlyStorageEngine(String name,
                                  SearchStrategy searchStrategy,
@@ -122,11 +107,10 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                                  int nodeId,
                                  File storeDir,
                                  int numBackups,
-                                 int deleteBackupMs,
-                                 boolean enforceMlock) {
+                                 int deleteBackupMs) {
 
         super(name);
-        this.enforceMlock = enforceMlock;
+        this.deleteBackupMs = deleteBackupMs;
         this.storeDir = storeDir;
         this.numBackups = numBackups;
         this.searchStrategy = searchStrategy;
@@ -211,7 +195,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                         + versionDir.getAbsolutePath());
             Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator
                     + "latest");
-            this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId, enforceMlock);
+            this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId);
             storeVersionManager.syncInternalStateFromFileSystem();
             this.lastSwapped = System.currentTimeMillis();
             this.isOpen = true;

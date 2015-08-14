@@ -38,10 +38,6 @@ public class MappedFileReader implements Closeable {
 
     private MappedByteBuffer mappedByteBuffer = null;
 
-    public MappedFileReader(String path) {
-        this(new File(path));
-    }
-
     public MappedFileReader(File file) {
         this.file = file;
     }
@@ -52,61 +48,49 @@ public class MappedFileReader implements Closeable {
      * lock the file's data in memory.  Calling map() multiple
      * times returns the same MappedByteBuffer.
      */
-    public MappedByteBuffer map(boolean setAutoLock) throws IOException {
+    public MappedByteBuffer map() throws IOException {
 
-	long length = -1;
+        long length = -1;
         try {
 
             if(mappedByteBuffer == null) {
-
-		/* Sample the file length just before we mmap() the
-		 * file, as it may have changed size since the ctor. We
-		 * do need to remember the exact length we mmap()ed for
-		 * later when we unmap() to avoid leaking mappings, but
-		 * MappedByteBuffer does that for us.
-		 */
-		length = file.length();
-		FileInputStream in = new FileInputStream(file);
-		FileChannel channel = in.getChannel();
-
-                if(setAutoLock) {
-                    closer.add(new MemLock(file, in.getFD(), 0, length));
-                }
-
+                /* Sample the file length just before we mmap() the
+                 * file, as it may have changed size since the ctor. We
+                 * do need to remember the exact length we mmap()ed for
+                 * later when we unmap() to avoid leaking mappings, but
+                 * MappedByteBuffer does that for us.
+                 */
+                length = file.length();
+                FileInputStream in = new FileInputStream(file);
+                FileChannel channel = in.getChannel();
                 mappedByteBuffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, length);
 
                 closer.add(new MappedByteBufferCloser(mappedByteBuffer));
 
-		/* On Unix-like systems we don't need to keep the file
-		 * descriptor around after we mmap()ed the file.  So
-		 * close it now. */
-		channel.close();
-		in.close();
+                /* On Unix-like systems we don't need to keep the file
+                 * descriptor around after we mmap()ed the file.  So
+                 * close it now. */
+                channel.close();
+                in.close();
             }
 
             return mappedByteBuffer;
 
         } catch(IOException e) {
-
             log.error(String.format("Failed to map %s of length %,d",
                                     file.getPath(), length), e);
 
             throw new IOException(String.format("Failed to map %s of length %,d",
                                                 file.getPath(),
                                                 length), e);
-
         }
-
     }
 
     @Override
     public void close() throws IOException {
-
         if(closer.isClosed())
             return;
-
         closer.close();
-
     }
 
     /**
@@ -120,11 +104,7 @@ public class MappedFileReader implements Closeable {
 
         @Override
         public void close() throws IOException {
-
             super.close();
-
         }
-
     }
-
 }

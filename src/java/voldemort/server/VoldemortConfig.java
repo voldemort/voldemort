@@ -164,9 +164,6 @@ public class VoldemortConfig implements Serializable {
     private boolean readOnlyStatsFileEnabled;
     private int readOnlyMaxVersionsStatsFile;
 
-    // flag to indicate if we will mlock and pin index pages in memory
-    private boolean useMlock;
-
     public static final String PUSH_HA_ENABLED = "push.ha.enabled";
     private boolean highAvailabilityPushEnabled;
     public static final String PUSH_HA_CLUSTER_ID = "push.ha.cluster.id";
@@ -387,8 +384,6 @@ public class VoldemortConfig implements Serializable {
         this.highAvailabilityPushLockImplementation = props.getString(PUSH_HA_LOCK_IMPLEMENTATION, null);
         this.highAvailabilityPushMaxNodeFailures = props.getInt(PUSH_HA_MAX_NODE_FAILURES, 0);
         this.highAvailabilityPushEnabled = props.getBoolean(PUSH_HA_ENABLED, false);
-
-        this.setUseMlock(props.getBoolean("readonly.mlock.index", true));
 
         this.mysqlUsername = props.getString("mysql.user", "root");
         this.mysqlPassword = props.getString("mysql.password", "");
@@ -3163,25 +3158,6 @@ public class VoldemortConfig implements Serializable {
 
     public OpTimeMap testingGetSlowConcurrentDelays() {
         return this.testingSlowConcurrentDelays;
-    }
-
-    public boolean isUseMlock() {
-        return useMlock;
-    }
-
-    /**
-     * If true, the server will mlock read-only index files and pin them to
-     * memory. This might help in controlling thrashing of index pages.
-     * 
-     * <ul>
-     * <li>Property : "readonly.mlock.index"</li>
-     * <li>Default " true</li>
-     * </ul>
-     * 
-     * @param useMlock
-     */
-    public void setUseMlock(boolean useMlock) {
-        this.useMlock = useMlock;
     }
 
     public int getGossipInterval() {
