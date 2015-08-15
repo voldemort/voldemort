@@ -1,3 +1,16 @@
+Release 1.9.19 on 08/12/2015
+* Removed unused things (scala shell, ec2-testing, public-lib directory)
+* Fixed some unit tests.
+* Various BnP improvements:
+  * Improved logging.
+  * Added bnpJar gradle target for bundling BnP with its dependencies.
+  * Added run-bnp.sh script for running without Azkaban.
+* Various Read-Only server-side improvements:
+  * Upgrade to Hadoop 2.
+  * Kerberos authentication clean ups.
+  * Got rid of unused File Descriptor and other MemLock clean ups.
+  * Added STORAGE_SPACE quota API (not enforced yet).
+
 Release 1.9.18 on 07/20/2015
 * Various BnP improvements:
   * Introduces of a limited form of High Availability for BnP.
