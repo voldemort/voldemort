@@ -1066,7 +1066,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         + storeName + " Generated version " + pushVersion);
             }
 
-            asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Fetch store") {
+            asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Fetch store '" + storeName + "' v" + pushVersion) {
 
                 private String fetchDirPath = null;
 

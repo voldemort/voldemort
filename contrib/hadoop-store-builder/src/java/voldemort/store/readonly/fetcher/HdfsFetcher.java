@@ -422,22 +422,6 @@ public class HdfsFetcher implements FileFetcher {
         return maxAttempts;
     }
 
-    // Used by tests
-    @SuppressWarnings("unused")
-    private CheckSum copyFileWithCheckSumTest(FileSystem fs,
-                                              Path source,
-                                              File dest,
-                                              HdfsCopyStats stats,
-                                              CheckSumType checkSumType,
-                                              byte[] buffer) throws IOException {
-
-        FetchStrategy fetchStrategy =
-                new BasicFetchStrategy(this, fs, stats, null, bufferSize);
-        return fetchStrategy.fetch(new HdfsFile(fs.getFileStatus(source)),
-                                   dest,
-                                   checkSumType);
-    }
-
     /*
      * Main method for testing fetching
      */

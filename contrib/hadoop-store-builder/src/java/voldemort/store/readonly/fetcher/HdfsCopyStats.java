@@ -117,6 +117,7 @@ public class HdfsCopyStats {
             statsFileWriter.newLine();
             statsFileWriter.write("Time, FileName, StartTime(MS), Size, TimeTaken(MS), Attempts #, TotalBytesTransferred, TotalBytesWritten");
             statsFileWriter.newLine();
+            statsFileWriter.flush();
 
         } catch(Exception e) {
             statsFileWriter = null;
@@ -171,6 +172,7 @@ public class HdfsCopyStats {
                 statsFileWriter.write(",");
                 statsFileWriter.write(message);
                 statsFileWriter.newLine();
+                statsFileWriter.flush();
             }
         } catch(IOException e) {
             // ignore errors

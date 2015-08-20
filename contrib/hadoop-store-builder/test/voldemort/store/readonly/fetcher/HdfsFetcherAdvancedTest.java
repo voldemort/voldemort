@@ -52,6 +52,7 @@ import org.mortbay.jetty.EofException;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
@@ -89,6 +90,22 @@ public class HdfsFetcherAdvancedTest {
         this.isCompressed = isCompressed;
         this.enableStatsFile = enableStatsFile;
     }
+
+    protected CheckSum copyFileWithCheckSumTest(HdfsFetcher fetcher,
+                                                FileSystem fs,
+                                                Path source,
+                                                File dest,
+                                                HdfsCopyStats stats,
+                                                CheckSumType checkSumType,
+                                                byte[] buffer) throws IOException {
+
+        FetchStrategy fetchStrategy =
+                new BasicFetchStrategy(fetcher, fs, stats, new AsyncOperationStatus(-1, "Bogus AsyncOp just for tests."), VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE);
+        return fetchStrategy.fetch(new HdfsFile(fs.getFileStatus(source)),
+                dest,
+                checkSumType);
+    }
+
 
     public static File createTempDir() {
         return createTempDir(new File(System.getProperty("java.io.tmpdir")));
@@ -405,10 +422,7 @@ public class HdfsFetcherAdvancedTest {
                .doAnswer(Mockito.CALLS_REAL_METHODS)
                .when(spyfs)
                .open(source);
-        Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer };
-        CheckSum ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
-                                                             "copyFileWithCheckSumTest",
-                                                             params);
+        CheckSum ckSum = copyFileWithCheckSumTest(fetcher, spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer);
         assertEquals(Arrays.equals(ckSum.getCheckSum(), checksumCalculated), true);
     }
 
@@ -431,12 +445,10 @@ public class HdfsFetcherAdvancedTest {
                .when(spyinput)
                .read();
         Mockito.doReturn(spyinput).doReturn(input).when(spyfs).open(source);
-        Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer };
 
         CheckSum ckSum = null;
         try {
-            ckSum = (CheckSum) this.invokePrivateMethod(fetcher, "copyFileWithCheckSumTest",
-                                                             params);
+            ckSum = copyFileWithCheckSumTest(fetcher, spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer);
         } catch(Exception ex) {
             if(isCompressed) {
                 // This is expected
@@ -463,10 +475,7 @@ public class HdfsFetcherAdvancedTest {
                .doAnswer(Mockito.CALLS_REAL_METHODS)
                .when(spyfs)
                .open(source);
-        Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer };
-        CheckSum ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
-                                                             "copyFileWithCheckSumTest",
-                                                             params);
+        CheckSum ckSum = copyFileWithCheckSumTest(fetcher, spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer);
         assertEquals(Arrays.equals(ckSum.getCheckSum(), checksumCalculated), true);
     }
 

@@ -6,6 +6,7 @@ import org.apache.log4j.Logger;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.utils.Utils;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -38,7 +39,7 @@ public class BasicFetchStrategy implements FetchStrategy {
                               int bufferSize) {
         this.fs = fs;
         this.stats = stats;
-        this.status = status;
+        this.status = Utils.notNull(status);
         this.buffer = new byte[bufferSize];
         this.bufferSize = bufferSize;
         this.fetcher = fetcher;
@@ -86,9 +87,10 @@ public class BasicFetchStrategy implements FetchStrategy {
 
         OutputStream output = null;
         long startTimeMS = System.currentTimeMillis();
+        int previousAttempt = 0;
 
-        for (int attempt = 0; attempt < fetcher.getMaxAttempts(); attempt++) {
-            boolean success = true;
+        for (int attempt = 1; attempt <= fetcher.getMaxAttempts(); attempt++) {
+            boolean success = false;
             long totalBytesRead = 0;
             boolean fsOpened = false;
             try {
@@ -98,7 +100,8 @@ public class BasicFetchStrategy implements FetchStrategy {
                     fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
                 }
 
-                logger.info("Attempt " + attempt + " at copy of " + source + " to " + dest);
+                logger.info("Starting attempt #" + attempt + "/" + fetcher.getMaxAttempts() +
+                        " to fetch remote file: " + source + " to local destination: " + dest);
 
                 input = new ThrottledInputStream(fs.open(source.getPath()), fetcher.getThrottler(), stats);
 
@@ -130,18 +133,24 @@ public class BasicFetchStrategy implements FetchStrategy {
 
                     stats.recordBytesWritten(read);
                     totalBytesRead += read;
-                    if (stats.getBytesTransferredSinceLastReport() > fetcher.getReportingIntervalBytes()) {
+                    boolean reportIntervalPassed = stats.getBytesTransferredSinceLastReport() > fetcher.getReportingIntervalBytes();
+                    if (attempt != previousAttempt || reportIntervalPassed) {
+                        previousAttempt = attempt;
                         NumberFormat format = NumberFormat.getNumberInstance();
                         format.setMaximumFractionDigits(2);
                         String message = stats.getTotalBytesTransferred() / (1024 * 1024) + " MB copied at "
-                                + format.format(stats.getBytesTransferredPerSecond() / (1024 * 1024))
-                                + " MB/sec - " + format.format(stats.getPercentCopied())
-                                + " % complete, destination:" + dest;
-                        logger.info(message);
-                        if(this.status != null) {
-                            this.status.setStatus(message);
+                                + format.format(stats.getBytesTransferredPerSecond() / (1024 * 1024)) + " MB/sec"
+                                + ", " + format.format(stats.getPercentCopied()) + " % complete"
+                                + ", attempt: #" + attempt + "/" + fetcher.getMaxAttempts()
+                                + ", current file: " + dest.getName();
+                        this.status.setStatus(message);
+                        // status.toString() is more detailed than just the message. We print the whole
+                        // thing so that server-side logs are very similar to client (BnP) -side logs.
+                        logger.info(this.status.toString());
+
+                        if (reportIntervalPassed) {
+                            stats.reset();
                         }
-                        stats.reset();
                     }
                 }
                 stats.reportFileDownloaded(dest,
@@ -151,20 +160,18 @@ public class BasicFetchStrategy implements FetchStrategy {
                         attempt,
                         totalBytesRead);
                 logger.info("Completed copy of " + source + " to " + dest);
-
+                success = true;
             } catch (IOException e) {
-                success = false;
                 if(!fsOpened) {
                     logger.error("Error while opening the file stream to " + source, e);
                 } else {
-                    logger.error("Error while copying file " + source + " after " + totalBytesRead
-                            + " bytes.", e);
+                    logger.error("Error while copying file " + source + " after " + totalBytesRead + " bytes.", e);
                 }
                 if(e.getCause() != null) {
                     logger.error("Cause of error ", e.getCause());
                 }
 
-                if(attempt < fetcher.getMaxAttempts() - 1) {
+                if(attempt < fetcher.getMaxAttempts()) {
                     logger.info("Will retry copying after " + fetcher.getRetryDelayMs() + " ms");
                     sleepForRetryDelayMs();
                 } else {
@@ -179,7 +186,6 @@ public class BasicFetchStrategy implements FetchStrategy {
                     break;
                 }
             }
-            logger.debug("Completed copy of " + source + " to " + dest);
         }
         return fileCheckSumGenerator;
     }
