@@ -99,9 +99,8 @@ public class BasicFetchStrategy implements FetchStrategy {
                     fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
                 }
 
-                logger.info("Starting attempt # " + attempt + " / " + fetcher.getMaxAttempts() +
-                        " to fetch remote file: " + source +
-                        "\nLocal destination: " + dest);
+                logger.info("Starting attempt #" + attempt + "/" + fetcher.getMaxAttempts() +
+                        " to fetch remote file: " + source + " to local destination: " + dest);
 
                 input = new ThrottledInputStream(fs.open(source.getPath()), fetcher.getThrottler(), stats);
 
@@ -141,7 +140,7 @@ public class BasicFetchStrategy implements FetchStrategy {
                         String message = stats.getTotalBytesTransferred() / (1024 * 1024) + " MB copied at "
                                 + format.format(stats.getBytesTransferredPerSecond() / (1024 * 1024)) + " MB/sec"
                                 + ", " + format.format(stats.getPercentCopied()) + " % complete"
-                                + ", attempt: " + attempt + " / " + fetcher.getMaxAttempts()
+                                + ", attempt: #" + attempt + "/" + fetcher.getMaxAttempts()
                                 + ", current file: " + dest.getName();
                         if(this.status != null) {
                             this.status.setStatus(message);
