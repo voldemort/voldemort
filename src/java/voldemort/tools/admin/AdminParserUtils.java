@@ -76,6 +76,8 @@ public class AdminParserUtils {
     // defined argument strings
     public static final String ARG_FORMAT_HEX = "hex";
     public static final String ARG_FORMAT_JSON = "json";
+    // This format creates a file compatible with the update-entries command
+    public static final String ARG_FORMAT_BINARY = "binary";
 
     /**
      * Adds OPT_ALL_NODES option to OptionParser, without argument.
@@ -170,9 +172,9 @@ public class AdminParserUtils {
      * @param required Tells if this option is required or optional
      */
     public static void acceptsFormat(OptionParser parser) {
-        parser.accepts(OPT_FORMAT, "format of key or entry, could be hex or json")
+        parser.accepts(OPT_FORMAT, "format of key or entry, could be hex, json or binary")
               .withRequiredArg()
-              .describedAs("hex | json")
+              .describedAs("hex | json | binary")
               .ofType(String.class);
     }
 
