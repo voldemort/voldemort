@@ -183,7 +183,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
             stream.println("  stream fetch-entries -n <node-id>");
             stream.println("                       (-p <partition-id-list> | --all-partitions | --orphaned)");
             stream.println("                       (-s <store-name-list> | --all-stores) -u <url>");
-            stream.println("                       [-d <output-dir>] [--format json | hex]");
+            stream.println("                       [-d <output-dir>] [--format json | hex | binary]");
             stream.println();
             getParser().printHelpOn(stream);
             stream.println();
@@ -413,6 +413,25 @@ public class AdminCommandStream extends AbstractAdminCommand {
                             }
                         }
                     });
+                } else if(format.equals(AdminParserUtils.ARG_FORMAT_BINARY)) {
+                    writeBinary(outFile, new Printable() {
+
+                        @Override
+                        public void printTo(DataOutputStream out) throws IOException {
+                            while(entryIterator.hasNext()) {
+                                Pair<ByteArray, Versioned<byte[]>> kvPair = entryIterator.next();
+                                byte[] keyBytes = kvPair.getFirst().get();
+                                byte[] versionBytes = ((VectorClock) kvPair.getSecond().getVersion()).toBytes();
+                                byte[] valueBytes = kvPair.getSecond().getValue();
+                                out.writeInt(keyBytes.length);
+                                out.write(keyBytes);
+                                out.writeInt(versionBytes.length);
+                                out.write(versionBytes);
+                                out.writeInt(valueBytes.length);
+                                out.write(valueBytes);
+                            }
+                        }
+                    });
                 } else {
                     throw new VoldemortException("Invalid format \'" + format + "\'.");
                 }
@@ -476,7 +495,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
             stream.println("  stream fetch-keys -n <node-id>");
             stream.println("                    (-p <partition-id-list> | --all-partitions | --orphaned)");
             stream.println("                    (-s <store-name-list> | --all-stores) -u <url>");
-            stream.println("                    [-d <output-dir>] [--format json | hex]");
+            stream.println("                    [-d <output-dir>] [--format json | hex | binary]");
             stream.println();
             getParser().printHelpOn(stream);
             stream.println();
@@ -665,6 +684,19 @@ public class AdminCommandStream extends AbstractAdminCommand {
                         public void printTo(DataOutputStream out) throws IOException {
                             while(keyIterator.hasNext()) {
                                 byte[] keyBytes = keyIterator.next().get();
+                                out.writeChars(ByteUtils.toHexString(keyBytes) + "\n");
+                            }
+                        }
+                    });
+                } else if(format.equals(AdminParserUtils.ARG_FORMAT_BINARY)) {
+                    writeBinary(outFile, new Printable() {
+
+                        @Override
+                        public void printTo(DataOutputStream out) throws IOException {
+                            while(keyIterator.hasNext()) {
+                                byte[] keyBytes = keyIterator.next().get();
+                                out.writeInt(keyBytes.length);
+                                out.write(keyBytes);
                                 out.writeChars(ByteUtils.toHexString(keyBytes) + "\n");
                             }
                         }
