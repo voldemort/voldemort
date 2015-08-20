@@ -29,13 +29,17 @@ public abstract class AsyncOperation implements Runnable {
 
     public void run() {
         updateStatus("Started " + getStatus());
+        String previousThreadName = Thread.currentThread().getName();
+        Thread.currentThread().setName(previousThreadName + "; AsyncOperation ID " + status.getId() + ": " + status.getDescription());
         try {
             operate();
         } catch(Exception e) {
             status.setException(e);
+        } finally {
+            Thread.currentThread().setName(previousThreadName);
+            updateStatus("Finished " + getStatus());
+            markComplete();
         }
-        updateStatus("Finished " + getStatus());
-        markComplete();
     }
 
     @Override

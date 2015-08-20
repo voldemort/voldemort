@@ -24,6 +24,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.MBeanOperationInfo;
 
@@ -48,6 +49,9 @@ public class SchedulerService extends AbstractService {
 
     private static final Logger logger = Logger.getLogger(SchedulerService.class);
     private boolean mayInterrupt;
+    private static final String THREAD_NAME_PREFIX = "voldemort-scheduler-service";
+    private static final AtomicInteger schedulerServiceCount = new AtomicInteger(0);
+    private final String schedulerName = THREAD_NAME_PREFIX + schedulerServiceCount.incrementAndGet();
 
     private class ScheduledRunnable {
 
@@ -91,7 +95,7 @@ public class SchedulerService extends AbstractService {
     public SchedulerService(int schedulerThreads, Time time, boolean mayInterrupt) {
         super(ServiceType.SCHEDULER);
         this.time = time;
-        this.scheduler = new SchedulerThreadPool(schedulerThreads);
+        this.scheduler = new SchedulerThreadPool(schedulerThreads, schedulerName);
         this.scheduledJobResults = new ConcurrentHashMap<String, ScheduledFuture>();
         this.allJobs = new ConcurrentHashMap<String, ScheduledRunnable>();
         this.mayInterrupt = mayInterrupt;
@@ -215,14 +219,28 @@ public class SchedulerService extends AbstractService {
      * A scheduled thread pool that fixes some default behaviors
      */
     private static class SchedulerThreadPool extends ScheduledThreadPoolExecutor {
-
-        public SchedulerThreadPool(int numThreads) {
+        public SchedulerThreadPool(int numThreads, final String schedulerName) {
             super(numThreads, new ThreadFactory() {
+                private AtomicInteger threadCount = new AtomicInteger(0);
 
+                /**
+                 * This function is overridden in order to activate the daemon mode as well as
+                 * to give a human readable name to threads used by the {@link SchedulerService}.
+                 * 
+                 * Previously, this function would set the thread's name to the value of the passed-in
+                 * {@link Runnable}'s class name, but this is useless since it always ends up being a
+                 * java.util.concurrent.ThreadPoolExecutor$Worker
+                 *
+                 * Instead, a generic name is now used, and the thread's name can be set more
+                 * precisely during {@link voldemort.server.protocol.admin.AsyncOperation#run()}.
+                 * 
+                 * @param r {@link Runnable} to execute
+                 * @return a new {@link Thread} appropriate for use within the {@link SchedulerService}.
+                 */
                 public Thread newThread(Runnable r) {
                     Thread thread = new Thread(r);
                     thread.setDaemon(true);
-                    thread.setName(r.getClass().getName());
+                    thread.setName(schedulerName + "-t" + threadCount.incrementAndGet());
                     return thread;
                 }
             });
