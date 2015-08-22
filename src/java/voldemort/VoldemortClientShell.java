@@ -26,6 +26,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.StringReader;
+import java.nio.ByteBuffer;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -536,6 +537,9 @@ public class VoldemortClientShell {
         } else if(o instanceof byte[]) {
             byte[] a = (byte[]) o;
             commandOutput.print(Arrays.toString(a));
+        } else if(o instanceof ByteBuffer) {
+            ByteBuffer buffer = (ByteBuffer) o;
+            commandOutput.print(ByteUtils.toHexString(buffer.array()));
         } else {
             commandOutput.print(o);
         }

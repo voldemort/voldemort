@@ -33,6 +33,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.Writer;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -41,6 +42,7 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.util.Utf8;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -284,6 +286,22 @@ public class AdminCommandStream extends AbstractAdminCommand {
                                  format);
         }
 
+        public static void writeObjectAsJson(BufferedWriter out,
+                                             Object object,
+                                             JsonGenerator generator)
+                throws IOException {
+            if(object instanceof GenericRecord) {
+                out.write(object.toString());
+            } else if(object instanceof Utf8) {
+                out.write(object.toString());
+            } else if(object instanceof ByteBuffer) {
+                ByteBuffer buffer = (ByteBuffer) object;
+                out.write(ByteUtils.toHexString(buffer.array()));
+            } else {
+                generator.writeObject(object);
+            }
+        }
+
         /**
          * Fetches entries from a given node.
          * 
@@ -363,7 +381,6 @@ public class AdminCommandStream extends AbstractAdminCommand {
                     }
 
                     writeAscii(outFile, new Writable() {
-
                         @Override
                         public void writeTo(BufferedWriter out) throws IOException {
 
@@ -378,17 +395,10 @@ public class AdminCommandStream extends AbstractAdminCommand {
                                                                                                           : keyCompressionStrategy.inflate(keyBytes));
                                 Object valueObject = valueSerializer.toObject((null == valueCompressionStrategy) ? valueBytes
                                                                                                                 : valueCompressionStrategy.inflate(valueBytes));
-                                if(keyObject instanceof GenericRecord) {
-                                    out.write(keyObject.toString());
-                                } else {
-                                    generator.writeObject(keyObject);
-                                }
+
+                                writeObjectAsJson(out, keyObject, generator);
                                 out.write(' ' + version.toString() + ' ');
-                                if(valueObject instanceof GenericRecord) {
-                                    out.write(valueObject.toString());
-                                } else {
-                                    generator.writeObject(valueObject);
-                                }
+                                writeObjectAsJson(out, valueObject, generator);
                                 out.write('\n');
                             }
                         }
@@ -649,11 +659,9 @@ public class AdminCommandStream extends AbstractAdminCommand {
                                 Object keyObject = serializer.toObject((null == keysCompressionStrategy) ? keyBytes
                                                                                                         : keysCompressionStrategy.inflate(keyBytes));
 
-                                if(keyObject instanceof GenericRecord) {
-                                    out.write(keyObject.toString());
-                                } else {
-                                    generator.writeObject(keyObject);
-                                }
+                                SubCommandStreamFetchEntries.writeObjectAsJson(out,
+                                                                               keyObject,
+                                                                               generator);
                                 out.write('\n');
                             }
                         }
