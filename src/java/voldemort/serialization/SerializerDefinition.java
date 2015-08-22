@@ -144,6 +144,18 @@ public class SerializerDefinition {
                && this.hasVersion == s.hasVersion();
     }
 
+    public String getFormattedString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Type : " + name + "\n");
+        sb.append("LatestVersion : " + currentSchemaVersion + "\n");
+        for(Map.Entry<Integer, String> entry: schemaInfoByVersion.entrySet()) {
+            sb.append(" Version " + entry.getKey() + " : " + entry.getValue() + "\n");
+        }
+        sb.append(" Compression : " + compression + "\n");
+        sb.append(" VersionExists : " + hasVersion + "\n");
+        return sb.toString();
+    }
+
     @Override
     public int hashCode() {
         return Arrays.hashCode(new Object[] { name, this.schemaInfoByVersion, compression,

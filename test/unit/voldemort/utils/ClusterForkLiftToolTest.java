@@ -5,6 +5,7 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -16,6 +17,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
+import voldemort.VoldemortApplicationException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
@@ -40,10 +42,16 @@ import com.google.common.collect.Lists;
 
 public class ClusterForkLiftToolTest {
 
-    final static String STORES_XML = "test/common/voldemort/config/two-stores-replicated.xml";
+    final static String SRC_STORES_XML = "test/common/voldemort/config/SRC-two-stores-replicated.xml";
+    final static String DST_STORES_XML = "test/common/voldemort/config/DST-two-stores-replicated.xml";
     final static String PRIMARY_RESOLVING_STORE_NAME = "test";
     final static String GLOBALLY_RESOLVING_STORE_NAME = "best";
     final static String MULTIPLE_VERSIONS_STORE_NAME = "no-res";
+    final static List<String> SCHEMA_MISMATCH_STORES = Arrays.asList("key_compression_diff",
+                                                                     "key_utf8_diff",
+                                                                     "key_type_diff",
+                                                                     "value_type_diff",
+                                                                     "value_type_diff_2");
 
     private String srcBootStrapUrl;
     private String dstBootStrapUrl;
@@ -87,7 +95,7 @@ public class ClusterForkLiftToolTest {
                                                                socketStoreFactory,
                                                                true,
                                                                null,
-                                                               STORES_XML,
+                                                               SRC_STORES_XML,
                                                                new Properties());
             Node node = srcCluster.getNodeById(0);
             srcBootStrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
@@ -100,7 +108,7 @@ public class ClusterForkLiftToolTest {
                                                                socketStoreFactory,
                                                                true,
                                                                null,
-                                                               STORES_XML,
+                                                               DST_STORES_XML,
                                                                new Properties());
             node = dstCluster.getNodeById(0);
             dstBootStrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
@@ -121,7 +129,7 @@ public class ClusterForkLiftToolTest {
                                              new AdminClientConfig(),
                                              new ClientConfig());
 
-            List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(STORES_XML));
+            List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(SRC_STORES_XML));
 
             primaryResolvingStoreDef = StoreUtils.getStoreDef(storeDefs,
                                                               PRIMARY_RESOLVING_STORE_NAME);
@@ -195,6 +203,7 @@ public class ClusterForkLiftToolTest {
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
                                                                    dstBootStrapUrl,
                                                                    false,
+                                                                   false, // ignoreSchemaMismatch
                                                                    10000,
                                                                    1,
                                                                    1000,
@@ -263,6 +272,7 @@ public class ClusterForkLiftToolTest {
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
                                                                    dstBootStrapUrl,
                                                                    false,
+                                                                   false, // ignoreSchemaMismatch
                                                                    10000,
                                                                    1,
                                                                    1000,
@@ -337,6 +347,9 @@ public class ClusterForkLiftToolTest {
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
                                                                    dstBootStrapUrl,
                                                                    true, // OverWrite
+                                                                   false, // ignore
+                                                                          // schema
+                                                                          // mismatch
                                                                    10000,
                                                                    1,
                                                                    1000,
@@ -390,6 +403,7 @@ public class ClusterForkLiftToolTest {
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
                                                                    dstBootStrapUrl,
                                                                    false,
+                                                                   false, // ignoreSchemaMismatch
                                                                    10000,
                                                                    1,
                                                                    1000,
@@ -420,6 +434,40 @@ public class ClusterForkLiftToolTest {
 
         }
         assertEquals("Both conflicting versions present", versions, 2);
+
+    }
+    
+    @Test
+    public void testTypeMismatch() throws Exception {
+        for(String store: SCHEMA_MISMATCH_STORES) {
+            try {
+                // perform the forklifting..
+                ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
+                                                                           dstBootStrapUrl,
+                                                                           false,
+                                                                           false, // ignoreSchemaMismatch
+                                                                           10000,
+                                                                           1,
+                                                                           1000,
+                                                                           Lists.newArrayList(store),
+                                                                           null,
+                                                                           ClusterForkLiftTool.ForkLiftTaskMode.primary_resolution);
+                fail("Incompatible types should have failed");
+            } catch(VoldemortApplicationException e) {
+
+            }
+
+            ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,
+                                                                       dstBootStrapUrl,
+                                                                       false,
+                                                                       true, // ignoreSchemaMismatch
+                                                                       10000,
+                                                                       1,
+                                                                       1000,
+                                                                       Lists.newArrayList(store),
+                                                                       null,
+                                                                       ClusterForkLiftTool.ForkLiftTaskMode.primary_resolution);
+        }
 
     }
 

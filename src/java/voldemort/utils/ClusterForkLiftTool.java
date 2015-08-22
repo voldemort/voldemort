@@ -19,6 +19,7 @@ import joptsimple.OptionSet;
 
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
@@ -29,6 +30,7 @@ import voldemort.client.protocol.admin.StreamingClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.StoreRoutingPlan;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.versioning.ChainedResolver;
@@ -131,6 +133,7 @@ public class ClusterForkLiftTool implements Runnable {
     private static final int DEFAULT_WORKER_POOL_SHUTDOWN_WAIT_MINS = 5;
 
     private static final String OVERWRITE_OPTION = "overwrite";
+    private static final String IGNORE_SCHEMA_MISMATCH = "ignore-schema-mismatch";
     private static final String OVERWRITE_WARNING_MESSAGE = "**WARNING** If source and destination has overlapping keys, will overwrite the destination values "
                                                             + " using source. The option is ir-reversible. The old value if exists in the destination cluster will "
                                                             + " be permanently lost. For keys that only exists in destination, they will be left un-modified. ";
@@ -152,12 +155,17 @@ public class ClusterForkLiftTool implements Runnable {
     public ClusterForkLiftTool(String srcBootstrapUrl,
                                String dstBootstrapUrl,
                                Boolean overwrite,
+                               boolean ignoreSchemaMismatch,
                                int maxPutsPerSecond,
                                int partitionParallelism,
                                int progressOps,
                                List<String> storesList,
                                List<Integer> partitions,
                                ForkLiftTaskMode mode) {
+
+        if(storesList == null || storesList.size() == 0) {
+            throw new IllegalArgumentException("One or more stores expected");
+        }
         // set up AdminClient on source cluster
         this.srcAdminClient = new AdminClient(srcBootstrapUrl,
                                               new AdminClientConfig(),
@@ -172,13 +180,9 @@ public class ClusterForkLiftTool implements Runnable {
         this.mode = mode;
         this.overwrite = overwrite;
 
-        // determine and verify final list of stores to be forklifted over
-        if(storesList != null) {
-            this.storesList = storesList;
-        } else {
-            this.storesList = StoreUtils.getStoreNames(getStoreDefinitions(srcAdminClient), true);
-        }
-        this.srcStoreDefMap = checkStoresOnBothSides();
+        this.storesList = storesList;
+
+        this.srcStoreDefMap = checkStoresOnBothSides(ignoreSchemaMismatch);
 
         // determine the partitions to be fetched
         if(partitions != null) {
@@ -203,7 +207,7 @@ public class ClusterForkLiftTool implements Runnable {
 
     }
 
-    private HashMap<String, StoreDefinition> checkStoresOnBothSides() {
+    private HashMap<String, StoreDefinition> checkStoresOnBothSides(boolean ignoreSchemaMismatch) {
         List<StoreDefinition> srcStoreDefs = getStoreDefinitions(srcAdminClient);
         HashMap<String, StoreDefinition> srcStoreDefMap = StoreUtils.getStoreDefsAsMap(srcStoreDefs);
         List<StoreDefinition> dstStoreDefs = getStoreDefinitions(dstStreamingClient.getAdminClient());
@@ -212,18 +216,45 @@ public class ClusterForkLiftTool implements Runnable {
         Set<String> storesToSkip = new HashSet<String>();
         for(String store: storesList) {
             if(!srcStoreDefMap.containsKey(store)) {
-                logger.warn("Store " + store + " does not exist in source cluster ");
-                storesToSkip.add(store);
+                String message = "Store " + store + " does not exist in source cluster ";
+                logger.warn(message);
+                throw new VoldemortApplicationException(message);
             }
-            if(!dstStoreDefMap.containsKey(store)) {
-                logger.warn("Store " + store + " does not exist in destination cluster ");
-                storesToSkip.add(store);
-            }
-        }
+            StoreDefinition srcStoreDef = srcStoreDefMap.get(store); 
 
-        if(storesToSkip.size() > 0) {
-            logger.warn("List of stores that will be skipped :" + storesToSkip);
-            storesList.removeAll(storesToSkip);
+            if(!dstStoreDefMap.containsKey(store)) {
+                String message = "Store " + store + " does not exist in destination cluster ";
+                logger.warn(message);
+                throw new VoldemortApplicationException(message);
+            }
+            StoreDefinition dstStoreDef = dstStoreDefMap.get(store);
+            
+            if(!ignoreSchemaMismatch) {
+                SerializerDefinition srcKeySerializer = srcStoreDef.getKeySerializer();
+                SerializerDefinition dstKeySerializer = dstStoreDef.getKeySerializer();
+                if(srcKeySerializer.equals(dstKeySerializer) == false) {
+                    String message = "Store "
+                                     + store
+                                     + " Key schema does not match between Source and destination \n";
+                    message += "Source : " + srcKeySerializer.getFormattedString() + "\n";
+                    message += "Destination : " + dstKeySerializer.getFormattedString() + "\n";
+                    logger.warn(message);
+                    throw new VoldemortApplicationException(message);
+                }
+
+                SerializerDefinition srcValueSerializer = srcStoreDef.getValueSerializer();
+                SerializerDefinition dstValueSerializer = dstStoreDef.getValueSerializer();
+                if(srcValueSerializer.equals(dstValueSerializer) == false) {
+                    String message = "Store "
+                                     + store
+                                     + " Value schema does not match between Source and destination \n";
+                    message += "Source : " + srcValueSerializer.getFormattedString() + "\n";
+                    message += "Destination : " + dstValueSerializer.getFormattedString() + "\n";
+                    logger.warn(message);
+                    throw new VoldemortApplicationException(message);
+                }
+
+            }
         }
         return srcStoreDefMap;
     }
@@ -648,8 +679,8 @@ public class ClusterForkLiftTool implements Runnable {
             return;
         }
 
-        if(!options.has("src-url") || !options.has("dst-url")) {
-            logger.error("Both 'src-url' and 'dst-url' options are mandatory");
+        if(!options.has("src-url") || !options.has("dst-url") || !options.has("stores")) {
+            logger.error("'src-url' 'dst-url' and 'stores' are mandatory parameters ");
             parser.printHelpOn(System.out);
             return;
         }
@@ -685,22 +716,13 @@ public class ClusterForkLiftTool implements Runnable {
                 mode = ForkLiftTaskMode.primary_resolution;
         }
 
-        Boolean overwrite = false;
-        if(options.has(OVERWRITE_OPTION)) {
-            if(options.hasArgument(OVERWRITE_OPTION)) {
-                overwrite = (Boolean) options.valueOf(OVERWRITE_OPTION);
-            } else {
-                overwrite = true;
-            }
-        }
-
-        if(overwrite) {
-            logger.warn(OVERWRITE_WARNING_MESSAGE);
-        }
+        Boolean overwrite = extractBoolOption(options, OVERWRITE_OPTION);
+        boolean ignoreSchemaMismatch = extractBoolOption(options, IGNORE_SCHEMA_MISMATCH);
 
         ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootstrapUrl,
                                                                    dstBootstrapUrl,
                                                                    overwrite,
+                                                                   ignoreSchemaMismatch,
                                                                    maxPutsPerSecond,
                                                                    partitionParallelism,
                                                                    progressOps,
@@ -710,6 +732,18 @@ public class ClusterForkLiftTool implements Runnable {
         forkLiftTool.run();
         // TODO cleanly shut down the hanging threadpool
         System.exit(0);
+    }
+
+    private static boolean extractBoolOption(OptionSet options, String optionName) {
+        boolean optionValue = false;
+        if(options.has(optionName)) {
+            if(options.hasArgument(optionName)) {
+                optionValue = (Boolean) options.valueOf(optionName);
+            } else {
+                optionValue = true;
+            }
+        }
+        return optionValue;
     }
 
 }
