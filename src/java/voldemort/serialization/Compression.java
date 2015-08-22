@@ -4,6 +4,11 @@ import com.google.common.base.Preconditions;
 
 public final class Compression {
 
+    @Override
+    public String toString() {
+        return "Compression [type=" + type + ", options=" + options + "]";
+    }
+
     private final String type;
 
     private final String options;
