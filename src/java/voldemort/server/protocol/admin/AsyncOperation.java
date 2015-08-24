@@ -30,7 +30,7 @@ public abstract class AsyncOperation implements Runnable {
     public void run() {
         updateStatus("Started " + getStatus());
         String previousThreadName = Thread.currentThread().getName();
-        Thread.currentThread().setName(previousThreadName + "; AsyncOperation ID " + status.getId() + ": " + status.getDescription());
+        Thread.currentThread().setName(previousThreadName + "; AsyncOp ID " + status.getId());
         try {
             operate();
         } catch(Exception e) {
