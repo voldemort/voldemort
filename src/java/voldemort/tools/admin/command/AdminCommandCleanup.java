@@ -136,8 +136,6 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
          * rebalancing is done. Previously known as "--repair-job".
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
@@ -266,8 +264,6 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
          * during rebalancing Previously known as "--prune-job".
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
@@ -404,8 +400,6 @@ public class AdminCommandCleanup extends AbstractAdminCommand {
          * as "--purge-slops".
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */

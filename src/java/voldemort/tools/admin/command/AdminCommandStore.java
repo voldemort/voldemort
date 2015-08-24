@@ -156,8 +156,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * stores.xml file.
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
@@ -275,8 +273,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * stores.xml file.
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
@@ -392,8 +388,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * Parses command-line and deletes given list of stores on given nodes.
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
@@ -544,8 +538,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * version.
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
@@ -672,8 +664,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * node.
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
@@ -824,8 +814,6 @@ public class AdminCommandStore extends AbstractAdminCommand {
          * Parses command-line and removes contents of stores.
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */

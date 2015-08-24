@@ -304,7 +304,7 @@ public class AdminCommandAsyncJob extends AbstractAdminCommand {
          * Stop async jobs on a single nodes.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param node Node to stop async jobs
+         * @param nodeId Node to stop async jobs
          * @param jobIds List of async jobs to be stopped
          */
         public static void doAsyncJobStop(AdminClient adminClient,

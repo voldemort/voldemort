@@ -26,6 +26,15 @@ import voldemort.VoldemortException;
  */
 public abstract class AbstractAdminCommand {
 
+    protected static final String DEBUG_COMMAND_WARNING =
+            "WARNING: This command is intended only for debugging purposes, not production.";
+
+    protected static void printDebugCommandWarning(PrintStream stream) {
+        stream.println();
+        stream.println(DEBUG_COMMAND_WARNING);
+        stream.println();
+    }
+
     /**
      * Initializes parser
      * 

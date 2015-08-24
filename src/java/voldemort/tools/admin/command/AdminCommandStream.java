@@ -110,7 +110,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
         stream.println();
         stream.println("To get more information on each command,");
         stream.println("please try \'help stream <command-name>\'.");
-        stream.println();
+        printDebugCommandWarning(stream);
     }
 
     /**
@@ -186,7 +186,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
             stream.println("                       (-p <partition-id-list> | --all-partitions | --orphaned)");
             stream.println("                       (-s <store-name-list> | --all-stores) -u <url>");
             stream.println("                       [-d <output-dir>] [--format json | hex | binary]");
-            stream.println();
+            printDebugCommandWarning(stream);
             getParser().printHelpOn(stream);
             stream.println();
         }
@@ -195,13 +195,13 @@ public class AdminCommandStream extends AbstractAdminCommand {
          * Parses command-line and fetches entries from a given node.
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
         @SuppressWarnings("unchecked")
         public static void executeCommand(String[] args) throws IOException {
+
+            printDebugCommandWarning(System.out);
 
             OptionParser parser = getParser();
 
@@ -506,7 +506,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
             stream.println("                    (-p <partition-id-list> | --all-partitions | --orphaned)");
             stream.println("                    (-s <store-name-list> | --all-stores) -u <url>");
             stream.println("                    [-d <output-dir>] [--format json | hex | binary]");
-            stream.println();
+            printDebugCommandWarning(stream);
             getParser().printHelpOn(stream);
             stream.println();
         }
@@ -515,13 +515,13 @@ public class AdminCommandStream extends AbstractAdminCommand {
          * Parses command-line and fetches keys from a given node.
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
         @SuppressWarnings("unchecked")
         public static void executeCommand(String[] args) throws IOException {
+
+            printDebugCommandWarning(System.out);
 
             OptionParser parser = getParser();
 
@@ -781,7 +781,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
             stream.println("  stream mirror --from-url <src-url> --from-node <src-node-id>");
             stream.println("                --to-url <dest-url> --to-node <dest-node-id>");
             stream.println("                (-s <store-name-list> | --all-stores) [--confirm]");
-            stream.println();
+            printDebugCommandWarning(stream);
             getParser().printHelpOn(stream);
             stream.println();
         }
@@ -790,13 +790,13 @@ public class AdminCommandStream extends AbstractAdminCommand {
          * Parses command-line and mirrors data from a node to another.
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
         @SuppressWarnings("unchecked")
         public static void executeCommand(String[] args) throws IOException {
+
+            printDebugCommandWarning(System.out);
 
             OptionParser parser = getParser();
 
@@ -910,7 +910,7 @@ public class AdminCommandStream extends AbstractAdminCommand {
             stream.println("SYNOPSIS");
             stream.println("  stream update-entries -d <input-dir> -n <node-id> -u <url>");
             stream.println("                        [-s <store-name-list>] [--confirm]");
-            stream.println();
+            printDebugCommandWarning(stream);
             getParser().printHelpOn(stream);
             stream.println();
         }
@@ -919,13 +919,13 @@ public class AdminCommandStream extends AbstractAdminCommand {
          * Parses command-line and updates entries on a given node.
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws Exception
          * 
          */
         @SuppressWarnings("unchecked")
         public static void executeCommand(String[] args) throws Exception {
+
+            printDebugCommandWarning(System.out);
 
             OptionParser parser = getParser();
 

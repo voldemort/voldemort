@@ -310,11 +310,11 @@ public class AdminCommandScheduled extends AbstractAdminCommand {
          * Stop jobs on a single nodes.
          * 
          * @param adminClient An instance of AdminClient points to given cluster
-         * @param node Node to stop jobs
+         * @param nodeId Node to stop jobs
          * @param jobIds List of jobs to be stopped
          */
         public static void doStopScheduledJobs(AdminClient adminClient,
-                                          Integer nodeId,
+                                               Integer nodeId,
                                                List<String> jobIds) {
             for(String jobId: jobIds) {
                 System.out.println("Stopping job id " + jobId);

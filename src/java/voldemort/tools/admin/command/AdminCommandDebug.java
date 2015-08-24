@@ -179,8 +179,6 @@ public class AdminCommandDebug extends AbstractAdminCommand {
          * Parses command-line and queries stores for a set of keys
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws IOException
          * 
          */
@@ -587,8 +585,6 @@ public class AdminCommandDebug extends AbstractAdminCommand {
          * Usage: debug route ((-h | -j) <key-list>) -s <store-name> -u <url>
          * 
          * @param args Command-line input
-         * @param printHelp Tells whether to print help only or execute command
-         *        actually
          * @throws Exception
          * 
          */
