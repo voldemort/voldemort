@@ -217,7 +217,7 @@ public class VoldemortServer extends AbstractService {
         onlineServices = Lists.newArrayList();
         if(voldemortConfig.isHttpServerEnabled()) {
             /*
-             * TODO REST-Server 1. Need to decide on replacing HttpService
+             * TODO: Get rid of HTTP Service.
              */
             HttpService httpService = new HttpService(this,
                                                       storageService,

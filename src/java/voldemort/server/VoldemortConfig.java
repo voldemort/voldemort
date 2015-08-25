@@ -476,7 +476,7 @@ public class VoldemortConfig implements Serializable {
         this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 100000);
         this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);
 
-        this.enableHttpServer = props.getBoolean("http.enable", true);
+        this.enableHttpServer = props.getBoolean("http.enable", false);
         this.enableSocketServer = props.getBoolean("socket.enable", true);
         this.enableAdminServer = props.getBoolean("admin.enable", true);
         this.enableJmx = props.getBoolean("jmx.enable", true);
@@ -1604,6 +1604,7 @@ public class VoldemortConfig implements Serializable {
         this.nioAdminConnectorSelectors = nioAdminConnectorSelectors;
     }
 
+    @Deprecated
     public boolean isHttpServerEnabled() {
         return enableHttpServer;
     }
@@ -1612,10 +1613,11 @@ public class VoldemortConfig implements Serializable {
      * Whether or not the {@link HttpService} is enabled
      * <ul>
      * <li>Property :"http.enable"</li>
-     * <li>Default :true</li>
+     * <li>Default :false</li>
      * </ul>
      * 
      */
+    @Deprecated
     public void setEnableHttpServer(boolean enableHttpServer) {
         this.enableHttpServer = enableHttpServer;
     }
@@ -3268,6 +3270,7 @@ public class VoldemortConfig implements Serializable {
         this.restServiceStorageThreadPoolQueueSize = restServiceStorageThreadPoolQueueSize;
     }
 
+    @Deprecated
     public int getMaxHttpAggregatedContentLength() {
         return maxHttpAggregatedContentLength;
     }
@@ -3279,6 +3282,7 @@ public class VoldemortConfig implements Serializable {
      * <li>Default : 1048576</li>
      * </ul>
      */
+    @Deprecated
     public void setMaxHttpAggregatedContentLength(int maxHttpAggregatedContentLength) {
         this.maxHttpAggregatedContentLength = maxHttpAggregatedContentLength;
     }

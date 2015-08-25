@@ -6,7 +6,6 @@ import org.apache.log4j.Logger;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
-import voldemort.utils.Utils;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -39,7 +38,7 @@ public class BasicFetchStrategy implements FetchStrategy {
                               int bufferSize) {
         this.fs = fs;
         this.stats = stats;
-        this.status = Utils.notNull(status);
+        this.status = status;
         this.buffer = new byte[bufferSize];
         this.bufferSize = bufferSize;
         this.fetcher = fetcher;
@@ -143,10 +142,16 @@ public class BasicFetchStrategy implements FetchStrategy {
                                 + ", " + format.format(stats.getPercentCopied()) + " % complete"
                                 + ", attempt: #" + attempt + "/" + fetcher.getMaxAttempts()
                                 + ", current file: " + dest.getName();
-                        this.status.setStatus(message);
-                        // status.toString() is more detailed than just the message. We print the whole
-                        // thing so that server-side logs are very similar to client (BnP) -side logs.
-                        logger.info(this.status.toString());
+                        if (this.status == null) {
+                            // This is to accommodate tests and the old ReadOnlyStoreManagementServlet code path
+                            // FIXME: Delete this when we get rid of the old code which does not use status
+                            logger.info(message);
+                        } else {
+                            this.status.setStatus(message);
+                            // status.toString() is more detailed than just the message. We print the whole
+                            // thing so that server-side logs are very similar to client (BnP) -side logs.
+                            logger.info(this.status.toString());
+                        }
 
                         if (reportIntervalPassed) {
                             stats.reset();

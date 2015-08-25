@@ -42,9 +42,13 @@ import voldemort.server.storage.StorageService;
 
 /**
  * An embedded http server that uses jetty
- * 
- * 
+ *
+ * DEPRECATED: Do not use anymore. This class has logic duplicated from the
+ * {@link voldemort.server.protocol.admin.AdminServiceRequestHandler}. It has
+ * not been maintained properly.
+ *
  */
+@Deprecated
 @JmxManaged(description = "A store connector that serves remote clients via HTTP.")
 public class HttpService extends AbstractService {
 

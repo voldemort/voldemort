@@ -60,9 +60,13 @@ import com.google.common.collect.Maps;
  * operation="rollback", store=[name-of-store],
  * pushVersion=[version-of-push-to-rollback-to]</li>
  * </ol>
- * 
+ *
+ * DEPRECATED: Do not use anymore. This class has logic duplicated from the
+ * {@link voldemort.server.protocol.admin.AdminServiceRequestHandler}. It has
+ * not been maintained properly.
  * 
  */
+@Deprecated
 public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1;

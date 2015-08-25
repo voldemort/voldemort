@@ -37,9 +37,13 @@ import voldemort.utils.Utils;
 /**
  * Handles requests from HttpStores and multiplexes them to the appropriate
  * sub-store for actual storage
- * 
- * 
+ *
+ * DEPRECATED: Do not use anymore. This class has logic duplicated from the
+ * {@link voldemort.server.protocol.admin.AdminServiceRequestHandler}. It has
+ * not been maintained properly.
+ *
  */
+@Deprecated
 public class StoreServlet extends HttpServlet {
 
     private static final Logger logger = Logger.getLogger(StoreServlet.class);

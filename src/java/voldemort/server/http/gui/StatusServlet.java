@@ -39,8 +39,13 @@ import com.google.common.collect.Maps;
  * 
  * /server-status?action=reset&store=<storename> resets the stats for a given
  * store
- * 
+ *
+ * DEPRECATED: Do not use anymore. This class has logic duplicated from the
+ * {@link voldemort.server.protocol.admin.AdminServiceRequestHandler}. It has
+ * not been maintained properly.
+ *
  */
+@Deprecated
 public class StatusServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1;

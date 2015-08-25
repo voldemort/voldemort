@@ -32,9 +32,13 @@ import com.google.common.collect.Maps;
 
 /**
  * Main servlet for the admin interface
- * 
- * 
+ *
+ * DEPRECATED: Do not use anymore. This class has logic duplicated from the
+ * {@link voldemort.server.protocol.admin.AdminServiceRequestHandler}. It has
+ * not been maintained properly.
+ *
  */
+@Deprecated
 public class AdminServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1;

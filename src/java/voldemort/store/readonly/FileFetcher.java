@@ -19,6 +19,18 @@ import voldemort.store.metadata.MetadataStore;
  */
 public interface FileFetcher {
 
+    /**
+     * This code path is only used by tests and by the old unused
+     * {@link voldemort.server.http.gui.ReadOnlyStoreManagementServlet}.
+     *
+     * Do not use anymore, as it may go away in the future.
+     *
+     * @param source
+     * @param dest
+     * @return
+     * @throws IOException
+     */
+    @Deprecated
     public File fetch(String source, String dest) throws IOException;
 
     public File fetch(String source,
