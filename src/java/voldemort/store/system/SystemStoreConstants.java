@@ -64,7 +64,7 @@ public class SystemStoreConstants {
 
                                                      + "  <store>"
                                                      + "    <name>voldsys$_metadata_version_persistence</name>"
-                                                     + "    <routing-strategy>local-pref-all-routing</routing-strategy>"
+                                                     + "    <routing-strategy>all-routing</routing-strategy>"
                                                      + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
                                                      + "    <persistence>file-backed-cache</persistence>"
                                                      + "    <routing>client</routing>"
@@ -81,7 +81,7 @@ public class SystemStoreConstants {
 
                                                      + "  <store>"
                                                      + "    <name>voldsys$_store_quotas</name>"
-                                                     + "    <routing-strategy>local-pref-all-routing</routing-strategy>"
+                                                     + "    <routing-strategy>all-routing</routing-strategy>"
                                                      + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
                                                      + "    <persistence>file-backed-cache</persistence>"
                                                      + "    <routing>client</routing>"
