@@ -1062,11 +1062,11 @@ public class ServerTestUtils {
         // Need to trace through the constructor VoldemortServer(VoldemortConfig
         // config, Cluster cluster) to understand how this error is possible,
         // and why it only happens intermittently.
-        final int MAX_ATTEMPTS = 3;
+        final int MAX_ATTEMPTS = 120;
         VoldemortException lastVE = null;
-        for(int i = 0; i < MAX_ATTEMPTS; i++) {
+        for(int i = 1; i <= MAX_ATTEMPTS; i++) {
+            VoldemortServer server = null;
             try {
-                VoldemortServer server = null;
                 if(cluster != null) {
                     server = new VoldemortServer(config, cluster);
                 } else {
@@ -1077,9 +1077,12 @@ public class ServerTestUtils {
                 // wait till server starts or throw exception
                 return server;
             } catch(VoldemortException ve) {
+                if (server != null) {
+                    server.stop();
+                }
                 if(ve.getCause() instanceof BindException) {
                     ve.printStackTrace();
-                    trySleep(100);
+                    trySleep(Math.min(100 * i, 1000));
                     lastVE = ve;
                 } else {
                     throw ve;
