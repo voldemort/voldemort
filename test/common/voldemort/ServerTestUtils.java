@@ -76,10 +76,7 @@ import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
-import voldemort.utils.ClosableIterator;
-import voldemort.utils.Props;
+import voldemort.utils.*;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -1062,10 +1059,15 @@ public class ServerTestUtils {
         // Need to trace through the constructor VoldemortServer(VoldemortConfig
         // config, Cluster cluster) to understand how this error is possible,
         // and why it only happens intermittently.
-        final int MAX_ATTEMPTS = 120;
+        final int MAX_NUMBER_OF_ATTEMPTS = 120;
+        final long MAX_RETRY_TIME_IN_MS = 5 * Time.MS_PER_MINUTE; // 5 minutes
         VoldemortException lastVE = null;
-        for(int i = 1; i <= MAX_ATTEMPTS; i++) {
+        long startTime = System.currentTimeMillis(), currentTime = System.currentTimeMillis();
+        for (int i = 1;
+             (i <= MAX_NUMBER_OF_ATTEMPTS) && (currentTime - startTime < MAX_RETRY_TIME_IN_MS);
+             i++, currentTime = System.currentTimeMillis()) {
             VoldemortServer server = null;
+            boolean success = false;
             try {
                 if(cluster != null) {
                     server = new VoldemortServer(config, cluster);
@@ -1075,17 +1077,24 @@ public class ServerTestUtils {
                 server.start();
                 ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
                 // wait till server starts or throw exception
+                success = true;
                 return server;
             } catch(VoldemortException ve) {
-                if (server != null) {
-                    server.stop();
-                }
                 if(ve.getCause() instanceof BindException) {
                     ve.printStackTrace();
                     trySleep(Math.min(100 * i, 1000));
                     lastVE = ve;
                 } else {
                     throw ve;
+                }
+            } finally {
+                if (!success && server != null) {
+                    // This is in case new VoldemortServer() worked but ServerTestUtils.waitForServerStart() failed.
+                    try {
+                        server.stop();
+                    } catch (Exception e) {
+                        logger.error("Got an exception while trying to close a VoldemortServer", e);
+                    }
                 }
             }
         }
