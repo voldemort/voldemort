@@ -221,11 +221,27 @@ public class Props implements Map<String, String> {
             return defaultValue;
     }
 
+    /**
+     * @param name of the key to retrieve
+     * @return an int of the requested value
+     * @throws UndefinedPropertyException if the requested key is absent
+     */
     public int getInt(String name) {
         if(containsKey(name))
             return Integer.parseInt(get(name));
         else
             throw new UndefinedPropertyException(name);
+    }
+
+    /**
+     * @param name of the key to retrieve
+     * @return an Integer of the requested value, or null if absent
+     */
+    public Integer getNullableInt(String name) {
+        if(containsKey(name))
+            return Integer.parseInt(get(name));
+        else
+            return null;
     }
 
     public double getDouble(String name, double defaultValue) {

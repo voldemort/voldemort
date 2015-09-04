@@ -1609,9 +1609,7 @@ public class AdminClient implements Closeable {
          * @param def the definition of the store to add
          */
         public void addStore(StoreDefinition def) {
-            for(Node node: currentCluster.getNodes()) {
-                addStore(def, node.getId());
-            }
+            addStore(def, currentCluster.getNodeIds());
         }
 
         /**
@@ -1622,31 +1620,7 @@ public class AdminClient implements Closeable {
          * @param nodeId Node on which to add the store
          */
         public void addStore(StoreDefinition def, int nodeId) {
-            // Check for backwards compatibility
-            StoreDefinitionUtils.validateSchemasAsNeeded(Arrays.asList(def));
-
-            String value = storeMapper.writeStore(def);
-
-            VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
-                                                                                             .setStoreDefinition(value);
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.ADD_STORE)
-                                                                                         .setAddStore(addStoreRequest)
-                                                                                         .build();
-
-            Node node = currentCluster.getNodeById(nodeId);
-            if(null == node)
-                throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
-
-            logger.info("Adding store " + def.getName() + " on node " + node.getHost() + ":"
-                        + node.getId());
-            VAdminProto.AddStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
-                                                                                  request,
-                                                                                  VAdminProto.AddStoreResponse.newBuilder());
-            if(response.hasError())
-                helperOps.throwException(response.getError());
-            logger.info("Succesfully added " + def.getName() + " on node " + node.getHost() + ":"
-                        + node.getId());
+            addStore(def, Lists.newArrayList(nodeId));
         }
 
         public void addStore(StoreDefinition def, Collection<Integer> nodeIds) {
@@ -1666,16 +1640,14 @@ public class AdminClient implements Closeable {
                     throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
                 }
 
-                logger.info("Adding store " + def.getName() + " on node " + node.getHost() + ":"
-                            + nodeId);
+                logger.info("Adding store " + def.getName() + " on " + node.briefToString());
                 VAdminProto.AddStoreResponse.Builder response = rpcOps.sendAndReceive(nodeId,
                                                                                       request,
                                                                                       VAdminProto.AddStoreResponse.newBuilder());
                 if(response.hasError()) {
                     helperOps.throwException(response.getError());
                 }
-                logger.info("Succesfully added " + def.getName() + " on node " + node.getHost()
-                            + ":" + nodeId);
+                logger.info("Successfully added " + def.getName() + " on " + node.briefToString());
             }
         }
 
