@@ -56,7 +56,9 @@ import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.checksum.CheckSumMetadata;
 import voldemort.store.readonly.disk.KeyValueWriter;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -330,71 +332,7 @@ public class HadoopStoreBuilder {
                     logger.info("Setting permission to 755 for " + nodePath);
                 }
 
-                if(checkSumType != CheckSumType.NONE) {
-
-                    FileStatus[] storeFiles = outputFs.listStatus(nodePath, new PathFilter() {
-
-                        public boolean accept(Path arg0) {
-                            if(arg0.getName().endsWith("checksum")
-                               && !arg0.getName().startsWith(".")) {
-                                return true;
-                            }
-                            return false;
-                        }
-                    });
-
-                    if(storeFiles != null && storeFiles.length > 0) {
-                        Arrays.sort(storeFiles, new IndexFileLastComparator());
-                        FSDataInputStream input = null;
-
-                        for(FileStatus file: storeFiles) {
-                            try {
-                                // HDFS NameNodes can sometimes GC for extended periods of time,
-                                // hence the exponential back-off strategy below.
-                                // TODO: Refactor all BnP/Voldemort retry code into a pluggable/configurable mechanism
-
-                                int totalAttempts = 4;
-                                int attemptsRemaining = totalAttempts;
-                                while (attemptsRemaining > 0) {
-                                    try {
-                                        attemptsRemaining--;
-                                        input = outputFs.open(file.getPath());
-                                    } catch (Exception e) {
-                                        if (attemptsRemaining < 1) {
-                                            throw e;
-                                        }
-
-                                        // Exponential back-off sleep times: 5s, 25s, 45s.
-                                        int sleepTime = ((totalAttempts - attemptsRemaining) ^ 2) * 5;
-                                        logger.error("Error getting checksum file from HDFS. Retries left: " +
-                                                attemptsRemaining + ". Back-off until next retry: " + sleepTime + " seconds.", e);
-
-                                        Thread.sleep(sleepTime * 1000);
-                                    }
-                                }
-                                byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
-                                input.read(fileCheckSum);
-                                logger.debug("Checksum for file " + file.toString() + " - "
-                                        + new String(Hex.encodeHex(fileCheckSum)));
-                                checkSumGenerator.update(fileCheckSum);
-                            } catch(Exception e) {
-                                logger.error("Error getting checksum file from HDFS", e);
-                            } finally {
-                                if(input != null)
-                                    input.close();
-                            }
-                            outputFs.delete(file.getPath(), false);
-                        }
-
-                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE,
-                                     CheckSum.toString(checkSumType));
-
-                        String checkSum = new String(Hex.encodeHex(checkSumGenerator.getCheckSum()));
-                        logger.info("Checksum for node " + node.getId() + " - " + checkSum);
-
-                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM, checkSum);
-                    }
-                }
+                processCheckSumMetadataFile(node, outputFs, checkSumGenerator, nodePath, metadata);
 
                 // Write metadata
                 Path metadataPath = new Path(nodePath, ".metadata");
@@ -415,9 +353,133 @@ public class HadoopStoreBuilder {
     }
 
     /**
+     * For the given node, following three actions are done:
+     * 
+     * 1. Computes checksum of checksums
+     * 
+     * 2. Computes total data size
+     * 
+     * 3. Computes total index size
+     * 
+     * Finally updates the metadata file with those information
+     * 
+     * @param node
+     * @param outputFs
+     * @param checkSumGenerator
+     * @param nodePath
+     * @param metadata
+     * @throws IOException
+     */
+    private void processCheckSumMetadataFile(Node node,
+                                            FileSystem outputFs,
+                                            CheckSum checkSumGenerator,
+                                            Path nodePath,
+                                            ReadOnlyStorageMetadata metadata) throws IOException {
+
+        long dataSizeInBytes = 0L;
+        long indexSizeInBytes = 0L;
+
+        FileStatus[] storeFiles = outputFs.listStatus(nodePath, new PathFilter() {
+
+            @Override
+            public boolean accept(Path arg0) {
+                if(arg0.getName().endsWith("checksum") && !arg0.getName().startsWith(".")) {
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        if(storeFiles != null && storeFiles.length > 0) {
+            Arrays.sort(storeFiles, new IndexFileLastComparator());
+            FSDataInputStream input = null;
+            CheckSumMetadata checksumMetadata;
+
+            for(FileStatus file: storeFiles) {
+                try {
+                    // HDFS NameNodes can sometimes GC for extended periods
+                    // of time,
+                    // hence the exponential back-off strategy below.
+                    // TODO: Refactor all BnP/Voldemort retry code into a
+                    // pluggable/configurable mechanism
+
+                    int totalAttempts = 4;
+                    int attemptsRemaining = totalAttempts;
+                    while(attemptsRemaining > 0) {
+                        try {
+                            attemptsRemaining--;
+                            input = outputFs.open(file.getPath());
+                        } catch(Exception e) {
+                            if(attemptsRemaining < 1) {
+                                throw e;
+                            }
+
+                            // Exponential back-off sleep times: 5s, 25s,
+                            // 45s.
+                            int sleepTime = ((totalAttempts - attemptsRemaining) ^ 2) * 5;
+                            logger.error("Error getting checksum file from HDFS. Retries left: "
+                                         + attemptsRemaining + ". Back-off until next retry: "
+                                         + sleepTime + " seconds.", e);
+
+                            Thread.sleep(sleepTime * 1000);
+                        }
+                    }
+                    checksumMetadata = new CheckSumMetadata(input);
+                    if(checkSumType != CheckSumType.NONE) {
+                        byte[] fileChecksum = checksumMetadata.getCheckSum();
+                        logger.debug("Checksum for file " + file.toString() + " - "
+                                     + new String(Hex.encodeHex(fileChecksum)));
+                        checkSumGenerator.update(fileChecksum);
+                    }
+                    /*
+                     * if this is a 'data checksum' file, add the data file size
+                     * to 'dataSizeIbBytes'
+                     */
+                    String dataFileSizeInBytes = (String) checksumMetadata.get(CheckSumMetadata.DATA_FILE_SIZE_IN_BYTES);
+                    if(dataFileSizeInBytes != null) {
+                        dataSizeInBytes += Long.parseLong(dataFileSizeInBytes);
+                    }
+
+                    /*
+                     * if this is a 'index checksum' file, add the index file
+                     * size to 'indexSizeIbBytes'
+                     */
+                    String indexFileSizeInBytes = (String) checksumMetadata.get(CheckSumMetadata.INDEX_FILE_SIZE_IN_BYTES);
+                    if(indexFileSizeInBytes != null) {
+                        indexSizeInBytes += Long.parseLong(indexFileSizeInBytes);
+                    }
+                } catch(Exception e) {
+                    logger.error("Error getting checksum file from HDFS", e);
+                } finally {
+                    if(input != null)
+                        input.close();
+                }
+                outputFs.delete(file.getPath(), false);
+            }
+
+            // update metadata
+            long diskSizeForNodeInBytes = dataSizeInBytes + indexSizeInBytes;
+            logger.info("Estimated disk size for store " + this.storeDef.getName() + " in node "
+                        + node.briefToString() + " in KB: "
+                        + (diskSizeForNodeInBytes / ByteUtils.BYTES_PER_KB));
+            metadata.add(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES,
+                         Long.toString(diskSizeForNodeInBytes));
+            if(checkSumType != CheckSumType.NONE) {
+                metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE, CheckSum.toString(checkSumType));
+
+                String checkSum = new String(Hex.encodeHex(checkSumGenerator.getCheckSum()));
+                logger.info("Checksum for node " + node.getId() + " - " + checkSum);
+
+                metadata.add(ReadOnlyStorageMetadata.CHECKSUM, checkSum);
+            }
+        }
+
+    }
+
+    /**
      * A comparator that sorts index files last. This is required to maintain
      * the order while calculating checksum
-     * 
+     *
      */
     static class IndexFileLastComparator implements Comparator<FileStatus> {
 

@@ -16,44 +16,6 @@
 
 package voldemort.store.readonly.mr.azkaban;
 
-import azkaban.jobExecutor.AbstractJob;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.protobuf.UninitializedMessageException;
-import org.apache.avro.Schema;
-import org.apache.commons.lang.Validate;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.log4j.Logger;
-import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
-import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.protocol.pb.VAdminProto;
-import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
-import voldemort.serialization.DefaultSerializerFactory;
-import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.json.JsonTypeDefinition;
-import voldemort.server.VoldemortConfig;
-import voldemort.store.StoreDefinition;
-import voldemort.store.UnreachableStoreException;
-import voldemort.store.readonly.checksum.CheckSum;
-import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
-import voldemort.store.readonly.disk.KeyValueWriter;
-import voldemort.store.readonly.hooks.BuildAndPushHook;
-import voldemort.store.readonly.hooks.BuildAndPushStatus;
-import voldemort.store.readonly.mr.azkaban.VoldemortStoreBuilderJob.VoldemortStoreBuilderConf;
-import voldemort.store.readonly.mr.utils.AvroUtils;
-import voldemort.store.readonly.mr.utils.HadoopUtils;
-import voldemort.store.readonly.mr.utils.JsonSchema;
-import voldemort.store.readonly.mr.utils.VoldemortUtils;
-import voldemort.store.readonly.swapper.*;
-import voldemort.utils.Props;
-import voldemort.utils.ReflectUtils;
-import voldemort.utils.Utils;
-
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
@@ -74,6 +36,50 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import org.apache.avro.Schema;
+import org.apache.commons.lang.Validate;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.log4j.Logger;
+
+import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.client.protocol.pb.VAdminProto;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
+import voldemort.serialization.DefaultSerializerFactory;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.json.JsonTypeDefinition;
+import voldemort.server.VoldemortConfig;
+import voldemort.store.StoreDefinition;
+import voldemort.store.UnreachableStoreException;
+import voldemort.store.quota.QuotaType;
+import voldemort.store.readonly.checksum.CheckSum;
+import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.disk.KeyValueWriter;
+import voldemort.store.readonly.hooks.BuildAndPushHook;
+import voldemort.store.readonly.hooks.BuildAndPushStatus;
+import voldemort.store.readonly.mr.azkaban.VoldemortStoreBuilderJob.VoldemortStoreBuilderConf;
+import voldemort.store.readonly.mr.utils.AvroUtils;
+import voldemort.store.readonly.mr.utils.HadoopUtils;
+import voldemort.store.readonly.mr.utils.JsonSchema;
+import voldemort.store.readonly.mr.utils.VoldemortUtils;
+import voldemort.store.readonly.swapper.DeleteAllFailedFetchStrategy;
+import voldemort.store.readonly.swapper.DisableStoreOnFailedNodeFailedFetchStrategy;
+import voldemort.store.readonly.swapper.FailedFetchStrategy;
+import voldemort.store.readonly.swapper.RecoverableFailedFetchException;
+import voldemort.utils.Props;
+import voldemort.utils.ReflectUtils;
+import voldemort.utils.Utils;
+import azkaban.jobExecutor.AbstractJob;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.protobuf.UninitializedMessageException;
 
 public class VoldemortBuildAndPushJob extends AbstractJob {
 
@@ -320,7 +326,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                              + "is not the same as " + clusterRhs.getName());
         }
     }
-    
+
     private void checkForPreconditions(boolean build, boolean push) {
         if (!build && !push) {
             throw new RuntimeException(" Both build and push cannot be false ");
@@ -349,7 +355,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
          */
 
         log.info("Requesting block-level compression codec expected by Server");
-        
+
         List<String> supportedCodecs;
         try{
             supportedCodecs = adminClientPerCluster.get(clusterURLs.get(0))
@@ -361,7 +367,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             // return here
             return null;
         }
-        
+
         String codecList = "[ ";
         for(String str: supportedCodecs) {
             codecList += str + " ";
@@ -614,7 +620,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 "\n" + newStoreDef.diff(remoteStoreDef, thisName, otherName);
         return message;
     }
-    
+
     private void addStore(String description, String owners, String url, StoreDefinition newStoreDef, List<Integer> nodeIDs) {
         if (description.length() == 0) {
             throw new RuntimeException("Description field missing in store definition. "
@@ -630,6 +636,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         }
         try {
             adminClientPerCluster.get(url).storeMgmtOps.addStore(newStoreDef, nodeIDs);
+
+            // set Zero Quota for new stores that are created as part of build
+            Long quotaValue = 0L;
+            adminClientPerCluster.get(url).quotaMgmtOps.setQuota(storeName,
+                                                                 QuotaType.STORAGE_SPACE.toString(),
+                                                                 quotaValue.toString());
         }
         catch(VoldemortException ve) {
             throw new RuntimeException("Exception while adding store to nodes in cluster URL" + url, ve);

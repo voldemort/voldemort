@@ -130,4 +130,8 @@ public class HdfsDirectory {
         return checkSumComparison;
     }
 
+    public ReadOnlyStorageMetadata getMetadata() {
+        return this.metadata;
+    }
+
 }

@@ -52,6 +52,7 @@ import voldemort.server.storage.repairjob.RepairJob;
 import voldemort.store.*;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.quota.QuotaType;
 import voldemort.store.quota.QuotaUtils;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -913,9 +914,15 @@ public class AdminClient implements Closeable {
                         Thread.currentThread().interrupt();
                     }
                 } catch(Exception e) {
-                    throw new VoldemortException("Failed while waiting for async task ("
-                                                 + description + ") at " + nodeName
-                                                 + " to finish", e);
+                    String errorMessage = "Failed while waiting for async task ("
+                            + description + ") at " + nodeName
+                            + " to finish";
+                    if(e instanceof QuotaExceededException){
+                        String reason = ((QuotaExceededException) e).getMessage();
+                        throw new QuotaExceededException(errorMessage + "Reason: " + reason);
+                    } else {
+                        throw new VoldemortException(errorMessage, e);
+                    }
                 }
             }
             throw new VoldemortException("Failed to finish task requestId: " + requestId

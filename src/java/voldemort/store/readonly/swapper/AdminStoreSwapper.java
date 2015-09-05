@@ -13,6 +13,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Time;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -170,19 +172,53 @@ public class AdminStoreSwapper {
         Map<Node, Response> fetchResponseMap = Maps.newTreeMap();
         boolean fetchErrors = false;
 
+        /*
+         * We wait for all fetches to complete successfully or throw any
+         * Exception. We dont handle QuotaException in a special way here. The
+         * idea is to protect the disk. It is okay to let the Bnp job run to
+         * completion. We still want to delete data of a failed fetch in all
+         * nodes that successfully fetched the data. After deleting the
+         * failedFetch data, we bubble up the Quota Exception as needed.
+         * 
+         * The alternate is to cancel all future tasks as soon as we detect a
+         * QuotaExceededException. This will save time (fail faster) and protect
+         * the disk usage. But does not guarantee a clean state in all nodes wrt
+         * to data from failed fetch. Someone manually needs to clean up all the
+         * data from failedFetches. Instead we try to cleanup the data as much
+         * as we can before we fail the job.
+         * 
+         * In iteration 2 we can try to improve this to fail faster, by adding
+         * either/both:
+         * 
+         * 1. Client side checks 2. Server side takes care of failing fast as
+         * soon as it detect QuotaExceededException in one of the servers. Note
+         * that this needs careful decision on how to handle those fetches that
+         * already started in other nodes and how & when to clean them up.
+         */
+        int numQuotaExceededException = 0;
         for(final Node node: cluster.getNodes()) {
             Future<String> val = fetchDirs.get(node.getId());
             try {
                 String response = val.get();
                 fetchResponseMap.put(node, new Response(response));
-            } catch(Exception e) {
+            } catch(ExecutionException e) {
+                fetchErrors = true;
+                if(e.getCause() instanceof QuotaExceededException) {
+                    numQuotaExceededException++;
+                    fetchResponseMap.put(node, new Response((QuotaExceededException) e.getCause()));
+                } else {
+                    fetchResponseMap.put(node, new Response(e));
+                }
+            }
+            catch(Exception e) {
                 fetchErrors = true;
                 fetchResponseMap.put(node, new Response(e));
             }
         }
 
+
         if(fetchErrors) {
-            // Log the errors for the user
+            // Log All the errors for the user
             for(Map.Entry<Node, Response> entry: fetchResponseMap.entrySet()) {
                 if (!entry.getValue().isSuccessful()) {
                     logger.error("Error on " + entry.getKey().briefToString() + " during push : ",
@@ -213,7 +249,13 @@ public class AdminStoreSwapper {
             if (swapIsPossible) {
                 // We're good... We'll return the fetchResponseMap.
             } else {
-                throw new VoldemortException("Exception during push. Swap will be aborted.");
+                String errorMessage = "";
+                if(numQuotaExceededException > 0) {
+                    errorMessage = "Disk Quota exceeded. Swap will be aborted.";
+                } else {
+                    errorMessage = "Exception during push. Swap will be aborted.";
+                }
+                throw new VoldemortException(errorMessage);
             }
         }
         return fetchResponseMap;

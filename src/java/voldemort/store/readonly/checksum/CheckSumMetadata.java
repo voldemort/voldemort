@@ -1,9 +1,8 @@
-package voldemort.store.readonly;
+package voldemort.store.readonly.checksum;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.HashMap;
@@ -11,41 +10,39 @@ import java.util.Map;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.hadoop.fs.FSDataInputStream;
 
 import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
-import voldemort.store.readonly.checksum.CheckSum;
-import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.ReadOnlyStorageMetadata;
 
 import com.google.common.collect.Maps;
 
-public class ReadOnlyStorageMetadata {
+public class CheckSumMetadata {
 
-    public final static String FORMAT = "format";
-    public final static String CHECKSUM_TYPE = "checksum-type";
-    public final static String CHECKSUM = "checksum";
-    public final static String DISK_SIZE_IN_BYTES = "disk_size_in_bytes";
+    public final static String DATA_FILE_SIZE_IN_BYTES = "data_file_size_in_bytes";
+    public final static String INDEX_FILE_SIZE_IN_BYTES = "index_file_size_in_bytes";
 
     private Map<String, Object> properties;
 
-    public ReadOnlyStorageMetadata() {
+    public CheckSumMetadata() {
         this.properties = new HashMap<String, Object>();
     }
 
-    public ReadOnlyStorageMetadata(Map<String, Object> prop) {
+    public CheckSumMetadata(Map<String, Object> prop) {
         this();
         this.properties.putAll(prop);
     }
 
-    public ReadOnlyStorageMetadata(String json) {
+    public CheckSumMetadata(String json) {
         this();
         JsonReader reader = new JsonReader(new StringReader(json));
         properties.putAll(reader.readObject());
     }
 
-    public ReadOnlyStorageMetadata(File metadataFile) throws IOException {
+    public CheckSumMetadata(FSDataInputStream checkSumMetadataFile) throws IOException {
         this();
-        BufferedReader reader = new BufferedReader(new FileReader(metadataFile.getAbsolutePath()));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(checkSumMetadataFile));
         JsonReader jsonReader = new JsonReader(reader);
         properties.putAll(jsonReader.readObject());
     }
@@ -71,14 +68,6 @@ public class ReadOnlyStorageMetadata {
 
     public Object get(String key) {
         return properties.get(key);
-    }
-
-    public CheckSumType getCheckSumType() {
-        String checkSumType = (String) get(CHECKSUM_TYPE);
-        if(checkSumType == null) {
-            return CheckSumType.NONE;
-        }
-        return CheckSum.fromString(checkSumType);
     }
 
     public byte[] getCheckSum() throws DecoderException {
@@ -107,7 +96,7 @@ public class ReadOnlyStorageMetadata {
         if(o == null || getClass() != o.getClass())
             return false;
 
-        ReadOnlyStorageMetadata that = (ReadOnlyStorageMetadata) o;
+        CheckSumMetadata that = (CheckSumMetadata) o;
 
         Map<String, Object> thisMap = this.getAll();
         Map<String, Object> thatMap = that.getAll();
@@ -140,7 +129,7 @@ public class ReadOnlyStorageMetadata {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder("ReadOnlyStorageMetadata( ");
+        StringBuilder sb = new StringBuilder("CheckSumMetadata( ");
         sb.append("\n");
         for(String key: this.properties.keySet()) {
             sb.append(key + " : " + properties.get(key) + ",");
@@ -150,5 +139,4 @@ public class ReadOnlyStorageMetadata {
 
         return sb.toString();
     }
-
 }

@@ -56,6 +56,7 @@ import voldemort.store.*;
 import voldemort.store.backup.NativeBackupable;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.mysql.MysqlStorageEngine;
+import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
@@ -1128,15 +1129,23 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                 updateStatus(message);
                                 logger.info(message);
                             }
+                        } catch(QuotaExceededException e) {
+                            String errorMessage = "Quota exceeded. File fetcher failed for "
+                                                  + fetchUrl + " and store '" + storeName
+                                                  + "' Reason: \n" + e.getMessage();
+                            updateStatus(errorMessage);
+                            logger.error(errorMessage, e);
+                            throw e;
                         } catch(VoldemortException ve) {
                             String errorMessage = "File fetcher failed for " + fetchUrl
                                                   + " and store '" + storeName + "' Reason: \n"
                                                   + ve.getMessage();
                             updateStatus(errorMessage);
-                            logger.error(errorMessage);
-                            throw new VoldemortException(errorMessage);
+                            logger.error(errorMessage, ve);
+                            throw new VoldemortException(errorMessage, ve);
                         } catch(Exception e) {
-                            throw new VoldemortException("Exception in Fetcher = " + e.getMessage());
+                            throw new VoldemortException("Exception in Fetcher = " + e.getMessage(),
+                                                         e);
                         }
 
                     }
@@ -1324,8 +1333,20 @@ public class AdminServiceRequestHandler implements RequestHandler {
             response.setComplete(requestComplete);
             response.setStatus(operationStatus.getStatus());
             response.setRequestId(requestId);
-            if(operationStatus.hasException())
-                throw new VoldemortException(operationStatus.getException());
+            if(operationStatus.hasException()) {
+                String erroMessage ="HandleAsyncStatus received Exception: "
+                                     + operationStatus.getException().getMessage();
+                Exception exception = operationStatus.getException();
+                if(exception instanceof QuotaExceededException) {
+                    throw (QuotaExceededException) exception;
+                } else {
+                    throw new VoldemortException(erroMessage, exception);
+                }
+            }
+        } catch(QuotaExceededException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("Quota Exceeded. handleAsyncStatus failed for request("
+                         + request.toString().trim() + ")", e);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAsyncStatus failed for request(" + request.toString().trim() + ")",
