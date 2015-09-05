@@ -60,6 +60,7 @@ public class ByteUtils {
 
     public static final int BYTES_PER_MB = 1048576;
     public static final long BYTES_PER_GB = 1073741824;
+    public static final int BYTES_PER_KB = 1024;
 
     public static MessageDigest getDigest(String algorithm) {
         try {
