@@ -32,6 +32,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.ExceptionUtils;
 import voldemort.utils.JmxUtils;
@@ -53,8 +54,6 @@ public class HdfsFetcher implements FileFetcher {
 
     private static final Logger logger = Logger.getLogger(HdfsFetcher.class);
 
-    private static String keytabPath = "";
-    private static String kerberosPrincipal = VoldemortConfig.DEFAULT_KERBEROS_PRINCIPAL;
     public static final String GZIP_FILE_EXTENSION = ".gz";
     public static final String INDEX_FILE_EXTENSION = ".index";
     public static final String DATA_FILE_EXTENSION = ".data";
@@ -68,11 +67,8 @@ public class HdfsFetcher implements FileFetcher {
     private VoldemortConfig voldemortConfig = null;
     private final boolean enableStatsFile;
     private final int maxVersionsStatsFile;
-    private int socketTimeout;
 
     private static Boolean allowFetchOfFiles = false;
-
-    private static UserGroupInformation currentHadoopUser;
 
     /**
      * this is the constructor invoked via reflection from
@@ -83,8 +79,6 @@ public class HdfsFetcher implements FileFetcher {
              config.getReadOnlyFetcherReportingIntervalBytes(),
              config.getReadOnlyFetcherThrottlerInterval(),
              config.getFetcherBufferSize(),
-             config.getReadOnlyKeytabPath(),
-             config.getReadOnlyKerberosUser(),
              config.getReadOnlyFetchRetryCount(),
              config.getReadOnlyFetchRetryDelayMs(),
              config.isReadOnlyStatsFileEnabled(),
@@ -99,8 +93,6 @@ public class HdfsFetcher implements FileFetcher {
              VoldemortConfig.REPORTING_INTERVAL_BYTES,
              VoldemortConfig.DEFAULT_FETCHER_THROTTLE_INTERVAL_WINDOW_MS,
              VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE,
-             "",
-             "",
              3,
              1000,
              true,
@@ -112,8 +104,6 @@ public class HdfsFetcher implements FileFetcher {
                        Long reportingIntervalBytes,
                        int throttlerIntervalMs,
                        int bufferSize,
-                       String keytabLocation,
-                       String kerberosUser,
                        int retryCount,
                        long retryDelayMs,
                        boolean enableStatsFile,
@@ -136,9 +126,6 @@ public class HdfsFetcher implements FileFetcher {
         this.retryDelayMs = retryDelayMs;
         this.enableStatsFile = enableStatsFile;
         this.maxVersionsStatsFile = maxVersionsStatsFile;
-        this.socketTimeout = socketTimeout;
-        HdfsFetcher.kerberosPrincipal = kerberosUser;
-        HdfsFetcher.keytabPath = keytabLocation;
 
         logger.info("Created HdfsFetcher: " + throttlerInfo +
                 ", buffer size = " + bufferSize + " bytes" +
@@ -170,109 +157,6 @@ public class HdfsFetcher implements FileFetcher {
                      hadoopConfigPath);
     }
 
-    private static boolean isHftpBasedPath(String sourceFileUrl) {
-        return sourceFileUrl.length() > 4 && sourceFileUrl.substring(0, 4).equals("hftp");
-    }
-
-    private Configuration getConfiguration(String sourceFileUrl, String hadoopConfigPath) {
-        final Configuration config = new Configuration();
-        config.setInt(ConfigurableSocketFactory.SO_RCVBUF, bufferSize);
-        config.setInt(ConfigurableSocketFactory.SO_TIMEOUT, socketTimeout);
-        config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
-                   ConfigurableSocketFactory.class.getName());
-        config.set("hadoop.security.group.mapping",
-                   "org.apache.hadoop.security.ShellBasedUnixGroupsMapping");
-
-        boolean isHftpBasedFetch = isHftpBasedPath(sourceFileUrl);
-        logger.info("URL : " + sourceFileUrl + " and hftp protocol enabled = " + isHftpBasedFetch);
-        logger.info("Hadoop path = " + hadoopConfigPath + " , keytab path = "
-                    + HdfsFetcher.keytabPath + " , kerberos principal = "
-                    + HdfsFetcher.kerberosPrincipal);
-
-        if(hadoopConfigPath.length() > 0) {
-
-            config.addResource(new Path(hadoopConfigPath + "/core-site.xml"));
-            config.addResource(new Path(hadoopConfigPath + "/hdfs-site.xml"));
-
-            String security = config.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION);
-
-            if (security != null && security.equals("kerberos")) {
-                logger.info("Kerberos authentication is turned on in the Hadoop conf.");
-            } else if (security != null && security.equals("simple")) {
-                logger.info("Authentication is explicitly disabled in the Hadoop conf.");
-            } else {
-                throw new VoldemortException("Error in getting a valid Hadoop Configuration. " +
-                        "Make sure the Hadoop config directory path is correct via" +
-                        VoldemortConfig.HADOOP_CONFIG_PATH + " and that the " +
-                        CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION +
-                        " property in the Hadoop config is set to either 'kerberos' or 'simple'. " +
-                        "That property is currently set to '" + security + "'.");
-            }
-        }
-        return config;
-    }
-
-    private FileSystem getHadoopFileSystem(String sourceFileUrl, String hadoopConfigPath)
-            throws Exception {
-        final Configuration config = getConfiguration(sourceFileUrl, hadoopConfigPath);
-        final Path path = new Path(sourceFileUrl);
-        FileSystem fs = null;
-
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-                if (HdfsFetcher.keytabPath.length() > 0) {
-                    // UserGroupInformation.loginUserFromKeytab() should only need to happen once during
-                    // the lifetime of the JVM. We try to minimize login operations as much as possible,
-                    // but we will redo it if an AuthenticationException is caught below.
-                    synchronized (HdfsFetcher.class) {
-                        // The null check within the synchronized block is for two reasons:
-                        // 1- To minimize the amount of login operations from concurrent pushes.
-                        // 2- To prevent NPEs if the currentHadoopUser is reset to null in the catch block.
-                        if (currentHadoopUser == null) {
-                            if (!new File(HdfsFetcher.keytabPath).exists()) {
-                                logger.error("Invalid keytab file path. Please provide a valid keytab path");
-                                throw new VoldemortException("Error in getting Hadoop filesystem. Invalid keytab file path.");
-                            }
-                            UserGroupInformation.setConfiguration(config);
-                            UserGroupInformation.loginUserFromKeytab(HdfsFetcher.kerberosPrincipal, HdfsFetcher.keytabPath);
-                            currentHadoopUser = UserGroupInformation.getCurrentUser();
-                            logger.info("I have logged in as " + currentHadoopUser.getUserName());
-                        } else {
-                            // reloginFromKeytab() will not actually do anything unless the token is close to expiring.
-                            currentHadoopUser.reloginFromKeytab();
-                        }
-                    }
-                }
-
-                fs = path.getFileSystem(config);
-
-                // Just a small operation to make sure the FileSystem instance works.
-                fs.exists(path);
-
-                // Congrats for making it this far. Pass go and collect $200.
-                break;
-            } catch(VoldemortException e) {
-                // We only intend to catch and retry Hadoop-related exceptions, not Voldemort ones.
-                throw e;
-            } catch(Exception e) {
-                if (ExceptionUtils.recursiveClassEquals(e, AuthenticationException.class)) {
-                    logger.info("Got an AuthenticationException from HDFS. " +
-                            "Will retry to login from scratch, on next attempt.", e);
-                    synchronized (HdfsFetcher.class) {
-                        // Synchronized to prevent NPEs in the other synchronized block, above.
-                        currentHadoopUser = null;
-                    }
-                }
-                if(attempt < maxAttempts) {
-                    sleepForRetryDelayMs(attempt);
-                } else {
-                    throw e;
-                }
-            }
-        }
-        return fs;
-    }
-
     public File fetch(String sourceFileUrl,
                       String destinationFile,
                       AsyncOperationStatus status,
@@ -286,7 +170,7 @@ public class HdfsFetcher implements FileFetcher {
         FileSystem fs = null;
         try {
 
-            fs = getHadoopFileSystem(sourceFileUrl, hadoopConfigPath);
+            fs = HadoopUtils.getHadoopFileSystem(voldemortConfig, sourceFileUrl);
             final Path path = new Path(sourceFileUrl);
             File destination = new File(destinationFile);
 
@@ -346,22 +230,6 @@ public class HdfsFetcher implements FileFetcher {
                     }
                     logger.info(errorMessage, e);
                 }
-            }
-        }
-    }
-
-    private void sleepForRetryDelayMs(int attemptNumber) {
-        if(retryDelayMs > 0) {
-            // Doing random back off so that all nodes do not end up swarming the KDC infra
-            long randomDelay = (long) (Math.random() * retryDelayMs + retryDelayMs);
-
-            logger.error("Could not get a valid Filesystem object on attempt # " + attemptNumber +
-                    " / " + maxAttempts + ". Trying again in " + randomDelay + " ms.");
-            try {
-                Thread.sleep(retryDelayMs);
-            } catch(InterruptedException ie) {
-                logger.error("Fetcher interrupted while waiting to retry", ie);
-                Thread.currentThread().interrupt();
             }
         }
     }
@@ -456,8 +324,6 @@ public class HdfsFetcher implements FileFetcher {
 
         FileSystem fs = null;
         Path p = new Path(url);
-        HdfsFetcher.keytabPath = keytabLocation;
-        HdfsFetcher.kerberosPrincipal = kerberosUser;
 
         boolean isHftpBasedFetch = url.length() > 4 && url.substring(0, 4).equals("hftp");
         logger.info("URL : " + url + " and hftp protocol enabled = " + isHftpBasedFetch);
@@ -531,8 +397,6 @@ public class HdfsFetcher implements FileFetcher {
                                               VoldemortConfig.REPORTING_INTERVAL_BYTES,
                                               VoldemortConfig.DEFAULT_FETCHER_THROTTLE_INTERVAL_WINDOW_MS,
                                               VoldemortConfig.DEFAULT_FETCHER_BUFFER_SIZE,
-                                              keytabLocation,
-                                              kerberosUser,
                                               5,
                                               5000,
                                               true,

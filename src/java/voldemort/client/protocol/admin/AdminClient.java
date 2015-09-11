@@ -48,10 +48,7 @@ import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.server.storage.repairjob.RepairJob;
-import voldemort.store.ErrorCodeMapper;
-import voldemort.store.Store;
-import voldemort.store.StoreDefinition;
-import voldemort.store.StoreUtils;
+import voldemort.store.*;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.quota.QuotaType;
@@ -98,16 +95,8 @@ import java.net.SocketException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -1032,7 +1021,6 @@ public class AdminClient implements Closeable {
         public void waitForCompletion(int nodeId, String key, String value) {
             waitForCompletion(nodeId, key, value, 0, TimeUnit.SECONDS);
         }
-
     }
 
     /**
@@ -3967,11 +3955,11 @@ public class AdminClient implements Closeable {
                     nodeFailures++;
                     if (nodeFailures > maxNodeFailures) {
                         logger.error("Got an exception while trying to reach node " + node.getId() + ". " +
-                                nodeFailures + " node failures so far; maxNodeFailures exceeded, rethrowing.");
+                                nodeFailures + " node failure(s) so far; maxNodeFailures exceeded, rethrowing.");
                         throw e;
                     } else {
                         logger.warn("Got an exception while trying to reach node " + node.getId() + ". " +
-                                nodeFailures + " node failures so far; continuing.", e);
+                                nodeFailures + " node failure(s) so far; continuing.", e);
                     }
                 }
             }
@@ -4002,6 +3990,28 @@ public class AdminClient implements Closeable {
             }
 
             return response.getFileNameList();
+        }
+
+        public List<String> getSupportedROStorageCompressionCodecs() {
+            Iterator<Node> nodesIterator = currentCluster.getNodes().iterator();
+            VoldemortException lastException = null;
+            while (nodesIterator.hasNext()) {
+                Node node = nodesIterator.next();
+                try {
+                    return getSupportedROStorageCompressionCodecs(node.getId());
+                } catch (VoldemortException e) {
+                    String nextNode = "";
+                    if (nodesIterator.hasNext()) {
+                        nextNode = " Will try next node.";
+                    } else {
+                        nextNode = " Will abort, as all nodes failed.";
+                    }
+                    logger.error("Error while trying to ask " + node.briefToString() +
+                                         " for its HA settings." + nextNode);
+                    lastException = e;
+                }
+            }
+            throw new VoldemortException("Error while trying to ask the cluster for its compression settings. All nodes failed.", lastException);
         }
 
         public List<String> getSupportedROStorageCompressionCodecs(int nodeId) {
@@ -4131,6 +4141,28 @@ public class AdminClient implements Closeable {
 
         }
 
+        public VAdminProto.GetHighAvailabilitySettingsResponse getHighAvailabilitySettings() {
+            Iterator<Node> nodesIterator = currentCluster.getNodes().iterator();
+            VoldemortException lastException = null;
+            while (nodesIterator.hasNext()) {
+                Node node = nodesIterator.next();
+                try {
+                    return getHighAvailabilitySettings(node.getId());
+                } catch (VoldemortException e) {
+                    String nextNode = "";
+                    if (nodesIterator.hasNext()) {
+                        nextNode = " Will try next node.";
+                    } else {
+                        nextNode = " Will abort, as all nodes failed.";
+                    }
+                    logger.error("Error while trying to ask " + node.briefToString() +
+                                         " for its HA settings." + nextNode);
+                    lastException = e;
+                }
+            }
+            throw new VoldemortException("Error while trying to ask the cluster for its HA settings. All nodes failed.", lastException);
+        }
+
         public VAdminProto.GetHighAvailabilitySettingsResponse getHighAvailabilitySettings(Integer nodeId) {
             VAdminProto.GetHighAvailabilitySettingsRequest getHighAvailabilitySettingsRequest =
                     VAdminProto.GetHighAvailabilitySettingsRequest.newBuilder().build();
@@ -4144,29 +4176,82 @@ public class AdminClient implements Closeable {
         }
 
         /**
-          * @return true if successful, false otherwise.
+          * @return the {@link voldemort.client.protocol.pb.VAdminProto.DisableStoreVersionResponse}
          */
-        public boolean disableStoreVersion(Integer nodeId, String storeName, Long storeVersion, String info) {
+        public VAdminProto.DisableStoreVersionResponse disableStoreVersion(Integer nodeId, String storeName, Long storeVersion, String info) {
             VAdminProto.DisableStoreVersionRequest request = VAdminProto.DisableStoreVersionRequest.newBuilder()
                                                                                                    .setStoreName(storeName)
                                                                                                    .setPushVersion(storeVersion)
                                                                                                    .setInfo(info)
                                                                                                    .build();
-            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                              .setDisableStoreVersion(request)
-                                                                                              .setType(VAdminProto.AdminRequestType.DISABLE_STORE_VERSION)
-                                                                                              .build();
-            VAdminProto.DisableStoreVersionResponse.Builder response = rpcOps.sendAndReceive(nodeId,
-                                                                                             adminRequest,
-                                                                                             VAdminProto.DisableStoreVersionResponse.newBuilder());
 
-            if (response.getDisableSuccess()) {
-                logger.info(response.getInfo());
-            } else {
-                logger.error(response.getInfo());
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                        .setDisableStoreVersion(request)
+                                                                        .setType(VAdminProto.AdminRequestType.DISABLE_STORE_VERSION)
+                                                                        .build();
+
+            VAdminProto.DisableStoreVersionResponse response = null;
+            VAdminProto.DisableStoreVersionResponse.Builder responseBuilder = VAdminProto.DisableStoreVersionResponse.newBuilder();
+            try {
+                response = rpcOps.sendAndReceive(nodeId,
+                                                 adminRequest,
+                                                 responseBuilder).build();
+            } catch (UnreachableStoreException e) {
+                String errorMessage = "Got an UnreachableStoreException while trying to disableStoreVersion on node " +
+                        nodeId + ", store " + storeName + ", version " + storeVersion + ". If the node is actually " +
+                        "up and merely net-split from us, it might continue serving stale data...";
+                logger.warn(errorMessage, e);
+                response = responseBuilder.setDisableSuccess(false)
+                                          .setInfo(errorMessage)
+                                          .setNodeId(nodeId)
+                                          .build();
             }
 
-            return response.getDisableSuccess();
+            return response;
+        }
+
+        /**
+         * @return true if it's still possible to do a swap, false otherwise.
+         */
+        public boolean handleFailedFetch(List<Integer> failedNodes, String storeName, Long storeVersion, String info) {
+            VAdminProto.HandleFetchFailureRequest handleFetchFailureRequest =
+                    VAdminProto.HandleFetchFailureRequest.newBuilder().setStoreName(storeName)
+                                                                      .setPushVersion(storeVersion)
+                                                                      .setInfo(info)
+                                                                      .addAllFailedNodes(failedNodes)
+                                                                      .build();
+
+            List<Integer> liveNodes = Lists.newArrayList(currentCluster.getNodeIds());
+            liveNodes.removeAll(failedNodes);
+            Integer randomIndex = (int) (Math.random() * liveNodes.size());
+            Integer randomNodeId = liveNodes.get(randomIndex);
+
+            VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                        .setHandleFetchFailure(handleFetchFailureRequest)
+                                                                        .setType(VAdminProto.AdminRequestType.HANDLE_FETCH_FAILURE)
+                                                                        .build();
+
+            VAdminProto.HandleFetchFailureResponse response = rpcOps.sendAndReceive(randomNodeId,
+                                                                                    adminRequest,
+                                                                                    VAdminProto.HandleFetchFailureResponse.newBuilder()).build();
+
+            if (response.getSwapIsPossible()) {
+                logger.info("Server returned successful HandleFetchFailureResponse: " + response.getInfo());
+            } else {
+                logger.error("Server returned failed HandleFetchFailureResponse: " + response.getInfo());
+            }
+
+            for (VAdminProto.DisableStoreVersionResponse disableStoreVersionResponse: response.getDisableStoreResponsesList()) {
+                Node node = currentCluster.getNodeById(disableStoreVersionResponse.getNodeId());
+                String message = node.briefToString() + ": " + disableStoreVersionResponse.getInfo();
+                if (disableStoreVersionResponse.getDisableSuccess()) {
+                    logger.info(message);
+                } else {
+                    logger.error(message);
+                }
+            }
+
+            return response.getSwapIsPossible();
         }
     }
 

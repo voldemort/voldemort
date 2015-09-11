@@ -17,17 +17,13 @@
 
 package voldemort.server.protocol.admin;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.StringReader;
+import java.io.*;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.google.common.collect.Sets;
+import com.google.protobuf.UninitializedMessageException;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -40,6 +36,7 @@ import voldemort.client.protocol.pb.VAdminProto.RebalanceTaskInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.common.nio.ByteBufferBackedInputStream;
 import voldemort.common.nio.ByteBufferContainer;
@@ -55,14 +52,7 @@ import voldemort.server.scheduler.slop.SlopPurgeJob;
 import voldemort.server.storage.StorageService;
 import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.server.storage.repairjob.RepairJob;
-import voldemort.store.ErrorCodeMapper;
-import voldemort.store.NoSuchCapabilityException;
-import voldemort.store.PersistenceFailureException;
-import voldemort.store.StorageEngine;
-import voldemort.store.StoreCapabilityType;
-import voldemort.store.StoreDefinition;
-import voldemort.store.StoreDefinitionBuilder;
-import voldemort.store.StoreOperationFailureException;
+import voldemort.store.*;
 import voldemort.store.backup.NativeBackupable;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.mysql.MysqlStorageEngine;
@@ -72,6 +62,7 @@ import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.StoreVersionManager;
 import voldemort.store.readonly.chunk.ChunkedFileSet;
+import voldemort.store.readonly.swapper.*;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
@@ -81,6 +72,7 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
+import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
@@ -331,6 +323,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case DISABLE_STORE_VERSION:
                 ProtoUtils.writeMessage(outputStream,
                                         handleDisableStoreVersion(request.getDisableStoreVersion()));
+                break;
+            case HANDLE_FETCH_FAILURE:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleFetchFailure(request.getHandleFetchFailure()));
                 break;
             default:
                 throw new VoldemortException("Unknown operation: " + request.getType());
@@ -1912,6 +1908,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         VAdminProto.DisableStoreVersionResponse.Builder response = VAdminProto.DisableStoreVersionResponse.newBuilder();
 
+        response.setNodeId(server.getMetadataStore().getNodeId());
+
         String storeName = disableStoreVersion.getStoreName();
         Long version = disableStoreVersion.getPushVersion();
 
@@ -1974,6 +1972,109 @@ public class AdminServiceRequestHandler implements RequestHandler {
             response.setLockPath(voldemortConfig.getHighAvailabilityPushLockPath());
             response.setLockImplementation(voldemortConfig.getHighAvailabilityPushLockImplementation());
         }
+
+        return response.build();
+    }
+
+    private Message handleFetchFailure(VAdminProto.HandleFetchFailureRequest handleFetchFailure) {
+        logger.info("Received HandleFetchFailureRequest");
+        VAdminProto.HandleFetchFailureResponse.Builder response =
+                VAdminProto.HandleFetchFailureResponse.newBuilder();
+
+        AdminClient adminClient = AdminClient.createTempAdminClient(voldemortConfig,
+                                                                    metadataStore.getCluster(),
+                                                                    1);
+
+        int maxNodeFailure = voldemortConfig.getHighAvailabilityPushMaxNodeFailures();
+        Set<Integer> nodesFailedInThisFetch = Sets.newHashSet(handleFetchFailure.getFailedNodesList());
+        int failureCount = nodesFailedInThisFetch.size();
+        boolean swapIsPossible = false;
+        String responseMessage = "";
+        if (failureCount > maxNodeFailure) {
+            // Too many nodes failed to tolerate this strategy... let's bail out.
+            responseMessage = "We cannot use pushHighAvailability because there is more than " + maxNodeFailure +
+                    " nodes that failed their fetches...";
+            logger.error(responseMessage);
+        } else {
+            String storeName = handleFetchFailure.getStoreName();
+            long pushVersion = handleFetchFailure.getPushVersion();
+            String extraInfo = handleFetchFailure.getInfo();
+
+            FailedFetchLock distributedLock = null;
+            try {
+                Class<? extends FailedFetchLock> failedFetchLockClass =
+                        (Class<? extends FailedFetchLock>) Class.forName(voldemortConfig.getHighAvailabilityPushLockImplementation());
+
+                // Extract properties coming from the remote BnP job...
+                Properties javaProperties = new Properties();
+                javaProperties.load(new ByteArrayInputStream(extraInfo.getBytes()));
+                Props props = new Props(javaProperties);
+
+                // Pass both server properties and the remote job's properties to the FailedFetchLock constructor
+                Object[] failedFetchLockParams = new Object[]{voldemortConfig, props};
+
+                distributedLock = ReflectUtils.callConstructor(failedFetchLockClass, failedFetchLockParams);
+
+                distributedLock.acquireLock();
+
+                Set<Integer> alreadyDisabledNodes = distributedLock.getDisabledNodes();
+
+                Set<Integer> allNodesToBeDisabled = Sets.newHashSet();
+                allNodesToBeDisabled.addAll(alreadyDisabledNodes);
+                allNodesToBeDisabled.addAll(nodesFailedInThisFetch);
+
+                if (allNodesToBeDisabled.size() > maxNodeFailure) {
+                    // Too many exceptions to tolerate this strategy... let's bail out.
+                    responseMessage = "We cannot use pushHighAvailability because it would bring the total number of " +
+                                         "nodes with disabled stores to more than " + maxNodeFailure + "...";
+                    logger.error(responseMessage);
+                } else {
+                    String nodesString = "[";
+                    boolean firstNode = true;
+                    for (Integer nodeId: nodesFailedInThisFetch) {
+                        logger.warn("Will disable store '" + storeName + "' on node " + nodeId);
+                        distributedLock.addDisabledNode(nodeId, storeName, pushVersion);
+                        if (firstNode) {
+                            firstNode = false;
+                        } else {
+                            nodesString += ", ";
+                        }
+                        nodesString += nodeId;
+                        response.addDisableStoreResponses(
+                                adminClient.readonlyOps.disableStoreVersion(nodeId, storeName, pushVersion, extraInfo));
+                    }
+                    swapIsPossible = true;
+                    responseMessage = "Swap will be possible even though nodes " + nodesString + " have failed their fetch.";
+                    logger.info(responseMessage);
+                }
+            } catch (ClassNotFoundException e) {
+                String logMessage = "Failed to find requested FailedFetchLock implementation while setting up pushHighAvailability. ";
+                logger.error(responseMessage, e);
+                responseMessage = logMessage + e.getMessage();
+            } catch (Exception e) {
+                String logMessage = "Got exception while trying to execute pushHighAvailability. ";
+                logger.error(responseMessage, e);
+                responseMessage = logMessage + e.getMessage();
+            } finally {
+                if (distributedLock != null) {
+                    try {
+                        distributedLock.releaseLock();
+                    } catch (Exception e) {
+                        logger.error("Error while trying to release the shared lock used for pushHighAvailability!", e);
+                    } finally {
+                        try {
+                            distributedLock.close();
+                        } catch (Exception inception) {
+                            logger.error("Error while trying to close the shared lock used for pushHighAvailability!",
+                                         inception);
+                        }
+                    }
+                }
+            }
+        }
+
+        response.setSwapIsPossible(swapIsPossible);
+        response.setInfo(responseMessage);
 
         return response.build();
     }
