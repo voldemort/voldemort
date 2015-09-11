@@ -20,7 +20,11 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 
+import javax.management.ObjectName;
+
 import org.apache.log4j.Logger;
+
+import voldemort.utils.JmxUtils;
 
 /**
  * Some convenient statistics to track about the store
@@ -233,4 +237,25 @@ public class StoreStats {
      * @return The rate of keys per seconds that were queried through GetAll requests.
      */
     public float getGetAllKeysThroughput() { return counters.get(Tracked.GET_ALL).getGetAllKeysThroughput(); }
+
+    private volatile boolean isJmxRegistered = false;
+    private volatile ObjectName jmxObjectName;
+    public synchronized void registerJmx(String identifierString) {
+        if(isJmxRegistered == false) {
+            StoreStatsJmx statsJmx = new StoreStatsJmx(this);
+            String domain = JmxUtils.getPackageName(this.getClass());
+            String type = this.storeName + identifierString;
+            this.jmxObjectName = JmxUtils.createObjectName(domain, type);
+            JmxUtils.registerMbean(statsJmx, jmxObjectName);
+
+            isJmxRegistered = true;
+        }
+    }
+
+    public synchronized void unregisterJmx() {
+        if(isJmxRegistered == true && jmxObjectName != null) {
+            JmxUtils.unregisterMbean(jmxObjectName);
+            isJmxRegistered = false;
+        }
+    }
 }

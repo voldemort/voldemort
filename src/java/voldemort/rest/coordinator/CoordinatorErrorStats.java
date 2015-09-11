@@ -16,8 +16,8 @@ import voldemort.store.routed.PipelineRoutedStats;
  */
 public class CoordinatorErrorStats extends PipelineRoutedStats {
 
-    CoordinatorErrorStats() {
-        super();
+    CoordinatorErrorStats(String name) {
+        super(name);
         this.errCountMap.put(RejectedExecutionException.class, new AtomicLong(0));
         this.errCountMap.put(IllegalArgumentException.class, new AtomicLong(0));
         this.errCountMap.put(VoldemortException.class, new AtomicLong(0));

@@ -19,6 +19,7 @@ package voldemort.client;
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -106,6 +107,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     protected volatile FailureDetector failureDetector;
     private final int maxBootstrapRetries;
     private final StoreStats aggregateStats;
+    private final Map<String, StoreStats> cachedStoreStats;
     private final StoreClientFactoryStats storeClientFactoryStats;
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
@@ -148,6 +150,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         this.aggregateStats = new StoreStats("aggregate.abstract-store-client-factory");
+        this.cachedStoreStats = new HashMap<String, StoreStats>();
         this.storeClientFactoryStats = new StoreClientFactoryStats();
         this.clientContextName = config.getClientContextName();
         this.routedStoreConfig = new RoutedStoreConfig(config);
@@ -381,11 +384,11 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         store = new LoggingStore(store);
 
         if(isJmxEnabled) {
-            StatTrackingStore statStore = new StatTrackingStore(store, this.aggregateStats);
+            StatTrackingStore statStore = new StatTrackingStore(store,
+                                                                this.aggregateStats,
+                                                                this.cachedStoreStats);
+            statStore.getStats().registerJmx(identifierString);
             store = statStore;
-            JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
-                                   JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                             store.getName() + identifierString));
         }
 
         if(this.config.isEnableCompressionLayer()) {
@@ -651,6 +654,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                 JmxUtils.unregisterMbean(JmxUtils.createObjectName("voldemort.store.stats.aggregate",
                                                                    "aggregate-perf"
                                                                            + identifierString));
+
+                for(StoreStats stats: this.cachedStoreStats.values()) {
+                    stats.unregisterJmx();
+                }
             }
         }
 

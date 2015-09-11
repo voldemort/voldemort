@@ -709,7 +709,7 @@ public class HintedHandoffFailureTest {
                   new TimeoutConfig(routingTimeoutInMs),
                   Zone.UNSET_ZONE_ID,
                   false,
-                  new String(),
+                  new PipelineRoutedStats(storeDef.getName()),
                   new ZoneAffinity());
 
         }

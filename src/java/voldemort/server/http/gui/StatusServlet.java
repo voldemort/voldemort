@@ -80,18 +80,6 @@ public class StatusServlet extends HttpServlet {
 
         String storeName = request.getParameter("store");
 
-        // TODO: Shouldn't this be done through a POST?
-        if("reset".equals(request.getParameter("action"))) {
-            if(storeName != null) {
-                Store<ByteArray, byte[], byte[]> store = server.getStoreRepository()
-                                                               .getLocalStore(storeName);
-
-                if(store != null && store instanceof StatTrackingStore) {
-                    ((StatTrackingStore) store).resetStatistics();
-                }
-            }
-        }
-
         String format = request.getParameter("format");
         if("json".equals(format)) {
             outputJSON(response);

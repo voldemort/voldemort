@@ -5,6 +5,8 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.management.ObjectName;
+
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
@@ -12,6 +14,8 @@ import voldemort.store.InvalidMetadataException;
 import voldemort.store.StoreTimeoutException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.quota.QuotaExceededException;
+import voldemort.utils.JmxUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 
 /**
@@ -22,11 +26,17 @@ import voldemort.versioning.ObsoleteVersionException;
  */
 public class PipelineRoutedStats {
 
-    protected ConcurrentHashMap<Class<? extends Exception>, AtomicLong> errCountMap;
-    protected AtomicLong severeExceptionCount;
-    protected AtomicLong benignExceptionCount;
+    protected final ConcurrentHashMap<Class<? extends Exception>, AtomicLong> errCountMap;
+    protected final AtomicLong severeExceptionCount;
+    protected final AtomicLong benignExceptionCount;
+    protected final String name;
 
-    protected PipelineRoutedStats() {
+    private boolean isRegistered = false;
+    private ObjectName jmxObjectName = null;
+    private int referenceCount;
+
+    protected PipelineRoutedStats(String name) {
+        this.name = Utils.notNull(name);
         errCountMap = new ConcurrentHashMap<Class<? extends Exception>, AtomicLong>();
         errCountMap.put(InvalidMetadataException.class, new AtomicLong(0));
         errCountMap.put(InsufficientOperationalNodesException.class, new AtomicLong(0));
@@ -38,6 +48,7 @@ public class PipelineRoutedStats {
 
         severeExceptionCount = new AtomicLong(0);
         benignExceptionCount = new AtomicLong(0);
+        referenceCount = 0;
     }
 
     @JmxGetter(name = "numSevereExceptions", description = "Number of exceptions considered serious errors")
@@ -114,4 +125,33 @@ public class PipelineRoutedStats {
         else
             return false;
     }
+
+    /**
+     * Multiple {@link PipelineRoutedStore} share the same
+     * {@link PipelineRoutedStats} object IF Mbean is not registered, the first
+     * caller will register it. All callers increment the counter.
+     */
+    public synchronized void registerJmxIfRequired() {
+        referenceCount++;
+        if(isRegistered == false) {
+            String domain = JmxUtils.getPackageName(this.getClass());
+            this.jmxObjectName = JmxUtils.createObjectName(domain, this.name);
+            JmxUtils.registerMbean(this, this.jmxObjectName);
+            isRegistered = true;
+        }
+    }
+
+    /**
+     * Last caller of this method will unregister the Mbean. All callers
+     * decrement the counter.
+     */
+    public synchronized void unregisterJmxIfRequired() {
+        referenceCount--;
+        if (isRegistered == true && referenceCount <= 0) {
+            JmxUtils.unregisterMbean(this.jmxObjectName);
+            isRegistered = false;
+        }
+    }
+
+
 }

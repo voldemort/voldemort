@@ -1,5 +1,6 @@
 package voldemort.store.routed;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
@@ -75,6 +76,19 @@ public class RoutedStoreFactory {
                       routedStoreConfig);
     }
 
+    private Map<String, PipelineRoutedStats> storeStatsMap = new HashMap<String, PipelineRoutedStats>();
+
+    private synchronized PipelineRoutedStats getPipelineRoutedStats(String storeName,
+                                                                    String identifierString) {
+        String key = storeName + identifierString;
+        if(storeStatsMap.containsKey(key)) {
+            return storeStatsMap.get(key);
+        }
+        PipelineRoutedStats stats = new PipelineRoutedStats(key);
+        storeStatsMap.put(key, stats);
+        return stats;
+    }
+
     public RoutedStore create(Cluster cluster,
                               StoreDefinition storeDefinition,
                               Map<Integer, Store<ByteArray, byte[], byte[]>> nodeStores,
@@ -83,6 +97,9 @@ public class RoutedStoreFactory {
                               Map<Integer, NonblockingStore> nonblockingSlopStores,
                               FailureDetector failureDetector,
                               RoutedStoreConfig routedStoreConfig) {
+        PipelineRoutedStats stats = getPipelineRoutedStats(storeDefinition.getName(),
+                                                           routedStoreConfig.getIdentifierString());
+
         return new PipelineRoutedStore(nodeStores,
                                        nonblockingStores,
                                        slopStores,
@@ -94,7 +111,7 @@ public class RoutedStoreFactory {
                                        routedStoreConfig.getTimeoutConfig(),
                                        routedStoreConfig.getClientZoneId(),
                                        routedStoreConfig.isJmxEnabled(),
-                                       routedStoreConfig.getIdentifierString(),
+                                       stats,
                                        routedStoreConfig.getZoneAffinity());
     }
 }

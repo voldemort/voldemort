@@ -19,10 +19,7 @@ package voldemort.store.stats;
 import java.util.List;
 import java.util.Map;
 
-import javax.management.MBeanOperationInfo;
-
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxOperation;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
@@ -39,7 +36,30 @@ import voldemort.versioning.Versioned;
  */
 public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]> {
 
-    private StoreStats stats;
+    private final StoreStats stats;
+    
+    private StoreStats getOrCreateStoreStats(Map<String, StoreStats> cachedStats,
+                                                          StoreStats parentStats) {
+        if(cachedStats == null) {
+            throw new IllegalArgumentException("cachedStats is null");
+        }
+        synchronized (cachedStats) {
+            String storeName = getName();
+            if (cachedStats.containsKey(storeName)) {
+                return cachedStats.get(storeName);
+            }
+            StoreStats storeStats = new StoreStats(getName(), parentStats);
+            cachedStats.put(storeName, storeStats);
+            return storeStats;
+        }
+    }
+
+    public StatTrackingStore(Store<ByteArray, byte[], byte[]> innerStore,
+                             StoreStats parentStats,
+                             Map<String, StoreStats> cachedStats) {
+        super(innerStore);
+        this.stats = getOrCreateStoreStats(cachedStats, parentStats);
+    }
 
     public StatTrackingStore(Store<ByteArray, byte[], byte[]> innerStore, StoreStats parentStats) {
         super(innerStore);
@@ -176,11 +196,6 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
 
     public StoreStats getStats() {
         return stats;
-    }
-
-    @JmxOperation(description = "Reset statistics.", impact = MBeanOperationInfo.ACTION)
-    public void resetStatistics() {
-        this.stats = new StoreStats(getName());
     }
 
     @Override

@@ -68,7 +68,6 @@ import voldemort.store.slop.strategy.HintedHandoffStrategy;
 import voldemort.store.slop.strategy.HintedHandoffStrategyFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
-import voldemort.utils.JmxUtils;
 import voldemort.utils.SystemTime;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -86,7 +85,7 @@ public class PipelineRoutedStore extends RoutedStore {
     protected final HintedHandoffStrategy handoffStrategy;
     private Zone clientZone;
     private boolean zoneRoutingEnabled;
-    private PipelineRoutedStats stats;
+    private final PipelineRoutedStats stats;
     private boolean jmxEnabled;
     private String identifierString;
     private ZoneAffinity zoneAffinity;
@@ -120,7 +119,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                TimeoutConfig timeoutConfig,
                                int clientZoneId,
                                boolean isJmxEnabled,
-                               String identifierString,
+                               PipelineRoutedStats stats,
                                ZoneAffinity zoneAffinity) {
         super(storeDef.getName(),
               innerStores,
@@ -170,12 +169,9 @@ public class PipelineRoutedStore extends RoutedStore {
         }
 
         this.jmxEnabled = isJmxEnabled;
-        this.identifierString = identifierString;
+        this.stats = stats;
         if(this.jmxEnabled) {
-            stats = new PipelineRoutedStats();
-            JmxUtils.registerMbean(stats,
-                                   JmxUtils.createObjectName(JmxUtils.getPackageName(stats.getClass()),
-                                                             getName() + identifierString));
+            this.stats.registerJmxIfRequired();
         }
         if(zoneAffinity != null) {
             this.zoneAffinity = zoneAffinity;
@@ -923,8 +919,7 @@ public class PipelineRoutedStore extends RoutedStore {
         }
 
         if(this.jmxEnabled) {
-            JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(stats.getClass()),
-                                                               getName() + identifierString));
+            this.stats.unregisterJmxIfRequired();
         }
 
         if(exception != null)
