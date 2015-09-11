@@ -81,7 +81,7 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
                                                                 numBackups,
                                                                 deleteBackupMs);
         ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                       storeDef.getName() + nodeId);
+                                                       storeDef.getName() );
         JmxUtils.registerMbean(ManagementFactory.getPlatformMBeanServer(),
                                JmxUtils.createModelMBean(store),
                                objName);
