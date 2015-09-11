@@ -21,7 +21,7 @@ import voldemort.server.VoldemortConfig;
  * 
  * 
  */
-class ConfigurableSocketFactory extends SocketFactory implements Configurable {
+public class ConfigurableSocketFactory extends SocketFactory implements Configurable {
 
     private static final Logger logger = Logger.getLogger(ConfigurableSocketFactory.class);
     public static final String SO_RCVBUF = "io.socket.receive.buffer";

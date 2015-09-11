@@ -47,24 +47,27 @@ import java.util.regex.Pattern;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.authentication.client.AuthenticationException;
 import org.apache.log4j.Logger;
 import org.joda.time.Period;
 
+import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.serialization.json.JsonTypes;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.fetcher.ConfigurableSocketFactory;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ExceptionUtils;
 import voldemort.utils.UndefinedPropertyException;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -84,6 +87,8 @@ public class HadoopUtils {
 
     private static Logger logger = Logger.getLogger(HadoopUtils.class);
     private static Object cachedSerializable = null;
+
+    private static UserGroupInformation currentHadoopUser;
 
     public static FileSystem getFileSystem(Props props) {
         if(!props.containsKey("hadoop.job.ugi"))
@@ -975,4 +980,122 @@ public class HadoopUtils {
             throw e;
         }
     }
+
+    private static Configuration getConfiguration(VoldemortConfig voldemortConfig, String sourceFileUrl) {
+        final Configuration hadoopConfig = new Configuration();
+        hadoopConfig.setInt(ConfigurableSocketFactory.SO_RCVBUF, voldemortConfig.getFetcherBufferSize());
+        hadoopConfig.setInt(ConfigurableSocketFactory.SO_TIMEOUT, voldemortConfig.getFetcherSocketTimeout());
+        hadoopConfig.set("hadoop.rpc.socket.factory.class.ClientProtocol",
+                   ConfigurableSocketFactory.class.getName());
+        hadoopConfig.set("hadoop.security.group.mapping",
+                   "org.apache.hadoop.security.ShellBasedUnixGroupsMapping");
+
+        String hadoopConfigPath = voldemortConfig.getHadoopConfigPath();
+        boolean isHftpBasedFetch = sourceFileUrl.length() > 4 &&
+                sourceFileUrl.substring(0, 4).equals("hftp");
+        logger.info("URL : " + sourceFileUrl + " and hftp protocol enabled = " + isHftpBasedFetch);
+        logger.info("Hadoop path = " + hadoopConfigPath + " , keytab path = "
+                            + voldemortConfig.getReadOnlyKeytabPath() + " , kerberos principal = "
+                            + voldemortConfig.getReadOnlyKerberosUser());
+
+        if(hadoopConfigPath.length() > 0) {
+
+            hadoopConfig.addResource(new Path(hadoopConfigPath + "/core-site.xml"));
+            hadoopConfig.addResource(new Path(hadoopConfigPath + "/hdfs-site.xml"));
+
+            String security = hadoopConfig.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION);
+
+            if (security != null && security.equals("kerberos")) {
+                logger.info("Kerberos authentication is turned on in the Hadoop conf.");
+            } else if (security != null && security.equals("simple")) {
+                logger.info("Authentication is explicitly disabled in the Hadoop conf.");
+            } else {
+                throw new VoldemortException("Error in getting a valid Hadoop Configuration. " +
+                                                     "Make sure the Hadoop config directory path is correct via" +
+                                                     VoldemortConfig.HADOOP_CONFIG_PATH + " and that the " +
+                                                     CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION +
+                                                     " property in the Hadoop config is set to either 'kerberos' or 'simple'. " +
+                                                     "That property is currently set to '" + security + "'.");
+            }
+        }
+        return hadoopConfig;
+    }
+
+    public static FileSystem getHadoopFileSystem(VoldemortConfig voldemortConfig, String sourceFileUrl)
+            throws Exception {
+        final Configuration config = getConfiguration(voldemortConfig, sourceFileUrl);
+        final Path path = new Path(sourceFileUrl);
+        final int maxAttempts = voldemortConfig.getReadOnlyFetchRetryCount() + 1;
+        final String keytabPath = voldemortConfig.getReadOnlyKeytabPath();
+        FileSystem fs = null;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                if (keytabPath.length() > 0) {
+                    // UserGroupInformation.loginUserFromKeytab() should only need to happen once during
+                    // the lifetime of the JVM. We try to minimize login operations as much as possible,
+                    // but we will redo it if an AuthenticationException is caught below.
+                    synchronized (HadoopUtils.class) {
+                        // The null check within the synchronized block is for two reasons:
+                        // 1- To minimize the amount of login operations from concurrent pushes.
+                        // 2- To prevent NPEs if the currentHadoopUser is reset to null in the catch block.
+                        if (currentHadoopUser == null) {
+                            if (!new File(keytabPath).exists()) {
+                                logger.error("Invalid keytab file path. Please provide a valid keytab path");
+                                throw new VoldemortException("Error in getting Hadoop filesystem. Invalid keytab file path.");
+                            }
+                            UserGroupInformation.setConfiguration(config);
+                            UserGroupInformation.loginUserFromKeytab(voldemortConfig.getReadOnlyKerberosUser(), keytabPath);
+                            currentHadoopUser = UserGroupInformation.getCurrentUser();
+                            logger.info("I have logged in as " + currentHadoopUser.getUserName());
+                        } else {
+                            // reloginFromKeytab() will not actually do anything unless the token is close to expiring.
+                            currentHadoopUser.reloginFromKeytab();
+                        }
+                    }
+                }
+
+                fs = path.getFileSystem(config);
+
+                // Just a small operation to make sure the FileSystem instance works.
+                fs.exists(path);
+
+                // Congrats for making it this far. Pass go and collect $200.
+                break;
+            } catch(VoldemortException e) {
+                // We only intend to catch and retry Hadoop-related exceptions, not Voldemort ones.
+                throw e;
+            } catch(Exception e) {
+                if (ExceptionUtils.recursiveClassEquals(e, AuthenticationException.class)) {
+                    logger.info("Got an AuthenticationException from HDFS. " +
+                                        "Will retry to login from scratch, on next attempt.", e);
+                    synchronized (HadoopUtils.class) {
+                        // Synchronized to prevent NPEs in the other synchronized block, above.
+                        currentHadoopUser = null;
+                    }
+                }
+                if(attempt < maxAttempts) {
+                    // We may need to sleep
+                    long retryDelayMs = voldemortConfig.getReadOnlyFetchRetryDelayMs();
+                    if (retryDelayMs > 0) {
+                        // Doing random back off so that all nodes do not end up swarming the KDC infra
+                        long randomDelay = (long) (Math.random() * retryDelayMs + retryDelayMs);
+
+                        logger.error("Could not get a valid Filesystem object on attempt # " + attempt +
+                                             " / " + maxAttempts + ". Trying again in " + randomDelay + " ms.");
+                        try {
+                            Thread.sleep(retryDelayMs);
+                        } catch(InterruptedException ie) {
+                            logger.error("Fetcher interrupted while waiting to retry", ie);
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                } else {
+                    throw e;
+                }
+            }
+        }
+        return fs;
+    }
+
 }

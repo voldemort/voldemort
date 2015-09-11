@@ -28,4 +28,8 @@ public abstract class FailedFetchStrategy {
     protected abstract boolean dealWithIt(String storeName,
                                           long pushVersion,
                                           Map<Node, AdminStoreSwapper.Response> fetchResponseMap) throws Exception;
+
+    public String toString() {
+        return this.getClass().getSimpleName();
+    }
 }
