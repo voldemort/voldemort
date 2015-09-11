@@ -54,8 +54,10 @@ import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -102,7 +104,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String PUSH_STORE_DESCRIPTION = "push.store.description";
     // push.optional
     public final static String PUSH_HTTP_TIMEOUT_SECONDS = "push.http.timeout.seconds";
-    public final static String PUSH_NODE = "push.node";
     public final static String PUSH_VERSION = "push.version";
     public final static String PUSH_VERSION_TIMESTAMP = "push.version.timestamp";
     public final static String PUSH_BACKOFF_DELAY_SECONDS = "push.backoff.delay.seconds";
@@ -137,7 +138,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final String storeName;
     private final List<String> clusterURLs;
     private final Map<String, AdminClient> adminClientPerCluster;
-    private final int nodeId;
     private final List<String> dataDirs;
     private final boolean isAvroJob;
     private final String keyFieldName;
@@ -197,7 +197,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         if(this.dataDirs.size() <= 0)
             throw new RuntimeException("Number of data dirs should be at least 1");
 
-        this.nodeId = props.getInt(PUSH_NODE, 0);
 
         this.hdfsFetcherProtocol = props.getString(VOLDEMORT_FETCHER_PROTOCOL, RECOMMENDED_FETCHER_PROTOCOL);
         if (this.hdfsFetcherProtocol != RECOMMENDED_FETCHER_PROTOCOL) {
@@ -342,22 +341,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         }
     }
 
-    private String getMatchingServerSupportedCompressionCodec(int nodeId) {
+    private String getMatchingServerSupportedCompressionCodec() {
         /*
-         * Strict operational assumption made by this method:
-         * 
-         * All servers have symmetrical settings.
-         * 
-         * TODO Currently this method requests only one server in one of the
-         * clusters to check for Server supported compression codec. This could
-         * be a problem if we were to do rolling upgrade on RO servers AND still
-         * allow for Bnp jobs to progress.
-         * 
-         * Fix: The ideal solution is to check all nodes in all colos to ensure
-         * all of them support same configs for compression.
-         * 
-         * Currently this is okay since we anyway dont do rolling bounce and
-         * stop all Bnp jobs for any kind of maintenance.
+         * Strict operational assumption made by this method: All clusters have symmetrical settings.
+         *
+         * Currently this method requests only one cluster for its supported compression codec.
          */
 
         log.info("Requesting block-level compression codec expected by Server");
@@ -365,7 +353,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         List<String> supportedCodecs;
         try{
             supportedCodecs = adminClientPerCluster.get(clusterURLs.get(0))
-                    .readonlyOps.getSupportedROStorageCompressionCodecs(nodeId);
+                    .readonlyOps.getSupportedROStorageCompressionCodecs();
         } catch(Exception e) {
             log.error("Exception thrown when requesting for supported block-level compression codecs. " +
                     "Server might be running in a older version. Exception: "
@@ -405,28 +393,26 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             this.url = url;
             this.buildOutputDir = buildOutputDir;
 
-            log.debug("StorePushTask constructed for URL: " + url);
+            log.debug("StorePushTask constructed for cluster URL: " + url);
         }
 
         public Boolean call() throws Exception {
-            log.info("StorePushTask.call() invoked for URL: " + url);
+            log.info("StorePushTask.call() invoked for cluster URL: " + url);
             invokeHooks(BuildAndPushStatus.PUSHING, url);
             try {
                 runPushStore(props, url, buildOutputDir);
+                log.info("StorePushTask.call() finished for cluster URL: " + url);
+                invokeHooks(BuildAndPushStatus.SWAPPED, url);
             } catch (RecoverableFailedFetchException e) {
-                log.warn("There was a problem with some of the fetches, " +
-                        "but a swap was still able to go through for URL: " + url, e);
+                log.warn("There was a problem with some of the fetches, but a swap was still able " +
+                                 "to go through for cluster URL: " + url, e);
                 invokeHooks(BuildAndPushStatus.SWAPPED_WITH_FAILURES, url);
-                throw e;
             } catch(Exception e) {
-                log.error("Exception during push for URL: " + url, e);
+                log.error("Exception during push for cluster URL: " + url + ". Rethrowing exception.");
                 throw e;
             }
-            invokeHooks(BuildAndPushStatus.SWAPPED, url);
-            log.info("StorePushTask.call() finished for URL: " + url);
             return true;
         }
-
     }
 
     @Override
@@ -453,7 +439,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 return;
             }
 
-            String reducerOutputCompressionCodec = getMatchingServerSupportedCompressionCodec(nodeId);
+            String reducerOutputCompressionCodec = getMatchingServerSupportedCompressionCodec();
             if(reducerOutputCompressionCodec != null) {
                 log.info("Using block-level compression codec: " + reducerOutputCompressionCodec);
                 props.put(REDUCER_OUTPUT_COMPRESS, "true");
@@ -514,7 +500,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     exceptions.put(url, e);
                 }
                 if (success) {
-                    log.info("Successfully pushed to URL: " + url);
+                    log.info("Successfully pushed to cluster URL: " + url);
                 }
             }
 
@@ -720,37 +706,28 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             // HA is enabled by the BnP job config
             try {
                 VAdminProto.GetHighAvailabilitySettingsResponse serverSettings =
-                        adminClientPerCluster.get(url).readonlyOps.getHighAvailabilitySettings(nodeId);
+                        adminClientPerCluster.get(url).readonlyOps.getHighAvailabilitySettings();
 
                 if (!serverSettings.getEnabled()) {
                     log.warn("The server requested pushHighAvailability to be DISABLED on cluster: " + url);
                 } else {
                     // HA is enabled by the server config
                     maxNodeFailures = serverSettings.getMaxNodeFailure();
-                    Class<? extends FailedFetchLock> failedFetchLockClass =
-                            (Class<? extends FailedFetchLock>) Class.forName(serverSettings.getLockImplementation());
-                    Props propsForCluster = new Props(props);
-                    propsForCluster.put(VoldemortConfig.PUSH_HA_LOCK_PATH, serverSettings.getLockPath());
-                    propsForCluster.put(VoldemortConfig.PUSH_HA_CLUSTER_ID, serverSettings.getClusterId());
-                    FailedFetchLock failedFetchLock =
-                            ReflectUtils.callConstructor(failedFetchLockClass, new Object[]{propsForCluster});
+                    OutputStream outputStream = new ByteArrayOutputStream();
+                    props.storeFlattened(outputStream);
+                    outputStream.flush();
+                    String jobInfoString = outputStream.toString();
                     failedFetchStrategyList.add(
                             new DisableStoreOnFailedNodeFailedFetchStrategy(
                                     adminClientPerCluster.get(url),
-                                    failedFetchLock,
-                                    maxNodeFailures,
-                                    propsForCluster.toString()));
-                    closeables.add(failedFetchLock);
+                                    jobInfoString));
                     log.info("pushHighAvailability is enabled for cluster URL: " + url +
                             " with cluster ID: " + serverSettings.getClusterId());
                 }
             } catch (UninitializedMessageException e) {
                 // Not printing out the exception in the logs as that is a benign error.
-                log.error("The server does not support HA (introduced in release 1.9.18), so " +
+                log.error("The server does not support HA (introduced in release 1.9.20), so " +
                         "pushHighAvailability will be DISABLED on cluster: " + url);
-            } catch (ClassNotFoundException e) {
-                log.error("Failed to find requested FailedFetchLock implementation, so " +
-                        "pushHighAvailability will be DISABLED on cluster: " + url, e);
             } catch (Exception e) {
                 log.error("Got exception while trying to determine pushHighAvailability settings on cluster: " + url, e);
             }

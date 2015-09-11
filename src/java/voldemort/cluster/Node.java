@@ -158,7 +158,7 @@ public class Node implements Serializable, Comparable<Node> {
     }
 
     public String briefToString() {
-        return "node " + getHost() + " [id " + getId() + "]";
+        return "Node " + getHost() + " [id " + getId() + "]";
     }
 
     public String getStateString() {
