@@ -391,46 +391,36 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
         return false;
     }
 
-    private static class RocksdbKeysIterator implements ClosableIterator<ByteArray> {
+    private class RocksdbKeysIterator implements ClosableIterator<ByteArray> {
 
         // TODO May need to identify non const methods in the inner Iterator adn
         // provide external synchronization on those if needed
 
         RocksIterator innerIterator;
-        private ByteArray cache;
 
         public RocksdbKeysIterator(RocksIterator innerIterator) {
             this.innerIterator = innerIterator;
 
             // Caller of the RocksIterator should seek it before the first use.
             this.innerIterator.seekToFirst();
-
-            cache = null;
         }
 
         @Override
         public boolean hasNext() {
-            return cache != null || fetchnextKey();
-        }
-
-        private boolean fetchnextKey() {
-            if(this.innerIterator.isValid()) {
-                byte[] keyEntry = this.innerIterator.key();
-                this.innerIterator.next();
-                cache = new ByteArray(keyEntry);
-                return true;
-            }
-            return false;
+            return this.innerIterator.isValid();
         }
 
         @Override
         public ByteArray next() {
-            if(cache != null) {
-                if(!fetchnextKey()) {
-                    throw new NoSuchElementException("Iterate to end");
-                }
+            if(!this.innerIterator.isValid()) {
+                throw new NoSuchElementException("Iterate to end");
             }
-            return cache;
+            byte[] keyEntry = this.innerIterator.key();
+            this.innerIterator.next();
+            if (RocksDbStorageEngine.this.isPartitionScanSupported()) {
+                keyEntry = StoreBinaryFormat.extractKey(keyEntry);
+            }
+            return new ByteArray(keyEntry);
         }
 
         @Override
@@ -445,7 +435,7 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
     }
 
-    private static class RocksdbEntriesIterator implements
+    private class RocksdbEntriesIterator implements
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
 
         // TODO May need to identify non const methods in the inner Iterator adn
@@ -483,6 +473,9 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
                 byte[] keyEntry = innerIterator.key();
                 byte[] valueEntry = innerIterator.value();
                 innerIterator.next();
+                if (RocksDbStorageEngine.this.isPartitionScanSupported()) {
+                    keyEntry = StoreBinaryFormat.extractKey(keyEntry);
+                }
                 ByteArray key = new ByteArray(keyEntry);
                 for(Versioned<byte[]> val: StoreBinaryFormat.fromByteArray(valueEntry)) {
                     cache.add(new Pair<ByteArray, Versioned<byte[]>>(key, val));

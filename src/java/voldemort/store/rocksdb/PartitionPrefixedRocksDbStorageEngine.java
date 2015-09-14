@@ -123,7 +123,7 @@ public class PartitionPrefixedRocksDbStorageEngine extends RocksDbStorageEngine 
                 }
                 byte[] valueEntry = innerIterator.value();
                 innerIterator.next();
-                ByteArray key = new ByteArray(keyEntry);
+                ByteArray key = new ByteArray(StoreBinaryFormat.extractKey(keyEntry));
                 for(Versioned<byte[]> val: StoreBinaryFormat.fromByteArray(valueEntry)) {
                     cache.add(new Pair<ByteArray, Versioned<byte[]>>(key, val));
                 }
@@ -181,7 +181,7 @@ public class PartitionPrefixedRocksDbStorageEngine extends RocksDbStorageEngine 
                 }
 
                 this.innerIterator.next();
-                cache = new ByteArray(keyEntry);
+                cache = new ByteArray(StoreBinaryFormat.extractKey(keyEntry));
                 return true;
             }
             return false;
@@ -189,12 +189,14 @@ public class PartitionPrefixedRocksDbStorageEngine extends RocksDbStorageEngine 
 
         @Override
         public ByteArray next() {
-            if(cache != null) {
+            if(cache == null) {
                 if(!fetchnextKey()) {
                     throw new NoSuchElementException("Iterate to end");
                 }
             }
-            return cache;
+            ByteArray result = cache;
+            cache = null;
+            return result;
         }
 
         @Override
