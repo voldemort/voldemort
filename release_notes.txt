@@ -1,3 +1,21 @@
+Release 1.9.20 on 09/14/2015
+* BnP/RO improvements:
+  * Various debuggability improvements.
+  * Graceful recovery from incomplete store creation.
+  * HA locking now happens on the server-side.
+  * Removed 'node.id' BnP config which caused a SPoF.
+* Script improvements:
+  * voldemort-shell.sh properly print Avro data.
+  * Forklifting makes a proper schema check.
+  * Binary fetch-entries format.
+* Unit tests improvements:
+  * Longer retry times on ServerTestUtils.startVoldemortServer().
+  * Ignored failing RocksDB test since it is unimplemented.
+  * New forklifting tests.
+* RocksDB iteration logic is now properly implemented.
+* Improved JMX beans management.
+* Fixed the routing strategy of the voldsys$_store_quotas store.
+
 Release 1.9.19 on 08/12/2015
 * Removed unused things (scala shell, ec2-testing, public-lib directory)
 * Fixed some unit tests.
