@@ -55,9 +55,7 @@ public class RocksdbStorageEngineTest extends AbstractStorageEngineTest {
         props.setProperty("voldemort.home", "tmp/voldemort");
 
         voldemortConfig = new VoldemortConfig(props);
-        if(this.prefixPartitionId) {
-            voldemortConfig.setRocksdbPrefixKeysWithPartitionId(true);
-        }
+        voldemortConfig.setRocksdbPrefixKeysWithPartitionId(this.prefixPartitionId);
         this.rocksDbConfig = new RocksDbStorageConfiguration(voldemortConfig);
         this.rocksDbStore = (RocksDbStorageEngine) rocksDbConfig.getStore(TestUtils.makeStoreDefinition("test"),
                                                                           TestUtils.makeSingleNodeRoutingStrategy());
@@ -84,12 +82,4 @@ public class RocksdbStorageEngineTest extends AbstractStorageEngineTest {
     @Ignore
     @Override
     public void testTruncate() throws Exception {}
-
-    @Ignore
-    @Override
-    public void testKeyIterationWithSerialization() {}
-
-    @Ignore
-    @Override
-    public void testIterationWithSerialization() {}
 }
