@@ -101,16 +101,20 @@ public class NioSelectorManager extends SelectorManager {
 
     private final int socketBufferSize;
 
+    private final boolean socketKeepAlive;
+
     private final NioSelectorManagerStats stats;
 
     public NioSelectorManager(InetSocketAddress endpoint,
                               RequestHandlerFactory requestHandlerFactory,
-                              int socketBufferSize) {
+                              int socketBufferSize,
+                              boolean socketKeepAlive) {
         this.endpoint = endpoint;
         this.socketChannelQueue = new ConcurrentLinkedQueue<SocketChannel>();
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
         this.stats = new NioSelectorManagerStats();
+        this.socketKeepAlive = socketKeepAlive;
     }
 
     public void accept(SocketChannel socketChannel) {
@@ -144,6 +148,7 @@ public class NioSelectorManager extends SelectorManager {
 
                     socketChannel.socket().setTcpNoDelay(true);
                     socketChannel.socket().setReuseAddress(true);
+                    socketChannel.socket().setKeepAlive(socketKeepAlive);
                     socketChannel.socket().setSendBufferSize(socketBufferSize);
 
                     if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize)

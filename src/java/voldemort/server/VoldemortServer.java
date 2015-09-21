@@ -245,6 +245,7 @@ public class VoldemortServer extends AbstractService {
                 NioSocketService nioSocketService = new NioSocketService(clientRequestHandlerFactory,
                                                                          identityNode.getSocketPort(),
                                                                          voldemortConfig.getSocketBufferSize(),
+                                                                         voldemortConfig.isNioConnectorKeepAlive(),
                                                                          voldemortConfig.getNioConnectorSelectors(),
                                                                          "nio-socket-server",
                                                                          voldemortConfig.isJmxEnabled(),
@@ -305,6 +306,7 @@ public class VoldemortServer extends AbstractService {
                 services.add(new NioSocketService(adminRequestHandlerFactory,
                                                   identityNode.getAdminPort(),
                                                   voldemortConfig.getAdminSocketBufferSize(),
+                                                  voldemortConfig.isNioAdminConnectorKeepAlive(),
                                                   voldemortConfig.getNioAdminConnectorSelectors(),
                                                   "admin-server",
                                                   voldemortConfig.isJmxEnabled(),
@@ -437,7 +439,7 @@ public class VoldemortServer extends AbstractService {
 
             @Override
             public void run() {
-                if(server.isStarted())
+                if (server.isStarted())
                     server.stop();
             }
         });

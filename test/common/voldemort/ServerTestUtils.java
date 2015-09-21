@@ -154,6 +154,7 @@ public class ServerTestUtils {
             socketService = new NioSocketService(requestHandlerFactory,
                                                  port,
                                                  bufferSize,
+                                                 false,
                                                  coreConnections,
                                                  "client-request-service",
                                                  false,
