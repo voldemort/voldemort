@@ -17,13 +17,20 @@
 
 package voldemort.server.protocol.admin;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.StringReader;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.google.common.collect.Sets;
-import com.google.protobuf.UninitializedMessageException;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -36,7 +43,6 @@ import voldemort.client.protocol.pb.VAdminProto.RebalanceTaskInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalanceTaskInfo;
 import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.common.nio.ByteBufferBackedInputStream;
 import voldemort.common.nio.ByteBufferContainer;
@@ -52,18 +58,24 @@ import voldemort.server.scheduler.slop.SlopPurgeJob;
 import voldemort.server.storage.StorageService;
 import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.server.storage.repairjob.RepairJob;
-import voldemort.store.*;
+import voldemort.store.ErrorCodeMapper;
+import voldemort.store.NoSuchCapabilityException;
+import voldemort.store.PersistenceFailureException;
+import voldemort.store.StorageEngine;
+import voldemort.store.StoreCapabilityType;
+import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.StoreOperationFailureException;
 import voldemort.store.backup.NativeBackupable;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.mysql.MysqlStorageEngine;
-import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.StoreVersionManager;
 import voldemort.store.readonly.chunk.ChunkedFileSet;
-import voldemort.store.readonly.swapper.*;
+import voldemort.store.readonly.swapper.FailedFetchLock;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
@@ -83,6 +95,7 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 
 
@@ -1129,20 +1142,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                 updateStatus(message);
                                 logger.info(message);
                             }
-                        } catch(QuotaExceededException e) {
-                            String errorMessage = "Quota exceeded. File fetcher failed for "
-                                                  + fetchUrl + " and store '" + storeName
-                                                  + "' Reason: \n" + e.getMessage();
-                            updateStatus(errorMessage);
-                            logger.error(errorMessage, e);
-                            throw e;
                         } catch(VoldemortException ve) {
                             String errorMessage = "File fetcher failed for " + fetchUrl
                                                   + " and store '" + storeName + "' Reason: \n"
                                                   + ve.getMessage();
                             updateStatus(errorMessage);
                             logger.error(errorMessage, ve);
-                            throw new VoldemortException(errorMessage, ve);
+                            throw ve;
                         } catch(Exception e) {
                             throw new VoldemortException("Exception in Fetcher = " + e.getMessage(),
                                                          e);
@@ -1337,16 +1343,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 String erroMessage ="HandleAsyncStatus received Exception: "
                                      + operationStatus.getException().getMessage();
                 Exception exception = operationStatus.getException();
-                if(exception instanceof QuotaExceededException) {
-                    throw (QuotaExceededException) exception;
+                if(exception instanceof VoldemortException) {
+                    throw (VoldemortException) exception;
                 } else {
                     throw new VoldemortException(erroMessage, exception);
                 }
             }
-        } catch(QuotaExceededException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("Quota Exceeded. handleAsyncStatus failed for request("
-                         + request.toString().trim() + ")", e);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAsyncStatus failed for request(" + request.toString().trim() + ")",

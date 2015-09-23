@@ -157,7 +157,7 @@ public class HadoopStoreBuilderCollisionTest {
     }
 
     @Test
-    public void testCollision() throws IOException {
+    public void testCollision() throws Exception {
         testCollisionWithParams(500, 10);
         try {
             testCollisionWithParams(2 * (Short.MAX_VALUE + 1), (Short.MAX_VALUE + 1));
@@ -166,7 +166,7 @@ public class HadoopStoreBuilderCollisionTest {
     }
 
     @SuppressWarnings( { "unchecked" })
-    public void testCollisionWithParams(int totalElements, int maxCollisions) throws IOException {
+    public void testCollisionWithParams(int totalElements, int maxCollisions) throws Exception {
 
         assertEquals(totalElements % maxCollisions, 0);
 

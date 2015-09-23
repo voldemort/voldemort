@@ -196,6 +196,7 @@ public class AdminStoreSwapper {
          * already started in other nodes and how & when to clean them up.
          */
         int numQuotaExceededException = 0;
+        boolean invalidBootstrapURLExceptions = false;
         for(final Node node: cluster.getNodes()) {
             Future<String> val = fetchDirs.get(node.getId());
             try {
@@ -206,6 +207,8 @@ public class AdminStoreSwapper {
                 if(e.getCause() instanceof QuotaExceededException) {
                     numQuotaExceededException++;
                     fetchResponseMap.put(node, new Response((QuotaExceededException) e.getCause()));
+                } else if(e.getCause() instanceof InvalidBootstrapURLException) {
+                    invalidBootstrapURLExceptions = true;
                 } else {
                     fetchResponseMap.put(node, new Response(e));
                 }
@@ -216,6 +219,11 @@ public class AdminStoreSwapper {
             }
         }
 
+        // Invalid stores should fail faster
+        if(invalidBootstrapURLExceptions) {
+            throw new InvalidBootstrapURLException("Exceptions during push. Invalid bootstrap url. Please check your "
+                                                   + "cluster bootstrap URL");
+        }
 
         if(fetchErrors) {
             // Log All the errors for the user

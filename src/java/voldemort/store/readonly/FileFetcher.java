@@ -29,14 +29,15 @@ public interface FileFetcher {
      * @param dest
      * @return
      * @throws IOException
+     * @throws Exception
      */
     @Deprecated
-    public File fetch(String source, String dest) throws IOException;
+    public File fetch(String source, String dest) throws IOException, Exception;
 
     public File fetch(String source,
                       String dest,
                       AsyncOperationStatus status,
                       String storeName,
                       long pushVersion,
-                      MetadataStore metadataStore) throws IOException;
+                      MetadataStore metadataStore) throws IOException, Exception;
 }

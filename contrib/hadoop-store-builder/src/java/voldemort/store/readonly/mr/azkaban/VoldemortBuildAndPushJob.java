@@ -642,11 +642,18 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         try {
             adminClientPerCluster.get(url).storeMgmtOps.addStore(newStoreDef, nodeIDs);
 
-            // set Zero Quota for new stores that are created as part of build
-            Long quotaValue = 0L;
-            adminClientPerCluster.get(url).quotaMgmtOps.setQuota(storeName,
-                                                                 QuotaType.STORAGE_SPACE.toString(),
-                                                                 quotaValue.toString());
+            // only if there are nodes that need the store definition to be
+            // created we set quota to 0 in all nodes.
+            if(!nodeIDs.isEmpty()) {
+                // set Zero Quota for new stores that are created as part of
+                // build
+                Long quotaValue = 0L;
+                log.info("New incoming push for Store: " + storeName
+                         + " .Setting quota for this new store to 0.");
+                adminClientPerCluster.get(url).quotaMgmtOps.setQuota(storeName,
+                                                                     QuotaType.STORAGE_SPACE.toString(),
+                                                                     quotaValue.toString());
+            }
         }
         catch(VoldemortException ve) {
             throw new RuntimeException("Exception while adding store to nodes in cluster URL" + url, ve);

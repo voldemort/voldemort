@@ -917,9 +917,8 @@ public class AdminClient implements Closeable {
                     String errorMessage = "Failed while waiting for async task ("
                             + description + ") at " + nodeName
                             + " to finish";
-                    if(e instanceof QuotaExceededException){
-                        String reason = ((QuotaExceededException) e).getMessage();
-                        throw new QuotaExceededException(errorMessage + "Reason: " + reason);
+                    if(e instanceof VoldemortException) {
+                        throw (VoldemortException) e;
                     } else {
                         throw new VoldemortException(errorMessage, e);
                     }
@@ -4233,6 +4232,9 @@ public class AdminClient implements Closeable {
 
             List<Integer> liveNodes = Lists.newArrayList(currentCluster.getNodeIds());
             liveNodes.removeAll(failedNodes);
+            if(liveNodes.isEmpty()) {
+                return false;
+            }
             Integer randomIndex = (int) (Math.random() * liveNodes.size());
             Integer randomNodeId = liveNodes.get(randomIndex);
 
