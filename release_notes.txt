@@ -1,3 +1,6 @@
+Release 1.9.21 on 09/24/2015
+* Kerberos token caching now considered experimental (disabled by default).
+
 Release 1.9.20 on 09/14/2015
 * BnP/RO improvements:
   * Various debuggability improvements.
