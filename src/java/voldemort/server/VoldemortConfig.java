@@ -163,6 +163,7 @@ public class VoldemortConfig implements Serializable {
     private String readOnlyCompressionCodec;
     private boolean readOnlyStatsFileEnabled;
     private int readOnlyMaxVersionsStatsFile;
+    private long readOnlyLoginIntervalMs;
 
     public static final String PUSH_HA_ENABLED = "push.ha.enabled";
     private boolean highAvailabilityPushEnabled;
@@ -353,6 +354,7 @@ public class VoldemortConfig implements Serializable {
                                                              DEFAULT_FETCHER_THROTTLE_INTERVAL_WINDOW_MS);
         this.readOnlyFetchRetryCount = props.getInt("fetcher.retry.count", 5);
         this.readOnlyFetchRetryDelayMs = props.getLong("fetcher.retry.delay.ms", 5000);
+        this.readOnlyLoginIntervalMs = props.getLong("fetcher.login.interval.ms", -1);
         this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
                                                       DEFAULT_FETCHER_BUFFER_SIZE);
         this.fetcherSocketTimeout = props.getInt("hdfs.fetcher.socket.timeout",
@@ -2885,6 +2887,29 @@ public class VoldemortConfig implements Serializable {
      */
     public void setReadOnlyFetchRetryDelayMs(long readOnlyFetchRetryDelayMs) {
         this.readOnlyFetchRetryDelayMs = readOnlyFetchRetryDelayMs;
+    }
+
+    public long getReadOnlyLoginIntervalMs() {
+        return readOnlyLoginIntervalMs;
+    }
+
+    /**
+     * Minimum elapsed interval between HDFS logins. Setting this to a positive value
+     * attempts to re-use HDFS authentication tokens across fetches, in order to
+     * minimize load on KDC infrastructure.
+     *
+     * Setting this to -1 (which is the default) forces re-logging in every time.
+     *
+     * FIXME: Concurrent fetches sharing the same authentication token seem to clear each others' state,
+     *        which prevents the later fetch from completing successfully.
+     *
+     * <ul>
+     * <li>Property :"fetcher.login.interval.ms"</li>
+     * <li>Default : -1</li>
+     * </ul>
+     */
+    public void setReadOnlyLoginIntervalMs(long readOnlyLoginIntervalMs) {
+        this.readOnlyLoginIntervalMs = readOnlyLoginIntervalMs;
     }
 
     public int getFetcherBufferSize() {

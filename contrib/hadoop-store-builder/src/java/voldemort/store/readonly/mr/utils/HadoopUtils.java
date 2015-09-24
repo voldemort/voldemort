@@ -89,6 +89,7 @@ public class HadoopUtils {
     private static Object cachedSerializable = null;
 
     private static UserGroupInformation currentHadoopUser;
+    private static long lastLoginTime = 0;
 
     public static FileSystem getFileSystem(Props props) {
         if(!props.containsKey("hadoop.job.ugi"))
@@ -1036,10 +1037,11 @@ public class HadoopUtils {
                     // the lifetime of the JVM. We try to minimize login operations as much as possible,
                     // but we will redo it if an AuthenticationException is caught below.
                     synchronized (HadoopUtils.class) {
+                        long timeSinceLastLogin = System.currentTimeMillis() - lastLoginTime;
                         // The null check within the synchronized block is for two reasons:
                         // 1- To minimize the amount of login operations from concurrent pushes.
                         // 2- To prevent NPEs if the currentHadoopUser is reset to null in the catch block.
-                        if (currentHadoopUser == null) {
+                        if (currentHadoopUser == null || timeSinceLastLogin > voldemortConfig.getReadOnlyLoginIntervalMs()) {
                             if (!new File(keytabPath).exists()) {
                                 logger.error("Invalid keytab file path. Please provide a valid keytab path");
                                 throw new VoldemortException("Error in getting Hadoop filesystem. Invalid keytab file path.");
@@ -1047,6 +1049,7 @@ public class HadoopUtils {
                             UserGroupInformation.setConfiguration(config);
                             UserGroupInformation.loginUserFromKeytab(voldemortConfig.getReadOnlyKerberosUser(), keytabPath);
                             currentHadoopUser = UserGroupInformation.getCurrentUser();
+                            lastLoginTime = System.currentTimeMillis();
                             logger.info("I have logged in as " + currentHadoopUser.getUserName());
                         } else {
                             // reloginFromKeytab() will not actually do anything unless the token is close to expiring.
