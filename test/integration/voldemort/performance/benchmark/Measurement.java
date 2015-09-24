@@ -65,6 +65,7 @@ public class Measurement {
     private int maxLatency = -1;
     private long totalLatency = 0;
     private HashMap<Integer, int[]> returnCodes;
+    private HashMap<Integer, int[]> warningCodes;
     private boolean summaryOnly = false;
 
     public Measurement(String name, boolean summaryOnly) {
@@ -79,17 +80,28 @@ public class Measurement {
         this.minLatency = -1;
         this.maxLatency = -1;
         this.returnCodes = new HashMap<Integer, int[]>();
+        this.warningCodes = new HashMap<Integer, int[]>();
         this.summaryOnly = summaryOnly;
     }
 
     public synchronized void recordReturnCode(int code) {
-        Integer Icode = code;
-        if(!returnCodes.containsKey(Icode)) {
+        Integer key = code;
+        if(!returnCodes.containsKey(key)) {
             int[] val = new int[1];
             val[0] = 0;
-            returnCodes.put(Icode, val);
+            returnCodes.put(key, val);
         }
-        returnCodes.get(Icode)[0]++;
+        returnCodes.get(key)[0]++;
+    }
+
+    public synchronized void recordWarningCode(int code) {
+        Integer key = code;
+        if(!warningCodes.containsKey(key)) {
+            int[] val = new int[1];
+            val[0] = 0;
+            warningCodes.put(key, val);
+        }
+        warningCodes.get(key)[0]++;
     }
 
     public synchronized void recordLatency(int latency) {
@@ -151,12 +163,17 @@ public class Measurement {
         out.println("[" + getName() + "]\t95th(ms): " + nf.format(result.q95Latency));
         out.println("[" + getName() + "]\t99th(ms): " + nf.format(result.q99Latency));
 
-        if(!this.summaryOnly) {
-            for(Integer I: returnCodes.keySet()) {
-                int[] val = returnCodes.get(I);
-                out.println("[" + getName() + "]\tReturn: " + I + "\t" + val[0]);
-            }
+        for(Integer i: returnCodes.keySet()) {
+            int[] val = returnCodes.get(i);
+            out.println("[" + getName() + "]\tReturn: " + VoldemortWrapper.ReturnCode.values()[i] + "\t" + val[0]);
+        }
 
+        for(Integer i: warningCodes.keySet()) {
+            int[] val = returnCodes.get(i);
+            out.println("[" + getName() + "]\tWarning: " + VoldemortWrapper.WarningCode.values()[i] + "\t" + val[0]);
+        }
+
+        if(!this.summaryOnly) {
             for(int i = 0; i < buckets; i++) {
                 out.println("[" + getName() + "]: " + i + "\t" + histogram[i]);
             }

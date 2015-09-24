@@ -1,13 +1,18 @@
 package voldemort.store.rocksdb;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import org.apache.log4j.Logger;
-import org.rocksdb.Options;
+import org.rocksdb.ColumnFamilyDescriptor;
+import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ColumnFamilyOptions;
+import org.rocksdb.DBOptions;
 import org.rocksdb.RocksDB;
-import org.rocksdb.util.SizeUnit;
 
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
@@ -53,28 +58,42 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
 
             new File(dataDir).mkdirs();
 
-            // TODO: Validate those default mandatory options and make them
-            // configurable
-            try {
-                Options rdbOptions = new Options().setCreateIfMissing(true)
-                                                  .createStatistics()
-                                                  .setWriteBufferSize(8 * SizeUnit.KB)
-                                                  .setMaxWriteBufferNumber(3)
-                                                  .setMaxBackgroundCompactions(10)
-                                                  .setCompressionType(org.rocksdb.CompressionType.SNAPPY_COMPRESSION);
+            Properties dbProperties = parseProperties(VoldemortConfig.ROCKSDB_DB_OPTIONS);
+            DBOptions dbOptions = (dbProperties.size() > 0) ?
+                    DBOptions.getDBOptionsFromProps(dbProperties) : new DBOptions();
+            if (dbOptions == null) {
+                throw new StorageInitializationException("Unable to parse Data Base Options.");
+            }
+            dbOptions.setCreateIfMissing(true);
+            dbOptions.createStatistics();
 
-                RocksDB rdbStore = null;
+            Properties cfProperties = parseProperties(VoldemortConfig.ROCKSDB_CF_OPTIONS);
+            if(this.voldemortconfig.getRocksdbPrefixKeysWithPartitionId()) {
+                cfProperties.setProperty("prefix_extractor", "fixed:" + StoreBinaryFormat.PARTITIONID_PREFIX_SIZE);
+            }
+            ColumnFamilyOptions cfOptions = (cfProperties.size() > 0) ?
+                    ColumnFamilyOptions.getColumnFamilyOptionsFromProps(cfProperties) : new ColumnFamilyOptions();
+            if (cfOptions == null) {
+                throw new StorageInitializationException("Unable to parse Column Family Options.");
+            }
+
+            // Create the default Column Family.
+            List<ColumnFamilyDescriptor> cfdList = new ArrayList<ColumnFamilyDescriptor>();
+            cfdList.add(new ColumnFamilyDescriptor("default".getBytes(), cfOptions));
+            List<ColumnFamilyHandle> cfhList = new ArrayList<ColumnFamilyHandle>();
+
+            try {
+                RocksDB rdbStore;
                 RocksDbStorageEngine rdbStorageEngine;
                 if(this.voldemortconfig.getRocksdbPrefixKeysWithPartitionId()) {
-                    rdbOptions.useFixedLengthPrefixExtractor(StoreBinaryFormat.PARTITIONID_PREFIX_SIZE);
-                    rdbStore = RocksDB.open(rdbOptions, dataDir);
+                    rdbStore = RocksDB.open(dbOptions, dataDir, cfdList, cfhList);
                     rdbStorageEngine = new PartitionPrefixedRocksDbStorageEngine(storeName,
                                                                                  rdbStore,
                                                                                  lockStripes,
                                                                                  strategy,
                                                                                  voldemortconfig.isRocksdbEnableReadLocks());
                 } else {
-                    rdbStore = RocksDB.open(rdbOptions, dataDir);
+                    rdbStore = RocksDB.open(dbOptions, dataDir, cfdList, cfhList);
                     rdbStorageEngine = new RocksDbStorageEngine(storeName,
                                                                 rdbStore,
                                                                 lockStripes,
@@ -87,6 +106,17 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
         }
 
         return stores.get(storeName);
+    }
+
+    private Properties parseProperties(String prefix) {
+        Properties properties = new Properties();
+        for (Map.Entry<String, String> entry : voldemortconfig.getAllProps().entrySet()) {
+            String key = entry.getKey();
+            if (key.startsWith(prefix)) {
+                properties.put(key. substring(prefix.length()), entry.getValue());
+            }
+        }
+        return properties;
     }
 
     @Override

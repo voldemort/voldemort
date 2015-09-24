@@ -16,9 +16,11 @@
 
 package voldemort.performance.benchmark;
 
+import voldemort.client.DefaultStoreClient;
 import voldemort.client.StoreClient;
 import voldemort.client.UpdateAction;
 import voldemort.utils.Time;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 public class VoldemortWrapper {
@@ -28,10 +30,15 @@ public class VoldemortWrapper {
         Error
     }
 
+    public enum WarningCode {
+        NO_CURRENT_VALUE
+    }
+
     private StoreClient<Object, Object> voldemortStore;
     private Metrics measurement;
     private boolean verifyReads;
     private boolean ignoreNulls;
+    private final boolean localMode;
 
     public enum Operations {
         Read("reads"),
@@ -52,11 +59,13 @@ public class VoldemortWrapper {
 
     public VoldemortWrapper(StoreClient<Object, Object> storeClient,
                             boolean verifyReads,
-                            boolean ignoreNulls) {
+                            boolean ignoreNulls,
+                            boolean localMode) {
         this.voldemortStore = storeClient;
         this.measurement = Metrics.getInstance();
         this.verifyReads = verifyReads;
         this.ignoreNulls = ignoreNulls;
+        this.localMode = localMode;
     }
 
     public void read(Object key, Object expectedValue, Object transforms) {
@@ -86,11 +95,22 @@ public class VoldemortWrapper {
             public void update(StoreClient<Object, Object> storeClient) {
                 long startNs = System.nanoTime();
                 Versioned<Object> vs = storeClient.get(key);
-                if(vs != null)
+                boolean noCurrentValue = (vs == null);
+                if (localMode) {
+                    VectorClock clock = (vs == null) ? new VectorClock() : (VectorClock) vs.getVersion();
+                    clock = clock.incremented(1, System.currentTimeMillis());
+                    Versioned<Object> versionedNewValue = new Versioned<Object>(newValue, clock);
+                    ((DefaultStoreClient<Object, Object>) storeClient).put(key, versionedNewValue, transforms);
+                } else {
                     storeClient.put(key, newValue, transforms);
+                }
+
                 long endNs = System.nanoTime();
                 measurement.recordLatency(Operations.Mixed.getOpString(),
                                           (int) ((endNs - startNs) / Time.NS_PER_MS));
+                if (noCurrentValue) {
+                    measurement.recordWarningCode(Operations.Mixed.getOpString(), WarningCode.NO_CURRENT_VALUE.ordinal());
+                }
             }
         });
 

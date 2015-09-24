@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+import org.apache.commons.io.FileUtils;
 import voldemort.ServerTestUtils;
 import voldemort.StaticStoreClientFactory;
 import voldemort.TestUtils;
@@ -41,6 +42,7 @@ import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.StringSerializer;
 import voldemort.serialization.json.JsonTypeSerializer;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
@@ -117,6 +119,8 @@ public class Benchmark {
     public static final String HAS_TRANSFORMS = "true";
     public static final String SAMPLE_SIZE = "sample-size";
 
+    public static final String LOCAL_SERVER_PROPERTIES = "local-server-properties";
+
     private StoreClient<Object, Object> storeClient;
     private StoreClientFactory factory;
 
@@ -131,6 +135,8 @@ public class Benchmark {
     private boolean verifyRead = false;
     private boolean ignoreNulls = false;
     private String keyType;
+
+    private boolean localMode = false;
 
     class StatusThread extends Thread {
 
@@ -365,13 +371,25 @@ public class Benchmark {
         } else {
 
             // Local benchmark
+            localMode = true;
             String storageEngineClass = benchmarkProps.getString(STORAGE_CONFIGURATION_CLASS);
             this.keyType = benchmarkProps.getString(KEY_TYPE, STRING_KEY_TYPE);
             Serializer serializer = findKeyType(this.keyType);
             Store<Object, Object, Object> store = null;
 
+            VoldemortConfig voldemortConfig;
+            if (benchmarkProps.containsKey(LOCAL_SERVER_PROPERTIES)) {
+                File homeDir = TestUtils.createTempDir();
+                File configDir = new File(homeDir, "config");
+                configDir.mkdir();
+                FileUtils.copyFile(new File(benchmarkProps.get(LOCAL_SERVER_PROPERTIES)), new File(configDir, "server.properties"));
+                voldemortConfig = VoldemortConfig.loadFromVoldemortHome(homeDir.getAbsolutePath());
+            } else {
+                voldemortConfig = ServerTestUtils.getVoldemortConfig();
+            }
+
             StorageConfiguration conf = (StorageConfiguration) ReflectUtils.callConstructor(ReflectUtils.loadClass(storageEngineClass),
-                                                                                            new Object[] { ServerTestUtils.getVoldemortConfig() });
+                                                                                            new Object[] { voldemortConfig });
 
             StorageEngine<ByteArray, byte[], byte[]> engine = conf.getStore(TestUtils.makeStoreDefinition(DUMMY_DB),
                                                                             TestUtils.makeSingleNodeRoutingStrategy());
@@ -439,7 +457,8 @@ public class Benchmark {
         for(int index = 0; index < this.numThreads; index++) {
             VoldemortWrapper db = new VoldemortWrapper(storeClient,
                                                        this.verifyRead && this.warmUpCompleted,
-                                                       this.ignoreNulls);
+                                                       this.ignoreNulls,
+                                                       this.localMode);
             WorkloadPlugin plugin = null;
             if(this.pluginName != null && this.pluginName.length() > 0) {
                 Class<?> cls = Class.forName(this.pluginName);
@@ -455,10 +474,16 @@ public class Benchmark {
                 plugin.setDb(db);
             }
 
+            int opsPerThread = localOpsCounts / this.numThreads;
+            // Make the last thread handle the remainder.
+            if (index == this.numThreads - 1) {
+                opsPerThread += localOpsCounts % this.numThreads;
+            }
+
             threads.add(new ClientThread(db,
                                          runBenchmark,
                                          this.workLoad,
-                                         localOpsCounts / this.numThreads,
+                                         opsPerThread,
                                          this.perThreadThroughputPerMs,
                                          this.verbose,
                                          plugin));
@@ -613,6 +638,10 @@ public class Benchmark {
               .withRequiredArg()
               .describedAs("zone-id")
               .ofType(Integer.class);
+        parser.accepts(LOCAL_SERVER_PROPERTIES, "path to a server properties file (local mode only)")
+              .withRequiredArg()
+              .describedAs(LOCAL_SERVER_PROPERTIES)
+              .ofType(String.class);
         parser.accepts(HELP);
 
         OptionSet options = parser.parse(args);
@@ -670,6 +699,10 @@ public class Benchmark {
                               CmdUtils.valueOf(options,
                                                STORAGE_CONFIGURATION_CLASS,
                                                BdbStorageConfiguration.class.getName()));
+            }
+
+            if(options.has(LOCAL_SERVER_PROPERTIES)) {
+                mainProps.put(LOCAL_SERVER_PROPERTIES, (String) options.valueOf(LOCAL_SERVER_PROPERTIES));
             }
 
             mainProps.put(VERBOSE, getCmdBoolean(options, VERBOSE));

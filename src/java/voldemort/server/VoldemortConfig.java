@@ -146,6 +146,12 @@ public class VoldemortConfig implements Serializable {
     private String rocksdbDataDirectory;
     private boolean rocksdbPrefixKeysWithPartitionId;
     private boolean rocksdbEnableReadLocks;
+    // Options prefixed with the following two values can be used to tune RocksDB performance and are passed directly
+    // to the RocksDB configuration code. See the RocksDB documentation for details:
+    //   https://github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h
+    //   https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide
+    public static final String ROCKSDB_DB_OPTIONS = "rocksdb.db.options.";
+    public static final String ROCKSDB_CF_OPTIONS = "rocksdb.cf.options.";
 
     private int numReadOnlyVersions;
     private String readOnlyStorageDir;
