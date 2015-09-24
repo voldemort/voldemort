@@ -80,6 +80,17 @@ public class Metrics {
         data.get(operation).recordReturnCode(code);
     }
 
+    public void recordWarningCode(String operation, int code) {
+        if(!data.containsKey(operation)) {
+            synchronized(this) {
+                if(!data.containsKey(operation)) {
+                    data.put(operation, constructMeasurement(operation));
+                }
+            }
+        }
+        data.get(operation).recordWarningCode(code);
+    }
+
     public void reset() {
         data.clear();
     }

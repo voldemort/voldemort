@@ -572,7 +572,7 @@ dependencies {
     compile 'org.apache.hadoop:libthrift:0.5.0.0'
     
     // rocksdb from maven
-    compile 'org.rocksdb:rocksdbjni:3.6.2'
+    compile 'org.rocksdb:rocksdbjni:3.13.1'
 }
 
 eclipse {
