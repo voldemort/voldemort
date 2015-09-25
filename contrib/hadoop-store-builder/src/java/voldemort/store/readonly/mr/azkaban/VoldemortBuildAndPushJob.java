@@ -159,6 +159,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private List<StoreDefinition> storeDefs;
     private Path sanitizedInputPath = null;
     private Schema inputPathSchema = null;
+    private Future heartBeatHookFuture = null;
 
     public VoldemortBuildAndPushJob(String name, azkaban.utils.Props azkabanProps) {
         super(name, Logger.getLogger(name));
@@ -254,7 +255,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             }
         }
 
-        this.executorService = Executors.newFixedThreadPool(numberOfClusters);
+        int requiredNumberOfThreads = numberOfClusters;
+        if (hooks.size() > 0) {
+            requiredNumberOfThreads++;
+        }
+        this.executorService = Executors.newFixedThreadPool(requiredNumberOfThreads);
 
         log.info("Build and Push Job constructed for " + numberOfClusters + " cluster(s).");
     }
@@ -419,9 +424,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public void run() throws Exception {
         invokeHooks(BuildAndPushStatus.STARTING);
         if (hooks.size() > 0) {
-            Thread t = new Thread(heartBeatHookRunnable);
-            t.setDaemon(true);
-            t.start();
+            heartBeatHookFuture = executorService.submit(heartBeatHookRunnable);
         }
 
         try {
@@ -550,7 +553,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     }
 
     private void cleanUp() {
-        heartBeatHookRunnable.stop();
+        if (heartBeatHookFuture != null) {
+            heartBeatHookFuture.cancel(true);
+        }
         for (Closeable closeable: this.closeables) {
             try {
                 log.info("Closing " + closeable.toString());
@@ -1089,23 +1094,19 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private class HeartBeatHookRunnable implements Runnable {
         final int sleepTimeMs;
-        boolean keepRunning = true;
 
         HeartBeatHookRunnable(int sleepTimeMs) {
             this.sleepTimeMs = sleepTimeMs;
         }
 
-        public void stop() {
-            keepRunning = false;
-        }
-
         public void run() {
-            while (keepRunning) {
+            while (!Thread.currentThread().isInterrupted()) {
                 try {
                     Thread.sleep(sleepTimeMs);
                     invokeHooks(BuildAndPushStatus.HEARTBEAT);
                 } catch (InterruptedException e) {
-                    keepRunning = false;
+                    Thread.currentThread().interrupt();
+                    return;
                 }
             }
         }
