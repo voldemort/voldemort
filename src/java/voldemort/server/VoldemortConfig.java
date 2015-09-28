@@ -83,6 +83,9 @@ public class VoldemortConfig implements Serializable {
     public static final int DEFAULT_FETCHER_SOCKET_TIMEOUT = 1000 * 60 * 30; // 30 minutes
     public static final int DEFAULT_FETCHER_THROTTLE_INTERVAL_WINDOW_MS = 1000;
 
+    // -1 represents no storage space quota constraint
+    public static final long DEFAULT_STORAGE_SPACE_QUOTA_IN_KB = -1L;
+    
     // Kerberos support for read-only fetches (constants)
     public static final String DEFAULT_KERBEROS_PRINCIPAL = "voldemrt";
     public static final String DEFAULT_KEYTAB_PATH = "/voldemrt.headless.keytab";
@@ -166,6 +169,7 @@ public class VoldemortConfig implements Serializable {
     private boolean readOnlyStatsFileEnabled;
     private int readOnlyMaxVersionsStatsFile;
     private long readOnlyLoginIntervalMs;
+    private long defaultStorageSpaceQuotaInKB;
 
     public static final String PUSH_HA_ENABLED = "push.ha.enabled";
     private boolean highAvailabilityPushEnabled;
@@ -360,6 +364,8 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyFetchRetryCount = props.getInt("fetcher.retry.count", 5);
         this.readOnlyFetchRetryDelayMs = props.getLong("fetcher.retry.delay.ms", 5000);
         this.readOnlyLoginIntervalMs = props.getLong("fetcher.login.interval.ms", -1);
+        this.defaultStorageSpaceQuotaInKB = props.getLong("default.storage.space.quota.in.kb",
+                                                          DEFAULT_STORAGE_SPACE_QUOTA_IN_KB);
         this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
                                                       DEFAULT_FETCHER_BUFFER_SIZE);
         this.fetcherSocketTimeout = props.getInt("hdfs.fetcher.socket.timeout",
@@ -2927,6 +2933,27 @@ public class VoldemortConfig implements Serializable {
      */
     public void setReadOnlyLoginIntervalMs(long readOnlyLoginIntervalMs) {
         this.readOnlyLoginIntervalMs = readOnlyLoginIntervalMs;
+    }
+
+    public long getDefaultStorageSpaceQuotaInKB() {
+        return defaultStorageSpaceQuotaInKB;
+    }
+
+    /**
+     * Default storage space quota size in KB to be used for new stores that are
+     * automatically created via Build And Push flow.
+     * 
+     * Setting this to -1 (which is the default) indicates no restriction in
+     * disk quota and will continue to work the same way as if there were no
+     * storage space quota.
+     *  
+     * <ul>
+     * <li>Property :"default.storage.space.quota.in.kb"</li>
+     * <li>Default : -1</li>
+     * </ul>
+     */
+    public void setDefaultStorageSpaceQuotaInKB(long defaultStorageSpaceQuotaInKB) {
+        this.defaultStorageSpaceQuotaInKB = defaultStorageSpaceQuotaInKB;
     }
 
     public int getFetcherBufferSize() {

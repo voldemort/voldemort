@@ -109,14 +109,14 @@ public class QuotaResetterTest {
     public void testQuotaResetter() {
 
         // set unbalanced quota values for nodes
-        adminClient.quotaMgmtOps.setQuotaForNode(STORE_NAME, QuotaType.GET_THROUGHPUT, 0, 1000);
+        adminClient.quotaMgmtOps.setQuotaForNode(STORE_NAME, QuotaType.GET_THROUGHPUT, 0, 1000L);
 
         // verify whether quota values initialized
-        assertEquals(Integer.parseInt(adminClient.quotaMgmtOps.getQuotaForNode(STORE_NAME,
+        assertEquals(Long.parseLong(adminClient.quotaMgmtOps.getQuotaForNode(STORE_NAME,
                                                                                QuotaType.GET_THROUGHPUT,
                                                                                0)
                                                               .getValue()),
-                     1000);
+                     1000L);
         assertEquals(adminClient.quotaMgmtOps.getQuotaForNode(STORE_NAME,
                                                               QuotaType.GET_THROUGHPUT,
                                                               1), null);
@@ -148,11 +148,11 @@ public class QuotaResetterTest {
         quotaResetter.rememberAndDisableQuota();
 
         // verify whether quota values changed
-        assertEquals(Integer.parseInt(adminClient.quotaMgmtOps.getQuotaForNode(STORE_NAME,
+        assertEquals(Long.parseLong(adminClient.quotaMgmtOps.getQuotaForNode(STORE_NAME,
                                                                                QuotaType.GET_THROUGHPUT,
                                                                                0)
                                                               .getValue()),
-                     1000);
+                     1000L);
         assertEquals(adminClient.quotaMgmtOps.getQuotaForNode(STORE_NAME,
                                                               QuotaType.GET_THROUGHPUT,
                                                               1), null);
@@ -171,16 +171,16 @@ public class QuotaResetterTest {
         quotaResetter.resetQuotaAndRecoverEnforcement();
 
         // verify whether quota values changed
-        assertEquals(Integer.parseInt(adminClient.quotaMgmtOps.getQuotaForNode(STORE_NAME,
+        assertEquals(Long.parseLong(adminClient.quotaMgmtOps.getQuotaForNode(STORE_NAME,
                                                                                QuotaType.GET_THROUGHPUT,
                                                                                0)
                                                               .getValue()),
-                     500);
-        assertEquals(Integer.parseInt(adminClient.quotaMgmtOps.getQuotaForNode(STORE_NAME,
+                     500L);
+        assertEquals(Long.parseLong(adminClient.quotaMgmtOps.getQuotaForNode(STORE_NAME,
                                                                                QuotaType.GET_THROUGHPUT,
                                                                                1)
                                                               .getValue()),
-                     500);
+                     500L);
 
         // verify whether quota enforcement settings recovered
         assertEquals(adminClient.metadataMgmtOps.getRemoteMetadata(0,

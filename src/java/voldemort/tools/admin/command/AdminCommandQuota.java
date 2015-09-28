@@ -27,7 +27,6 @@ import java.util.Set;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.VoldemortException;
-import voldemort.client.SystemStoreClient;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.store.quota.QuotaType;
 import voldemort.store.quota.QuotaUtils;
@@ -574,7 +573,7 @@ public class AdminCommandQuota extends AbstractAdminCommand {
                                 adminClient.quotaMgmtOps.setQuotaForNode(storeName,
                                                                          QuotaType.valueOf((String) entry.getKey()),
                                                                          nodeId,
-                                                                         Integer.parseInt((String) entry.getValue()));
+                                                                         Long.parseLong((String) entry.getValue()));
                             }
                         }
                     }

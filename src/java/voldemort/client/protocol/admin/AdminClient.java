@@ -4312,7 +4312,7 @@ public class AdminClient implements Closeable {
                                                                            QuotaType.valueOf(quotaType)));
         }
 
-        public void setQuotaForNode(String storeName, QuotaType quotaType, Integer nodeId, Integer quota) {
+        public void setQuotaForNode(String storeName, QuotaType quotaType, Integer nodeId, Long quota) {
             try {
                 String quotaKey = QuotaUtils.makeQuotaKey(storeName, quotaType);
                 ByteArray keyArray = new ByteArray(quotaKey.getBytes("UTF8"));
@@ -4322,7 +4322,9 @@ public class AdminClient implements Closeable {
                                                                                              new Versioned<byte[]>(ByteUtils.getBytes(quota.toString(),
                                                                                                                                       "UTF8"),
                                                                                                                    clock));
-                storeOps.deleteNodeKeyValue(storeName, nodeId, keyArray);
+                storeOps.deleteNodeKeyValue(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
+                                            nodeId,
+                                            keyArray);
                 storeOps.putNodeKeyValue(SystemStoreConstants.SystemStoreName.voldsys$_store_quotas.name(),
                                          nodeKeyValue);
             } catch(UnsupportedEncodingException e) {

@@ -34,6 +34,20 @@ public interface FileFetcher {
     @Deprecated
     public File fetch(String source, String dest) throws IOException, Exception;
 
+    /**
+     * This code path is only used by tests
+     * 
+     * @param source
+     * @param dest
+     * @param diskQuotaSizeInKB
+     * @return
+     * @throws IOException
+     * @throws Exception
+     */
+    @Deprecated
+    public File fetch(String source, String dest, long diskQuotaSizeInKB) throws IOException,
+            Exception;
+
     public File fetch(String source,
                       String dest,
                       AsyncOperationStatus status,

@@ -35,8 +35,10 @@ import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -70,6 +72,7 @@ import voldemort.store.StoreOperationFailureException;
 import voldemort.store.backup.NativeBackupable;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.mysql.MysqlStorageEngine;
+import voldemort.store.quota.QuotaType;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
@@ -1646,10 +1649,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
             return response.build();
         }
 
+        AdminClient adminClient = null;
         try {
             // adding a store requires decoding the passed in store string
             StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
             StoreDefinition def = mapper.readStore(new StringReader(request.getStoreDefinition()));
+
+            adminClient = new AdminClient(metadataStore.getCluster(),
+                                          new AdminClientConfig(),
+                                          new ClientConfig());
 
             synchronized(lock) {
                 // only allow a single store to be created at a time. We'll see
@@ -1675,6 +1683,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     // effect of updating the stores.xml file)
                     try {
                         metadataStore.addStoreDefinition(def);
+
+                        /*
+                         * set quota to a default value as specified in the
+                         * server configs
+                         */
+                        adminClient.quotaMgmtOps.setQuotaForNode(def.getName(),
+                                                                 QuotaType.STORAGE_SPACE,
+                                                                 metadataStore.getNodeId(),
+                                                                 voldemortConfig.getDefaultStorageSpaceQuotaInKB());
                     } catch(Exception e) {
                         // rollback open store operation
                         boolean isReadOnly = ReadOnlyStorageConfiguration.TYPE_NAME.equals(def.getType());
@@ -1693,6 +1710,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAddStore failed for request(" + request.toString() + ")", e);
+        } finally {
+            if(adminClient != null) {
+                adminClient.close();
+            }
         }
 
         return response.build();
