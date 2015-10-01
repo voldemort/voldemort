@@ -72,17 +72,19 @@ public class NioSocketService extends AbstractSocketService {
 
     private final int socketBufferSize;
 
+    private final boolean socketKeepAlive;
+
     private final int acceptorBacklog;
 
     private final StatusManager statusManager;
 
     private final Thread acceptorThread;
-
     private final Logger logger = Logger.getLogger(getClass());
 
     public NioSocketService(RequestHandlerFactory requestHandlerFactory,
                             int port,
                             int socketBufferSize,
+                            boolean socketKeepAlive,
                             int selectors,
                             String serviceName,
                             boolean enableJmx,
@@ -90,6 +92,7 @@ public class NioSocketService extends AbstractSocketService {
         super(ServiceType.SOCKET, port, serviceName, enableJmx);
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
+        this.socketKeepAlive=socketKeepAlive;
         this.acceptorBacklog = acceptorBacklog;
 
         try {
@@ -124,7 +127,8 @@ public class NioSocketService extends AbstractSocketService {
             for(int i = 0; i < selectorManagers.length; i++) {
                 selectorManagers[i] = new NioSelectorManager(endpoint,
                                                              requestHandlerFactory,
-                                                             socketBufferSize);
+                                                             socketBufferSize,
+                                                             socketKeepAlive);
                 selectorManagerThreadPool.execute(selectorManagers[i]);
             }
 

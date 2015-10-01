@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2012 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -186,8 +186,10 @@ public class VoldemortConfig implements Serializable {
     private boolean socketKeepAlive;
 
     private boolean useNioConnector;
+    private boolean nioConnectorKeepAlive;
     private int nioConnectorSelectors;
     private int nioAdminConnectorSelectors;
+    private boolean nioAdminConnectorKeepAlive;
     private int nioAcceptorBacklog;
 
     private int clientSelectors;
@@ -443,12 +445,14 @@ public class VoldemortConfig implements Serializable {
         this.socketKeepAlive = props.getBoolean("socket.keepalive", false);
 
         this.useNioConnector = props.getBoolean("enable.nio.connector", true);
+        this.nioConnectorKeepAlive = props.getBoolean("nio.connector.keepalive", false);
         this.nioConnectorSelectors = props.getInt("nio.connector.selectors",
                                                   Math.max(8, Runtime.getRuntime()
                                                                      .availableProcessors()));
         this.nioAdminConnectorSelectors = props.getInt("nio.admin.connector.selectors",
                                                        Math.max(8, Runtime.getRuntime()
                                                                           .availableProcessors()));
+        this.nioAdminConnectorKeepAlive = props.getBoolean("nio.admin.connector.keepalive", false);
         // a value <= 0 forces the default to be used
         this.nioAcceptorBacklog = props.getInt("nio.acceptor.backlog", 256);
 
@@ -3491,6 +3495,40 @@ public class VoldemortConfig implements Serializable {
      */
     public void setRocksdbEnableReadLocks(boolean rocksdbEnableReadLocks) {
         this.rocksdbEnableReadLocks = rocksdbEnableReadLocks;
+    }
+
+    /**
+     * If set to true client connections to the nio admin server will have SO_KEEPALIVE on,
+     * to tell OS to close dead client connections
+     * <ul>
+     * <li>Property :"nio.admin.connector.keepalive"</li>
+     * <li>Default : "false"</li>
+     * </ul>
+     * @param nioAdminConnectorKeepAlive
+     */
+    public void setNioAdminConnectorKeepAlive(boolean nioAdminConnectorKeepAlive) {
+        this.nioAdminConnectorKeepAlive = nioAdminConnectorKeepAlive;
+    }
+    public boolean isNioAdminConnectorKeepAlive() {
+        return nioAdminConnectorKeepAlive;
+    }
+
+    /**
+     * If set to true client connections to the server will have SO_KEEPALIVE on,
+     * to tell OS to close dead client connections
+     * <ul>
+     * <li>Property :"nio.connector.keepalive"</li>
+     * <li>Default : "false"</li>
+     * </ul>
+     *
+     * @param nioConnectorKeepAlive
+     */
+    public void setNioConnectorKeepAlive(boolean nioConnectorKeepAlive) {
+        this.nioConnectorKeepAlive = nioConnectorKeepAlive;
+    }
+
+    public boolean isNioConnectorKeepAlive() {
+        return nioConnectorKeepAlive;
     }
 
 }
