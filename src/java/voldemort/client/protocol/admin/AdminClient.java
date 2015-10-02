@@ -4235,8 +4235,9 @@ public class AdminClient implements Closeable {
             if(liveNodes.isEmpty()) {
                 return false;
             }
-            Integer randomIndex = (int) (Math.random() * liveNodes.size());
+            int randomIndex = new Random().nextInt(liveNodes.size());
             Integer randomNodeId = liveNodes.get(randomIndex);
+            Node randomNode = currentCluster.getNodeById(randomNodeId);
 
             try {
                 VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
@@ -4249,9 +4250,11 @@ public class AdminClient implements Closeable {
                         VAdminProto.HandleFetchFailureResponse.newBuilder()).build();
 
                 if (response.getSwapIsPossible()) {
-                    logger.info("Server returned successful HandleFetchFailureResponse: " + response.getInfo());
+                    logger.info(randomNode.briefToString() +
+                            " returned successful HandleFetchFailureResponse: " + response.getInfo());
                 } else {
-                    logger.error("Server returned failed HandleFetchFailureResponse: " + response.getInfo());
+                    logger.error(randomNode.briefToString() +
+                            " returned failed HandleFetchFailureResponse: " + response.getInfo());
                 }
 
                 for (VAdminProto.DisableStoreVersionResponse disableStoreVersionResponse: response.getDisableStoreResponsesList()) {
@@ -4267,11 +4270,12 @@ public class AdminClient implements Closeable {
                 return response.getSwapIsPossible();
             } catch (UninitializedMessageException e) {
                 // Not printing out the exception in the logs as that is a benign error.
-                logger.error("The server does not support HA (introduced in release 1.9.20), so " +
+                logger.error(randomNode.briefToString() + " does not support HA (introduced in release 1.9.20), so " +
                         "pushHighAvailability will be DISABLED on cluster: " + currentCluster.getName());
                 return false;
             } catch (Exception e) {
-                logger.error("Unexpected error while asking server to HandleFetchFailureRequest.", e);
+                logger.error("Unexpected error while asking " + randomNode.briefToString() +
+                        " to HandleFetchFailureRequest.", e);
                 return false;
             }
         }

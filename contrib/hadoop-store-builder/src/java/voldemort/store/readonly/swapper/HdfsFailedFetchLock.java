@@ -1,16 +1,19 @@
 package voldemort.store.readonly.swapper;
 
 import com.google.common.collect.Sets;
+import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.AccessControlException;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
+import voldemort.utils.ExceptionUtils;
 import voldemort.utils.Props;
 
 import java.io.IOException;
@@ -168,12 +171,15 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
      * considered recoverable, in which case we want to bubble up the exception, instead
      * of retrying.
      *
-     * @param e
      * @throws VoldemortException
      */
     private void handleIOException(IOException e, String action, int attempt)
             throws VoldemortException, InterruptedException {
-        if (e.getMessage().contains("Filesystem closed")) {
+        if ( // any of the following happens, we need to bubble up
+                // FileSystem instance got closed, somehow
+                e.getMessage().contains("Filesystem closed") ||
+                // HDFS permission issues
+                ExceptionUtils.recursiveClassEquals(e, AccessControlException.class)) {
             throw new VoldemortException("Got an IOException we cannot recover from while trying to " +
                     action + ". Attempt # " + attempt + "/" + maxAttempts + ". Will not try again.", e);
         } else {
@@ -197,7 +203,6 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
                 outputStream = this.fileSystem.create(temporaryLockFile, false);
                 props.storeFlattened(outputStream);
                 outputStream.flush();
-                outputStream.close();
 
                 // We attempt to rename to the globally contended lock path
                 this.lockAcquired = this.fileSystem.rename(temporaryLockFile, this.lockFile);
@@ -206,13 +211,10 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
                     logFailureAndWait(ACQUIRE_LOCK, ALREADY_EXISTS, attempts);
                     this.fileSystem.delete(temporaryLockFile, false);
                 }
-            }  catch (IOException e) {
+            } catch (IOException e) {
                 handleIOException(e, ACQUIRE_LOCK, attempts);
             } finally {
-                if (outputStream != null) {
-                    // Just being paranoid...
-                    outputStream.close();
-                }
+                IOUtils.closeQuietly(outputStream);
             }
 
             if (!this.lockAcquired) {
@@ -277,7 +279,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
                         disabledNodes.add(nodeId);
                     }
                 }
-            }  catch (IOException e) {
+            } catch (IOException e) {
                 handleIOException(e, GET_DISABLED_NODES, attempts);
                 attempts++;
             }
@@ -314,10 +316,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
                 handleIOException(e, ADD_DISABLED_NODE, attempts);
                 attempts++;
             } finally {
-                if (outputStream != null) {
-                    // Just being paranoid...
-                    outputStream.close();
-                }
+                IOUtils.closeQuietly(outputStream);
             }
         }
 
@@ -340,6 +339,6 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
         } catch (Exception e) {
             logger.error("Got an exception during close()", e);
         }
-        this.fileSystem.close();
+        IOUtils.closeQuietly(this.fileSystem);
     }
 }

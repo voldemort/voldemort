@@ -31,6 +31,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -79,15 +80,7 @@ import voldemort.store.readonly.swapper.FailedFetchLock;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.stats.StreamingStats;
 import voldemort.store.stats.StreamingStats.Operation;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
-import voldemort.utils.ClosableIterator;
-import voldemort.utils.EventThrottler;
-import voldemort.utils.NetworkClassLoader;
-import voldemort.utils.Pair;
-import voldemort.utils.Props;
-import voldemort.utils.ReflectUtils;
-import voldemort.utils.Utils;
+import voldemort.utils.*;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -2052,7 +2045,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                          "nodes with disabled stores to more than " + maxNodeFailure + "...";
                     logger.error(responseMessage);
                 } else {
-                    String nodesString = "[";
+                    String nodesString = "node";
+                    if (nodesFailedInThisFetch.size() > 1) {
+                        // Good grammar is important son
+                        nodesString += "s";
+                    }
+                    nodesString += " [";
                     boolean firstNode = true;
                     for (Integer nodeId: nodesFailedInThisFetch) {
                         logger.warn("Will disable store '" + storeName + "' on node " + nodeId);
@@ -2066,18 +2064,19 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         response.addDisableStoreResponses(
                                 adminClient.readonlyOps.disableStoreVersion(nodeId, storeName, pushVersion, extraInfo));
                     }
+                    nodesString += "]";
                     swapIsPossible = true;
-                    responseMessage = "Swap will be possible even though nodes " + nodesString + " have failed their fetch.";
+                    responseMessage = "Swap will be possible even though " + nodesString + " failed to fetch.";
                     logger.info(responseMessage);
                 }
             } catch (ClassNotFoundException e) {
                 String logMessage = "Failed to find requested FailedFetchLock implementation while setting up pushHighAvailability. ";
                 logger.error(responseMessage, e);
-                responseMessage = logMessage + e.getMessage();
+                responseMessage = logMessage + "\n" + ExceptionUtils.stackTraceToString(e);
             } catch (Exception e) {
                 String logMessage = "Got exception while trying to execute pushHighAvailability. ";
                 logger.error(responseMessage, e);
-                responseMessage = logMessage + e.getMessage();
+                responseMessage = logMessage + "\n" + ExceptionUtils.stackTraceToString(e);
             } finally {
                 if (distributedLock != null) {
                     try {
