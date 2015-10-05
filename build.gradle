@@ -184,7 +184,7 @@ clean {
 // TODO: Decide if we want to do that for all dependencies, even if they're used just in Voldemort...
 
 def depAvro = 'org.apache.avro:avro:1.4.0'
-def depProtoBuf = 'com.google.protobuf:protobuf-java:2.3.0'
+def depProtoBuf = 'com.google.protobuf:protobuf-java:2.5.0'
 def depJdom = 'org.jdom:jdom:1.1'
 def depAzkaban = 'com.linkedin.azkaban:azkaban:2.5.0'
 def depGuava = 'com.google.guava:guava:14.0.1'
@@ -209,7 +209,7 @@ shadowJar {
         include(dependency(depJoda))
         include(dependency(depTehuti))
     }
-    relocate 'com.google.protobuf', 'voldemort.shadow.2.3.0.com.google.protobuf'
+    relocate 'com.google.protobuf', 'voldemort.shadow.2.5.0.com.google.protobuf'
     relocate 'org.apache.avro', 'voldemort.shadow.1.4.0.org.apache.avro'
     // TODO: find a way to exclude private lib's BDB-JE which gets pulled into the fat jar...
 }
