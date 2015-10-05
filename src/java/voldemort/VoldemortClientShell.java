@@ -36,14 +36,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.lang.mutable.MutableInt;
 
+import com.google.common.base.Function;
+import com.google.common.collect.Lists;
+
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
@@ -64,9 +67,6 @@ import voldemort.utils.Pair;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Function;
-import com.google.common.collect.Lists;
 
 /**
  * Shell to interact with the voldemort cluster from the command line...
@@ -217,7 +217,8 @@ public class VoldemortClientShell {
                 // From here on, this is just normal avro parsing.
                 Schema latestSchema = Schema.parse(serializerDef.getCurrentSchemaInfo());
                 try {
-                    JsonDecoder decoder = new JsonDecoder(latestSchema, avroString);
+                    JsonDecoder decoder = DecoderFactory.get().jsonDecoder(latestSchema,
+                                                                           avroString);
                     GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(latestSchema);
                     obj = datumReader.read(null, decoder);
                 } catch(IOException io) {

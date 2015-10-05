@@ -183,7 +183,8 @@ clean {
 // Dependencies used by both BnP and Voldemort
 // TODO: Decide if we want to do that for all dependencies, even if they're used just in Voldemort...
 
-def depAvro = 'org.apache.avro:avro:1.4.0'
+def depAvro = 'org.apache.avro:avro:1.7.7'
+def depAvroMapRed = 'org.apache.avro:avro-mapred:1.7.7'
 def depProtoBuf = 'com.google.protobuf:protobuf-java:2.5.0'
 def depJdom = 'org.jdom:jdom:1.1'
 def depAzkaban = 'com.linkedin.azkaban:azkaban:2.5.0'
@@ -200,6 +201,7 @@ shadowJar {
     // Required when working in an Hadoop 2.x environment
     dependencies {
         include(dependency(depAvro))
+        include(dependency(depAvroMapRed))
         include(dependency(depProtoBuf))
         include(dependency(depJdom))
         include(dependency(depAzkaban))
@@ -210,7 +212,7 @@ shadowJar {
         include(dependency(depTehuti))
     }
     relocate 'com.google.protobuf', 'voldemort.shadow.2.5.0.com.google.protobuf'
-    relocate 'org.apache.avro', 'voldemort.shadow.1.4.0.org.apache.avro'
+    relocate 'org.apache.avro', 'voldemort.shadow.1.7.7.org.apache.avro'
     // TODO: find a way to exclude private lib's BDB-JE which gets pulled into the fat jar...
 }
 
@@ -415,6 +417,7 @@ task wrapper(type: Wrapper) { gradleVersion = '2.0' }
 dependencies {
     // Avro serialization format
     compile depAvro
+    compile depAvroMapRed
 
     // INTERNAL_LIBS azkaban version not found
     // azkaban-common-0.05.jar
