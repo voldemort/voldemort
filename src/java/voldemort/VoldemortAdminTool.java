@@ -51,12 +51,10 @@ import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
 
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.io.FileUtils;
@@ -64,6 +62,16 @@ import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
+import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.sleepycat.persist.StoreNotFoundException;
+
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -100,14 +108,6 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
-
-import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.sleepycat.persist.StoreNotFoundException;
 
 /**
  * Provides a command line interface to the
@@ -2128,7 +2128,8 @@ public class VoldemortAdminTool {
                     String keySerializerName = keySerializerDef.getName();
                     if(isAvroSchema(keySerializerName)) {
                         Schema keySchema = Schema.parse(keySerializerDef.getCurrentSchemaInfo());
-                        JsonDecoder decoder = new JsonDecoder(keySchema, keyString);
+                        JsonDecoder decoder = DecoderFactory.get().jsonDecoder(keySchema,
+                                                                               keyString);
                         GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(keySchema);
                         keyObject = datumReader.read(null, decoder);
                     } else if(keySerializerName.equals(DefaultSerializerFactory.JSON_SERIALIZER_TYPE_NAME)) {

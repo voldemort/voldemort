@@ -32,17 +32,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.JsonDecoder;
 import org.apache.commons.codec.DecoderException;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.map.ObjectMapper;
 
+import com.google.common.base.Objects;
+import com.sleepycat.persist.StoreNotFoundException;
+
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.QueryKeyResult;
@@ -68,9 +71,6 @@ import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
-import com.sleepycat.persist.StoreNotFoundException;
 
 /**
  * Implements all debug commands.
@@ -322,7 +322,8 @@ public class AdminCommandDebug extends AbstractAdminCommand {
                         String keySerializerName = keySerializerDef.getName();
                         if(isAvroSchema(keySerializerName)) {
                             Schema keySchema = Schema.parse(keySerializerDef.getCurrentSchemaInfo());
-                            JsonDecoder decoder = new JsonDecoder(keySchema, keyString);
+                            JsonDecoder decoder = DecoderFactory.get().jsonDecoder(keySchema,
+                                                                                   keyString);
                             GenericDatumReader<Object> datumReader = new GenericDatumReader<Object>(keySchema);
                             keyObject = datumReader.read(null, decoder);
                         } else if(keySerializerName.equals(DefaultSerializerFactory.JSON_SERIALIZER_TYPE_NAME)) {
