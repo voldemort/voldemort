@@ -2512,9 +2512,15 @@ public class AdminServiceBasicTest {
 
     @Test
     public void testQuotaOpsForNode() throws InterruptedException {
+        QuotaType[] quotaTypes = QuotaType.values();
+        for(int i = 0; i < quotaTypes.length ; i++){
+            testQuotaOpsForNode(quotaTypes[i]);
+        }
+    }
+
+    public void testQuotaOpsForNode(QuotaType quotaType) throws InterruptedException {
         AdminClient client = getAdminClient();
         String storeName = storeDefs.get(0).getName();
-        QuotaType quotaType = QuotaType.GET_THROUGHPUT;
         Integer nodeId = 0;
         Long quota = 1000L;
 

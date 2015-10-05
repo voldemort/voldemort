@@ -1712,7 +1712,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             logger.error("handleAddStore failed for request(" + request.toString() + ")", e);
         } finally {
             if(adminClient != null) {
-                adminClient.close();
+                IOUtils.closeQuietly(adminClient);
             }
         }
 
