@@ -283,6 +283,9 @@ public class HdfsFetcher implements FileFetcher {
                 if(directory.validateCheckSum(fileCheckSumMap)) {
                     logger.info("Completed fetch : " + sourceFileUrl);
                     return destination;
+                } else {
+                    logger.error("Checksum did not match!");
+                    return null;
                 }
             } else if(allowFetchOfFiles) {
                 Utils.mkdirs(destination);
@@ -292,9 +295,10 @@ public class HdfsFetcher implements FileFetcher {
                 fetchStrategy.fetch(file, copyLocation, CheckSumType.NONE);
                 logger.info("Completed fetch : " + sourceFileUrl);
                 return destination;
+            } else {
+                logger.error("Source " + path.toString() + " should be a directory");
+                return null;
             }
-            logger.error("Source " + path.toString() + " should be a directory");
-            return null;
         } catch(Exception e) {
             if(stats != null) {
                 stats.reportError("File fetcher failed for destination " + destinationFile, e);

@@ -120,7 +120,7 @@ public class HdfsFetcherAdvancedTest {
      * @return The temporary directory
      */
     public static File createTempDir(File parent) {
-        File temp = new File(parent, "hdfsfetchertestadvanced");
+        File temp = new File(parent, "hdfsfetchertestadvanced_" + System.currentTimeMillis());
         temp.delete();
         temp.mkdir();
         temp.deleteOnExit();
