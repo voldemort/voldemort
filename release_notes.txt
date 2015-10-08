@@ -1,3 +1,11 @@
+Release 1.9.22 on 10/08/2015
+- Disk quota for Voldemort Read only pipeline
+- Improve debuggability of BnP HA
+- Add heart beat for NIO selector
+- Add additional keepalive settings to avoid client connection leaks
+- Trim fat from HadoopUtils
+- Proper interrruption of BnP hooks
+
 Release 1.9.21 on 09/24/2015
 * Kerberos token caching now considered experimental (disabled by default).
 
