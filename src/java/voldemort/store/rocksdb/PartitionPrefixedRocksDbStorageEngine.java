@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksIterator;
 
@@ -23,21 +25,23 @@ public class PartitionPrefixedRocksDbStorageEngine extends RocksDbStorageEngine 
 
     public PartitionPrefixedRocksDbStorageEngine(String storeName,
                                                  RocksDB rdbStore,
+                                                 ColumnFamilyHandle storeHandle,
+                                                 ColumnFamilyOptions storeOptions,
                                                  int lockStripes,
                                                  RoutingStrategy routingStrategy,
                                                  boolean enableReadLocks) {
-        super(storeName, rdbStore, lockStripes, enableReadLocks);
+        super(storeName, rdbStore, storeHandle, storeOptions, lockStripes, enableReadLocks);
         this.routingStrategy = routingStrategy;
     }
 
     @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
-        return new RocksdbEntriesIterator(this.getRocksDB().newIterator(), partition);
+        return new RocksdbEntriesIterator(getRocksDbIterator(), partition);
     }
 
     @Override
     public ClosableIterator<ByteArray> keys(int partition) {
-        return new RocksdbKeysIterator(this.getRocksDB().newIterator(), partition);
+        return new RocksdbKeysIterator(getRocksDbIterator(), partition);
     }
 
     private ByteArray validateAndConstructKey(ByteArray key) {

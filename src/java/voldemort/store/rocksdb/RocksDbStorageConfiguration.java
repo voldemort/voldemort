@@ -65,6 +65,7 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
                 throw new StorageInitializationException("Unable to parse Data Base Options.");
             }
             dbOptions.setCreateIfMissing(true);
+            dbOptions.setCreateMissingColumnFamilies(true);
             dbOptions.createStatistics();
 
             Properties cfProperties = parseProperties(VoldemortConfig.ROCKSDB_CF_OPTIONS);
@@ -77,25 +78,35 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
                 throw new StorageInitializationException("Unable to parse Column Family Options.");
             }
 
-            // Create the default Column Family.
-            List<ColumnFamilyDescriptor> cfdList = new ArrayList<ColumnFamilyDescriptor>();
-            cfdList.add(new ColumnFamilyDescriptor("default".getBytes(), cfOptions));
-            List<ColumnFamilyHandle> cfhList = new ArrayList<ColumnFamilyHandle>();
+            // Create a non default Column Family tp hold the store data.
+            List<ColumnFamilyDescriptor> descriptors = new ArrayList<ColumnFamilyDescriptor>();
+            descriptors.add(new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, cfOptions));
+            descriptors.add(new ColumnFamilyDescriptor(storeName.getBytes(), cfOptions));
+            List<ColumnFamilyHandle> handles = new ArrayList<ColumnFamilyHandle>();
 
             try {
-                RocksDB rdbStore;
+                RocksDB rdbStore = RocksDB.open(dbOptions, dataDir, descriptors, handles);
+                // Dispose of the default Column Family immediately.  We don't use it and if it has not been disposed
+                // by the time the DB is closed then the RocksDB code can terminate abnormally (if the RocksDB code is
+                // built with assertions enabled). The handle will go out of scope on its own and the Java finalizer
+                // will (eventually) do this for us, but, that is not fast enough for the unit tests.
+                handles.get(0).dispose();
+                ColumnFamilyHandle storeHandle = handles.get(1);
+
                 RocksDbStorageEngine rdbStorageEngine;
                 if(this.voldemortconfig.getRocksdbPrefixKeysWithPartitionId()) {
-                    rdbStore = RocksDB.open(dbOptions, dataDir, cfdList, cfhList);
                     rdbStorageEngine = new PartitionPrefixedRocksDbStorageEngine(storeName,
                                                                                  rdbStore,
+                                                                                 storeHandle,
+                                                                                 cfOptions,
                                                                                  lockStripes,
                                                                                  strategy,
                                                                                  voldemortconfig.isRocksdbEnableReadLocks());
                 } else {
-                    rdbStore = RocksDB.open(dbOptions, dataDir, cfdList, cfhList);
                     rdbStorageEngine = new RocksDbStorageEngine(storeName,
                                                                 rdbStore,
+                                                                storeHandle,
+                                                                cfOptions,
                                                                 lockStripes,
                                                                 voldemortconfig.isRocksdbEnableReadLocks());
                 }
@@ -132,7 +143,7 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
     @Override
     public void close() {
         for(RocksDbStorageEngine rdbStorageEngine: stores.values()) {
-            rdbStorageEngine.getRocksDB().close();
+            rdbStorageEngine.close();
         }
 
         stores.clear();
@@ -142,7 +153,7 @@ public class RocksDbStorageConfiguration implements StorageConfiguration {
     public void removeStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
         RocksDbStorageEngine rdbStorageEngine = (RocksDbStorageEngine) engine;
 
-        rdbStorageEngine.getRocksDB().close();
+        rdbStorageEngine.close();
 
         stores.remove(rdbStorageEngine.getName());
     }

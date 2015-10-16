@@ -9,6 +9,9 @@ import java.util.NoSuchElementException;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
+import org.rocksdb.ColumnFamilyDescriptor;
+import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
@@ -37,6 +40,8 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
     private static final Logger logger = Logger.getLogger(RocksDbStorageEngine.class);
     private RocksDB rocksDB;
+    private volatile ColumnFamilyHandle storeHandle;
+    private final ColumnFamilyOptions storeOptions;
     private final StripedLock locks;
     private static final Hex hexCodec = new Hex();
     private final boolean enableReadLocks;
@@ -45,10 +50,14 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
     public RocksDbStorageEngine(String name,
                                 RocksDB rdbInstance,
+                                ColumnFamilyHandle storeHandle,
+                                ColumnFamilyOptions storeOptions,
                                 int lockStripes,
                                 boolean enableReadLocks) {
         super(name);
         this.rocksDB = rdbInstance;
+        this.storeHandle = storeHandle;
+        this.storeOptions = storeOptions;
         this.locks = new StripedLock(lockStripes);
         this.enableReadLocks = enableReadLocks;
     }
@@ -59,12 +68,16 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
     @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
-        return new RocksdbEntriesIterator(this.getRocksDB().newIterator());
+        return new RocksdbEntriesIterator(getRocksDbIterator());
     }
 
     @Override
     public ClosableIterator<ByteArray> keys() {
-        return new RocksdbKeysIterator(this.getRocksDB().newIterator());
+        return new RocksdbKeysIterator(getRocksDbIterator());
+    }
+
+    protected RocksIterator getRocksDbIterator() {
+        return this.getRocksDB().newIterator(storeHandle);
     }
 
     @Override
@@ -79,7 +92,19 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
     @Override
     public void truncate() {
-        throw new UnsupportedOperationException("truncate not suppported for this storage type");
+        try {
+            rocksDB.dropColumnFamily(storeHandle);
+            storeHandle.dispose();
+            storeHandle = rocksDB.createColumnFamily(new ColumnFamilyDescriptor(getName().getBytes(), storeOptions));
+        } catch (RocksDBException e) {
+            throw new VoldemortException("Failed to truncate DB", e);
+        }
+    }
+
+    @Override
+    public void close() throws VoldemortException {
+        storeHandle.dispose();
+        rocksDB.close();
     }
 
     private List<Versioned<byte[]>> getValueForKey(ByteArray key, byte[] transforms)
@@ -91,7 +116,7 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
         List<Versioned<byte[]>> value = null;
         try {
-            byte[] result = getRocksDB().get(key.get());
+            byte[] result = getRocksDB().get(storeHandle, key.get());
             if(result != null) {
                 value = StoreBinaryFormat.fromByteArray(result);
             } else {
@@ -178,7 +203,7 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
              */
             List<Versioned<byte[]>> currentValues;
             try {
-                byte[] result = getRocksDB().get(key.get());
+                byte[] result = getRocksDB().get(storeHandle, key.get());
                 if(result != null) {
                     currentValues = StoreBinaryFormat.fromByteArray(result);
                 } else {
@@ -213,7 +238,7 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
             currentValues.add(value);
 
             try {
-                getRocksDB().put(key.get(), StoreBinaryFormat.toByteArray(currentValues));
+                getRocksDB().put(storeHandle, key.get(), StoreBinaryFormat.toByteArray(currentValues));
             } catch(RocksDBException e) {
                 logger.error(e);
                 throw new PersistenceFailureException(e);
@@ -240,7 +265,7 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
         synchronized(this.locks.lockFor(key.get())) {
             try {
-                byte[] value = getRocksDB().get(key.get());
+                byte[] value = getRocksDB().get(storeHandle, key.get());
 
                 if(value == null) {
                     return false;
@@ -248,7 +273,7 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
 
                 if(version == null) {
                     // unversioned delete. Just blow away the whole thing
-                    getRocksDB().remove(key.get());
+                    getRocksDB().remove(storeHandle, key.get());
                     return true;
                 } else {
                     // versioned deletes; need to determine what to delete
@@ -272,12 +297,12 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
                     if(numDeletedVersions < numVersions) {
                         // we still have some valid versions
                         value = StoreBinaryFormat.toByteArray(vals);
-                        getRocksDB().put(key.get(), value);
+                        getRocksDB().put(storeHandle, key.get(), value);
                     } else {
                         // we have deleted all the versions; so get rid of the
                         // entry
                         // in the database
-                        getRocksDB().remove(key.get());
+                        getRocksDB().remove(storeHandle, key.get());
                     }
                     return numDeletedVersions > 0;
                 }
@@ -328,7 +353,7 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
              * and can cause unpredictable results.
              */
             try {
-                byte[] result = getRocksDB().get(key.get());
+                byte[] result = getRocksDB().get(storeHandle, key.get());
                 if(result != null) {
                     currentValues = StoreBinaryFormat.fromByteArray(result);
                 } else {
@@ -340,7 +365,7 @@ public class RocksDbStorageEngine extends AbstractStorageEngine<ByteArray, byte[
             }
             obsoleteVals = resolveAndConstructVersionsToPersist(currentValues, values);
             try {
-                getRocksDB().put(key.get(), StoreBinaryFormat.toByteArray(currentValues));
+                getRocksDB().put(storeHandle, key.get(), StoreBinaryFormat.toByteArray(currentValues));
             } catch(RocksDBException e) {
                 logger.error(e);
                 throw new PersistenceFailureException(e);
