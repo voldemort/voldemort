@@ -40,6 +40,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.VoldemortException;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategyFactory;
@@ -302,9 +303,14 @@ public class HadoopStoreBuilderTest {
 
         // check values
         for(Map.Entry<String, String> entry: values.entrySet()) {
-            List<Versioned<Object>> found = store.get(entry.getKey(), null);
-            Assert.assertEquals("Incorrect number of results", 1, found.size());
-            Assert.assertEquals(entry.getValue(), found.get(0).getValue());
+            String key = entry.getKey();
+            try {
+                List<Versioned<Object>> found = store.get(key, null);
+                Assert.assertEquals("Incorrect number of results", 1, found.size());
+                Assert.assertEquals(entry.getValue(), found.get(0).getValue());
+            } catch (VoldemortException e) {
+                throw new VoldemortException("Got an exception while trying to get key '" + key + "'.", e);
+            }
         }
 
         // also check the iterator - first key iterator...

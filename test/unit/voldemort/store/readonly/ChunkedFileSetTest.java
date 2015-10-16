@@ -15,6 +15,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.readonly.chunk.ChunkedFileSet;
 import voldemort.utils.ByteUtils;
 
@@ -72,7 +73,10 @@ public class ChunkedFileSetTest {
         indexFile.createNewFile();
         indexFile.deleteOnExit();
 
-        ChunkedFileSet fileSet = new ChunkedFileSet(fileDir, getTempStrategy(), NODE_ID);
+        ChunkedFileSet fileSet = new ChunkedFileSet(fileDir, 
+                                                    getTempStrategy(),
+                                                    NODE_ID, 
+                                                    VoldemortConfig.DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
 
         for(int i = 0; i < 2; i ++) {
             String input = md5collision[i];

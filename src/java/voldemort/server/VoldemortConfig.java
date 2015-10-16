@@ -93,6 +93,7 @@ public class VoldemortConfig implements Serializable {
     private static final String DEFAULT_KERBEROS_REALM = "";
     private static final String DEFAULT_FILE_FETCHER_CLASS = null; // FIXME: Some unit tests fail without this default.
     private static final String DEFAULT_RO_COMPRESSION_CODEC = "NO_CODEC";
+    public static final int DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE = 25 * 1024 * 1024;
 
     private int nodeId;
     private String voldemortHome;
@@ -174,6 +175,7 @@ public class VoldemortConfig implements Serializable {
     private String readOnlyCompressionCodec;
     private boolean readOnlyStatsFileEnabled;
     private int readOnlyMaxVersionsStatsFile;
+    private int readOnlyMaxValueBufferAllocationSize;
     private long readOnlyLoginIntervalMs;
     private long defaultStorageSpaceQuotaInKB;
 
@@ -391,6 +393,8 @@ public class VoldemortConfig implements Serializable {
                                                 VoldemortConfig.DEFAULT_FILE_FETCHER_CLASS);
         this.readOnlyStatsFileEnabled = props.getBoolean("readonly.stats.file.enabled", true);
         this.readOnlyMaxVersionsStatsFile = props.getInt("readonly.stats.file.max.versions", 1000);
+        this.readOnlyMaxValueBufferAllocationSize = props.getInt("readonly.max.value.buffer.allocation.size",
+                                                                 VoldemortConfig.DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
 
         // To set the Voldemort RO server compression codec to GZIP, explicitly
         // set this
@@ -3476,6 +3480,30 @@ public class VoldemortConfig implements Serializable {
 
     public void setReadOnlyMaxVersionsStatsFile(int readOnlyMaxVersionsStatsFile) {
         this.readOnlyMaxVersionsStatsFile = readOnlyMaxVersionsStatsFile;
+    }
+
+    public int getReadOnlyMaxValueBufferAllocationSize() {
+        return readOnlyMaxValueBufferAllocationSize;
+    }
+
+    /**
+     * Internal safe guard to avoid GC (and possibly OOM) from excessive buffer allocation.
+     *
+     * More importantly, if the server is given corrupted (or mismatched) index/data Read-Only files,
+     * it could be the case that the server accidentally attempts to read abnormally large values.
+     *
+     * Large value sizes are not good use cases for Voldemort so this should theoretically never come
+     * into play. The default config value is already absurdly high, and should thus never need to be raised.
+     *
+     * <ul>
+     * <li>Property : "readonly.max.value.buffer.allocation.size"</li>
+     * <li>Default : 25 MB</li>
+     * </ul>
+     *
+     * @param readOnlyMaxValueBufferAllocationSize
+     */
+    public void setReadOnlyMaxValueBufferAllocationSize(int readOnlyMaxValueBufferAllocationSize) {
+        this.readOnlyMaxValueBufferAllocationSize = readOnlyMaxValueBufferAllocationSize;
     }
 
     public String getReadOnlyCompressionCodec() {

@@ -105,7 +105,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         try {
             requestHandler.parseRequest(inputStream);
             requestHandler.processRequest();
-        } catch ( VoldemortException e) {
+        } catch (VoldemortException e) {
             // Put generates lot of ObsoleteVersionExceptions, suppress them
             // they are harmless and indicates normal mode of operation.
             if(!(e instanceof ObsoleteVersionException)) {
