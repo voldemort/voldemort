@@ -125,9 +125,7 @@ public abstract class SelectorManagerWorker implements Runnable {
                         + e.getMessage());
             close();
         } catch(Throwable t) {
-            if(logger.isEnabledFor(Level.ERROR))
-                logger.error(t.getMessage(), t);
-
+            logger.error("Error Servicing socket" + socketChannel.socket() + " message " + t.getMessage(), t);
             close();
         }
     }

@@ -526,6 +526,9 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
             } else {
                 return Collections.emptyList();
             }
+        } catch(IllegalArgumentException ex){
+            logger.warn("Failing for store file " + getName() + " Key " + ByteUtils.toHexString(key.get()), ex);
+            throw ex;
         } finally {
             fileModificationLock.readLock().unlock();
         }
