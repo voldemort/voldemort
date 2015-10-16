@@ -42,6 +42,7 @@ public class ChunkedFileSet {
 
     private int numChunks;
     private final int nodeId;
+    private final int maxValueBufferAllocationSize;
     private File baseDir;
     private final List<Integer> indexFileSizes;
     private final List<Integer> dataFileSizes;
@@ -58,7 +59,8 @@ public class ChunkedFileSet {
 
     public ChunkedFileSet(File directory,
                           RoutingStrategy routingStrategy,
-                          int nodeId) throws IOException {
+                          int nodeId,
+                          int maxValueBufferAllocationSize) throws IOException {
 
         this.baseDir = directory;
         if(!Utils.isReadableDir(directory)) {
@@ -101,6 +103,7 @@ public class ChunkedFileSet {
         this.chunkIdToChunkStart = new HashMap<Object, Integer>();
         this.chunkIdToNumChunks = new HashMap<Object, Integer>();
         this.nodeId = nodeId;
+        this.maxValueBufferAllocationSize = maxValueBufferAllocationSize;
         setRoutingStrategy(routingStrategy);
 
         switch(storageFormat) {
@@ -153,8 +156,8 @@ public class ChunkedFileSet {
         int chunkId = 0;
         while(true) {
             String fileName = Integer.toString(chunkId);
-            File index = new File(baseDir, fileName + ".index");
-            File data = new File(baseDir, fileName + ".data");
+            File index = getIndexFile(fileName);
+            File data = getDataFile(fileName);
             if(!index.exists() && !data.exists())
                 break;
             else if(index.exists() ^ data.exists())
@@ -188,15 +191,15 @@ public class ChunkedFileSet {
                 while(true) {
                     String fileName = Integer.toString(partitionId) + "_"
                                       + Integer.toString(chunkId);
-                    File index = new File(baseDir, fileName + ".index");
-                    File data = new File(baseDir, fileName + ".data");
+                    File index = getIndexFile(fileName);
+                    File data = getDataFile(fileName);
 
                     if(!index.exists() && !data.exists()) {
                         if(chunkId == 0) {
                             // create empty files for this partition
                             try {
-                                new File(baseDir, fileName + ".index").createNewFile();
-                                new File(baseDir, fileName + ".data").createNewFile();
+                                index.createNewFile();
+                                data.createNewFile();
                                 logger.info("No index or data files found, creating empty chunk files for partition "
                                             + partitionId);
                             } catch(IOException e) {
@@ -268,16 +271,16 @@ public class ChunkedFileSet {
                                     String fileName = Integer.toString(bucket.getFirst()) + "_"
                                                       + Integer.toString(bucket.getSecond()) + "_"
                                                       + Integer.toString(chunkId);
-                                    File index = new File(baseDir, fileName + ".index");
-                                    File data = new File(baseDir, fileName + ".data");
+                                    File index = getIndexFile(fileName);
+                                    File data = getDataFile(fileName);
 
                                     if(!index.exists() && !data.exists()) {
                                         if(chunkId == 0) {
                                             // create empty files for this
                                             // partition
                                             try {
-                                                new File(baseDir, fileName + ".index").createNewFile();
-                                                new File(baseDir, fileName + ".data").createNewFile();
+                                                index.createNewFile();
+                                                data.createNewFile();
                                                 logger.info("No index or data files found, creating empty files for partition "
                                                             + routingPartitionList.get(0)
                                                             + " and replicating partition "
@@ -527,6 +530,11 @@ public class ChunkedFileSet {
 
     }
 
+    private String scaryMessage(byte[] key) {
+        return "There might be data corruption, or the index/data files might be mismatched. " +
+                "Key: " + ByteUtils.toHexString(key);
+    }
+
     public byte[] readValue(byte[] key, int chunk, int valueLocation) {
         FileChannel dataFile = dataFileFor(chunk);
         try {
@@ -544,47 +552,69 @@ public class ChunkedFileSet {
                     return valueBuffer.array();
                 }
                 case READONLY_V2: {
-
-                    // Buffer for 'numKeyValues', 'keySize' and 'valueSize'
+                    // Buffer for 'numKeyValues' (a short), 'keySize' (an int) and 'valueSize' (another int)
                     int headerSize = ByteUtils.SIZE_OF_SHORT + (2 * ByteUtils.SIZE_OF_INT);
-                    ByteBuffer sizeBuffer = ByteBuffer.allocate(headerSize);
-                    dataFile.read(sizeBuffer, valueLocation);
+                    int fileSize = getDataFileSize(chunk);
+                    ByteBuffer headerBuffer, keyBuffer, valueBuffer;
+                    headerBuffer = ByteBuffer.allocate(headerSize);
+                    dataFile.read(headerBuffer, valueLocation);
                     valueLocation += headerSize;
 
                     // Read the number of key-values
-                    short numKeyValues = sizeBuffer.getShort(0);
+                    short numKeyValues = headerBuffer.getShort(0);
 
                     // Read the key size
-                    int keySize = sizeBuffer.getInt(ByteUtils.SIZE_OF_SHORT);
+                    int keySize = headerBuffer.getInt(ByteUtils.SIZE_OF_SHORT);
 
                     // Read the value size
-                    int valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_SHORT
-                                                      + ByteUtils.SIZE_OF_INT);
+                    int valueSize = headerBuffer.getInt(ByteUtils.SIZE_OF_SHORT + ByteUtils.SIZE_OF_INT);
 
                     do {
+                        if (valueLocation >= (fileSize - headerSize)) {
+                            logger.error("Data file " + getDataFile(chunk) + " claims there are " + numKeyValues +
+                                         " more records to be read for our key hash, but this brings us over the " +
+                                         "limit of the data file size (" + fileSize + " bytes). " + scaryMessage(key));
+                            throw new VoldemortException("The data cannot be read because of an internal Voldemort server error.");
+                        }
 
-                        if(keySize == -1 && valueSize == -1) {
-                            sizeBuffer.clear();
+                        if (keySize == -1 && valueSize == -1) {
+                            headerBuffer.clear();
                             // Reads an extra short, but that is fine since
                             // collisions are rare. Also we save the unnecessary
                             // overhead of allocating a new byte-buffer
-                            dataFile.read(sizeBuffer, valueLocation);
-                            keySize = sizeBuffer.getInt(0);
-                            valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_INT);
+                            dataFile.read(headerBuffer, valueLocation);
+                            keySize = headerBuffer.getInt(0);
+                            valueSize = headerBuffer.getInt(ByteUtils.SIZE_OF_INT);
                             valueLocation += (2 * ByteUtils.SIZE_OF_INT);
                         }
 
-                        // Read key + value
-                        ByteBuffer buffer = ByteBuffer.allocate(keySize + valueSize);
-                        dataFile.read(buffer, valueLocation);
-
-                        // Compare key
-                        if(ByteUtils.compare(key, buffer.array(), 0, keySize) == 0) {
-                            return ByteUtils.copy(buffer.array(), keySize, keySize + valueSize);
+                        if (keySize < 0 || valueSize < 0) {
+                            logger.error("Data file " + getDataFile(chunk) + " claims the key or value size of a " +
+                                         "record is negative. " + scaryMessage(key));
+                            throw new VoldemortException("The data cannot be read because of an internal Voldemort server error.");
+                        } else if (valueSize > maxValueBufferAllocationSize) {
+                            logger.error("Data file " + getDataFile(chunk) + " claims the value size is greater than " +
+                                         "the max value buffer allocation size (" + maxValueBufferAllocationSize + "). " +
+                                         "The actual values may be too big or... " + scaryMessage(key));
+                            throw new VoldemortException("The data cannot be read because of an internal Voldemort server error.");
                         }
+
+                        if (keySize == key.length) {
+                            // Read key
+                            keyBuffer = ByteBuffer.allocate(keySize);
+                            dataFile.read(keyBuffer, valueLocation);
+
+                            // Compare key
+                            if(ByteUtils.compare(key, keyBuffer.array(), 0, keySize) == 0) {
+                                // Read value
+                                valueBuffer = ByteBuffer.allocate(valueSize);
+                                dataFile.read(valueBuffer, valueLocation + keySize);
+                                return valueBuffer.array();
+                            }
+                        } // else if the keys are not the same size, they're not even worth comparing
+
                         valueLocation += (keySize + valueSize);
                         keySize = valueSize = -1;
-
                     } while(--numKeyValues > 0);
                     // Could not find key, return value of no size
                     return new byte[0];
@@ -788,5 +818,21 @@ public class ChunkedFileSet {
 
     public List<String> getFileNames() {
         return this.fileNames;
+    }
+
+    public String fileNameFor(int chunk) {
+        return fileNames.get(chunk);
+    }
+
+    private File getDataFile(int chunk) {
+        return getDataFile(fileNameFor(chunk));
+    }
+
+    private File getDataFile(String fileName) {
+        return new File(baseDir, fileName + ".data");
+    }
+
+    private File getIndexFile(String fileName) {
+        return new File(baseDir, fileName + ".index");
     }
 }
