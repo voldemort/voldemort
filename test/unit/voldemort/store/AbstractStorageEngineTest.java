@@ -153,6 +153,11 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
                 it.close();
             }
         }
+
+        // Verify that the store is still useable after the truncate.
+        assertEquals(0, engine.get(key1, null).size());
+        engine.put(key1, v1, null);
+        assertEquals(1, engine.get(key1, null).size());
     }
 
     @Test

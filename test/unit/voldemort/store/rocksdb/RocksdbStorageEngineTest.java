@@ -9,7 +9,6 @@ import java.util.Random;
 import org.apache.commons.io.FileDeleteStrategy;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -76,16 +75,4 @@ public class RocksdbStorageEngineTest extends AbstractStorageEngineTest {
             FileDeleteStrategy.FORCE.delete(datadir);
         }
     }
-
-    // The functionalities below are not ready yet:
-
-    @Ignore
-    @Override
-    public void testTruncate() throws Exception {}
-
-    @Override
-    public void testKeyIterationWithSerialization() {}
-
-    @Override
-    public void testIterationWithSerialization() {}
 }
