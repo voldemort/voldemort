@@ -35,6 +35,7 @@ import voldemort.VoldemortUnsupportedOperationalException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.routing.RoutingStrategy;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.AbstractStorageEngine;
 import voldemort.store.DisabledStoreException;
 import voldemort.store.StoreCapabilityType;
@@ -59,16 +60,18 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
 
     private static Logger logger = Logger.getLogger(ReadOnlyStorageEngine.class);
 
-    private final int numBackups, nodeId;
+    // Immutable state
+    private final int numBackups, nodeId, deleteBackupMs, maxValueBufferAllocationSize;
     private final File storeDir;
     private final ReadWriteLock fileModificationLock;
     private final SearchStrategy searchStrategy;
+    private final StoreVersionManager storeVersionManager;
+
+    // Mutable state
     private RoutingStrategy routingStrategy;
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
-    private int deleteBackupMs = 0;
     private long lastSwapped;
-    private final StoreVersionManager storeVersionManager;
 
     /**
      * Create an instance of the store
@@ -86,7 +89,14 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                                  int nodeId,
                                  File storeDir,
                                  int numBackups) {
-        this(name, searchStrategy, routingStrategy, nodeId, storeDir, numBackups, 0);
+        this(name,
+             searchStrategy,
+             routingStrategy,
+             nodeId,
+             storeDir,
+             numBackups,
+             0,
+             VoldemortConfig.DEFAULT_RO_MAX_VALUE_BUFFER_ALLOCATION_SIZE);
     }
 
     /**
@@ -107,7 +117,8 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                                  int nodeId,
                                  File storeDir,
                                  int numBackups,
-                                 int deleteBackupMs) {
+                                 int deleteBackupMs,
+                                 int maxValueBufferAllocationSize) {
 
         super(name);
         this.deleteBackupMs = deleteBackupMs;
@@ -116,6 +127,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
         this.searchStrategy = searchStrategy;
         this.routingStrategy = Utils.notNull(routingStrategy);
         this.nodeId = nodeId;
+        this.maxValueBufferAllocationSize = maxValueBufferAllocationSize;
         this.fileSet = null;
         /*
          * A lock that blocks reads during swap(), open(), and close()
@@ -195,7 +207,7 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
                         + versionDir.getAbsolutePath());
             Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator
                     + "latest");
-            this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId);
+            this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId, maxValueBufferAllocationSize);
             storeVersionManager.syncInternalStateFromFileSystem();
             this.lastSwapped = System.currentTimeMillis();
             this.isOpen = true;
