@@ -1,10 +1,18 @@
+Release 1.10.0 on 10/19/2015
+* Many many many fixes and improvements in the 1.9.x series of release! Many thanks to all contributors!
+* Minor improvements since the last patch release (1.9.22):
+  * Upgraded RocksDB to 3.13.1 and added more configurability options for it.
+  * Improvements to the benchmarking tool.
+  * Added a unit test for colliding keys in Read-Only data files.
+  * Added various safe-guards in case Read-Only index/data files become corrupted.
+
 Release 1.9.22 on 10/08/2015
-- Disk quota for Voldemort Read only pipeline
-- Improve debuggability of BnP HA
-- Add heart beat for NIO selector
-- Add additional keepalive settings to avoid client connection leaks
-- Trim fat from HadoopUtils
-- Proper interrruption of BnP hooks
+* Disk quota for Voldemort Read-Only pipeline
+* Improved debuggability of BnP HA
+* Added heart beat for NIO selector
+* Added additional keepalive settings to avoid client connection leaks
+* Trimmed fat from HadoopUtils
+* Proper interruption of BnP hooks
 
 Release 1.9.21 on 09/24/2015
 * Kerberos token caching now considered experimental (disabled by default).
