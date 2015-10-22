@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 
@@ -46,6 +47,8 @@ import com.sun.jna.Native;
  * 
  */
 public class Utils {
+
+    private static final Logger logger = Logger.getLogger(Utils.class);
 
     public static final String NEWLINE = System.getProperty("line.separator");
 
@@ -165,6 +168,8 @@ public class Utils {
             try {
                 if (symLink.getCanonicalFile().equals(file.getCanonicalFile())) {
                     // No need to do anything else, the symlink already points to the right destination
+                    logger.info("Symlink '" + symLink.getParentFile().getName() + "/" + symLink.getName() +
+                                "' pointing to '" + file.getName() + "' already exists. Leaving it as is.");
                     return;
                 }
             } catch (IOException e) {
@@ -178,6 +183,9 @@ public class Utils {
         int returnCode = posix.symlink(filePath, symLinkPath);
         if (returnCode < 0)
             throw new VoldemortException("Unable to create symbolic link for " + filePath);
+
+        logger.info("Symlink '" + symLink.getParentFile().getName() + "/" + symLink.getName() +
+                    "' pointing to '" + file.getName() + "' has been created.");
     }
 
     public interface Posix extends Library {
