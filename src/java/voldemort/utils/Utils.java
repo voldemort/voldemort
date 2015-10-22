@@ -182,7 +182,8 @@ public class Utils {
         Posix posix = (Posix) Native.loadLibrary("c", Posix.class);
         int returnCode = posix.symlink(filePath, symLinkPath);
         if (returnCode < 0)
-            throw new VoldemortException("Unable to create symbolic link for " + filePath);
+            throw new VoldemortException("Unable to create symbolic link for " + filePath +
+                                         " (received return code " + returnCode + ")");
 
         logger.info("Symlink '" + symLink.getParentFile().getName() + "/" + symLink.getName() +
                     "' pointing to '" + file.getName() + "' has been created.");
