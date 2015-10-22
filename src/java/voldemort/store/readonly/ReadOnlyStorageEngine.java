@@ -202,11 +202,8 @@ public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte
             }
             Utils.mkdirs(versionDir);
 
-            // Create symbolic link
-            logger.info("Creating symbolic link for '" + getName() + "' using directory "
-                        + versionDir.getAbsolutePath());
-            Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator
-                    + "latest");
+            // Validate symbolic link, and create it if it doesn't already exist
+            Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator + "latest");
             this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId, maxValueBufferAllocationSize);
             storeVersionManager.syncInternalStateFromFileSystem();
             this.lastSwapped = System.currentTimeMillis();

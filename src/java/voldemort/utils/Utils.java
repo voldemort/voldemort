@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 
@@ -46,6 +47,8 @@ import com.sun.jna.Native;
  * 
  */
 public class Utils {
+
+    private static final Logger logger = Logger.getLogger(Utils.class);
 
     public static final String NEWLINE = System.getProperty("line.separator");
 
@@ -138,15 +141,17 @@ public class Utils {
      * 
      * @param collection to be converted to a sorted list
      */
-    public static <T extends Comparable<? super T>> List<T> asSortedList(Collection<T> c) {
-        List<T> list = new ArrayList<T>(c);
+    public static <T extends Comparable<? super T>> List<T> asSortedList(Collection<T> collection) {
+        List<T> list = new ArrayList<T>(collection);
         Collections.sort(list);
         return list;
     }
 
     /**
-     * Create a symbolic link to an existing file. Also deletes the existing
-     * symbolic link if it exists
+     * Creates a symbolic link to an existing file. If the symlink already exists and
+     * already points to the intended destination, no changes are made to the file-system.
+     * If the symlink already exists but points to wrong destination, it is deleted first
+     * before being recreated.
      * 
      * @param filePath Path of the file for whom to create the symbolic link
      * @param symLinkPath Path of the symbolic link
@@ -154,15 +159,34 @@ public class Utils {
     public static void symlink(String filePath, String symLinkPath) {
         File file = new File(filePath);
         File symLink = new File(symLinkPath);
-        symLink.delete();
 
-        if(!file.exists())
+        if (!file.exists()) {
             throw new VoldemortException("File " + filePath + " does not exist");
+        }
+
+        if (symLink.exists()) {
+            try {
+                if (symLink.getCanonicalFile().equals(file.getCanonicalFile())) {
+                    // No need to do anything else, the symlink already points to the right destination
+                    logger.info("Symlink '" + symLink.getParentFile().getName() + "/" + symLink.getName() +
+                                "' pointing to '" + file.getName() + "' already exists. Leaving it as is.");
+                    return;
+                }
+            } catch (IOException e) {
+                throw new VoldemortException("Got an IOException while trying to read a symlink.", e);
+            }
+        }
+
+        symLink.delete();
 
         Posix posix = (Posix) Native.loadLibrary("c", Posix.class);
         int returnCode = posix.symlink(filePath, symLinkPath);
-        if(returnCode < 0)
-            throw new VoldemortException("Unable to create symbolic link for " + filePath);
+        if (returnCode < 0)
+            throw new VoldemortException("Unable to create symbolic link for " + filePath +
+                                         " (received return code " + returnCode + ")");
+
+        logger.info("Symlink '" + symLink.getParentFile().getName() + "/" + symLink.getName() +
+                    "' pointing to '" + file.getName() + "' has been created.");
     }
 
     public interface Posix extends Library {
