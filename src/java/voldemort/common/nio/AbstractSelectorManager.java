@@ -16,6 +16,7 @@
 
 package voldemort.common.nio;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectionKey;
@@ -23,6 +24,7 @@ import java.nio.channels.Selector;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -150,6 +152,11 @@ public abstract class AbstractSelectorManager implements Runnable {
                         logger.trace("Closing SelectionKey's channel");
 
                     sk.channel().close();
+
+                    Object attachment = sk.attachment();
+                    if(attachment instanceof Closeable) {
+                        IOUtils.closeQuietly((Closeable) attachment);
+                    }
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.WARN))
                         logger.warn(e.getMessage(), e);

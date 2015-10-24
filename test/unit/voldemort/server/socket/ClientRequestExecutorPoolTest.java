@@ -95,20 +95,13 @@ public class ClientRequestExecutorPoolTest {
                                                   true,
                                                   new String());
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
-        RequestHandlerFactory handlerFactory = ServerTestUtils.getSocketRequestHandlerFactory(new StoreRepository());
-        this.server = ServerTestUtils.getSocketService(useNio,
-                                                       handlerFactory,
-                                                       port,
-                                                       10,
-                                                       10 + 3,
-                                                       10000);
-
-        this.server.start();
+        startServer();
 
         this.nonRespondingPort = ServerTestUtils.findFreePort();
         this.nonRespondingDest = new SocketDestination("localhost",
                                                        nonRespondingPort,
                                                        RequestFormatType.VOLDEMORT_V1);
+
         this.nonRespondingServer = new NonRespondingSocketService(nonRespondingPort);
         this.nonRespondingServer.start();
 
@@ -119,6 +112,79 @@ public class ClientRequestExecutorPoolTest {
         this.pool.close();
         this.server.stop();
         this.nonRespondingServer.stop();
+    }
+
+    private void stopServer() {
+        this.server.stop();
+    }
+
+    private void startServer() {
+        RequestHandlerFactory handlerFactory = ServerTestUtils.getSocketRequestHandlerFactory(new StoreRepository());
+        this.server = ServerTestUtils.getSocketService(useNio,
+                                                       handlerFactory,
+                                                       port,
+                                                       10,
+                                                       10 + 3,
+                                                       10000);
+        this.server.start();
+    }
+
+    private void validateResourceCount(String message, int expected) {
+        int numConnections = pool.internalGetQueuedPool().getCheckedInResourcesCount(dest1);
+        assertEquals(message, expected, numConnections);
+        int totalResourceCount = pool.internalGetQueuedPool().getTotalResourceCount(dest1);
+        assertEquals(message, expected, totalResourceCount);
+    }
+
+    @Test
+    public void testInFlightServerBounce() throws Exception {
+        // Create 2 resources
+        ClientRequestExecutor sas1 = pool.checkout(dest1);
+        ClientRequestExecutor sas2 = pool.checkout(dest1);
+
+        // Stop the Server
+        stopServer();
+
+        // It takes few milliseconds for the selector to wake-up and clear
+        // connections
+        Thread.sleep(5);
+
+        pool.checkin(dest1, sas1);
+        pool.checkin(dest1, sas2);
+
+        validateResourceCount("Dead connections should have been cleared on checkin", 0);
+    }
+
+    @Test
+    public void testAtRestServerBounce() throws Exception {
+        // Create 2 resources
+        ClientRequestExecutor sas1 = pool.checkout(dest1);
+        ClientRequestExecutor sas2 = pool.checkout(dest1);
+        pool.checkin(dest1, sas1);
+        pool.checkin(dest1, sas2);
+
+        validateResourceCount("two connections are created ", 2);
+
+        stopServer();
+
+        validateResourceCount("cache should have 2 dead connections ", 2);
+
+        // It takes few milliseconds for the selector to wake-up and clear
+        // connections
+        Thread.sleep(5);
+        testConnectionFailure(pool, dest1, ConnectException.class);
+
+        validateResourceCount("next checkout should have cleared all dead connections", 0);
+
+        startServer();
+
+        sas1 = pool.checkout(dest1);
+        sas2 = pool.checkout(dest1);
+
+        pool.checkin(dest1, sas1);
+        pool.checkin(dest1, sas2);
+
+        validateResourceCount("Back to normal 2 connections expected ", 2);
     }
 
     @Test

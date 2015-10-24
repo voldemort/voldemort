@@ -16,6 +16,7 @@
 
 package voldemort.store.socket.clientrequest;
 
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
@@ -49,7 +50,7 @@ import voldemort.utils.Time;
  * @see ClientRequestExecutorPool
  */
 
-public class ClientRequestExecutor extends SelectorManagerWorker {
+public class ClientRequestExecutor extends SelectorManagerWorker implements Closeable {
 
     private ClientRequest<?> clientRequest;
 
@@ -160,16 +161,30 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
                 // code in a different thread than the SelectorManager.
                 selector.wakeup();
             } else {
-                if(logger.isDebugEnabled())
-                    logger.debug("Client associated with " + socketChannel.socket()
-                                 + " was not registered with Selector " + selector
-                                 + ", assuming initial protocol negotiation");
+                /*
+                 * Servers could close the Socket during bounce or other
+                 * situations. In those cases the cached client connections are
+                 * cleared up as well. But there is a race condition between the
+                 * requests getting cached connections and connections getting
+                 * cleared up. In those cases a request could get a connection
+                 * but before sending request, it could have been invalidated
+                 * and removed from the selector. This place handles the case by
+                 * sending an IO Error to the request.
+                 * 
+                 * This case is no different than the request sent to the server
+                 * and the server closing the socket.
+                 */
+                String message = "Client associated with " + socketChannel.socket()
+                            + " was not registered with Selector " + selector
+                                 + ", it could have been closed due to server restarts ";
+                logger.warn(message);
+                IOException ex = new IOException(message);
+                reportException(ex);
+                completeClientRequest();
             }
         } else {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Client associated with " + socketChannel.socket()
-                            + " did not successfully buffer output for request");
-
+            logger.warn("Client associated with " + socketChannel.socket()
+                        + " did not successfully buffer output for request");
             completeClientRequest();
         }
     }
@@ -254,7 +269,23 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
                 logger.trace("Finished read for " + socketChannel.socket());
 
             resetStreams();
-            selectionKey.interestOps(0);
+            /*
+             * Leave the socket with read interest. When node is restarted it
+             * closes all the sockets. If there is no interest then FIN packet
+             * from the node will be ignored though the connection is dead and
+             * must be removed from the cache. Since this connection exists any
+             * future operation will receive this dead connection and will fail
+             * with EOF on write. When entire cluster is bounced, all the client
+             * connections cached will be dead and for low throughput clients it
+             * will cause the operation to fail.
+             * 
+             * If the read interest is still there, the selector notifies read.
+             * The read returns -1 and it will be converted to EOFException. So
+             * socket will be closed and clientRequestExecutor will be
+             * invalidated. The caller will create new connection.
+             * 
+             * Commented code --> selectionKey.interestOps(0);
+             */
         }
         ClientRequest<?> originalRequest = completeClientRequest();
 
@@ -264,7 +295,10 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     @Override
     protected void reportException(IOException e) {
-        clientRequest.reportException(e);
+        ClientRequest<?> local = clientRequest;
+        if(local != null) {
+            local.reportException(e);
+        }
     }
 
     @Override

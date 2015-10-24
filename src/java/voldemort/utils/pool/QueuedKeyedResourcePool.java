@@ -130,7 +130,6 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      */
     public V internalNonBlockingGet(K key) throws Exception {
         Pool<V> resourcePool = getResourcePoolForKey(key);
-        V resource = null;
         return attemptNonBlockingCheckout(key, resourcePool);
     }
 

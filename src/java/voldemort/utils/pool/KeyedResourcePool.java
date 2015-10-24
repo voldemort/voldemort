@@ -159,7 +159,7 @@ public class KeyedResourcePool<K, V> {
                 }
 
                 if(waitNs > 0) {
-                    resource = resourcePool.blockingGet(waitNs);
+                    resource = blockingGet(key, resourcePool, waitNs);
                     totalBlockingElapsedNs += (System.nanoTime() - nonBlockingFinishTime);
                 }
             }
@@ -202,14 +202,13 @@ public class KeyedResourcePool<K, V> {
         // requesting a connection from the pool when other thread is
         // requesting one.
         if(connectionsInProgress.get() == 0) {
-            resource = pool.nonBlockingGet();
+            resource = nonBlockingGet(key, pool);
         }
         if(resource == null) {
             connectionsInProgress.incrementAndGet();
             try {
-
                 attemptGrow(key, this.objectFactory, pool);
-                resource = pool.nonBlockingGet();
+                resource = nonBlockingGet(key, pool);
             } finally {
                 connectionsInProgress.decrementAndGet();
             }
@@ -252,6 +251,27 @@ public class KeyedResourcePool<K, V> {
             return false;
         }
         return true;
+    }
+
+    private V nonBlockingGet(K key, Pool<V> pool) throws Exception {
+        V resource = pool.nonBlockingGet();
+        while(resource != null) {
+            if(isOpenAndValid(key, resource)) {
+                return resource;
+            }
+            resource = pool.nonBlockingGet();
+        }
+        return null;
+    }
+
+    private V blockingGet(K key, Pool<V> pool, long timeoutNs) throws Exception {
+        V resource = pool.blockingGet(timeoutNs);
+        if(resource != null) {
+            if(isOpenAndValid(key, resource)) {
+                return resource;
+            }
+        }
+        return null;
     }
 
     /**
@@ -510,6 +530,7 @@ public class KeyedResourcePool<K, V> {
             this.maxPoolSize = resourcePoolConfig.getMaxPoolSize();
             queue = new ArrayBlockingQueue<V>(this.maxPoolSize, resourcePoolConfig.isFair());
             this.asyncExceptions = new ArrayBlockingQueue<Pair<Long, Exception>>(EXCEPTION_COUNT_MAX);
+            // The async exceptions are remembered twice the connection time.
             long configExceptionReportTime = resourcePoolConfig.getTimeout(TimeUnit.MILLISECONDS) * 2;
             long MAX_EXCEPTION_REPORT_TIME = TimeUnit.MILLISECONDS.convert(30, TimeUnit.SECONDS);
             excpetionReportTimeMS = Math.min(configExceptionReportTime, MAX_EXCEPTION_REPORT_TIME);
@@ -544,11 +565,28 @@ public class KeyedResourcePool<K, V> {
             }
         }
 
+        /**
+         * get a resource if it is available in the pool. If not return null.
+         * The resource could be invalid and caller should validate them before
+         * consuming it.
+         * 
+         * @return resource if available else null
+         * @throws Exception
+         */
         public V nonBlockingGet() throws Exception {
             throwReportedExceptions();
             return this.queue.poll();
         }
 
+        /**
+         * get a resource if it is available within the nanoseconds specified.
+         * The resource could be invalid and caller should validate them before
+         * consuming it.
+         * 
+         * @param timeoutNs max time to wait in nanoseconds
+         * @return resource if available else null
+         * @throws Exception
+         */
         public V blockingGet(long timeoutNs) throws Exception {
             throwReportedExceptions();
             V v;

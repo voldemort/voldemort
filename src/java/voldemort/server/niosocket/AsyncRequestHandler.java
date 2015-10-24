@@ -16,6 +16,7 @@
 
 package voldemort.server.niosocket;
 
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -24,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 
@@ -56,7 +58,7 @@ import voldemort.utils.ByteUtils;
  * @see voldemort.server.protocol.RequestHandler
  */
 
-public class AsyncRequestHandler extends SelectorManagerWorker {
+public class AsyncRequestHandler extends SelectorManagerWorker implements Closeable {
 
     private final RequestHandlerFactory requestHandlerFactory;
 
@@ -379,7 +381,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
             VoldemortException error = e instanceof VoldemortException ? (VoldemortException) e
                                                                       : new VoldemortException(e);
             streamRequestHandler.handleError(dataOutputStream, error);
-            streamRequestHandler.close(dataOutputStream);
+            closeStreamRequestHandler(dataOutputStream);
             streamRequestHandler = null;
 
             prepForWrite(selectionKey);
@@ -437,6 +439,17 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         }
     }
 
+    private AtomicBoolean isStreamClosed = new AtomicBoolean(false);
+
+    private void closeStreamRequestHandler(DataOutputStream dataOutputStream) throws IOException {
+        if (!isStreamClosed.compareAndSet(false, true))
+            return;
+
+        if (streamRequestHandler != null) {
+            streamRequestHandler.close(dataOutputStream);
+        }
+    }
+
     @Override
     public void close() {
         if(!isClosed.compareAndSet(false, true))
@@ -444,5 +457,29 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
         nioStats.removeConnection();
         closeInternal();
+
+        /*
+         * Close the socket before closing the StreamRequestHandler. If an error
+         * happens during stream processing, this call is no-op as the close
+         * would have been called in the exception handling block. Proper error
+         * would be sent to the client.
+         * 
+         * But if the socket is closed by the client or the server is shutting
+         * down, then the socket would be half written or half read, writing an
+         * error to the same socket, can't be handled by the client. But Stream
+         * processors might hold a lock ( read lock in read only file streaming)
+         * that needs to be cleaned up. So stream close should be called.
+         * 
+         * Ideally the stream processors that holds the lock requires cleanup
+         * should separate the close/dispose (Close writes error or finalize
+         * message, dispose to free up the resources). But that means looking
+         * into all the stream processors and cleaning them up so it is saved
+         * for a different day.
+         */
+        try {
+            DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+            closeStreamRequestHandler(dataOutputStream);
+        } catch (IOException ignore) {
+        }
     }
 }
