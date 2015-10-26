@@ -1,12 +1,5 @@
 package voldemort.store.readonly.fetcher;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.log4j.Logger;
-import voldemort.server.protocol.admin.AsyncOperationStatus;
-import voldemort.store.readonly.checksum.CheckSum;
-import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
-
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -17,6 +10,14 @@ import java.text.NumberFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.log4j.Logger;
+
+import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.store.readonly.checksum.CheckSum;
+import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 
 
 public class BasicFetchStrategy implements FetchStrategy {
@@ -159,11 +160,12 @@ public class BasicFetchStrategy implements FetchStrategy {
                     }
                 }
                 stats.reportFileDownloaded(dest,
-                        startTimeMS,
-                        source.getSize(),
-                        System.currentTimeMillis() - startTimeMS,
-                        attempt,
-                        totalBytesRead);
+                                           startTimeMS,
+                                           source.getSize(),
+                                           System.currentTimeMillis() - startTimeMS,
+                                           attempt,
+                                           totalBytesRead,
+                                           fileCheckSumGenerator);
                 logger.info("Completed copy of " + source + " to " + dest);
                 success = true;
             } catch (IOException e) {
