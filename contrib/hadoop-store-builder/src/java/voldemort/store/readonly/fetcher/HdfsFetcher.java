@@ -104,8 +104,11 @@ public class HdfsFetcher implements FileFetcher {
      * The keytab path is set to empty string, which triggers a different code path
      * in {@link HadoopUtils#getHadoopFileSystem(voldemort.server.VoldemortConfig, String)}.
      *
-     * TODO: Change visibility or otherwise ensure that only test code can use this...
+     * FIXME: Change visibility or otherwise ensure that only test code can use this...
+     *
+     * @deprecated Do not use for production code, use {@link #HdfsFetcher(voldemort.server.VoldemortConfig)} instead.
      */
+    @Deprecated
     public HdfsFetcher() {
         this(new VoldemortConfig(-1, ""), // Fake config with a bogus node ID and server config path
              (Long) null,
@@ -157,19 +160,30 @@ public class HdfsFetcher implements FileFetcher {
                 ", fetcher socket timeout = " + socketTimeout + " ms.");
     }
 
+    /**
+     * Used only by unit tests and by the deprecated {@link voldemort.server.http.gui.ReadOnlyStoreManagementServlet}.
+     *
+     * FIXME: Refactor test code with dependency injection or scope restrictions so this function is not public.
+     *
+     * @deprecated Do not use for production code, use {@link #fetch(String, String, voldemort.server.protocol.admin.AsyncOperationStatus, String, long, voldemort.store.metadata.MetadataStore)} instead.
+     */
+    @Deprecated
     @Override
     public File fetch(String source, String dest) throws Exception {
         return fetch(source, dest, VoldemortConfig.DEFAULT_STORAGE_SPACE_QUOTA_IN_KB);
     }
 
+    /**
+     * Used for unit tests only.
+     *
+     * FIXME: Refactor test code with dependency injection or scope restrictions so this function is not public.
+     *
+     * @deprecated Do not use for production code, use {@link #fetch(String, String, voldemort.server.protocol.admin.AsyncOperationStatus, String, long, voldemort.store.metadata.MetadataStore)} instead.
+     */
+    @Deprecated
     @Override
-    public File fetch(String source, String dest, long diskQuotaSizeInKB) throws IOException,
-            Exception {
-        return fetchFromSource(source, dest,
-                                   null,
-                                   null,
-                                   -1,
-                                   diskQuotaSizeInKB);
+    public File fetch(String source, String dest, long diskQuotaSizeInKB) throws Exception {
+        return fetchFromSource(source, dest, null, null, -1, diskQuotaSizeInKB);
     }
 
     @Override
@@ -186,10 +200,9 @@ public class HdfsFetcher implements FileFetcher {
                                           new ClientConfig());
 
             Versioned<String> diskQuotaSize = adminClient.quotaMgmtOps.getQuotaForNode(storeName,
-                                                                                           QuotaType.STORAGE_SPACE,
-                                                                                           metadataStore.getNodeId());
-            Long diskQuoataSizeInKB = (diskQuotaSize == null) ? null
-                                                             : (Long.parseLong(diskQuotaSize.getValue()));
+                                                                                       QuotaType.STORAGE_SPACE,
+                                                                                       metadataStore.getNodeId());
+            Long diskQuoataSizeInKB = (diskQuotaSize == null) ? null : (Long.parseLong(diskQuotaSize.getValue()));
             logger.info("Starting fetch for : " + sourceFileUrl);
             return fetchFromSource(sourceFileUrl,
                                    destinationFile,
@@ -299,18 +312,15 @@ public class HdfsFetcher implements FileFetcher {
                 logger.error("Source " + path.toString() + " should be a directory");
                 return null;
             }
-        } catch(Exception e) {
+        } catch (Exception e) {
             if(stats != null) {
                 stats.reportError("File fetcher failed for destination " + destinationFile, e);
             }
-            String errorMessage = "Error thrown while trying to get data from Hadoop filesystem : ";
-            logger.error(errorMessage, e);
             if(e instanceof VoldemortException) {
                 throw e;
             } else {
-                throw new VoldemortException(errorMessage, e);
+                throw new VoldemortException("Error thrown while trying to get data from Hadoop filesystem: " + e.getMessage(), e);
             }
-
         } finally {
             if(jmxName != null)
                 JmxUtils.unregisterMbean(jmxName);
