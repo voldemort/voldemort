@@ -52,7 +52,6 @@ public class HdfsCopyStatsTest {
         for(int i = 0; i < maxStatsFile + 2; i++) {
             destination = new File(testSourceDir.getAbsolutePath() + "_dest" + i);
             String destName = destination.getName();
-            expectedStatsFile.add(destName);
             // Sleep to get last modified time stamp different for all files
             // linux timestamp has second granularity, so sleep for a second
             Thread.sleep(1000);
@@ -63,6 +62,10 @@ public class HdfsCopyStatsTest {
                                                     isFileCopy,
                                                     HdfsPathInfo.getTestObject(1000));
 
+            if(stats.getStatsFile() != null) {
+                expectedStatsFile.add(stats.getStatsFile().getName());
+            }
+
             Random r = new Random();
             for(int j = 0; j < 10; j++) {
                 File file = new File(destination, "file" + i);
@@ -71,7 +74,8 @@ public class HdfsCopyStatsTest {
                                            r.nextInt(),
                                            r.nextLong(),
                                            r.nextInt(),
-                                           r.nextLong());
+                                           r.nextLong(),
+                                           null);
 
             }
             Exception e = r.nextBoolean() ? null : new Exception();
