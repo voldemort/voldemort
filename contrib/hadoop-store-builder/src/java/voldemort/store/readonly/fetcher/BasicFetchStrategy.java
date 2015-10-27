@@ -54,9 +54,9 @@ public class BasicFetchStrategy implements FetchStrategy {
         for (HdfsFile file : directory.getFiles()) {
             String fileName = file.getDiskFileName();
             File copyLocation = new File(dest, fileName);
-            CheckSum fileCheckSumGenerator = copyFileWithCheckSum(file, copyLocation, checkSumType);
-            if (fileCheckSumGenerator != null) {
-                fileCheckSumMap.put(file, fileCheckSumGenerator.getCheckSum());
+            byte[] fileCheckSum = copyFileWithCheckSum(file, copyLocation, checkSumType);
+            if(fileCheckSum != null) {
+                fileCheckSumMap.put(file, fileCheckSum);
             }
         }
         return fileCheckSumMap;
@@ -77,8 +77,9 @@ public class BasicFetchStrategy implements FetchStrategy {
      *         computed checksum of the copied file
      * @throws IOException
      */
-    private CheckSum copyFileWithCheckSum(HdfsFile source, File dest, CheckSumType checkSumType) throws IOException {
-        CheckSum fileCheckSumGenerator = null;
+    private byte[] copyFileWithCheckSum(HdfsFile source, File dest, CheckSumType checkSumType)
+            throws IOException {
+        byte[] checkSum = null;
         logger.debug("Starting copy of " + source + " to " + dest);
 
         // Check if its Gzip compressed
@@ -94,7 +95,7 @@ public class BasicFetchStrategy implements FetchStrategy {
             long totalBytesRead = 0;
             boolean fsOpened = false;
             try {
-
+                CheckSum fileCheckSumGenerator = null;
                 // Create a per file checksum generator
                 if (checkSumType != null) {
                     fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
@@ -159,13 +160,16 @@ public class BasicFetchStrategy implements FetchStrategy {
                         }
                     }
                 }
+                if(fileCheckSumGenerator != null) {
+                    checkSum = fileCheckSumGenerator.getCheckSum();
+                }
                 stats.reportFileDownloaded(dest,
                                            startTimeMS,
                                            source.getSize(),
                                            System.currentTimeMillis() - startTimeMS,
                                            attempt,
                                            totalBytesRead,
-                                           fileCheckSumGenerator);
+                                           checkSum);
                 logger.info("Completed copy of " + source + " to " + dest);
                 success = true;
             } catch (IOException e) {
@@ -194,7 +198,7 @@ public class BasicFetchStrategy implements FetchStrategy {
                 }
             }
         }
-        return fileCheckSumGenerator;
+        return checkSum;
     }
 
     private void sleepForRetryDelayMs() {
@@ -208,7 +212,7 @@ public class BasicFetchStrategy implements FetchStrategy {
     }
 
     @Override
-    public CheckSum fetch(HdfsFile file, File dest, CheckSumType checkSumType) throws IOException {
+    public byte[] fetch(HdfsFile file, File dest, CheckSumType checkSumType) throws IOException {
         return copyFileWithCheckSum(file, dest, checkSumType);
     }
 
