@@ -14,7 +14,6 @@ import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.annotations.jmx.JmxGetter;
-import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 
@@ -217,10 +216,10 @@ public class HdfsCopyStats {
                                      long timeTakenMS,
                                      int attempts,
                                      long totalBytesWritten,
-                                     CheckSum checkSum) {
+                                     byte[] checkSum) {
         String fileCheckSum;
         if(checkSum != null) {
-            fileCheckSum = ByteUtils.toHexString(checkSum.getCheckSum());
+            fileCheckSum = ByteUtils.toHexString(checkSum);
         } else {
             fileCheckSum = "NO_CHECKSUM";
         }

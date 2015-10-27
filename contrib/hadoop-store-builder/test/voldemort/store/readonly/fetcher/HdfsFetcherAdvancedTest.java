@@ -93,7 +93,7 @@ public class HdfsFetcherAdvancedTest {
         this.enableStatsFile = enableStatsFile;
     }
 
-    protected CheckSum copyFileWithCheckSumTest(HdfsFetcher fetcher,
+    protected byte[] copyFileWithCheckSumTest(HdfsFetcher fetcher,
                                                 FileSystem fs,
                                                 Path source,
                                                 File dest,
@@ -556,8 +556,14 @@ public class HdfsFetcherAdvancedTest {
                .doAnswer(Mockito.CALLS_REAL_METHODS)
                .when(spyfs)
                .open(source);
-        CheckSum ckSum = copyFileWithCheckSumTest(fetcher, spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer);
-        assertEquals(Arrays.equals(ckSum.getCheckSum(), checksumCalculated), true);
+        byte[] actualCheckSum = copyFileWithCheckSumTest(fetcher,
+                                                         spyfs,
+                                                         source,
+                                                         copyLocation,
+                                                         stats,
+                                                         CheckSumType.MD5,
+                                                         buffer);
+        assertEquals(Arrays.equals(actualCheckSum, checksumCalculated), true);
     }
 
     /*
@@ -580,9 +586,15 @@ public class HdfsFetcherAdvancedTest {
                .read();
         Mockito.doReturn(spyinput).doReturn(input).when(spyfs).open(source);
 
-        CheckSum ckSum = null;
+        byte[] actualCheckSum = null;
         try {
-            ckSum = copyFileWithCheckSumTest(fetcher, spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer);
+            actualCheckSum = copyFileWithCheckSumTest(fetcher,
+                                                      spyfs,
+                                                      source,
+                                                      copyLocation,
+                                                      stats,
+                                                      CheckSumType.MD5,
+                                                      buffer);
         } catch(Exception ex) {
             if(isCompressed) {
                 // This is expected
@@ -591,7 +603,7 @@ public class HdfsFetcherAdvancedTest {
                 Assert.fail("Unexpected exption thrown : " + ex.getMessage());
             }
         }
-        assertEquals(Arrays.equals(ckSum.getCheckSum(), checksumCalculated), true);
+        assertEquals(Arrays.equals(actualCheckSum, checksumCalculated), true);
     }
 
     /*
@@ -609,8 +621,14 @@ public class HdfsFetcherAdvancedTest {
                .doAnswer(Mockito.CALLS_REAL_METHODS)
                .when(spyfs)
                .open(source);
-        CheckSum ckSum = copyFileWithCheckSumTest(fetcher, spyfs, source, copyLocation, stats, CheckSumType.MD5, buffer);
-        assertEquals(Arrays.equals(ckSum.getCheckSum(), checksumCalculated), true);
+        byte[] actualCheckSum = copyFileWithCheckSumTest(fetcher,
+                                                         spyfs,
+                                                         source,
+                                                         copyLocation,
+                                                         stats,
+                                                         CheckSumType.MD5,
+                                                         buffer);
+        assertEquals(Arrays.equals(actualCheckSum, checksumCalculated), true);
     }
 
     /*
