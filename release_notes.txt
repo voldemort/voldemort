@@ -1,3 +1,10 @@
+Release 1.10.1 on 10/27/2015
+* Read-Only server improvements and fixes:
+  * Read-Only server now avoids needlessly recreating symlinks.
+  * Individual file checksums now outputted to stats file.
+  * Removed a harmful set quota admin op from BnP (regression fix).
+  * Added more details to an exception shown in BnP (regression fix).
+
 Release 1.10.0 on 10/19/2015
 * Many many many fixes and improvements in the 1.9.x series of release! Many thanks to all contributors!
 * Minor improvements since the last patch release (1.9.22):
