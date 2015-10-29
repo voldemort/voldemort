@@ -57,15 +57,10 @@ import voldemort.versioning.Versioned;
  */
 public class HdfsFetcher implements FileFetcher {
 
-    // Constants
-    public static final String GZIP_FILE_EXTENSION = ".gz";
-    public static final String INDEX_FILE_EXTENSION = ".index";
-    public static final String DATA_FILE_EXTENSION = ".data";
-    public static final String METADATA_FILE_EXTENSION = ".metadata";
-
     // Class-level state
     private static final Logger logger = Logger.getLogger(HdfsFetcher.class);
     private static final AtomicInteger copyCount = new AtomicInteger(0);
+    private static Boolean allowFetchOfFiles = false;
 
     // Instance-level state
     private final Long maxBytesPerSecond, reportingIntervalBytes;
@@ -74,8 +69,6 @@ public class HdfsFetcher implements FileFetcher {
     private final boolean enableStatsFile;
     private final EventThrottler throttler;
     private final VoldemortConfig voldemortConfig;
-
-    private static Boolean allowFetchOfFiles = false;
 
     /**
      * This is the constructor invoked via reflection from

@@ -19,7 +19,12 @@ import voldemort.utils.Utils;
 
 public class ReadOnlyUtils {
 
+    // Constants
     public static final int POSITION_SIZE = 4;
+    public static final String GZIP_FILE_EXTENSION = ".gz";
+    public static final String INDEX_FILE_EXTENSION = ".index";
+    public static final String DATA_FILE_EXTENSION = ".data";
+    public static final String METADATA_FILE_EXTENSION = ".metadata";
 
     private static Logger logger = Logger.getLogger(ReadOnlyUtils.class);
 

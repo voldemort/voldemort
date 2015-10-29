@@ -2,6 +2,7 @@ package voldemort.store.readonly.fetcher;
 
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+import voldemort.store.readonly.ReadOnlyUtils;
 
 public class HdfsFile implements Comparable<HdfsFile> {
 
@@ -16,11 +17,11 @@ public class HdfsFile implements Comparable<HdfsFile> {
     private final FileType type;
 
     private FileType getFileType(String fileName) {
-        if(fileName.contains(HdfsFetcher.METADATA_FILE_EXTENSION)) {
+        if(fileName.contains(ReadOnlyUtils.METADATA_FILE_EXTENSION)) {
             return FileType.METADATA;
-        } else if(fileName.contains(HdfsFetcher.DATA_FILE_EXTENSION)) {
+        } else if(fileName.contains(ReadOnlyUtils.DATA_FILE_EXTENSION)) {
             return FileType.DATA;
-        } else if(fileName.contains(HdfsFetcher.INDEX_FILE_EXTENSION)) {
+        } else if(fileName.contains(ReadOnlyUtils.INDEX_FILE_EXTENSION)) {
             return FileType.INDEX;
         } else {
             return FileType.OTHER;
@@ -92,15 +93,15 @@ public class HdfsFile implements Comparable<HdfsFile> {
     public String getDiskFileName() {
         String fileName = getPath().getName();
         // DiskFile is uncompressed
-        if(fileName.endsWith(HdfsFetcher.GZIP_FILE_EXTENSION)) {
+        if(fileName.endsWith(ReadOnlyUtils.GZIP_FILE_EXTENSION)) {
             fileName = fileName.substring(0,
-                                      fileName.length() - HdfsFetcher.GZIP_FILE_EXTENSION.length());
+                                      fileName.length() - ReadOnlyUtils.GZIP_FILE_EXTENSION.length());
         }
         return fileName;
     }
 
     public boolean isCompressed() {
-        return getPath().getName().endsWith(HdfsFetcher.GZIP_FILE_EXTENSION);
+        return getPath().getName().endsWith(ReadOnlyUtils.GZIP_FILE_EXTENSION);
     }
 
     @Override

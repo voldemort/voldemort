@@ -16,6 +16,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortApplicationException;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.fetcher.HdfsFile.FileType;
@@ -62,7 +63,7 @@ public class HdfsDirectory {
         for(FileStatus file: files) {
             String fileName = file.getPath().getName();
             if(fileName.contains(CHECKSUM_FILE)
-               || (!fileName.contains(HdfsFetcher.METADATA_FILE_EXTENSION) && fileName.startsWith("."))) {
+               || (!fileName.contains(ReadOnlyUtils.METADATA_FILE_EXTENSION) && fileName.startsWith("."))) {
                 continue;
             }
             
