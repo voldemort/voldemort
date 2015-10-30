@@ -203,6 +203,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
                 outputStream = this.fileSystem.create(temporaryLockFile, false);
                 props.storeFlattened(outputStream);
                 outputStream.flush();
+                IOUtils.closeQuietly(outputStream); // necessary, otherwise the rename fails.
 
                 // We attempt to rename to the globally contended lock path
                 this.lockAcquired = this.fileSystem.rename(temporaryLockFile, this.lockFile);
@@ -214,7 +215,7 @@ public class HdfsFailedFetchLock extends FailedFetchLock {
             } catch (IOException e) {
                 handleIOException(e, ACQUIRE_LOCK, attempts);
             } finally {
-                IOUtils.closeQuietly(outputStream);
+                IOUtils.closeQuietly(outputStream); // in case we failed before the other close above.
             }
 
             if (!this.lockAcquired) {
