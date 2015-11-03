@@ -158,7 +158,7 @@ public class VoldemortClientShell {
         parser.accepts("config-file", "A properties file that contains client config properties")
               .withRequiredArg()
               .describedAs("file");
-        parser.accepts("help", "This help message")
+        parser.accepts("help", "Print this help message")
               .isForHelp();
         parser.accepts("voldemort-shell", "Suffix of shell script; used to format help output."
                                           + " Examples of script suffixes: sh, bat, app")
