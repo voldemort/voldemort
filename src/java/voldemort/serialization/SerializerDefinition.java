@@ -129,8 +129,7 @@ public class SerializerDefinition {
         return compression;
     }
 
-    @Override
-    public boolean equals(Object obj) {
+    private boolean commonEquals(Object obj) {
         if(obj == this)
             return true;
         if(obj == null)
@@ -139,9 +138,47 @@ public class SerializerDefinition {
             return false;
         SerializerDefinition s = (SerializerDefinition) obj;
         return Objects.equal(getName(), s.getName())
-               && Objects.equal(this.schemaInfoByVersion, s.schemaInfoByVersion)
                && Objects.equal(this.compression, s.compression)
                && this.hasVersion == s.hasVersion();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        boolean isEqual = commonEquals(obj);
+        if(!isEqual) {
+            return false;
+        }
+        SerializerDefinition s = (SerializerDefinition) obj;
+        return Objects.equal(this.schemaInfoByVersion, s.schemaInfoByVersion);
+    }
+
+    public boolean semanticEquals(Object obj) {
+        boolean isEqual = commonEquals(obj);
+        if(!isEqual) {
+            return false;
+        }
+
+        /*
+         * The code seems like copy/paste from equals. But semanticEquals want
+         * to differentiate the false returned from
+         * 
+         * commonEquals - something does not match, return false immediately
+         * schema map - String schema check does not match, try the Serializer
+         * comparison
+         * 
+         * using equals method directly does not give the distinction and might
+         * return true, if the difference is only in the compression.
+         */
+        SerializerDefinition other = (SerializerDefinition) obj;
+        if(Objects.equal(this.schemaInfoByVersion, other.schemaInfoByVersion))
+            return true;
+
+        // If the schema definition does not match as String, try to use the
+        // type comparison
+        Serializer serializer = new DefaultSerializerFactory().getSerializer(this);
+        Serializer otherSerializer = new DefaultSerializerFactory().getSerializer(other);
+
+        return Objects.equal(serializer, otherSerializer);
     }
 
     public String getFormattedString() {

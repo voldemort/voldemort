@@ -75,4 +75,30 @@ public class AvroGenericSerializer implements Serializer<Object> {
             throw new SerializationException(e);
         }
     }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((typeDef == null) ? 0 : typeDef.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(this == obj)
+            return true;
+        if(obj == null)
+            return false;
+        if(getClass() != obj.getClass())
+            return false;
+        AvroGenericSerializer other = (AvroGenericSerializer) obj;
+        if(typeDef == null) {
+            if(other.typeDef != null)
+                return false;
+        } else if(!typeDef.equals(other.typeDef))
+            return false;
+        return true;
+    }
+
 }

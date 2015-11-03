@@ -167,6 +167,55 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
         } catch(IOException e) {
             throw new SerializationException(e);
         }
-
     }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((newestVersion == null) ? 0 : newestVersion.hashCode());
+        for(Map.Entry<Integer, String> versionedSchema: typeDefVersions.entrySet()) {
+            Schema schema = Schema.parse(versionedSchema.getValue());
+            result = (prime * result) + schema.hashCode();
+        }
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(this == obj)
+            return true;
+        if(obj == null)
+            return false;
+        if(getClass() != obj.getClass())
+            return false;
+        AvroVersionedGenericSerializer other = (AvroVersionedGenericSerializer) obj;
+        if(newestVersion == null) {
+            if(other.newestVersion != null)
+                return false;
+        } else if(!newestVersion.equals(other.newestVersion))
+            return false;
+
+        if(typeDefVersions == null) {
+            if(other.typeDefVersions != null)
+                return false;
+        } else if(typeDefVersions.size() != other.typeDefVersions.size()) {
+            return false;
+        } else {
+            for(Map.Entry<Integer, String> versionedSchema: typeDefVersions.entrySet()) {
+                Schema schema = Schema.parse(versionedSchema.getValue());
+                String otherTypeDef = other.typeDefVersions.get(versionedSchema.getKey());
+                if(otherTypeDef == null) {
+                    // Other schema is not present
+                    return false;
+                }
+                Schema otherSchema = Schema.parse(otherTypeDef);
+                if(!schema.equals(otherSchema)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
 }

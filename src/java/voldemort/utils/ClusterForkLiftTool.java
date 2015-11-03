@@ -137,6 +137,9 @@ public class ClusterForkLiftTool implements Runnable {
     private static final String OVERWRITE_WARNING_MESSAGE = "**WARNING** If source and destination has overlapping keys, will overwrite the destination values "
                                                             + " using source. The option is ir-reversible. The old value if exists in the destination cluster will "
                                                             + " be permanently lost. For keys that only exists in destination, they will be left un-modified. ";
+    private static final String IGNORE_SCHEMA_WARNING_MESSAGE = "**WARNING** The tool will error out if the source and destination cluster has different schemas."
+                                                                + "This option forces the data to be migrated any-way even if there is a mismatch. Useful when you"
+                                                                + "are sure that source and destination schemas are compatible to force the tool to run anyway.";
 
     private final AdminClient srcAdminClient;
     private final BaseStreamingClient dstStreamingClient;
@@ -232,7 +235,7 @@ public class ClusterForkLiftTool implements Runnable {
             if(!ignoreSchemaMismatch) {
                 SerializerDefinition srcKeySerializer = srcStoreDef.getKeySerializer();
                 SerializerDefinition dstKeySerializer = dstStoreDef.getKeySerializer();
-                if(srcKeySerializer.equals(dstKeySerializer) == false) {
+                if(srcKeySerializer.semanticEquals(dstKeySerializer) == false) {
                     String message = "Store "
                                      + store
                                      + " Key schema does not match between Source and destination \n";
@@ -244,7 +247,7 @@ public class ClusterForkLiftTool implements Runnable {
 
                 SerializerDefinition srcValueSerializer = srcStoreDef.getValueSerializer();
                 SerializerDefinition dstValueSerializer = dstStoreDef.getValueSerializer();
-                if(srcValueSerializer.equals(dstValueSerializer) == false) {
+                if(srcValueSerializer.semanticEquals(dstValueSerializer) == false) {
                     String message = "Store "
                                      + store
                                      + " Value schema does not match between Source and destination \n";
@@ -651,6 +654,11 @@ public class ClusterForkLiftTool implements Runnable {
         parser.accepts(OVERWRITE_OPTION, OVERWRITE_WARNING_MESSAGE)
               .withOptionalArg()
               .describedAs("overwriteExistingValue")
+              .ofType(Boolean.class)
+              .defaultsTo(false);
+        parser.accepts(IGNORE_SCHEMA_MISMATCH, IGNORE_SCHEMA_WARNING_MESSAGE )
+              .withOptionalArg()
+              .describedAs("ignoreSchemaMismatch")
               .ofType(Boolean.class)
               .defaultsTo(false);
 

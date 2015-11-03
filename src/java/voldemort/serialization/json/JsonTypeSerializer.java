@@ -571,4 +571,32 @@ public class JsonTypeSerializer implements Serializer<Object> {
             return size;
         }
     }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + (hasVersion ? 1231 : 1237);
+        result = prime * result + ((typeDefVersions == null) ? 0 : typeDefVersions.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(this == obj)
+            return true;
+        if(obj == null)
+            return false;
+        if(getClass() != obj.getClass())
+            return false;
+        JsonTypeSerializer other = (JsonTypeSerializer) obj;
+        if(hasVersion != other.hasVersion)
+            return false;
+        if(typeDefVersions == null) {
+            if(other.typeDefVersions != null)
+                return false;
+        } else if(!typeDefVersions.equals(other.typeDefVersions))
+            return false;
+        return true;
+    }
 }

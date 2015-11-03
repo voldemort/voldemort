@@ -455,6 +455,8 @@ public class ClusterForkLiftToolTest {
                 fail("Incompatible types should have failed");
             } catch(VoldemortApplicationException e) {
 
+            } catch(Exception e) {
+                throw new RuntimeException(" Got wrong type exception for store " + store, e);
             }
 
             ClusterForkLiftTool forkLiftTool = new ClusterForkLiftTool(srcBootStrapUrl,

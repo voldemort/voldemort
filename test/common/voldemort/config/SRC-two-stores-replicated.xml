@@ -120,7 +120,7 @@
     </key-serializer>
     <value-serializer>
       <type>json</type>
-      <schema-info>[string]</schema-info>
+      <schema-info>["string"]</schema-info>
     </value-serializer>
   </store>
   <store>
