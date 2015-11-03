@@ -167,7 +167,7 @@ public class VoldemortClientShell {
         OptionSet options = parser.parse(args);
 
         List<String> nonOptions = (List<String>) options.nonOptionArguments();
-        if(nonOptions.size() < 2 || nonOptions.size() > 5 || options.has("help")) {
+        if(nonOptions.size() < 2 || nonOptions.size() > 3 || options.has("help")) {
             if (options.has("voldemort-shell")) {
                 System.err.println("Usage: voldemort-shell."
                                     + options.valueOf("voldemort-shell")
