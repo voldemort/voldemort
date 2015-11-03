@@ -17,9 +17,7 @@
 package voldemort.store.readonly.mr.azkaban;
 
 import java.io.FileNotFoundException;
-import java.io.InputStreamReader;
 import java.util.List;
-import java.util.Random;
 
 import org.apache.avro.mapred.AvroInputFormat;
 import org.apache.hadoop.fs.FileSystem;
@@ -29,14 +27,11 @@ import org.apache.hadoop.mapred.JobConf;
 
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
-import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.mr.AvroStoreBuilderMapper;
 import voldemort.store.readonly.mr.HadoopStoreBuilder;
 import voldemort.store.readonly.mr.VoldemortStoreBuilderMapper;
 import voldemort.store.readonly.mr.serialization.JsonSequenceFileInputFormat;
-import voldemort.xml.ClusterMapper;
-import voldemort.xml.StoreDefinitionsMapper;
 import voldemort.utils.Props;
 
 /**
@@ -198,53 +193,19 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
     public void run() throws Exception {
         JobConf configuration = this.createJobConf(VoldemortStoreBuilderMapper.class);
 
-        // Only if its a avro job we supply some additional fields
-        // for the key value schema of the avro record
-        if(conf.isAvro()) {
-            String recSchema = conf.getRecSchema();
-            String keySchema = conf.getKeySchema();
-            String valSchema = conf.getValSchema();
-
-            String keyField = conf.getKeyField();
-            String valueField = conf.getValueField();
-
-            configuration.set("avro.rec.schema", recSchema);
-            configuration.set("avro.key.schema", keySchema);
-            configuration.set("avro.val.schema", valSchema);
-
-            configuration.set("avro.key.field", keyField);
-            configuration.set("avro.value.field", valueField);
-        }
-        int chunkSize = conf.getChunkSize();
-        Path tempDir = conf.getTempDir();
-        Path outputDir = conf.getOutputDir();
-        Path inputPath = conf.getInputPath();
-        Cluster cluster = conf.getCluster();
-        List<StoreDefinition> storeDefs = conf.getStoreDefs();
-        String storeName = conf.getStoreName();
-        CheckSumType checkSumType = conf.getCheckSumType();
-        boolean saveKeys = conf.getSaveKeys();
-        boolean reducerPerBucket = conf.getReducerPerBucket();
-
-        StoreDefinition storeDef = null;
-        for(StoreDefinition def: storeDefs)
-            if(storeName.equals(def.getName()))
-                storeDef = def;
-        if(storeDef == null)
-            throw new IllegalArgumentException("Store '" + storeName + "' not found.");
-
-        FileSystem fs = outputDir.getFileSystem(configuration);
-        if(fs.exists(outputDir)) {
-            info("Deleting previous output in " + outputDir + " for building store " + storeName);
-            fs.delete(outputDir, true);
-        }
-
-        HadoopStoreBuilder builder;
-
         Class mapperClass;
         Class<? extends InputFormat> inputFormatClass;
 
+        // Only if its a avro job we supply some additional fields
+        // for the key value schema of the avro record
         if(conf.isAvro()) {
+            configuration.set("avro.rec.schema", conf.getRecSchema());
+            configuration.set("avro.key.schema", conf.getKeySchema());
+            configuration.set("avro.val.schema", conf.getValSchema());
+
+            configuration.set("avro.key.field", conf.getKeyField());
+            configuration.set("avro.value.field", conf.getValueField());
+
             mapperClass = AvroStoreBuilderMapper.class;
             inputFormatClass = AvroInputFormat.class;
         } else {
@@ -252,19 +213,34 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
             inputFormatClass = JsonSequenceFileInputFormat.class;
         }
 
-        builder = new HadoopStoreBuilder(
+        String storeName = conf.getStoreName();
+        StoreDefinition storeDef = null;
+        for(StoreDefinition def: conf.getStoreDefs())
+            if(storeName.equals(def.getName()))
+                storeDef = def;
+        if(storeDef == null)
+            throw new IllegalArgumentException("Store '" + storeName + "' not found.");
+
+        Path outputDir = conf.getOutputDir();
+        FileSystem fs = outputDir.getFileSystem(configuration);
+        if(fs.exists(outputDir)) {
+            info("Deleting previous output in " + outputDir + " for building store " + storeName);
+            fs.delete(outputDir, true);
+        }
+
+        HadoopStoreBuilder builder = new HadoopStoreBuilder(
                 configuration,
                 mapperClass,
                 inputFormatClass,
-                cluster,
+                conf.getCluster(),
                 storeDef,
-                tempDir,
+                conf.getTempDir(),
                 outputDir,
-                inputPath,
-                checkSumType,
-                saveKeys,
-                reducerPerBucket,
-                chunkSize,
+                conf.getInputPath(),
+                conf.getCheckSumType(),
+                conf.getSaveKeys(),
+                conf.getReducerPerBucket(),
+                conf.getChunkSize(),
                 conf.getNumChunks(),
                 conf.isAvro(),
                 conf.getMinNumberOfRecords());

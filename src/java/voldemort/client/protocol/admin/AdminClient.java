@@ -23,6 +23,7 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import com.google.protobuf.UninitializedMessageException;
+import org.apache.avro.Schema;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
@@ -43,6 +44,9 @@ import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.serialization.DefaultSerializerFactory;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
@@ -1647,9 +1651,194 @@ public class AdminClient implements Closeable {
         }
 
         /**
+         * This function ensures that a StoreDefinition exists on all online Voldemort Servers.
+         *
+         * These are the steps this function goes through:
+         * 1) For each node in the cluster, checks if a StoreDefinition already exists for this
+         *    store name:
+         *    1.1) If a store with that name does already exist, then it checks if the the
+         *         definitions are consistent:
+         *         1.1.1) If the definitions are inconsistent, then a {@link VoldemortException}
+         *                is thrown with a detailed error message about the differences between
+         *                the intended and the already existing (remote) definition.
+         *         1.1.2) If the definitions are consistent, then this is a no-op.
+         *    1.2) If a store with that name does not already exist, then it gets created.
+         *
+         * This function is idempotent, in the sense that it can be executed against a cluster
+         * which already has the desired StoreDefinition registered on some or all nodes, and
+         * it will fill in the blank as needed.
+         *
+         * WARNING: Only intended for Read-Only stores. Use on Read-Write stores at your own risk!
+         *
+         * @param newStoreDef StoreDefinition to make sure exists on all online Voldemort Servers
+         * @param localProcessName Name of the process interested in creating the store
+         *                         (for example: Build and Push), used for debugging purposes.
+         * @throws UnreachableStoreException Thrown if one or more server was unreachable. Can
+         *                                   potentially be ignored, in certain use cases.
+         * @throws VoldemortException Thrown if a server contains an incompatible StoreDefinitions.
+         */
+        public void verifyOrAddStore(StoreDefinition newStoreDef, String localProcessName)
+                throws UnreachableStoreException, VoldemortException {
+            if (!newStoreDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME)) {
+                throw new VoldemortException("verifyOrAddStore() is intended only for Read-Only stores!");
+            }
+
+            List<Integer> nodesMissingNewStore = Lists.newArrayList();
+            List<Node> unreachableNodes = Lists.newArrayList();
+            for (Node node: currentCluster.getNodes()) {
+                boolean addStoreToCurrentNode = true;
+                int nodeId = node.getId();
+                List<StoreDefinition> remoteStoreDefs = Lists.newArrayList();
+
+                try {
+                    // Get all StoreDefinitions from each nodes in the cluster
+                    remoteStoreDefs = metadataMgmtOps.getRemoteStoreDefList(nodeId).getValue();
+                } catch (UnreachableStoreException e) {
+                    logger.warn("Failed to contact " + node.briefToString() + " in order to validate the StoreDefinition.");
+                    unreachableNodes.add(node);
+                    continue;
+                }
+
+                // Go over all StoreDefinitions and see if one has the same name as the store we're trying to build
+                for(StoreDefinition remoteStoreDef: remoteStoreDefs) {
+                    if(remoteStoreDef.getName().equals(newStoreDef.getName())) {
+                        if(remoteStoreDef.equals(newStoreDef)) {
+                            // A match made in heaven
+                            addStoreToCurrentNode = false;
+                        } else {
+                            // if the store already exists, but doesn't equal() what we want to push, we need to worry
+
+                            // let's check to see if the key/value serializers are REALLY equal.
+                            SerializerDefinition newKeySerializerDef = newStoreDef.getKeySerializer();
+                            SerializerDefinition newValueSerializerDef = newStoreDef.getValueSerializer();
+                            SerializerDefinition remoteKeySerializerDef = remoteStoreDef.getKeySerializer();
+                            SerializerDefinition remoteValueSerializerDef = remoteStoreDef.getValueSerializer();
+                            String newKeySerDeName = newKeySerializerDef.getName();
+                            String newValSerDeName = newValueSerializerDef.getName();
+                            if(remoteKeySerializerDef.getName().equals(newKeySerDeName)
+                                    && remoteValueSerializerDef.getName().equals(newValSerDeName)) {
+
+                                Object remoteKeyDef, remoteValDef, localKeyDef, localValDef;
+                                if (newValSerDeName.equals(DefaultSerializerFactory.AVRO_GENERIC_VERSIONED_TYPE_NAME) ||
+                                        newValSerDeName.equals(DefaultSerializerFactory.AVRO_GENERIC_TYPE_NAME)) {
+                                    remoteKeyDef = Schema.parse(remoteKeySerializerDef.getCurrentSchemaInfo());
+                                    remoteValDef = Schema.parse(remoteValueSerializerDef.getCurrentSchemaInfo());
+                                    localKeyDef = Schema.parse(newKeySerializerDef.getCurrentSchemaInfo());
+                                    localValDef = Schema.parse(newValueSerializerDef.getCurrentSchemaInfo());
+                                } else if (newValSerDeName.equals(DefaultSerializerFactory.JSON_SERIALIZER_TYPE_NAME)) {
+                                    remoteKeyDef = JsonTypeDefinition.fromJson(remoteKeySerializerDef.getCurrentSchemaInfo());
+                                    remoteValDef = JsonTypeDefinition.fromJson(remoteValueSerializerDef.getCurrentSchemaInfo());
+                                    localKeyDef = JsonTypeDefinition.fromJson(newKeySerializerDef.getCurrentSchemaInfo());
+                                    localValDef = JsonTypeDefinition.fromJson(newValueSerializerDef.getCurrentSchemaInfo());
+                                } else {
+                                    throw new VoldemortException("verifyOrAddStore() only works with Avro Generic and JSON serialized stores!");
+                                }
+                                boolean serializerDefinitionsAreEqual = remoteKeyDef.equals(localKeyDef) && remoteValDef.equals(localValDef);
+
+                                if (serializerDefinitionsAreEqual) {
+                                    // If current schemas are equal, then we'll try to ignore that part and compare the rest.
+                                    StoreDefinition newStoreDefWithRemoteSerializer = new StoreDefinition(newStoreDef.getName(),
+                                                                                                          newStoreDef.getType(),
+                                                                                                          newStoreDef.getDescription(),
+                                                                                                          remoteKeySerializerDef, // Remote Key SerDe
+                                                                                                          remoteValueSerializerDef, // Remote Value SerDe
+                                                                                                          newStoreDef.getTransformsSerializer(),
+                                                                                                          newStoreDef.getRoutingPolicy(),
+                                                                                                          newStoreDef.getRoutingStrategyType(),
+                                                                                                          newStoreDef.getReplicationFactor(),
+                                                                                                          newStoreDef.getPreferredReads(),
+                                                                                                          newStoreDef.getRequiredReads(),
+                                                                                                          newStoreDef.getPreferredWrites(),
+                                                                                                          newStoreDef.getRequiredWrites(),
+                                                                                                          newStoreDef.getViewTargetStoreName(),
+                                                                                                          newStoreDef.getValueTransformation(),
+                                                                                                          newStoreDef.getZoneReplicationFactor(),
+                                                                                                          newStoreDef.getZoneCountReads(),
+                                                                                                          newStoreDef.getZoneCountWrites(),
+                                                                                                          newStoreDef.getRetentionDays(),
+                                                                                                          newStoreDef.getRetentionScanThrottleRate(),
+                                                                                                          newStoreDef.getRetentionFrequencyDays(),
+                                                                                                          newStoreDef.getSerializerFactory(),
+                                                                                                          newStoreDef.getHintedHandoffStrategyType(),
+                                                                                                          newStoreDef.getHintPrefListSize(),
+                                                                                                          newStoreDef.getOwners(),
+                                                                                                          newStoreDef.getMemoryFootprintMB());
+
+                                    if (remoteStoreDef.equals(newStoreDefWithRemoteSerializer)) {
+                                        // All good after all (for this node) !
+                                        addStoreToCurrentNode = false;
+                                    } else {
+                                        // if we still get a fail, then we know that the store defs don't match for reasons
+                                        // OTHER than the key/value serializer
+                                        String errorMessage = "Your store schema is identical, " +
+                                                "but the store definition does not match on " + node.briefToString();
+                                        logger.error(errorMessage + diffMessage(newStoreDefWithRemoteSerializer, remoteStoreDef, localProcessName));
+                                        throw new VoldemortException(errorMessage);
+                                    }
+                                } else {
+                                    // if the key/value serializers are not equal (even in java, not just json strings),
+                                    // then fail
+                                    String errorMessage = "Your data schema does not match the schema which is already " +
+                                            "defined on " + node.briefToString();
+                                    logger.error(errorMessage + diffMessage(newStoreDef, remoteStoreDef, localProcessName));
+                                    throw new VoldemortException(errorMessage);
+                                }
+                            } else {
+                                String errorMessage = "Your store definition does not match the store definition that is " +
+                                        "already defined on " + node.briefToString();
+                                logger.error(errorMessage + diffMessage(newStoreDef, remoteStoreDef, localProcessName));
+                                throw new VoldemortException(errorMessage);
+                            }
+                        }
+                        if (!addStoreToCurrentNode) {
+                            // No need to iterate over the rest of the StoreDefinitions returned by the node...
+                            break;
+                        } else {
+                            // The above code has a bit of a complex flow... so this is just in case future code changes
+                            // introduce an issue that might otherwise make the store verification fail silently.
+                            throw new VoldemortException("Unexpected code path! At this point, we should either have found " +
+                                                                 "a matching store or already thrown another exception. " +
+                                                                 "Current remoteStoreDef: '" + remoteStoreDef.getName() + "'. " +
+                                                                 "Current node: " + node.briefToString());
+                        }
+                    }
+                }
+
+                if (addStoreToCurrentNode) {
+                    nodesMissingNewStore.add(nodeId);
+                }
+            }
+
+            storeMgmtOps.addStore(newStoreDef, nodesMissingNewStore);
+
+            if (unreachableNodes.size() > 0) {
+                String errorMessage = "verifyOrAddStore() failed against the following nodes: ";
+                boolean first = true;
+                for (Node node: unreachableNodes) {
+                    if (first) {
+                        first = false;
+                    } else {
+                        errorMessage += ", ";
+                    }
+                    errorMessage += node.briefToString();
+                }
+                throw new UnreachableStoreException(errorMessage);
+            }
+        }
+
+        private String diffMessage(StoreDefinition newStoreDef, StoreDefinition remoteStoreDef, String localProcessName) {
+            String thisName = localProcessName + " has";
+            String otherName = "Voldemort server has";
+            String message = "\n" + thisName + ":\t" + newStoreDef +
+                    "\n" + otherName + ":\t" + remoteStoreDef +
+                    "\n" + newStoreDef.diff(remoteStoreDef, thisName, otherName);
+            return message;
+        }
+
+        /**
          * Delete a store from all active nodes in the cluster
          * <p>
-         * 
+         *
          * @param storeName name of the store to delete
          */
         public void deleteStore(String storeName) {
