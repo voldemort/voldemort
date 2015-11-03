@@ -20,7 +20,7 @@ REM ** This Windows BAT file is not tested with each Voldemort release. **
 setlocal
 SET BASE_DIR=%~dp0..
 
-call "%BASE_DIR%\bin\run-class.bat" jline.ConsoleRunner voldemort.VoldemortClientShell %*
+call "%BASE_DIR%\bin\run-class.bat" jline.ConsoleRunner voldemort.VoldemortClientShell %* --voldemort-shell bat
 
 endlocal
 
