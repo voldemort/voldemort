@@ -18,4 +18,4 @@
 
 base_dir=$(dirname $0)/..
 
-$base_dir/bin/run-class.sh jline.ConsoleRunner voldemort.VoldemortClientShell $@
+$base_dir/bin/run-class.sh jline.ConsoleRunner voldemort.VoldemortClientShell $@ --voldemort-shell sh
