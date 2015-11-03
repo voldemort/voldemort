@@ -151,21 +151,36 @@ public class VoldemortClientShell {
     public static void main(String[] args) throws Exception {
 
         OptionParser parser = new OptionParser();
-        parser.accepts("client-zone-id", "client zone id for zone routing")
+        parser.accepts("client-zone-id", "Client zone id for zone routing")
               .withRequiredArg()
               .describedAs("zone-id")
               .ofType(Integer.class);
+        parser.accepts("config-file", "A properties file that contains client config properties")
+              .withRequiredArg()
+              .describedAs("file");
+        parser.accepts("help", "This help message")
+              .isForHelp();
+        parser.accepts("voldemort-shell", "Suffix of shell script; used to format help output")
+              .withRequiredArg();
         OptionSet options = parser.parse(args);
 
         List<String> nonOptions = (List<String>) options.nonOptionArguments();
-        if(nonOptions.size() < 2 || nonOptions.size() > 3) {
-            System.err.println("Usage: java VoldemortClientShell store_name bootstrap_url [command_file] [options]");
+        if(nonOptions.size() < 2 || nonOptions.size() > 5 || options.has("help")) {
+            if (options.has("voldemort-shell")) {
+                System.err.println("Usage: voldemort-shell."
+                                    + options.valueOf("voldemort-shell")
+                                    + " store_name bootstrap_url [command_file] [options]");
+            } else {
+                System.err.println("Usage: java VoldemortClientShell store_name bootstrap_url [command_file] [options]");
+            }
             parser.printHelpOn(System.err);
             System.exit(-1);
         }
 
         String storeName = nonOptions.get(0);
         String bootstrapUrl = nonOptions.get(1);
+        String configFile = (String) options.valueOf("config-file");
+        ClientConfig clientConfig = null;
         BufferedReader inputReader = null;
         boolean fileInput = false;
 
@@ -180,9 +195,15 @@ public class VoldemortClientShell {
             Utils.croak("Failure to open input stream: " + e.getMessage());
         }
 
-        ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootstrapUrl)
-                                                      .setEnableLazy(false)
-                                                      .setRequestFormatType(RequestFormatType.VOLDEMORT_V3);
+        if (configFile != null) {
+            clientConfig = new ClientConfig(new File(configFile));
+        } else {
+            clientConfig = new ClientConfig();
+        }
+
+        clientConfig.setBootstrapUrls(bootstrapUrl)
+                    .setEnableLazy(false)
+                    .setRequestFormatType(RequestFormatType.VOLDEMORT_V3);
 
         if(options.has("client-zone-id")) {
             clientConfig.setClientZoneId((Integer) options.valueOf("client-zone-id"));
