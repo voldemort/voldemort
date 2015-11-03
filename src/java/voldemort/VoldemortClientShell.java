@@ -160,8 +160,10 @@ public class VoldemortClientShell {
               .describedAs("file");
         parser.accepts("help", "This help message")
               .isForHelp();
-        parser.accepts("voldemort-shell", "Suffix of shell script; used to format help output")
-              .withRequiredArg();
+        parser.accepts("voldemort-shell", "Suffix of shell script; used to format help output."
+                                          + " Examples of script suffixes: sh, bat, app")
+              .withRequiredArg()
+              .describedAs("script_suffix");
         OptionSet options = parser.parse(args);
 
         List<String> nonOptions = (List<String>) options.nonOptionArguments();
