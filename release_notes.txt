@@ -1,3 +1,10 @@
+Release 1.10.3 on 11/04/2015
+* Bug fix and improvement to the Forklift tool.
+* Improved help prompt and configurability of the VoldemortClientShell.
+* Moved BnP's verifyOrAddStore() to the AdminClient.
+* Implement the truncate function in the RocksDB storage engine.
+  * N.B.: Previous data is backwards incompatible, see a0e19c6 for details.
+
 Release 1.10.2 on 10/30/2015
 * Added a ReadOnlyFileValidator script.
 * Fixed rename operation in HdfsFailedFetchLock (regression fix).
