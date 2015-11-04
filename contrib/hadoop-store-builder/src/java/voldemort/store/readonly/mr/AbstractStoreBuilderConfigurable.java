@@ -25,16 +25,16 @@ import org.apache.hadoop.mapred.JobConf;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.utils.ByteUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 /**
- * A base class with basic configuration values shared by all the mapper,
- * reducer, and partitioner
- * 
- * 
+ * A base class with basic configuration values and utility functions
+ * shared by the mapper, reducer, and partitioner
  */
-public class AbstractStoreBuilderConfigurable {
+abstract public class AbstractStoreBuilderConfigurable {
 
     private int numChunks;
     private Cluster cluster;
@@ -92,4 +92,29 @@ public class AbstractStoreBuilderConfigurable {
         return this.numChunks;
     }
 
+    public int getPartition(byte[] key,
+                            byte[] value,
+                            int numReduceTasks) {
+        int partitionId = ByteUtils.readInt(key, ByteUtils.SIZE_OF_INT);
+        int chunkId = ReadOnlyUtils.chunk(key, getNumChunks());
+        if(getSaveKeys()) {
+            int replicaType = (int) ByteUtils.readBytes(value,
+                    2 * ByteUtils.SIZE_OF_INT,
+                    ByteUtils.SIZE_OF_BYTE);
+            if(getReducerPerBucket()) {
+                return (partitionId * getStoreDef().getReplicationFactor() + replicaType)
+                        % numReduceTasks;
+            } else {
+                return ((partitionId * getStoreDef().getReplicationFactor() * getNumChunks())
+                        + (replicaType * getNumChunks()) + chunkId)
+                        % numReduceTasks;
+            }
+        } else {
+            if(getReducerPerBucket()) {
+                return partitionId % numReduceTasks;
+            } else {
+                return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
+            }
+        }
+    }
 }
