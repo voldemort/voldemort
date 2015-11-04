@@ -191,7 +191,7 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
     }
 
     public void run() throws Exception {
-        JobConf configuration = this.createJobConf(VoldemortStoreBuilderMapper.class);
+        JobConf configuration = this.createJobConf();
 
         Class mapperClass;
         Class<? extends InputFormat> inputFormatClass;

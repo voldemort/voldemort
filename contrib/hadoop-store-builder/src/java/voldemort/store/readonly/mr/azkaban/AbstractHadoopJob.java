@@ -32,15 +32,12 @@ import org.apache.hadoop.mapred.Counters.Counter;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.log4j.Logger;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
-import voldemort.store.readonly.mr.IdentityJsonReducer;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.utils.Props;
 
@@ -131,23 +128,13 @@ public abstract class AbstractHadoopJob /*extends AbstractJob*/ {
         }
     }
 
-    public JobConf createJobConf(Class<? extends Mapper> mapperClass) throws IOException,
-            URISyntaxException {
-        JobConf conf = createJobConf(mapperClass, IdentityJsonReducer.class);
-        conf.setNumReduceTasks(0);
-
-        return conf;
-    }
-
-    public JobConf createJobConf(Class<? extends Mapper> mapperClass,
-                                 Class<? extends Reducer> reducerClass) throws IOException,
+    public JobConf createJobConf() throws IOException,
             URISyntaxException {
         JobConf conf = new JobConf();
         // set custom class loader with custom find resource strategy.
 
         conf.setJobName(getId());
-        conf.setMapperClass(mapperClass);
-        conf.setReducerClass(reducerClass);
+        conf.setNumReduceTasks(0);
 
         String hadoop_ugi = props.getString("hadoop.job.ugi", null);
         if(hadoop_ugi != null) {
