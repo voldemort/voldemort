@@ -178,11 +178,7 @@ public class HadoopStoreBuilder {
                 conf.setMapperClass(mapperClass);
                 conf.setMapOutputKeyClass(BytesWritable.class);
                 conf.setMapOutputValueClass(BytesWritable.class);
-                if(reducerPerBucket) {
-                    conf.setReducerClass(HadoopStoreBuilderReducerPerBucket.class);
-                } else {
-                    conf.setReducerClass(HadoopStoreBuilderReducer.class);
-                }
+                conf.setReducerClass(HadoopStoreBuilderReducer.class);
             }
             conf.setInputFormat(inputFormatClass);
             conf.setOutputFormat(SequenceFileOutputFormat.class);
@@ -271,13 +267,7 @@ public class HadoopStoreBuilder {
                                                            Schema.create(Schema.Type.BYTES)));
 
                 AvroJob.setMapperClass(conf, mapperClass);
-
-                if(reducerPerBucket) {
-                    conf.setReducerClass(AvroStoreBuilderReducerPerBucket.class);
-                } else {
-                    conf.setReducerClass(AvroStoreBuilderReducer.class);
-                }
-
+                conf.setReducerClass(AvroStoreBuilderReducer.class);
             }
 
             logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers

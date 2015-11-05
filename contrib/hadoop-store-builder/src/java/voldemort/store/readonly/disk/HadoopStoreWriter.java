@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -48,28 +48,26 @@ import voldemort.store.readonly.mr.HadoopStoreBuilder;
 import voldemort.utils.ByteUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
-// generates index and data files
 public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWritable> {
 
     private static final Logger logger = Logger.getLogger(HadoopStoreWriter.class);
 
-    private DataOutputStream indexFileStream = null;
-    private DataOutputStream valueFileStream = null;
-    private int position;
+    private DataOutputStream[] indexFileStream = null;
+    private DataOutputStream[] valueFileStream = null;
+    private int[] position;
     private String taskId = null;
 
     private int nodeId = -1;
     private int partitionId = -1;
-    private int chunkId = -1;
     private int replicaType = -1;
 
-    private Path taskIndexFileName;
-    private Path taskValueFileName;
+    private Path[] taskIndexFileName;
+    private Path[] taskValueFileName;
 
     private JobConf conf;
     private CheckSumType checkSumType;
-    private CheckSum checkSumDigestIndex;
-    private CheckSum checkSumDigestValue;
+    private CheckSum[] checkSumDigestIndex;
+    private CheckSum[] checkSumDigestValue;
 
     private String outputDir;
 
@@ -90,8 +88,8 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
      * These variables are used to track the size of the files produced by the
      * reducer
      */
-    private long indexFileSizeInBytes = 0L;
-    private long valueFileSizeInBytes = 0L;
+    private long[] indexFileSizeInBytes;
+    private long[] valueFileSizeInBytes;
 
     public boolean getSaveKeys() {
         return this.saveKeys;
@@ -117,13 +115,12 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
 
     /**
      * Intended for use by test classes only.
-     * 
+     *
      * @param job
      */
     protected HadoopStoreWriter(JobConf job) {
         this.nodeId = 1;
         this.partitionId = 1;
-        this.chunkId = 1;
         this.replicaType = 1;
 
         conf(job);
@@ -132,7 +129,7 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
     @Override
     public void conf(JobConf job) {
 
-        conf = job;
+        this.conf = job;
         try {
             List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(conf.get("stores.xml")));
             if(storeDefs.size() != 1)
@@ -142,62 +139,80 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
             this.numChunks = conf.getInt("num.chunks", -1);
             if(this.numChunks < 1)
                 throw new VoldemortException("num.chunks not specified in the job conf.");
+
             this.saveKeys = conf.getBoolean("save.keys", false);
-            this.position = 0;
+            this.position = new int[getNumChunks()];
             this.outputDir = job.get("final.output.dir");
             this.taskId = job.get("mapred.task.id");
             this.checkSumType = CheckSum.fromString(job.get("checksum.type"));
-            this.checkSumDigestIndex = CheckSum.getInstance(checkSumType);
-            this.checkSumDigestValue = CheckSum.getInstance(checkSumType);
+            this.checkSumDigestIndex = new CheckSum[getNumChunks()];
+            this.checkSumDigestValue = new CheckSum[getNumChunks()];
 
             initFileStreams(conf.getBoolean("reducer.output.compress", false),
                             conf.get("reducer.output.compress.codec", NO_COMPRESSION_CODEC));
-
         } catch(IOException e) {
             throw new RuntimeException("Failed to open Input/OutputStream", e);
         }
-
     }
 
     private void initFileStreams(boolean isCompressionEnabled, String compressionCodec)
             throws IOException {
+        this.taskIndexFileName = new Path[getNumChunks()];
+        this.taskValueFileName = new Path[getNumChunks()];
+        this.indexFileStream = new DataOutputStream[getNumChunks()];
+        this.valueFileStream = new DataOutputStream[getNumChunks()];
+        this.indexFileSizeInBytes = new long[getNumChunks()];
+        this.valueFileSizeInBytes = new long[getNumChunks()];
 
-        fileExtension = (isCompressionEnabled && compressionCodec.toUpperCase(Locale.ENGLISH)
-                                                                 .equals(COMPRESSION_CODEC)) ? GZIP_FILE_EXTENSION
-                                                                                                 : "";
-        this.taskIndexFileName = new Path(FileOutputFormat.getOutputPath(conf), getStoreName()
-                                                                                + "." + this.taskId
- + INDEX_FILE_EXTENSION
-                                                                                + fileExtension);
-        this.taskValueFileName = new Path(FileOutputFormat.getOutputPath(conf), getStoreName()
-                                                                                + "." + this.taskId
- + DATA_FILE_EXTENSION
-                                                                                + fileExtension);
-        if(this.fs == null)
-            this.fs = this.taskIndexFileName.getFileSystem(conf);
-
+        boolean isValidCompressionEnabled = false;
         if(isCompressionEnabled
-           && compressionCodec.toUpperCase(Locale.ENGLISH).equals(COMPRESSION_CODEC)) {
-            this.indexFileStream = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskIndexFileName),
-                                                                                                      DEFAULT_BUFFER_SIZE)));
-            this.valueFileStream = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskValueFileName),
-                                                                                                      DEFAULT_BUFFER_SIZE)));
-
+                && compressionCodec.toUpperCase(Locale.ENGLISH).equals(this.COMPRESSION_CODEC)) {
+            fileExtension = GZIP_FILE_EXTENSION;
+            isValidCompressionEnabled = true;
         } else {
-            this.indexFileStream = fs.create(this.taskIndexFileName);
-            this.valueFileStream = fs.create(this.taskValueFileName);
-
+            fileExtension = "";
         }
 
-        fs.setPermission(this.taskIndexFileName,
-                         new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
-        logger.info("Setting permission to 755 for " + this.taskIndexFileName);
-        fs.setPermission(this.taskValueFileName,
-                         new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
-        logger.info("Setting permission to 755 for " + this.taskValueFileName);
+        for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
 
-        logger.info("Opening " + this.taskIndexFileName + " and " + this.taskValueFileName
-                    + " for writing.");
+            this.indexFileSizeInBytes[chunkId] = 0L;
+            this.valueFileSizeInBytes[chunkId] = 0L;
+            this.checkSumDigestIndex[chunkId] = CheckSum.getInstance(checkSumType);
+            this.checkSumDigestValue[chunkId] = CheckSum.getInstance(checkSumType);
+            this.position[chunkId] = 0;
+            this.taskIndexFileName[chunkId] = new Path(FileOutputFormat.getOutputPath(conf),
+                                                       getStoreName() + "."
+                                                               + Integer.toString(chunkId) + "_"
+                                                               + this.taskId + INDEX_FILE_EXTENSION
+                                                               + fileExtension);
+            this.taskValueFileName[chunkId] = new Path(FileOutputFormat.getOutputPath(conf),
+                                                       getStoreName() + "."
+                                                               + Integer.toString(chunkId) + "_"
+                                                               + this.taskId + DATA_FILE_EXTENSION
+                                                               + fileExtension);
+            if(this.fs == null)
+                this.fs = this.taskIndexFileName[chunkId].getFileSystem(conf);
+            if(isValidCompressionEnabled) {
+                this.indexFileStream[chunkId] = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskIndexFileName[chunkId]),
+                                                                                                                   DEFAULT_BUFFER_SIZE)));
+                this.valueFileStream[chunkId] = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(fs.create(this.taskValueFileName[chunkId]),
+                                                                                                                   DEFAULT_BUFFER_SIZE)));
+
+            } else {
+                this.indexFileStream[chunkId] = fs.create(this.taskIndexFileName[chunkId]);
+                this.valueFileStream[chunkId] = fs.create(this.taskValueFileName[chunkId]);
+
+            }
+            fs.setPermission(this.taskIndexFileName[chunkId],
+                             new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+            logger.info("Setting permission to 755 for " + this.taskIndexFileName[chunkId]);
+            fs.setPermission(this.taskValueFileName[chunkId],
+                             new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+            logger.info("Setting permission to 755 for " + this.taskValueFileName[chunkId]);
+
+            logger.info("Opening " + this.taskIndexFileName[chunkId] + " and "
+                                + this.taskValueFileName[chunkId] + " for writing.");
+        }
 
     }
 
@@ -205,16 +220,19 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
     public void write(BytesWritable key, Iterator<BytesWritable> iterator, Reporter reporter)
             throws IOException {
 
+        // Read chunk id
+        int chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
+
         // Write key and position
-        this.indexFileStream.write(key.get(), 0, key.getSize());
-        this.indexFileSizeInBytes += key.getSize();
-        this.indexFileStream.writeInt(this.position);
-        this.indexFileSizeInBytes += ByteUtils.SIZE_OF_INT;
+        this.indexFileStream[chunkId].write(key.get(), 0, key.getSize());
+        this.indexFileSizeInBytes[chunkId] += key.getSize();
+        this.indexFileStream[chunkId].writeInt(this.position[chunkId]);
+        this.indexFileSizeInBytes[chunkId] += ByteUtils.SIZE_OF_INT;
 
         // Run key through checksum digest
-        if(this.checkSumDigestIndex != null) {
-            this.checkSumDigestIndex.update(key.get(), 0, key.getSize());
-            this.checkSumDigestIndex.update(this.position);
+        if(this.checkSumDigestIndex[chunkId] != null) {
+            this.checkSumDigestIndex[chunkId].update(key.get(), 0, key.getSize());
+            this.checkSumDigestIndex[chunkId].update(this.position[chunkId]);
         }
 
         short numTuples = 0;
@@ -235,10 +253,6 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
             if(this.partitionId == -1)
                 this.partitionId = ByteUtils.readInt(valueBytes, offsetTillNow);
             offsetTillNow += ByteUtils.SIZE_OF_INT;
-
-            // Read chunk id
-            if(this.chunkId == -1)
-                this.chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
 
             // Read replica type
             if(getSaveKeys()) {
@@ -296,35 +310,38 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
         // First, if save keys flag set the number of keys
         if(getSaveKeys()) {
 
-            this.valueFileStream.writeShort(numTuples);
-            this.valueFileSizeInBytes += ByteUtils.SIZE_OF_SHORT;
-            this.position += ByteUtils.SIZE_OF_SHORT;
+            this.valueFileStream[chunkId].writeShort(numTuples);
+            this.valueFileSizeInBytes[chunkId] += ByteUtils.SIZE_OF_SHORT;
+            this.position[chunkId] += ByteUtils.SIZE_OF_SHORT;
 
-            if(this.checkSumDigestValue != null) {
-                this.checkSumDigestValue.update(numTuples);
+            if(this.checkSumDigestValue[chunkId] != null) {
+                this.checkSumDigestValue[chunkId].update(numTuples);
             }
         }
 
-        this.valueFileStream.write(value);
-        this.valueFileSizeInBytes += value.length;
-        this.position += value.length;
+        this.valueFileStream[chunkId].write(value);
+        this.valueFileSizeInBytes[chunkId] += value.length;
+        this.position[chunkId] += value.length;
 
-        if(this.checkSumDigestValue != null) {
-            this.checkSumDigestValue.update(value);
+        if(this.checkSumDigestValue[chunkId] != null) {
+            this.checkSumDigestValue[chunkId].update(value);
         }
 
-        if(this.position < 0)
+        if(this.position[chunkId] < 0)
             throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
-                                         + " has exceeded " + Integer.MAX_VALUE + " bytes.");
+                                                 + " has exceeded " + Integer.MAX_VALUE + " bytes.");
+
     }
 
     @Override
     public void close() throws IOException {
 
-        this.indexFileStream.close();
-        this.valueFileStream.close();
+        for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
+            this.indexFileStream[chunkId].close();
+            this.valueFileStream[chunkId].close();
+        }
 
-        if(this.nodeId == -1 || this.chunkId == -1 || this.partitionId == -1) {
+        if(this.nodeId == -1 || this.partitionId == -1) {
             // Issue 258 - No data was read in the reduce phase, do not create
             // any output
             return;
@@ -339,11 +356,9 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
         String fileNamePrefix = null;
         if(getSaveKeys()) {
             fileNamePrefix = new String(Integer.toString(this.partitionId) + "_"
-                                        + Integer.toString(this.replicaType) + "_"
-                                        + Integer.toString(this.chunkId));
+                                        + Integer.toString(this.replicaType) + "_");
         } else {
-            fileNamePrefix = new String(Integer.toString(this.partitionId) + "_"
-                                        + Integer.toString(this.chunkId));
+            fileNamePrefix = new String(Integer.toString(this.partitionId) + "_");
         }
 
         // Initialize the node directory
@@ -355,70 +370,69 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
         outputFs.setPermission(nodeDir, new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
         logger.info("Setting permission to 755 for " + nodeDir);
 
-
         // Write the checksum and output files
-        CheckSumMetadata indexCheckSum = new CheckSumMetadata();
-        CheckSumMetadata valueCheckSum = new CheckSumMetadata();
-        if(this.checkSumType != CheckSumType.NONE) {
-            if(this.checkSumDigestIndex != null && this.checkSumDigestValue != null) {
+        for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
 
-                indexCheckSum.add(ReadOnlyStorageMetadata.CHECKSUM,
-                                  new String(Hex.encodeHex(this.checkSumDigestIndex.getCheckSum())));
-                valueCheckSum.add(ReadOnlyStorageMetadata.CHECKSUM,
-                                  new String(Hex.encodeHex(this.checkSumDigestValue.getCheckSum())));
-            } else {
-                throw new RuntimeException("Failed to open checksum digest for node " + nodeId
-                                           + " ( partition - " + this.partitionId + ", chunk - "
-                                           + chunkId + " )");
+            String chunkFileName = fileNamePrefix + Integer.toString(chunkId);
+            CheckSumMetadata indexCheckSum = new CheckSumMetadata();
+            CheckSumMetadata valueCheckSum = new CheckSumMetadata();
+            if(this.checkSumType != CheckSumType.NONE) {
+
+                if(this.checkSumDigestIndex[chunkId] != null
+                        && this.checkSumDigestValue[chunkId] != null) {
+                    indexCheckSum.add(ReadOnlyStorageMetadata.CHECKSUM,
+                                      new String(Hex.encodeHex(this.checkSumDigestIndex[chunkId].getCheckSum())));
+                    valueCheckSum.add(ReadOnlyStorageMetadata.CHECKSUM,
+                                      new String(Hex.encodeHex(this.checkSumDigestValue[chunkId].getCheckSum())));
+                } else {
+                    throw new RuntimeException("Failed to open checksum digest for node " + nodeId
+                                                       + " ( partition - " + this.partitionId
+                                                       + ", chunk - " + chunkId + " )");
+                }
             }
+
+            Path checkSumIndexFile = new Path(nodeDir, chunkFileName + INDEX_FILE_EXTENSION
+                    + CHECKSUM_FILE_EXTENSION);
+            Path checkSumValueFile = new Path(nodeDir, chunkFileName + DATA_FILE_EXTENSION
+                    + CHECKSUM_FILE_EXTENSION);
+
+            if(outputFs.exists(checkSumIndexFile)) {
+                outputFs.delete(checkSumIndexFile);
+            }
+            FSDataOutputStream output = outputFs.create(checkSumIndexFile);
+            outputFs.setPermission(checkSumIndexFile,
+                                   new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+            indexCheckSum.add(CheckSumMetadata.INDEX_FILE_SIZE_IN_BYTES,
+                              Long.toString(this.indexFileSizeInBytes[chunkId]));
+            output.write(indexCheckSum.toJsonString().getBytes());
+            output.close();
+
+            if(outputFs.exists(checkSumValueFile)) {
+                outputFs.delete(checkSumValueFile);
+            }
+            output = outputFs.create(checkSumValueFile);
+            outputFs.setPermission(checkSumValueFile,
+                                   new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+            valueCheckSum.add(CheckSumMetadata.DATA_FILE_SIZE_IN_BYTES,
+                              Long.toString(this.valueFileSizeInBytes[chunkId]));
+            output.write(valueCheckSum.toJsonString().getBytes());
+            output.close();
+
+            // Generate the final chunk files and add file size information
+            Path indexFile = new Path(nodeDir, chunkFileName + INDEX_FILE_EXTENSION + fileExtension);
+            Path valueFile = new Path(nodeDir, chunkFileName + DATA_FILE_EXTENSION + fileExtension);
+
+            logger.info("Moving " + this.taskIndexFileName[chunkId] + " to " + indexFile);
+            if(outputFs.exists(indexFile)) {
+                outputFs.delete(indexFile);
+            }
+            fs.rename(taskIndexFileName[chunkId], indexFile);
+
+            logger.info("Moving " + this.taskValueFileName[chunkId] + " to " + valueFile);
+            if(outputFs.exists(valueFile)) {
+                outputFs.delete(valueFile);
+            }
+            fs.rename(this.taskValueFileName[chunkId], valueFile);
         }
-
-        Path checkSumIndexFile = new Path(nodeDir, fileNamePrefix + INDEX_FILE_EXTENSION
-                                                   + CHECKSUM_FILE_EXTENSION);
-        Path checkSumValueFile = new Path(nodeDir, fileNamePrefix + DATA_FILE_EXTENSION
-                                                   + CHECKSUM_FILE_EXTENSION);
-
-        if(outputFs.exists(checkSumIndexFile)) {
-            outputFs.delete(checkSumIndexFile);
-        }
-        FSDataOutputStream output = outputFs.create(checkSumIndexFile);
-        outputFs.setPermission(checkSumIndexFile,
-                               new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
-
-        indexCheckSum.add(CheckSumMetadata.INDEX_FILE_SIZE_IN_BYTES,
-                          Long.toString(this.indexFileSizeInBytes));
-
-        output.write(indexCheckSum.toJsonString().getBytes());
-        output.close();
-
-        if(outputFs.exists(checkSumValueFile)) {
-            outputFs.delete(checkSumValueFile);
-        }
-        output = outputFs.create(checkSumValueFile);
-        outputFs.setPermission(checkSumValueFile,
-                               new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
-        valueCheckSum.add(CheckSumMetadata.DATA_FILE_SIZE_IN_BYTES,
-                          Long.toString(this.valueFileSizeInBytes));
-        output.write(valueCheckSum.toJsonString().getBytes());
-        output.close();
-
-        // Generate the final chunk files and add file size information
-        Path indexFile = new Path(nodeDir, fileNamePrefix + INDEX_FILE_EXTENSION
-                                           + fileExtension);
-        Path valueFile = new Path(nodeDir, fileNamePrefix + DATA_FILE_EXTENSION
-                                           + fileExtension);
-
-        logger.info("Moving " + this.taskIndexFileName + " to " + indexFile);
-        if(outputFs.exists(indexFile)) {
-            outputFs.delete(indexFile);
-        }
-        outputFs.rename(taskIndexFileName, indexFile);
-
-        logger.info("Moving " + this.taskValueFileName + " to " + valueFile);
-        if(outputFs.exists(valueFile)) {
-            outputFs.delete(valueFile);
-        }
-        outputFs.rename(this.taskValueFileName, valueFile);
     }
-
 }
