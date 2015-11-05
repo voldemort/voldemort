@@ -100,8 +100,8 @@ public class HadoopStoreBuilderCollisionTest {
             byte[] valBytes = valueSerializer.toBytes(makeValue(key, value));
 
             // Generate partition and node list this key is destined for
-            List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
-            Node[] partitionToNode = routingStrategy.getPartitionToNode();
+            List<Integer> partitionList = mapper.routingStrategy.getPartitionList(keyBytes);
+            Node[] partitionToNode = mapper.routingStrategy.getPartitionToNode();
 
             // Leave initial offset for (a) node id (b) partition id
             // since they are written later
@@ -130,7 +130,7 @@ public class HadoopStoreBuilderCollisionTest {
             System.arraycopy(valBytes, 0, outputValue, offsetTillNow, valBytes.length);
 
             // Generate MR key - upper 8 bytes of 16 byte md5
-            byte[] oldMd5 = ByteUtils.copy(md5er.digest(keyBytes), 0, 2 * ByteUtils.SIZE_OF_INT);
+            byte[] oldMd5 = ByteUtils.copy(mapper.md5er.digest(keyBytes), 0, 2 * ByteUtils.SIZE_OF_INT);
             ByteArray oldMd5ByteArray = new ByteArray(oldMd5);
             BytesWritable outputKey = new BytesWritable(oldMd5ToNewMd5.get(oldMd5ByteArray));
 
@@ -152,7 +152,7 @@ public class HadoopStoreBuilderCollisionTest {
                 replicaType++;
 
             }
-            md5er.reset();
+            mapper.md5er.reset();
         }
     }
 

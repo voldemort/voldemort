@@ -30,7 +30,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.mr.AvroStoreBuilderMapper;
 import voldemort.store.readonly.mr.HadoopStoreBuilder;
-import voldemort.store.readonly.mr.VoldemortStoreBuilderMapper;
+import voldemort.store.readonly.mr.JsonStoreBuilderMapper;
 import voldemort.store.readonly.mr.serialization.JsonSequenceFileInputFormat;
 import voldemort.utils.Props;
 
@@ -209,7 +209,7 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
             mapperClass = AvroStoreBuilderMapper.class;
             inputFormatClass = AvroInputFormat.class;
         } else {
-            mapperClass = VoldemortStoreBuilderMapper.class;
+            mapperClass = JsonStoreBuilderMapper.class;
             inputFormatClass = JsonSequenceFileInputFormat.class;
         }
 
