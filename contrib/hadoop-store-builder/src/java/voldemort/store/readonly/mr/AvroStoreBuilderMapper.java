@@ -65,15 +65,8 @@ public class AvroStoreBuilderMapper extends
     private SerializerDefinition keySerializerDefinition;
     private SerializerDefinition valueSerializerDefinition;
 
-    class AvroCollectorWrapper implements AbstractCollector {
-        private AvroCollector<Pair<ByteBuffer, ByteBuffer>> collector;
-
-        public void setInnerCollector(AvroCollector<Pair<ByteBuffer, ByteBuffer>> collector) {
-            if (this.collector != collector) {
-                this.collector = collector;
-            }
-        }
-
+    class AvroCollectorWrapper
+            extends AbstractCollectorWrapper<AvroCollector<Pair<ByteBuffer, ByteBuffer>>> {
         ByteBuffer keyBB, valueBB;
         Pair<ByteBuffer, ByteBuffer> pairToCollect = new Pair<ByteBuffer, ByteBuffer>(keyBB, valueBB);
 
@@ -92,7 +85,7 @@ public class AvroStoreBuilderMapper extends
                 valueBB.put(value);
             }
             pairToCollect.set(keyBB, valueBB);
-            collector.collect(pairToCollect);
+            getCollector().collect(pairToCollect);
         }
     }
 
@@ -113,7 +106,7 @@ public class AvroStoreBuilderMapper extends
         byte[] keyBytes = keySerializer.toBytes(record.get(keyField));
         byte[] valBytes = valueSerializer.toBytes(record.get(valField));
 
-        this.collectorWrapper.setInnerCollector(collector);
+        this.collectorWrapper.setCollector(collector);
         this.collectorWrapper.collect(keyBytes, valBytes);
     }
 

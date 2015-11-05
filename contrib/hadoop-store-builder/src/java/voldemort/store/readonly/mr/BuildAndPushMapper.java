@@ -4,13 +4,9 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.JobConf;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
-import voldemort.serialization.DefaultSerializerFactory;
-import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.SerializerFactory;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
-import voldemort.store.readonly.mr.AbstractCollector;
 import voldemort.utils.ByteUtils;
 
 import java.io.IOException;
@@ -54,7 +50,7 @@ public class BuildAndPushMapper extends AbstractStoreBuilderConfigurable {
      * followed by serialized value returned by makeValue() OR if we have
      * setKeys flag on the serialized key and serialized value
      */
-    public void map(byte[] keyBytes, byte[] valBytes, AbstractCollector collector) throws IOException {
+    public void map(byte[] keyBytes, byte[] valBytes, AbstractCollectorWrapper collector) throws IOException {
         // Compress key and values if required
         if(keySerializerDefinition.hasCompression()) {
             keyBytes = keyCompressor.deflate(keyBytes);

@@ -16,23 +16,11 @@ package voldemort.store.readonly.mr;
  * the License.
  */
 
-import java.io.IOException;
-import java.io.StringReader;
 import java.nio.ByteBuffer;
-import java.util.List;
 
 import org.apache.avro.mapred.AvroKey;
 import org.apache.avro.mapred.AvroValue;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Partitioner;
-
-import voldemort.VoldemortException;
-import voldemort.cluster.Cluster;
-import voldemort.store.StoreDefinition;
-import voldemort.store.readonly.ReadOnlyUtils;
-import voldemort.utils.ByteUtils;
-import voldemort.xml.ClusterMapper;
-import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * A Partitioner that splits data so that all data for the same nodeId, chunkId

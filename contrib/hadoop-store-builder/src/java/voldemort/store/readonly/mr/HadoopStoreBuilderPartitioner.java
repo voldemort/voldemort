@@ -19,9 +19,6 @@ package voldemort.store.readonly.mr;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.Partitioner;
 
-import voldemort.store.readonly.ReadOnlyUtils;
-import voldemort.utils.ByteUtils;
-
 /**
  * A Partitioner that splits data so that all data for the same nodeId, chunkId
  * combination ends up in the same reduce (and hence in the same store chunk)

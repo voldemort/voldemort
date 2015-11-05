@@ -44,15 +44,8 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
     protected BuildAndPushMapper mapper = new BuildAndPushMapper();
     private HadoopCollectorWrapper collectorWrapper = new HadoopCollectorWrapper();
 
-    class HadoopCollectorWrapper implements AbstractCollector {
-        private OutputCollector<BytesWritable, BytesWritable> collector;
-
-        public void setInnerCollector(OutputCollector<BytesWritable, BytesWritable> collector) {
-            if (this.collector != collector) {
-                this.collector = collector;
-            }
-        }
-
+    class HadoopCollectorWrapper
+            extends AbstractCollectorWrapper<OutputCollector<BytesWritable, BytesWritable>> {
         BytesWritable keyBW = new BytesWritable(), valueBW = new BytesWritable();
 
         @Override
@@ -61,7 +54,7 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
             keyBW.set(key, 0, key.length);
             valueBW.setSize(value.length);
             valueBW.set(value, 0, value.length);
-            collector.collect(keyBW, valueBW);
+            getCollector().collect(keyBW, valueBW);
         }
     }
 
@@ -91,7 +84,7 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         byte[] keyBytes = keySerializer.toBytes(makeKey(key, value));
         byte[] valBytes = valueSerializer.toBytes(makeValue(key, value));
 
-        this.collectorWrapper.setInnerCollector(output);
+        this.collectorWrapper.setCollector(output);
         this.mapper.map(keyBytes, valBytes, this.collectorWrapper);
     }
 
