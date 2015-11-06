@@ -20,6 +20,7 @@ import org.junit.runners.Parameterized.Parameters;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.store.readonly.utils.ReadOnlyTestUtils;
 import voldemort.utils.ByteUtils;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -69,7 +70,7 @@ public class HadoopStoreWriterTest {
 
         // Setup before each test method
         conf = new JobConf();
-        conf.setInt("num.chunks", 2);
+        conf.setInt(VoldemortBuildAndPushJob.NUM_CHUNKS, 2);
         conf.set("final.output.dir", tmpOutPutDirectory.getAbsolutePath());
         conf.set("mapred.output.dir", tmpOutPutDirectory.getAbsolutePath());
         conf.set("mapred.task.id", "1234");
@@ -102,7 +103,7 @@ public class HadoopStoreWriterTest {
     }
 
     private void generateUnCompressedFiles(boolean saveKeys, int numChunks) throws IOException {
-        conf.setBoolean("save.keys", saveKeys);
+        conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
         conf.setBoolean("reducer.output.compress", false);
         hadoopStoreWriterPerBucket = new HadoopStoreWriter(conf);
 
@@ -188,7 +189,7 @@ public class HadoopStoreWriterTest {
         init();
 
         generateUnCompressedFiles(saveKeys, numChunks);
-        conf.setBoolean("save.keys", saveKeys);
+        conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
         conf.setBoolean("reducer.output.compress", true);
         conf.setStrings("reducer.output.compress.codec", KeyValueWriter.COMPRESSION_CODEC);
 

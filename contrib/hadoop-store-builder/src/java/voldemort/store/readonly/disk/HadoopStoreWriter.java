@@ -45,6 +45,7 @@ import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.checksum.CheckSumMetadata;
 import voldemort.store.readonly.mr.HadoopStoreBuilder;
+import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.utils.ByteUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -136,11 +137,11 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
                 throw new IllegalStateException("Expected to find only a single store, but found multiple!");
             this.storeDef = storeDefs.get(0);
 
-            this.numChunks = conf.getInt("num.chunks", -1);
+            this.numChunks = conf.getInt(VoldemortBuildAndPushJob.NUM_CHUNKS, -1);
             if(this.numChunks < 1)
-                throw new VoldemortException("num.chunks not specified in the job conf.");
+                throw new VoldemortException(VoldemortBuildAndPushJob.NUM_CHUNKS + " not specified in the job conf.");
 
-            this.saveKeys = conf.getBoolean("save.keys", false);
+            this.saveKeys = conf.getBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, false);
             this.position = new int[getNumChunks()];
             this.outputDir = job.get("final.output.dir");
             this.taskId = job.get("mapred.task.id");

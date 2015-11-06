@@ -36,9 +36,6 @@ import voldemort.utils.Props;
 
 /**
  * Build a voldemort store from input data.
- * 
- * @author jkreps
- * 
  */
 public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
 
@@ -202,10 +199,8 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
             configuration.set("avro.rec.schema", conf.getRecSchema());
             configuration.set("avro.key.schema", conf.getKeySchema());
             configuration.set("avro.val.schema", conf.getValSchema());
-
-            configuration.set("avro.key.field", conf.getKeyField());
-            configuration.set("avro.value.field", conf.getValueField());
-
+            configuration.set(VoldemortBuildAndPushJob.AVRO_KEY_FIELD, conf.getKeyField());
+            configuration.set(VoldemortBuildAndPushJob.AVRO_VALUE_FIELD, conf.getValueField());
             mapperClass = AvroStoreBuilderMapper.class;
             inputFormatClass = AvroInputFormat.class;
         } else {

@@ -40,6 +40,7 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.avro.AvroGenericSerializer;
 import voldemort.serialization.avro.versioned.AvroVersionedGenericSerializer;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.xml.StoreDefinitionsMapper;
 
 /**
@@ -69,20 +70,25 @@ public class AvroStoreBuilderMapper extends
             extends AbstractCollectorWrapper<AvroCollector<Pair<ByteBuffer, ByteBuffer>>> {
         ByteBuffer keyBB, valueBB;
         Pair<ByteBuffer, ByteBuffer> pairToCollect = new Pair<ByteBuffer, ByteBuffer>(keyBB, valueBB);
+        private static final boolean MINIMIZE_ALLOCATIONS = true;
 
         @Override
         public void collect(byte[] key, byte[] value) throws IOException {
-            if (keyBB == null || keyBB.limit() < key.length) {
+            if (!MINIMIZE_ALLOCATIONS || keyBB == null || keyBB.capacity() < key.length) {
                 keyBB = ByteBuffer.wrap(key);
             } else {
+                keyBB.position(0);
                 keyBB.limit(key.length);
                 keyBB.put(key);
+                keyBB.position(0);
             }
-            if (valueBB == null || valueBB.limit() < value.length) {
+            if (!MINIMIZE_ALLOCATIONS || valueBB == null || valueBB.capacity() < value.length) {
                 valueBB = ByteBuffer.wrap(value);
             } else {
+                valueBB.position(0);
                 valueBB.limit(value.length);
                 valueBB.put(value);
+                valueBB.position(0);
             }
             pairToCollect.set(keyBB, valueBB);
             getCollector().collect(pairToCollect);
@@ -107,7 +113,7 @@ public class AvroStoreBuilderMapper extends
         byte[] valBytes = valueSerializer.toBytes(record.get(valField));
 
         this.collectorWrapper.setCollector(collector);
-        this.collectorWrapper.collect(keyBytes, valBytes);
+        this.mapper.map(keyBytes, valBytes, this.collectorWrapper);
     }
 
     @Override
@@ -135,14 +141,14 @@ public class AvroStoreBuilderMapper extends
             keySerializer = factory.getSerializer(keySerializerDefinition);
             valueSerializer = factory.getSerializer(valueSerializerDefinition);
 
-            keyField = conf.get("avro.key.field");
+            keyField = conf.get(VoldemortBuildAndPushJob.AVRO_KEY_FIELD);
 
-            valField = conf.get("avro.value.field");
+            valField = conf.get(VoldemortBuildAndPushJob.AVRO_VALUE_FIELD);
 
             keySchema = conf.get("avro.key.schema");
             valSchema = conf.get("avro.val.schema");
 
-            if(keySerializerDefinition.getName().equals("avro-generic")) {
+            if(keySerializerDefinition.getName().equals(DefaultSerializerFactory.AVRO_GENERIC_TYPE_NAME)) {
                 keySerializer = new AvroGenericSerializer(keySchema);
                 valueSerializer = new AvroGenericSerializer(valSchema);
             } else {

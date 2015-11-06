@@ -58,6 +58,7 @@ import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.checksum.CheckSumMetadata;
 import voldemort.store.readonly.disk.KeyValueWriter;
+import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
@@ -171,8 +172,8 @@ public class HadoopStoreBuilder {
             conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
             conf.set("stores.xml",
                      new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
-            conf.setBoolean("save.keys", saveKeys);
-            conf.setBoolean("reducer.per.bucket", reducerPerBucket);
+            conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
+            conf.setBoolean(VoldemortBuildAndPushJob.REDUCER_PER_BUCKET, reducerPerBucket);
             if(!isAvro) {
                 conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
                 conf.setMapperClass(mapperClass);
@@ -244,7 +245,7 @@ public class HadoopStoreBuilder {
                     numReducers = cluster.getNumberOfPartitions() * numChunks;
                 }
             }
-            conf.setInt("num.chunks", numChunks);
+            conf.setInt(VoldemortBuildAndPushJob.NUM_CHUNKS, numChunks);
             conf.setNumReduceTasks(numReducers);
 
             if(isAvro) {

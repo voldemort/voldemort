@@ -32,28 +32,6 @@ public class AvroStoreBuilderPartitioner
 
     @Override
     public int getPartition(AvroKey<ByteBuffer> key, AvroValue<ByteBuffer> value, int numReduceTasks) {
-
-        byte[] keyBytes = null, valueBytes;
-
-        keyBytes = new byte[key.datum().remaining()];
-        key.datum().get(keyBytes);
-
-        valueBytes = new byte[value.datum().remaining()];
-        value.datum().get(valueBytes);
-
-        ByteBuffer keyBuffer = null, valueBuffer = null;
-
-        keyBuffer = ByteBuffer.allocate(keyBytes.length);
-        keyBuffer.put(keyBytes);
-        keyBuffer.rewind();
-
-        valueBuffer = ByteBuffer.allocate(valueBytes.length);
-        valueBuffer.put(valueBytes);
-        valueBuffer.rewind();
-
-        key.datum(keyBuffer);
-        value.datum(valueBuffer);
-
-        return getPartition(keyBytes, valueBytes, numReduceTasks);
+        return getPartition(key.datum().array(), value.datum().array(), numReduceTasks);
     }
 }
