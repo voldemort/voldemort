@@ -31,6 +31,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.junit.Assert;
 import org.junit.Test;
@@ -67,6 +68,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
+import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
 
 
@@ -151,21 +153,23 @@ public class HadoopStoreBuilderTest {
                                                           .setPreferredWrites(1)
                                                           .setRequiredWrites(1)
                                                           .build();
-        HadoopStoreBuilder builder = new HadoopStoreBuilder(new Configuration(),
-                                       TextStoreMapper.class,
-                                       TextInputFormat.class,
-                                       cluster,
-                                       def,
-                                       new Path(tempDir.getAbsolutePath()),
-                                       new Path(outputDir.getAbsolutePath()),
-                                       new Path(inputFile.getAbsolutePath()),
-                                       CheckSumType.MD5,
-                                       saveKeys,
-                                       false,
-                                       64 * 1024,
-                                       -1,
-                                       false,
-                                       0L);
+        HadoopStoreBuilder builder = new HadoopStoreBuilder("testRowsLessThanNodes",
+                                                            new Props(),
+                                                            new JobConf(),
+                                                            TextStoreMapper.class,
+                                                            TextInputFormat.class,
+                                                            cluster,
+                                                            def,
+                                                            new Path(tempDir.getAbsolutePath()),
+                                                            new Path(outputDir.getAbsolutePath()),
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.MD5,
+                                                            saveKeys,
+                                                            false,
+                                                            64 * 1024,
+                                                            -1,
+                                                            false,
+                                                            0L);
         builder.build();
 
         // Should not produce node--1 directory + have one folder for every node
@@ -218,40 +222,42 @@ public class HadoopStoreBuilderTest {
                                                           .setPreferredWrites(1)
                                                           .setRequiredWrites(1)
                                                           .build();
-        HadoopStoreBuilder builder = new HadoopStoreBuilder(
-                new Configuration(),
-                TextStoreMapper.class,
-                TextInputFormat.class,
-                cluster,
-                def,
-                new Path(tempDir2.getAbsolutePath()),
-                new Path(outputDir2.getAbsolutePath()),
-                new Path(inputFile.getAbsolutePath()),
-                CheckSumType.MD5,
-                saveKeys,
-                false,
-                64 * 1024,
-                -1,
-                false,
-                null);
+        HadoopStoreBuilder builder = new HadoopStoreBuilder("testHadoopBuild",
+                                                            new Props(),
+                                                            new JobConf(),
+                                                            TextStoreMapper.class,
+                                                            TextInputFormat.class,
+                                                            cluster,
+                                                            def,
+                                                            new Path(tempDir2.getAbsolutePath()),
+                                                            new Path(outputDir2.getAbsolutePath()),
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.MD5,
+                                                            saveKeys,
+                                                            false,
+                                                            64 * 1024,
+                                                            -1,
+                                                            false,
+                                                            null);
         builder.build();
 
-        builder = new HadoopStoreBuilder(
-                new Configuration(),
-                TextStoreMapper.class,
-                TextInputFormat.class,
-                cluster,
-                def,
-                new Path(tempDir.getAbsolutePath()),
-                new Path(outputDir.getAbsolutePath()),
-                new Path(inputFile.getAbsolutePath()),
-                CheckSumType.MD5,
-                saveKeys,
-                false,
-                64 * 1024,
-                -1,
-                false,
-                null);
+        builder = new HadoopStoreBuilder("testHadoopBuild",
+                                         new Props(),
+                                         new JobConf(),
+                                         TextStoreMapper.class,
+                                         TextInputFormat.class,
+                                         cluster,
+                                         def,
+                                         new Path(tempDir.getAbsolutePath()),
+                                         new Path(outputDir.getAbsolutePath()),
+                                         new Path(inputFile.getAbsolutePath()),
+                                         CheckSumType.MD5,
+                                         saveKeys,
+                                         false,
+                                         64 * 1024,
+                                         -1,
+                                         false,
+                                         null);
         builder.build();
 
         // Check if checkSum is generated in outputDir

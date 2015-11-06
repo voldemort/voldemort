@@ -23,6 +23,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.SequenceFileInputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -33,6 +34,7 @@ import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.mr.AbstractHadoopStoreBuilderMapper;
 import voldemort.store.readonly.mr.HadoopStoreBuilder;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Props;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -67,9 +69,12 @@ public class BuildTestStore extends Configured implements Tool {
                 def = d;
         Cluster cluster = new ClusterMapper().readCluster(new File(configDir, "cluster.xml"));
 
-        Configuration config = this.getConf();
-        config.set("mapred.job.name", "test-store-builder");
+        JobConf config = new JobConf();
+        String jobName = "test-store-builder";
+        config.set("mapred.job.name", jobName);
         HadoopStoreBuilder builder = new HadoopStoreBuilder(
+                jobName,
+                new Props(),
                 config,
                 BuildTestStoreMapper.class,
                 SequenceFileInputFormat.class,

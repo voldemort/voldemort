@@ -16,6 +16,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextInputFormat;
@@ -46,6 +47,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
+import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
@@ -100,8 +102,8 @@ public class HadoopStoreBuilderCollisionTest {
             byte[] valBytes = valueSerializer.toBytes(makeValue(key, value));
 
             // Generate partition and node list this key is destined for
-            List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
-            Node[] partitionToNode = routingStrategy.getPartitionToNode();
+            List<Integer> partitionList = mapper.routingStrategy.getPartitionList(keyBytes);
+            Node[] partitionToNode = mapper.routingStrategy.getPartitionToNode();
 
             // Leave initial offset for (a) node id (b) partition id
             // since they are written later
@@ -130,7 +132,7 @@ public class HadoopStoreBuilderCollisionTest {
             System.arraycopy(valBytes, 0, outputValue, offsetTillNow, valBytes.length);
 
             // Generate MR key - upper 8 bytes of 16 byte md5
-            byte[] oldMd5 = ByteUtils.copy(md5er.digest(keyBytes), 0, 2 * ByteUtils.SIZE_OF_INT);
+            byte[] oldMd5 = ByteUtils.copy(mapper.md5er.digest(keyBytes), 0, 2 * ByteUtils.SIZE_OF_INT);
             ByteArray oldMd5ByteArray = new ByteArray(oldMd5);
             BytesWritable outputKey = new BytesWritable(oldMd5ToNewMd5.get(oldMd5ByteArray));
 
@@ -152,7 +154,7 @@ public class HadoopStoreBuilderCollisionTest {
                 replicaType++;
 
             }
-            md5er.reset();
+            mapper.md5er.reset();
         }
     }
 
@@ -162,7 +164,9 @@ public class HadoopStoreBuilderCollisionTest {
         try {
             testCollisionWithParams(2 * (Short.MAX_VALUE + 1), (Short.MAX_VALUE + 1));
             fail("Should have failed since we exceed the number of tuple collisions possible");
-        } catch(Exception e) {}
+        } catch(Exception e) {
+            // Expected
+        }
     }
 
     @SuppressWarnings( { "unchecked" })
@@ -221,22 +225,23 @@ public class HadoopStoreBuilderCollisionTest {
                                                           .setPreferredWrites(1)
                                                           .setRequiredWrites(1)
                                                           .build();
-        HadoopStoreBuilder builder = new HadoopStoreBuilder(
-                new Configuration(),
-                CollidingTextStoreMapper.class,
-                TextInputFormat.class,
-                cluster,
-                def,
-                new Path(tempDir.getAbsolutePath()),
-                new Path(outputDir.getAbsolutePath()),
-                new Path(inputFile.getAbsolutePath()),
-                CheckSumType.MD5,
-                true,
-                false,
-                1024 * 1024 * 1024,
-                -1,
-                false,
-                null);
+        HadoopStoreBuilder builder = new HadoopStoreBuilder("testCollisionWithParams",
+                                                            new Props(),
+                                                            new JobConf(),
+                                                            CollidingTextStoreMapper.class,
+                                                            TextInputFormat.class,
+                                                            cluster,
+                                                            def,
+                                                            new Path(tempDir.getAbsolutePath()),
+                                                            new Path(outputDir.getAbsolutePath()),
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.MD5,
+                                                            true,
+                                                            false,
+                                                            1024 * 1024 * 1024,
+                                                            -1,
+                                                            false,
+                                                            null);
         builder.build();
 
         File nodeFile = new File(outputDir, "node-0");

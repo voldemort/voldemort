@@ -37,10 +37,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.avro.Schema;
+import org.apache.avro.mapred.AvroInputFormat;
 import org.apache.commons.lang.Validate;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.log4j.Logger;
 
@@ -60,7 +61,10 @@ import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.disk.KeyValueWriter;
 import voldemort.store.readonly.hooks.BuildAndPushHook;
 import voldemort.store.readonly.hooks.BuildAndPushStatus;
-import voldemort.store.readonly.mr.azkaban.VoldemortStoreBuilderJob.VoldemortStoreBuilderConf;
+import voldemort.store.readonly.mr.AvroStoreBuilderMapper;
+import voldemort.store.readonly.mr.HadoopStoreBuilder;
+import voldemort.store.readonly.mr.JsonStoreBuilderMapper;
+import voldemort.store.readonly.mr.serialization.JsonSequenceFileInputFormat;
 import voldemort.store.readonly.mr.utils.AvroUtils;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.store.readonly.mr.utils.JsonSchema;
@@ -161,7 +165,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final ExecutorService executorService;
 
     // Mutable state
-    private List<StoreDefinition> storeDefs;
+    private StoreDefinition storeDef;
     private Path sanitizedInputPath = null;
     private Schema inputPathAvroSchema = null;
     private JsonSchema inputPathJsonSchema = null;
@@ -589,54 +593,49 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     }
 
     public String runBuildStore(Props props, String url) throws Exception {
-        int replicationFactor = props.getInt(BUILD_REPLICATION_FACTOR, 2);
-        int chunkSize = props.getInt(BUILD_CHUNK_SIZE, 1024 * 1024 * 1024);
-        Path tempDir = new Path(props.getString(BUILD_TEMP_DIR, "/tmp/vold-build-and-push-"
-                + new Random().nextLong()));
-        URI uri = new URI(url);
-        Path outputDir = new Path(props.getString(BUILD_OUTPUT_DIR), uri.getHost());
-        Path inputPath = getInputPath();
+        Path tempDir = new Path(props.getString(BUILD_TEMP_DIR, "/tmp/vold-build-and-push-" + new Random().nextLong()));
+        Path outputDir = new Path(props.getString(BUILD_OUTPUT_DIR), new URI(url).getHost());
         CheckSumType checkSumType = CheckSum.fromString(props.getString(CHECKSUM_TYPE,
                                                                         CheckSum.toString(CheckSumType.MD5)));
-        boolean saveKeys = props.getBoolean(SAVE_KEYS, true);
-        boolean reducerPerBucket = props.getBoolean(REDUCER_PER_BUCKET, false);
-        int numChunks = props.getInt(NUM_CHUNKS, -1);
+        JobConf configuration = new JobConf();
+        Class mapperClass;
+        Class<? extends InputFormat> inputFormatClass;
 
-        String recSchema = null;
-        String keySchema = null;
-        String valSchema = null;
-
-        if(isAvroJob) {
-            recSchema = getRecordSchema();
-            keySchema = getKeySchema();
-            valSchema = getValueSchema();
+        // Only if its a avro job we supply some additional fields
+        // for the key value schema of the avro record
+        if(this.isAvroJob) {
+            configuration.set("avro.rec.schema", getRecordSchema());
+            configuration.set("avro.key.schema", getKeySchema());
+            configuration.set("avro.val.schema", getValueSchema());
+            configuration.set(VoldemortBuildAndPushJob.AVRO_KEY_FIELD, this.keyFieldName);
+            configuration.set(VoldemortBuildAndPushJob.AVRO_VALUE_FIELD, this.valueFieldName);
+            mapperClass = AvroStoreBuilderMapper.class;
+            inputFormatClass = AvroInputFormat.class;
+        } else {
+            mapperClass = JsonStoreBuilderMapper.class;
+            inputFormatClass = JsonSequenceFileInputFormat.class;
         }
 
-        Cluster cluster = adminClientPerCluster.get(url).getAdminClientCluster();
+        HadoopStoreBuilder builder = new HadoopStoreBuilder(getId() + "-build-store",
+                                                            props,
+                                                            configuration,
+                                                            mapperClass,
+                                                            inputFormatClass,
+                                                            this.adminClientPerCluster.get(url).getAdminClientCluster(),
+                                                            this.storeDef,
+                                                            tempDir,
+                                                            outputDir,
+                                                            getInputPath(),
+                                                            checkSumType,
+                                                            props.getBoolean(SAVE_KEYS, true),
+                                                            props.getBoolean(REDUCER_PER_BUCKET, false),
+                                                            props.getInt(BUILD_CHUNK_SIZE, 1024 * 1024 * 1024),
+                                                            props.getInt(NUM_CHUNKS, -1),
+                                                            this.isAvroJob,
+                                                            this.minNumberOfRecords);
 
-        new VoldemortStoreBuilderJob(
-                this.getId() + "-build-store",
-                props,
-                new VoldemortStoreBuilderConf(
-                        replicationFactor,
-                        chunkSize,
-                        tempDir,
-                        outputDir,
-                        inputPath,
-                        cluster,
-                        storeDefs,
-                        storeName,
-                        checkSumType,
-                        saveKeys,
-                        reducerPerBucket,
-                        numChunks,
-                        keyFieldName,
-                        valueFieldName,
-                        recSchema,
-                        keySchema,
-                        valSchema,
-                        isAvroJob,
-                        minNumberOfRecords)).run();
+        builder.build();
+
         return outputDir.toString();
     }
 
@@ -877,7 +876,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             // Next time BnP is run while the node is up, it will get the store created.
         } // Other exceptions need to bubble up!
 
-        storeDefs = ImmutableList.of(newStoreDef);
+        storeDef = newStoreDef;
     }
 
     private class HeartBeatHookRunnable implements Runnable {

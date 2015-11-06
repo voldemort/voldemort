@@ -27,7 +27,6 @@ import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroOutputFormat;
 import org.apache.avro.mapred.Pair;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -58,7 +57,10 @@ import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.checksum.CheckSumMetadata;
 import voldemort.store.readonly.disk.KeyValueWriter;
+import voldemort.store.readonly.mr.azkaban.AbstractHadoopJob;
+import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Props;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -68,7 +70,7 @@ import voldemort.xml.StoreDefinitionsMapper;
  * 
  */
 @SuppressWarnings("deprecation")
-public class HadoopStoreBuilder {
+public class HadoopStoreBuilder extends AbstractHadoopJob {
 
     public static final long MIN_CHUNK_SIZE = 1L;
     public static final long MAX_CHUNK_SIZE = (long) (1.9 * 1024 * 1024 * 1024);
@@ -77,7 +79,7 @@ public class HadoopStoreBuilder {
 
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilder.class);
 
-    private final Configuration config;
+    private final JobConf baseJobConf;
     private final Class mapperClass;
     @SuppressWarnings("unchecked")
     private final Class<? extends InputFormat> inputFormatClass;
@@ -97,28 +99,32 @@ public class HadoopStoreBuilder {
     /**
      * Create the store builder
      *
-     * @param conf A base configuration to start with
+     * @param name Name of the job
+     * @param props The Build and Push job's {@link Props}
+     * @param baseJobConf A base configuration to start with
      * @param mapperClass The class to use as the mapper
      * @param inputFormatClass The input format to use for reading values
      * @param cluster The voldemort cluster for which the stores are being built
      * @param storeDef The store definition of the store
      * @param tempDir The temporary directory to use in hadoop for intermediate
-*        reducer output
+     *        reducer output
      * @param outputDir The directory in which to place the built stores
      * @param inputPath The path from which to read input data
      * @param checkSumType The checksum algorithm to use
      * @param saveKeys Boolean to signify if we want to save the key as well
      * @param reducerPerBucket Boolean to signify whether we want to have a
-*        single reducer for a bucket ( thereby resulting in all chunk files
-*        for a bucket being generated in a single reducer )
-     * @param chunkSizeBytes Size of each chunks (ignored if numChunks is > 0)
+     *        single reducer for a bucket ( thereby resulting in all chunk files
+     *        for a bucket being generated in a single reducer )
+     * @param chunkSizeBytes Size of each chunks (ignored if numChunksOverride is > 0)
      * @param numChunks Number of chunks per bucket ( partition or partition
-*        replica )
+     *        replica )
      * @param isAvro whether the data format is avro
      * @param minNumberOfRecords
      *
      */
-    public HadoopStoreBuilder(Configuration conf,
+    public HadoopStoreBuilder(String name,
+                              Props props,
+                              JobConf baseJobConf,
                               Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
@@ -133,7 +139,8 @@ public class HadoopStoreBuilder {
                               int numChunks,
                               boolean isAvro,
                               Long minNumberOfRecords) {
-        this.config = conf;
+        super(name, props);
+        this.baseJobConf = baseJobConf;
         this.mapperClass = Utils.notNull(mapperClass);
         this.inputFormatClass = Utils.notNull(inputFormatClass);
         this.inputPath = inputPath;
@@ -166,23 +173,26 @@ public class HadoopStoreBuilder {
      */
     public void build() {
         try {
-            JobConf conf = new JobConf(config);
+            JobConf conf = prepareJobConf(baseJobConf);
+
+            FileSystem fs = outputDir.getFileSystem(conf);
+            if(fs.exists(outputDir)) {
+                info("Deleting previous output in " + outputDir + " for building store " + this.storeDef.getName());
+                fs.delete(outputDir, true);
+            }
+
             conf.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
             conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
             conf.set("stores.xml",
                      new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
-            conf.setBoolean("save.keys", saveKeys);
-            conf.setBoolean("reducer.per.bucket", reducerPerBucket);
+            conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
+            conf.setBoolean(VoldemortBuildAndPushJob.REDUCER_PER_BUCKET, reducerPerBucket);
             if(!isAvro) {
                 conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
                 conf.setMapperClass(mapperClass);
                 conf.setMapOutputKeyClass(BytesWritable.class);
                 conf.setMapOutputValueClass(BytesWritable.class);
-                if(reducerPerBucket) {
-                    conf.setReducerClass(HadoopStoreBuilderReducerPerBucket.class);
-                } else {
-                    conf.setReducerClass(HadoopStoreBuilderReducer.class);
-                }
+                conf.setReducerClass(HadoopStoreBuilderReducer.class);
             }
             conf.setInputFormat(inputFormatClass);
             conf.setOutputFormat(SequenceFileOutputFormat.class);
@@ -192,7 +202,7 @@ public class HadoopStoreBuilder {
             conf.setReduceSpeculativeExecution(false);
             FileInputFormat.setInputPaths(conf, inputPath);
             conf.set("final.output.dir", outputDir.toString());
-            conf.set("checksum.type", CheckSum.toString(checkSumType));
+            conf.set(VoldemortBuildAndPushJob.CHECKSUM_TYPE, CheckSum.toString(checkSumType));
             conf.set("dfs.umaskmode", "002");
             FileOutputFormat.setOutputPath(conf, tempDir);
 
@@ -248,7 +258,7 @@ public class HadoopStoreBuilder {
                     numReducers = cluster.getNumberOfPartitions() * numChunks;
                 }
             }
-            conf.setInt("num.chunks", numChunks);
+            conf.setInt(VoldemortBuildAndPushJob.NUM_CHUNKS, numChunks);
             conf.setNumReduceTasks(numReducers);
 
             if(isAvro) {
@@ -264,20 +274,14 @@ public class HadoopStoreBuilder {
                 conf.setOutputValueClass(ByteBuffer.class);
 
                 // AvroJob confs for the avro mapper
-                AvroJob.setInputSchema(conf, Schema.parse(config.get("avro.rec.schema")));
+                AvroJob.setInputSchema(conf, Schema.parse(baseJobConf.get("avro.rec.schema")));
 
                 AvroJob.setOutputSchema(conf,
                                         Pair.getPairSchema(Schema.create(Schema.Type.BYTES),
                                                            Schema.create(Schema.Type.BYTES)));
 
                 AvroJob.setMapperClass(conf, mapperClass);
-
-                if(reducerPerBucket) {
-                    conf.setReducerClass(AvroStoreBuilderReducerPerBucket.class);
-                } else {
-                    conf.setReducerClass(AvroStoreBuilderReducer.class);
-                }
-
+                conf.setReducerClass(AvroStoreBuilderReducer.class);
             }
 
             logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
