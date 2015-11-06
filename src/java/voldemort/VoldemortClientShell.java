@@ -113,7 +113,7 @@ public class VoldemortClientShell {
         try {
             factory = new SocketStoreClientFactory(clientConfig);
             client = factory.getStoreClient(storeName);
-            adminClient = new AdminClient(bootstrapUrl, new AdminClientConfig(), new ClientConfig());
+            adminClient = new AdminClient(bootstrapUrl, new AdminClientConfig(), clientConfig);
 
             storeDef = StoreUtils.getStoreDef(factory.getStoreDefs(), storeName);
 
