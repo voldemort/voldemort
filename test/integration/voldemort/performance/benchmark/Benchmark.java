@@ -24,9 +24,10 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.FileUtils;
+
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import org.apache.commons.io.FileUtils;
 import voldemort.ServerTestUtils;
 import voldemort.StaticStoreClientFactory;
 import voldemort.TestUtils;
@@ -121,13 +122,19 @@ public class Benchmark {
 
     public static final String LOCAL_SERVER_PROPERTIES = "local-server-properties";
 
+    public static final String WORKLOAD_TYPE = "workload-type";
+    public static final String KEY_VALUE_FILE = "key-value-file";
+    public static final String KEY_SEQUENCE_FILE = "key-seq-file";
+    public static final String DEFAULT_WORKLOAD_TYPE = "default-workload";
+    public static final String TRACE_WORKLOAD_TYPE = "trace-workload";
+
     private StoreClient<Object, Object> storeClient;
     private StoreClientFactory factory;
 
     private int numThreads, numConnectionsPerNode, numIterations, targetThroughput, recordCount,
             opsCount, statusIntervalSec;
     private double perThreadThroughputPerMs;
-    private Workload workLoad;
+    private BenchmarkWorkload workLoad;
     private String pluginName;
     private boolean storeInitialized = false;
     private boolean warmUpCompleted = false;
@@ -184,7 +191,7 @@ public class Benchmark {
         private VoldemortWrapper db;
         private boolean runBenchmark;
         private boolean isVerbose;
-        private Workload clientWorkLoad;
+        private BenchmarkWorkload clientWorkLoad;
         private int operationsCount;
         private double targetThroughputPerMs;
         private int opsDone;
@@ -192,7 +199,7 @@ public class Benchmark {
 
         public ClientThread(VoldemortWrapper db,
                             boolean runBenchmark,
-                            Workload workLoad,
+                            BenchmarkWorkload workLoad,
                             int operationsCount,
                             double targetThroughputPerMs,
                             boolean isVerbose,
@@ -257,6 +264,15 @@ public class Benchmark {
         return storeDef;
     }
 
+    private BenchmarkWorkload getWorkloadInstance(String workloadType) throws Exception {
+        if(TRACE_WORKLOAD_TYPE.equals(workloadType)) {
+            return new TraceBasedWorkload();
+        } else if(DEFAULT_WORKLOAD_TYPE.equals(workloadType)) {
+            return new DefaultWorkload();
+        }
+        throw new Exception("Can't determine for workloadType = " + workloadType);
+    }
+    
     public String findKeyType(StoreDefinition storeDefinition) throws Exception {
         SerializerDefinition serializerDefinition = storeDefinition.getKeySerializer();
         if(serializerDefinition != null) {
@@ -317,9 +333,11 @@ public class Benchmark {
         Metrics.getInstance().reset();
 
         // Initialize workload
-        this.workLoad = new Workload();
+        String workloadType = workloadProps.getString(WORKLOAD_TYPE, DEFAULT_WORKLOAD_TYPE);
+        this.workLoad = getWorkloadInstance(workloadType);
         this.workLoad.init(workloadProps);
         this.workLoad.loadSampleValues(storeClient);
+        System.out.println(String.format("INFO: %s is used.", this.workLoad.getClass().getName()));
     }
 
     @SuppressWarnings("unchecked")
@@ -642,6 +660,21 @@ public class Benchmark {
               .withRequiredArg()
               .describedAs(LOCAL_SERVER_PROPERTIES)
               .ofType(String.class);
+        parser.accepts(WORKLOAD_TYPE,
+                       "workload type; type to support; [ "
+                                      + TRACE_WORKLOAD_TYPE + " | " + DEFAULT_WORKLOAD_TYPE
+                                      + " <default> ]")
+              .withRequiredArg()
+              .describedAs(WORKLOAD_TYPE)
+              .ofType(String.class);
+        parser.accepts(KEY_VALUE_FILE, "path to a file with keys and value sizes")
+              .withRequiredArg()
+              .describedAs(KEY_VALUE_FILE)
+              .ofType(String.class);
+        parser.accepts(KEY_SEQUENCE_FILE, "path to a file with key access sequence")
+              .withRequiredArg()
+              .describedAs(KEY_SEQUENCE_FILE)
+              .ofType(String.class);
         parser.accepts(HELP);
 
         OptionSet options = parser.parse(args);
@@ -703,6 +736,15 @@ public class Benchmark {
 
             if(options.has(LOCAL_SERVER_PROPERTIES)) {
                 mainProps.put(LOCAL_SERVER_PROPERTIES, (String) options.valueOf(LOCAL_SERVER_PROPERTIES));
+            }
+
+            if(options.has(WORKLOAD_TYPE)) {
+                mainProps.put(WORKLOAD_TYPE, (String) options.valueOf(WORKLOAD_TYPE));
+                if(((String) options.valueOf(WORKLOAD_TYPE)).equals(TRACE_WORKLOAD_TYPE)) {
+                    CmdUtils.croakIfMissing(parser, options, KEY_VALUE_FILE, KEY_SEQUENCE_FILE);
+                    mainProps.put(KEY_VALUE_FILE, (String) options.valueOf(KEY_VALUE_FILE));
+                    mainProps.put(KEY_SEQUENCE_FILE, (String) options.valueOf(KEY_SEQUENCE_FILE));
+                }
             }
 
             mainProps.put(VERBOSE, getCmdBoolean(options, VERBOSE));

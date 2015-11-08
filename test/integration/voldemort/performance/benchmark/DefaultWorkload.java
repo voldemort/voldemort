@@ -28,6 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
+import com.google.common.collect.Lists;
+
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.StoreClient;
@@ -42,11 +44,9 @@ import voldemort.utils.Props;
 import voldemort.utils.UndefinedPropertyException;
 import voldemort.versioning.Versioned;
 
-import com.google.common.collect.Lists;
+public class DefaultWorkload implements BenchmarkWorkload {
 
-public class Workload {
-
-    private static Logger logger = Logger.getLogger(Workload.class);
+    private static Logger logger = Logger.getLogger(DefaultWorkload.class);
 
     public interface KeyProvider<T> {
 
@@ -264,6 +264,7 @@ public class Workload {
      * Initialize the workload. Called once, in the main client thread, before
      * any operations are started.
      */
+    @Override
     public void init(Props props) {
         int readPercent = props.getInt(Benchmark.READS, 0);
         int writePercent = props.getInt(Benchmark.WRITES, 0);
@@ -391,6 +392,7 @@ public class Workload {
         this.randomSampler = new Random(System.currentTimeMillis());
     }
 
+    @Override
     public boolean doWrite(VoldemortWrapper db, WorkloadPlugin plugin) {
         Object key = warmUpKeyProvider.next();
         if(plugin != null) {
@@ -400,6 +402,7 @@ public class Workload {
         return true;
     }
 
+    @Override
     public boolean doTransaction(VoldemortWrapper db, WorkloadPlugin plugin) {
         String op = operationChooser.nextString();
 
@@ -434,6 +437,7 @@ public class Workload {
         db.write(key, getRandomSampleValue(), null);
     }
 
+    @Override
     public void loadSampleValues(StoreClient<Object, Object> client) {
         if(this.sampleSize > 0) {
             sampleValues = Lists.newArrayList();
