@@ -71,22 +71,6 @@ public class HadoopUtils {
     private static UserGroupInformation currentHadoopUser;
     private static long lastLoginTime = 0;
 
-    public static FileSystem getFileSystem(Props props) {
-        if(!props.containsKey("hadoop.job.ugi"))
-            throw new RuntimeException("No parameter hadoop.job.ugi set!");
-        return getFileSystem(props.getString("hadoop.job.ugi"));
-    }
-
-    public static FileSystem getFileSystem(String user) {
-        Configuration conf = new Configuration();
-        conf.set("hadoop.job.ugi", user);
-        try {
-            return FileSystem.get(conf);
-        } catch(IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     /**
      * Read the metadata from a hadoop SequenceFile
      * 
@@ -136,7 +120,7 @@ public class HadoopUtils {
                 // this is a normal file, get a schema from it
                 Map<String, String> m = HadoopUtils.getMetadataFromSequenceFile(fs, path);
                 if(!m.containsKey("value.schema") || !m.containsKey("key.schema"))
-                    throw new IllegalArgumentException("No schema found on file " + path.toString());
+                    throw new IllegalArgumentException("No JSON schema found on file " + path.toString());
                 return new JsonSchema(JsonTypeDefinition.fromJson(m.get("key.schema")),
                                       JsonTypeDefinition.fromJson(m.get("value.schema")));
             } else {
@@ -149,7 +133,7 @@ public class HadoopUtils {
                     statuses = fs.globStatus(path);
                 }
                 if(statuses == null || statuses.length == 0)
-                    throw new IllegalArgumentException("No files found in path pattern "
+                    throw new IllegalArgumentException("No JSON files found in path pattern "
                                                        + path.toUri().getPath());
                 List<JsonSchema> schemas = new ArrayList<JsonSchema>();
                 for(FileStatus status: statuses) {
@@ -169,18 +153,18 @@ public class HadoopUtils {
                         if(!schema.equals(schemas.get(i)))
                             throw new IllegalArgumentException("The directory "
                                                                + path.toString()
-                                                               + " contains heterogenous schemas: found both '"
+                                                               + " contains heterogenous JSON schemas: found both '"
                                                                + schema.toString() + "' and '"
                                                                + schemas.get(i).toString() + "'.");
 
                     return schema;
                 } else {
-                    throw new IllegalArgumentException("No Valid metedata file found for Path:"
+                    throw new IllegalArgumentException("No valid JSON metedata file found for Path:"
                                                        + path.toString());
                 }
             }
         } catch(Exception e) {
-            logger.error("failed to get metadata from path:" + path);
+            logger.error("failed to get JSON metadata from path:" + path);
             throw new RuntimeException(e);
         }
     }
@@ -207,10 +191,6 @@ public class HadoopUtils {
         } catch(IOException e) {
             throw new RuntimeException("This is not possible!", e);
         }
-    }
-
-    public static Cluster readCluster(String clusterFile, Configuration conf) throws IOException {
-        return new ClusterMapper().readCluster(new StringReader(readAsString(new Path(clusterFile))));
     }
 
     /**
@@ -247,22 +227,6 @@ public class HadoopUtils {
         return null;
     }
 
-    public static FileSystem getFileSystem(String hdfsUrl, boolean isLocal) throws IOException {
-        // Initialize fs
-        FileSystem fs;
-        if(isLocal) {
-            fs = FileSystem.getLocal(new Configuration());
-        } else {
-            fs = new DistributedFileSystem();
-            try {
-                fs.initialize(new URI(hdfsUrl), new Configuration());
-            } catch(URISyntaxException e) {
-                throw new IllegalArgumentException(e);
-            }
-        }
-        return fs;
-    }
-
     public static JobConf addAllSubPaths(JobConf conf, Path path) throws IOException {
         if(shouldPathBeIgnored(path)) {
             throw new IllegalArgumentException(String.format("Path[%s] should be ignored.", path));
@@ -295,25 +259,6 @@ public class HadoopUtils {
      */
     public static boolean shouldPathBeIgnored(Path path) throws IOException {
         return path.getName().startsWith("_");
-    }
-
-    public static String readAsString(Path path) {
-        InputStream input = null;
-        try {
-            FileSystem fs = path.getFileSystem(new Configuration());
-            input = fs.open(path);
-            return IOUtils.toString(input);
-        } catch(IOException e) {
-            throw new RuntimeException(e);
-        } finally {
-            IOUtils.closeQuietly(input);
-        }
-    }
-
-    public static boolean mkdirs(String pathName) throws IOException {
-        Path path = new Path(pathName);
-        FileSystem fs = path.getFileSystem(new Configuration());
-        return fs.mkdirs(path);
     }
 
     public static void deletePathIfExists(JobConf conf, String stepOutputPath) throws IOException {
@@ -378,22 +323,6 @@ public class HadoopUtils {
         }
 
         return directory;
-    }
-
-    /**
-     * Move the file from one place to another. Unlike the raw Hadoop API this
-     * will throw an exception if it fails. Like the Hadoop api it will fail if
-     * a file exists in the destination.
-     * 
-     * @param fs The filesystem
-     * @param from The source file to move
-     * @param to The destination location
-     * @throws IOException
-     */
-    public static void move(FileSystem fs, Path from, Path to) throws IOException {
-        boolean success = fs.rename(from, to);
-        if(!success)
-            throw new RuntimeException("Failed to move " + from + " to " + to);
     }
 
     private static Configuration getConfiguration(VoldemortConfig voldemortConfig, String sourceFileUrl) {
@@ -514,5 +443,4 @@ public class HadoopUtils {
         }
         return fs;
     }
-
 }
