@@ -459,7 +459,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             } catch(VoldemortException e) {
                 log.error("Exception during cluster equality check", e);
                 fail("Exception during cluster equality check: " + e.toString());
-                return;
+                throw e;
             }
 
             String reducerOutputCompressionCodec = getMatchingServerSupportedCompressionCodec();

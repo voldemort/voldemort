@@ -17,7 +17,6 @@
 
 package voldemort.server.protocol.admin;
 
-import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -1941,14 +1940,24 @@ public class AdminServiceRequestHandler implements RequestHandler {
     }
 
     private Message handleDisableStoreVersion(VAdminProto.DisableStoreVersionRequest disableStoreVersion) {
-        logger.info("Received DisableStoreVersionRequest: " + disableStoreVersion.toString());
+        String storeName = disableStoreVersion.getStoreName();
+        Long version = disableStoreVersion.getPushVersion();
+        Properties properties = new Properties();
+        try {
+            properties.load(new StringReader(disableStoreVersion.getInfo()));
+        } catch (IOException e) {
+            logger.error("Got IOException while trying to decipher a DisableStoreVersionRequest's info.", e);
+        }
+        logger.info("Received DisableStoreVersionRequest:\n" +
+                    "\tstore_name: " + storeName + "\n" +
+                    "\tpush_version: " + version + "\n" +
+                    "\tinfo: " + properties.toString());
 
         VAdminProto.DisableStoreVersionResponse.Builder response = VAdminProto.DisableStoreVersionResponse.newBuilder();
 
         response.setNodeId(server.getMetadataStore().getNodeId());
 
-        String storeName = disableStoreVersion.getStoreName();
-        Long version = disableStoreVersion.getPushVersion();
+        final String logMessagePrefix = "handleDisableStoreVersion returning response: ";
 
         try {
             StorageEngine storeToDisable = storeRepository.getStorageEngine(storeName);
@@ -1965,25 +1974,28 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         .setDisablePersistenceSuccess(true)
                         .setInfo("The store '" + storeName + "' version " + version + " was successfully disabled.");
             }
+            logger.info(logMessagePrefix + response.getInfo());
         } catch (PersistenceFailureException e) {
+            String message = "The store '" + storeName + "' version " + version + " was disabled" +
+                    " but the change could not be persisted and will thus remain in effect only" +
+                    " until the next server restart. This is likely caused by the IO subsystem" +
+                    " becoming read-only.";
+            logger.error(logMessagePrefix + message, e);
             response.setDisableSuccess(true)
                     .setDisablePersistenceSuccess(false)
-                    .setInfo("The store '" + storeName + "' version " + version + " was disabled" +
-                            " but the change could not be persisted and will thus remain in effect only" +
-                            " until the next server restart. This is likely caused by the IO subsystem" +
-                            " becoming read-only.");
+                    .setInfo(message);
         } catch (NoSuchCapabilityException e) {
+            String message = "The store '" + storeName + "' does not support disabling versions!";
+            logger.error(logMessagePrefix + message, e);
             response.setDisableSuccess(false)
-                    .setInfo("The store '" + storeName + "' does not support disabling versions!");
+                    .setInfo(message);
         } catch (Exception e) {
-            logger.error("Got an unexpected exception while trying to disable store '" +
-                    storeName + "' version " + version + ".", e);
+            String message = "The store '" + storeName + "' version " + version +
+                    " was not disabled because of an unexpected exception.";
+            logger.error(logMessagePrefix + message, e);
             response.setDisableSuccess(false)
-                    .setInfo("The store '" + storeName + "' version " + version +
-                            " was not disabled because of an unexpected exception.");
+                    .setInfo(message);
         }
-
-        logger.info("handleDisableStoreVersion returning response: " + response.getInfo());
 
         if (response.getDisableSuccess()) {
             // Then we also want to put the server in offline mode
@@ -2014,7 +2026,21 @@ public class AdminServiceRequestHandler implements RequestHandler {
     }
 
     private Message handleFetchFailure(VAdminProto.HandleFetchFailureRequest handleFetchFailure) {
-        logger.info("Received HandleFetchFailureRequest");
+        String storeName = handleFetchFailure.getStoreName();
+        long pushVersion = handleFetchFailure.getPushVersion();
+        String extraInfo = handleFetchFailure.getInfo();
+        Properties extraInfoProperties = new Properties();
+        try {
+            extraInfoProperties.load(new StringReader(extraInfo));
+        } catch (IOException e) {
+            logger.error("Got IOException while trying to decipher a HandleFetchFailureRequest's info.", e);
+        }
+
+        logger.info("Received HandleFetchFailureRequest:\n" +
+                    "\tstore_name: " + storeName + "\n" +
+                    "\tpush_version: " + pushVersion + "\n" +
+                    "\tinfo: " + extraInfoProperties.toString());
+
         VAdminProto.HandleFetchFailureResponse.Builder response =
                 VAdminProto.HandleFetchFailureResponse.newBuilder();
 
@@ -2033,19 +2059,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     " nodes that failed their fetches...";
             logger.error(responseMessage);
         } else {
-            String storeName = handleFetchFailure.getStoreName();
-            long pushVersion = handleFetchFailure.getPushVersion();
-            String extraInfo = handleFetchFailure.getInfo();
-
             FailedFetchLock distributedLock = null;
             try {
                 Class<? extends FailedFetchLock> failedFetchLockClass =
                         (Class<? extends FailedFetchLock>) Class.forName(voldemortConfig.getHighAvailabilityPushLockImplementation());
 
-                // Extract properties coming from the remote BnP job...
-                Properties javaProperties = new Properties();
-                javaProperties.load(new ByteArrayInputStream(extraInfo.getBytes()));
-                Props props = new Props(javaProperties);
+                Props props = new Props(extraInfoProperties);
 
                 // Pass both server properties and the remote job's properties to the FailedFetchLock constructor
                 Object[] failedFetchLockParams = new Object[]{voldemortConfig, props};
