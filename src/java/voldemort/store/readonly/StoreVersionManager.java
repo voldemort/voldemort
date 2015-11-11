@@ -199,9 +199,9 @@ public class StoreVersionManager {
         try {
             disabledMarker.createNewFile();
         } catch (IOException e) {
-            throw new PersistenceFailureException(
-                    "Failed to create the disabled marker for version " + version + " in rootDir: " + rootDir +
-                            "\nThe store/version will remain disabled only until the next restart.", e);
+            throw new PersistenceFailureException("Failed to create the disabled marker at path: " +
+                                                  disabledMarker.getAbsolutePath() + "\nThe store/version " +
+                                                  "will remain disabled only until the next restart.", e);
         }
     }
 
@@ -217,20 +217,29 @@ public class StoreVersionManager {
         File disabledMarker = getDisabledMarkerFile(version);
         if (disabledMarker.exists()) {
             if (!disabledMarker.delete()) {
-                throw new PersistenceFailureException(
-                        "Failed to delete the disabled marker for version " + version + " in rootDir: " + rootDir +
-                                "\nThe store/version will remain enabled only until the next restart.");
+                throw new PersistenceFailureException("Failed to create the disabled marker at path: " +
+                                                      disabledMarker.getAbsolutePath() + "\nThe store/version " +
+                                                      "will remain enabled only until the next restart.");
             }
         }
     }
 
+    /**
+     * Gets the '.disabled' file for a given version of this store. That file may or may not
+     * exist.
+     *
+     * @param version of the store for which to get the '.disabled' file.
+     * @return an instance of {@link File} pointing to the '.disabled' file.
+     * @throws PersistenceFailureException if the requested version cannot be found.
+     */
     private File getDisabledMarkerFile(long version) throws PersistenceFailureException {
         File[] versionDirArray = ReadOnlyUtils.getVersionDirs(rootDir, version, version);
         if (versionDirArray.length == 0) {
-            throw new PersistenceFailureException("getDisabledMarkerFile did not find the requested version on disk. " +
-                    "Version: " + version + ", rootDir: " + rootDir);
+            throw new PersistenceFailureException("getDisabledMarkerFile did not find the requested version directory" +
+                                                  " on disk. Version: " + version + ", rootDir: " + rootDir);
         }
-        return versionDirArray[0];
+        File disabledMarkerFile = new File(versionDirArray[0], DISABLED_MARKER_NAME);
+        return disabledMarkerFile;
     }
 
     private void removeVersion(long version) {
