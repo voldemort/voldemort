@@ -16,33 +16,33 @@
 #  limitations under the License.
 
 #  Python 2.7+ required
-#  This script encapsulates the cluster.xml generation for a zoned and a non-zoned 
+#  This script encapsulates the cluster.xml generation for a zoned and a non-zoned
 #  cluster. Passing --zones <num of zones> switch to the script generates a zoned cluster
 #  config. A non zoned cluster is generated otherwise.
-#  
+#
 #  The newly generated cluster.xml file is placed in the output dir.
 #
 #  Example use for a zoned cluster :
 #  python generate_cluster_xml.py --file <file with host names, one host per line>
 #                                 --name <name of the cluster>
 #                                 --nodes <number of nodes>
-#                                 --partitions <number of partitions> 
+#                                 --partitions <number of partitions>
 #                                 --sock-port <port no>
-#                                 --admin-port <port no> 
+#                                 --admin-port <port no>
 #                                 --http-port <port no>
-#                                 --current-stores <current_stores.xml> 
-#                                 --output-dir <output directory> 
+#                                 --current-stores <current_stores.xml>
+#                                 --output-dir <output directory>
 #                                 --zones <number of zones>
 #
 #  For non zoned cluster use :
 #  python generate_cluster_xml.py --file <file with host names, one host per line>
 #                                 --name <name of the cluster>
 #                                 --nodes <number of nodes>
-#                                 --partitions <number of partitions> 
+#                                 --partitions <number of partitions>
 #                                 --sock-port <port no>
-#                                 --admin-port <port no> 
+#                                 --admin-port <port no>
 #                                 --http-port <port no>
-#                                 --current-stores <current_stores.xml> 
+#                                 --current-stores <current_stores.xml>
 #                                 --output-dir <output directory>
 #
 # Note the absence of the --zones switch for the non zoned cluster use case.
@@ -86,13 +86,13 @@ parser.add_argument('-s', '--current-stores', type=str, default= "config/tools/d
 parser.add_argument('-o', '--output-dir', type=str, dest='output_dir',
                     help='output directory location')
 parser.add_argument('-z', '--zones', type=int, dest='zones',
-                    help='For non zoned clusters do not provide this argument.' 
+                    help='For non zoned clusters do not provide this argument.'
                          'For zoned clusters provide this argument with at least two zones.')
 
 genType = parser.add_mutually_exclusive_group()
 genType.add_argument('--seed', type=int, default=rseed, dest='seed',
                     help='seed for randomizing partition distribution')
-                          
+
 # Parse arguments
 args = parser.parse_args()
 
@@ -109,7 +109,7 @@ except OSError as exception:
     if exception.errno != errno.EEXIST:
         raise
 
-# Open a new file named cluster.xml     
+# Open a new file named cluster.xml
 clusterXMLFilePath = os.path.join(os.path.abspath(args.output_dir), 'cluster.xml')
 fileHandle = open(clusterXMLFilePath, 'w')
 
@@ -146,7 +146,7 @@ if part_ids < 1500:
         'per zone, a partition value of 1500 is recommended as it ensures an average of 10 ' \
         'partitions per node.'
   print 'Warning : The number of partitions seems to be low. Recommended value is 1500 or more.'
-    
+
 # Generate full list of zone IDs
 if args.zones:
   zone_ids = range(zones)
@@ -167,11 +167,11 @@ if args.zones:
     proximityList = list()
     for j in range(1, len(zone_ids) ):
       proximityList.append(zone_ids[(i+j)%len(zone_ids)])
-    print >> fileHandle, "    <proximity-list>%s</proximity-list>" % str(proximityList).strip('[]') 
-    print >> fileHandle, "  </zone>" 
+    print >> fileHandle, "    <proximity-list>%s</proximity-list>" % str(proximityList).strip('[]')
+    print >> fileHandle, "  </zone>"
 
-# TODO : Currently, random partitions are assigned to the nodes in a round robin fashion. 
-# A better approach would be to have some intelligence in the allocation such that 
+# TODO : Currently, random partitions are assigned to the nodes in a round robin fashion.
+# A better approach would be to have some intelligence in the allocation such that
 # consecutive partition-ids do not land on the same node.
 
 for i in xrange(nodes):
@@ -179,9 +179,10 @@ for i in xrange(nodes):
   node_partitions = list()
   while j < len(part_ids):
     node_partitions.append(str(part_ids[j]))
-    j += nodes;
-  partitionslist = ", ".join(node_partitions);  
-  
+    j += nodes
+  node_partitions.sort(None, int, False)
+  partitionslist = ", ".join(node_partitions)
+
   print >> fileHandle, "  <server>"
   print >> fileHandle, "    <id>%d</id>" % i
   if args.file:
@@ -207,6 +208,6 @@ fileHandle.close()
 # For zoned clusters call rebalance-new-cluster.sh
 if args.zones:
     scriptPath = vold_home + '/bin/rebalance-new-zoned-cluster.sh'
-    cmd = [scriptPath, '-v', vold_home, '-c', clusterXMLFilePath, '-s', current_stores, 
+    cmd = [scriptPath, '-v', vold_home, '-c', clusterXMLFilePath, '-s', current_stores,
                    '-o', os.path.abspath(args.output_dir)]
     subprocess.call(cmd)
