@@ -1,3 +1,9 @@
+Release 1.10.4 on 11/11/2015
+* The AdminClient in the VoldemortClientShell is now configurable.
+* Improved error messages in BnP and Read-Only server-side code.
+* Fixed a server-side bug in BnP HA.
+* Made BnP jobs fail explicitly when clusters are inconsistent.
+
 Release 1.10.3 on 11/04/2015
 * Bug fix and improvement to the Forklift tool.
 * Improved help prompt and configurability of the VoldemortClientShell.
