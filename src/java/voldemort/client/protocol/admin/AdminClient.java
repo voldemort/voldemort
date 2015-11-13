@@ -3307,18 +3307,19 @@ public class AdminClient implements Closeable {
 
         /**
          * Given the cluster metadata, retrieves the list of store definitions.
-         * 
-         * <br>
-         * 
          * It also checks if the store definitions are consistent across the
-         * cluster
-         * 
+         * cluster, except for one specific node.
+         *
          * @param cluster The cluster metadata
+         * @param nodeId Do not check this node, we don't trust it right now.
+	 *		May be -1 to check every node.
          * @return List of store definitions
          */
-        public List<StoreDefinition> getCurrentStoreDefinitions(Cluster cluster) {
+        public List<StoreDefinition> getCurrentStoreDefinitionsExcept(Cluster cluster, int nodeId) {
             List<StoreDefinition> storeDefs = null;
             for(Node node: cluster.getNodes()) {
+		if (node.getId() == nodeId)
+		    continue;
                 List<StoreDefinition> storeDefList = metadataMgmtOps.getRemoteStoreDefList(node.getId())
                                                                     .getValue();
                 if(storeDefs == null) {
@@ -3339,6 +3340,18 @@ public class AdminClient implements Closeable {
                 return storeDefs;
             }
         }
+
+        /**
+         * Given the cluster metadata, retrieves the list of store definitions.
+         * It also checks if the store definitions are consistent across the
+         * cluster
+         *
+         * @param cluster The cluster metadata
+         * @return List of store definitions
+         */
+        public List<StoreDefinition> getCurrentStoreDefinitions(Cluster cluster) {
+	    return getCurrentStoreDefinitionsExcept(cluster, -1);
+	}
 
         /**
          * Given a list of store definitions, cluster and admin client returns a
