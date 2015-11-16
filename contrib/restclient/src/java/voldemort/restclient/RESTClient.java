@@ -192,6 +192,11 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
         return null;
     }
 
+    @Override
+    public List<Integer> getResponsiblePartitions(K key) {
+        return null;
+    }
+
     public void close() {
         this.clientStore.close();
     }

@@ -206,4 +206,11 @@ public interface StoreClient<K, V> {
      * @return a list of Nodes which should hold this key
      */
     public List<Node> getResponsibleNodes(K key);
+    /**
+     * Returns the list of partitions which should have this key.
+     *
+     * @param key
+     * @return a list of partitions which should hold this key
+     */
+    public List<Integer> getResponsiblePartitions(K key);
 }

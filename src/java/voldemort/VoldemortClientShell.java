@@ -314,6 +314,7 @@ public class VoldemortClientShell {
     protected void processPreflist(String preflistArgStr) {
 	MutableInt parsePos = new MutableInt(0);
 	Object key = parseKey(preflistArgStr, parsePos);
+	printPartitionList(client.getResponsiblePartitions(key));
 	printNodeList(client.getResponsibleNodes(key), factory.getFailureDetector());
     }
 
@@ -516,6 +517,13 @@ public class VoldemortClientShell {
                 commandOutput.println();
             }
         }
+    }
+
+    private void printPartitionList(List<Integer> partitions) {
+	commandOutput.println("Partitions:");
+	for (Integer partition: partitions) {
+	    commandOutput.println("    " + partition.toString());
+	}
     }
 
     protected void printVersioned(Versioned<Object> v) {
