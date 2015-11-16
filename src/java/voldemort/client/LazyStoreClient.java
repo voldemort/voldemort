@@ -150,4 +150,7 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
     public List<Node> getResponsibleNodes(K key) {
         return getStoreClient().getResponsibleNodes(key);
     }
+    public List<Integer> getResponsiblePartitions(K key) {
+        return getStoreClient().getResponsiblePartitions(key);
+    }
 }

@@ -297,6 +297,12 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         Serializer<K> keySerializer = (Serializer<K>) store.getCapability(StoreCapabilityType.KEY_SERIALIZER);
         return strategy.routeRequest(keySerializer.toBytes(key));
     }
+    public List<Integer> getResponsiblePartitions(K key) {
+        RoutingStrategy strategy = (RoutingStrategy) store.getCapability(StoreCapabilityType.ROUTING_STRATEGY);
+        @SuppressWarnings("unchecked")
+        Serializer<K> keySerializer = (Serializer<K>) store.getCapability(StoreCapabilityType.KEY_SERIALIZER);
+        return strategy.getPartitionList(keySerializer.toBytes(key));
+    }
 
     @SuppressWarnings("unused")
     protected Version getVersion(K key) {
