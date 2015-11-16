@@ -311,6 +311,12 @@ public class VoldemortClientShell {
         printVersioned(client.get(key));
     }
 
+    protected void processPreflist(String preflistArgStr) {
+	MutableInt parsePos = new MutableInt(0);
+	Object key = parseKey(preflistArgStr, parsePos);
+	printNodeList(client.getResponsibleNodes(key), factory.getFailureDetector());
+    }
+
     protected void processDelete(String deleteArgStr) {
         MutableInt parsePos = new MutableInt(0);
         Object key = parseKey(deleteArgStr, parsePos);
@@ -358,9 +364,7 @@ public class VoldemortClientShell {
             } else if(line.toLowerCase().startsWith("delete")) {
                 processDelete(line.substring("delete".length()));
             } else if(line.startsWith("preflist")) {
-                JsonReader jsonReader = new JsonReader(new StringReader(line.substring("preflist".length())));
-                Object key = tightenNumericTypes(jsonReader.read());
-                printNodeList(client.getResponsibleNodes(key), factory.getFailureDetector());
+		processPreflist(line.substring("preflist".length()));
             } else if(line.toLowerCase().startsWith("fetchkeys")) {
                 String[] args = line.substring("fetchkeys".length() + 1).split("\\s+");
                 int remoteNodeId = Integer.valueOf(args[0]);
