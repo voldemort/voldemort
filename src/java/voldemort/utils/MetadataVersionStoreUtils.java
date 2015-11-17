@@ -17,12 +17,14 @@
 package voldemort.utils;
 
 import java.io.ByteArrayInputStream;
+import java.util.List;
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
 
 import voldemort.client.SystemStoreClient;
 import voldemort.store.system.SystemStoreConstants;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 /**
@@ -53,12 +55,70 @@ public class MetadataVersionStoreUtils {
                 props = new Properties();
                 props.load(new ByteArrayInputStream(versionList.getBytes()));
             } catch(Exception e) {
-                logger.debug("Got exception in getting properties : " + e.getMessage());
-                e.printStackTrace();
+                logger.warn("Error retrieving properties ", e);
             }
         }
 
         return props;
+    }
+
+    private static long tryParse(String s) {
+        try {
+            return Long.parseLong(s);
+        } catch(NumberFormatException e) {
+            return 0L;
+        }
+    }
+
+    public static Properties mergeVersions(Properties prop1, Properties prop2) {
+        if(prop1 == null) {
+            return prop2;
+        }
+        if(prop2 == null) {
+            return prop1;
+        }
+
+        Properties result = new Properties(prop1);
+        for(String propName: prop2.stringPropertyNames()) {
+            String currValue = result.getProperty(propName);
+            long currlValue = tryParse(currValue);
+
+            String newValue = prop2.getProperty(propName);
+            long lValue = tryParse(newValue);
+            
+            long maxlValue = Math.max(currlValue, lValue);
+            result.setProperty(propName, Long.toString(maxlValue));
+        }
+        return result;
+    }
+
+    public static Versioned<Properties> parseProperties(List<Versioned<byte[]>> versionProps) {
+        Properties props = new Properties();
+        if(versionProps == null || versionProps.size() == 0) {
+            return new Versioned<Properties>(props);
+        }
+
+        VectorClock version = new VectorClock();
+        for(int cur = 0; cur < versionProps.size(); cur++) {
+            VectorClock curVersion = (VectorClock) versionProps.get(cur).getVersion();
+            version = version.merge(curVersion);
+
+            byte[] value = versionProps.get(cur).getValue();
+            if(value == null) {
+                continue;
+            }
+
+            Properties curProps = new Properties();
+            try {
+                curProps.load(new ByteArrayInputStream(value));
+            } catch(Exception e) {
+                continue;
+            }
+            
+            props = mergeVersions(props, curProps);
+        }
+
+        return new Versioned<Properties>(props, version);
     }
 
     private static String getPropertiesString(Properties props) {

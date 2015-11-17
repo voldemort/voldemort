@@ -280,7 +280,9 @@ public class RebalanceRebootstrapConsistencyTest {
 
         }
 
-        adminClient.metadataMgmtOps.updateMetadataversion(CLUSTER_VERSION_KEY);
+        adminClient.metadataMgmtOps.updateMetadataversion(adminClient.getAdminClientCluster()
+                                                                     .getNodeIds(),
+                                                          CLUSTER_VERSION_KEY);
 
     }
 

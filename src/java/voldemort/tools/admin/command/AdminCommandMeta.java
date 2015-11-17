@@ -16,7 +16,6 @@
 
 package voldemort.tools.admin.command;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -51,6 +50,7 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.tools.admin.AdminParserUtils;
 import voldemort.tools.admin.AdminToolUtils;
 import voldemort.utils.ByteArray;
+import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -1351,7 +1351,9 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             System.out.println("Updating metadata version for the following stores: "
                                + storesChanged);
             try {
-                adminClient.metadataMgmtOps.updateMetadataversion(storesChanged);
+                adminClient.metadataMgmtOps.updateMetadataversion(adminClient.getAdminClientCluster()
+                                                                             .getNodeIds(),
+                                                                  storesChanged);
             } catch(Exception e) {
                 System.err.println("Error while updating metadata version for the specified store.");
             }
@@ -1458,8 +1460,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
         }
 
         private static Versioned<Properties> mergeAllVersions(AdminClient adminClient) {
-            Properties props = null;
-            VectorClock version = null;
+            Properties props = new Properties();
+            VectorClock version = new VectorClock();
 
             for(Integer nodeId: adminClient.getAdminClientCluster().getNodeIds()) {
                 Versioned<Properties> versionedProp = doMetaGetVersionsForNode_ExitOnError(adminClient,
@@ -1467,22 +1469,8 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                 Properties newProps = versionedProp.getValue();
                 VectorClock newVersion = (VectorClock) versionedProp.getVersion();
                 
-                if(props == null) {
-                    props = newProps;
-                    version = newVersion;
-                } else {
-                    version = version.merge(newVersion);
-                    for(String propName: props.stringPropertyNames()) {
-                        String currValue = props.getProperty(propName);
-                        Long currlValue = SubCommandMetaCheckVersion.tryParse(currValue);
-
-                        String newValue = newProps.getProperty(propName);
-                        Long lValue = SubCommandMetaCheckVersion.tryParse(newValue);
-                        if(lValue > currlValue) {
-                            props.setProperty(propName, lValue.toString());
-                        }
-                    }
-                }
+                version = version.merge(newVersion);
+                props = MetadataVersionStoreUtils.mergeVersions(props, newProps);
             }
 
             version = version.incremented(version.getVersionMap().firstKey(),
@@ -1739,11 +1727,7 @@ public class AdminCommandMeta extends AbstractAdminCommand {
                                   + " on node id " + nodeId + " but found " + valueObj.size());
         }
 
-        Properties props = new Properties();
         System.out.println(" Node : " + nodeId + " Version : " + valueObj.get(0).getVersion());
-        props.load(new ByteArrayInputStream(valueObj.get(0).getValue()));
-        
-        Version version = valueObj.get(0).getVersion();
-        return new Versioned<Properties>(props, version);
+        return MetadataVersionStoreUtils.parseProperties(valueObj);
     }
 }
