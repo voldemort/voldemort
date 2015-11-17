@@ -16,16 +16,45 @@
 
 package voldemort.client.protocol.admin;
 
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.Message;
-import com.google.protobuf.UninitializedMessageException;
+import java.io.Closeable;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.EOFException;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
+import java.net.Socket;
+import java.net.SocketException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.apache.avro.Schema;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
+
+import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
@@ -53,10 +82,13 @@ import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.server.storage.prunejob.VersionedPutPruneJob;
 import voldemort.server.storage.repairjob.RepairJob;
-import voldemort.store.*;
+import voldemort.store.ErrorCodeMapper;
+import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
+import voldemort.store.StoreUtils;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.quota.QuotaExceededException;
 import voldemort.store.quota.QuotaType;
 import voldemort.store.quota.QuotaUtils;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -87,30 +119,13 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import java.io.Closeable;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.EOFException;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.StringReader;
-import java.io.UnsupportedEncodingException;
-import java.net.Socket;
-import java.net.SocketException;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ReadableByteChannel;
-import java.util.*;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
+import com.google.protobuf.UninitializedMessageException;
 
 /**
  * AdminClient is intended for administrative functionality that is useful and
@@ -1039,6 +1054,57 @@ public class AdminClient implements Closeable {
      * 
      */
     public class MetadataManagementOperations {
+        private Versioned<Properties> getMetadataVersion(Integer nodeId) throws Exception {
+            ByteArray keyArray;
+            keyArray = new ByteArray(SystemStoreConstants.VERSIONS_METADATA_KEY.getBytes("UTF8"));
+
+            List<Versioned<byte[]>> valueObj = storeOps.getNodeKey(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                                   nodeId,
+                                                                   keyArray);
+
+            return MetadataVersionStoreUtils.parseProperties(valueObj);
+        }
+
+        private Versioned<Properties> getMetadataVersion(Collection<Integer> nodeIds) {
+            VectorClock version = new VectorClock();
+            Properties props = new Properties();
+            boolean atLeastOneSuccess = false;
+            for(Integer nodeId: nodeIds) {
+                try {
+                    Versioned<Properties> versionedProps = getMetadataVersion(nodeId);
+                    VectorClock curVersion = (VectorClock) versionedProps.getVersion();
+                    Properties curProps = versionedProps.getValue();
+                    
+                    version = version.merge(curVersion);
+                    props = MetadataVersionStoreUtils.mergeVersions(props, curProps);
+
+                    atLeastOneSuccess = true;
+                } catch(Exception e) {
+                    logger.error("Error retrieving metadata versions for node " + nodeId, e);
+                }
+            }
+            
+            if(atLeastOneSuccess == false) {
+                throw new VoldemortApplicationException("Metadata version retrieval failed on all nodes"
+                                                        + Arrays.toString(nodeIds.toArray()));
+            }
+
+            return new Versioned<Properties>(props, version);
+        }
+
+        private Properties refreshVersions(Properties props, Collection<String> versionKeys) {
+            if(props == null) {
+                props = new Properties();
+            }
+            for(String versionKey: versionKeys) {
+                long newValue = 0;
+                if(props.getProperty(versionKey) != null) {
+                    newValue = System.currentTimeMillis();
+                }
+                props.setProperty(versionKey, Long.toString(newValue));
+            }
+            return props;
+        }
 
         /**
          * Update the metadata version for the given key (cluster or store). The
@@ -1055,24 +1121,50 @@ public class AdminClient implements Closeable {
          * Update the metadata versions for the given keys (cluster or store).
          * The new value set is the current timestamp.
          * 
+         * @param nodeIds nodes on which the metadata key is to be updated
+         * @param versionKey The metadata key for which Version should be
+         *        incremented
+         */
+        public void updateMetadataversion(Collection<Integer> nodeIds, String versionKey) {
+            updateMetadataversion(nodeIds, Arrays.asList(new String[] { versionKey }));
+        }
+
+        /**
+         * Update the metadata versions for the given keys (cluster or store).
+         * The new value set is the current timestamp.
+         * 
+         * @param nodeIds nodes on which the metadata key is to be updated
+         * @param versionKeys The metadata keys for which Version should be
+         *        incremented
+         */
+        public void updateMetadataversion(Collection<Integer> nodeIds,
+                                          Collection<String> versionKeys) {
+            try {
+                Versioned<Properties> versionProps = getMetadataVersion(nodeIds);
+                Properties props = refreshVersions(versionProps.getValue(), versionKeys);
+
+                versionProps = new Versioned<Properties>(props, versionProps.getVersion());
+
+                MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
+                                                        versionProps);
+            } catch(Exception ex) {
+                logger.error("Error Updating version on individual nodes falling back to old behavior ",
+                             ex);
+                updateMetadataversion(versionKeys);
+            }
+        }
+
+
+        /**
+         * Update the metadata versions for the given keys (cluster or store).
+         * The new value set is the current timestamp.
+         * 
          * @param versionKeys The metadata keys for which Version should be
          *        incremented
          */
         public void updateMetadataversion(Collection<String> versionKeys) {
             Properties props = MetadataVersionStoreUtils.getProperties(AdminClient.this.metadataVersionSysStoreClient);
-            for(String versionKey: versionKeys) {
-                long newValue = 0;
-                if(props != null && props.getProperty(versionKey) != null) {
-                    logger.debug("Version obtained = " + props.getProperty(versionKey));
-                    newValue = System.currentTimeMillis();
-                } else {
-                    logger.debug("Current version is null. Assuming version 0.");
-                    if(props == null) {
-                        props = new Properties();
-                    }
-                }
-                props.setProperty(versionKey, Long.toString(newValue));
-            }
+            props = refreshVersions(props, versionKeys);
             MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
                                                     props);
         }
@@ -1171,7 +1263,7 @@ public class AdminClient implements Closeable {
              */
             if(key.equals(SystemStoreConstants.CLUSTER_VERSION_KEY)
                || key.equals(SystemStoreConstants.STORES_VERSION_KEY)) {
-                metadataMgmtOps.updateMetadataversion(key);
+                metadataMgmtOps.updateMetadataversion(remoteNodeIds, key);
             }
             for(Integer currentNodeId: remoteNodeIds) {
                 logger.info("Setting " + key + " for "
@@ -1329,7 +1421,7 @@ public class AdminClient implements Closeable {
              * stores which does not harm even if the operation fail
              */
             if(clusterKey.equals(SystemStoreConstants.CLUSTER_VERSION_KEY)) {
-                metadataMgmtOps.updateMetadataversion(clusterKey);
+                metadataMgmtOps.updateMetadataversion(remoteNodeIds, clusterKey);
             }
             if(storesKey.equals(SystemStoreConstants.STORES_VERSION_KEY)) {
                 StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
