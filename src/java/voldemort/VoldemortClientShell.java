@@ -51,9 +51,14 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Node;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.serialization.SerializationException;
+import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.json.EndOfFileException;
 import voldemort.serialization.json.JsonReader;
 import voldemort.store.StoreDefinition;
@@ -81,6 +86,8 @@ public class VoldemortClientShell {
     private SocketStoreClientFactory factory;
 
     private StoreDefinition storeDef;
+
+    private RoutingStrategy routingStrategy;
 
     protected final BufferedReader commandReader;
 
@@ -116,6 +123,9 @@ public class VoldemortClientShell {
             adminClient = new AdminClient(bootstrapUrl, new AdminClientConfig(), new ClientConfig());
 
             storeDef = StoreUtils.getStoreDef(factory.getStoreDefs(), storeName);
+
+	    Cluster cluster = adminClient.getAdminClientCluster();
+	    routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
 
             commandOutput.println("Established connection to " + storeName + " via " + bootstrapUrl);
             commandOutput.print(PROMPT);
@@ -267,6 +277,13 @@ public class VoldemortClientShell {
         return parseObject(storeDef.getValueSerializer(), argStr, parsePos, this.errorStream);
     }
 
+    protected byte[] serializeKey(Object key) {
+	SerializerFactory serializerFactory = factory.getSerializerFactory();
+	SerializerDefinition serializerDef = storeDef.getKeySerializer();
+	Serializer<Object> keySerializer = (Serializer<Object>) serializerFactory.getSerializer(serializerDef);
+	return keySerializer.toBytes(key);
+    }
+
     protected void processPut(String putArgStr) {
         MutableInt parsePos = new MutableInt(0);
         Object key = parseKey(putArgStr, parsePos);
@@ -314,7 +331,9 @@ public class VoldemortClientShell {
     protected void processPreflist(String preflistArgStr) {
 	MutableInt parsePos = new MutableInt(0);
 	Object key = parseKey(preflistArgStr, parsePos);
-	printNodeList(client.getResponsibleNodes(key), factory.getFailureDetector());
+	byte[] serializedKey = serializeKey(key);
+	printPartitionList(routingStrategy.getPartitionList(serializedKey));
+	printNodeList(routingStrategy.routeRequest(serializedKey), factory.getFailureDetector());
     }
 
     protected void processDelete(String deleteArgStr) {
@@ -516,6 +535,13 @@ public class VoldemortClientShell {
                 commandOutput.println();
             }
         }
+    }
+
+    private void printPartitionList(List<Integer> partitions) {
+	commandOutput.println("Partitions:");
+	for (Integer partition: partitions) {
+	    commandOutput.println("    " + partition.toString());
+	}
     }
 
     protected void printVersioned(Versioned<Object> v) {
