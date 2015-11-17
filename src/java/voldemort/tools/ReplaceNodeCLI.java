@@ -491,7 +491,9 @@ public class ReplaceNodeCLI {
     }
 
     private void updateClusterVersion() {
-        newAdminClient.metadataMgmtOps.updateMetadataversion(SystemStoreConstants.CLUSTER_VERSION_KEY);
+        newAdminClient.metadataMgmtOps.updateMetadataversion(newAdminClient.getAdminClientCluster()
+                                                                           .getNodeIds(),
+                                                             SystemStoreConstants.CLUSTER_VERSION_KEY);
     }
 
     public static void main(String[] args) throws Exception {

@@ -1351,7 +1351,9 @@ public class AdminCommandMeta extends AbstractAdminCommand {
             System.out.println("Updating metadata version for the following stores: "
                                + storesChanged);
             try {
-                adminClient.metadataMgmtOps.updateMetadataversion(storesChanged);
+                adminClient.metadataMgmtOps.updateMetadataversion(adminClient.getAdminClientCluster()
+                                                                             .getNodeIds(),
+                                                                  storesChanged);
             } catch(Exception e) {
                 System.err.println("Error while updating metadata version for the specified store.");
             }

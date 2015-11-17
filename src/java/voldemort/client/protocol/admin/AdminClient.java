@@ -1107,17 +1107,6 @@ public class AdminClient implements Closeable {
         }
 
         /**
-         * Update the metadata version for the given key (cluster or store). The
-         * new value set is the current timestamp.
-         * 
-         * @param versionKey The metadata key for which Version should be
-         *        incremented
-         */
-        public void updateMetadataversion(String versionKey) {
-            updateMetadataversion(Arrays.asList(new String[] { versionKey }));
-        }
-
-        /**
          * Update the metadata versions for the given keys (cluster or store).
          * The new value set is the current timestamp.
          * 
@@ -1150,19 +1139,21 @@ public class AdminClient implements Closeable {
             } catch(Exception ex) {
                 logger.error("Error Updating version on individual nodes falling back to old behavior ",
                              ex);
-                updateMetadataversion(versionKeys);
+                internalUpdateMetadataversion(versionKeys);
             }
         }
 
-
         /**
-         * Update the metadata versions for the given keys (cluster or store).
-         * The new value set is the current timestamp.
+         * This was the old way of updating the metadata version. But often
+         * times the vector clocks on the version for the server drifts from one
+         * another and it does not consolidate them correctly. This caused the
+         * client to not re-boot strap. So this method is kept as fall back and
+         * the versions are now resolved other servers in the public methods and
+         * updated correctly
          * 
-         * @param versionKeys The metadata keys for which Version should be
-         *        incremented
+         * @param versionKeys
          */
-        public void updateMetadataversion(Collection<String> versionKeys) {
+        private void internalUpdateMetadataversion(Collection<String> versionKeys) {
             Properties props = MetadataVersionStoreUtils.getProperties(AdminClient.this.metadataVersionSysStoreClient);
             props = refreshVersions(props, versionKeys);
             MetadataVersionStoreUtils.setProperties(AdminClient.this.metadataVersionSysStoreClient,
@@ -1427,12 +1418,13 @@ public class AdminClient implements Closeable {
                 StoreDefinitionsMapper storeDefsMapper = new StoreDefinitionsMapper();
                 List<StoreDefinition> storeDefs = storeDefsMapper.readStoreList(new StringReader(storesValue.getValue()));
                 if(storeDefs != null) {
+                    List<String> storeNames = new ArrayList<String>();
                     try {
                         for(StoreDefinition storeDef: storeDefs) {
-                            logger.info("Updating metadata version for stores: "
-                                        + storeDef.getName());
-                            metadataMgmtOps.updateMetadataversion(storeDef.getName());
+                            storeNames.add(storeDef.getName());
                         }
+
+                        metadataMgmtOps.updateMetadataversion(remoteNodeIds, storeNames);
                     } catch(Exception e) {
                         System.err.println("Error while updating metadata version for the specified store.");
                     }
@@ -3413,7 +3405,8 @@ public class AdminClient implements Closeable {
                  */
                 if(changeClusterMetadata) {
                     try {
-                        metadataMgmtOps.updateMetadataversion(SystemStoreConstants.CLUSTER_VERSION_KEY);
+                        metadataMgmtOps.updateMetadataversion(getAdminClientCluster().getNodeIds(),
+                                                              SystemStoreConstants.CLUSTER_VERSION_KEY);
                     } catch(Exception e) {
                         logger.info("Exception occurred while setting cluster metadata version during Rebalance state change !!!");
                     }
