@@ -20,9 +20,7 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Locale;
 import java.util.zip.GZIPOutputStream;
 
@@ -38,18 +36,19 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.checksum.CheckSumMetadata;
+import voldemort.store.readonly.mr.AbstractStoreBuilderConfigurable;
 import voldemort.store.readonly.mr.HadoopStoreBuilder;
 import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.utils.ByteUtils;
-import voldemort.xml.StoreDefinitionsMapper;
 
-public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWritable> {
+public class HadoopStoreWriter
+        extends AbstractStoreBuilderConfigurable
+        implements KeyValueWriter<BytesWritable, BytesWritable> {
 
     private static final Logger logger = Logger.getLogger(HadoopStoreWriter.class);
 
@@ -74,10 +73,6 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
 
     private FileSystem fs;
 
-    private int numChunks;
-    private StoreDefinition storeDef;
-    private boolean saveKeys;
-
     /*
      * This variable is used to figure out the file extension for index and data
      * files. When the server supports compression, this variable's value is
@@ -91,24 +86,6 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
      */
     private long[] indexFileSizeInBytes;
     private long[] valueFileSizeInBytes;
-
-    public boolean getSaveKeys() {
-        return this.saveKeys;
-    }
-
-    public String getStoreName() {
-        checkNotNull(storeDef);
-        return storeDef.getName();
-    }
-
-    private final void checkNotNull(Object o) {
-        if(o == null)
-            throw new VoldemortException("Not configured yet!");
-    }
-
-    public int getNumChunks() {
-        return this.numChunks;
-    }
 
     public HadoopStoreWriter() {
 
@@ -129,23 +106,14 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
 
     @Override
     public void conf(JobConf job) {
+        super.configure(job);
 
         this.conf = job;
         try {
-            List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(conf.get("stores.xml")));
-            if(storeDefs.size() != 1)
-                throw new IllegalStateException("Expected to find only a single store, but found multiple!");
-            this.storeDef = storeDefs.get(0);
-
-            this.numChunks = conf.getInt(VoldemortBuildAndPushJob.NUM_CHUNKS, -1);
-            if(this.numChunks < 1)
-                throw new VoldemortException(VoldemortBuildAndPushJob.NUM_CHUNKS + " not specified in the job conf.");
-
-            this.saveKeys = conf.getBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, false);
             this.position = new int[getNumChunks()];
             this.outputDir = job.get("final.output.dir");
             this.taskId = job.get("mapred.task.id");
-            this.checkSumType = CheckSum.fromString(job.get("checksum.type"));
+            this.checkSumType = CheckSum.fromString(job.get(VoldemortBuildAndPushJob.CHECKSUM_TYPE));
             this.checkSumDigestIndex = new CheckSum[getNumChunks()];
             this.checkSumDigestValue = new CheckSum[getNumChunks()];
 
@@ -222,17 +190,17 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
             throws IOException {
 
         // Read chunk id
-        int chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
+        int chunkId = ReadOnlyUtils.chunk(key.getBytes(), getNumChunks());
 
         // Write key and position
-        this.indexFileStream[chunkId].write(key.get(), 0, key.getSize());
-        this.indexFileSizeInBytes[chunkId] += key.getSize();
+        this.indexFileStream[chunkId].write(key.getBytes(), 0, key.getLength());
+        this.indexFileSizeInBytes[chunkId] += key.getLength();
         this.indexFileStream[chunkId].writeInt(this.position[chunkId]);
         this.indexFileSizeInBytes[chunkId] += ByteUtils.SIZE_OF_INT;
 
         // Run key through checksum digest
         if(this.checkSumDigestIndex[chunkId] != null) {
-            this.checkSumDigestIndex[chunkId].update(key.get(), 0, key.getSize());
+            this.checkSumDigestIndex[chunkId].update(key.getBytes(), 0, key.getLength());
             this.checkSumDigestIndex[chunkId].update(this.position[chunkId]);
         }
 
@@ -242,7 +210,7 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
 
         while(iterator.hasNext()) {
             BytesWritable writable = iterator.next();
-            byte[] valueBytes = writable.get();
+            byte[] valueBytes = writable.getBytes();
             int offsetTillNow = 0;
 
             // Read node Id
@@ -257,14 +225,19 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
 
             // Read replica type
             if(getSaveKeys()) {
-                if(this.replicaType == -1)
+                if(this.replicaType == -1) {
                     this.replicaType = (int) ByteUtils.readBytes(valueBytes,
                                                                  offsetTillNow,
                                                                  ByteUtils.SIZE_OF_BYTE);
+                    if (getBuildPrimaryReplicasOnly() && this.replicaType > 0) {
+                        throw new IllegalArgumentException("Should not get any replicaType > 0 shuffled to us"
+                                                           + " when buildPrimaryReplicasOnly mode is enabled!");
+                    }
+                }
                 offsetTillNow += ByteUtils.SIZE_OF_BYTE;
             }
 
-            int valueLength = writable.getSize() - offsetTillNow;
+            int valueLength = writable.getLength() - offsetTillNow;
             if(getSaveKeys()) {
                 // Write ( key_length, value_length, key,
                 // value )
@@ -283,9 +256,9 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
             // malicious ( We obviously expect collisions when we save keys )
             if(!getSaveKeys() && numTuples > 1)
                 throw new VoldemortException("Duplicate keys detected for md5 sum "
-                                             + ByteUtils.toHexString(ByteUtils.copy(key.get(),
+                                             + ByteUtils.toHexString(ByteUtils.copy(key.getBytes(),
                                                                                     0,
-                                                                                    key.getSize())));
+                                                                                    key.getLength())));
 
         }
 
@@ -330,7 +303,7 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
 
         if(this.position[chunkId] < 0)
             throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
-                                                 + " has exceeded " + Integer.MAX_VALUE + " bytes.");
+                                         + " has exceeded " + Integer.MAX_VALUE + " bytes.");
 
     }
 
@@ -362,14 +335,20 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
             fileNamePrefix = new String(Integer.toString(this.partitionId) + "_");
         }
 
-        // Initialize the node directory
-        Path nodeDir = new Path(this.outputDir, "node-" + this.nodeId);
+        // Initialize the output directory
+        String outputDirName;
+        if (getBuildPrimaryReplicasOnly()) {
+            outputDirName = "partition-" + this.partitionId;
+        } else {
+            outputDirName = "node-" + this.nodeId;
+        }
+        Path outputDir = new Path(this.outputDir, outputDirName);
 
         // Create output directory, if it doesn't exist
-        FileSystem outputFs = nodeDir.getFileSystem(this.conf);
-        outputFs.mkdirs(nodeDir);
-        outputFs.setPermission(nodeDir, new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
-        logger.info("Setting permission to 755 for " + nodeDir);
+        FileSystem outputFs = outputDir.getFileSystem(this.conf);
+        outputFs.mkdirs(outputDir);
+        outputFs.setPermission(outputDir, new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
+        logger.info("Setting permission to 755 for " + outputDir);
 
         // Write the checksum and output files
         for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
@@ -387,18 +366,18 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
                                       new String(Hex.encodeHex(this.checkSumDigestValue[chunkId].getCheckSum())));
                 } else {
                     throw new RuntimeException("Failed to open checksum digest for node " + nodeId
-                                                       + " ( partition - " + this.partitionId
-                                                       + ", chunk - " + chunkId + " )");
+                                               + " ( partition - " + this.partitionId
+                                               + ", chunk - " + chunkId + " )");
                 }
             }
 
-            Path checkSumIndexFile = new Path(nodeDir, chunkFileName + INDEX_FILE_EXTENSION
+            Path checkSumIndexFile = new Path(outputDir, chunkFileName + INDEX_FILE_EXTENSION
                     + CHECKSUM_FILE_EXTENSION);
-            Path checkSumValueFile = new Path(nodeDir, chunkFileName + DATA_FILE_EXTENSION
+            Path checkSumValueFile = new Path(outputDir, chunkFileName + DATA_FILE_EXTENSION
                     + CHECKSUM_FILE_EXTENSION);
 
             if(outputFs.exists(checkSumIndexFile)) {
-                outputFs.delete(checkSumIndexFile);
+                outputFs.delete(checkSumIndexFile, true);
             }
             FSDataOutputStream output = outputFs.create(checkSumIndexFile);
             outputFs.setPermission(checkSumIndexFile,
@@ -409,7 +388,7 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
             output.close();
 
             if(outputFs.exists(checkSumValueFile)) {
-                outputFs.delete(checkSumValueFile);
+                outputFs.delete(checkSumValueFile, true);
             }
             output = outputFs.create(checkSumValueFile);
             outputFs.setPermission(checkSumValueFile,
@@ -420,18 +399,18 @@ public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWri
             output.close();
 
             // Generate the final chunk files and add file size information
-            Path indexFile = new Path(nodeDir, chunkFileName + INDEX_FILE_EXTENSION + fileExtension);
-            Path valueFile = new Path(nodeDir, chunkFileName + DATA_FILE_EXTENSION + fileExtension);
+            Path indexFile = new Path(outputDir, chunkFileName + INDEX_FILE_EXTENSION + fileExtension);
+            Path valueFile = new Path(outputDir, chunkFileName + DATA_FILE_EXTENSION + fileExtension);
 
             logger.info("Moving " + this.taskIndexFileName[chunkId] + " to " + indexFile);
             if(outputFs.exists(indexFile)) {
-                outputFs.delete(indexFile);
+                outputFs.delete(indexFile, true);
             }
             fs.rename(taskIndexFileName[chunkId], indexFile);
 
             logger.info("Moving " + this.taskValueFileName[chunkId] + " to " + valueFile);
             if(outputFs.exists(valueFile)) {
-                outputFs.delete(valueFile);
+                outputFs.delete(valueFile, true);
             }
             fs.rename(this.taskValueFileName[chunkId], valueFile);
         }

@@ -55,7 +55,7 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
         private Path outputDir;
         private Path inputPath;
         private Cluster cluster;
-        private List<StoreDefinition> storeDefs;
+        private StoreDefinition storeDef;
         private String storeName;
         private CheckSumType checkSumType;
         private boolean saveKeys;
@@ -68,6 +68,7 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
         private String valueField = null;
         private boolean isAvro = false;
         private long minNumberOfRecords;
+        private boolean buildPrimaryReplicasOnly;
 
         public VoldemortStoreBuilderConf(int replicationFactor,
                                          int chunkSize,
@@ -75,7 +76,7 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
                                          Path outputDir,
                                          Path inputPath,
                                          Cluster cluster,
-                                         List<StoreDefinition> storeDefs,
+                                         StoreDefinition storeDef,
                                          String storeName,
                                          CheckSumType checkSumType,
                                          boolean saveKeys,
@@ -87,14 +88,15 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
                                          String keySchema,
                                          String valSchema,
                                          boolean isAvro,
-                                         long minNumberOfRecords) {
+                                         long minNumberOfRecords,
+                                         boolean buildPrimaryReplicasOnly) {
             this.replicationFactor = replicationFactor;
             this.chunkSize = chunkSize;
             this.tempDir = tempDir;
             this.outputDir = outputDir;
             this.inputPath = inputPath;
             this.cluster = cluster;
-            this.storeDefs = storeDefs;
+            this.storeDef = storeDef;
             this.storeName = storeName;
             this.checkSumType = checkSumType;
             this.saveKeys = saveKeys;
@@ -107,6 +109,7 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
             this.valSchema = valSchema;
             this.isAvro = isAvro;
             this.minNumberOfRecords = minNumberOfRecords;
+            this.buildPrimaryReplicasOnly = buildPrimaryReplicasOnly;
         }
 
         public int getReplicationFactor() {
@@ -137,8 +140,8 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
             return cluster;
         }
 
-        public List<StoreDefinition> getStoreDefs() {
-            return storeDefs;
+        public StoreDefinition getStoreDef() {
+            return storeDef;
         }
 
         public CheckSumType getCheckSumType() {
@@ -185,6 +188,10 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
             return minNumberOfRecords;
         }
 
+        public boolean getBuildPrimaryReplicasOnly() {
+            return buildPrimaryReplicasOnly;
+        }
+
     }
 
     public void run() throws Exception {
@@ -209,12 +216,8 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
         }
 
         String storeName = conf.getStoreName();
-        StoreDefinition storeDef = null;
-        for(StoreDefinition def: conf.getStoreDefs())
-            if(storeName.equals(def.getName()))
-                storeDef = def;
-        if(storeDef == null)
-            throw new IllegalArgumentException("Store '" + storeName + "' not found.");
+        if(conf.getStoreDef() == null || !conf.getStoreDef().getName().equals(storeName))
+            throw new IllegalArgumentException("Store '" + conf.getStoreName() + "' not found.");
 
         Path outputDir = conf.getOutputDir();
         FileSystem fs = outputDir.getFileSystem(configuration);
@@ -228,7 +231,7 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
                 mapperClass,
                 inputFormatClass,
                 conf.getCluster(),
-                storeDef,
+                conf.getStoreDef(),
                 conf.getTempDir(),
                 outputDir,
                 conf.getInputPath(),
@@ -238,7 +241,8 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
                 conf.getChunkSize(),
                 conf.getNumChunks(),
                 conf.isAvro(),
-                conf.getMinNumberOfRecords());
+                conf.getMinNumberOfRecords(),
+                conf.getBuildPrimaryReplicasOnly());
         builder.build();
     }
 

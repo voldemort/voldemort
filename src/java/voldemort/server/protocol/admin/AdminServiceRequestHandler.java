@@ -1043,6 +1043,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             final ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
                                                                          storeRepository,
                                                                          storeName);
+            final long currentVersion = store.getCurrentVersionId();
             final long pushVersion;
             if(request.hasPushVersion()) {
                 pushVersion = request.getPushVersion();

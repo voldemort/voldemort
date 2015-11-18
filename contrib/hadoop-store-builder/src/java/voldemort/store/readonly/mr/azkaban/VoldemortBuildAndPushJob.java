@@ -100,6 +100,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public final static String BUILD_FORCE_SCHEMA_VALUE = "build.force.schema.value";
     public final static String BUILD_PREFERRED_READS = "build.preferred.reads";
     public final static String BUILD_PREFERRED_WRITES = "build.preferred.writes";
+    public final static String BUILD_PRIMARY_REPLICAS_ONLY = "build.primary.replicas.only";
     // push.required
     public final static String PUSH_STORE_NAME = "push.store.name";
     public final static String PUSH_CLUSTER = "push.cluster";
@@ -157,11 +158,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     private final int heartBeatHookIntervalTime;
     private final HeartBeatHookRunnable heartBeatHookRunnable;
     private final boolean pushHighAvailability;
+    private final boolean buildPrimaryReplicasOnly;
     private final List<Closeable> closeables = Lists.newArrayList();
     private final ExecutorService executorService;
 
     // Mutable state
-    private List<StoreDefinition> storeDefs;
+    private StoreDefinition storeDef;
     private Path sanitizedInputPath = null;
     private Schema inputPathAvroSchema = null;
     private JsonSchema inputPathJsonSchema = null;
@@ -249,6 +251,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                        "\" with value being a comma-separated list of email addresses.");
 
         }
+        this.buildPrimaryReplicasOnly = props.getBoolean(BUILD_PRIMARY_REPLICAS_ONLY, false);
 
         // By default, Push HA will be enabled if the server says so.
         // If the job sets Push HA to false, then it will be disabled, no matter what the server asks for.
@@ -623,19 +626,20 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                         outputDir,
                         inputPath,
                         cluster,
-                        storeDefs,
-                        storeName,
+                        this.storeDef,
+                        this.storeName,
                         checkSumType,
                         saveKeys,
                         reducerPerBucket,
                         numChunks,
-                        keyFieldName,
-                        valueFieldName,
+                        this.keyFieldName,
+                        this.valueFieldName,
                         recSchema,
                         keySchema,
                         valSchema,
-                        isAvroJob,
-                        minNumberOfRecords)).run();
+                        this.isAvroJob,
+                        this.minNumberOfRecords,
+                        this.buildPrimaryReplicasOnly)).run();
         return outputDir.toString();
     }
 
@@ -708,7 +712,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                 hdfsFetcherPort,
                 maxNodeFailures,
                 failedFetchStrategyList,
-                url).run();
+                url,
+                buildPrimaryReplicasOnly).run();
     }
 
     /**
@@ -876,7 +881,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             // Next time BnP is run while the node is up, it will get the store created.
         } // Other exceptions need to bubble up!
 
-        storeDefs = ImmutableList.of(newStoreDef);
+        storeDef = newStoreDef;
     }
 
     private class HeartBeatHookRunnable implements Runnable {

@@ -42,6 +42,7 @@ abstract public class AbstractStoreBuilderConfigurable {
     private StoreDefinition storeDef;
     private boolean saveKeys;
     private boolean reducerPerBucket;
+    private boolean buildPrimaryReplicasOnly;
 
     public void configure(JobConf conf) {
         this.cluster = new ClusterMapper().readCluster(new StringReader(conf.get("cluster.xml")));
@@ -56,6 +57,11 @@ abstract public class AbstractStoreBuilderConfigurable {
 
         this.saveKeys = conf.getBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, false);
         this.reducerPerBucket = conf.getBoolean(VoldemortBuildAndPushJob.REDUCER_PER_BUCKET, false);
+        this.buildPrimaryReplicasOnly = conf.getBoolean(VoldemortBuildAndPushJob.BUILD_PRIMARY_REPLICAS_ONLY, false);
+        if (buildPrimaryReplicasOnly && !saveKeys) {
+            throw new IllegalStateException(VoldemortBuildAndPushJob.BUILD_PRIMARY_REPLICAS_ONLY + " can only be true if " +
+                                            VoldemortBuildAndPushJob.SAVE_KEYS + " is also true.");
+        }
     }
 
     @SuppressWarnings("unused")
@@ -74,6 +80,10 @@ abstract public class AbstractStoreBuilderConfigurable {
         return this.reducerPerBucket;
     }
 
+    public boolean getBuildPrimaryReplicasOnly() {
+        return this.buildPrimaryReplicasOnly;
+    }
+
     public StoreDefinition getStoreDef() {
         checkNotNull(storeDef);
         return storeDef;
@@ -84,7 +94,7 @@ abstract public class AbstractStoreBuilderConfigurable {
         return storeDef.getName();
     }
 
-    private final void checkNotNull(Object o) {
+    protected final void checkNotNull(Object o) {
         if(o == null)
             throw new VoldemortException("Not configured yet!");
     }

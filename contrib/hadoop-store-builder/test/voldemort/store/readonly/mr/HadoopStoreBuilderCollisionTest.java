@@ -221,22 +221,22 @@ public class HadoopStoreBuilderCollisionTest {
                                                           .setPreferredWrites(1)
                                                           .setRequiredWrites(1)
                                                           .build();
-        HadoopStoreBuilder builder = new HadoopStoreBuilder(
-                new Configuration(),
-                CollidingTextStoreMapper.class,
-                TextInputFormat.class,
-                cluster,
-                def,
-                new Path(tempDir.getAbsolutePath()),
-                new Path(outputDir.getAbsolutePath()),
-                new Path(inputFile.getAbsolutePath()),
-                CheckSumType.MD5,
-                true,
-                false,
-                1024 * 1024 * 1024,
-                -1,
-                false,
-                null);
+        HadoopStoreBuilder builder = new HadoopStoreBuilder(new Configuration(),
+                                                            CollidingTextStoreMapper.class,
+                                                            TextInputFormat.class,
+                                                            cluster,
+                                                            def,
+                                                            new Path(tempDir.getAbsolutePath()),
+                                                            new Path(outputDir.getAbsolutePath()),
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.MD5,
+                                                            true,
+                                                            false,
+                                                            1024 * 1024 * 1024,
+                                                            -1,
+                                                            false,
+                                                            null,
+                                                            false);
         builder.build();
 
         File nodeFile = new File(outputDir, "node-0");

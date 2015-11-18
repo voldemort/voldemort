@@ -1,6 +1,5 @@
 package voldemort.store.readonly.mr;
 
-import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.JobConf;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
@@ -16,6 +15,13 @@ import java.util.List;
 /**
  * A class which encapsulates the serialization logic for data shuffled
  * between Mappers and Reducers of a Build and Push job.
+ *
+ * The actual mapper classes leveraging this code include:
+ * - {@link AvroStoreBuilderMapper}
+ * - {@link AbstractHadoopStoreBuilderMapper}
+ *
+ * The above classes use this one by composition, since they need to extend
+ * some specific classes in order to be fed records by the MapReduce framework.
  */
 public class BuildAndPushMapper extends AbstractStoreBuilderConfigurable {
     protected MessageDigest md5er;
@@ -114,12 +120,16 @@ public class BuildAndPushMapper extends AbstractStoreBuilderConfigurable {
         List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
         Node[] partitionToNode = routingStrategy.getPartitionToNode();
 
-        for(int replicaType = 0; replicaType < partitionList.size(); replicaType++) {
+        // In buildPrimaryReplicasOnly mode, we want to push out no more than a single replica
+        // for each key. Otherwise (in vintage mode), we push out one copy per replica.
+        int numberOfReplicasToPushTo = getBuildPrimaryReplicasOnly() ? 1 : partitionList.size();
+
+        for(int replicaType = 0; replicaType < numberOfReplicasToPushTo; replicaType++) {
 
             // Node id
             ByteUtils.writeInt(outputValue,
-                    partitionToNode[partitionList.get(replicaType)].getId(),
-                    0);
+                               partitionToNode[partitionList.get(replicaType)].getId(),
+                               0);
 
             if(getSaveKeys()) {
                 // Primary partition id
@@ -127,19 +137,17 @@ public class BuildAndPushMapper extends AbstractStoreBuilderConfigurable {
 
                 // Replica type
                 ByteUtils.writeBytes(outputValue,
-                        replicaType,
-                        2 * ByteUtils.SIZE_OF_INT,
-                        ByteUtils.SIZE_OF_BYTE);
+                                     replicaType,
+                                     2 * ByteUtils.SIZE_OF_INT,
+                                     ByteUtils.SIZE_OF_BYTE);
             } else {
                 // Partition id
                 ByteUtils.writeInt(outputValue,
-                        partitionList.get(replicaType),
-                        ByteUtils.SIZE_OF_INT);
+                                   partitionList.get(replicaType),
+                                   ByteUtils.SIZE_OF_INT);
             }
-            BytesWritable outputVal = new BytesWritable(outputValue);
 
             collector.collect(outputKey, outputValue);
-
         }
         md5er.reset();
     }

@@ -54,6 +54,7 @@ public class VoldemortSwapJob extends AbstractJob {
     private final List<FailedFetchStrategy> failedFetchStrategyList;
     private final String dataDir;
     private final String clusterName;
+    private final boolean buildPrimaryReplicasOnly;
 
     // The following internal state mutates during run()
     private long pushVersion;
@@ -70,7 +71,8 @@ public class VoldemortSwapJob extends AbstractJob {
                             String hdfsFetcherPort,
                             int maxNodeFailures,
                             List<FailedFetchStrategy> failedFetchStrategyList,
-                            String clusterName) throws IOException {
+                            String clusterName,
+                            boolean buildPrimaryReplicasOnly) throws IOException {
         super(id, PrefixedLogger.getLogger(AdminStoreSwapper.class.getName(), clusterName));
         this.cluster = cluster;
         this.dataDir = dataDir;
@@ -84,6 +86,7 @@ public class VoldemortSwapJob extends AbstractJob {
         this.maxNodeFailures = maxNodeFailures;
         this.failedFetchStrategyList = failedFetchStrategyList;
         this.clusterName = clusterName;
+        this.buildPrimaryReplicasOnly = buildPrimaryReplicasOnly;
     }
 
     public void run() throws Exception {
@@ -149,7 +152,8 @@ public class VoldemortSwapJob extends AbstractJob {
                 httpTimeoutMs,
                 rollbackFailedSwap,
                 failedFetchStrategyList,
-                clusterName);
+                clusterName,
+                buildPrimaryReplicasOnly);
         swapper.swapStoreData(storeName, modifiedDataDir, pushVersion);
         info("Swap complete.");
         executor.shutdownNow();

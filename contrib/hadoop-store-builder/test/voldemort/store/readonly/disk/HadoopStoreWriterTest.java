@@ -20,9 +20,11 @@ import org.junit.runners.Parameterized.Parameters;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.store.readonly.utils.ReadOnlyTestUtils;
 import voldemort.utils.ByteUtils;
+import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 @RunWith(Parameterized.class)
@@ -79,13 +81,14 @@ public class HadoopStoreWriterTest {
          * We dont have to test different types of checksums. thats covered in
          * seperate unit test
          */
-        conf.set("checksum.type", "NONE");
+        conf.set(VoldemortBuildAndPushJob.CHECKSUM_TYPE, CheckSum.CheckSumType.NONE.name());
 
         // generate a list of storeDefinitions.
         List<StoreDefinition> storeDefList = ServerTestUtils.getStoreDefs(1);
         String storesXML = new StoreDefinitionsMapper().writeStoreList(storeDefList);
         conf.set("stores.xml", storesXML);
-
+        String clusterXML = new ClusterMapper().writeCluster(ServerTestUtils.getLocalCluster(1));
+        conf.set("cluster.xml", clusterXML);
     }
 
     private void cleanUp() throws IOException {
@@ -104,7 +107,7 @@ public class HadoopStoreWriterTest {
 
     private void generateUnCompressedFiles(boolean saveKeys, int numChunks) throws IOException {
         conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
-        conf.setBoolean("reducer.output.compress", false);
+        conf.setBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, false);
         hadoopStoreWriterPerBucket = new HadoopStoreWriter(conf);
 
         for(int i = 0; i < numChunks; i++) {
@@ -190,8 +193,8 @@ public class HadoopStoreWriterTest {
 
         generateUnCompressedFiles(saveKeys, numChunks);
         conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
-        conf.setBoolean("reducer.output.compress", true);
-        conf.setStrings("reducer.output.compress.codec", KeyValueWriter.COMPRESSION_CODEC);
+        conf.setBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, true);
+        conf.setStrings(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, KeyValueWriter.COMPRESSION_CODEC);
 
         hadoopStoreWriterPerBucket = new HadoopStoreWriter(conf);
 
