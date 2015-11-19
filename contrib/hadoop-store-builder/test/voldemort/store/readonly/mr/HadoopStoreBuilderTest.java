@@ -19,6 +19,7 @@ package voldemort.store.readonly.mr;
 import static org.junit.Assert.fail;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -169,8 +170,16 @@ public class HadoopStoreBuilderTest {
                                                             false);
         builder.build();
 
+        File[] nodeDirectories = outputDir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                // We are only interested in counting directories, not files.
+                return pathname.isDirectory();
+            }
+        });
+
         // Should not produce node--1 directory + have one folder for every node
-        Assert.assertEquals(cluster.getNumberOfNodes(), outputDir.listFiles().length);
+        Assert.assertEquals(cluster.getNumberOfNodes(), nodeDirectories.length);
         for(File f: outputDir.listFiles()) {
             Assert.assertFalse(f.toString().contains("node--1"));
         }
