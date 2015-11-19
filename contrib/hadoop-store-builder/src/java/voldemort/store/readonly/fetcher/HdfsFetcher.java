@@ -75,16 +75,11 @@ public class HdfsFetcher implements FileFetcher {
      * {@link AdminServiceRequestHandler#setFetcherClass(voldemort.server.VoldemortConfig)}
      */
     public HdfsFetcher(VoldemortConfig config) {
-        this(config,
-             config.getReadOnlyFetcherMaxBytesPerSecond(),
-             config.getReadOnlyFetcherReportingIntervalBytes(),
-             config.getReadOnlyFetcherThrottlerInterval(),
-             config.getFetcherBufferSize(),
-             config.getReadOnlyFetchRetryCount(),
-             config.getReadOnlyFetchRetryDelayMs(),
-             config.isReadOnlyStatsFileEnabled(),
-             config.getReadOnlyMaxVersionsStatsFile(),
-             config.getFetcherSocketTimeout());
+        this(config, config.getReadOnlyFetcherMaxBytesPerSecond(), config.getReadOnlyFetcherReportingIntervalBytes(),
+            config.getReadOnlyFetcherThrottlerInterval(), config.getFetcherBufferSize(),
+            config.getReadOnlyFetchRetryCount(), config.getReadOnlyFetchRetryDelayMs(),
+            config.isReadOnlyStatsFileEnabled(), config.getReadOnlyMaxVersionsStatsFile(),
+            config.getFetcherSocketTimeout());
     }
 
 
@@ -211,24 +206,35 @@ public class HdfsFetcher implements FileFetcher {
     }
 
     /**
-    * Replace swebhdfs protocol and port in sourceFileUrl when SSL is not enabled in this node.
-    */
+     * Replace swebhdfs protocol and port in sourceFileUrl when SSL is not enabled in this node.
+     */
     protected String replaceURLbyConfig(String sourceFileUrl) {
         String url = sourceFileUrl;
         if (!voldemortConfig.isSSLEnabled()) {
             // protocol section is placed before the first colon in url.
             int firstColonPos = url.indexOf(":");
-            String protocol = url.substring(0, firstColonPos);
-            if (protocol.equalsIgnoreCase("swebhdfs")) {
-                // port section is placed after the second colon in url.
-                int secondColonPos = url.indexOf(":", firstColonPos + 1);
-                url = voldemortConfig.getHdfsFetchProtocol() + url.substring(firstColonPos, secondColonPos + 1)
-                    + voldemortConfig.getHdfsFetchPort() + url.substring(url.indexOf("/", secondColonPos));
-                logger.info(
-                    "SSL is not enabled in this node. Replaced original url:" + sourceFileUrl + " to new url:" + url);
+            if (firstColonPos != -1) {
+                String protocol = url.substring(0, firstColonPos);
+                if (protocol.equalsIgnoreCase("swebhdfs")) {
+                    // port section is placed after the second colon in url.
+                    int secondColonPos = url.indexOf(":", firstColonPos + 1);
+                    if (secondColonPos == -1) {
+                        throw new IllegalArgumentException(
+                            "sWebHdfs URL is invalid: Can not found port. " + sourceFileUrl);
+                    }
+                    int portEndPos = url.indexOf("/", secondColonPos);
+                    if (portEndPos == -1) {
+                        throw new IllegalArgumentException(
+                            "sWebHdfs URL is invalid: Can not found file path. " + sourceFileUrl);
+                    }
+                    url = voldemortConfig.getHdfsFetchProtocol() + url.substring(firstColonPos, secondColonPos + 1)
+                        + voldemortConfig.getHdfsFetchPort() + url.substring(portEndPos);
+                    logger.info(
+                        "SSL is not enabled in this node. Replaced original url:" + sourceFileUrl + " to new url:"
+                            + url);
+                }
             }
-        }
-        return url;
+        } return url;
     }
 
     private File fetchFromSource(String sourceFileUrl,
