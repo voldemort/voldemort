@@ -75,11 +75,16 @@ public class HdfsFetcher implements FileFetcher {
      * {@link AdminServiceRequestHandler#setFetcherClass(voldemort.server.VoldemortConfig)}
      */
     public HdfsFetcher(VoldemortConfig config) {
-        this(config, config.getReadOnlyFetcherMaxBytesPerSecond(), config.getReadOnlyFetcherReportingIntervalBytes(),
-            config.getReadOnlyFetcherThrottlerInterval(), config.getFetcherBufferSize(),
-            config.getReadOnlyFetchRetryCount(), config.getReadOnlyFetchRetryDelayMs(),
-            config.isReadOnlyStatsFileEnabled(), config.getReadOnlyMaxVersionsStatsFile(),
-            config.getFetcherSocketTimeout());
+        this(config,
+             config.getReadOnlyFetcherMaxBytesPerSecond(),
+             config.getReadOnlyFetcherReportingIntervalBytes(),
+             config.getReadOnlyFetcherThrottlerInterval(),
+             config.getFetcherBufferSize(),
+             config.getReadOnlyFetchRetryCount(),
+             config.getReadOnlyFetchRetryDelayMs(),
+             config.isReadOnlyStatsFileEnabled(),
+             config.getReadOnlyMaxVersionsStatsFile(),
+             config.getFetcherSocketTimeout());
     }
 
 
