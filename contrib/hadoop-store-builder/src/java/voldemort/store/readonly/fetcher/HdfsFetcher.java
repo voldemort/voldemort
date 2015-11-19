@@ -22,11 +22,13 @@ import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.ObjectName;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -220,12 +222,12 @@ public class HdfsFetcher implements FileFetcher {
     }
 
     private File fetchFromSource(String sourceFileUrl,
-                          String destinationFile,
-                          AsyncOperationStatus status,
-                          String storeName,
-                          long pushVersion,
-                          Long diskQuotaSizeInKB,
-                          MetadataStore metadataStore) throws Exception {
+                                 String destinationFile,
+                                 AsyncOperationStatus status,
+                                 String storeName,
+                                 long pushVersion,
+                                 Long diskQuotaSizeInKB,
+                                 MetadataStore metadataStore) throws Exception {
         ObjectName jmxName = null;
         HdfsCopyStats stats = null;
         FileSystem fs = null;
@@ -261,7 +263,7 @@ public class HdfsFetcher implements FileFetcher {
                 List<HdfsDirectory> directoriesToFetch = Lists.newArrayList();
 
                 HdfsFile metadataFile = rootDirectory.getMetadataFile();
-                Long estimatedDiskSize = -1L;
+                Long expectedDiskSize = -1L;
 
                 if(metadataFile != null) {
                     File copyLocation = new File(destination, metadataFile.getPath().getName());
@@ -271,39 +273,23 @@ public class HdfsFetcher implements FileFetcher {
                     if (metadataFile.getDiskFileName().equals(ReadOnlyUtils.FULL_STORE_METADATA_FILE)) {
                         // Then we are in build.primary.replica.only mode, and we need to determine which
                         // partition sub-directories to download
-                        StoreDefinition storeDefinition = metadataStore.getStoreDef(storeName);
-                        Cluster cluster = metadataStore.getCluster();
-                        List<Integer> partitionsMasteredByCurrentNode = cluster.getNodeById(metadataStore.getNodeId()).getPartitionIds();
-                        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster);
-                        for (int partitionId = 0; partitionId < cluster.getNumberOfPartitions(); partitionId++) {
-                            // For each partition in the cluster, determine if it needs to be served by the current node
-                            boolean partitionIdIsServedByCurrentNode = false;
-                            for (Integer replicatingPartition: routingStrategy.getReplicatingPartitionList(partitionId)) {
-                                if (partitionsMasteredByCurrentNode.contains(replicatingPartition)) {
-                                    partitionIdIsServedByCurrentNode = true;
-                                    break;
-                                }
-                            }
-                            if (partitionIdIsServedByCurrentNode) {
-                                // Then we need to fetch that partition, and add its size to the total
-                                String partitionKey = ReadOnlyUtils.PARTITION_DIRECTORY_PREFIX + partitionId;
-                                ReadOnlyStorageMetadata partitionMetadata = rootDirectory.getMetadata().getNestedMetadata(partitionKey);
-                                String diskSizeInBytes = (String) partitionMetadata.get(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES);
-                                if (diskSizeInBytes != null && diskSizeInBytes != "") {
-                                    logger.debug("Partition " + partitionId + " is served by this node and is not empty, so it will be downloaded.");
-                                    if (estimatedDiskSize == -1) {
-                                        estimatedDiskSize = Long.parseLong(diskSizeInBytes);
-                                    } else {
-                                        estimatedDiskSize += Long.parseLong(diskSizeInBytes);
-                                    }
-                                    HdfsDirectory partitionDirectory = new HdfsDirectory(fs, new Path(rootPath, partitionKey));
-                                    partitionDirectory.initializeMetadata(partitionMetadata);
-                                    directoriesToFetch.add(partitionDirectory);
+                        Set<Integer> partitions = getPartitionsForCurrentNode(metadataStore, storeName);
+                        for (int partitionId: partitions) {
+                            String partitionKey = ReadOnlyUtils.PARTITION_DIRECTORY_PREFIX + partitionId;
+                            ReadOnlyStorageMetadata partitionMetadata = rootDirectory.getMetadata().getNestedMetadata(partitionKey);
+                            String diskSizeInBytes = (String) partitionMetadata.get(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES);
+                            if (diskSizeInBytes != null && diskSizeInBytes != "") {
+                                logger.debug("Partition " + partitionId + " is served by this node and is not empty, so it will be downloaded.");
+                                if (expectedDiskSize == -1) {
+                                    expectedDiskSize = Long.parseLong(diskSizeInBytes);
                                 } else {
-                                    logger.debug("Partition " + partitionId + " is served by this node but it is empty, so it will be skipped.");
+                                    expectedDiskSize += Long.parseLong(diskSizeInBytes);
                                 }
+                                HdfsDirectory partitionDirectory = new HdfsDirectory(fs, new Path(rootPath, partitionKey));
+                                partitionDirectory.initializeMetadata(partitionMetadata);
+                                directoriesToFetch.add(partitionDirectory);
                             } else {
-                                logger.debug("Partition " + partitionId + " is not served by this node, so it will be skipped.");
+                                logger.debug("Partition " + partitionId + " is served by this node but it is empty, so it will be skipped.");
                             }
                         }
                     } else {
@@ -312,33 +298,16 @@ public class HdfsFetcher implements FileFetcher {
                         String diskSizeInBytes = (String) rootDirectory.getMetadata()
                                 .get(ReadOnlyStorageMetadata.DISK_SIZE_IN_BYTES);
                         if (diskSizeInBytes != null && diskSizeInBytes != "") {
-                            estimatedDiskSize = Long.parseLong(diskSizeInBytes);
+                            expectedDiskSize = Long.parseLong(diskSizeInBytes);
                         }
                         directoriesToFetch.add(rootDirectory);
                     }
                 }
 
-
-                /*
-                 * Only check quota for those stores:that are listed in the
-                 * System store - voldsys$_store_quotas and have non -1 values.
-                 * Others are either:
-                 * 
-                 * 1. already existing non quota-ed store, that will be
-                 * converted to quota-ed stores in future. (or) 2. new stores
-                 * that do not want to be affected by the disk quota feature at
-                 * all. -1 represents no Quota
-                 */
-
-                if(diskQuotaSizeInKB != null
-                   && diskQuotaSizeInKB != VoldemortConfig.DEFAULT_STORAGE_SPACE_QUOTA_IN_KB) {
-                    checkIfQuotaExceeded(diskQuotaSizeInKB,
-                                         storeName,
-                                         destination,
-                                         estimatedDiskSize);
-                } else {
-                    logger.debug("store: " + storeName + " is a Non Quota type store.");
-                }
+                checkIfQuotaExceeded(diskQuotaSizeInKB,
+                                     storeName,
+                                     destination,
+                                     expectedDiskSize);
 
                 logger.debug("directoriesToFetch for store '" + storeName + "': " + Arrays.toString(directoriesToFetch.toArray()));
                 for (HdfsDirectory directoryToFetch: directoriesToFetch) {
@@ -395,30 +364,73 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
+    /**
+     * @return the set of partitions which need to be served (and thus fetched) by the current node.
+     */
+    private Set<Integer> getPartitionsForCurrentNode(MetadataStore metadataStore, String storeName) {
+        Set<Integer> partitions = Sets.newHashSet();
+        StoreDefinition storeDefinition = metadataStore.getStoreDef(storeName);
+        Cluster cluster = metadataStore.getCluster();
+        List<Integer> partitionsMasteredByCurrentNode = cluster.getNodeById(metadataStore.getNodeId()).getPartitionIds();
+        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster);
+
+        // For each partition in the cluster, determine if it needs to be served by the current node
+        for (int partitionId = 0; partitionId < cluster.getNumberOfPartitions(); partitionId++) {
+            boolean partitionIdIsServedByCurrentNode = false;
+            for (Integer replicatingPartition: routingStrategy.getReplicatingPartitionList(partitionId)) {
+                if (partitionsMasteredByCurrentNode.contains(replicatingPartition)) {
+                    partitionIdIsServedByCurrentNode = true;
+                    break;
+                }
+            }
+            if (partitionIdIsServedByCurrentNode) {
+                partitions.add(partitionId);
+            } else {
+                logger.debug("Partition " + partitionId + " is not served by this node, so it will be skipped.");
+            }
+        }
+        return partitions;
+    }
+
+    /**
+     * Only check quota for those stores:that are listed in the
+     * System store - voldsys$_store_quotas and have non -1 values.
+     * Others are either:
+     *
+     * 1. already existing non quota-ed store, that will be
+     * converted to quota-ed stores in future. (or)
+     * 2. new stores that do not want to be affected by the
+     * disk quota feature at all. -1 represents no Quota
+     */
     private void checkIfQuotaExceeded(Long diskQuotaSizeInKB,
-                            String storeName,
-                            File dest,
-                            Long estimatedDiskSize) {
-        String logMessage = "Store: " + storeName + ", Destination: " + dest.getAbsolutePath()
-                            + ", Expected disk size in KB: "
-                            + (estimatedDiskSize / ByteUtils.BYTES_PER_KB)
-                            + ", Disk quota size in KB: " + diskQuotaSizeInKB;
-        if(logger.isDebugEnabled()) {
-            logger.error(logMessage);
-        }
-        if(diskQuotaSizeInKB == 0L) {
-            String errorMessage = "This store: \'"
-                                  + storeName
-                                  + "\' does not belong to this Voldemort cluster. Please use a valid bootstrap url.";
-            logger.error(errorMessage);
-            throw new InvalidBootstrapURLException(errorMessage);
-        }
-        // check if there is still sufficient quota left for this push
-        Long estimatedDiskSizeNeeded = (estimatedDiskSize / ByteUtils.BYTES_PER_KB);
-        if(estimatedDiskSizeNeeded >= diskQuotaSizeInKB) {
-            String errorMessage = "Quota Exceeded for " + logMessage;
-            logger.error(errorMessage);
-            throw new QuotaExceededException(errorMessage);
+                                      String storeName,
+                                      File dest,
+                                      Long expectedDiskSize) {
+        if(diskQuotaSizeInKB != null
+                && diskQuotaSizeInKB != VoldemortConfig.DEFAULT_STORAGE_SPACE_QUOTA_IN_KB) {
+            String logMessage = "Store: " + storeName + ", Destination: " + dest.getAbsolutePath()
+                                + ", Expected disk size in KB: "
+                                + (expectedDiskSize / ByteUtils.BYTES_PER_KB)
+                                + ", Disk quota size in KB: " + diskQuotaSizeInKB;
+            if(logger.isDebugEnabled()) {
+                logger.error(logMessage);
+            }
+            if(diskQuotaSizeInKB == 0L) {
+                String errorMessage = "This store: \'"
+                                      + storeName
+                                      + "\' does not belong to this Voldemort cluster. Please use a valid bootstrap url.";
+                logger.error(errorMessage);
+                throw new InvalidBootstrapURLException(errorMessage);
+            }
+            // check if there is still sufficient quota left for this push
+            Long estimatedDiskSizeNeeded = (expectedDiskSize / ByteUtils.BYTES_PER_KB);
+            if(estimatedDiskSizeNeeded >= diskQuotaSizeInKB) {
+                String errorMessage = "Quota Exceeded for " + logMessage;
+                logger.error(errorMessage);
+                throw new QuotaExceededException(errorMessage);
+            }
+        } else {
+            logger.debug("store: " + storeName + " is a Non Quota type store.");
         }
     }
 
