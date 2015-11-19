@@ -117,8 +117,8 @@ public class HadoopStoreWriter
             this.checkSumDigestIndex = new CheckSum[getNumChunks()];
             this.checkSumDigestValue = new CheckSum[getNumChunks()];
 
-            initFileStreams(conf.getBoolean("reducer.output.compress", false),
-                            conf.get("reducer.output.compress.codec", NO_COMPRESSION_CODEC));
+            initFileStreams(conf.getBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, false),
+                            conf.get(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS_CODEC, NO_COMPRESSION_CODEC));
         } catch(IOException e) {
             throw new RuntimeException("Failed to open Input/OutputStream", e);
         }

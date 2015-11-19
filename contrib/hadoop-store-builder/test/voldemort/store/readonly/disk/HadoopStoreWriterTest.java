@@ -194,7 +194,7 @@ public class HadoopStoreWriterTest {
         generateUnCompressedFiles(saveKeys, numChunks);
         conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
         conf.setBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, true);
-        conf.setStrings(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, KeyValueWriter.COMPRESSION_CODEC);
+        conf.setStrings(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS_CODEC, KeyValueWriter.COMPRESSION_CODEC);
 
         hadoopStoreWriterPerBucket = new HadoopStoreWriter(conf);
 
