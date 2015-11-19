@@ -16,9 +16,15 @@
 
 package voldemort.store.readonly.mr.utils;
 
+import java.io.IOException;
 import java.io.StringReader;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
 import java.util.List;
 
+import org.apache.log4j.Logger;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.Utils;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -26,6 +32,8 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.collect.Lists;
 
 public class VoldemortUtils {
+
+    private static final Logger logger = Logger.getLogger(VoldemortUtils.class);
 
     /**
      * Given the comma separated list of properties as a string, splits it
@@ -134,5 +142,31 @@ public class VoldemortUtils {
 
     public static StoreDefinition getStoreDef(String xml) {
         return new StoreDefinitionsMapper().readStore(new StringReader(xml));
+    }
+
+    public static String modifyURL(String originalUrl, String newProtocol, int newPort) {
+        if (newProtocol == null || newProtocol.isEmpty() || newPort < 0) {
+            return originalUrl;
+        }
+
+        try {
+            //Create handler to avoid unknow protocol error when parsing URL string. Actually this handler will do
+            //nothing.
+            URLStreamHandler handler = new URLStreamHandler() {
+                @Override
+                protected URLConnection openConnection(URL u)
+                    throws IOException {
+                    return null;
+                }
+            };
+
+            URL url = new URL(null, originalUrl, handler);
+            logger.info("Existing protocol = " + url.getProtocol() + " and port = " + url.getPort());
+            URL newUrl = new URL(newProtocol, url.getHost(), newPort, url.getFile(), handler);
+            logger.info("New protocol = " + newUrl.getProtocol() + " and port = " + newUrl.getPort());
+            return newUrl.toString();
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException("URL is not in valid format. URL:" + originalUrl);
+        }
     }
 }
