@@ -18,6 +18,7 @@ package voldemort.store.readonly.fetcher;
 
 import java.io.File;
 
+import java.util.Properties;
 import junit.framework.TestCase;
 
 import org.apache.commons.codec.binary.Hex;
@@ -25,11 +26,14 @@ import org.apache.commons.io.FileUtils;
 
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.utils.Props;
+
 
 /**
  * Tests for the HDFS-based fetcher
@@ -168,4 +172,28 @@ public class HdfsFetcherTest extends TestCase {
         checkSumFile.delete();
 
     }
+
+    public void testReplaceURLByConfig() {
+        String url = "swebhdfs://localhost:50470/user/testpath";
+        Properties properties = new Properties();
+        properties.setProperty("node.id", "1");
+        properties.setProperty("voldemort.home","/test");
+        HdfsFetcher fetcher = new HdfsFetcher(new VoldemortConfig(properties));
+        //Disable SSL. Url should be replaced.
+        String newUrl = fetcher.replaceURLbyConfig(url);
+        assertEquals(newUrl, "webhdfs://localhost:50070/user/testpath");
+
+        //Test replacing is correct based on properties in config.
+        properties.setProperty("readonly.hdfs.protocol", "testprotocol");
+        properties.setProperty("readonly.hdfs.port", "12345");
+        fetcher = new HdfsFetcher(new VoldemortConfig(properties));
+        newUrl = fetcher.replaceURLbyConfig(url);
+        assertEquals(newUrl, "testprotocol://localhost:12345/user/testpath");
+
+        //Enable SSL. Url should not be replaced.
+        properties.setProperty("readonly.hdfs.ssl", "true");
+        fetcher = new HdfsFetcher(new VoldemortConfig(properties));
+        newUrl = fetcher.replaceURLbyConfig(url);
+        assertEquals(newUrl, url);
+  }
 }

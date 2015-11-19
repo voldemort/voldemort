@@ -210,6 +210,27 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
+    /**
+    * Replace swebhdfs protocol and port in sourceFileUrl when SSL is not enabled in this node.
+    */
+    protected String replaceURLbyConfig(String sourceFileUrl) {
+        String url = sourceFileUrl;
+        if (!voldemortConfig.isSSLEnabled()) {
+            // protocol section is placed before the first colon in url.
+            int firstColonPos = url.indexOf(":");
+            String protocol = url.substring(0, firstColonPos);
+            if (protocol.equalsIgnoreCase("swebhdfs")) {
+                // port section is placed after the second colon in url.
+                int secondColonPos = url.indexOf(":", firstColonPos + 1);
+                url = voldemortConfig.getHdfsFetchProtocol() + url.substring(firstColonPos, secondColonPos + 1)
+                    + voldemortConfig.getHdfsFetchPort() + url.substring(url.indexOf("/", secondColonPos));
+                logger.info(
+                    "SSL is not enabled in this node. Replaced original url:" + sourceFileUrl + " to new url:" + url);
+            }
+        }
+        return url;
+    }
+
     private File fetchFromSource(String sourceFileUrl,
                           String destinationFile,
                           AsyncOperationStatus status,
@@ -219,6 +240,7 @@ public class HdfsFetcher implements FileFetcher {
         ObjectName jmxName = null;
         HdfsCopyStats stats = null;
         FileSystem fs = null;
+        sourceFileUrl = replaceURLbyConfig(sourceFileUrl);
         try {
             fs = HadoopUtils.getHadoopFileSystem(voldemortConfig, sourceFileUrl);
             final Path path = new Path(sourceFileUrl);

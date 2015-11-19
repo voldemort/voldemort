@@ -178,6 +178,9 @@ public class VoldemortConfig implements Serializable {
     private int readOnlyMaxValueBufferAllocationSize;
     private long readOnlyLoginIntervalMs;
     private long defaultStorageSpaceQuotaInKB;
+    private boolean SSLEnabled;
+    private String hdfsFetchProtocol;
+    private String hdfsFetchPort;
 
     public static final String PUSH_HA_ENABLED = "push.ha.enabled";
     private boolean highAvailabilityPushEnabled;
@@ -401,6 +404,10 @@ public class VoldemortConfig implements Serializable {
         // property "readonly.compression.codec" to "GZIP"
         this.readOnlyCompressionCodec = props.getString("readonly.compression.codec",
                                                         VoldemortConfig.DEFAULT_RO_COMPRESSION_CODEC);
+
+        this.SSLEnabled = props.getBoolean("readonly.hdfs.ssl", false);
+        this.hdfsFetchProtocol = props.getString("readonly.hdfs.protocol", "webhdfs");
+        this.hdfsFetchPort = props.getString("readonly.hdfs.port", "50070");
 
         this.highAvailabilityPushClusterId = props.getString(PUSH_HA_CLUSTER_ID, null);
         this.highAvailabilityPushLockPath = props.getString(PUSH_HA_LOCK_PATH, null);
@@ -3012,6 +3019,52 @@ public class VoldemortConfig implements Serializable {
      */
     public void setReadOnlySearchStrategy(String readOnlySearchStrategy) {
         this.readOnlySearchStrategy = readOnlySearchStrategy;
+    }
+
+    public boolean isSSLEnabled() {
+        return SSLEnabled;
+    }
+
+    /**
+     * Determin whether enable SSL when fetching file from HDFS.
+     *
+     * <ul>
+     * <li>Property : "readonly.hdfs.ssl"</li>
+     * <li>Default : false</li>
+     * </ul>
+     */
+    public void setSSLEnabled(boolean SSLEnabled) {
+        this.SSLEnabled = SSLEnabled;
+    }
+    public String getHdfsFetchProtocol() {
+        return hdfsFetchProtocol;
+    }
+    /**
+     * Set protocol used to fetch file from HDFS.
+     *
+     * <ul>
+     * <li>Property : "readonly.hdfs.protocol"</li>
+     * <li>Default : webhdfs</li>
+     * </ul>
+     */
+    public void setHdfsFetchProtocol(String hdfsFetchProtocol) {
+        this.hdfsFetchProtocol = hdfsFetchProtocol;
+    }
+
+    public String getHdfsFetchPort() {
+        return hdfsFetchPort;
+    }
+
+    /**
+     * Set port used to fetch file from HDFS.
+     *
+     * <ul>
+     * <li>Property : "readonly.hdfs.port"</li>
+     * <li>Default : 50070</li>
+     * </ul>
+     */
+    public void setHdfsFetchPort(String hdfsFetchPort) {
+        this.hdfsFetchPort = hdfsFetchPort;
     }
 
     public boolean isHighAvailabilityPushEnabled() {
