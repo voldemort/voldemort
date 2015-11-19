@@ -361,14 +361,14 @@ public class HadoopStoreBuilder {
                     // takes too long, so we skip it. We will rely on the full-store.metadata file instead.
                 } else {
                     // Maintaining the old behavior: we write the node-specific metadata file
-                    writeMetadataFile(directoryPath, outputFs, directoryName, metadata);
+                    writeMetadataFile(directoryPath, outputFs, ReadOnlyUtils.METADATA_FILE_EXTENSION, metadata);
                 }
 
                 fullStoreMetadata.addNestedMetadata(directoryName, metadata);
             }
 
             // Write the aggregate metadata file
-            writeMetadataFile(outputDir, outputFs, ReadOnlyUtils.FULL_STORE_METADATA_FILE_PREFIX, fullStoreMetadata);
+            writeMetadataFile(outputDir, outputFs, ReadOnlyUtils.FULL_STORE_METADATA_FILE, fullStoreMetadata);
 
         } catch(Exception e) {
             logger.error("Error in Store builder", e);
@@ -381,7 +381,7 @@ public class HadoopStoreBuilder {
      *
      * @param directoryPath where to write the metadata file.
      * @param outputFs {@link org.apache.hadoop.fs.FileSystem} where to write the file
-     * @param metadataFileName prefix (i.e.: without extension) of the name of the file
+     * @param metadataFileName name of the file (including extension)
      * @param metadata {@link voldemort.store.readonly.ReadOnlyStorageMetadata} to persist on HDFS
      * @throws IOException if the FileSystem operations fail
      */
@@ -389,7 +389,7 @@ public class HadoopStoreBuilder {
                                    FileSystem outputFs,
                                    String metadataFileName,
                                    ReadOnlyStorageMetadata metadata) throws IOException {
-        Path metadataPath = new Path(directoryPath, metadataFileName + ReadOnlyUtils.METADATA_FILE_EXTENSION);
+        Path metadataPath = new Path(directoryPath, metadataFileName);
         FSDataOutputStream metadataStream = outputFs.create(metadataPath);
         outputFs.setPermission(metadataPath, new FsPermission(HADOOP_FILE_PERMISSION));
         logger.info("Setting permission to 755 for " + metadataPath);

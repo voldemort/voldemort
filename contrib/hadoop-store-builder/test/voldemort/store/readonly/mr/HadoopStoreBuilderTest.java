@@ -260,24 +260,27 @@ public class HadoopStoreBuilderTest {
 
         // Check if metadata file exists
         File metadataFile = new File(nodeFile, ".metadata");
-        Assert.assertTrue(metadataFile.exists());
+        Assert.assertTrue("Metadata file should exist!", metadataFile.exists());
 
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata(metadataFile);
         if(saveKeys)
-            Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
+            Assert.assertEquals("In saveKeys mode, the metadata format should be READONLY_V2!",
+                                metadata.get(ReadOnlyStorageMetadata.FORMAT),
                                 ReadOnlyStorageFormat.READONLY_V2.getCode());
         else
-            Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
+            Assert.assertEquals("In legacy mode (saveKeys==false), the metadata format should be READONLY_V1!",
+                                metadata.get(ReadOnlyStorageMetadata.FORMAT),
                                 ReadOnlyStorageFormat.READONLY_V1.getCode());
 
-        Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE),
+        Assert.assertEquals("Checksum type should be MD5!",
+                            metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE),
                             CheckSum.toString(CheckSumType.MD5));
 
         // Check contents of checkSum file
         byte[] md5 = Hex.decodeHex(((String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM)).toCharArray());
         byte[] checkSumBytes = CheckSumTests.calculateCheckSum(nodeFile.listFiles(),
                                                                CheckSumType.MD5);
-        Assert.assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
+        Assert.assertEquals("Checksum is not as excepted!", 0, ByteUtils.compare(checkSumBytes, md5));
 
         // check if fetching works
         HdfsFetcher fetcher = new HdfsFetcher();
@@ -285,7 +288,7 @@ public class HadoopStoreBuilderTest {
         // Fetch to version directory
         File versionDir = new File(storeDir, "version-0");
         fetcher.fetch(nodeFile.getAbsolutePath(), versionDir.getAbsolutePath());
-        Assert.assertTrue(versionDir.exists());
+        Assert.assertTrue("Version directory should exist!", versionDir.exists());
 
         // open store
         @SuppressWarnings("unchecked")
