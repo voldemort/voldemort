@@ -173,27 +173,36 @@ public class HdfsFetcherTest extends TestCase {
 
     }
 
-    public void testReplaceURLByConfig() {
+    public void testModifyURLByConfig() {
         String url = "swebhdfs://localhost:50470/user/testpath";
         Properties properties = new Properties();
         properties.setProperty("node.id", "1");
         properties.setProperty("voldemort.home","/test");
+        //Default configuration. Should not modify url.
         HdfsFetcher fetcher = new HdfsFetcher(new VoldemortConfig(properties));
         //Disable SSL. Url should be replaced.
-        String newUrl = fetcher.replaceURLbyConfig(url);
-        assertEquals(newUrl, "webhdfs://localhost:50070/user/testpath");
+        String newUrl = fetcher.modifyURLbyConfig(url);
+        assertEquals(url, newUrl);
+
+        //Enable modify feature. URL should be replace to webhdfs which is the default.
+        properties.setProperty("readonly.modify", "true");
+        fetcher = new HdfsFetcher(new VoldemortConfig(properties));
+        newUrl = fetcher.modifyURLbyConfig(url);
+        assertEquals("webhdfs://localhost:50070/user/testpath", newUrl);
 
         //Test replacing is correct based on properties in config.
-        properties.setProperty("readonly.hdfs.protocol", "testprotocol");
-        properties.setProperty("readonly.hdfs.port", "12345");
+        properties.setProperty("readonly.modify", "true");
+        properties.setProperty("readonly.modify.protocol", "testprotocol");
+        properties.setProperty("readonly.modify.port", "12345");
         fetcher = new HdfsFetcher(new VoldemortConfig(properties));
-        newUrl = fetcher.replaceURLbyConfig(url);
-        assertEquals(newUrl, "testprotocol://localhost:12345/user/testpath");
+        newUrl = fetcher.modifyURLbyConfig(url);
+        assertEquals("testprotocol://localhost:12345/user/testpath", newUrl) ;
 
-        //Enable SSL. Url should not be replaced.
-        properties.setProperty("readonly.hdfs.ssl", "true");
+        //Local path, should not modifed anything.
+        properties.setProperty("readonly.modify", "true");
         fetcher = new HdfsFetcher(new VoldemortConfig(properties));
-        newUrl = fetcher.replaceURLbyConfig(url);
-        assertEquals(newUrl, url);
+        url = "/testpath/file";
+        newUrl = fetcher.modifyURLbyConfig(url);
+        assertEquals(url, newUrl);
   }
 }

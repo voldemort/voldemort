@@ -18,6 +18,10 @@ package voldemort.store.readonly.fetcher;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
 import java.text.NumberFormat;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,6 +34,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
+import sun.net.www.protocol.file.Handler;
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
@@ -75,16 +80,11 @@ public class HdfsFetcher implements FileFetcher {
      * {@link AdminServiceRequestHandler#setFetcherClass(voldemort.server.VoldemortConfig)}
      */
     public HdfsFetcher(VoldemortConfig config) {
-        this(config,
-             config.getReadOnlyFetcherMaxBytesPerSecond(),
-             config.getReadOnlyFetcherReportingIntervalBytes(),
-             config.getReadOnlyFetcherThrottlerInterval(),
-             config.getFetcherBufferSize(),
-             config.getReadOnlyFetchRetryCount(),
-             config.getReadOnlyFetchRetryDelayMs(),
-             config.isReadOnlyStatsFileEnabled(),
-             config.getReadOnlyMaxVersionsStatsFile(),
-             config.getFetcherSocketTimeout());
+        this(config, config.getReadOnlyFetcherMaxBytesPerSecond(), config.getReadOnlyFetcherReportingIntervalBytes(),
+            config.getReadOnlyFetcherThrottlerInterval(), config.getFetcherBufferSize(),
+            config.getReadOnlyFetchRetryCount(), config.getReadOnlyFetchRetryDelayMs(),
+            config.isReadOnlyStatsFileEnabled(), config.getReadOnlyMaxVersionsStatsFile(),
+            config.getFetcherSocketTimeout());
     }
 
 
@@ -213,33 +213,31 @@ public class HdfsFetcher implements FileFetcher {
     /**
      * Replace swebhdfs protocol and port in sourceFileUrl when SSL is not enabled in this node.
      */
-    protected String replaceURLbyConfig(String sourceFileUrl) {
-        String url = sourceFileUrl;
-        if (!voldemortConfig.isSSLEnabled()) {
-            // protocol section is placed before the first colon in url.
-            int firstColonPos = url.indexOf(":");
-            if (firstColonPos != -1) {
-                String protocol = url.substring(0, firstColonPos);
-                if (protocol.equalsIgnoreCase("swebhdfs")) {
-                    // port section is placed after the second colon in url.
-                    int secondColonPos = url.indexOf(":", firstColonPos + 1);
-                    if (secondColonPos == -1) {
-                        throw new IllegalArgumentException(
-                            "sWebHdfs URL is invalid: Can not found port. " + sourceFileUrl);
-                    }
-                    int portEndPos = url.indexOf("/", secondColonPos);
-                    if (portEndPos == -1) {
-                        throw new IllegalArgumentException(
-                            "sWebHdfs URL is invalid: Can not found file path. " + sourceFileUrl);
-                    }
-                    url = voldemortConfig.getHdfsFetchProtocol() + url.substring(firstColonPos, secondColonPos + 1)
-                        + voldemortConfig.getHdfsFetchPort() + url.substring(portEndPos);
-                    logger.info(
-                        "SSL is not enabled in this node. Replaced original url:" + sourceFileUrl + " to new url:"
-                            + url);
+    protected String modifyURLbyConfig(String sourceFileUrl) {
+        if (!voldemortConfig.isModifyUrlEnable()) {
+            return sourceFileUrl;
+        }
+
+        try {
+            //Create handler to avoid unknow protocol error when parsing URL string. Actually this handler will do
+            //nothing.
+            URLStreamHandler handler = new URLStreamHandler() {
+                @Override
+                protected URLConnection openConnection(URL u)
+                    throws IOException {
+                    return null;
                 }
-            }
-        } return url;
+            };
+
+            URL url = new URL(null, sourceFileUrl, handler);
+            URL newUrl =
+                new URL(voldemortConfig.getModifiedProtocol(), url.getHost(), voldemortConfig.getModifiedPort(),
+                    url.getFile(), handler);
+            return newUrl.toString();
+        } catch (MalformedURLException e) {
+            logger.warn("URL is not in valid format. Maybe it's a local path. URL:" + sourceFileUrl);
+            return sourceFileUrl;
+        }
     }
 
     private File fetchFromSource(String sourceFileUrl,
@@ -251,7 +249,7 @@ public class HdfsFetcher implements FileFetcher {
         ObjectName jmxName = null;
         HdfsCopyStats stats = null;
         FileSystem fs = null;
-        sourceFileUrl = replaceURLbyConfig(sourceFileUrl);
+        sourceFileUrl = modifyURLbyConfig(sourceFileUrl);
         try {
             fs = HadoopUtils.getHadoopFileSystem(voldemortConfig, sourceFileUrl);
             final Path path = new Path(sourceFileUrl);

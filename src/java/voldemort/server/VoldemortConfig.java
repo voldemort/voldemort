@@ -178,9 +178,9 @@ public class VoldemortConfig implements Serializable {
     private int readOnlyMaxValueBufferAllocationSize;
     private long readOnlyLoginIntervalMs;
     private long defaultStorageSpaceQuotaInKB;
-    private boolean SSLEnabled;
-    private String hdfsFetchProtocol;
-    private String hdfsFetchPort;
+    private boolean modifyUrlEnable;
+    private String modifiedProtocol;
+    private int modifiedPort;
 
     public static final String PUSH_HA_ENABLED = "push.ha.enabled";
     private boolean highAvailabilityPushEnabled;
@@ -405,9 +405,9 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyCompressionCodec = props.getString("readonly.compression.codec",
                                                         VoldemortConfig.DEFAULT_RO_COMPRESSION_CODEC);
 
-        this.SSLEnabled = props.getBoolean("readonly.hdfs.ssl", false);
-        this.hdfsFetchProtocol = props.getString("readonly.hdfs.protocol", "webhdfs");
-        this.hdfsFetchPort = props.getString("readonly.hdfs.port", "50070");
+        this.modifyUrlEnable = props.getBoolean("readonly.modify", false);
+        this.modifiedProtocol = props.getString("readonly.modify.protocol", "webhdfs");
+        this.modifiedPort = props.getInt("readonly.modify.port", 50070);
 
         this.highAvailabilityPushClusterId = props.getString(PUSH_HA_CLUSTER_ID, null);
         this.highAvailabilityPushLockPath = props.getString(PUSH_HA_LOCK_PATH, null);
@@ -3021,50 +3021,52 @@ public class VoldemortConfig implements Serializable {
         this.readOnlySearchStrategy = readOnlySearchStrategy;
     }
 
-    public boolean isSSLEnabled() {
-        return SSLEnabled;
+    public boolean isModifyUrlEnable() {
+        return modifyUrlEnable;
     }
 
     /**
-     * Determin whether enable SSL when fetching file from HDFS.
+     * Determine whether enable URL modify feature when fetching file.
      *
      * <ul>
-     * <li>Property : "readonly.hdfs.ssl"</li>
+     * <li>Property : "readonly.modify"</li>
      * <li>Default : false</li>
      * </ul>
      */
-    public void setSSLEnabled(boolean SSLEnabled) {
-        this.SSLEnabled = SSLEnabled;
+    public void setModifyUrlEnable(boolean modifyUrlEnable) {
+        this.modifyUrlEnable = modifyUrlEnable;
     }
-    public String getHdfsFetchProtocol() {
-        return hdfsFetchProtocol;
+
+    public String getModifiedProtocol() {
+        return this.modifiedProtocol;
     }
+
     /**
-     * Set protocol used to fetch file from HDFS.
+     * Set modified protocol used to fetch file.
      *
      * <ul>
-     * <li>Property : "readonly.hdfs.protocol"</li>
-     * <li>Default : webhdfs</li>
+     * <li>Property : "readonly.modify.protocol"</li>
+     * <li>Default : "webhdfs"</li>
      * </ul>
      */
-    public void setHdfsFetchProtocol(String hdfsFetchProtocol) {
-        this.hdfsFetchProtocol = hdfsFetchProtocol;
+    public void setModifiedProtocol(String modifiedProtocol) {
+        this.modifiedProtocol = modifiedProtocol;
     }
 
-    public String getHdfsFetchPort() {
-        return hdfsFetchPort;
+    public int getModifiedPort() {
+        return this.modifiedPort;
     }
 
     /**
-     * Set port used to fetch file from HDFS.
+     * Set modifed port used to fetch file.
      *
      * <ul>
-     * <li>Property : "readonly.hdfs.port"</li>
+     * <li>Property : "readonly.modify.port"</li>
      * <li>Default : 50070</li>
      * </ul>
      */
-    public void setHdfsFetchPort(String hdfsFetchPort) {
-        this.hdfsFetchPort = hdfsFetchPort;
+    public void setModifiedPort(int modifiedPort) {
+        this.modifiedPort = modifiedPort;
     }
 
     public boolean isHighAvailabilityPushEnabled() {
