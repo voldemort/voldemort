@@ -25,6 +25,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
+import voldemort.store.readonly.mr.utils.VoldemortUtils;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.store.readonly.swapper.FailedFetchStrategy;
 import voldemort.utils.logging.PrefixedLogger;
@@ -97,19 +98,14 @@ public class VoldemortSwapJob extends AbstractJob {
         /*
          * Replace the default protocol and port with the one derived as above
          */
-        String[] pathComponents = modifiedDataDir.split(":");
-        if (pathComponents.length >= 3) {
-            String existingProtocol = pathComponents[0];
-            String existingPort = pathComponents[2].split("/")[0];
-            info("Existing protocol = " + existingProtocol + " and port = " + existingPort);
-            if (hdfsFetcherProtocol.length() > 0 && hdfsFetcherPort.length() > 0) {
-                info("New protocol = " + hdfsFetcherProtocol + " and port = " + hdfsFetcherPort);
-                modifiedDataDir = modifiedDataDir.replaceFirst(existingProtocol, hdfsFetcherProtocol);
-                modifiedDataDir = modifiedDataDir.replaceFirst(existingPort, hdfsFetcherPort);
-            }
-        } else {
-            info("The dataDir will not be modified, since it does not contain the expected " +
-                    "structure of protocol:hostname:port/some_path");
+        try {
+            modifiedDataDir =
+                VoldemortUtils.modifyURL(modifiedDataDir, hdfsFetcherProtocol, Integer.valueOf(hdfsFetcherPort));
+        } catch (NumberFormatException nfe) {
+            info("The dataDir will not be modified, since hdfsFetcherPort is not a valid port number");
+        } catch (IllegalArgumentException e) {
+            info("The dataDir will not be modified, since it does not contain the expected "
+                + "structure of protocol:hostname:port/some_path");
         }
 
         try {

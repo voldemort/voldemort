@@ -178,7 +178,6 @@ public class VoldemortConfig implements Serializable {
     private int readOnlyMaxValueBufferAllocationSize;
     private long readOnlyLoginIntervalMs;
     private long defaultStorageSpaceQuotaInKB;
-    private boolean modifyUrlEnable;
     private String modifiedProtocol;
     private int modifiedPort;
 
@@ -405,9 +404,8 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyCompressionCodec = props.getString("readonly.compression.codec",
                                                         VoldemortConfig.DEFAULT_RO_COMPRESSION_CODEC);
 
-        this.modifyUrlEnable = props.getBoolean("readonly.modify", false);
-        this.modifiedProtocol = props.getString("readonly.modify.protocol", "webhdfs");
-        this.modifiedPort = props.getInt("readonly.modify.port", 50070);
+        this.modifiedProtocol = props.getString("readonly.modify.protocol", null);
+        this.modifiedPort = props.getInt("readonly.modify.port", -1);
 
         this.highAvailabilityPushClusterId = props.getString(PUSH_HA_CLUSTER_ID, null);
         this.highAvailabilityPushLockPath = props.getString(PUSH_HA_LOCK_PATH, null);
@@ -3021,22 +3019,6 @@ public class VoldemortConfig implements Serializable {
         this.readOnlySearchStrategy = readOnlySearchStrategy;
     }
 
-    public boolean isModifyUrlEnable() {
-        return modifyUrlEnable;
-    }
-
-    /**
-     * Determine whether enable URL modify feature when fetching file.
-     *
-     * <ul>
-     * <li>Property : "readonly.modify"</li>
-     * <li>Default : false</li>
-     * </ul>
-     */
-    public void setModifyUrlEnable(boolean modifyUrlEnable) {
-        this.modifyUrlEnable = modifyUrlEnable;
-    }
-
     public String getModifiedProtocol() {
         return this.modifiedProtocol;
     }
@@ -3046,7 +3028,7 @@ public class VoldemortConfig implements Serializable {
      *
      * <ul>
      * <li>Property : "readonly.modify.protocol"</li>
-     * <li>Default : "webhdfs"</li>
+     * <li>Default : null</li>
      * </ul>
      */
     public void setModifiedProtocol(String modifiedProtocol) {
@@ -3062,7 +3044,7 @@ public class VoldemortConfig implements Serializable {
      *
      * <ul>
      * <li>Property : "readonly.modify.port"</li>
-     * <li>Default : 50070</li>
+     * <li>Default : -1</li>
      * </ul>
      */
     public void setModifiedPort(int modifiedPort) {

@@ -18,10 +18,6 @@ package voldemort.store.readonly.fetcher;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLStreamHandler;
 import java.text.NumberFormat;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,7 +30,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
-import sun.net.www.protocol.file.Handler;
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
@@ -49,6 +44,7 @@ import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
+import voldemort.store.readonly.mr.utils.VoldemortUtils;
 import voldemort.store.readonly.swapper.InvalidBootstrapURLException;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.EventThrottler;
@@ -80,11 +76,15 @@ public class HdfsFetcher implements FileFetcher {
      * {@link AdminServiceRequestHandler#setFetcherClass(voldemort.server.VoldemortConfig)}
      */
     public HdfsFetcher(VoldemortConfig config) {
-        this(config, config.getReadOnlyFetcherMaxBytesPerSecond(), config.getReadOnlyFetcherReportingIntervalBytes(),
-            config.getReadOnlyFetcherThrottlerInterval(), config.getFetcherBufferSize(),
-            config.getReadOnlyFetchRetryCount(), config.getReadOnlyFetchRetryDelayMs(),
-            config.isReadOnlyStatsFileEnabled(), config.getReadOnlyMaxVersionsStatsFile(),
-            config.getFetcherSocketTimeout());
+        this(config, config.getReadOnlyFetcherMaxBytesPerSecond(),
+             config.getReadOnlyFetcherReportingIntervalBytes(),
+             config.getReadOnlyFetcherThrottlerInterval(),
+             config.getFetcherBufferSize(),
+             config.getReadOnlyFetchRetryCount(),
+             config.getReadOnlyFetchRetryDelayMs(),
+             config.isReadOnlyStatsFileEnabled(),
+             config.getReadOnlyMaxVersionsStatsFile(),
+             config.getFetcherSocketTimeout());
     }
 
 
@@ -210,36 +210,6 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
-    /**
-     * Replace swebhdfs protocol and port in sourceFileUrl when SSL is not enabled in this node.
-     */
-    protected String modifyURLbyConfig(String sourceFileUrl) {
-        if (!voldemortConfig.isModifyUrlEnable()) {
-            return sourceFileUrl;
-        }
-
-        try {
-            //Create handler to avoid unknow protocol error when parsing URL string. Actually this handler will do
-            //nothing.
-            URLStreamHandler handler = new URLStreamHandler() {
-                @Override
-                protected URLConnection openConnection(URL u)
-                    throws IOException {
-                    return null;
-                }
-            };
-
-            URL url = new URL(null, sourceFileUrl, handler);
-            URL newUrl =
-                new URL(voldemortConfig.getModifiedProtocol(), url.getHost(), voldemortConfig.getModifiedPort(),
-                    url.getFile(), handler);
-            return newUrl.toString();
-        } catch (MalformedURLException e) {
-            logger.warn("URL is not in valid format. Maybe it's a local path. URL:" + sourceFileUrl);
-            return sourceFileUrl;
-        }
-    }
-
     private File fetchFromSource(String sourceFileUrl,
                           String destinationFile,
                           AsyncOperationStatus status,
@@ -249,7 +219,8 @@ public class HdfsFetcher implements FileFetcher {
         ObjectName jmxName = null;
         HdfsCopyStats stats = null;
         FileSystem fs = null;
-        sourceFileUrl = modifyURLbyConfig(sourceFileUrl);
+        sourceFileUrl = VoldemortUtils
+            .modifyURL(sourceFileUrl, voldemortConfig.getModifiedProtocol(), voldemortConfig.getModifiedPort());
         try {
             fs = HadoopUtils.getHadoopFileSystem(voldemortConfig, sourceFileUrl);
             final Path path = new Path(sourceFileUrl);
