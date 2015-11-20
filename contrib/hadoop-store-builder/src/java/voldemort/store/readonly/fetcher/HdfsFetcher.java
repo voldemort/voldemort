@@ -76,7 +76,8 @@ public class HdfsFetcher implements FileFetcher {
      * {@link AdminServiceRequestHandler#setFetcherClass(voldemort.server.VoldemortConfig)}
      */
     public HdfsFetcher(VoldemortConfig config) {
-        this(config, config.getReadOnlyFetcherMaxBytesPerSecond(),
+        this(config,
+             config.getReadOnlyFetcherMaxBytesPerSecond(),
              config.getReadOnlyFetcherReportingIntervalBytes(),
              config.getReadOnlyFetcherThrottlerInterval(),
              config.getFetcherBufferSize(),

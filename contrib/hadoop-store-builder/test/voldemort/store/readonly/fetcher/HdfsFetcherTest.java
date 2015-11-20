@@ -18,7 +18,6 @@ package voldemort.store.readonly.fetcher;
 
 import java.io.File;
 
-import java.util.Properties;
 import junit.framework.TestCase;
 
 import org.apache.commons.codec.binary.Hex;
@@ -169,5 +168,4 @@ public class HdfsFetcherTest extends TestCase {
         checkSumFile.delete();
 
     }
-
 }
