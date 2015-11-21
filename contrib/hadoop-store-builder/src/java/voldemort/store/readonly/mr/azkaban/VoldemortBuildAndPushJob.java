@@ -313,8 +313,19 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
      *         equal number of nodes and same partition ids
      */
     private boolean areTwoClustersEqual(final Cluster lhs, final Cluster rhs) {
+        // There is no way for us to support pushing to multiple clusters with
+        // different numbers of partitions from a single BnP job.
         if (lhs.getNumberOfPartitions() != rhs.getNumberOfPartitions())
             return false;
+
+        if (buildPrimaryReplicasOnly) {
+            // In 'build.primary.replicas.only' mode, we can support pushing to
+            // clusters with different number of nodes and different partition
+            // assignments.
+            return true;
+        }
+
+        // Otherwise, we need every corresponding node in each cluster to be identical.
         if (!lhs.getNodeIds().equals(rhs.getNodeIds()))
             return false;
         for (Node lhsNode: lhs.getNodes()) {
