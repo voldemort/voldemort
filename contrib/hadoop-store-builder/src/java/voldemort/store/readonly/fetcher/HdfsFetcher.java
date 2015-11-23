@@ -44,6 +44,7 @@ import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.mr.utils.HadoopUtils;
+import voldemort.store.readonly.mr.utils.VoldemortUtils;
 import voldemort.store.readonly.swapper.InvalidBootstrapURLException;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.EventThrottler;
@@ -219,6 +220,8 @@ public class HdfsFetcher implements FileFetcher {
         ObjectName jmxName = null;
         HdfsCopyStats stats = null;
         FileSystem fs = null;
+        sourceFileUrl = VoldemortUtils
+            .modifyURL(sourceFileUrl, voldemortConfig.getModifiedProtocol(), voldemortConfig.getModifiedPort());
         try {
             fs = HadoopUtils.getHadoopFileSystem(voldemortConfig, sourceFileUrl);
             final Path path = new Path(sourceFileUrl);

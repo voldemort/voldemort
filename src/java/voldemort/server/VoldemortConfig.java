@@ -178,6 +178,8 @@ public class VoldemortConfig implements Serializable {
     private int readOnlyMaxValueBufferAllocationSize;
     private long readOnlyLoginIntervalMs;
     private long defaultStorageSpaceQuotaInKB;
+    private String modifiedProtocol;
+    private int modifiedPort;
 
     public static final String PUSH_HA_ENABLED = "push.ha.enabled";
     private boolean highAvailabilityPushEnabled;
@@ -401,6 +403,9 @@ public class VoldemortConfig implements Serializable {
         // property "readonly.compression.codec" to "GZIP"
         this.readOnlyCompressionCodec = props.getString("readonly.compression.codec",
                                                         VoldemortConfig.DEFAULT_RO_COMPRESSION_CODEC);
+
+        this.modifiedProtocol = props.getString("readonly.modify.protocol", null);
+        this.modifiedPort = props.getInt("readonly.modify.port", -1);
 
         this.highAvailabilityPushClusterId = props.getString(PUSH_HA_CLUSTER_ID, null);
         this.highAvailabilityPushLockPath = props.getString(PUSH_HA_LOCK_PATH, null);
@@ -3012,6 +3017,38 @@ public class VoldemortConfig implements Serializable {
      */
     public void setReadOnlySearchStrategy(String readOnlySearchStrategy) {
         this.readOnlySearchStrategy = readOnlySearchStrategy;
+    }
+
+    public String getModifiedProtocol() {
+        return this.modifiedProtocol;
+    }
+
+    /**
+     * Set modified protocol used to fetch file.
+     *
+     * <ul>
+     * <li>Property : "readonly.modify.protocol"</li>
+     * <li>Default : null</li>
+     * </ul>
+     */
+    public void setModifiedProtocol(String modifiedProtocol) {
+        this.modifiedProtocol = modifiedProtocol;
+    }
+
+    public int getModifiedPort() {
+        return this.modifiedPort;
+    }
+
+    /**
+     * Set modifed port used to fetch file.
+     *
+     * <ul>
+     * <li>Property : "readonly.modify.port"</li>
+     * <li>Default : -1</li>
+     * </ul>
+     */
+    public void setModifiedPort(int modifiedPort) {
+        this.modifiedPort = modifiedPort;
     }
 
     public boolean isHighAvailabilityPushEnabled() {
