@@ -1,4 +1,4 @@
-package voldemort.restclient;
+package voldemort.client;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -17,6 +17,8 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import voldemort.restclient.R2Store;
+import voldemort.restclient.RESTClientConfig;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;

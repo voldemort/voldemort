@@ -1,2 +1,16 @@
-//empty file to prevent Gradle searching upper directories for settings.gradle
-//please remove this comment when this file contains any configuration
+
+rootProject.name = 'voldemort'
+
+// the following dance creates the subprojects (the contrib modules) and
+// fixes the naming so that eclipse doesn't explode
+include 'contrib-collections'
+project(':contrib-collections').projectDir = file('contrib/collections')
+
+include 'contrib-hadoop-store-builder'
+project(':contrib-hadoop-store-builder').projectDir = file('contrib/hadoop-store-builder')
+
+include 'contrib-krati'
+project(':contrib-krati').projectDir = file('contrib/krati')
+
+include 'contrib-restclient'
+project(':contrib-restclient').projectDir = file('contrib/restclient')

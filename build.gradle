@@ -1,8 +1,5 @@
-import java.util.jar.JarEntry;
 
 apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'eclipse'
 apply plugin: 'war'
 
 buildscript {
@@ -12,7 +9,6 @@ buildscript {
   }
 }
 
-apply plugin: 'java' // or 'groovy'. Must be explicitly applied
 apply plugin: 'com.github.johnrengelman.shadow'
 
 def String getProjectProperty(String propertyName) {
@@ -21,11 +17,11 @@ def String getProjectProperty(String propertyName) {
         propertyValue = this.properties[propertyName]
     }
     else {
-        throw GradleScriptException("PropertyName " + propertyName + " is not defined in properties file")
+        throw new GradleScriptException("PropertyName " + propertyName + " is not defined in properties file")
     }
     return propertyValue
 }
-def projectName = "voldemort"
+def projectName = project.name
 
 def sourceDir = getProjectProperty('src.dir')
 def distDir = getProjectProperty('dist.dir')
@@ -42,9 +38,6 @@ def unitTestSrcDir = getProjectProperty('unittestsrc.dir')
 def intTestSrcDir = getProjectProperty('inttestsrc.dir')
 def longTestSrcDir = getProjectProperty('longtestsrc.dir')
 
-def contribClassesDir = getProjectProperty('contrib.classes.dir')
-def contribRootDir = getProjectProperty('contrib.root.dir')
-
 def voldVersion = getProjectProperty('curr.release')
 def javacVersion = getProjectProperty('javac.version')
 
@@ -54,30 +47,42 @@ version = voldVersion
 def archiveDirectoryName = projectName + '-' + version
 def archiveDirectoryPath = distDir + "/" + archiveDirectoryName
 
+def javadocEnabled = getProjectProperty('javadoc.enabled').toBoolean()
+
 def deleteDirectoryContents(directory) {
     project.file(directory).deleteDir()
     project.file(directory).mkdirs()
 }
 
-println 'java source target compatibility version ' + javacVersion
-sourceCompatibility = javacVersion
-targetCompatibility = javacVersion
-compileJava.options.debug = true
+allprojects {
+    sourceCompatibility = javacVersion
+    targetCompatibility = javacVersion
+    compileJava.options.debug = true
 
-repositories {
-    mavenCentral()
-    maven {
-        // For Hadoop dependencies
-        url "https://repository.cloudera.com/artifactory/cloudera-repos/"
+    repositories {
+        mavenCentral()
+        maven {
+            // For Hadoop dependencies
+            url "https://repository.cloudera.com/artifactory/cloudera-repos/"
+        }
+        flatDir { dirs rootProject.file(privateLibDir) }
     }
-    flatDir { dirs privateLibDir }
-    flatDir { dirs contribRootDir }
-}
 
+    // http://blog.joda.org/2014/02/turning-off-doclint-in-jdk-8-javadoc.html
+    if (JavaVersion.current().java8Compatible) {
+        tasks.withType(Javadoc) {
+            options.addStringOption('Xdoclint:none', '-quiet')
+        }
+    }
+    
+    tasks.withType(Javadoc) {
+        enabled = javadocEnabled
+    }
+}
 
 sourceSets {
     main {
-        java { srcDirs = [javaDir]}
+        java { srcDirs = [javaDir] }
         resources {
             srcDirs = [javaDir]
             include '**/*.xsd'
@@ -88,18 +93,13 @@ sourceSets {
     test {
         java {
             srcDirs = [
-                commonTestSrcDir ,
+                commonTestSrcDir,
                 unitTestSrcDir,
-                intTestSrcDir ,
+                intTestSrcDir,
                 longTestSrcDir
             ]
         }
         output.classesDir = voldTestClassesDir
-    }
-    contrib {
-        java { srcDirs = [contribRootDir]}
-        compileClasspath += sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-        output.classesDir = contribClassesDir
     }
 }
 
@@ -118,17 +118,15 @@ compileJava.doLast {
     }
 }
 
+javadoc {
+    destinationDir = file(javaDocDir)
+}
+
 compileTestJava.doLast {
     project.copy {
         from (commonTestSrcDir) { exclude '**/*.java','**/*.html' }
         from (unitTestSrcDir) { exclude '**/*.java','**/*.html' }
         into voldTestClassesDir
-    }
-}
-
-compileContribJava.doLast {
-    project.copy {
-        into contribClassesDir
     }
 }
 
@@ -138,30 +136,34 @@ task testJar(type: Jar) {
     destinationDir = project.file(distDir)
 }
 
-task voldJar(type:Jar) {
-    baseName = projectName
+jar {
     manifest {
         attributes 'Voldemort-Implementation-Version' : version,
         'Implementation-Title': 'Voldemort',
         'Implementation-Version': version,
         'Implementation-Vendor' :'LinkedIn'
     }
-    from sourceSets.main.output
     destinationDir = project.file(distDir)
 }
 
 
 task contribJar(type:Jar) {
-    dependsOn voldJar, testJar, sourceSets.contrib.output
     baseName = projectName + "-contrib"
-    from sourceSets.contrib.output
+    from {subprojects*.sourceSets.main.output}
     destinationDir = project.file(distDir)
 }
 
 task srcJar(type: Jar, dependsOn: classes) {
-    classifier = 'src'
+    classifier = 'sources'
     from sourceSets.main.java.srcDirs
     destinationDir = project.file(distDir)
+}
+
+task javadocJar(type: Jar) {
+    enabled = javadocEnabled
+    classifier = 'javadoc'
+    from javadoc
+    destinationDir = file(distDir)
 }
 
 task bnpJar(dependsOn: shadowJar) {
@@ -169,10 +171,11 @@ task bnpJar(dependsOn: shadowJar) {
 }
 
 artifacts {
-    archives voldJar
+    archives jar
     archives testJar
     archives contribJar
     archives srcJar
+    archives javadocJar
 }
 
 clean {
@@ -197,7 +200,9 @@ def depTehuti = 'io.tehuti:tehuti:0.7.0'
 
 shadowJar {
     classifier "bnp"
-    from sourceSets.main.output, sourceSets.contrib.output, sourceSets.test.output, sourceSets.main.resources
+    from sourceSets.main.output, sourceSets.test.output, sourceSets.main.resources
+    from {subprojects*.sourceSets.main.output}
+    from {subprojects*.sourceSets.test.output}
 
     // Required when working in an Hadoop 2.x environment
     dependencies {
@@ -252,8 +257,16 @@ task copySources (type: Copy) {
     into archiveDirectoryPath
 }
 
+task copyDeps(type: Copy) {
+    // note this only copies the dependencies of the root
+    // project into /lib if we start adding compile deps to
+    // subprojects will have to rethink
+    from { configurations.compile }
+    into "lib"
+}
+
 task zip (type: Zip) {
-    dependsOn copySources
+    dependsOn copySources, copyDeps
     baseName = projectName
 
     from(distDir) {
@@ -269,7 +282,7 @@ task zip (type: Zip) {
 }
 
 task tar (type: Tar) {
-    dependsOn copySources
+    dependsOn copySources, copyDeps
     compression = Compression.GZIP
     baseName = projectName
     extension = "tar.gz"
@@ -286,11 +299,6 @@ task tar (type: Tar) {
     destinationDir = project.file(distDir)
 }
 
-task copyDeps(type: Copy) {
-    from  {configurations.compile  }
-    into "lib"
-}
-
 war {
     dependsOn copyDeps
     from sourceSets.main.output
@@ -300,63 +308,55 @@ war {
 
 assemble.dependsOn copyDeps
 
-jar.dependsOn contribJar,srcJar, copyDeps
-compileContribJava.dependsOn voldJar
 copySources.dependsOn jar
 
+allprojects {
+    tasks.withType(Test) {
+        maxHeapSize = "8g"
+        // If ignoreFailures is not set, then merged reports will not be generated
+        // Gradle aborts further tasks on test failure. so if you run junitAll
+        // which runs 3 tests, reports task will never be run on failure cases.
+        ignoreFailures = true
+
+        useJUnit()
+
+        testLogging {
+            events "started", "passed", "skipped", "failed"
+            exceptionFormat = 'full'
+            // showStandardStreams = true
+
+            doFirst {
+                def classesSize = candidateClassFiles.files.size()
+                logger.lifecycle("{} starts executing {} test classes {}",
+                        path, classesSize, classesSize > 0? "(" + candidateClassFiles.files*.name[0] + ", ...)" : "")
+            }
+
+            //Set reasonable defaults for reports location
+            reports.html.destination = file("$buildDir/reports/$name")
+            reports.junitXml.destination = file("$buildDir/$name-results")
+        }
+        // Makes sure tests aren't marked "UP-TO-DATE" after running
+        outputs.upToDateWhen { false }
+    }
+}
+
 tasks.withType(Test) {
-    // ant restarts jvm for each tests, If not restarted the test runs into outOfMemory even
-    // if you set the JVM to 8gb. On inspecting most of the space is consumed by int[] of
-    // Histogram in the NioSelectorManager. I believe this could be explained by
-    // creating lots of client factory which creates lot of NIO threads. Did not proceed
-    // further as I will be maintaining compatbility with ant. Also if you dont fork for each
-    // tests JMX bean related tests will fail.
+    // note only the root project's tests fork for very test class
+    forkEvery = 1
 
     // Do not set the max parallelism as there are tests that uses the same port and will
     // run into bind exceptions.
-    maxHeapSize = "8g"
-    forkEvery = 1
 
-
-    // If ignoreFailures is not set, then merged reports will not be generated
-    // Gradle aborts further tasks on test failure. so if you run junitAll
-    // which runs 3 tests, reports task will never be run on failure cases.
-    ignoreFailures = true
     //ignoreFailures = gradle.startParameter.continueOnFailure
-
-    useJUnit()
-
-    testLogging {
-        events "started", "passed", "skipped", "failed"
-        exceptionFormat = 'full'
-        // showStandardStreams = true
-    }
-
-    afterTest { test, result ->
-        logger.lifecycle("testFinished: $test, result: $result.resultType")
-    }
-
-    doFirst {
-        def classesSize = candidateClassFiles.files.size()
-        logger.lifecycle("{} starts executing {} test classes {}",
-                path, classesSize, classesSize > 0? "(" + candidateClassFiles.files*.name[0] + ", ...)" : "")
-    }
 
     //all standard error messages from tests will get routed to 'DEBUG' level messages.
     //logging.captureStandardError(LogLevel.DEBUG)
     //all standard output messages from tests will get routed to 'DEBUG' level messages.
     //logging.captureStandardOutput(LogLevel.DEBUG)
 
-    //Set reasonable defaults for reports location
-    reports.html.destination = file("$project.buildDir/reports/$name")
-    reports.junitXml.destination = file("$project.buildDir/$name-results")
-
     //Set reasonable defaults classpath and classes dir. They can be reconfigured in an individual task.
-    it.testClassesDir = sourceSets.test.output.classesDir
-    classpath = sourceSets.test.runtimeClasspath
-
-    // Makes sure tests aren't marked "UP-TO-DATE" after running
-    outputs.upToDateWhen { false }
+//    it.testClassesDir = sourceSets.test.output.classesDir
+//    classpath = sourceSets.test.runtimeClasspath
 }
 
 task resetConfig() {
@@ -414,33 +414,38 @@ task junitRebalanceLong(type: Test) {
     include testClassesFrom(longTestSrcDir, '**/*Rebalance*Test.java')
 }
 
-task contribJunit(type: Test) {
-    description = "Run contrib junit tests except EC2 and Krati tests."
-    it.testClassesDir = file(contribClassesDir)
+task contribJunit(type:TestReport) {
+    // this populated below by depending on all the test tasks found
+    // in the subprojects.
+    destinationDir = file("$buildDir/reports/$name")
+}
 
-    exclude '**/*PerformanceTest.class'
-    exclude '**/*RemoteTest.class'
-    exclude '**/Ec2*Test.class'
-    exclude '**/Krati*Test.class'
-
-    classpath += sourceSets.contrib.runtimeClasspath + sourceSets.contrib.output
+subprojects {
+    tasks.withType(Test) {
+        // hook up the report to teh contrib task and junitAll
+        rootProject.contribJunit.reportOn it
+        rootProject.junitAll.reportOn it
+    }
 }
 
 task junitAll(type: TestReport) {
-    reportOn test, junitLong, contribJunit
+    reportOn test, junitLong
     destinationDir = file("$project.buildDir/reports/$name")
 }
+
 
 task aggregatedJunit(type: TestReport) {
     destinationDir = file("$project.buildDir/reports/$name")
 }
 
-tasks.withType(Test) {
-    finalizedBy aggregatedJunit
-    doLast { aggregatedJunit.reportOn it.binResultsDir }
+allprojects {
+    tasks.withType(Test) {
+        finalizedBy rootProject.aggregatedJunit
+        doLast { rootProject.aggregatedJunit.reportOn it }
+    }
 }
 
-task wrapper(type: Wrapper) { gradleVersion = '2.0' }
+task wrapper(type: Wrapper) { gradleVersion = '2.9' }
 
 dependencies {
     // Avro serialization format
@@ -564,8 +569,8 @@ dependencies {
     // Mocking framework used in some tests
     testCompile 'org.mockito:mockito-all:1.8.5'
 
-    contribCompile sourceSets.main.output
-    contribCompile sourceSets.test.output
+//    contribCompile sourceSets.main.output
+//    contribCompile sourceSets.test.output
 
     // declaring contribCompile dependencies as compile dependencies
     // otherwise while copying dependencies to lib directory
@@ -608,78 +613,80 @@ dependencies {
     compile 'org.bouncycastle:bcprov-jdk15on:1.48'
 }
 
-eclipse {
-    project {
-        buildCommand  'org.eclipse.jdt.core.javabuilder'
-    }
-    jdt {
-        // Currently the javac Version of jar is set to 1.5
-        // But @Override works differently between both, so overriding here
-        sourceCompatibility = targetCompatibility = 1.6
-    }
-    classpath {
-        defaultOutputDir = project.file('classes')
-        downloadSources=true
-        file {
-            // SourceSets creates multiple src/java in .classpath with varying includes
-            // But eclipse 4.3 is complaining about duplicate classpaths
-            // If contrib root is included instead of the seperate projects, eclipse
-            // expects the package to be different. ( contrib.restclient.test.voldemort.client
-            // versus voldemort.client ). So removing all the src entries and adding the previous
-            // src entries which used to work.
-            whenMerged { classpath ->
-                classpath.entries.removeAll { entry ->
-                    (entry.kind == 'src' )
-                }
-            }
-            withXml {
-                def node = it.asNode()
-                [
-                    "src/java",
-                    "contrib/hadoop-store-builder/test",
-                    "contrib/hadoop-store-builder/src/java",
-                    "test/unit",
-                    "test/integration",
-                    "test/common",
-                    "test/long",
-                    "example/java",
-                    "contrib/krati/src/java",
-                    "contrib/krati/test",
-                    "contrib/collections/src/java",
-                    "contrib/collections/test",
-                    "contrib/restclient/src/java",
-                    "contrib/restclient/test"
-                ]
-                .each{
-                    node.appendNode('classpathentry', [kind: 'src', path: "$it"])
-                }
-            }
+subprojects {
+    // this configures all the contrib subprojects
+    // note at the moment there dependencies are still
+    // declared in the dependency block above.
+    apply plugin:'java'
+    sourceSets {
+        // note that the contrib projects don't currently have resource
+        // directories so below is actually just a to keep idea & gradle from
+        // thinking that the test resources dir is src/test/resources
+        main {
+            java { srcDirs = ['src/java'] }
+            resources { srcDirs = ['src/resources'] }
         }
+        test {
+            java { srcDirs = ['test'] }
+            resources { srcDirs = ['testResources'] }
+        }
+    }
+    dependencies {
+        compile rootProject
+        // Used for unit tests and other automated testing
+        testCompile rootProject.sourceSets.test.runtimeClasspath
+    }
+
+    tasks.withType(Test) {
+        // this is required as the test utils expect the config directory
+        // to be at the root of the process working directory.
+        workingDir = rootProject.projectDir
     }
 }
 
-idea {
-  module {
-    downloadJavadoc = true
-    downloadSources = true
+allprojects {
+    apply plugin: 'idea'
+    apply plugin: 'eclipse'
 
-    // Generate source folders and test folders for contrib,
-    // so that we don't get warning: Wrong package statement
-    // in Intellij IDEA.
-    // Get all the sub directories
-    File[] subDirs = new File('contrib').listFiles()
-    for (File aFile : subDirs) {
-        String subDirPath = aFile.getPath()
-        String sourceFolder = subDirPath + '/src/java'
-        String testFolder = subDirPath + '/test'
-        // add those folders into 'sourceDirs' and 'testSourceDirs' respectively
-        if (new File(sourceFolder).exists()) {
-            sourceDirs += file(sourceFolder)
+    eclipse {
+        jdt {
+            // Currently the javac Version of jar is set to 1.5
+            // But @Override works differently between both, so overriding here
+            sourceCompatibility = targetCompatibility = 1.6
         }
-        if (new File(testFolder).exists()) {
-            testSourceDirs += file(testFolder)
+        classpath {
+            defaultOutputDir = project.file('classes') // overrides the default of /bin which is where our scripts are
+            downloadSources = true
+            file {
+                whenMerged { classpath ->
+                    // so for some reason the generated .classpath for the contrib projects includes
+                    // two copies of *most* (maybe all) of the libraries from the parent project
+                    // the following de-dupes these
+                    def duplicateLibs = classpath.entries
+                        .findAll { it.kind == 'lib' } // only library entries
+                        .groupBy { it.library }       // index by the library
+                        .findAll { it.value.size() > 1 } // only where there is more that a single entry
+
+                    duplicateLibs.each { k, v ->
+                        // pick one from the list of dupes ..prefering the one without a sourcelib path
+                        // else just take the first
+                        def toRemove = v.find { !it.sourcePath } ?: v.first()
+                        classpath.entries.remove toRemove
+                    }
+                    // also with for no reason contrib projects gets a source path configured
+                    // with the following path.. since this path doesn't exist eclipse complains
+                    classpath.entries.removeAll {
+                        it.kind == 'lib' && it.library.path.endsWith('build/resources/test')
+                    }
+                }
+            }
         }
     }
-  }
-}
 
+    idea {
+        module {
+            downloadJavadoc = true
+            downloadSources = true
+        }
+    }
+}
