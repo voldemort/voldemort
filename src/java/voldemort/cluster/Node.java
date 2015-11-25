@@ -153,16 +153,15 @@ public class Node implements Serializable, Comparable<Node> {
 
     @Override
     public String toString() {
-        return "Node " + getHost() + " Id:" + getId() + " in zone " + getZoneId()
-               + " partitionList:" + partitions;
+        return briefToString() + " in zone " + getZoneId() + " partitionList:" + partitions;
     }
 
     public String briefToString() {
-        return "Node " + getHost() + " [id " + getId() + "]";
+        return "Node " + getHost() + ":" + getSocketPort() + " [id " + getId() + "]";
     }
 
     public String getStateString() {
-        return "Node " + getHost() + " Id:" + getId() + " in zone " + getZoneId()
+        return briefToString() + " in zone " + getZoneId()
                + " with admin port " + getAdminPort() + ", socket port " + getSocketPort()
                + ", and http port " + getHttpPort();
     }
