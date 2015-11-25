@@ -1,3 +1,10 @@
+Release 1.10.5 on 11/25/2015
+* Extended voldemort shell to let "prelist" command show parition information.
+* Bug fix on python script used to generate cluster.xml.
+* Bug fix updating metadata version in cluster.xml and stores.xml.
+* Read-only improvements and fixes:
+  * Add replace URL of feching file to Voldemort node.
+
 Release 1.10.4 on 11/11/2015
 * The AdminClient in the VoldemortClientShell is now configurable.
 * Improved error messages in BnP and Read-Only server-side code.
