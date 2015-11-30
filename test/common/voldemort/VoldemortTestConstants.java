@@ -171,4 +171,12 @@ public class VoldemortTestConstants {
         return readString("config/single-store-322.xml");
     }
 
+    public static String getStoreWithExpandingName() {
+        return readString("config/single-store-expanding-name.xml");
+    }
+
+    public static String getWildcardViewStoreDefinitionXml() {
+        return readString("config/wildcard-store-view.xml");
+    }
+
 }

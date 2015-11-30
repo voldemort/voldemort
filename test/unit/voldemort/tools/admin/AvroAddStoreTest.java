@@ -149,7 +149,7 @@ public class AvroAddStoreTest {
         // backwards incompatible schema should fail
         try {
             logger.info("Now inserting stores with non backward compatible schema. Should see exception");
-            adminClient.storeMgmtOps.addStore(new StoreDefinitionsMapper().readStore(new StringReader(storeXmlWithBackwardIncompatibleSchema)));
+            adminClient.storeMgmtOps.addStore(readSingleStoreDefinition(storeXmlWithBackwardIncompatibleSchema));
             Assert.fail("Did not throw exception");
         } catch(VoldemortException e) {
 
@@ -158,7 +158,7 @@ public class AvroAddStoreTest {
         // invalid key schema should fail
         try {
             logger.info("Now inserting stores with int32 avro key. Should see exception");
-            adminClient.storeMgmtOps.addStore(new StoreDefinitionsMapper().readStore(new StringReader(storeXmlWithInvalidAvroKeySchema)));
+            adminClient.storeMgmtOps.addStore(readSingleStoreDefinition(storeXmlWithInvalidAvroKeySchema));
             Assert.fail("Did not throw exception for invalid key schema");
         } catch(VoldemortException e) {
             logger.error("As expected", e);
@@ -167,7 +167,7 @@ public class AvroAddStoreTest {
         // invalid value schema should fail
         try {
             logger.info("Now inserting stores with html characters in avro value schema");
-            adminClient.storeMgmtOps.addStore(new StoreDefinitionsMapper().readStore(new StringReader(storeXmlWithInvalidAvroValueSchema)));
+            adminClient.storeMgmtOps.addStore(readSingleStoreDefinition(storeXmlWithInvalidAvroValueSchema));
             Assert.fail("Did not throw exception for invalid value schema");
         } catch(VoldemortException e) {
             logger.error("As expected", e);
@@ -177,7 +177,7 @@ public class AvroAddStoreTest {
             assertNull(vs.getStoreRepository().getLocalStore("test"));
         }
         logger.info("Now inserting stores with backward compatible schema. Should not see exception");
-        adminClient.storeMgmtOps.addStore(new StoreDefinitionsMapper().readStore(new StringReader(storeXmlWithBackwardCompatibleSchema)));
+        adminClient.storeMgmtOps.addStore(readSingleStoreDefinition(storeXmlWithBackwardCompatibleSchema));
 
         for(VoldemortServer vs: vservers.values()) {
             assertNotNull(vs.getStoreRepository().getLocalStore("test"));
@@ -190,13 +190,13 @@ public class AvroAddStoreTest {
             assertNull(vs.getStoreRepository().getLocalStore("test"));
         }
         logger.info("Now inserting stores with backward compatible schema. Should not see exception");
-        adminClient.storeMgmtOps.addStore(new StoreDefinitionsMapper().readStore(new StringReader(storeXmlWithBackwardCompatibleSchema)));
+        adminClient.storeMgmtOps.addStore(readSingleStoreDefinition(storeXmlWithBackwardCompatibleSchema));
 
 
         try {
             logger.info("Now updating store with non backward compatible schema. Should see exception");
             List<StoreDefinition> stores = new ArrayList<StoreDefinition>();
-            stores.add(new StoreDefinitionsMapper().readStore(new StringReader(storeXmlWithBackwardIncompatibleSchema)));
+            stores.add(readSingleStoreDefinition(storeXmlWithBackwardIncompatibleSchema));
             adminClient.metadataMgmtOps.updateRemoteStoreDefList(stores);
             Assert.fail("Did not throw exception");
         } catch(VoldemortException e) {
@@ -217,5 +217,9 @@ public class AvroAddStoreTest {
         for(SocketStoreFactory ssf: socketStoreFactories.values()) {
             ssf.close();
         }
+    }
+
+    private StoreDefinition readSingleStoreDefinition(String storeXml) {
+        return new StoreDefinitionsMapper().readStore(new StringReader(storeXml)).get(0);
     }
 }

@@ -70,6 +70,7 @@
 		<xs:all>
 			<xs:element name="name" type="xs:token" minOccurs="1" maxOccurs="1"/>
 			<xs:element name="view-of" type="xs:token" minOccurs="1" maxOccurs="1"/>
+			<xs:element name="view-of-is-regexp" type="xs:token" minOccurs="0" maxOccurs="1"/>
 			<xs:element name="description" type="xs:token" minOccurs="0" maxOccurs="1" />
 			<xs:element name="owners" type="xs:token" minOccurs="0" maxOccurs="1" />
 			<xs:element name="routing" type="xs:token" minOccurs="0" maxOccurs="1"/>
