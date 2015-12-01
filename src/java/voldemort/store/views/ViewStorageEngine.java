@@ -188,7 +188,7 @@ public class ViewStorageEngine extends AbstractStorageEngine<ByteArray, byte[], 
         if(capability == StoreCapabilityType.VIEW_TARGET)
             return this.target;
         else
-            return null;
+            return super.getCapability(capability); // will result in a NoSuchCapabilityException thrown
     }
 
     // public void close() throws VoldemortException {}
