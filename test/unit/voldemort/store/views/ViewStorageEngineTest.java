@@ -1,14 +1,18 @@
 package voldemort.store.views;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import junit.framework.TestCase;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.StringSerializer;
 import voldemort.serialization.json.JsonTypeSerializer;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.utils.ByteArray;
@@ -137,6 +141,24 @@ public class ViewStorageEngineTest extends TestCase {
         view.put(1, Versioned.value(Arrays.asList(values2), clock1), Arrays.asList(filter3));
 
         assertEquals(12, view.get(1, Arrays.asList(filter3)).get(0).getValue().size());
+    }
+
+    public void testGetCapabilityThrowsNoSuchCapabilityException() {
+        Set<StoreCapabilityType> supportedCapabilities = EnumSet.of(StoreCapabilityType.VIEW_TARGET);
+
+        for (StoreCapabilityType capabilityType : StoreCapabilityType.values()) {
+            if (supportedCapabilities.contains(capabilityType)) {
+                assertNotNull("unexpected null value returned for StoreCapabilityType." + capabilityType,
+                        view.getCapability(capabilityType));
+            } else {
+                try {
+                    view.getCapability(StoreCapabilityType.DISABLE_STORE_VERSION);
+                    fail("Expected NoSuchCapabilityException to be thrown for StoreCapabilityType." + capabilityType);
+                } catch (NoSuchCapabilityException e) {
+                    // expected
+                }
+            }
+        }
     }
 
     /* A view that just adds or subtracts the given string */
