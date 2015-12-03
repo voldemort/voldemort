@@ -573,6 +573,9 @@ dependencies {
     
     // rocksdb from maven
     compile 'org.rocksdb:rocksdbjni:3.13.1'
+
+    // Bouncy Castle Libaray
+    compile 'org.bouncycastle:bcprov-jdk15on:1.48'
 }
 
 eclipse {

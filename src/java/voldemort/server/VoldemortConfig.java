@@ -180,6 +180,7 @@ public class VoldemortConfig implements Serializable {
     private long defaultStorageSpaceQuotaInKB;
     private String modifiedProtocol;
     private int modifiedPort;
+    private boolean bouncyCastleEnabled;
 
     public static final String PUSH_HA_ENABLED = "push.ha.enabled";
     private boolean highAvailabilityPushEnabled;
@@ -406,6 +407,7 @@ public class VoldemortConfig implements Serializable {
 
         this.modifiedProtocol = props.getString("readonly.modify.protocol", null);
         this.modifiedPort = props.getInt("readonly.modify.port", -1);
+        this.bouncyCastleEnabled = props.getBoolean("use.bouncycastle.for.ssl", false);
 
         this.highAvailabilityPushClusterId = props.getString(PUSH_HA_CLUSTER_ID, null);
         this.highAvailabilityPushLockPath = props.getString(PUSH_HA_LOCK_PATH, null);
@@ -3051,6 +3053,21 @@ public class VoldemortConfig implements Serializable {
         this.modifiedPort = modifiedPort;
     }
 
+    public boolean isBouncyCastleEnabled () {
+        return bouncyCastleEnabled;
+    }
+
+    /**
+     * Set whether use bouncy castle as JCE provider or not.
+     *
+     * <ul>
+     * <li>Property : "use.bouncycastle.for.ssl"</li>
+     * <li>Default : false</li>
+     * </ul>
+     */
+    public void setBouncyCastleEnabled (boolean bouncyCastleEnabled) {
+        this.bouncyCastleEnabled = bouncyCastleEnabled;
+    }
     public boolean isHighAvailabilityPushEnabled() {
         return highAvailabilityPushEnabled;
     }

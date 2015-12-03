@@ -21,12 +21,14 @@ import static voldemort.utils.Utils.croak;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
 import org.apache.log4j.Logger;
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.protocol.RequestFormatType;
@@ -90,6 +92,7 @@ public class VoldemortServer extends AbstractService {
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
+        this.enableBouncyCastleForSSL();
         this.storeRepository = new StoreRepository(config.isJmxEnabled());
         this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
                                                         voldemortConfig.getNodeId());
@@ -110,6 +113,7 @@ public class VoldemortServer extends AbstractService {
     public VoldemortServer(VoldemortConfig config, Cluster cluster) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
+        this.enableBouncyCastleForSSL();
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
 
         this.checkHostName();
@@ -138,6 +142,14 @@ public class VoldemortServer extends AbstractService {
 
         this.basicServices = createBasicServices();
         createOnlineServices();
+    }
+
+    private void enableBouncyCastleForSSL() {
+        if (voldemortConfig.isBouncyCastleEnabled()) {
+            // Use BouncySastleProvider as first choice. If BouncyCastleProvider had been inserted, it will not be
+            // inserted again.
+            Security.insertProviderAt(new BouncyCastleProvider(), 1);
+        }
     }
 
     public AsyncOperationService getAsyncRunner() {
