@@ -170,9 +170,10 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     public VoldemortBuildAndPushJob(String name, azkaban.utils.Props azkabanProps) {
         super(name, Logger.getLogger(name));
         this.log = getLog();
-        log.info("Job props.toString(): " + azkabanProps.toString());
 
         this.props = new Props(azkabanProps.toProperties());
+        log.info("Job props:\n" + this.props.toString(true));
+
         this.storeName = props.getString(PUSH_STORE_NAME).trim();
         this.clusterURLs = new ArrayList<String>();
         this.dataDirs = new ArrayList<String>();

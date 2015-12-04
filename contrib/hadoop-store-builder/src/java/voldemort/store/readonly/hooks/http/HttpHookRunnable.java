@@ -49,8 +49,7 @@ class HttpHookRunnable implements Runnable {
             if (contentType != null)
                 conn.setRequestProperty("Content-Type", contentType);
 
-            if (log.isDebugEnabled())
-                log.debug("HttpHook [" + hookName + "] will send " + httpMethod.name() + " request to " + urlToCall + " with body: " + requestBody);
+            log.info("HttpHook [" + hookName + "] will send " + httpMethod.name() + " request to " + urlToCall + " with body: " + requestBody);
 
             if (requestBody != null) {
                 conn.setRequestProperty("Content-Length", String.valueOf(requestBody.length()));
@@ -91,26 +90,24 @@ class HttpHookRunnable implements Runnable {
      * @param inputStream
      */
     protected void handleResponse(int responseCode, InputStream inputStream) {
-        if(log.isDebugEnabled()) {
-            BufferedReader rd = null;
-            try {
-                // Buffer the result into a string
-                rd = new BufferedReader(new InputStreamReader(inputStream));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while((line = rd.readLine()) != null) {
-                    sb.append(line);
-                }
-                log.debug("HttpHook [" + hookName + "] received " + responseCode + " response: " + sb);
-            } catch (IOException e) {
-                log.debug("Error while reading response for HttpHook [" + hookName + "]", e);
-            } finally {
-                if (rd != null) {
-                    try {
-                        rd.close();
-                    } catch (IOException e) {
-                        // no-op
-                    }
+        BufferedReader rd = null;
+        try {
+            // Buffer the result into a string
+            rd = new BufferedReader(new InputStreamReader(inputStream));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while((line = rd.readLine()) != null) {
+                sb.append(line);
+            }
+            log.info("HttpHook [" + hookName + "] received " + responseCode + " response: " + sb);
+        } catch (IOException e) {
+            log.error("Error while reading response for HttpHook [" + hookName + "]", e);
+        } finally {
+            if (rd != null) {
+                try {
+                    rd.close();
+                } catch (IOException e) {
+                    // no-op
                 }
             }
         }
