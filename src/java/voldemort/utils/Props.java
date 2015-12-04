@@ -312,12 +312,28 @@ public class Props implements Map<String, String> {
 
     @Override
     public String toString() {
+        return toString(false);
+    }
+
+    public String toString(boolean oneLinePerEntry) {
         StringBuilder builder = new StringBuilder("{");
+        boolean firstLine = true;
         for(Entry<String, String> entry: this.props.entrySet()) {
+            if (oneLinePerEntry) {
+                builder.append("\n\t");
+            } else {
+                if (firstLine) {
+                    firstLine = false;
+                } else {
+                    builder.append(", ");
+                }
+            }
             builder.append(entry.getKey());
             builder.append(": ");
             builder.append(entry.getValue());
-            builder.append(", ");
+        }
+        if (oneLinePerEntry) {
+            builder.append("\n");
         }
         builder.append("}");
         return builder.toString();
