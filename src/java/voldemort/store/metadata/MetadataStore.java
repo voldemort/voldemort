@@ -46,6 +46,7 @@ import voldemort.cluster.Cluster;
 import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.server.ServerState;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StorageEngine;
@@ -59,6 +60,7 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
@@ -260,7 +262,10 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
 
         Store<String, String, String> innerStore = new ConfigurationStorageEngine(MetadataStore.METADATA_STORE_NAME,
                                                                                   dir.getAbsolutePath());
-        return new MetadataStore(innerStore, storesEngine, nodeId);
+        MetadataStore store = new MetadataStore(innerStore, storesEngine, nodeId);
+        ServerState state = new ServerState(store);
+        JmxUtils.registerMbean(state.getClass().getCanonicalName(), state);
+        return store;
     }
 
     @Override
@@ -662,7 +667,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         // acquire read lock
         readLock.lock();
         try {
-            return VoldemortState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
+            return getServerStateUnlocked();
         } finally {
             readLock.unlock();
 
@@ -679,12 +684,9 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         // acquire read lock
         readLock.lock();
         try {
-            return Boolean.parseBoolean(metadataCache.get(SLOP_STREAMING_ENABLED_KEY)
-                                                     .getValue()
-                                                     .toString());
+            return getSlopStreamingEnabledUnlocked();
         } finally {
             readLock.unlock();
-
         }
     }
 
@@ -700,12 +702,9 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         // acquire read lock
         readLock.lock();
         try {
-            return Boolean.parseBoolean(metadataCache.get(PARTITION_STREAMING_ENABLED_KEY)
-                                                     .getValue()
-                                                     .toString());
+            return getPartitionStreamingEnabledUnlocked();
         } finally {
             readLock.unlock();
-
         }
     }
 
@@ -721,12 +720,9 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         // acquire read lock
         readLock.lock();
         try {
-            return Boolean.parseBoolean(metadataCache.get(READONLY_FETCH_ENABLED_KEY)
-                                                     .getValue()
-                                                     .toString());
+            return getReadOnlyFetchEnabledUnlocked();
         } finally {
             readLock.unlock();
-
         }
     }
 
@@ -742,9 +738,7 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
         // acquire read lock
         readLock.lock();
         try {
-            return Boolean.parseBoolean(metadataCache.get(QUOTA_ENFORCEMENT_ENABLED_KEY)
-                                                     .getValue()
-                                                     .toString());
+            return getQuotaEnforcingEnabledUnlocked();
         } finally {
             readLock.unlock();
 
@@ -752,11 +746,9 @@ public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte
     }
 
     public boolean getQuotaEnforcingEnabledUnlocked() {
-
         return Boolean.parseBoolean(metadataCache.get(QUOTA_ENFORCEMENT_ENABLED_KEY)
                                                  .getValue()
                                                  .toString());
-
     }
 
     public RebalancerState getRebalancerState() {
