@@ -1,5 +1,11 @@
+Release 1.10.6 on 12/08/2015
+* BnP loggin improvements
+* Option to use BouncyCastle for encryption/decryption, instead of JCE
+* JMX Metrics for tracking Server state
+* Enable BnP HA only on Connection errors
+
 Release 1.10.5 on 11/25/2015
-* Extended voldemort shell to let "prelist" command show parition information.
+* Extended voldemort shell to let "preflist" command show parition information.
 * Bug fix on python script used to generate cluster.xml.
 * Bug fix updating metadata version in cluster.xml and stores.xml.
 * Read-only improvements and fixes:
