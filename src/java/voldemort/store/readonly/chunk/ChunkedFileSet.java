@@ -255,16 +255,87 @@ public class ChunkedFileSet {
 
                     List<Integer> routingPartitionList = routingStrategy.getReplicatingPartitionList(partitionId);
 
+                    // Determine if we should host this partition, and if so, whether we are a primary,
+                    // secondary or n-ary replica for it
+                    int correctReplicaType = -1;
+                    for (int replica = 0; replica < routingPartitionList.size(); replica++) {
+                        if(nodePartitionIds.contains(routingPartitionList.get(replica))) {
+                            // This means the partitionId currently being iterated on should be hosted
+                            // by this node. Let's remember its replica type in order to make sure the
+                            // files we have are properly named.
+                            correctReplicaType = replica;
+                            break;
+                        }
+                    }
+
+                    if (correctReplicaType == -1) {
+                        // Then the partitionId currently being iterated on does not belong on this
+                        // node at all (i.e.: we host none of its replicas).
+                        break;
+                    }
+
+                    /**
+                     * First, we want to look for files with the "wrong" replica type in their name,
+                     * so we can rename them.
+                     *
+                     * Those files may have ended up on this server either because:
+                     *  - 1. We restored them from another server, where they were named according to
+                     *       another replica type. Or,
+                     *  - 2. The {@link voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob}
+                     *       and the {@link voldemort.store.readonly.fetcher.HdfsFetcher} are
+                     *       operating in 'build.primary.replicas.only' mode, so they only ever built
+                     *       and fetched replica 0 of any given file.
+                     */
+                    for (int replica = 0; replica < routingPartitionList.size(); replica++) {
+                        if (replica != correctReplicaType) {
+                            int chunkId = 0;
+                            while(true) {
+                                String fileName = Integer.toString(routingPartitionList.get(0)) + "_"
+                                        + Integer.toString(replica) + "_"
+                                        + Integer.toString(chunkId);
+                                File index = getIndexFile(fileName);
+                                File data = getDataFile(fileName);
+
+                                if(index.exists() && data.exists()) {
+                                    // We found files with the "wrong" replica type, so let's rename them
+
+                                    String correctFileName = Integer.toString(routingPartitionList.get(0)) + "_"
+                                            + Integer.toString(correctReplicaType) + "_"
+                                            + Integer.toString(chunkId);
+                                    File indexWithCorrectReplicaType = getIndexFile(correctFileName);
+                                    File dataWithCorrectReplicaType = getDataFile(correctFileName);
+
+                                    Utils.move(index, indexWithCorrectReplicaType);
+                                    Utils.move(data, dataWithCorrectReplicaType);
+
+                                    // Maybe change this to DEBUG?
+                                    logger.info("Renamed files with wrong replica type: " +
+                                                index.getAbsolutePath() + "|data -> " +
+                                                indexWithCorrectReplicaType.getName() + "|data");
+                                } else if(index.exists() ^ data.exists()) {
+                                    throw new VoldemortException("One of the following does not exist: "
+                                                                 + index.toString()
+                                                                 + " or "
+                                                                 + data.toString() + ".");
+                                } else {
+                                    // The files don't exist, or we've gone over all available chunks,
+                                    // so let's move on.
+                                    break;
+                                }
+                                chunkId++;
+                            }
+                        }
+                    }
+
                     // Find intersection with nodes partition ids
                     Pair<Integer, Integer> bucket = null;
-                    for(int replicatingPartition = 0; replicatingPartition < routingPartitionList.size(); replicatingPartition++) {
+                    for(int replica = 0; replica < routingPartitionList.size(); replica++) {
 
-                        if(nodePartitionIds.contains(routingPartitionList.get(replicatingPartition))) {
+                        if(nodePartitionIds.contains(routingPartitionList.get(replica))) {
                             if(bucket == null) {
 
                                 // Generate bucket information
-                                bucket = Pair.create(routingPartitionList.get(0),
-                                                     replicatingPartition);
+                                bucket = Pair.create(routingPartitionList.get(0), replica);
 
                                 int chunkId = 0;
                                 while(true) {
@@ -284,12 +355,12 @@ public class ChunkedFileSet {
                                                 logger.info("No index or data files found, creating empty files for partition "
                                                             + routingPartitionList.get(0)
                                                             + " and replicating partition "
-                                                            + replicatingPartition);
+                                                            + replica);
                                             } catch(IOException e) {
                                                 throw new VoldemortException("Error creating empty read-only files for partition "
-                                                                                     + routingPartitionList.get(0)
-                                                                                     + " and replicating partition "
-                                                                                     + replicatingPartition,
+                                                                             + routingPartitionList.get(0)
+                                                                             + " and replicating partition "
+                                                                             + replica,
                                                                              e);
                                             }
                                         } else {

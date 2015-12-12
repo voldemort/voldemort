@@ -25,6 +25,9 @@ public class ReadOnlyUtils {
     public static final String INDEX_FILE_EXTENSION = ".index";
     public static final String DATA_FILE_EXTENSION = ".data";
     public static final String METADATA_FILE_EXTENSION = ".metadata";
+    public static final String FULL_STORE_METADATA_FILE = "full-store" + METADATA_FILE_EXTENSION;
+    public static final String PARTITION_DIRECTORY_PREFIX = "partition-";
+    public static final String NODE_DIRECTORY_PREFIX = "node-";
 
     private static Logger logger = Logger.getLogger(ReadOnlyUtils.class);
 

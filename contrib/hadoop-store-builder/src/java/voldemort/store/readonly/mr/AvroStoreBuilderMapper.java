@@ -19,7 +19,6 @@ package voldemort.store.readonly.mr;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,14 +27,11 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.Pair;
-import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
 import org.apache.hadoop.mapred.Reporter;
 
 import voldemort.VoldemortException;
-import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
@@ -44,10 +40,7 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.avro.AvroGenericSerializer;
 import voldemort.serialization.avro.versioned.AvroVersionedGenericSerializer;
 import voldemort.store.StoreDefinition;
-import voldemort.store.compress.CompressionStrategy;
-import voldemort.store.compress.CompressionStrategyFactory;
-import voldemort.utils.ByteUtils;
-import voldemort.xml.ClusterMapper;
+import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.xml.StoreDefinitionsMapper;
 
 /**
@@ -57,7 +50,9 @@ import voldemort.xml.StoreDefinitionsMapper;
 public class AvroStoreBuilderMapper extends
         AvroMapper<GenericData.Record, Pair<ByteBuffer, ByteBuffer>> implements JobConfigurable {
 
-    protected MessageDigest md5er;
+    protected BuildAndPushMapper mapper = new BuildAndPushMapper();
+    private AvroCollectorWrapper collectorWrapper = new AvroCollectorWrapper();
+
     protected ConsistentRoutingStrategy routingStrategy;
     protected Serializer keySerializer;
     protected Serializer valueSerializer;
@@ -68,10 +63,37 @@ public class AvroStoreBuilderMapper extends
     private String keyField;
     private String valField;
 
-    private CompressionStrategy valueCompressor;
-    private CompressionStrategy keyCompressor;
     private SerializerDefinition keySerializerDefinition;
     private SerializerDefinition valueSerializerDefinition;
+
+    class AvroCollectorWrapper
+            extends AbstractCollectorWrapper<AvroCollector<Pair<ByteBuffer, ByteBuffer>>> {
+        ByteBuffer keyBB, valueBB;
+        Pair<ByteBuffer, ByteBuffer> pairToCollect = new Pair<ByteBuffer, ByteBuffer>(keyBB, valueBB);
+        private static final boolean MINIMIZE_ALLOCATIONS = true;
+
+        @Override
+        public void collect(byte[] key, byte[] value) throws IOException {
+            if (!MINIMIZE_ALLOCATIONS || keyBB == null || keyBB.capacity() < key.length) {
+                keyBB = ByteBuffer.wrap(key);
+            } else {
+                keyBB.position(0);
+                keyBB.limit(key.length);
+                keyBB.put(key);
+                keyBB.position(0);
+            }
+            if (!MINIMIZE_ALLOCATIONS || valueBB == null || valueBB.capacity() < value.length) {
+                valueBB = ByteBuffer.wrap(value);
+            } else {
+                valueBB.position(0);
+                valueBB.limit(value.length);
+                valueBB.put(value);
+                valueBB.position(0);
+            }
+            pairToCollect.set(keyBB, valueBB);
+            getCollector().collect(pairToCollect);
+        }
+    }
 
     /**
      * Create the voldemort key and value from the input Avro record by
@@ -90,135 +112,21 @@ public class AvroStoreBuilderMapper extends
         byte[] keyBytes = keySerializer.toBytes(record.get(keyField));
         byte[] valBytes = valueSerializer.toBytes(record.get(valField));
 
-        // Compress key and values if required
-        if(keySerializerDefinition.hasCompression()) {
-            keyBytes = keyCompressor.deflate(keyBytes);
-        }
-
-        if(valueSerializerDefinition.hasCompression()) {
-            valBytes = valueCompressor.deflate(valBytes);
-        }
-
-        // Get the output byte arrays ready to populate
-        byte[] outputValue;
-        BytesWritable outputKey;
-
-        // Leave initial offset for (a) node id (b) partition id
-        // since they are written later
-        int offsetTillNow = 2 * ByteUtils.SIZE_OF_INT;
-
-        if(getSaveKeys()) {
-
-            // In order - 4 ( for node id ) + 4 ( partition id ) + 1 (
-            // replica
-            // type - primary | secondary | tertiary... ] + 4 ( key size )
-            // size ) + 4 ( value size ) + key + value
-            outputValue = new byte[valBytes.length + keyBytes.length + ByteUtils.SIZE_OF_BYTE + 4
-                                   * ByteUtils.SIZE_OF_INT];
-
-            // Write key length - leave byte for replica type
-            offsetTillNow += ByteUtils.SIZE_OF_BYTE;
-            ByteUtils.writeInt(outputValue, keyBytes.length, offsetTillNow);
-
-            // Write value length
-            offsetTillNow += ByteUtils.SIZE_OF_INT;
-            ByteUtils.writeInt(outputValue, valBytes.length, offsetTillNow);
-
-            // Write key
-            offsetTillNow += ByteUtils.SIZE_OF_INT;
-            System.arraycopy(keyBytes, 0, outputValue, offsetTillNow, keyBytes.length);
-
-            // Write value
-            offsetTillNow += keyBytes.length;
-            System.arraycopy(valBytes, 0, outputValue, offsetTillNow, valBytes.length);
-
-            // Generate MR key - upper 8 bytes of 16 byte md5
-            outputKey = new BytesWritable(ByteUtils.copy(md5er.digest(keyBytes),
-                                                         0,
-                                                         2 * ByteUtils.SIZE_OF_INT));
-
-        } else {
-
-            // In order - 4 ( for node id ) + 4 ( partition id ) + value
-            outputValue = new byte[valBytes.length + 2 * ByteUtils.SIZE_OF_INT];
-
-            // Write value
-            System.arraycopy(valBytes, 0, outputValue, offsetTillNow, valBytes.length);
-
-            // Generate MR key - 16 byte md5
-            outputKey = new BytesWritable(md5er.digest(keyBytes));
-
-        }
-
-        // Generate partition and node list this key is destined for
-        List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
-        Node[] partitionToNode = routingStrategy.getPartitionToNode();
-
-        for(int replicaType = 0; replicaType < partitionList.size(); replicaType++) {
-
-            // Node id
-            ByteUtils.writeInt(outputValue,
-                               partitionToNode[partitionList.get(replicaType)].getId(),
-                               0);
-
-            if(getSaveKeys()) {
-                // Primary partition id
-                ByteUtils.writeInt(outputValue, partitionList.get(0), ByteUtils.SIZE_OF_INT);
-
-                // Replica type
-                ByteUtils.writeBytes(outputValue,
-                                     replicaType,
-                                     2 * ByteUtils.SIZE_OF_INT,
-                                     ByteUtils.SIZE_OF_BYTE);
-            } else {
-                // Partition id
-                ByteUtils.writeInt(outputValue,
-                                   partitionList.get(replicaType),
-                                   ByteUtils.SIZE_OF_INT);
-            }
-            BytesWritable outputVal = new BytesWritable(outputValue);
-
-            ByteBuffer keyBuffer = null, valueBuffer = null;
-
-            byte[] md5KeyBytes = outputKey.getBytes();
-            keyBuffer = ByteBuffer.allocate(md5KeyBytes.length);
-            keyBuffer.put(md5KeyBytes);
-            keyBuffer.rewind();
-
-            valueBuffer = ByteBuffer.allocate(outputValue.length);
-            valueBuffer.put(outputValue);
-            valueBuffer.rewind();
-
-            Pair<ByteBuffer, ByteBuffer> p = new Pair<ByteBuffer, ByteBuffer>(keyBuffer,
-                                                                              valueBuffer);
-
-            collector.collect(p);
-        }
-        md5er.reset();
+        this.collectorWrapper.setCollector(collector);
+        this.mapper.map(keyBytes, valBytes, this.collectorWrapper);
     }
 
     @Override
     public void configure(JobConf conf) {
-
         super.setConf(conf);
-        // from parent code
 
-        md5er = ByteUtils.getDigest("md5");
+        this.mapper.configure(conf);
 
-        this.cluster = new ClusterMapper().readCluster(new StringReader(conf.get("cluster.xml")));
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(conf.get("stores.xml")));
 
         if(storeDefs.size() != 1)
             throw new IllegalStateException("Expected to find only a single store, but found multiple!");
         this.storeDef = storeDefs.get(0);
-
-        this.numChunks = conf.getInt("num.chunks", -1);
-        if(this.numChunks < 1)
-            throw new VoldemortException("num.chunks not specified in the job conf.");
-
-        this.saveKeys = conf.getBoolean("save.keys", true);
-        this.reducerPerBucket = conf.getBoolean("reducer.per.bucket", false);
-
         keySerializerDefinition = getStoreDef().getKeySerializer();
         valueSerializerDefinition = getStoreDef().getValueSerializer();
 
@@ -233,14 +141,14 @@ public class AvroStoreBuilderMapper extends
             keySerializer = factory.getSerializer(keySerializerDefinition);
             valueSerializer = factory.getSerializer(valueSerializerDefinition);
 
-            keyField = conf.get("avro.key.field");
+            keyField = conf.get(VoldemortBuildAndPushJob.AVRO_KEY_FIELD);
 
-            valField = conf.get("avro.value.field");
+            valField = conf.get(VoldemortBuildAndPushJob.AVRO_VALUE_FIELD);
 
             keySchema = conf.get("avro.key.schema");
             valSchema = conf.get("avro.val.schema");
 
-            if(keySerializerDefinition.getName().equals("avro-generic")) {
+            if(keySerializerDefinition.getName().equals(DefaultSerializerFactory.AVRO_GENERIC_TYPE_NAME)) {
                 keySerializer = new AvroGenericSerializer(keySchema);
                 valueSerializer = new AvroGenericSerializer(valSchema);
             } else {
@@ -268,50 +176,16 @@ public class AvroStoreBuilderMapper extends
         } catch(Exception e) {
             throw new RuntimeException(e);
         }
-
-        keyCompressor = new CompressionStrategyFactory().get(keySerializerDefinition.getCompression());
-        valueCompressor = new CompressionStrategyFactory().get(valueSerializerDefinition.getCompression());
-
-        routingStrategy = new ConsistentRoutingStrategy(getCluster(),
-                                                        getStoreDef().getReplicationFactor());
     }
-
-    private int numChunks;
-    private Cluster cluster;
     private StoreDefinition storeDef;
-    private boolean saveKeys;
-    private boolean reducerPerBucket;
-
-    public Cluster getCluster() {
-        checkNotNull(cluster);
-        return cluster;
-    }
-
-    public boolean getSaveKeys() {
-        return this.saveKeys;
-    }
-
-    public boolean getReducerPerBucket() {
-        return this.reducerPerBucket;
-    }
 
     public StoreDefinition getStoreDef() {
         checkNotNull(storeDef);
         return storeDef;
     }
 
-    public String getStoreName() {
-        checkNotNull(storeDef);
-        return storeDef.getName();
-    }
-
     private final void checkNotNull(Object o) {
         if(o == null)
             throw new VoldemortException("Not configured yet!");
     }
-
-    public int getNumChunks() {
-        return this.numChunks;
-    }
-
 }

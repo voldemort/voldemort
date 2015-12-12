@@ -84,7 +84,8 @@ public class BuildTestStore extends Configured implements Tool {
                 (long) (1.5 * 1024 * 1024 * 1024),
                 -1,
                 false,
-                null);
+                null,
+                false);
         builder.build();
         return 0;
     }

@@ -15,6 +15,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 
 import voldemort.TestUtils;
+import voldemort.VoldemortException;
 import voldemort.utils.ByteUtils;
 
 
@@ -70,7 +71,7 @@ public class ReadOnlyTestUtils {
             fileOutputStream.close();
 
         } catch(IOException ex) {
-            ex.printStackTrace();
+            throw new VoldemortException("Got IOException while trying to un-gzip file: " + compressedFile, ex);
         }
     }
 

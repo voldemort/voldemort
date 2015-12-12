@@ -19,6 +19,7 @@ package voldemort.store.readonly.mr;
 import static org.junit.Assert.fail;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -152,24 +153,33 @@ public class HadoopStoreBuilderTest {
                                                           .setRequiredWrites(1)
                                                           .build();
         HadoopStoreBuilder builder = new HadoopStoreBuilder(new Configuration(),
-                                       TextStoreMapper.class,
-                                       TextInputFormat.class,
-                                       cluster,
-                                       def,
-                                       new Path(tempDir.getAbsolutePath()),
-                                       new Path(outputDir.getAbsolutePath()),
-                                       new Path(inputFile.getAbsolutePath()),
-                                       CheckSumType.MD5,
-                                       saveKeys,
-                                       false,
-                                       64 * 1024,
-                                       -1,
-                                       false,
-                                       0L);
+                                                            TextStoreMapper.class,
+                                                            TextInputFormat.class,
+                                                            cluster,
+                                                            def,
+                                                            new Path(tempDir.getAbsolutePath()),
+                                                            new Path(outputDir.getAbsolutePath()),
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.MD5,
+                                                            saveKeys,
+                                                            false,
+                                                            64 * 1024,
+                                                            -1,
+                                                            false,
+                                                            0L,
+                                                            false);
         builder.build();
 
+        File[] nodeDirectories = outputDir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                // We are only interested in counting directories, not files.
+                return pathname.isDirectory();
+            }
+        });
+
         // Should not produce node--1 directory + have one folder for every node
-        Assert.assertEquals(cluster.getNumberOfNodes(), outputDir.listFiles().length);
+        Assert.assertEquals(cluster.getNumberOfNodes(), nodeDirectories.length);
         for(File f: outputDir.listFiles()) {
             Assert.assertFalse(f.toString().contains("node--1"));
         }
@@ -218,40 +228,40 @@ public class HadoopStoreBuilderTest {
                                                           .setPreferredWrites(1)
                                                           .setRequiredWrites(1)
                                                           .build();
-        HadoopStoreBuilder builder = new HadoopStoreBuilder(
-                new Configuration(),
-                TextStoreMapper.class,
-                TextInputFormat.class,
-                cluster,
-                def,
-                new Path(tempDir2.getAbsolutePath()),
-                new Path(outputDir2.getAbsolutePath()),
-                new Path(inputFile.getAbsolutePath()),
-                CheckSumType.MD5,
-                saveKeys,
-                false,
-                64 * 1024,
-                -1,
-                false,
-                null);
+        HadoopStoreBuilder builder = new HadoopStoreBuilder(new Configuration(),
+                                                            TextStoreMapper.class,
+                                                            TextInputFormat.class,
+                                                            cluster,
+                                                            def,
+                                                            new Path(tempDir2.getAbsolutePath()),
+                                                            new Path(outputDir2.getAbsolutePath()),
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.MD5,
+                                                            saveKeys,
+                                                            false,
+                                                            64 * 1024,
+                                                            -1,
+                                                            false,
+                                                            null,
+                                                            false);
         builder.build();
 
-        builder = new HadoopStoreBuilder(
-                new Configuration(),
-                TextStoreMapper.class,
-                TextInputFormat.class,
-                cluster,
-                def,
-                new Path(tempDir.getAbsolutePath()),
-                new Path(outputDir.getAbsolutePath()),
-                new Path(inputFile.getAbsolutePath()),
-                CheckSumType.MD5,
-                saveKeys,
-                false,
-                64 * 1024,
-                -1,
-                false,
-                null);
+        builder = new HadoopStoreBuilder(new Configuration(),
+                                         TextStoreMapper.class,
+                                         TextInputFormat.class,
+                                         cluster,
+                                         def,
+                                         new Path(tempDir.getAbsolutePath()),
+                                         new Path(outputDir.getAbsolutePath()),
+                                         new Path(inputFile.getAbsolutePath()),
+                                         CheckSumType.MD5,
+                                         saveKeys,
+                                         false,
+                                         64 * 1024,
+                                         -1,
+                                         false,
+                                         null,
+                                         false);
         builder.build();
 
         // Check if checkSum is generated in outputDir
@@ -259,24 +269,27 @@ public class HadoopStoreBuilderTest {
 
         // Check if metadata file exists
         File metadataFile = new File(nodeFile, ".metadata");
-        Assert.assertTrue(metadataFile.exists());
+        Assert.assertTrue("Metadata file should exist!", metadataFile.exists());
 
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata(metadataFile);
         if(saveKeys)
-            Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
+            Assert.assertEquals("In saveKeys mode, the metadata format should be READONLY_V2!",
+                                metadata.get(ReadOnlyStorageMetadata.FORMAT),
                                 ReadOnlyStorageFormat.READONLY_V2.getCode());
         else
-            Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
+            Assert.assertEquals("In legacy mode (saveKeys==false), the metadata format should be READONLY_V1!",
+                                metadata.get(ReadOnlyStorageMetadata.FORMAT),
                                 ReadOnlyStorageFormat.READONLY_V1.getCode());
 
-        Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE),
+        Assert.assertEquals("Checksum type should be MD5!",
+                            metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE),
                             CheckSum.toString(CheckSumType.MD5));
 
         // Check contents of checkSum file
         byte[] md5 = Hex.decodeHex(((String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM)).toCharArray());
         byte[] checkSumBytes = CheckSumTests.calculateCheckSum(nodeFile.listFiles(),
                                                                CheckSumType.MD5);
-        Assert.assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
+        Assert.assertEquals("Checksum is not as excepted!", 0, ByteUtils.compare(checkSumBytes, md5));
 
         // check if fetching works
         HdfsFetcher fetcher = new HdfsFetcher();
@@ -284,7 +297,7 @@ public class HadoopStoreBuilderTest {
         // Fetch to version directory
         File versionDir = new File(storeDir, "version-0");
         fetcher.fetch(nodeFile.getAbsolutePath(), versionDir.getAbsolutePath());
-        Assert.assertTrue(versionDir.exists());
+        Assert.assertTrue("Version directory should exist!", versionDir.exists());
 
         // open store
         @SuppressWarnings("unchecked")

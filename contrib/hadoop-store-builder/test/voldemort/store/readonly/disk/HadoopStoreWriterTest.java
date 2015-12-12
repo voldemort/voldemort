@@ -20,32 +20,43 @@ import org.junit.runners.Parameterized.Parameters;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.checksum.CheckSum;
+import voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob;
 import voldemort.store.readonly.utils.ReadOnlyTestUtils;
+import voldemort.utils.ByteUtils;
+import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 @RunWith(Parameterized.class)
 /**
  * Tight assumptions this test makes: nodeId = 1, partitionId = 1,
- * replicaType = 1, chunkId = 1
+ * replicaType = 1
  *
- * So files generated will be either 1_1_1.data (if saveKeys == true) or
- * 1_1.data (if saveKeys == false)
+ * Number of chunks = 2
+ *
+ * So files generated will be like:
+ * (if saveKeys == true){
+ *   1_1_<chunkId>.data // where chunkId can be 0 or 1 since num of chunks = 2.
+ * }else{
+ *   1_<chunkId>.data // where chunkId can be 0 or 1 since num of chunks = 2.
+ * }
  *
  * The only compression type allowed is gzip.
  *
  *
- * Also this test suite does not check for checksum types. It assuems a
+ * Also this test suite does not check for checksum types. It assumes a
  * default checksum type of NONE
  */
 public class HadoopStoreWriterTest {
 
     private JobConf conf = null;
-    private HadoopStoreWriter hadoopStoreWriter = null;
+    private HadoopStoreWriter hadoopStoreWriterPerBucket = null;
     File tmpOutPutDirectory = null;
-    BytesWritable globalKey;
-    ArrayList<BytesWritable> globalValueList;
+    BytesWritable Key1;
+    ArrayList<BytesWritable> valueList1;
     boolean saveKeys;
     File dataFile, indexFile;
+    int numChunks = 2;
 
     @Parameters
     public static Collection<Object[]> configs() {
@@ -61,7 +72,7 @@ public class HadoopStoreWriterTest {
 
         // Setup before each test method
         conf = new JobConf();
-        conf.setInt("num.chunks", 1);
+        conf.setInt(VoldemortBuildAndPushJob.NUM_CHUNKS, 2);
         conf.set("final.output.dir", tmpOutPutDirectory.getAbsolutePath());
         conf.set("mapred.output.dir", tmpOutPutDirectory.getAbsolutePath());
         conf.set("mapred.task.id", "1234");
@@ -70,13 +81,14 @@ public class HadoopStoreWriterTest {
          * We dont have to test different types of checksums. thats covered in
          * seperate unit test
          */
-        conf.set("checksum.type", "NONE");
+        conf.set(VoldemortBuildAndPushJob.CHECKSUM_TYPE, CheckSum.CheckSumType.NONE.name());
 
         // generate a list of storeDefinitions.
         List<StoreDefinition> storeDefList = ServerTestUtils.getStoreDefs(1);
         String storesXML = new StoreDefinitionsMapper().writeStoreList(storeDefList);
         conf.set("stores.xml", storesXML);
-
+        String clusterXML = new ClusterMapper().writeCluster(ServerTestUtils.getLocalCluster(1));
+        conf.set("cluster.xml", clusterXML);
     }
 
     private void cleanUp() throws IOException {
@@ -85,26 +97,34 @@ public class HadoopStoreWriterTest {
         }
     }
 
-    private BytesWritable generateKey(String key) {
-        byte[] keyBytes = key.getBytes();
+    private BytesWritable generateKey(String key, int chunkId) {
+        int keyLength = key.getBytes().length;
+        byte[] keyBytes = new byte[ByteUtils.SIZE_OF_INT + keyLength];
+        ByteUtils.writeInt(keyBytes, chunkId, 0);
+        System.arraycopy(key.getBytes(), 0, keyBytes, ByteUtils.SIZE_OF_INT, keyLength);
         return new BytesWritable(keyBytes);
     }
 
-    private void generateUnCompressedFiles(boolean saveKeys) throws IOException {
-        conf.setBoolean("save.keys", saveKeys);
-        conf.setBoolean("reducer.output.compress", false);
-        hadoopStoreWriter = new HadoopStoreWriter(conf);
-        String key = "test_key_1";
-        String value = "test_value_1";
-        globalKey = generateKey(key);
-        globalValueList = ReadOnlyTestUtils.generateValues(key, value, saveKeys);
-        hadoopStoreWriter.write(globalKey, globalValueList.iterator(), null);
-        hadoopStoreWriter.close();
+    private void generateUnCompressedFiles(boolean saveKeys, int numChunks) throws IOException {
+        conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
+        conf.setBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, false);
+        hadoopStoreWriterPerBucket = new HadoopStoreWriter(conf);
+
+        for(int i = 0; i < numChunks; i++) {
+            String key = "test_key_" + i;
+            String value = "test_value_" + i;
+
+            Key1 = generateKey(key, i);
+            valueList1 = ReadOnlyTestUtils.generateValues(key, value, saveKeys);
+
+            hadoopStoreWriterPerBucket.write(Key1, valueList1.iterator(), null);
+        }
+        hadoopStoreWriterPerBucket.close();
     }
 
-    private void generateExpectedDataAndIndexFileNames(boolean isGzipCompressed) {
+    private void generateExpectedDataAndIndexFileNames(boolean isGzipCompressed, int chunkId) {
         String basePath = tmpOutPutDirectory.getAbsolutePath() + File.separator + "node-1"
-                          + File.separator;
+                + File.separator;
         String fileName = "";
         String dataFilePrefix = KeyValueWriter.DATA_FILE_EXTENSION;
         String indexFilePrefix = KeyValueWriter.INDEX_FILE_EXTENSION;
@@ -113,9 +133,9 @@ public class HadoopStoreWriterTest {
         if(isGzipCompressed) {
             fileExtension = KeyValueWriter.GZIP_FILE_EXTENSION;
         }
-        fileName = (saveKeys ? "1_1_1" : "1_1");
-        dataFile = new File(basePath + fileName + dataFilePrefix + fileExtension);
-        indexFile = new File(basePath + fileName + indexFilePrefix + fileExtension);
+        fileName = (saveKeys ? "1_1" : "1");
+        dataFile = new File(basePath + fileName + "_" + chunkId + dataFilePrefix + fileExtension);
+        indexFile = new File(basePath + fileName + "_" + chunkId + indexFilePrefix + fileExtension);
     }
 
     @Test
@@ -132,22 +152,24 @@ public class HadoopStoreWriterTest {
          */
         init();
 
-        generateUnCompressedFiles(saveKeys);
-        generateExpectedDataAndIndexFileNames(false);
+        generateUnCompressedFiles(saveKeys, numChunks);
 
-        if(dataFile.exists() && dataFile.isFile()) {
-            if(dataFile.length() == 0) {
-                Assert.fail("Expty data file");
+        for(int i = 0; i < numChunks; i++) {
+            generateExpectedDataAndIndexFileNames(false, i);
+            if(dataFile.exists() && dataFile.isFile()) {
+                if(dataFile.length() == 0) {
+                    Assert.fail("Empty data file");
+                }
+            } else {
+                Assert.fail("There is no data file in the expected directory");
             }
-        } else {
-            Assert.fail("There is no data file in the expected directory");
-        }
-        if(indexFile.exists() && indexFile.isFile()) {
-            if(indexFile.length() == 0) {
-                Assert.fail("Empty index file");
+            if(indexFile.exists() && indexFile.isFile()) {
+                if(indexFile.length() == 0) {
+                    Assert.fail("Empty index file");
+                }
+            } else {
+                Assert.fail("There is no data file in the expected directory");
             }
-        } else {
-            Assert.fail("There is no data file in the expected directory");
         }
         cleanUp();
 
@@ -157,7 +179,7 @@ public class HadoopStoreWriterTest {
     public void testCompressedWriter() throws IOException {
 
         /**
-         * 1. Run uncompressed path for getting baseline file
+         * 1. Run uncompressed path for getting baseline files
          *
          * 2. then run the compressed path with the same key and value bytes
          *
@@ -169,35 +191,49 @@ public class HadoopStoreWriterTest {
          */
         init();
 
-        generateUnCompressedFiles(saveKeys);
-        generateExpectedDataAndIndexFileNames(false);
-        conf.setBoolean("save.keys", saveKeys);
-        conf.setBoolean("reducer.output.compress", true);
-        conf.setStrings("reducer.output.compress.codec", KeyValueWriter.COMPRESSION_CODEC);
+        generateUnCompressedFiles(saveKeys, numChunks);
+        conf.setBoolean(VoldemortBuildAndPushJob.SAVE_KEYS, saveKeys);
+        conf.setBoolean(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS, true);
+        conf.setStrings(VoldemortBuildAndPushJob.REDUCER_OUTPUT_COMPRESS_CODEC, KeyValueWriter.COMPRESSION_CODEC);
 
-        hadoopStoreWriter = new HadoopStoreWriter(conf);
-        hadoopStoreWriter.write(globalKey, globalValueList.iterator(), null);
-        hadoopStoreWriter.close();
+        hadoopStoreWriterPerBucket = new HadoopStoreWriter(conf);
 
-        // reset dataFile and indexFile to point to the compressed files being
-        // generated
-        generateExpectedDataAndIndexFileNames(true);
+        // Write into all chunked files
+        for(int i = 0; i < numChunks; i++) {
+            String key = "test_key_" + i;
+            String value = "test_value_" + i;
 
-        String decompressedDataFile = dataFile.getAbsolutePath() + "_decompressed";
-        ReadOnlyTestUtils.unGunzipFile(dataFile.getAbsolutePath(), decompressedDataFile);
+            Key1 = generateKey(key, i);
+            valueList1 = ReadOnlyTestUtils.generateValues(key, value, saveKeys);
 
-        String decompressedIndexFile = indexFile.getAbsolutePath() + "_decompressed";
-        ReadOnlyTestUtils.unGunzipFile(indexFile.getAbsolutePath(), decompressedIndexFile);
+            hadoopStoreWriterPerBucket.write(Key1, valueList1.iterator(), null);
+        }
 
-        // reset data and index file to point to the uncompressed files that
-        // were initially generated.
-        generateExpectedDataAndIndexFileNames(false);
-        Assert.assertTrue(ReadOnlyTestUtils.areTwoBinaryFilesEqual(dataFile,
-                                                                   new File(decompressedDataFile)));
-        Assert.assertTrue(ReadOnlyTestUtils.areTwoBinaryFilesEqual(indexFile,
-                                                                   new File(decompressedIndexFile)));
+        hadoopStoreWriterPerBucket.close();
 
+        // Generate a decompressed file for each of the compressed file and
+        // check if they are equal with the original uncompressed file
+        for(int i = 0; i < numChunks; i++) {
+
+            // reset dataFile and indexFile to point to the compressed files
+            // being
+            // generated
+            generateExpectedDataAndIndexFileNames(true, i);
+
+            String decompressedDataFile = dataFile.getAbsolutePath() + "_decompressed";
+            ReadOnlyTestUtils.unGunzipFile(dataFile.getAbsolutePath(), decompressedDataFile);
+
+            String decompressedIndexFile = indexFile.getAbsolutePath() + "_decompressed";
+            ReadOnlyTestUtils.unGunzipFile(indexFile.getAbsolutePath(), decompressedIndexFile);
+
+            // reset data and index file to point to the uncompressed files that
+            // were initially generated.
+            generateExpectedDataAndIndexFileNames(false, i);
+            Assert.assertTrue(ReadOnlyTestUtils.areTwoBinaryFilesEqual(dataFile,
+                                                                       new File(decompressedDataFile)));
+            Assert.assertTrue(ReadOnlyTestUtils.areTwoBinaryFilesEqual(indexFile,
+                                                                       new File(decompressedIndexFile)));
+        }
         cleanUp();
     }
-
 }

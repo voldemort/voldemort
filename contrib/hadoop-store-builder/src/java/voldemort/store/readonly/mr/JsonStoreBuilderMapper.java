@@ -27,7 +27,7 @@ import voldemort.store.readonly.mr.utils.HadoopUtils;
 import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 
-public class VoldemortStoreBuilderMapper extends AbstractHadoopStoreBuilderMapper<Object, Object> {
+public class JsonStoreBuilderMapper extends AbstractHadoopStoreBuilderMapper<Object, Object> {
 
     private String _keySelection;
     private String _valSelection;
